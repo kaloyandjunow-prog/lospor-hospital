@@ -49,6 +49,9 @@ export type HospitalExternalAiPolicyMinAggregateOutputType = {
   policyChangedAt: Date | null
   policyChangedById: string | null
   policyChangeReason: string | null
+  advisorModel: string | null
+  visionModel: string | null
+  modelsChangedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -68,6 +71,9 @@ export type HospitalExternalAiPolicyMaxAggregateOutputType = {
   policyChangedAt: Date | null
   policyChangedById: string | null
   policyChangeReason: string | null
+  advisorModel: string | null
+  visionModel: string | null
+  modelsChangedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -87,6 +93,9 @@ export type HospitalExternalAiPolicyCountAggregateOutputType = {
   policyChangedAt: number
   policyChangedById: number
   policyChangeReason: number
+  advisorModel: number
+  visionModel: number
+  modelsChangedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -116,6 +125,9 @@ export type HospitalExternalAiPolicyMinAggregateInputType = {
   policyChangedAt?: true
   policyChangedById?: true
   policyChangeReason?: true
+  advisorModel?: true
+  visionModel?: true
+  modelsChangedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -135,6 +147,9 @@ export type HospitalExternalAiPolicyMaxAggregateInputType = {
   policyChangedAt?: true
   policyChangedById?: true
   policyChangeReason?: true
+  advisorModel?: true
+  visionModel?: true
+  modelsChangedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -154,6 +169,9 @@ export type HospitalExternalAiPolicyCountAggregateInputType = {
   policyChangedAt?: true
   policyChangedById?: true
   policyChangeReason?: true
+  advisorModel?: true
+  visionModel?: true
+  modelsChangedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -260,6 +278,9 @@ export type HospitalExternalAiPolicyGroupByOutputType = {
   policyChangedAt: Date | null
   policyChangedById: string | null
   policyChangeReason: string | null
+  advisorModel: string | null
+  visionModel: string | null
+  modelsChangedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: HospitalExternalAiPolicyCountAggregateOutputType | null
@@ -302,6 +323,9 @@ export type HospitalExternalAiPolicyWhereInput = {
   policyChangedAt?: Prisma.DateTimeNullableFilter<"HospitalExternalAiPolicy"> | Date | string | null
   policyChangedById?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
   policyChangeReason?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  advisorModel?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  visionModel?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  modelsChangedAt?: Prisma.DateTimeNullableFilter<"HospitalExternalAiPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
   credentialChangedBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
@@ -323,6 +347,9 @@ export type HospitalExternalAiPolicyOrderByWithRelationInput = {
   policyChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   policyChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   policyChangeReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  advisorModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  visionModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  modelsChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   credentialChangedBy?: Prisma.UserOrderByWithRelationInput
@@ -347,6 +374,9 @@ export type HospitalExternalAiPolicyWhereUniqueInput = Prisma.AtLeast<{
   policyChangedAt?: Prisma.DateTimeNullableFilter<"HospitalExternalAiPolicy"> | Date | string | null
   policyChangedById?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
   policyChangeReason?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  advisorModel?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  visionModel?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  modelsChangedAt?: Prisma.DateTimeNullableFilter<"HospitalExternalAiPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
   credentialChangedBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
@@ -368,6 +398,9 @@ export type HospitalExternalAiPolicyOrderByWithAggregationInput = {
   policyChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   policyChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   policyChangeReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  advisorModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  visionModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  modelsChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.HospitalExternalAiPolicyCountOrderByAggregateInput
@@ -395,6 +428,9 @@ export type HospitalExternalAiPolicyScalarWhereWithAggregatesInput = {
   policyChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalExternalAiPolicy"> | Date | string | null
   policyChangedById?: Prisma.StringNullableWithAggregatesFilter<"HospitalExternalAiPolicy"> | string | null
   policyChangeReason?: Prisma.StringNullableWithAggregatesFilter<"HospitalExternalAiPolicy"> | string | null
+  advisorModel?: Prisma.StringNullableWithAggregatesFilter<"HospitalExternalAiPolicy"> | string | null
+  visionModel?: Prisma.StringNullableWithAggregatesFilter<"HospitalExternalAiPolicy"> | string | null
+  modelsChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalExternalAiPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"HospitalExternalAiPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"HospitalExternalAiPolicy"> | Date | string
 }
@@ -412,6 +448,9 @@ export type HospitalExternalAiPolicyCreateInput = {
   credentialChangedAt?: Date | string | null
   policyChangedAt?: Date | string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   credentialChangedBy?: Prisma.UserCreateNestedOneWithoutExternalAiCredentialsChangedInput
@@ -433,6 +472,9 @@ export type HospitalExternalAiPolicyUncheckedCreateInput = {
   policyChangedAt?: Date | string | null
   policyChangedById?: string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -450,6 +492,9 @@ export type HospitalExternalAiPolicyUpdateInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   credentialChangedBy?: Prisma.UserUpdateOneWithoutExternalAiCredentialsChangedNestedInput
@@ -471,6 +516,9 @@ export type HospitalExternalAiPolicyUncheckedUpdateInput = {
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -490,6 +538,9 @@ export type HospitalExternalAiPolicyCreateManyInput = {
   policyChangedAt?: Date | string | null
   policyChangedById?: string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -507,6 +558,9 @@ export type HospitalExternalAiPolicyUpdateManyMutationInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -526,6 +580,9 @@ export type HospitalExternalAiPolicyUncheckedUpdateManyInput = {
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -555,6 +612,9 @@ export type HospitalExternalAiPolicyCountOrderByAggregateInput = {
   policyChangedAt?: Prisma.SortOrder
   policyChangedById?: Prisma.SortOrder
   policyChangeReason?: Prisma.SortOrder
+  advisorModel?: Prisma.SortOrder
+  visionModel?: Prisma.SortOrder
+  modelsChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -578,6 +638,9 @@ export type HospitalExternalAiPolicyMaxOrderByAggregateInput = {
   policyChangedAt?: Prisma.SortOrder
   policyChangedById?: Prisma.SortOrder
   policyChangeReason?: Prisma.SortOrder
+  advisorModel?: Prisma.SortOrder
+  visionModel?: Prisma.SortOrder
+  modelsChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -597,6 +660,9 @@ export type HospitalExternalAiPolicyMinOrderByAggregateInput = {
   policyChangedAt?: Prisma.SortOrder
   policyChangedById?: Prisma.SortOrder
   policyChangeReason?: Prisma.SortOrder
+  advisorModel?: Prisma.SortOrder
+  visionModel?: Prisma.SortOrder
+  modelsChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -706,6 +772,9 @@ export type HospitalExternalAiPolicyCreateWithoutCredentialChangedByInput = {
   credentialChangedAt?: Date | string | null
   policyChangedAt?: Date | string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   policyChangedBy?: Prisma.UserCreateNestedOneWithoutExternalAiPoliciesChangedInput
@@ -725,6 +794,9 @@ export type HospitalExternalAiPolicyUncheckedCreateWithoutCredentialChangedByInp
   policyChangedAt?: Date | string | null
   policyChangedById?: string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -752,6 +824,9 @@ export type HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput = {
   credentialChangedAt?: Date | string | null
   policyChangedAt?: Date | string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   credentialChangedBy?: Prisma.UserCreateNestedOneWithoutExternalAiCredentialsChangedInput
@@ -771,6 +846,9 @@ export type HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput =
   credentialChangedById?: string | null
   policyChangedAt?: Date | string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -819,6 +897,9 @@ export type HospitalExternalAiPolicyScalarWhereInput = {
   policyChangedAt?: Prisma.DateTimeNullableFilter<"HospitalExternalAiPolicy"> | Date | string | null
   policyChangedById?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
   policyChangeReason?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  advisorModel?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  visionModel?: Prisma.StringNullableFilter<"HospitalExternalAiPolicy"> | string | null
+  modelsChangedAt?: Prisma.DateTimeNullableFilter<"HospitalExternalAiPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
 }
@@ -853,6 +934,9 @@ export type HospitalExternalAiPolicyCreateManyCredentialChangedByInput = {
   policyChangedAt?: Date | string | null
   policyChangedById?: string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -871,6 +955,9 @@ export type HospitalExternalAiPolicyCreateManyPolicyChangedByInput = {
   credentialChangedById?: string | null
   policyChangedAt?: Date | string | null
   policyChangeReason?: string | null
+  advisorModel?: string | null
+  visionModel?: string | null
+  modelsChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -888,6 +975,9 @@ export type HospitalExternalAiPolicyUpdateWithoutCredentialChangedByInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   policyChangedBy?: Prisma.UserUpdateOneWithoutExternalAiPoliciesChangedNestedInput
@@ -907,6 +997,9 @@ export type HospitalExternalAiPolicyUncheckedUpdateWithoutCredentialChangedByInp
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -925,6 +1018,9 @@ export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedB
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -942,6 +1038,9 @@ export type HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   credentialChangedBy?: Prisma.UserUpdateOneWithoutExternalAiCredentialsChangedNestedInput
@@ -961,6 +1060,9 @@ export type HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput =
   credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -979,6 +1081,9 @@ export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByInp
   credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  advisorModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visionModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  modelsChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1000,6 +1105,9 @@ export type HospitalExternalAiPolicySelect<ExtArgs extends runtime.Types.Extensi
   policyChangedAt?: boolean
   policyChangedById?: boolean
   policyChangeReason?: boolean
+  advisorModel?: boolean
+  visionModel?: boolean
+  modelsChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   credentialChangedBy?: boolean | Prisma.HospitalExternalAiPolicy$credentialChangedByArgs<ExtArgs>
@@ -1021,6 +1129,9 @@ export type HospitalExternalAiPolicySelectCreateManyAndReturn<ExtArgs extends ru
   policyChangedAt?: boolean
   policyChangedById?: boolean
   policyChangeReason?: boolean
+  advisorModel?: boolean
+  visionModel?: boolean
+  modelsChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   credentialChangedBy?: boolean | Prisma.HospitalExternalAiPolicy$credentialChangedByArgs<ExtArgs>
@@ -1042,6 +1153,9 @@ export type HospitalExternalAiPolicySelectUpdateManyAndReturn<ExtArgs extends ru
   policyChangedAt?: boolean
   policyChangedById?: boolean
   policyChangeReason?: boolean
+  advisorModel?: boolean
+  visionModel?: boolean
+  modelsChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   credentialChangedBy?: boolean | Prisma.HospitalExternalAiPolicy$credentialChangedByArgs<ExtArgs>
@@ -1063,11 +1177,14 @@ export type HospitalExternalAiPolicySelectScalar = {
   policyChangedAt?: boolean
   policyChangedById?: boolean
   policyChangeReason?: boolean
+  advisorModel?: boolean
+  visionModel?: boolean
+  modelsChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type HospitalExternalAiPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalAiEnabled" | "provider" | "credentialCiphertext" | "credentialNonce" | "credentialAuthTag" | "credentialKeyVersion" | "credentialSealKeyFingerprint" | "credentialConfiguredAt" | "credentialChangedAt" | "credentialChangedById" | "policyChangedAt" | "policyChangedById" | "policyChangeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalExternalAiPolicy"]>
+export type HospitalExternalAiPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalAiEnabled" | "provider" | "credentialCiphertext" | "credentialNonce" | "credentialAuthTag" | "credentialKeyVersion" | "credentialSealKeyFingerprint" | "credentialConfiguredAt" | "credentialChangedAt" | "credentialChangedById" | "policyChangedAt" | "policyChangedById" | "policyChangeReason" | "advisorModel" | "visionModel" | "modelsChangedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalExternalAiPolicy"]>
 export type HospitalExternalAiPolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   credentialChangedBy?: boolean | Prisma.HospitalExternalAiPolicy$credentialChangedByArgs<ExtArgs>
   policyChangedBy?: boolean | Prisma.HospitalExternalAiPolicy$policyChangedByArgs<ExtArgs>
@@ -1102,6 +1219,17 @@ export type $HospitalExternalAiPolicyPayload<ExtArgs extends runtime.Types.Exten
     policyChangedAt: Date | null
     policyChangedById: string | null
     policyChangeReason: string | null
+    /**
+     * Pinned Mistral model for the advisor; null means the release default
+     * (lib/hospital/external-ai-models.ts). Checked against the list in code,
+     * not by the database, because Mistral retires models between releases.
+     */
+    advisorModel: string | null
+    /**
+     * Pinned Mistral model that reads lab report and monitor photos.
+     */
+    visionModel: string | null
+    modelsChangedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["hospitalExternalAiPolicy"]>
@@ -1543,6 +1671,9 @@ export interface HospitalExternalAiPolicyFieldRefs {
   readonly policyChangedAt: Prisma.FieldRef<"HospitalExternalAiPolicy", 'DateTime'>
   readonly policyChangedById: Prisma.FieldRef<"HospitalExternalAiPolicy", 'String'>
   readonly policyChangeReason: Prisma.FieldRef<"HospitalExternalAiPolicy", 'String'>
+  readonly advisorModel: Prisma.FieldRef<"HospitalExternalAiPolicy", 'String'>
+  readonly visionModel: Prisma.FieldRef<"HospitalExternalAiPolicy", 'String'>
+  readonly modelsChangedAt: Prisma.FieldRef<"HospitalExternalAiPolicy", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"HospitalExternalAiPolicy", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"HospitalExternalAiPolicy", 'DateTime'>
 }

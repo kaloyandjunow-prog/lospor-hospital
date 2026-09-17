@@ -60,6 +60,8 @@ test("doctor probes both names on the configured ports and has a go-live gate", 
   assert.match(doctor, /--resolve "\$host:\$HOSPITAL_HTTPS_PORT:127\.0\.0\.1"/)
   assert.match(doctor, /localhost:\$HOSPITAL_STATUS_PORT/)
   assert.match(doctor, /terminology-status\.sh --go-live/)
+  // The package is optional: go-live checks one only where one was imported.
+  assert.match(doctor, /"\$doctor_mode" = go-live \] && \[ -s "\$appliance_home\/\.data\/terminology\/active\.tsv" \]/)
 })
 
 test("restore pre-open doctor proves internal services and schema before touching Caddy", () => {

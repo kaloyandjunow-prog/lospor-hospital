@@ -18,7 +18,7 @@ CRITICAL = 2
 UNKNOWN = 3
 
 DEFAULT_SIGNAL = Path(
-    "/opt/lospor-hospital/.data/runtime/update/state/host-observability.v1.json"
+    "/opt/lospor-hospital/.data/runtime/update/state/host-observability.v2.json"
 )
 MAX_BYTES = 4096
 MAX_AGE_SECONDS = 180
@@ -33,14 +33,13 @@ EXPECTED_KEYS = {
     "clock",
     "backup",
     "offHostBackup",
+    "keyEscrow",
     "updateAgent",
     "certificate",
     "services",
     "restoreLock",
     "activationLock",
     "updateSupply",
-    "githubReleaseCredential",
-    "ghcrCredential",
 }
 
 ENUMS = {
@@ -56,14 +55,13 @@ ENUMS = {
         "invalid",
         "not-configured",
     },
+    "keyEscrow": {"acknowledged", "stale", "missing", "invalid"},
     "updateAgent": {"healthy", "stale", "not-installed", "unknown"},
     "certificate": {"valid", "expiring", "expired", "missing", "unknown"},
     "services": {"healthy", "degraded", "unknown"},
     "restoreLock": {"clear", "present", "invalid"},
     "activationLock": {"clear", "present", "invalid"},
     "updateSupply": {"connected", "offline", "invalid"},
-    "githubReleaseCredential": {"configured", "missing", "not-required"},
-    "ghcrCredential": {"configured", "missing", "not-required"},
 }
 
 
@@ -122,7 +120,7 @@ def _read_projection(path: Path, test_only: bool) -> dict[str, Any]:
         raise ProjectionInvalid("invalid JSON") from error
     if not isinstance(value, dict) or set(value) != EXPECTED_KEYS:
         raise ProjectionInvalid("unexpected schema")
-    if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
+    if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 2:
         raise ProjectionInvalid("unexpected schema")
     if value["signalType"] != "host-observability":
         raise ProjectionInvalid("unexpected signal type")
@@ -144,16 +142,6 @@ def _read_projection(path: Path, test_only: bool) -> dict[str, Any]:
         raise ProjectionInvalid("future observation")
     if age > MAX_AGE_SECONDS:
         raise ProjectionInvalid("stale observation")
-
-    supply = value["updateSupply"]
-    github = value["githubReleaseCredential"]
-    ghcr = value["ghcrCredential"]
-    if supply == "offline" and (github != "not-required" or ghcr != "not-required"):
-        raise ProjectionInvalid("inconsistent supply")
-    if supply == "connected" and (github == "not-required" or ghcr == "not-required"):
-        raise ProjectionInvalid("inconsistent supply")
-    if supply == "invalid" and (github != "missing" or ghcr != "missing"):
-        raise ProjectionInvalid("inconsistent supply")
     return value
 
 
@@ -201,6 +189,12 @@ def _evaluate(value: dict[str, Any]) -> tuple[int, list[str]]:
         "invalid": (CRITICAL, "OFFHOST_BACKUP_EVIDENCE_INVALID"),
         "not-configured": (WARNING, "OFFHOST_BACKUP_NOT_CONFIGURED"),
     })
+    classify(value["keyEscrow"], {
+        "acknowledged": (OK, "KEY_ESCROW_ACKNOWLEDGED"),
+        "stale": (CRITICAL, "KEY_ESCROW_STALE"),
+        "missing": (WARNING, "KEY_ESCROW_MISSING"),
+        "invalid": (CRITICAL, "KEY_ESCROW_EVIDENCE_INVALID"),
+    })
     classify(value["updateAgent"], {
         "healthy": (OK, "HOST_UPDATE_AGENT_HEALTHY"),
         "stale": (WARNING, "HOST_UPDATE_AGENT_STALE"),
@@ -230,18 +224,11 @@ def _evaluate(value: dict[str, Any]) -> tuple[int, list[str]]:
         "invalid": (CRITICAL, "HOST_ACTIVATION_LOCK_INVALID"),
     })
 
-    supply = value["updateSupply"]
-    github = value["githubReleaseCredential"]
-    ghcr = value["ghcrCredential"]
-    if supply == "invalid":
-        criticals.append("UPDATE_SUPPLY_MODE_INVALID")
-    elif supply == "connected":
-        if github == "missing" and ghcr == "missing":
-            warnings.append("UPDATE_CREDENTIALS_MISSING")
-        elif github == "missing":
-            warnings.append("UPDATE_GITHUB_CREDENTIAL_MISSING")
-        elif ghcr == "missing":
-            warnings.append("UPDATE_GHCR_CREDENTIAL_MISSING")
+    classify(value["updateSupply"], {
+        "connected": (OK, "UPDATE_SUPPLY_CONNECTED"),
+        "offline": (OK, "UPDATE_SUPPLY_OFFLINE"),
+        "invalid": (CRITICAL, "UPDATE_SUPPLY_MODE_INVALID"),
+    })
 
     if criticals:
         return CRITICAL, sorted(set(criticals))

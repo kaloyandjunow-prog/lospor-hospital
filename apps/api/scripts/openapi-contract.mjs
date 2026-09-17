@@ -20,6 +20,13 @@ export const schemas = {
     code: { type: "string" },
     requestId: { type: "string", format: "uuid" },
     details: {},
+    issues: {
+      type: "array",
+      items: object({
+        field: { type: "string" },
+        message: { type: "string" },
+      }, ["field", "message"]),
+    },
   }, ["error"]),
   Message: object({ message: { type: "string" }, ok: { type: "boolean" } }),
   ReadinessResponse: object({
@@ -437,10 +444,27 @@ export const schemas = {
     test: { type: "string" },
     mappedAt: { type: "string", format: "date-time" },
   }, ["system", "code"]),
+  HospitalEhrCodeSystemAnswerRequest: object({
+    system: { type: "string", minLength: 1, maxLength: 2048, description: "A coding-system address as the hospital sends it." },
+    list: nullable({ type: "string", enum: ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"], description: "The code list the address stands for; OTHER stops it being asked about; null takes the answer back." }),
+  }, ["system", "list"]),
+  HospitalEhrCodeSystemAnswerResponse: object({
+    system: { type: "string" },
+    list: nullable({ type: "string", enum: ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] }),
+  }, ["system", "list"]),
   HospitalEhrTransportPolicyRequest: object({
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["transport", "reason"]),
+  HospitalExternalAiModelsRequest: object({
+    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"] },
+    visionModel: { type: "string", enum: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"] },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["advisorModel", "visionModel", "reason"]),
+  HospitalEhrStagingRetentionRequest: object({
+    days: { type: "integer", minimum: 1, maximum: 14 },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["days", "reason"]),
   HospitalEhrTransportCredentialRequest: object({
     credential: {
       type: "string",
@@ -499,6 +523,11 @@ export const schemas = {
     provider: { type: "string", const: "MISTRAL" },
     policyChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["externalAiEnabled", "provider", "policyChangedAt"]),
+  HospitalExternalAiModelsResponse: object({
+    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"] },
+    visionModel: { type: "string", enum: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"] },
+    modelsChangedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["advisorModel", "visionModel", "modelsChangedAt"]),
   HospitalExternalAiCredentialResponse: object({
     provider: { type: "string", const: "MISTRAL" },
     credentialConfigured: { type: "boolean" },
@@ -512,6 +541,10 @@ export const schemas = {
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     transportChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["transport", "transportChangedAt"]),
+  HospitalEhrStagingRetentionResponse: object({
+    stagingRetentionDays: { type: "integer", minimum: 1, maximum: 14 },
+    stagingRetentionChangedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["stagingRetentionDays", "stagingRetentionChangedAt"]),
   HospitalEhrTransportCredentialResponse: object({
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     credentialConfigured: { type: "boolean" },
@@ -1503,6 +1536,7 @@ add("GET", "/v1/cases/{id}/pdf", "Retired server-generated PDF endpoint", {
 
 add("GET", "/v1/search/icd10", "Search ICD-10 diagnoses", { parameters: [query("q", { type: "string" }, true), query("locale", { type: "string", enum: ["en", "bg"], default: "en" })], result: arrayOf("SearchResult") })
 add("GET", "/v1/search/procedures", "Search procedure terminology", { parameters: [query("q", { type: "string" }, true)], result: arrayOf("SearchResult") })
+add("GET", "/v1/search/procedures/codes", "List the exact ICD-10-PCS operations inside one procedure group", { parameters: [query("group", { type: "string" }, true), query("q", { type: "string" })], result: ref("JsonObject"), errors: [400, 401] })
 add("GET", "/v1/search/drugs", "Search medication terminology", { parameters: [query("q", { type: "string" }, true)], result: arrayOf("SearchResult") })
 add("GET", "/v1/library/{category}", "Read an option-library category", { parameters: [pathParameter("category")], result: arrayOf("LibraryOption") })
 add("GET", "/v1/clinical/pediatric/rules", "Read pediatric capabilities, reviewed rules, and unavailable calculators", { result: ref("JsonObject"), tag: "clinical" })
@@ -1663,6 +1697,7 @@ add("PUT", "/v1/hospital/cases/{id}/export-control", "Withdraw or resend an auto
 add("POST", "/v1/internal/hospital-delivery/process", "Process queued Hospital-to-Central deliveries", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 add("POST", "/v1/internal/ehr-delivery/process", "Send queued messages to the hospital system", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 add("POST", "/v1/internal/ehr-import/scan", "Stage whatever the hospital system left in the inbox", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
+add("POST", "/v1/internal/ehr-import/purge", "Delete EHR staging data past its retention window", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 
 add("GET", "/v1/internal/option-library-snapshot", "Read the signed option-library snapshot", {
   parameters: [header("x-snapshot-secret", { type: "string" }, true)],
@@ -1824,6 +1859,14 @@ add("POST", "/v1/internal/hospital/control-plane/external-ai/policy", "Enable or
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/external-ai/models", "Choose the pinned Mistral models for the advisor and for reading images", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalExternalAiModelsRequest")),
+  result: ref("HospitalExternalAiModelsResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/external-ai/credential", "Seal and replace the Hospital Mistral credential", {
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalExternalAiCredentialRequest")),
@@ -1880,10 +1923,26 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-lab-codes", "Map one of thi
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/ehr-code-systems", "Say which code list one of this hospital's coding-system addresses stands for", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrCodeSystemAnswerRequest")),
+  result: ref("HospitalEhrCodeSystemAnswerResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/ehr-transport/policy", "Choose the EHR import transport (folder drop, FHIR, or none)", {
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalEhrTransportPolicyRequest")),
   result: ref("HospitalEhrTransportPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/retention", "Set how many days staged EHR imports are kept before deletion", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrStagingRetentionRequest")),
+  result: ref("HospitalEhrStagingRetentionResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

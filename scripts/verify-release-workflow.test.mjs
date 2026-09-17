@@ -20,6 +20,17 @@ test("accepts the manually signed integrity release and clinical gates", () => {
   assert.equal(assertReleaseWorkflowContract(candidate, publisher, quality), true)
 })
 
+test("requires the versioned Windows kit in the release candidate", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate.replace('          node scripts/create-windows-kit.mjs "$HOSPITAL_RELEASE" dist\n', ""),
+      publisher,
+      quality,
+    ),
+    /Windows kit and checksum/,
+  )
+})
+
 test("rejects a candidate workflow that permits a pending client localization import", () => {
   assert.throws(
     () => assertReleaseWorkflowContract(
@@ -124,7 +135,8 @@ test("publisher accepts only a reviewed public signature and never private signi
 })
 
 test("rejects candidate publication authority and automatic publication", () => {
-  const candidateWrite = candidate.replace("contents: read\n      packages: write", "contents: write\n      packages: write")
+  const candidateWrite = candidate.replace("contents: read\n      id-token: write", "contents: write\n      id-token: write")
+  assert.notEqual(candidateWrite, candidate)
   assert.throws(() => assertReleaseWorkflowContract(candidateWrite, publisher, quality), /must not publish/)
   const automatic = publisher.replace("  workflow_dispatch:\n", "  workflow_run:\n    workflows: [Hospital release]\n")
   assert.throws(() => assertReleaseWorkflowContract(candidate, automatic, quality), /explicitly dispatched|never start automatically/)
@@ -327,16 +339,22 @@ test("rejects fail-open candidate discovery, resume and push inspection", () => 
   ), /authoritative GHCR tag-state|ambiguous registry inspection failures/)
 })
 
-test("rejects missing exact authorization inputs and public-repository checks", () => {
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_lock_sha256:", "      ignored_lock_sha256:"), quality), /expected_lock_sha256/)
+test("rejects missing authorization inputs, typed identities and the wrong repository boundary", () => {
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      candidate_run_id:", "      ignored_run_id:"), quality), /candidate_run_id/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      release_signature_base64:", "      ignored_signature_base64:"), quality), /release_signature_base64/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_signature_sha256:", "      ignored_signature_sha256:"), quality), /expected_signature_sha256/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_publication:", "      ignored_confirmation:"), quality), /confirm_publication/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_immutable_releases:", "      ignored_immutable_confirmation:"), quality), /confirm_immutable_releases/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("PUBLISH hospital-$RELEASE_VERSION", "PUBLISH"), quality), /literal.*confirmation/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("IMMUTABLE RELEASES ENABLED hospital-$RELEASE_VERSION", "ENABLED"), quality), /Immutable Releases was enabled/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("IMMUTABLE RELEASES ENABLED hospital-$VERSION", "ENABLED"), quality), /independently recheck.*Immutable Releases/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("require('$run_json').repository.private\")\" = false", "true"), quality), /public repository/)
+  // A typed identity must not come back beside the derived one.
+  for (const input of ["version", "candidate_run_attempt", "expected_lock_sha256", "expected_signature_sha256", "confirm_immutable_releases"]) {
+    const typed = publisher.replace("      confirm_publication:", `      ${input}:\n        description: typed again\n        required: true\n        type: string\n      confirm_publication:`)
+    assert.throws(() => assertReleaseWorkflowContract(candidate, typed, quality), new RegExp(`derive ${input}`))
+  }
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION"', "true"), quality), /literal publication confirmation/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("node -p \"require('$run_json').head_branch\"", "printf hospital-9.9.9"), quality), /version from the candidate run's own tag/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("node -p \"require('$run_json').run_attempt\"", "printf 1"), quality), /run attempt from the candidate run/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('test "$VERSION" = "$EXPECTED_VERSION"', "true"), quality), /derive the version, attempt, lock and signature digests again/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('EXPECTED_LOCK_SHA256="$(sha256sum "$lock" | awk \'{print $1}\')"', 'EXPECTED_LOCK_SHA256="$TYPED_LOCK_SHA256"'), quality), /digest the downloaded release lock/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll('test "$REPOSITORY_VISIBILITY" = public', 'test "$REPOSITORY_VISIBILITY" = private'), quality), /public repository hospitals install from/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll(`test "$(node -p "require('$run_json').repository.private")" = false`, "true"), quality), /public repository/)
   const administrationEndpoint = publisher.replace("gh release view \"$tag\" --json assets", "gh api \"repos/$GITHUB_REPOSITORY/immutable-releases\"\n            gh release view \"$tag\" --json assets")
   assert.throws(() => assertReleaseWorkflowContract(candidate, administrationEndpoint, quality), /Administration-only/)
   const pat = publisher.replace("password: ${{ secrets.GITHUB_TOKEN }}", "password: ${{ secrets.ADMIN_PAT }}")
@@ -346,9 +364,14 @@ test("rejects missing exact authorization inputs and public-repository checks", 
 test("rejects incomplete signature verification, key continuity and signed-install proofs", () => {
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
-    publisher.replace("node scripts/materialize-release-signature.mjs", "node scripts/skip-release-signature.mjs"),
+    publisher.replace('node scripts/materialize-release-signature.mjs \\\n            "$lock"', 'node scripts/skip-release-signature.mjs \\\n            "$lock"'),
     quality,
   ), /independently decode and verify/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace('materialize-release-signature.mjs --digest "$RELEASE_SIGNATURE_BASE64"', "printf typed-digest"),
+    quality,
+  ), /signature digest from the signature bytes/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
     publisher.replace('sha256sum "$lock.sig"', 'sha256sum "$unreviewed"'),
@@ -404,22 +427,12 @@ test("rejects missing integrity installation or exact image identity proofs", ()
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("run-online-release.sh", "skip-online.sh"), quality), /verified runtime CLI/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
-    publisher.replace("operator-locale.sh provision-update-credentials.sh run-online-release.sh", "operator-locale.sh run-online-release.sh"),
-    quality,
-  ), /carry the reviewed GHCR credential provisioner/)
-  assert.throws(() => assertReleaseWorkflowContract(
-    candidate,
     publisher.replace(
-      'printf \'%s\\n%s\\n\' "$GITHUB_ACTOR" "$GH_TOKEN" \\\n            | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr',
-      "true # GHCR credential provisioning omitted",
+      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          VERSION: ${{ steps.provenance.outputs.version }}',
+      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          VERSION: ${{ steps.provenance.outputs.version }}',
     ),
     quality,
-  ), /provision GHCR before/)
-  assert.throws(() => assertReleaseWorkflowContract(
-    candidate,
-    publisher.replace('HOSPITAL_CREDENTIAL_TEST_ONLY: "1"', 'HOSPITAL_CREDENTIAL_TEST_ONLY: "0"'),
-    quality,
-  ), /isolate credential writes/)
+  ), /without any registry credential/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
     publisher.replace(
@@ -499,4 +512,26 @@ test("keeps restore and all clinical E2E gates", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:web-full", "true")), /e2e:web-full/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:pwa-full", "true")), /e2e:pwa-full/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:browser-full", "true")), /e2e:browser-full/)
+})
+
+test("keeps the scoped release token to the final GitHub Release step alone", () => {
+  const early = publisher.replace(
+    "      - name: Promote exact verified image identities without rebuilding\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}",
+    "      - name: Promote exact verified image identities without rebuilding\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}",
+  )
+  assert.notEqual(early, publisher)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, early, quality), /release token/)
+  const unscoped = publisher.replace("GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}", "GH_TOKEN: ${{ github.token }}")
+  assert.throws(() => assertReleaseWorkflowContract(candidate, unscoped, quality), /scoped Hospital release token/)
+})
+
+test("requires the release dossier in the evidence, checked against the lock and the run, and attested provenance", () => {
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace('node scripts/create-release-dossier.mjs "${dossier_args[@]}"', "true"), publisher, quality), /write the release dossier into the security evidence/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace('--run-attempt "$GITHUB_RUN_ATTEMPT"', '--run-attempt 1'), publisher, quality), /record this candidate run and attempt/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace('--run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"', ""), publisher, quality), /verify the release dossier against the lock and its own run/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace("-security-evidence.tar.gz\n            dist/", "-evidence-skipped\n            dist/"), publisher, quality), /attest the provenance/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace("  metadata:\n", "  metadata:\n    permissions:\n      id-token: write\n"), publisher, quality), /Only the candidate job may request/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('--run "$RUN_ID" --attempt "$RUN_ATTEMPT"', ""), quality), /Both publication jobs must verify the release dossier/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("gh attestation verify", "true # gh attestation skipped"), quality), /GitHub's build attestation/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      attestations: read", "      attestations: write"), quality), /must not create attestations/)
 })

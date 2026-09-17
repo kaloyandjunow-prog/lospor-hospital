@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by LOSPOR Hospital. Runs losporctl from the active verified release,
+# so an update never leaves an old copy of the command behind.
+exec sh /opt/lospor-hospital/current/scripts/losporctl.sh "$@"

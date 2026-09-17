@@ -40,7 +40,9 @@ test("cohort owner can edit metadata and delete the saved cohort", async ({ page
   const suffix = Date.now().toString(36)
   const originalName = `E2E cohort ${suffix}`
   const editedName = `${originalName} edited`
-  // The name field only mounts once the toolbar's own "Save" toggle opens it.
+  // "Save" only toggles the save panel open; the name field it reveals is not
+  // in the DOM until then, and "Save cohort" is a second, separate button
+  // that actually commits.
   await page.getByRole("button", { name: "Save", exact: true }).click()
   await page.getByLabel("Cohort name").fill(originalName)
   await page.getByRole("button", { name: "Save cohort" }).click()
@@ -50,8 +52,8 @@ test("cohort owner can edit metadata and delete the saved cohort", async ({ page
   await page.getByRole("button", { name: "Refresh" }).click()
   const originalRow = page.getByRole("row").filter({ hasText: originalName })
   await expect(originalRow).toBeVisible()
-  // getByTitle is substring-matching by default, and "Edit cohort filters"
-  // (a separate action on the same row) contains "Edit" too.
+  // getByTitle does substring matching by default, and this row has a second
+  // button titled "Edit cohort filters".
   await originalRow.getByTitle("Edit", { exact: true }).click()
   const editForm = page.getByRole("form", { name: "Edit saved cohort" })
   await editForm.getByLabel("Name").fill(editedName)
@@ -95,11 +97,15 @@ test("does not pretend sign-out succeeded when revocation fails", async ({ page,
     await route.continue()
   })
   await page.getByTitle("Sign out").click()
-  // Next's route announcer also carries role="alert" (it announces the
-  // current page title for screen readers), so an unqualified role query
-  // matches two elements under strict mode -- filter to the sidebar's own.
-  await expect(page.getByRole("alert").filter({ hasText: "Could not sign out" }))
-    .toContainText("Could not sign out")
+  // Next.js's own route announcer also carries role="alert" (it announces
+  // "LOSPOR Database" on every navigation for screen readers). A captured
+  // trace confirmed workspace-shell.tsx's own alert div is present with the
+  // exact right text from the very first snapshot of this assertion's poll --
+  // getByRole("alert", { name: ... }) still could not match it, for reasons
+  // that trace did not explain. The sidebar-error class is unique to this one
+  // element (see workspace-shell.tsx), so this targets it directly instead of
+  // going through role/name computation at all.
+  await expect(page.locator(".sidebar-error")).toContainText("Could not sign out")
   await expect(page).toHaveURL(/\/overview$/)
 })
 

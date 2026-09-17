@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   retry: vi.fn(),
   guidance: vi.fn(),
   externalAiPolicy: vi.fn(),
+  externalAiModels: vi.fn(),
   externalAiReplace: vi.fn(),
   externalAiRemove: vi.fn(),
   patientIdentifier: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("@/lib/hospital/control-plane", async importOriginal => ({
   retryCentralBatch: mocks.retry,
   setGuidancePolicy: mocks.guidance,
   setExternalAiPolicy: mocks.externalAiPolicy,
+  setExternalAiModels: mocks.externalAiModels,
   replaceExternalAiCredential: mocks.externalAiReplace,
   removeExternalAiCredential: mocks.externalAiRemove,
   setPatientIdentifierPolicy: mocks.patientIdentifier,
@@ -347,5 +349,41 @@ describe("private Status Hospital control-plane routes", () => {
       reason: "Disable external AI for local policy",
     })
     expect(mocks.externalAiRemove).not.toHaveBeenCalled()
+  })
+
+  it("accepts only pinned external AI models", async () => {
+    mocks.externalAiModels.mockResolvedValue({
+      advisorModel: "mistral-medium-2508",
+      visionModel: "ministral-14b-2512",
+      modelsChangedAt: new Date("2026-09-13T12:00:00Z"),
+    })
+    const { POST } = await import(
+      "@/app/v1/internal/hospital/control-plane/external-ai/models/route"
+    )
+    const path = "/v1/internal/hospital/control-plane/external-ai/models"
+    const reason = "Mistral retired the previous model"
+    const response = await POST(request(path, {
+      advisorModel: "mistral-medium-2508", visionModel: "ministral-14b-2512", reason,
+    }))
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      advisorModel: "mistral-medium-2508",
+      visionModel: "ministral-14b-2512",
+      modelsChangedAt: "2026-09-13T12:00:00.000Z",
+    })
+    expect(mocks.externalAiModels).toHaveBeenCalledWith({
+      advisorModel: "mistral-medium-2508", visionModel: "ministral-14b-2512", reason,
+    })
+
+    mocks.externalAiModels.mockClear()
+    for (const body of [
+      { advisorModel: "mistral-small-latest", visionModel: "mistral-large-2512", reason },
+      { advisorModel: "mistral-small-2603", visionModel: "pixtral-12b-2409", reason },
+      { advisorModel: "mistral-small-2603", visionModel: "mistral-large-2512", reason, credential: "x" },
+    ]) {
+      const refused = await POST(request(path, body))
+      expect(refused.status).toBe(400)
+    }
+    expect(mocks.externalAiModels).not.toHaveBeenCalled()
   })
 })

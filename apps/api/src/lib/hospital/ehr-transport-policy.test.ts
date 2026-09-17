@@ -324,6 +324,9 @@ describe("hospital EHR transport availability", () => {
       credentialConfiguredAt: null,
       credentialChangedAt: null,
       transportChangedAt: "2026-09-02T08:00:00.000Z",
+      // A policy row written before the retention setting existed reads as the default.
+      stagingRetentionDays: 14,
+      stagingRetentionChangedAt: null,
       updatedAt: "2026-09-02T08:00:00.000Z",
     })
   })

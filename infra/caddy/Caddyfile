@@ -75,7 +75,12 @@
   # and defence in depth is the point of a boundary.
   #
   # 404, not 403: a 403 confirms the route exists.
-  @internal path /v1/internal/*
+  #
+  # /api/internal/* too: the web app rewrites /api/:path* to the API's
+  # /v1/:path*, so without it the catch-all below reached every internal route
+  # through the web app. Caddy's path matcher is case-insensitive and matches the
+  # decoded path, so /api/Internal and /api/%69nternal are refused as well.
+  @internal path /v1/internal/* /api/internal/*
   handle @internal {
     respond 404
   }

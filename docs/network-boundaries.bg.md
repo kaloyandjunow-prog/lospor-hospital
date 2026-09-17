@@ -14,15 +14,29 @@ Status имат отделни списъци с разрешени мрежи. 
 
 ## Точни CIDR списъци
 
-`HOSPITAL_RESEARCH_ALLOWED_CIDRS` е границата за Research/VPN.
+`HOSPITAL_RESEARCH_ALLOWED_CIDRS` ограничава от кои мрежи може да се отвори
+уебсайтът Research Browser. Той не огражда изследователските данни: акаунт с
+research grant може да достигне разрешените му данни през API на клиничния
+адрес. Там ги пазят влизането в акаунта и авторизацията по grant, а не мрежата.
 `HOSPITAL_STATUS_ALLOWED_CIDRS` е по-тясната граница за ИТ управление.
-Инсталаторът няма широко разрешаваща стойност по подразбиране. Той приема IPv4
+
+Воденият инсталатор не пита за нито един от двата списъка. След инсталиране
+Status отговаря на трите RFC1918 диапазона с
+`HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`, за да може ИТ екипът да го отвори
+и да зададе истинските списъци (за вход все пак са нужни парола и MFA), а
+Research е `127.0.0.1/32`, на което не отговаря нито един клиент. Status показва
+и двата под **Изисква внимание днес** и спира **Готовност**, докато не се зададат в
+**Поддръжка → Настройки на сайта**; промяната, след която нито един списък не
+съдържа трите диапазона, изключва и превключвателя. Status може само да го
+изключва.
+
+Проверката приема IPv4
 и IPv6 CIDR мрежи, разделени с интервали или запетаи, преобразува адресите в
 каноничната им мрежа, премахва повторенията и отказва:
 
 - празна или невалидна стойност;
 - `0.0.0.0/0` и `::/0`;
-- стария пример с трите общи RFC1918 диапазона.
+- трите общи RFC1918 диапазона, освен ако `HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`.
 
 Стойностите в `.env.example` са само документационни мрежи и не съвпадат с
 реален болничен клиент. Заменете ги при инсталиране.
@@ -30,17 +44,17 @@ Status имат отделни списъци с разрешени мрежи. 
 Променяйте граница на инсталирана система чрез защитената процедура за връщане:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.24.30.0/24 fd12:3456:789a:30::/64' \
   --status '10.24.40.0/24 fd12:3456:789a:40::/64'
 ```
 
 Командата канонизира двете стойности, проверява Compose и точната Caddy
 конфигурация за избрания режим, защитава предишните стойности и възстановява
-стария `.env`, ако edge услугата не може да се стартира. След това изпълнете:
+старите `site.env` и `.env`, ако edge услугата не може да се стартира. След това изпълнете:
 
 ```sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Само ако болницата официално е документирала трите RFC1918 диапазона като една
@@ -48,7 +62,7 @@ sh scripts/readiness-check.sh --strict
 обхващаща целия интернет:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.0.0.0/8 172.16.0.0/12 192.168.0.0/16' \
   --status '10.24.40.0/24' \
   --unsafe-all-rfc1918 --confirm-all-rfc1918
@@ -76,8 +90,8 @@ sh scripts/configure-network-boundaries.sh \
 обновяването проверяват и Caddyfile преди стартиране на нов listener:
 
 ```sh
-sh scripts/validate-caddy-config.sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/validate-caddy-config.sh
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Промяната на TLS режима е ИТ дейност в прозорец за поддръжка. Променете

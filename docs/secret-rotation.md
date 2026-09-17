@@ -9,9 +9,9 @@ or PostgreSQL by hand.
 Run it only from the appliance console as root:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh prepare ordinary
-sh scripts/rotate-operational-secrets.sh state
-sh scripts/rotate-operational-secrets.sh commit
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh commit
 ```
 
 Operator summaries and failures follow `LOSPOR_DEFAULT_LOCALE` (Bulgarian by
@@ -33,7 +33,7 @@ therefore never undo an already verified rotation. `state` reports that narrow
 condition; repair the reported ownership or permissions and run:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh cleanup
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh cleanup
 ```
 
 `cleanup` accepts only a protected transaction whose identifier and metadata
@@ -53,7 +53,7 @@ arguments, console output, or container logs.
 | `sessions` | `LOSPOR_AUTH_SECRET` | All Web/PWA/native sessions and print tokens are deliberately invalidated. Users sign in again. No previous session key is accepted. |
 | `workers` | delivery, research-export, retention/cron, and option-snapshot credentials | The API first accepts current and previous credentials, producers move to the new values, verification runs, then the previous values are removed and proved rejected. |
 | `status-tokens` | Status snapshot, account/control-plane, API-event, and read-only PostgreSQL probe credentials | Status and API overlap both bearer generations. Operator identity proofs are bound to the exact bearer used for each request. The probe role is changed with the same rollback transaction. Status login sessions and MFA are unchanged. |
-| `database` | the `lospor` PostgreSQL role password | The role, `.env`, PostgreSQL, migrator, API, backup, and dependent services move as one maintenance transaction. Both the new password's acceptance and old password's rejection are checked over TCP. |
+| `database` | the `lospor` owner role and `lospor_app` API role passwords | Both roles, `.env`, PostgreSQL, migrator, API, backup, and dependent services move as one maintenance transaction. For each role, the new password's acceptance and the old password's rejection are checked over the service address, where passwords are enforced. |
 | `ordinary` | all four scopes above | One generation and one maintenance transaction. This is the normal scheduled rotation. |
 
 The generated monotonic generation is stored as
@@ -65,8 +65,8 @@ The independent appliance-operator password has its existing database/Status
 two-store transaction and MFA lifecycle. Rotate it separately:
 
 ```sh
-./scripts/appliance-operator.sh rotate
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh rotate
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 ## Deliberately outside this command

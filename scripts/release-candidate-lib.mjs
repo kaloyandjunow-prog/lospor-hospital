@@ -81,6 +81,8 @@ export function expectedReleaseAssetNames(manifestValue, phase) {
     `lospor-hospital-${version}-release.lock`,
     `lospor-hospital-${version}-release.lock.sha256`,
     `lospor-hospital-${version}-security-evidence.tar.gz`,
+    `lospor-hospital-${version}-windows-kit.zip`,
+    `lospor-hospital-${version}-windows-kit.zip.sha256`,
   ]
   if (phase === "candidate") {
     names.push(

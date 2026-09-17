@@ -15,6 +15,26 @@ import type {
 } from "./account-control.js"
 import type { ClinicalBaselineReadiness, ControlPlaneView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
+import {
+  ADVANCED_SETTINGS,
+  EDITABLE_SETTINGS,
+  advancedDisplayValue,
+  networkListsState,
+  RESEARCH_CLOSED,
+  type AdvancedProposal,
+  type AdvancedUnit,
+  type MaintenanceAgentSignal,
+  type OffhostSignal,
+  type SettingsProposal,
+  SECRETS_ESCROW_OFFER_MS,
+  type SecretsEscrowOffer,
+  type SiteConfigSignal,
+  type SupportBundle,
+} from "./maintenance.js"
+import type { AttentionItem, AttentionLevel } from "./attention.js"
+import type { HostOsSignal } from "./host-os.js"
+import type { ReleaseDossier } from "./release-dossier.js"
+import { GO_LIVE_OWNERS, GO_LIVE_STAGES, type GoLiveCheck, type GoLiveSignoffView, type GoLiveState, type GoLiveStep, type GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
@@ -123,6 +143,16 @@ export const CODE_MESSAGE: Record<string, string> = {
   HOST_UPDATE_AGENT_UNKNOWN: "The host update-agent installation state could not be established.",
   HOST_CERTIFICATE_VALID: "The HTTPS certificate is currently valid for more than 30 days.",
   HOST_CERTIFICATE_EXPIRING: "The HTTPS certificate expires within 30 days.",
+  HOST_OS_CURRENT: "Ubuntu security updates are automatic and up to date.",
+  HOST_OS_REBOOT_SCHEDULED: "Ubuntu needs a restart, which the appliance will do itself in the next update window.",
+  HOST_OS_REBOOT_REQUIRED: "Ubuntu needs a server restart to finish installing updates. Restart it from Maintenance.",
+  HOST_OS_SECURITY_UPDATES_PENDING: "Ubuntu security updates are waiting and automatic updates have not installed them. Install them from Maintenance.",
+  HOST_OS_AUTOMATIC_UPDATES_OFF: "Ubuntu's automatic security updates are switched off or not installed.",
+  HOST_OS_AUTOMATIC_UPDATES_FAILED: "Ubuntu's last automatic security update failed.",
+  HOST_OS_SUPPORT_ENDING: "Standard support for this Ubuntu release ends within six months.",
+  HOST_OS_UNSUPPORTED: "This Ubuntu release no longer receives security fixes.",
+  HOST_OS_MISSING: "Host monitoring has not reported Ubuntu's update state.",
+  HOST_OS_STALE: "Ubuntu's update state has not been reported for more than three minutes.",
   HOST_CERTIFICATE_EXPIRED: "The HTTPS certificate is expired.",
   HOST_CERTIFICATE_MISSING: "The configured operator-supplied HTTPS certificate is missing or unsafe.",
   HOST_CERTIFICATE_UNKNOWN: "HTTPS certificate expiry could not be established.",
@@ -135,12 +165,9 @@ export const CODE_MESSAGE: Record<string, string> = {
   HOST_ACTIVATION_LOCK_CLEAR: "No release activation lock is present.",
   HOST_ACTIVATION_LOCK_PRESENT: "A release activation lock is present. Use the supported host recovery command; never remove it manually.",
   HOST_ACTIVATION_LOCK_INVALID: "The release activation lock is not a safe root-owned private directory.",
-  UPDATE_SUPPLY_OFFLINE: "Offline update supply is selected. GitHub and GHCR credentials are not required.",
+  UPDATE_SUPPLY_OFFLINE: "Offline update supply is selected. Releases come from verified USB media.",
+  UPDATE_SUPPLY_CONNECTED: "Connected update supply is selected. Releases are downloaded from the public GitHub release and verified by signature; no credentials are needed.",
   UPDATE_SUPPLY_MODE_INVALID: "The update supply mode is invalid; no update route can be considered ready.",
-  UPDATE_CREDENTIALS_READY: "Connected update supply has safe root-owned GitHub Releases and GHCR read credentials.",
-  UPDATE_CREDENTIALS_MISSING: "Connected update supply is missing both the GitHub Releases and GHCR read credentials.",
-  UPDATE_GITHUB_CREDENTIAL_MISSING: "Connected update supply is missing a safe GitHub Releases read credential.",
-  UPDATE_GHCR_CREDENTIAL_MISSING: "Connected update supply is missing a safe GHCR username or read token.",
   BACKUP_VERIFIED: "The most recent backup passed checksum verification.",
   BACKUP_AGING: "A verified backup will soon be overdue.",
   BACKUP_OVERDUE: "A verified backup is overdue.",
@@ -283,6 +310,16 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_UPDATE_AGENT_UNKNOWN: "Състоянието на инсталацията на агента за обновяване не можа да бъде установено.",
   HOST_CERTIFICATE_VALID: "HTTPS сертификатът е валиден за повече от 30 дни.",
   HOST_CERTIFICATE_EXPIRING: "HTTPS сертификатът изтича в следващите 30 дни.",
+  HOST_OS_CURRENT: "Обновленията за сигурност на Ubuntu са автоматични и актуални.",
+  HOST_OS_REBOOT_SCHEDULED: "Ubuntu има нужда от рестартиране, което системата ще направи сама в следващия прозорец за обновяване.",
+  HOST_OS_REBOOT_REQUIRED: "Ubuntu има нужда от рестартиране на сървъра, за да завърши обновленията. Рестартирайте го от „Поддръжка“.",
+  HOST_OS_SECURITY_UPDATES_PENDING: "Чакат обновления за сигурност на Ubuntu, които автоматичното обновяване не е инсталирало. Инсталирайте ги от „Поддръжка“.",
+  HOST_OS_AUTOMATIC_UPDATES_OFF: "Автоматичните обновления за сигурност на Ubuntu са изключени или не са инсталирани.",
+  HOST_OS_AUTOMATIC_UPDATES_FAILED: "Последното автоматично обновяване за сигурност на Ubuntu се провали.",
+  HOST_OS_SUPPORT_ENDING: "Стандартната поддръжка на тази версия на Ubuntu приключва до шест месеца.",
+  HOST_OS_UNSUPPORTED: "Тази версия на Ubuntu вече не получава поправки за сигурност.",
+  HOST_OS_MISSING: "Наблюдението на сървъра не е отчело състоянието на обновленията на Ubuntu.",
+  HOST_OS_STALE: "Състоянието на обновленията на Ubuntu не е отчитано повече от три минути.",
   HOST_CERTIFICATE_EXPIRED: "HTTPS сертификатът е изтекъл.",
   HOST_CERTIFICATE_MISSING: "Настроеният HTTPS сертификат от болницата липсва или е небезопасен.",
   HOST_CERTIFICATE_UNKNOWN: "Срокът на HTTPS сертификата не можа да бъде установен.",
@@ -295,12 +332,9 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_ACTIVATION_LOCK_CLEAR: "Няма заключване за активиране на версия.",
   HOST_ACTIVATION_LOCK_PRESENT: "Има заключване за активиране на версия. Използвайте поддържаната команда за възстановяване на сървъра и никога не го премахвайте ръчно.",
   HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е защитена директория, собственост на root и достъпна само за него.",
-  UPDATE_SUPPLY_OFFLINE: "Избрано е офлайн предоставяне на обновявания. Не са необходими данни за достъп до GitHub и GHCR.",
+  UPDATE_SUPPLY_OFFLINE: "Избрано е офлайн предоставяне на обновявания. Версиите идват от проверен USB носител.",
+  UPDATE_SUPPLY_CONNECTED: "Избрано е свързано обновяване. Версиите се изтеглят от публичното издание в GitHub и се проверяват по подпис; не са нужни данни за достъп.",
   UPDATE_SUPPLY_MODE_INVALID: "Режимът за предоставяне на обновявания е невалиден; няма готов маршрут за обновяване.",
-  UPDATE_CREDENTIALS_READY: "Свързаното обновяване има безопасни root данни за четене от GitHub Releases и GHCR.",
-  UPDATE_CREDENTIALS_MISSING: "За свързаното обновяване липсват данните за четене както от GitHub Releases, така и от GHCR.",
-  UPDATE_GITHUB_CREDENTIAL_MISSING: "За свързаното обновяване липсва безопасен токен за четене от GitHub Releases.",
-  UPDATE_GHCR_CREDENTIAL_MISSING: "За свързаното обновяване липсва безопасно потребителско име или токен за четене от GHCR.",
   BACKUP_VERIFIED: "Последният архив премина проверката на контролната сума.",
   BACKUP_AGING: "Провереният архив скоро ще бъде просрочен.",
   BACKUP_OVERDUE: "Провереният архив е просрочен.",
@@ -400,6 +434,22 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_TERMINOLOGY_RESUME_REQUESTED: "Заявен е управляван възобновен импорт на терминология",
   STATUS_TERMINOLOGY_ROLLBACK_REQUESTED: "Заявено е управлявано връщане на терминология",
   STATUS_TERMINOLOGY_FINALIZE_REQUESTED: "Заявено е окончателно приключване на поколение терминология",
+  STATUS_GO_LIVE_SIGNOFF_RECORDED: "Записано е потвърждение за готовност за клинична употреба",
+  STATUS_GO_LIVE_SIGNOFF_WITHDRAWN: "Оттеглено е потвърждение за готовност за клинична употреба",
+  STATUS_MAINTENANCE_BACKUP_REQUESTED: "Заявено е резервно копие от Status",
+  STATUS_MAINTENANCE_DRILL_REQUESTED: "Заявено е пробно възстановяване от Status",
+  STATUS_MAINTENANCE_SETTINGS_REQUESTED: "Заявена е промяна на настройките на сайта от Status",
+  STATUS_MAINTENANCE_OFFHOST_TEST_REQUESTED: "Заявена е проверка на връзката за копия извън сървъра от Status",
+  STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED: "Заявена е проверка от копието извън сървъра от Status",
+  STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED: "Заявена е настройка на място за копия извън сървъра от Status",
+  STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED: "Заявено е изключване на копията извън сървъра от Status",
+  STATUS_MAINTENANCE_ADVANCED_REQUESTED: "Заявена е промяна на разширените настройки от Status",
+  STATUS_MAINTENANCE_OS_UPDATE_REQUESTED: "Заявено е инсталиране на обновления за сигурност на Ubuntu от Status",
+  STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
+  STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED: "Заявен е файл за поддръжка от Status",
+  STATUS_MAINTENANCE_ROTATION_REQUESTED: "Заявена е смяна на данните за достъп от Status",
+  STATUS_MAINTENANCE_ESCROW_REQUESTED: "Заявено е копие на тайните за съхранение от Status",
+  STATUS_SECRETS_ESCROW_DOWNLOADED: "Копие на тайните за съхранение е изтеглено от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -426,10 +476,11 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   "key-escrow": "Съхранение на инсталационните тайни",
   "host-update-agent": "Услуга за обновяване на сървъра",
   "host-certificate": "Срок на HTTPS сертификата",
+  "host-os": "Обновления за сигурност на Ubuntu",
   "host-services": "Услуги на сървъра",
   "host-restore-lock": "Заключване при възстановяване",
   "host-activation-lock": "Заключване при активиране на версия",
-  "update-credentials": "Данни за достъп до обновявания",
+  "update-supply": "Маршрут за обновявания",
   migrations: "Миграции на базата данни",
   "research-storage": "Място за изследователски експорти",
   email: "Системна електронна поща",
@@ -457,7 +508,10 @@ function utcDate(value: number, locale: StatusLocale): string {
 
 const PAGE_STYLE = `
 :root{color-scheme:light;--ink:#252521;--muted:#6d6b63;--line:#deddd6;--paper:#f7f6f2;--card:#fff;--good:#17804b;--warn:#aa6400;--bad:#b42b35;--unknown:#73716a;--info:#2864a8;font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}a{color:inherit}.shell{width:min(1040px,calc(100% - 2rem));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 0}.brand{font-weight:760;letter-spacing:-.02em}.subbrand{color:var(--muted);font-size:.86rem}.banner{border-radius:14px;padding:1.15rem 1.25rem;color:#fff;margin:.75rem 0 2rem;display:flex;gap:.8rem;align-items:center}.banner.good{background:var(--good)}.banner.warn{background:var(--warn)}.banner.bad{background:var(--bad)}.banner.unknown{background:var(--unknown)}.banner strong{font-size:1.12rem}.dot{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid currentColor;border-radius:50%;font-size:.75rem;font-weight:bold;flex:none}.section{margin:2rem 0}.section h2{font-size:1.05rem;margin:0 0 .65rem}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.component{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.component:last-child{border-bottom:0}.component-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.component-name{font-weight:670}.component-detail{font-size:.86rem;color:var(--muted);margin-top:.2rem}.state{white-space:nowrap;font-weight:650;font-size:.9rem}.state::before{content:"";display:inline-block;width:.62rem;height:.62rem;border-radius:50%;background:currentColor;margin-right:.4rem}.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}a{color:inherit}.shell{width:min(1040px,calc(100% - 2rem));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 0}.brand{font-weight:760;letter-spacing:-.02em}.subbrand{color:var(--muted);font-size:.86rem}.banner{border-radius:14px;padding:1.15rem 1.25rem;color:#fff;margin:.75rem 0 2rem;display:flex;gap:.8rem;align-items:center}.banner.good{background:var(--good)}.banner.warn{background:var(--warn)}.banner.bad{background:var(--bad)}.banner.unknown{background:var(--unknown)}.banner strong{font-size:1.12rem}.dot{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid currentColor;border-radius:50%;font-size:.75rem;font-weight:bold;flex:none}.section{margin:2rem 0}.section h2{font-size:1.05rem;margin:0 0 .65rem}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.component{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.component:last-child{border-bottom:0}.component-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.component-name{font-weight:670}.component-detail{font-size:.86rem;color:var(--muted);margin-top:.2rem}.state{white-space:nowrap;font-weight:650;font-size:.9rem}.state::before{content:"";display:inline-block;width:.62rem;height:.62rem;border-radius:50%;background:currentColor;margin-right:.4rem}.step-action{margin-top:.5rem}
+.step-action a{font-weight:650;text-decoration:underline}
+.step-command{display:inline-block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.85rem;background:var(--line);border-radius:6px;padding:.25rem .5rem;overflow-wrap:anywhere}
+.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .qr{display:grid;place-items:center;margin:1rem auto;padding:.5rem;width:max-content;max-width:100%;border:1px solid var(--line);background:#fff}.qr svg{display:block;max-width:248px;width:100%;height:auto}.checks{display:grid;gap:.45rem;margin:.75rem 0}.check{display:flex;align-items:flex-start;gap:.55rem;font-weight:500;margin:.25rem 0}.check input{width:auto;flex:none;margin:.25rem 0 0}.pad{padding:1rem}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}fieldset{border:1px solid var(--line);border-radius:9px;padding:.75rem 1rem;margin-top:1rem}legend{font-weight:650;padding:0 .3rem}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -473,9 +527,11 @@ export type StatusNavAudience = "password" | "recovery"
 
 export type StatusNavPath =
   | "/status/"
+  | "/status/go-live"
   | "/status/accounts"
   | "/status/control"
   | "/status/terminology"
+  | "/status/maintenance"
   | "/status/release"
 
 /**
@@ -494,9 +550,11 @@ export const STATUS_NAV: readonly {
   audiences: readonly StatusNavAudience[]
 }[] = [
   { path: "/status/", en: "Status", bg: "Състояние", audiences: ["password", "recovery"] },
+  { path: "/status/go-live", en: "Go-live", bg: "Готовност", audiences: ["password", "recovery"] },
   { path: "/status/accounts", en: "Accounts", bg: "Профили", audiences: ["password"] },
   { path: "/status/control", en: "Hospital controls", bg: "Управление", audiences: ["password"] },
   { path: "/status/terminology", en: "Terminology", bg: "Терминология", audiences: ["password", "recovery"] },
+  { path: "/status/maintenance", en: "Maintenance", bg: "Поддръжка", audiences: ["password", "recovery"] },
   { path: "/status/release", en: "Updates", bg: "Обновявания", audiences: ["password", "recovery"] },
 ]
 
@@ -574,10 +632,10 @@ export function renderMfaLogin(
   )
 }
 
-export function renderMfaRecoveryCodes(codes: readonly string[], locale: StatusLocale = "bg"): string {
+export function renderMfaRecoveryCodes(codes: readonly string[], locale: StatusLocale = "bg", continueTo = "/status/"): string {
   return page(
     localize(locale, "Hospital appliance status — recovery codes", "Състояние на болничната система — кодове за възстановяване"),
-    `<main class="login-wrap"><section class="login secret-card" aria-labelledby="recovery-title"><div class="brand">LOSPOR Hospital</div><h1 id="recovery-title">${localize(locale, "Save your recovery codes now", "Запазете кодовете за възстановяване сега")}</h1><div class="error" role="alert">${localize(locale, "These ten codes are shown only once. Each code can be used for one sign-in. Store them offline in the hospital IT password vault; anyone who has one can sign in as the appliance operator.", "Тези десет кода се показват само веднъж. Всеки код може да се използва за един вход. Съхранявайте ги офлайн в хранилището за пароли на болничния ИТ екип; всеки, който има такъв код, може да влезе като системния администратор.")}</div><ol class="secret">${codes.map(code => `<li>${escapeHtml(code)}</li>`).join("")}</ol><p>${localize(locale, "Print or save this page before continuing. The appliance stores only irreversible hashes of these codes.", "Разпечатайте или запазете тази страница, преди да продължите. Системата съхранява само необратими хешове на тези кодове.")}</p><p><a class="button" href="/status/">${localize(locale, "I saved the codes — continue", "Запазих кодовете — продължаване")}</a></p></section></main>`,
+    `<main class="login-wrap"><section class="login secret-card" aria-labelledby="recovery-title"><div class="brand">LOSPOR Hospital</div><h1 id="recovery-title">${localize(locale, "Save your recovery codes now", "Запазете кодовете за възстановяване сега")}</h1><div class="error" role="alert">${localize(locale, "These ten codes are shown only once. Each code can be used for one sign-in. Store them offline in the hospital IT password vault; anyone who has one can sign in as the appliance operator.", "Тези десет кода се показват само веднъж. Всеки код може да се използва за един вход. Съхранявайте ги офлайн в хранилището за пароли на болничния ИТ екип; всеки, който има такъв код, може да влезе като системния администратор.")}</div><ol class="secret">${codes.map(code => `<li>${escapeHtml(code)}</li>`).join("")}</ol><p>${localize(locale, "Print or save this page before continuing. The appliance stores only irreversible hashes of these codes.", "Разпечатайте или запазете тази страница, преди да продължите. Системата съхранява само необратими хешове на тези кодове.")}</p><p><a class="button" href="${escapeHtml(continueTo)}">${localize(locale, "I saved the codes — continue", "Запазих кодовете — продължаване")}</a></p></section></main>`,
     locale,
   )
 }
@@ -1126,6 +1184,11 @@ export function renderControlPlane(
         ? localize(locale, "Disabled by hospital policy", "Изключен от политиката на болницата")
         : localize(locale, "Mistral credential is not configured", "Данните за достъп до Mistral не са настроени")
     : "—"
+  const modelOptions = (options: string[] | undefined, selected: string | undefined) =>
+    (options ?? []).map(model =>
+      `<option value="${escapeHtml(model)}" ${model === selected ? "selected" : ""}>${escapeHtml(model)}</option>`).join("")
+  const externalAiModels = externalAi?.advisorModel && externalAi.visionModel ? `
+    <div class="component"><h3>${localize(locale, "AI models", "Модели на ИИ")}</h3><p class="component-detail">${localize(locale, "Mistral retires models from time to time. When the chosen model is retired, AI features stop and Status records an AI request failure with the reason model-unavailable; choose another model here. Only models this release has been checked with are offered.", "Mistral спира модели от време на време. Когато избраният модел бъде спрян, функциите с ИИ спират и Status записва неуспешна заявка към ИИ с причина model-unavailable; изберете друг модел тук. Предлагат се само модели, проверени с тази версия.")}</p><form method="post" action="/status/control/external-ai/models"><label for="external-ai-advisor-model">${localize(locale, "Pre-operative advisor", "Предоперативен съветник")}</label><select id="external-ai-advisor-model" name="advisorModel">${modelOptions(externalAi.advisorModelOptions, externalAi.advisorModel)}</select><label for="external-ai-vision-model">${localize(locale, "Reading lab reports and monitor photos", "Разчитане на лабораторни резултати и снимки на монитор")}</label><select id="external-ai-vision-model" name="visionModel">${modelOptions(externalAi.visionModelOptions, externalAi.visionModel)}</select><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save models", "Запазване на моделите")}</button></form></div>` : ""
   const externalAiControls = externalAi ? `
     <div class="component"><div class="facts">
       ${textFact(localize(locale, "Provider", "Доставчик"), "Mistral")}
@@ -1136,10 +1199,14 @@ export function renderControlPlane(
       ${dateFact(localize(locale, "Credential configured", "Данните за достъп са настроени на"), externalAi.credentialConfiguredAt, locale)}
       ${dateFact(localize(locale, "Credential last changed", "Данните за достъп са променени на"), externalAi.credentialChangedAt, locale)}
       ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), externalAi.policyChangedAt, locale)}
+      ${externalAi.advisorModel ? textFact(localize(locale, "Advisor model", "Модел на съветника"), externalAi.advisorModel) : ""}
+      ${externalAi.visionModel ? textFact(localize(locale, "Image-reading model", "Модел за разчитане на изображения"), externalAi.visionModel) : ""}
+      ${externalAi.modelsChangedAt !== undefined ? dateFact(localize(locale, "Models last changed", "Моделите са променени на"), externalAi.modelsChangedAt, locale) : ""}
       ${dateFact(localize(locale, "State last updated", "Състоянието е обновено на"), externalAi.updatedAt, locale)}
     </div><p>${localize(locale, "When this policy is enabled and the provider is configured, a clinician's explicit external-AI action may send its selected clinical payload to Mistral. Saving the policy itself sends no clinical data.", "Когато тази политика е включена и доставчикът е настроен, изрично действие на клиницист за външен ИИ може да изпрати избраните клинични данни към Mistral. Самото запазване на политиката не изпраща клинични данни.")}</p>
     <form method="post" action="/status/control/external-ai/policy"><div class="checks"><label class="check"><input type="checkbox" name="externalAiEnabled" value="true" ${externalAi.externalAiEnabled ? "checked" : ""}> ${localize(locale, "Allow external-AI features for this hospital", "Разрешаване на функциите с външен ИИ за тази болница")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save external-AI policy", "Запазване на политиката за външен ИИ")}</button></form></div>
-    <div class="component"><h3>${localize(locale, "Replace the Mistral credential", "Замяна на данните за достъп до Mistral")}</h3><p class="component-detail">${localize(locale, "Enter a new credential. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Въведете нови данни за достъп. Status ги предава еднократно към частния API; нито стойността в открит вид, нито защитената стойност се връща или съхранява от Status.")}</p><form method="post" action="/status/control/external-ai/credential"><label>${localize(locale, "New Mistral credential", "Нови данни за достъп до Mistral")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за замяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Замяна на данните за достъп")}</button></form></div>
+    ${externalAiModels}
+    <div class="component"><h3>${localize(locale, "Replace the Mistral credential","Замяна на данните за достъп до Mistral")}</h3><p class="component-detail">${localize(locale, "Enter a new credential. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Въведете нови данни за достъп. Status ги предава еднократно към частния API; нито стойността в открит вид, нито защитената стойност се връща или съхранява от Status.")}</p><form method="post" action="/status/control/external-ai/credential"><label>${localize(locale, "New Mistral credential", "Нови данни за достъп до Mistral")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за замяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Замяна на данните за достъп")}</button></form></div>
     <div class="component"><h3>${localize(locale, "Remove the Mistral credential", "Премахване на данните за достъп до Mistral")}</h3><p>${localize(locale, "Removal immediately prevents external-AI provider access. It does not silently change the policy checkbox or any historical record.", "Премахването незабавно спира достъпа до външния доставчик на ИИ. То не променя скрито отметката на политиката или исторически запис.")}</p><form method="post" action="/status/control/external-ai/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-MISTRAL-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored Mistral credential", "Разбирам, че това премахва запазените данни за достъп до Mistral")}</label><label>${localize(locale, "Removal reason", "Причина за премахването")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
   ` : `<div class="empty">${localize(locale, "External-AI controls are unavailable.", "Управлението на външен ИИ не е достъпно.")}</div>`
 
@@ -1240,7 +1307,7 @@ export function renderControlPlane(
       ${dateFact(localize(locale, "Transport last changed", "Транспортът е променен на"), ehrTransport.transportChangedAt, locale)}
       ${dateFact(localize(locale, "State last updated", "Състоянието е обновено на"), ehrTransport.updatedAt, locale)}
     </div><p>${localize(locale, "A watched folder is a filesystem path the hospital system writes into; it carries no secret and is fully configured the moment it is chosen. FHIR and HL7v2 reach outside the appliance and need a sealed credential below. Proposed values from any transport are staged for a clinician to review field by field -- nothing is written into a case on arrival.", "Наблюдаваната папка е път във файловата система, в който болничната система записва; тя не носи тайна и е напълно настроена в момента на избора си. FHIR и HL7v2 излизат извън системата и се нуждаят от защитени данни за достъп по-долу. Предложените стойности от всеки транспорт се поставят за преглед от клиницист поле по поле -- нищо не се записва в случай при пристигане.")}</p>
-    <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Няма (адаптерът е изключен)")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Наблюдавана папка")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 — все още не се предлага")}</option></select><label>${localize(locale, "Transport change reason", "Причина за промяната на транспорта")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване на политиката за транспорта")}</button></form></div>
+    <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Няма (адаптерът е изключен)")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Наблюдавана папка")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 — все още не се предлага")}</option></select><label>${localize(locale, "Transport change reason", "Причина за промяната на транспорта")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване на политиката за транспорта")}</button></form><form method="post" action="/status/control/ehr-transport/retention"><label for="ehr-retention-days">${localize(locale, "Days staged EHR data is kept before it is deleted (1 to 14)", "Дни, през които данните от ЕЗД се пазят преди изтриване (1 до 14)")}</label><input id="ehr-retention-days" name="days" type="number" min="1" max="14" value="${ehrTransport.stagingRetentionDays ?? 14}" required><p class="component-detail">${localize(locale, "Imports nobody reviewed, and the files the folder transport kept, are deleted by the daily retention run. They are offered to clinicians for at most 14 days, so they are never kept longer.", "Непрегледаните данни и файловете, запазени от транспорта с папка, се изтриват при ежедневното почистване. Те се предлагат на клиницистите най-много 14 дни, затова никога не се пазят по-дълго.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save retention", "Запазване на срока")}</button></form></div>
     ${ehrTransportCredentialSection}
     ${ehrEndpointSection}
   ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Управлението на транспорта за внос на ЕЗД не е достъпно.")}</div>`
@@ -1289,6 +1356,66 @@ export function renderControlPlane(
     ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Все още няма съпоставени местни кодове.")}</div>`}
   ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Картата на лабораторните кодове не е достъпна.")}</div>`
 
+  // ── code-list addresses ────────────────────────────────────────────────────
+  //
+  // NHIS publishes no address for its lists, so each hospital system invents
+  // one. An address naming its list is recognised on its own; the rest are
+  // listed as they arrive, and answering one is picking the list. The same
+  // recognition-over-recall bargain as the laboratory map, and nothing waits
+  // on it: unanswered codes still arrive as the hospital labelled them.
+  const codeSystems = view?.ehrCodeSystems
+  const codeListNames: Record<string, [string, string]> = {
+    ICD10: ["Diagnoses: ICD-10 (МКБ-10, NHIS CL011)", "Диагнози: МКБ-10 (НЗИС CL011)"],
+    ICD10PCS: ["Operations: ICD-10-PCS", "Операции: ICD-10-PCS"],
+    KSMP: ["Procedures: КСМП (NCPHA)", "Процедури: КСМП (НЦОЗА)"],
+    NHIS_CL013: ["Routes: NHIS CL013 (EDQM)", "Пътища на въвеждане: НЗИС CL013 (EDQM)"],
+    NHIS_CL046: ["Routes: NHIS CL046 (HL7)", "Пътища на въвеждане: НЗИС CL046 (HL7)"],
+    NHIS_CL024: ["Laboratory tests: NHIS CL024", "Лабораторни изследвания: НЗИС CL024"],
+    OTHER: ["Something else: stop asking", "Нещо друго: да не се пита повече"],
+  }
+  const seenInNames: Record<string, [string, string]> = {
+    diagnoses: ["diagnoses", "диагнози"],
+    procedures: ["procedures", "процедури"],
+    routes: ["routes", "пътища на въвеждане"],
+    labs: ["laboratory results", "лабораторни резултати"],
+  }
+  const codeListName = (list: string) => localize(locale, codeListNames[list]?.[0] ?? list, codeListNames[list]?.[1] ?? list)
+  const codeListOptions = (selected: string | null) => Object.keys(codeListNames).map(list =>
+    `<option value="${list}" ${list === selected ? "selected" : ""}>${escapeHtml(codeListName(list))}</option>`).join("")
+  const codeSystemFacts = (row: { seenIn: string[]; sampleCode: string | null; sampleLabel: string | null; seenCount: number; lastSeenAt: string | null }) => {
+    const where = row.seenIn.map(field => localize(locale, seenInNames[field]?.[0] ?? field, seenInNames[field]?.[1] ?? field)).join(", ")
+    const sample = [row.sampleCode, row.sampleLabel].filter(Boolean).join(" — ")
+    return row.seenCount > 0
+      ? `${where ? `${escapeHtml(where)} · ` : ""}${sample ? `${localize(locale, "e.g.", "напр.")} ${escapeHtml(sample)} · ` : ""}${escapeHtml(seenFact(row))}`
+      : localize(locale, "entered by hand; nothing has arrived from it yet", "въведен ръчно; от него още не е пристигнало нищо")
+  }
+  const waitingSystems = (codeSystems?.waiting ?? []).map(row => `
+    <div class="component"><form method="post" action="/status/control/ehr-code-systems/answer">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <p><strong>${escapeHtml(row.system)}</strong></p>
+      <p class="component-detail">${codeSystemFacts(row)}</p>
+      <label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете списък…")}</option>${codeListOptions(null)}</select></label>
+      <button type="submit">${localize(locale, "Save", "Запазване")}</button>
+    </form></div>`).join("")
+  const answeredSystems = (codeSystems?.answered ?? []).map(row => `
+    <div class="component"><div class="facts">
+      ${textFact(escapeHtml(row.system), escapeHtml(codeListName(row.list ?? "")))}
+      ${textFact(localize(locale, "Traffic", "Трафик"), codeSystemFacts(row))}
+      ${dateFact(localize(locale, "Answered on", "Посочен на"), row.answeredAt, locale)}
+    </div><form method="post" action="/status/control/ehr-code-systems/answer">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <input type="hidden" name="list" value="">
+      <button type="submit" class="danger">${localize(locale, "Take the answer back", "Отмяна на отговора")}</button>
+    </form></div>`).join("")
+  const codeSystemControls = codeSystems ? `
+    <div class="component"><p>${localize(locale, "Each coded value arrives with the address of the list it belongs to, and NHIS publishes no address for its lists, so every hospital system invents its own. An address that names its list, such as …/CL013 or urn:…:ksmp, is recognised on its own. Any other address is listed below once something arrives from it; say once which list it is. Until then its codes still arrive, as the hospital labelled them.", "Всяка кодирана стойност пристига с адреса на списъка, към който принадлежи, а НЗИС не публикува адреси за своите списъци, затова всяка болнична система си измисля собствен. Адрес, който назовава списъка си, например …/CL013 или urn:…:ksmp, се разпознава сам. Всеки друг адрес се показва по-долу, щом от него пристигне нещо; посочете веднъж кой списък е. Дотогава кодовете му пак пристигат, с имената, дадени от болницата.")}</p>
+    <form method="post" action="/status/control/ehr-code-systems/answer"><label>${localize(locale, "Address from the hospital system's documentation", "Адрес от документацията на болничната система")}<input name="system" maxlength="2048" required></label><label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете списък…")}</option>${codeListOptions(null)}</select></label><button type="submit">${localize(locale, "Add address", "Добавяне на адрес")}</button></form></div>
+    <h3>${localize(locale, "Waiting for an answer", "Чакат отговор")}</h3>
+    ${waitingSystems || `<div class="empty">${localize(locale, "Every address this hospital has sent is understood.", "Всеки адрес, който тази болница е изпратила, е разпознат.")}</div>`}
+    <h3>${localize(locale, "Already answered", "Вече отговорени")}</h3>
+    ${answeredSystems || `<div class="empty">${localize(locale, "No addresses have been answered yet.", "Все още няма посочени адреси.")}</div>`}
+  ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
+
   return page(
     localize(locale, "Hospital controls", "Управление на болничната система"),
     `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "Research, Central, clinical guidance and external AI", "Изследвания, Central, клинични насоки и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Този вход в страницата за състояние не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие във всеки формуляр.")}</strong></div>
@@ -1302,19 +1429,43 @@ export function renderControlPlane(
     <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
     <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
     <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>
     </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не съхранява и не показва токен за свързване, парола, данни за достъп до ИИ, защитената им стойност, съдържание на сертификат или клиничен запис.")}</footer></div>`,
     locale,
   )
 }
 
-export function renderDashboard(data: DashboardData, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+const ATTENTION_LEVEL: Record<AttentionLevel, { tone: string; en: string; bg: string }> = {
+  now: { tone: "critical", en: "Now", bg: "Сега" },
+  today: { tone: "warning", en: "Today", bg: "Днес" },
+  soon: { tone: "info", en: "Soon", bg: "Скоро" },
+  note: { tone: "info", en: "For information", bg: "За сведение" },
+}
+
+function attentionSection(items: readonly AttentionItem[] | undefined, locale: StatusLocale): string {
+  if (items === undefined) return ""
+  const body = items.length
+    ? `<ol class="timeline">${items.map(item => {
+      const level = ATTENTION_LEVEL[item.level]
+      return `<li><span class="pill ${level.tone}">${escapeHtml(localize(locale, level.en, level.bg))}</span><strong> ${escapeHtml(localize(locale, item.en, item.bg))}</strong><div><a href="${escapeHtml(item.href)}">${escapeHtml(localize(locale, item.actionEn, item.actionBg))}</a></div></li>`
+    }).join("")}</ol>`
+    : `<div class="empty">${localize(locale, "Nothing needs attention. Routine care is on track.", "Нищо не изисква внимание. Рутинната поддръжка е наред.")}</div>`
+  return `<section class="section" aria-labelledby="attention-title"><h2 id="attention-title">${localize(locale, "Needs attention today", "Изисква внимание днес")}</h2><div class="card">${body}</div></section>`
+}
+
+export function renderDashboard(
+  data: DashboardData,
+  locale: StatusLocale = "bg",
+  audience: StatusNavAudience = "password",
+  attention?: readonly AttentionItem[],
+): string {
   const state = banner(data.components, locale)
   const checked = data.lastCheckedAt
     ? utcDate(data.lastCheckedAt, locale)
     : localize(locale, "not yet", "още няма проверка")
   return page(
     localize(locale, "Hospital appliance status", "Състояние на болничната система"),
-    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Независимо състояние на системата"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и пренос на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни оперативни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма оперативни събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Този монитор съдържа само оперативна информация, а не клинични записи. Той не може да отчита прекъсване на електрозахранването, Docker, физическия сървър или болничната мрежа.`)}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Независимо състояние на системата"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${attentionSection(attention, locale)}${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и пренос на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни оперативни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма оперативни събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Този монитор съдържа само оперативна информация, а не клинични записи. Той не може да отчита прекъсване на електрозахранването, Docker, физическия сървър или болничната мрежа.`)}</footer></div>`,
     locale,
     true,
   )
@@ -1338,12 +1489,56 @@ export type ReleaseView = {
   windowDescription: string
   /** False for a recovery session, which may fetch but must not apply. */
   mayApply: boolean
+  /** The verified release dossier of the installed and of the downloaded release, when the host has one. */
+  installedDossier?: ReleaseDossier
+  fetchedDossier?: ReleaseDossier
   notice?: string
   error?: string
 }
 
 const releaseFact = (name: string, value: string) =>
   `<div class="fact"><b>${escapeHtml(name)}</b>${escapeHtml(value)}</div>`
+
+function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocale): string {
+  const { vulnerabilities, compatibility } = dossier
+  const expiries = vulnerabilities.exceptions.map(exception => exception.expiresAt).sort()
+  const verdictGood = vulnerabilities.critical === 0
+  const exceptionsText = vulnerabilities.exceptions.length === 0
+    ? localize(locale, "none", "няма")
+    : vulnerabilities.exceptions.map(exception => `${exception.vulnerabilityId} (${exception.image}, ${localize(locale, "until", "до")} ${exception.expiresAt})`).join(", ")
+  const facts = [
+    releaseFact(localize(locale, "Built from commit", "Изградена от commit"), dossier.commit.slice(0, 12)),
+    releaseFact(localize(locale, "Build run", "Изграждане"), `${dossier.build.runId} / ${dossier.build.runAttempt}`),
+    releaseFact(localize(locale, "Images", "Образи"), String(dossier.images)),
+    releaseFact(localize(locale, "Software components listed", "Изброени софтуерни компоненти"), String(dossier.sbomComponents)),
+    releaseFact(localize(locale, "Critical vulnerabilities", "Критични уязвимости"), String(vulnerabilities.critical)),
+    releaseFact(localize(locale, "High vulnerabilities", "Високи уязвимости"), String(vulnerabilities.high)),
+    releaseFact(localize(locale, "Accepted exceptions", "Приети изключения"), exceptionsText),
+    releaseFact(
+      localize(locale, "Going back after migration", "Връщане след миграция"),
+      compatibility.rollbackPolicy === "service-compatible"
+        ? localize(locale, `services, for ${compatibility.rollbackWindowDays} day(s)`, `услугите, до ${compatibility.rollbackWindowDays} дни`)
+        : localize(locale, "from a verified backup", "от проверен архив"),
+    ),
+    releaseFact(localize(locale, "Built from", "Изградена от"), Object.entries(dossier.upstream).map(([name, version]) => `${name} ${version}`).join(", ")),
+  ].join("")
+  const verdict = verdictGood
+    ? localize(locale, `Verified against the signed release. No critical vulnerabilities${expiries.length ? `; the first accepted exception expires ${expiries[0]}` : ""}.`, `Проверено спрямо подписаното издание. Няма критични уязвимости${expiries.length ? `; първото прието изключение изтича на ${expiries[0]}` : ""}.`)
+    : localize(locale, "Verified against the signed release, but it reports critical vulnerabilities. Ask LOSPOR support before applying.", "Проверено спрямо подписаното издание, но отчита критични уязвимости. Попитайте поддръжката на LOSPOR, преди да го приложите.")
+  return `<div class="component"><div class="component-name">${escapeHtml(title)}</div><div class="component-detail">${escapeHtml(verdict)} <a href="${escapeHtml(dossier.build.runUrl)}" rel="noreferrer">${localize(locale, "Build record on GitHub", "Запис за изграждането в GitHub")}</a></div><div class="facts">${facts}</div></div>`
+}
+
+function dossierSection(view: ReleaseView, locale: StatusLocale): string {
+  const cards: string[] = []
+  if (view.installedDossier) {
+    cards.push(dossierCard(view.installedDossier, localize(locale, `Installed release ${view.installedDossier.version}`, `Инсталирана версия ${view.installedDossier.version}`), locale))
+  }
+  if (view.fetchedDossier && view.fetchedDossier.version !== view.installedDossier?.version) {
+    cards.push(dossierCard(view.fetchedDossier, localize(locale, `Downloaded release ${view.fetchedDossier.version}`, `Изтеглена версия ${view.fetchedDossier.version}`), locale))
+  }
+  if (cards.length === 0) return ""
+  return `<section class="section" aria-labelledby="dossier-title"><h2 id="dossier-title">${localize(locale, "Release dossier", "Досие на изданието")}</h2><div class="card">${cards.join("")}</div></section>`
+}
 
 export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
   const readyToApply = view.fetchedVersion !== undefined
@@ -1401,7 +1596,7 @@ export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", au
 
   return page(
     localize(locale, "Hospital appliance release", "Версия на болничната система"),
-    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section><section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на обновяване рестартира клиничните услуги и може да промени базата данни. То е умишлено отделна стъпка от изтеглянето.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на обновяване рестартира клиничните услуги и може да промени базата данни. То е умишлено отделна стъпка от изтеглянето.")}</footer></div>`,
     locale,
     true,
   )
@@ -1411,6 +1606,8 @@ export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", au
 
 export type TerminologyView = {
   state: TerminologyAgentSignal | null
+  /** Package folders the host found under reference-data, offered by name. */
+  packages?: readonly string[]
   agentMode: "healthy" | "console-only" | "failed" | "unconfigured"
   mayManage: boolean
   recoverySession: boolean
@@ -1454,10 +1651,16 @@ function terminologyResult(code: string, locale: StatusLocale): string {
 function terminologyActionForm(
   action: "import" | "resume",
   locale: StatusLocale,
+  packages: readonly string[] = [],
 ): string {
   const resume = action === "resume"
   const prefix = resume ? "term-resume" : "term-import"
-  return `<form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="${action}"><label for="${prefix}-package">${localize(locale, "Package directory label", "Име на папката на пакета")}</label><input id="${prefix}-package" name="packageDirectory" maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,79}" autocomplete="off" required><p class="component-detail">${localize(locale, "Enter one direct folder name already placed by Hospital IT under reference-data. Paths, URLs and shell commands are not accepted.", "Въведете името на една директна папка, която болничният ИТ екип вече е поставил в reference-data. Пътища, URL адреси и команди не се приемат.")}</p><label class="check"><input type="checkbox" name="confirmation" value="STOP-CLINICAL-SERVICES" required><span>${localize(locale, "I understand this temporarily stops the clinical apps while an isolated generation is built and checked.", "Разбирам, че това временно спира клиничните приложения, докато се изгради и провери изолирано поколение.")}</span></label><label for="${prefix}-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="${prefix}-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit">${resume ? localize(locale, "Resume this exact import", "Възобновяване на същия импорт") : localize(locale, "Verify, stage and activate", "Проверка, подготовка и активиране")}</button></form>`
+  // Offered, not imposed: a folder placed since the host last looked can still
+  // be typed, and the host validates whichever name arrives.
+  const offered = packages.length
+    ? `<datalist id="${prefix}-packages">${packages.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}</datalist><p class="component-detail">${localize(locale, "Found on the server:", "Намерени на сървъра:")} ${packages.map(name => `<code>${escapeHtml(name)}</code>`).join(", ")}</p>`
+    : `<p class="component-detail">${localize(locale, "No package folder with a manifest.json was found under reference-data yet.", "Още не е намерена папка на пакет с manifest.json в reference-data.")}</p>`
+  return `<form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="${action}"><label for="${prefix}-package">${localize(locale, "Package directory label", "Име на папката на пакета")}</label><input id="${prefix}-package" name="packageDirectory" maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,79}" autocomplete="off"${packages.length ? ` list="${prefix}-packages"` : ""} required><p class="component-detail">${localize(locale, "Enter one direct folder name already placed by Hospital IT under reference-data. Paths, URLs and shell commands are not accepted.", "Въведете името на една директна папка, която болничният ИТ екип вече е поставил в reference-data. Пътища, URL адреси и команди не се приемат.")}</p>${offered}<label class="check"><input type="checkbox" name="confirmation" value="STOP-CLINICAL-SERVICES" required><span>${localize(locale, "I understand this temporarily stops the clinical apps while an isolated generation is built and checked.", "Разбирам, че това временно спира клиничните приложения, докато се изгради и провери изолирано поколение.")}</span></label><label for="${prefix}-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="${prefix}-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit">${resume ? localize(locale, "Resume this exact import", "Възобновяване на същия импорт") : localize(locale, "Verify, stage and activate", "Проверка, подготовка и активиране")}</button></form>`
 }
 
 export function renderTerminology(view: TerminologyView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
@@ -1470,7 +1673,7 @@ export function renderTerminology(view: TerminologyView, locale: StatusLocale = 
     releaseFact(localize(locale, "Activated (UTC)", "Активирано (UTC)"), state.activatedAt!),
     releaseFact(localize(locale, "Manifest SHA-256", "SHA-256 на манифеста"), state.manifestSha256!),
     releaseFact(localize(locale, "Rollback generation", "Поколение за връщане"), state.rollbackAvailable ? localize(locale, "retained", "запазено") : localize(locale, "none", "няма")),
-  ].join("")}</div>` : `<div class="empty">${localize(locale, "No approved active terminology generation is recorded. Clinical go-live is not approved.", "Няма записано активно одобрено поколение терминология. Клиничното въвеждане в експлоатация не е одобрено.")}</div>`
+  ].join("")}</div>` : `<div class="empty">${localize(locale, "No terminology package is imported. The codes bundled with this release are in use: ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and their research numbers. A package is optional.", "Няма импортиран пакет с терминология. Използват се кодовете, включени в тази версия: МКБ-10 с български наименования, процедури, списъкът с лекарства, английски синоними на диагнозите и техните изследователски кодове. Пакетът не е задължителен.")}</div>`
   const pendingLabel = state?.pendingPhase ? ({
     verified: localize(locale, "manifest verified", "манифестът е проверен"),
     staged: localize(locale, "isolated database staged", "изолираната база е подготвена"),
@@ -1501,15 +1704,132 @@ export function renderTerminology(view: TerminologyView, locale: StatusLocale = 
           : localize(locale, "Browser terminology operations require a healthy host agent.", "Операциите с терминология от браузъра изискват работещ агент на сървъра.")
     actions = `<div class="empty">${detail}</div>`
   } else {
-    const resume = state?.pendingPhase ? `<div class="component"><h3>${localize(locale, "Resume an unfinished import", "Възобновяване на незавършен импорт")}</h3>${terminologyActionForm("resume", locale)}</div>` : ""
+    const resume = state?.pendingPhase ? `<div class="component"><h3>${localize(locale, "Resume an unfinished import", "Възобновяване на незавършен импорт")}</h3>${terminologyActionForm("resume", locale, view.packages)}</div>` : ""
     const rollback = state?.rollbackAvailable ? `<div class="component"><h3>${localize(locale, "Restore the retained generation", "Възстановяване на запазеното поколение")}</h3><p>${localize(locale, "Rollback switches the live database generation and temporarily stops the clinical apps. The currently rejected generation is retained for technical review.", "Връщането сменя действащото поколение на базата и временно спира клиничните приложения. Отхвърленото текущо поколение се запазва за техническа проверка.")}</p><form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="rollback"><label class="check"><input type="checkbox" name="confirmation" value="ROLLBACK-TERMINOLOGY" required><span>${localize(locale, "I intend to restore the retained terminology generation.", "Желая да възстановя запазеното поколение терминология.")}</span></label><label for="term-rollback-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="term-rollback-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" class="danger">${localize(locale, "Rollback terminology", "Връщане на терминологията")}</button></form></div>` : ""
     const finalize = state?.rollbackAvailable ? `<div class="component"><h3>${localize(locale, "Permanently remove the rollback generation", "Окончателно премахване на поколението за връщане")}</h3><p><strong>${localize(locale, "This cannot be undone.", "Това не може да бъде отменено.")}</strong> ${localize(locale, "Finalize only after the active generation has been clinically accepted. The host checks readiness again before deleting the retained database generation.", "Приключете окончателно само след клинично приемане на активното поколение. Сървърът проверява готовността отново, преди да изтрие запазеното поколение на базата.")}</p><form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="finalize"><label class="check"><input type="checkbox" name="confirmation" value="DELETE-ROLLBACK-GENERATION" required><span>${localize(locale, "I intend to permanently remove the only retained rollback generation.", "Желая окончателно да премахна единственото запазено поколение за връщане.")}</span></label><label for="term-finalize-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="term-finalize-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" class="danger">${localize(locale, "Permanently finalize", "Окончателно приключване")}</button></form></div>` : ""
-    const importAction = state?.pendingPhase ? "" : `<div class="component"><h3>${localize(locale, "Import an approved package", "Импорт на одобрен пакет")}</h3><p>${localize(locale, "Hospital IT must obtain and place licensed source files. Status never uploads, downloads or displays them. The host verifies the exact manifest and every SHA-256 before activation.", "Болничният ИТ екип трябва да осигури и постави лицензираните изходни файлове. Status никога не ги качва, изтегля или показва. Сървърът проверява точния манифест и всеки SHA-256 преди активиране.")}</p>${terminologyActionForm("import", locale)}</div>`
+    const importAction = state?.pendingPhase ? "" : `<div class="component"><h3>${localize(locale, "Import an approved package", "Импорт на одобрен пакет")}</h3><p>${localize(locale, "Hospital IT must obtain and place licensed source files. Status never uploads, downloads or displays them. The host verifies the exact manifest and every SHA-256 before activation.", "Болничният ИТ екип трябва да осигури и постави лицензираните изходни файлове. Status никога не ги качва, изтегля или показва. Сървърът проверява точния манифест и всеки SHA-256 преди активиране.")}</p>${terminologyActionForm("import", locale, view.packages)}</div>`
     actions = `${importAction}${resume}${rollback}${finalize}`
   }
   return page(
     localize(locale, "Hospital terminology management", "Управление на терминологията"),
     `<div class="shell">${statusHeader("/status/terminology", locale, audience, localize(locale, "Governed terminology generations", "Управлявани поколения терминология"))}<main>${notice}${error}<section class="section" aria-labelledby="term-active"><h2 id="term-active">${localize(locale, "Active approved generation", "Активно одобрено поколение")}</h2><div class="card">${active}${pending}${agent}</div></section><section class="section" aria-labelledby="term-actions"><h2 id="term-actions">${localize(locale, "Supported workflow", "Поддържан процес")}</h2><div class="card">${actions}</div></section></main><footer class="foot">${localize(locale, "This page handles bounded operational intent and approved-package provenance only. It has no shell, database, patient-data, source-file or credential access.", "Тази страница обработва само ограничени оперативни заявки и произхода на одобрения пакет. Тя няма достъп до команден ред, база данни, данни за пациенти, изходни файлове или данни за вход.")}</footer></div>`,
+    locale,
+  )
+}
+
+export type GoLivePageView = GoLiveView & {
+  mayManage: boolean
+  recoverySession: boolean
+  notice?: string
+  error?: string
+}
+
+const GO_LIVE_BANNER: Record<GoLiveState, { tone: string; en: string; bg: string }> = {
+  GO_LIVE_READY: {
+    tone: "good",
+    en: "Ready for clinical use",
+    bg: "Готово за клинична употреба",
+  },
+  GO_LIVE_BLOCKED: {
+    tone: "warn",
+    en: "Installed, not yet approved for clinical use",
+    bg: "Инсталирано, но все още не е одобрено за клинична употреба",
+  },
+  MAINTENANCE: {
+    tone: "warn",
+    en: "Maintenance in progress",
+    bg: "В ход е поддръжка",
+  },
+  RECOVERY_REQUIRED: {
+    tone: "bad",
+    en: "Recovery required: Hospital IT must review the server console",
+    bg: "Нужно е възстановяване: болничният ИТ екип трябва да провери конзолата на сървъра",
+  },
+}
+
+function goLiveMark(satisfied: boolean, locale: StatusLocale, optional = false): string {
+  return satisfied
+    ? `<span class="state operational">${localize(locale, "Done", "Изпълнено")}</span>`
+    : optional
+      ? `<span class="state unknown">${localize(locale, "Optional", "По избор")}</span>`
+      : `<span class="state degraded">${localize(locale, "Not done", "Неизпълнено")}</span>`
+}
+
+// What a step is for and how to do it: who owns it, why it matters, and a link
+// to the Status page that does it or the console command for what Status
+// deliberately cannot do.
+function goLiveStepGuide(step: GoLiveStep, locale: StatusLocale): string {
+  const owner = GO_LIVE_OWNERS[step.guide.owner]
+  const action = step.guide.action
+  const actionHtml = !action ? ""
+    : action.kind === "link"
+      ? `<div class="step-action"><a href="${escapeHtml(action.href)}">${escapeHtml(localize(locale, action.en, action.bg))}</a></div>`
+      : `<div class="step-action"><code class="step-command">${escapeHtml(action.command)}</code><div class="component-detail">${escapeHtml(localize(locale, action.en, action.bg))}</div></div>`
+  return `<div class="component-detail"><span class="pill info">${escapeHtml(localize(locale, owner.en, owner.bg))}</span> ${escapeHtml(localize(locale, step.guide.whyEn, step.guide.whyBg))}</div>${step.satisfied ? "" : actionHtml}`
+}
+
+function goLiveCheckRow(check: GoLiveCheck, step: GoLiveStep | undefined, locale: StatusLocale): string {
+  return `<div class="component"><div class="component-head"><div><div class="component-name">${escapeHtml(locale === "bg" ? check.bg : check.en)}</div>${step ? goLiveStepGuide(step, locale) : ""}</div>${goLiveMark(check.satisfied, locale, check.optional)}</div></div>`
+}
+
+function goLiveSignoffRow(item: GoLiveSignoffView, view: GoLivePageView, locale: StatusLocale, step?: GoLiveStep): string {
+  const label = escapeHtml(locale === "bg" ? item.bg : item.en)
+  const detail = item.signoff
+    ? `${item.expired ? localize(locale, "Expired: ", "Изтекло: ") : ""}${localize(locale, "signed", "подписано")} ${escapeHtml(new Date(item.signoff.signedAt).toISOString().slice(0, 16).replace("T", " "))} UTC — ${escapeHtml(item.signoff.note)}`
+    : localize(locale, "Not signed off", "Няма потвърждение")
+  const validity = item.validForMs
+    ? ` ${localize(locale, "Valid for 92 days.", "Валидно 92 дни.")}`
+    : ""
+  const form = view.mayManage
+    ? `<details class="admin-action"><summary>${item.signoff ? localize(locale, "Sign again or withdraw", "Потвърдете отново или оттеглете") : localize(locale, "Sign off", "Потвърдете")}</summary><form method="post" action="/status/go-live/signoff"><input type="hidden" name="item" value="${item.id}"><label for="note-${item.id}">${localize(locale, "What was checked, by whom", "Какво е проверено и от кого")}</label><input id="note-${item.id}" name="note" maxlength="300" minlength="3" required><label for="password-${item.id}">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="password-${item.id}" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" name="action" value="sign">${localize(locale, "Record sign-off", "Запишете потвърждението")}</button>${item.signoff ? `<button type="submit" name="action" value="withdraw" class="danger" formnovalidate>${localize(locale, "Withdraw", "Оттеглете")}</button>` : ""}</form></details>`
+    : ""
+  const kindLabel = `<div class="component-detail">${localize(locale, "Confirmed by a person", "Потвърждава се от човек")}</div>`
+  return `<div class="component"><div class="component-head"><div><div class="component-name">${label}</div>${kindLabel}${step ? goLiveStepGuide(step, locale) : ""}<div class="component-detail">${detail}.${validity}</div></div>${goLiveMark(item.satisfied, locale)}</div>${form}</div>`
+}
+
+export function renderGoLive(view: GoLivePageView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+  const banner = GO_LIVE_BANNER[view.state]
+  const notice = view.notice ? `<div class="notice" role="status">${escapeHtml(view.notice)}</div>` : ""
+  const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
+  const readOnly = view.recoverySession
+    ? `<div class="empty">${localize(locale, "A console-recovery session can view this checklist but cannot record sign-offs.", "Аварийна сесия от конзолата може да преглежда списъка, но не може да записва потвърждения.")}</div>`
+    : ""
+  const progress = `<p class="component-detail">${escapeHtml(localize(locale,
+    `${view.progress.done} of ${view.progress.total} steps done. Leave at any time: this page picks up from what the appliance reports now.`,
+    `Изпълнени са ${view.progress.done} от ${view.progress.total} стъпки. Можете да спрете по всяко време: страницата продължава от това, което системата отчита сега.`))}</p>`
+  // Only while go-live is simply not finished. During maintenance or recovery
+  // the banner already says what comes first, and a "next step" would compete.
+  const next = view.state === "GO_LIVE_BLOCKED" && view.nextStep
+    ? `<section class="section" aria-labelledby="golive-next"><h2 id="golive-next">${localize(locale, "Next step", "Следваща стъпка")}</h2><div class="card"><div class="component"><div class="component-name">${escapeHtml(localize(locale, view.nextStep.en, view.nextStep.bg))}</div>${goLiveStepGuide(view.nextStep, locale)}${view.nextStep.kind === "signoff" ? `<div class="component-detail">${localize(locale, "Record it below once it is done.", "Запишете го по-долу, когато е изпълнено.")}</div>` : ""}</div></div></section>`
+    : ""
+  const stepById = new Map(view.steps.map(step => [step.id, step]))
+  const checkById = new Map(view.checks.map(check => [check.id, check]))
+  const signoffById = new Map(view.signoffs.map(item => [item.id, item]))
+  const placed = new Set(view.steps.map(step => step.id))
+  const stages = GO_LIVE_STAGES.map(stage => {
+    const rows = view.steps.filter(step => step.guide.stage === stage.id).map(step => {
+      const signoff = signoffById.get(step.id as GoLiveSignoffView["id"])
+      if (step.kind === "signoff" && signoff) return goLiveSignoffRow(signoff, view, locale, step)
+      const check = checkById.get(step.id)
+      return check ? goLiveCheckRow(check, step, locale) : ""
+    }).join("")
+    const counted = view.steps.filter(step => step.guide.stage === stage.id && !step.optional)
+    const done = counted.filter(step => step.satisfied).length
+    const total = counted.length
+    return `<section class="section" aria-labelledby="golive-stage-${stage.id}"><h2 id="golive-stage-${stage.id}">${escapeHtml(localize(locale, stage.en, stage.bg))} <span class="component-detail">${total ? `${done}/${total}` : localize(locale, "optional", "по избор")}</span></h2><div class="card">${rows}${stage.id === "people" ? readOnly : ""}</div></section>`
+  }).join("")
+  // A check or sign-off the journey does not place still has to be shown: the
+  // verdict counts it. Nothing is hidden because a guide entry is missing.
+  const unplaced = [
+    ...view.checks.filter(check => !placed.has(check.id)).map(check => goLiveCheckRow(check, stepById.get(check.id), locale)),
+    ...view.signoffs.filter(item => !placed.has(item.id)).map(item => goLiveSignoffRow(item, view, locale)),
+  ].join("")
+  const other = unplaced
+    ? `<section class="section" aria-labelledby="golive-other"><h2 id="golive-other">${localize(locale, "Also required", "Също се изисква")}</h2><div class="card">${unplaced}</div></section>`
+    : ""
+  return page(
+    localize(locale, "Clinical go-live readiness", "Готовност за клинична употреба"),
+    `<div class="shell">${statusHeader("/status/go-live", locale, audience, localize(locale, "Installed is not the same as ready", "Инсталирано не означава готово"))}<main><div class="banner ${banner.tone}" role="status"><strong>${escapeHtml(locale === "bg" ? banner.bg : banner.en)}</strong></div>${progress}${notice}${error}${next}${stages}${other}</main><footer class="foot">${localize(locale, "The verdict is recomputed from current observations on every view. Sign-offs record only a short note and a pseudonymous operator reference.", "Оценката се изчислява наново от текущите наблюдения при всеки преглед. Потвържденията записват само кратка бележка и псевдонимен идентификатор на оператора.")}</footer></div>`,
     locale,
   )
 }
@@ -1528,6 +1848,471 @@ export function renderApplyConfirm(
   return page(
     localize(locale, "Apply this update?", "Прилагане на обновяването?"),
     `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm update", "Потвърждение на обновяването")}</div></div></header><main><section class="section" aria-labelledby="confirm-title"><h2 id="confirm-title">${localize(locale, "Apply", "Прилагане на")} ${escapeHtml(version)}?</h2><div class="card"><div class="component"><p><strong>${localize(locale, "This restarts the clinical services.", "Това рестартира клиничните услуги.")}</strong> ${localize(locale, "Clinicians will not be able to open or save a case while it happens, and this page will stop responding for a few minutes. It comes back on its own.", "По време на обновяването клиницистите няма да могат да отварят или запазват случаи, а тази страница ще бъде недостъпна за няколко минути. Тя ще се възстанови автоматично.")}</p><p>${localize(locale, "The update may also change the database in ways that cannot be undone. A backup is taken first, automatically, before anything is altered.", "Обновяването може да промени базата данни по начин, който не може да бъде отменен. Преди промяната автоматично се създава архив.")}</p>${rollbackPolicy === "backup-required" ? `<div class="banner warn" role="alert"><strong>${localize(locale, "This release has no proved old-app/new-schema service rollback. If activation fails after migration starts, recovery uses the verified pre-update backup and requires a technician.", "За тази версия няма доказано връщане към старите услуги върху новата схема. Ако активирането се провали след началото на миграцията, възстановяването използва проверения архив преди обновяването и изисква техник.")}</strong></div>` : ""}<p>${escapeHtml(windowDescription)}</p></div><div class="component"><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="scheduled"><button type="submit">${localize(locale, "Yes, apply it", "Да, приложете го")}</button></form><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="override"><p class="component-detail">${localize(locale, "Or, if this cannot wait:", "Ако не може да изчака:")}</p><button type="submit" class="danger">${localize(locale, "Apply immediately, outside the maintenance window", "Прилагане веднага, извън прозореца за поддръжка")}</button></form><p><a href="/status/release">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    locale,
+  )
+}
+
+// ── maintenance: backup now, restore drill, site settings ────────────────────
+
+export type MaintenanceView = {
+  agentMode: "healthy" | "console-only" | "failed" | "unconfigured"
+  state: MaintenanceAgentSignal | null
+  settings: SiteConfigSignal | null
+  offhost: OffhostSignal | null
+  hostOs: HostOsSignal | null
+  supportBundle: SupportBundle | null
+  /** The escrow copy on offer, whether this administrator made it, and whether Status is still open to every private network. */
+  secretsEscrow?: { offer: SecretsEscrowOffer | null; mine: boolean; statusOpenToAllPrivate: boolean }
+  mayManage: boolean
+  recoverySession: boolean
+  notice?: string
+  error?: string
+}
+
+const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
+  MAINTENANCE_AGENT_READY: { en: "Ready.", bg: "В готовност." },
+  MAINTENANCE_RUNNING: { en: "Working on the last request.", bg: "Изпълнява последната заявка." },
+  MAINTENANCE_BACKUP_COMPLETED: { en: "The last backup completed and was verified.", bg: "Последното резервно копие завърши и беше проверено." },
+  MAINTENANCE_BACKUP_FAILED: { en: "The last backup failed. Check Backup on the overview.", bg: "Последното резервно копие се провали. Проверете „Резервно копие“ в прегледа." },
+  MAINTENANCE_DRILL_PASSED: { en: "The last restore drill passed.", bg: "Последното пробно възстановяване премина." },
+  MAINTENANCE_DRILL_FAILED: { en: "The last restore drill failed: that backup could not be restored. Take a new backup and ask Hospital IT to review the console.", bg: "Последното пробно възстановяване се провали: архивът не можа да бъде възстановен. Направете ново резервно копие и помолете болничния ИТ екип да провери конзолата." },
+  MAINTENANCE_DRILL_NO_BACKUP: { en: "There was no backup to drill. Take a backup first.", bg: "Нямаше архив за проверка. Първо направете резервно копие." },
+  MAINTENANCE_CONFIG_APPLIED: { en: "The settings change was applied and the health check passed.", bg: "Промяната на настройките беше приложена и проверката на изправността премина." },
+  MAINTENANCE_CONFIG_ROLLED_BACK: { en: "The settings change made the appliance unhealthy, so the previous settings were restored.", bg: "Промяната на настройките направи системата неизправна, затова предишните настройки бяха възстановени." },
+  MAINTENANCE_CONFIG_REFUSED: { en: "The host refused the settings change. Nothing was changed.", bg: "Сървърът отказа промяната на настройките. Нищо не е променено." },
+  MAINTENANCE_CONFIG_INVALID: { en: "The host found the proposed settings invalid. Nothing was changed.", bg: "Сървърът намери предложените настройки за невалидни. Нищо не е променено." },
+  MAINTENANCE_CONFIG_CONSOLE_ONLY: { en: "The change touched a setting that can only be changed at the console. Nothing was changed.", bg: "Промяната засягаше настройка, която се променя само от конзолата. Нищо не е променено." },
+  MAINTENANCE_CONFIG_PROPOSAL_MISMATCH: { en: "The proposal on the host was not the one confirmed. Nothing was changed.", bg: "Предложението на сървъра не беше потвърденото. Нищо не е променено." },
+  MAINTENANCE_CONFIG_PROPOSAL_UNSAFE: { en: "The proposal file on the host was unsafe. Nothing was changed.", bg: "Файлът с предложението на сървъра беше небезопасен. Нищо не е променено." },
+  MAINTENANCE_CONFIG_RECOVERY_REQUIRED: { en: "RECOVERY REQUIRED: the previous settings could not be brought back healthy. Hospital IT must use the console.", bg: "НУЖНО Е ВЪЗСТАНОВЯВАНЕ: предишните настройки не можаха да бъдат върнати в изправно състояние. Болничният ИТ екип трябва да използва конзолата." },
+  MAINTENANCE_CONFIG_INTERRUPTED: { en: "A settings change was interrupted part way. Hospital IT must check the console before anything else is changed.", bg: "Промяна на настройките беше прекъсната. Болничният ИТ екип трябва да провери конзолата, преди да се променя друго." },
+  MAINTENANCE_INTERRUPTED: { en: "The last operation was interrupted. It changed nothing clinical and can be requested again.", bg: "Последната операция беше прекъсната. Тя не е променила нищо клинично и може да бъде заявена отново." },
+  MAINTENANCE_BUSY: { en: "Another maintenance operation was running. Nothing was changed; try again when it finishes.", bg: "Изпълняваше се друга операция по поддръжка. Нищо не е променено; опитайте отново, когато приключи." },
+  MAINTENANCE_REQUEST_EXPIRED: { en: "The request waited too long and was not run. Request it again.", bg: "Заявката чака твърде дълго и не беше изпълнена. Заявете я отново." },
+  MAINTENANCE_REQUEST_REPLAYED: { en: "A request that had already run was refused.", bg: "Вече изпълнена заявка беше отказана." },
+  MAINTENANCE_OFFHOST_CONFIGURED: { en: "The off-host destination was saved. Test the connection next.", bg: "Мястото за копия извън сървъра е запазено. Следва проверка на връзката." },
+  MAINTENANCE_OFFHOST_CONFIG_REFUSED: { en: "The host refused the off-host destination. For a share, check that it is mounted; for SFTP, that the server answers.", bg: "Сървърът отказа мястото за копия. За споделена папка проверете дали е монтирана; за SFTP — дали сървърът отговаря." },
+  MAINTENANCE_OFFHOST_TEST_PASSED: { en: "The connection test passed: a test file was stored, read back unchanged and deleted.", bg: "Проверката на връзката премина: пробен файл беше записан, прочетен непроменен и изтрит." },
+  MAINTENANCE_OFFHOST_TEST_FAILED: { en: "The connection test failed. For SFTP, check that the public key below is installed for the user.", bg: "Проверката на връзката се провали. За SFTP проверете дали публичният ключ по-долу е инсталиран за потребителя." },
+  MAINTENANCE_OFFHOST_DRILL_PASSED: { en: "The off-host drill passed: the newest copy was fetched, authenticated, decrypted and restored into a temporary database.", bg: "Проверката от копието извън сървъра премина: най-новото копие беше изтеглено, удостоверено, дешифровано и възстановено във временна база данни." },
+  MAINTENANCE_OFFHOST_DISABLED: { en: "Off-host copies are turned off. Copies already made stay at the destination, and the keys to read them are kept.", bg: "Копията извън сървъра са изключени. Вече направените копия остават на мястото, а ключовете за четенето им се пазят." },
+  MAINTENANCE_OFFHOST_DISABLE_FAILED: { en: "Off-host copies could not be turned off. Hospital IT should run sudo losporctl backup offhost disable at the console.", bg: "Копията извън сървъра не можаха да бъдат изключени. Болничният ИТ екип трябва да изпълни sudo losporctl backup offhost disable в конзолата." },
+  MAINTENANCE_OFFHOST_CUSTOM_HOOK: { en: "Refused: this appliance already has its own off-host copy script. Use one or the other; Hospital IT must remove that script first.", bg: "Отказано: тази система вече има собствен скрипт за копиране извън сървъра. Използвайте едното или другото; болничният ИТ екип трябва първо да премахне този скрипт." },
+  MAINTENANCE_OFFHOST_DRILL_FAILED: { en: "The off-host drill failed. Hospital IT should review .data/offhost on the console.", bg: "Проверката от копието извън сървъра се провали. Болничният ИТ екип трябва да прегледа .data/offhost в конзолата." },
+  MAINTENANCE_ADVANCED_APPLIED: { en: "The advanced settings were applied and the health check passed.", bg: "Разширените настройки бяха приложени и проверката на изправността премина." },
+  MAINTENANCE_ADVANCED_INVALID: { en: "The host found an advanced value outside its limits. Nothing was changed.", bg: "Сървърът откри разширена стойност извън допустимите граници. Нищо не е променено." },
+  MAINTENANCE_OS_UPDATED: { en: "Ubuntu security updates were installed.", bg: "Обновленията за сигурност на Ubuntu бяха инсталирани." },
+  MAINTENANCE_OS_UPDATE_FAILED: { en: "Installing Ubuntu security updates failed. Hospital IT can see why in .data/host-os/last-security-update.log.", bg: "Инсталирането на обновленията за сигурност на Ubuntu се провали. Болничният ИТ екип може да види причината в .data/host-os/last-security-update.log." },
+  MAINTENANCE_OS_REBOOT_STARTED: { en: "A backup was taken and the server restart was started. Clinical services return on their own in a few minutes.", bg: "Беше направен архив и рестартирането на сървъра започна. Клиничните услуги се връщат сами след няколко минути." },
+  MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED: { en: "Ubuntu needed a restart: a backup was taken and the server restarted itself in the update window.", bg: "Ubuntu имаше нужда от рестартиране: беше направен архив и сървърът се рестартира сам в прозореца за обновяване." },
+  MAINTENANCE_ROTATION_COMMITTED: { en: "The credentials were rotated and every new one verified. Everyone signs in again. Escrow the installation secrets again now.", bg: "Данните за достъп са сменени и всяка нова стойност е проверена. Всички влизат отново. Съхранете инсталационните тайни отново сега." },
+  MAINTENANCE_ROTATION_ROLLED_BACK: { en: "The rotation did not verify, so the previous credentials were restored. Nothing changed for users.", bg: "Смяната не премина проверката, затова предишните данни за достъп са върнати. За потребителите нищо не се промени." },
+  MAINTENANCE_ROTATION_REFUSED: { en: "The rotation could not be prepared. Nothing was changed. Hospital IT can see why with: sudo losporctl secrets state", bg: "Смяната не можа да бъде подготвена. Нищо не е променено. Болничният ИТ екип може да види причината с: sudo losporctl secrets state" },
+  MAINTENANCE_ROTATION_ALREADY_PENDING: { en: "A rotation is already pending from the console. Hospital IT must commit or roll it back there: sudo losporctl secrets state", bg: "Вече има чакаща смяна от конзолата. Болничният ИТ екип трябва да я приложи или отмени там: sudo losporctl secrets state" },
+  MAINTENANCE_ROTATION_RECOVERY_REQUIRED: { en: "RECOVERY REQUIRED: the rotation stopped with credentials still pending. Hospital IT must run sudo losporctl secrets state at the console.", bg: "НУЖНО Е ВЪЗСТАНОВЯВАНЕ: смяната спря с чакащи данни за достъп. Болничният ИТ екип трябва да изпълни sudo losporctl secrets state в конзолата." },
+  MAINTENANCE_ROTATION_INTERRUPTED: { en: "A credential rotation was interrupted part way. Hospital IT must run sudo losporctl secrets state at the console before anything else.", bg: "Смяна на данните за достъп беше прекъсната. Болничният ИТ екип трябва да изпълни sudo losporctl secrets state в конзолата, преди всичко друго." },
+  MAINTENANCE_SUPPORT_BUNDLE_CREATED: { en: "A support bundle was written. Download it below.", bg: "Файлът за поддръжка е записан. Изтеглете го по-долу." },
+  MAINTENANCE_SUPPORT_BUNDLE_FAILED: { en: "The support bundle could not be written. Hospital IT can run sudo losporctl support-bundle create at the console.", bg: "Файлът за поддръжка не можа да бъде записан. Болничният ИТ екип може да изпълни sudo losporctl support-bundle create в конзолата." },
+  MAINTENANCE_ESCROW_READY: { en: "The escrow copy is ready. Download it below within 30 minutes.", bg: "Копието за съхранение е готово. Изтеглете го по-долу до 30 минути." },
+  MAINTENANCE_ESCROW_RECORDED: { en: "The escrow copy was downloaded, and Go-live now counts the secrets as escrowed.", bg: "Копието за съхранение е изтеглено и „Готовност“ вече отчита тайните като съхранени." },
+  MAINTENANCE_ESCROW_FAILED: { en: "The escrow copy could not be written, or did not open to the secrets in use. Nothing was recorded. Hospital IT can run sudo losporctl secrets escrow /media/usb at the console.", bg: "Копието за съхранение не можа да бъде записано или не се отвори до използваните тайни. Нищо не е отбелязано. Болничният ИТ екип може да изпълни sudo losporctl secrets escrow /media/usb в конзолата." },
+  MAINTENANCE_ESCROW_DAILY_LIMIT: { en: "Three escrow copies were already made in the last 24 hours, so no new one was written.", bg: "През последните 24 часа вече са направени три копия за съхранение, затова не е записано ново." },
+  MAINTENANCE_ESCROW_NOT_OFFERED: { en: "The downloaded escrow copy was no longer the one on offer, so nothing was recorded. Create a new copy.", bg: "Изтегленото копие за съхранение вече не беше предлаганото, затова нищо не е отбелязано. Създайте ново копие." },
+  MAINTENANCE_OS_REBOOT_BACKUP_FAILED: { en: "The backup taken before the restart failed, so the server was not restarted.", bg: "Архивът преди рестартирането се провали, затова сървърът не беше рестартиран." },
+}
+
+function maintenanceResult(code: string, locale: StatusLocale): string {
+  const known = MAINTENANCE_RESULTS[code]
+  return known ? localize(locale, known.en, known.bg) : localize(locale, `The host reported ${code}.`, `Сървърът отчете ${code}.`)
+}
+
+type ActionFacts = {
+  prerequisites: [string, string]
+  outage: [string, string]
+  backup: [string, string]
+  boundary: [string, string]
+  verification: [string, string]
+}
+
+function actionFacts(facts: ActionFacts, locale: StatusLocale): string {
+  const row = (en: string, bg: string, value: [string, string]) =>
+    `<div class="fact"><b>${localize(locale, en, bg)}</b>${escapeHtml(localize(locale, value[0], value[1]))}</div>`
+  return `<div class="facts">${[
+    row("Needs", "Изисква", facts.prerequisites),
+    row("Service interruption", "Прекъсване", facts.outage),
+    row("Backup first", "Архив преди това", facts.backup),
+    row("Maintenance lock", "Заключване за поддръжка", ["Shared with backups, updates and terminology: one operation at a time.", "Общо с архивите, обновяванията и терминологията: по една операция."]),
+    row("Cannot be undone", "Не може да се отмени", facts.boundary),
+    row("Checked afterwards", "Проверява се след това", facts.verification),
+  ].join("")}</div>`
+}
+
+function passwordConfirm(id: string, locale: StatusLocale): string {
+  return `<label for="${id}">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="${id}" name="password" type="password" autocomplete="current-password" maxlength="256" required>`
+}
+
+export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+  const notice = view.notice ? `<div class="notice" role="status">${escapeHtml(view.notice)}</div>` : ""
+  const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
+  const state = view.state
+  const busy = state !== null && ["accepted", "working"].includes(state.phase)
+  const blocked = state?.phase === "needs-operator"
+  let current: string
+  if (view.agentMode === "console-only") {
+    current = localize(locale, "Browser maintenance is intentionally disabled on this appliance. Hospital IT uses losporctl at the console.", "Поддръжката от браузъра е изключена умишлено на тази система. Болничният ИТ екип използва losporctl от конзолата.")
+  } else if (view.agentMode !== "healthy" || !state) {
+    current = localize(locale, "No fresh report from the host maintenance agent. Browser maintenance is disabled rather than assuming the host is ready.", "Няма нов отчет от агента за поддръжка на сървъра. Поддръжката от браузъра е изключена, вместо да се приема, че сървърът е готов.")
+  } else {
+    current = maintenanceResult(state.resultCode, locale)
+  }
+  const disabledReason = view.recoverySession
+    ? localize(locale, "A console-recovery session can view this page but cannot request maintenance.", "Аварийна сесия от конзолата може да преглежда страницата, но не може да заявява поддръжка.")
+    : blocked
+      ? localize(locale, "The host stopped and needs Hospital IT at the console before anything else is requested.", "Сървърът е спрял и болничният ИТ екип трябва да провери конзолата, преди да се заявява друго.")
+      : busy
+        ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Изпълнява се операция по поддръжка. Страницата е само за преглед до приключването ѝ.")
+        : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
+  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle", label: string, danger = false) => view.mayManage
+    ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit"${danger ? ' class="danger"' : ""}>${escapeHtml(label)}</button></form>`
+    : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+
+  const backupCard = `<div class="component"><div class="component-name">${localize(locale, "Back up now", "Резервно копие сега")}</div>${actionFacts({
+    prerequisites: ["The database running.", "Работеща база данни."],
+    outage: ["None.", "Няма."],
+    backup: ["This is the backup.", "Това е архивът."],
+    boundary: ["Nothing.", "Нищо."],
+    verification: ["The backup is checksum-verified before it counts; see Backup on the overview.", "Архивът се проверява с контролна сума, преди да се зачете; вижте „Резервно копие“ в прегледа."],
+  }, locale)}${actionForm("backup", localize(locale, "Back up now", "Резервно копие сега"))}</div>`
+
+  const drills = state?.drills.length
+    ? `<ol class="timeline">${[...state.drills].reverse().map(drill => `<li><time>${escapeHtml(drill.completedAt)}</time><strong>${drill.result === "passed" ? localize(locale, "Passed", "Премина") : localize(locale, "Failed", "Провали се")}</strong> <span class="mono">${escapeHtml(drill.backup)}</span></li>`).join("")}</ol>`
+    : `<div class="empty">${localize(locale, "No restore drill has been run from Status yet.", "Още няма пробно възстановяване, пуснато от Status.")}</div>`
+  const drillCard = `<div class="component"><div class="component-name">${localize(locale, "Restore drill", "Пробно възстановяване")}</div><div class="component-detail">${localize(locale, "Proves the newest backup can be restored: it is restored into a separate temporary database, migrated and validated, then the copy is removed. The live database is not touched.", "Доказва, че най-новият архив може да бъде възстановен: той се възстановява в отделна временна база данни, мигрира се и се проверява, след което копието се премахва. Действащата база данни не се засяга.")}</div>${actionFacts({
+    prerequisites: ["At least one backup.", "Поне един архив."],
+    outage: ["None. The server is busier for a minute or two.", "Няма. Сървърът е по-натоварен минута-две."],
+    backup: ["No.", "Не."],
+    boundary: ["Nothing. The temporary copy is removed.", "Нищо. Временното копие се премахва."],
+    verification: ["The result is kept below. Record a passed drill on the Go-live page.", "Резултатът се пази по-долу. Отбележете успешна проверка на страницата „Готовност“."],
+  }, locale)}${actionForm("drill", localize(locale, "Run a restore drill", "Пробно възстановяване"))}${drills}</div>`
+
+  return page(
+    localize(locale, "Appliance maintenance", "Поддръжка на системата"),
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${escrowSection(view, disabledReason, locale)}${supportBundleSection(view, actionForm, locale)}${rotationSection(view, disabledReason, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    locale,
+  )
+}
+
+const OFFHOST_RESULTS: Record<string, { en: string; bg: string }> = {
+  OFFHOST_COPY_ACKNOWLEDGED: { en: "copied and read back", bg: "копирано и прочетено обратно" },
+  OFFHOST_COPY_FAILED: { en: "failed, will retry", bg: "неуспешно, ще се опита отново" },
+  OFFHOST_BUSY: { en: "waited for another maintenance operation", bg: "изчака друга операция по поддръжка" },
+  OFFHOST_CAPACITY_REFUSED: { en: "not enough free disk", bg: "няма достатъчно свободно място" },
+  OFFHOST_ENCRYPT_FAILED: { en: "could not encrypt", bg: "шифроването се провали" },
+  OFFHOST_CONFIG_INVALID: { en: "configuration invalid", bg: "невалидна настройка" },
+  OFFHOST_TEST_PASSED: { en: "passed", bg: "премина" },
+  OFFHOST_TEST_FAILED: { en: "failed", bg: "провали се" },
+  OFFHOST_DRILL_PASSED: { en: "passed", bg: "премина" },
+  OFFHOST_CUSTOM_HOOK_CONFLICT: { en: "stopped: a custom off-host script is also installed", bg: "спряно: инсталиран е и собствен скрипт за копиране" },
+}
+
+function offhostResult(result: { at: string; result: string } | undefined, locale: StatusLocale): string {
+  if (!result) return localize(locale, "not yet", "още не")
+  const known = OFFHOST_RESULTS[result.result]
+  const words = known ? localize(locale, known.en, known.bg)
+    : result.result.startsWith("OFFHOST_DRILL_") ? localize(locale, "failed", "провали се") : result.result
+  return `${words} · ${result.at}`
+}
+
+function offhostSection(
+  view: MaintenanceView,
+  disabledReason: string,
+  actionForm: (action: "offhost-test" | "offhost-drill" | "offhost-disable", label: string) => string,
+  locale: StatusLocale,
+): string {
+  const offhost = view.offhost
+  const destination = offhost?.destination
+  const facts = actionFacts({
+    prerequisites: ["A share Hospital IT has mounted under /mnt, /media or /srv, or an SFTP account that accepts the key below.", "Споделена папка, монтирана от болничния ИТ екип в /mnt, /media или /srv, или SFTP акаунт, който приема ключа по-долу."],
+    outage: ["None.", "Няма."],
+    backup: ["Copies are made from verified backups only.", "Копират се само проверени архиви."],
+    boundary: ["Nothing here. Keep the encryption key escrowed: without it no copy can be read.", "Нищо тук. Пазете ключа за шифроване в сейфа: без него никое копие не може да бъде прочетено."],
+    verification: ["Every copy is read back and compared before it counts; a drill restores one.", "Всяко копие се прочита обратно и се сравнява, преди да се зачете; проверката възстановява копие."],
+  }, locale)
+  let current: string
+  if (!destination) {
+    current = `<div class="empty">${localize(locale, "Off-host copies are not set up. A backup that exists only on this server is lost with it.", "Копията извън сървъра не са настроени. Архив, който съществува само на този сървър, се губи заедно с него.")}</div>`
+  } else {
+    const where = destination.type === "mount"
+      ? localize(locale, `Share mounted at ${destination.path}`, `Споделена папка в ${destination.path}`)
+      : `sftp://${destination.user}@${destination.host}:${destination.port}/${destination.directory}`
+    const identities = destination.type === "sftp"
+      ? `<div class="component"><div class="component-name">${localize(locale, `Install this public key for ${destination.user} on the SFTP server`, `Инсталирайте този публичен ключ за ${destination.user} на SFTP сървъра`)}</div><div class="component-detail mono">${escapeHtml(offhost?.sshPublicKey ?? "")}</div><div class="component-name">${localize(locale, "Server host keys pinned at setup — confirm them with the server's administrator", "Ключове на сървъра, закрепени при настройката — потвърдете ги с администратора на сървъра")}</div><div class="component-detail mono">${(offhost?.hostKeyFingerprints ?? []).map(escapeHtml).join("<br>")}</div></div>`
+      : ""
+    const drills = offhost?.drills.length
+      ? `<ol class="timeline">${[...offhost.drills].reverse().map(drill => `<li><time>${escapeHtml(drill.completedAt)}</time><strong>${drill.result === "passed" ? localize(locale, "Passed", "Премина") : localize(locale, "Failed", "Провали се")}</strong> <span class="mono">${escapeHtml(drill.backup)}</span></li>`).join("")}</ol>`
+      : ""
+    current = `<div class="facts">${[
+      releaseFact(localize(locale, "Destination", "Място"), where),
+      releaseFact(localize(locale, "Last copy", "Последно копие"), offhostResult(offhost?.lastRun, locale)),
+      releaseFact(localize(locale, "Last connection test", "Последна проверка на връзката"), offhostResult(offhost?.lastTest, locale)),
+      releaseFact(localize(locale, "Last drill from off-host", "Последна проверка от копие"), offhostResult(offhost?.lastDrill, locale)),
+      releaseFact(localize(locale, "Encryption key fingerprint", "Отпечатък на ключа за шифроване"), offhost?.encryptionKeyFingerprint ?? "-"),
+    ].join("")}</div>${identities}${actionForm("offhost-test", localize(locale, "Test the connection", "Проверка на връзката"))}${actionForm("offhost-drill", localize(locale, "Drill from the newest off-host copy", "Проверка от най-новото копие"))}${drills}<details class="admin-action"><summary>${localize(locale, "Turn off off-host copies", "Изключване на копията извън сървъра")}</summary><p class="component-detail">${localize(locale, "New backups stop being copied elsewhere, and Status warns until copies are set up again. Copies already made stay at the destination and the keys to read them are kept.", "Новите архиви спират да се копират другаде и Status предупреждава, докато копията не бъдат настроени отново. Вече направените копия остават на мястото, а ключовете за четенето им се пазят.")}</p>${actionForm("offhost-disable", localize(locale, "Turn off", "Изключване"))}</details>`
+  }
+  const setup = view.mayManage
+    ? `<details class="admin-action"${destination ? "" : " open"}><summary>${destination ? localize(locale, "Change the destination", "Смяна на мястото") : localize(locale, "Set up off-host copies", "Настройка на копия извън сървъра")}</summary><form method="post" action="/status/maintenance/offhost"><fieldset><legend>${localize(locale, "Mounted network share (SMB or NFS)", "Монтирана мрежова папка (SMB или NFS)")}</legend><label class="check"><input type="radio" name="type" value="mount" required><span>${localize(locale, "Use a share Hospital IT has already mounted", "Използване на папка, монтирана от болничния ИТ екип")}</span></label><label for="offhost-path">${localize(locale, "Mount path", "Път на монтиране")}</label><input id="offhost-path" name="path" placeholder="/mnt/lospor-backups" maxlength="200" autocomplete="off"></fieldset><fieldset><legend>SFTP</legend><label class="check"><input type="radio" name="type" value="sftp"><span>${localize(locale, "Use an SFTP server (key authentication only)", "Използване на SFTP сървър (само с ключ)")}</span></label><div class="form-grid"><div><label for="offhost-host">${localize(locale, "Server", "Сървър")}</label><input id="offhost-host" name="host" maxlength="253" autocomplete="off"></div><div><label for="offhost-port">${localize(locale, "Port", "Порт")}</label><input id="offhost-port" name="port" value="22" inputmode="numeric" maxlength="5"></div><div><label for="offhost-user">${localize(locale, "User", "Потребител")}</label><input id="offhost-user" name="user" maxlength="32" autocomplete="off"></div><div><label for="offhost-directory">${localize(locale, "Directory", "Директория")}</label><input id="offhost-directory" name="directory" value="lospor-backups" maxlength="200" autocomplete="off"></div></div></fieldset>${passwordConfirm("offhost-password", locale)}<button type="submit">${localize(locale, "Save the destination", "Запазване на мястото")}</button></form></details>`
+    : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  return `<section class="section" aria-labelledby="maintenance-offhost"><h2 id="maintenance-offhost">${localize(locale, "Copies kept elsewhere", "Копия извън сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Each verified backup is encrypted on this server, copied to the destination, read back and compared. Only then does it count as kept elsewhere.", "Всеки проверен архив се шифрова на този сървър, копира се на мястото, прочита се обратно и се сравнява. Едва тогава се счита за пазен извън сървъра.")}</div>${facts}${current}${setup}</div></div></section>`
+}
+
+const HOST_OS_WORDS: Record<string, { en: string; bg: string }> = {
+  enabled: { en: "on", bg: "включени" },
+  disabled: { en: "off", bg: "изключени" },
+  "not-installed": { en: "not installed", bg: "не са инсталирани" },
+  unknown: { en: "unknown", bg: "неизвестно" },
+  success: { en: "succeeded", bg: "успешно" },
+  failed: { en: "failed", bg: "неуспешно" },
+  never: { en: "not since the server started", bg: "не и откакто сървърът е стартиран" },
+  passed: { en: "succeeded", bg: "успешно" },
+  busy: { en: "waited for another operation", bg: "изчака друга операция" },
+  started: { en: "started", bg: "започнато" },
+  "security-update": { en: "Security updates", bg: "Обновления за сигурност" },
+  reboot: { en: "Server restart", bg: "Рестартиране на сървъра" },
+  upgrade: { en: "Full upgrade (console)", bg: "Пълно надграждане (конзола)" },
+}
+
+function hostOsWord(value: string, locale: StatusLocale): string {
+  const word = HOST_OS_WORDS[value]
+  return word ? localize(locale, word.en, word.bg) : value
+}
+
+function hostOsSection(
+  view: MaintenanceView,
+  actionForm: (action: "os-update" | "os-reboot", label: string, danger?: boolean) => string,
+  locale: StatusLocale,
+): string {
+  const title = `<h2 id="maintenance-host-os">${localize(locale, "Server operating system (Ubuntu)", "Операционна система на сървъра (Ubuntu)")}</h2>`
+  const os = view.hostOs
+  if (!os) {
+    return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="empty">${localize(locale, "Host monitoring has not reported Ubuntu's state. Hospital IT can check it with: sudo losporctl host state", "Наблюдението на сървъра не е отчело състоянието на Ubuntu. Болничният ИТ екип може да го провери с: sudo losporctl host state")}</div></div></section>`
+  }
+  const unknown = localize(locale, "unknown", "неизвестно")
+  const when = (value: string | null) => value ?? unknown
+  const facts = `<div class="facts">${[
+    releaseFact(localize(locale, "Ubuntu release", "Версия на Ubuntu"), os.release ?? unknown),
+    releaseFact(localize(locale, "Security fixes until", "Поправки за сигурност до"), when(os.standardSupportEnds)),
+    releaseFact(localize(locale, "Security updates waiting", "Чакащи обновления за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
+    releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновления"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
+    releaseFact(localize(locale, "Automatic security updates", "Автоматични обновления за сигурност"), hostOsWord(os.automaticUpdates, locale)),
+    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
+    releaseFact(localize(locale, "Restart needed", "Нужно рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${when(os.rebootRequiredSince)}`, `да, от ${when(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
+    releaseFact(localize(locale, "Running since", "Работи от"), when(os.bootedAt)),
+    releaseFact(localize(locale, "Restart policy", "Политика за рестартиране"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновяване") : localize(locale, "manual", "ръчно")),
+    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последна операция от LOSPOR"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
+  ].join("")}</div>`
+  const docker = os.dockerUpdates
+    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновления на Docker. Инсталирането им рестартира всички клинични услуги, затова болничният ИТ екип го прави от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
+    : ""
+  const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновленията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Същите обновления за сигурност, които Ubuntu инсталира сам всяка нощ, но сега. Docker не се обновява оттук.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работещ агент на сървъра и достъпно огледало на Ubuntu."],
+    outage: ["Usually none. A few system services may restart.", "Обикновено няма. Някои системни услуги може да се рестартират."],
+    backup: ["No: application data is not touched.", "Не: данните на приложението не се засягат."],
+    boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват обратно."],
+    verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
+  }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на обновленията сега"))}</div>`
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu има нужда от рестартиране, за да завърши обновленията.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматичната политика системата се рестартира сама в прозореца за обновяване, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, set the restart policy to window in Site settings.", "За да го прави системата сама в прозореца за обновяване, задайте политика window в „Настройки на сайта“.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent and a successful backup.", "Работещ агент на сървъра и успешен архив."],
+    outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: клиницистите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът се върне."],
+    backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверен архив; ако той се провали, сървърът не се рестартира."],
+    boundary: ["Nothing clinical changes.", "Нищо клинично не се променя."],
+    verification: ["Every service starts again by itself; the overview shows when they are back.", "Всички услуги стартират отново сами; прегледът показва кога са се върнали."],
+  }, locale)}${os.rebootRequired ? actionForm("os-reboot", localize(locale, "Back up and restart now", "Архив и рестартиране сега"), true) : ""}</div>`
+  return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="component">${facts}${docker}</div>${update}${restart}</div></section>`
+}
+
+function rotationSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const form = view.mayManage
+    ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="rotate-credentials"><label class="check"><input type="checkbox" name="confirmation" value="ROTATE-CREDENTIALS" required> ${localize(locale, "I understand that everyone using LOSPOR signs in again, and that the installation secrets must be escrowed again afterwards", "Разбирам, че всички потребители на LOSPOR влизат отново и че инсталационните тайни трябва да се съхранят отново след това")}</label>${passwordConfirm("rotate-credentials-password", locale)}<button type="submit" class="danger">${localize(locale, "Rotate the credentials", "Смяна на данните за достъп")}</button></form>`
+    : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  return `<section class="section" aria-labelledby="maintenance-rotation"><h2 id="maintenance-rotation">${localize(locale, "Credential rotation", "Смяна на данните за достъп")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Replaces the passwords and keys the appliance's own services use to talk to each other: the sign-in session key, the worker tokens, the Status tokens and both database passwords. Patient-identity and encryption keys are never rotated here, because changing them would make stored data unreadable.", "Сменя паролите и ключовете, с които услугите на системата говорят помежду си: ключа за сесиите при вход, токените на работните процеси, токените на Status и двете пароли за базата данни. Ключовете за идентичност на пациентите и за шифроване никога не се сменят оттук, защото смяната им би направила записаните данни нечетими.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent and no rotation already pending.", "Работещ агент на сървъра и никаква вече чакаща смяна."],
+    outage: ["Services restart for a few minutes, and everyone using the web app, phone app and printouts signs in again. Status sign-in is not affected.", "Услугите се рестартират за няколко минути и всички потребители на уеб приложението, мобилното приложение и разпечатките влизат отново. Входът в Status не се засяга."],
+    backup: ["Not needed: patient data is not touched.", "Не е нужен: данните за пациентите не се засягат."],
+    boundary: ["Old credentials stop working. If anything fails, the previous credentials are restored automatically.", "Старите данни за достъп спират да работят. Ако нещо се провали, предишните данни се връщат автоматично."],
+    verification: ["Every new credential is checked, and every old one proven refused. Then escrow the installation secrets again.", "Всяка нова стойност се проверява, а всяка стара се доказва като отказана. След това съхранете инсталационните тайни отново."],
+  }, locale)}${form}</div></div></section>`
+}
+
+// The secrets escrow copy: made on the server, downloaded to a USB stick on the
+// administrator's own computer. The console route stays for sites without a
+// working Status or agent.
+function escrowSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const escrow = view.secretsEscrow
+  if (!escrow) return ""
+  const offer = escrow.offer
+  const until = offer
+    ? new Date(Date.parse(offer.createdAt) + SECRETS_ESCROW_OFFER_MS).toISOString().slice(11, 16)
+    : ""
+  const current = !offer
+    ? ""
+    : escrow.mine
+      ? `<p><a href="/status/maintenance/escrow/download"><strong>${localize(locale, "Download the escrow copy", "Изтеглете копието за съхранение")}</strong></a></p><p class="component-detail">${escapeHtml(localize(locale, `Save it to a USB stick, not to this computer. Offered until ${until} UTC, and removed from the server once downloaded.`, `Запишете го на USB памет, а не на този компютър. Предлага се до ${until} UTC и се премахва от сървъра след изтегляне.`))}</p>`
+      : `<p class="component-detail">${escapeHtml(localize(locale, `A copy made by another administrator is waiting until ${until} UTC. Only they saw its password, so only they can download it.`, `Копие, направено от друг администратор, чака до ${until} UTC. Само той видя паролата му, затова само той може да го изтегли.`))}</p>`
+  const form = !view.mayManage
+    ? `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+    : escrow.statusOpenToAllPrivate
+      ? `<p class="component-detail">${localize(locale, "Set the Status network list under Site settings first. The escrow copy is offered only when Status opens from the IT management networks alone. At the console instead: sudo losporctl secrets escrow /media/usb", "Първо задайте мрежите за Status в „Настройки на сайта“. Копието за съхранение се предлага само когато Status се отваря единствено от мрежите за ИТ управление. Или в конзолата: sudo losporctl secrets escrow /media/usb")}</p>`
+      : `<form method="post" action="/status/maintenance/escrow">${passwordConfirm("escrow-password", locale)}<label for="escrow-code">${localize(locale, "Code from your authenticator app", "Код от приложението за удостоверяване")}</label><input id="escrow-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required><button type="submit">${localize(locale, "Create the escrow copy", "Създайте копие за съхранение")}</button></form>`
+  return `<section class="section" aria-labelledby="maintenance-escrow"><h2 id="maintenance-escrow">${localize(locale, "Secrets escrow", "Съхранение на тайните")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Backups hold only fingerprints of the secrets. If this server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good. This writes site.env, .env, advanced.env and secrets/ into one locked file that you download to a USB stick on your own computer. Its password is shown once, when you create it: keep the password in the hospital's password vault and the USB stick somewhere else. Either one alone opens nothing.", "Архивите съдържат само отпечатъци на тайните. Ако сървърът се загуби и тайните му не съществуват другаде, всяка запазена самоличност на пациент става нечетима завинаги. Това записва site.env, .env, advanced.env и secrets/ в един заключен файл, който изтегляте на USB памет на своя компютър. Паролата му се показва веднъж, при създаването: пазете паролата в хранилището за пароли на болницата, а USB паметта на друго място. Всяко от двете само по себе си не отваря нищо.")}</div>${actionFacts({
+    prerequisites: ["Status limited to the IT management networks, your password and a code from your authenticator app.", "Status, ограничен до мрежите за ИТ управление, паролата ви и код от приложението за удостоверяване."],
+    outage: ["None.", "Няма."],
+    backup: ["No.", "Не."],
+    boundary: ["Whoever holds the file and its password can read every secret of this installation. At most three copies a day; every one is logged and shown on the overview.", "Който държи файла и паролата му, може да прочете всяка тайна на тази инсталация. Най-много три копия на ден; всяко се записва и се показва в прегледа."],
+    verification: ["The server decrypts the copy and requires it to match the secrets in use before offering it. Go-live counts the secrets as escrowed once it is downloaded.", "Сървърът дешифрира копието и изисква то да съвпада с използваните тайни, преди да го предложи. „Готовност“ отчита тайните като съхранени, след като то бъде изтеглено."],
+  }, locale)}${current}${form}</div></div></section>`
+}
+
+/** Shown once, straight after the request: the password is not stored anywhere Status can show it again. */
+export function renderEscrowPassphrase(passphrase: string, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+  return page(
+    localize(locale, "Escrow copy password", "Парола на копието за съхранение"),
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Secrets escrow", "Съхранение на тайните"))}<main><section class="section secret-card" aria-labelledby="escrow-passphrase"><h2 id="escrow-passphrase">${localize(locale, "Write down this password now", "Запишете тази парола сега")}</h2><p>${localize(locale, "It opens the escrow copy. It is shown only this once and cannot be shown again. Store it in the hospital's password vault, never on the USB stick with the file.", "Тя отваря копието за съхранение. Показва се само сега и не може да бъде показана отново. Съхранете я в хранилището за пароли на болницата, никога на USB паметта заедно с файла.")}</p><p class="secret">${escapeHtml(passphrase)}</p><p>${localize(locale, "The server is writing the copy now, which takes about a minute. Then download it from Maintenance within 30 minutes.", "Сървърът записва копието сега, което отнема около минута. След това го изтеглете от „Поддръжка“ до 30 минути.")}</p><p><a href="/status/maintenance#maintenance-escrow"><strong>${localize(locale, "I have written it down: go to the download", "Записах я: към изтеглянето")}</strong></a></p></section></main></div>`,
+    locale,
+  )
+}
+
+function supportBundleSection(
+  view: MaintenanceView,
+  actionForm: (action: "support-bundle", label: string) => string,
+  locale: StatusLocale,
+): string {
+  const bundle = view.supportBundle
+  const current = bundle
+    ? `<div class="facts">${releaseFact(localize(locale, "Last bundle written", "Последен файл"), `${bundle.createdAt} · ${bundle.release}`)}</div><p><a href="/status/maintenance/support-bundle">${localize(locale, "Download the support bundle", "Изтегляне на файла за поддръжка")}</a></p>`
+    : `<div class="empty">${localize(locale, "No support bundle has been written yet.", "Все още няма записан файл за поддръжка.")}</div>`
+  return `<section class="section" aria-labelledby="maintenance-support"><h2 id="maintenance-support">${localize(locale, "Support bundle", "Файл за поддръжка")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "A file for LOSPOR support with versions, states, times and check results only: no patients, cases, accounts, names, addresses or secrets. Read it before you send it.", "Файл за поддръжката на LOSPOR само с версии, състояния, времена и резултати от проверки: без пациенти, случаи, акаунти, имена, адреси или тайни. Прочетете го, преди да го изпратите.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    outage: ["None. The full health check runs, so the server is busier for a minute.", "Няма. Изпълнява се пълната проверка, затова сървърът е по-натоварен около минута."],
+    backup: ["No.", "Не."],
+    boundary: ["Nothing. Only the newest bundle is offered here.", "Нищо. Тук се предлага само най-новият файл."],
+    verification: ["The file is offered for download once written.", "Файлът се предлага за изтегляне, след като бъде записан."],
+  }, locale)}${actionForm("support-bundle", localize(locale, "Write a support bundle", "Записване на файл за поддръжка"))}${current}</div></div></section>`
+}
+
+const ADVANCED_UNIT: Record<AdvancedUnit, { en: string; bg: string }> = {
+  hours: { en: "hours", bg: "часа" },
+  minutes: { en: "minutes", bg: "минути" },
+  days: { en: "days", bg: "дни" },
+  gib: { en: "GB", bg: "GB" },
+  percent: { en: "%", bg: "%" },
+  count: { en: "cases", bg: "случая" },
+}
+
+function advancedSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const advanced = view.settings?.advanced
+  if (!advanced) return ""
+  const rows = ADVANCED_SETTINGS.filter(label => advanced[label.key]).map(label => {
+    const setting = advanced[label.key]!
+    const unit = localize(locale, ADVANCED_UNIT[label.unit].en, ADVANCED_UNIT[label.unit].bg)
+    const limits = localize(
+      locale,
+      `${advancedDisplayValue(label, setting.minimum)} to ${advancedDisplayValue(label, setting.maximum)} ${unit}; default ${advancedDisplayValue(label, setting.default)}`,
+      `от ${advancedDisplayValue(label, setting.minimum)} до ${advancedDisplayValue(label, setting.maximum)} ${unit}; по подразбиране ${advancedDisplayValue(label, setting.default)}`,
+    )
+    const changed = setting.overridden ? ` <span class="pill warning">${localize(locale, "changed", "променена")}</span>` : ""
+    return `<div><label for="advanced-${label.key}">${escapeHtml(localize(locale, label.en, label.bg))} (${escapeHtml(unit)})${changed}</label><input id="advanced-${label.key}" name="${label.key}" value="${escapeHtml(advancedDisplayValue(label, setting.value))}" inputmode="decimal" maxlength="13" autocomplete="off" ${view.mayManage ? "" : "disabled"}><div class="component-detail">${escapeHtml(limits)}</div></div>`
+  }).join("")
+  const overridden = Object.values(advanced).filter(setting => setting.overridden).length
+  const facts = actionFacts({
+    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    outage: ["Only the services these values belong to restart, usually for under a minute.", "Рестартират се само услугите, към които принадлежат стойностите, обикновено за под минута."],
+    backup: ["No: only settings change, and the previous values are kept.", "Не: променят се само настройки, а предишните стойности се пазят."],
+    boundary: ["Nothing. If the health check fails, the previous values are restored automatically.", "Нищо. Ако проверката на изправността се провали, предишните стойности се възстановяват автоматично."],
+    verification: ["The full health check (doctor).", "Пълната проверка на изправността (doctor)."],
+  }, locale)
+  const form = view.mayManage
+    ? `<form method="post" action="/status/maintenance/advanced/preview"><div class="form-grid">${rows}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form><form method="post" action="/status/maintenance/advanced/preview"><input type="hidden" name="reset" value="all"><button type="submit">${localize(locale, "Return every value to its default", "Връщане на всички стойности по подразбиране")}</button></form>`
+    : `<div class="form-grid">${rows}</div><p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  return `<section class="section" aria-labelledby="maintenance-advanced"><h2 id="maintenance-advanced">${localize(locale, "Advanced settings", "Разширени настройки")}</h2><div class="card"><details class="component"${overridden > 0 ? " open" : ""}><summary class="component-name">${overridden > 0 ? localize(locale, `${overridden} value(s) differ from the defaults`, `${overridden} стойности се различават от стойностите по подразбиране`) : localize(locale, "Every value is the release default", "Всички стойности са по подразбиране за версията")}</summary><p class="component-detail">${localize(locale, "Defaults suit most hospitals. Change these only for a reason you can write down: each value can only be set within limits that keep backups and safety policies intact. Console: sudo losporctl config advanced", "Стойностите по подразбиране са подходящи за повечето болници. Променяйте ги само по причина, която можете да запишете: всяка стойност може да се задава само в граници, които пазят архивите и политиките за безопасност. Конзола: sudo losporctl config advanced")}</p>${facts}${form}</details></div></section>`
+}
+
+export function renderAdvancedConfirm(
+  proposal: AdvancedProposal,
+  submitted: Record<string, string>,
+  confirmation: string,
+  locale: StatusLocale = "bg",
+): string {
+  const labels = new Map(ADVANCED_SETTINGS.map(label => [label.key, label]))
+  const rows = proposal.changes.map(change => {
+    const label = labels.get(change.key)
+    const shown = (value: string) => label
+      ? `${advancedDisplayValue(label, Number(value))} ${localize(locale, ADVANCED_UNIT[label.unit].en, ADVANCED_UNIT[label.unit].bg)}`
+      : value
+    return `<div class="component"><div class="component-name">${escapeHtml(label ? localize(locale, label.en, label.bg) : change.key)}</div><div class="component-detail mono">${escapeHtml(shown(change.before))} → ${escapeHtml(shown(change.after))}</div></div>`
+  }).join("")
+  const hidden = Object.entries(submitted)
+    .map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`).join("")
+  return page(
+    localize(locale, "Apply these advanced settings?", "Прилагане на тези разширени настройки?"),
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm advanced settings", "Потвърждение на разширените настройки")}</div></div></header><main><section class="section" aria-labelledby="advanced-confirm"><h2 id="advanced-confirm">${localize(locale, "These values will change", "Тези стойности ще се променят")}</h2><div class="card">${rows}<div class="component"><p>${localize(locale, "Only the services these values belong to restart, usually for under a minute. The health check runs afterwards, and if it fails the previous values are restored automatically.", "Рестартират се само услугите, към които принадлежат стойностите, обикновено за под минута. След това се изпълнява проверката на изправността и ако тя се провали, предишните стойности се възстановяват автоматично.")}</p><form method="post" action="/status/maintenance/advanced/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("advanced-password", locale)}<button type="submit">${localize(locale, "Apply these values", "Прилагане на стойностите")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    locale,
+  )
+}
+
+function settingsSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const title = `<h2 id="maintenance-settings">${localize(locale, "Site settings", "Настройки на сайта")}</h2>`
+  if (!view.settings) {
+    return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="empty">${localize(locale, "The host has not reported the site settings.", "Сървърът не е отчел настройките на сайта.")}</div></div></section>`
+  }
+  const settings = view.settings.settings
+  const unrepresentable = Object.values(settings).some(setting => setting.value === null)
+  const consoleOnly = Object.entries(settings).filter(([, setting]) => !setting.editable)
+    .map(([key, setting]) => `<div class="fact"><b class="mono">${escapeHtml(key)}</b>${escapeHtml(setting.value ?? "")}</div>`).join("")
+  const facts = actionFacts({
+    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    outage: ["Only the services whose settings changed restart, usually for under a minute.", "Рестартират се само услугите с променени настройки, обикновено за под минута."],
+    backup: ["No: only settings change, and the previous settings are kept.", "Не: променят се само настройки, а предишните се пазят."],
+    boundary: ["Nothing. If the health check fails, the previous settings are restored automatically.", "Нищо. Ако проверката на изправността се провали, предишните настройки се възстановяват автоматично."],
+    verification: ["The full health check (doctor).", "Пълната проверка на изправността (doctor)."],
+  }, locale)
+  const networks = networkListsState(view.settings)
+  const networkNotes = [
+    networks?.statusOpenToAllPrivate ? localize(locale, "Status can be opened from every internal hospital network, as installed. Enter the IT management networks below; the computer you are using must be in the list.", "Status може да се отвори от всяка вътрешна мрежа на болницата, както е инсталиран. Въведете по-долу мрежите за ИТ управление; компютърът, който използвате, трябва да е в списъка.") : "",
+    networks?.researchClosed ? localize(locale, `The Research website is closed (${RESEARCH_CLOSED}), as installed. Enter the Research or VPN networks below to open it.`, `Сайтът за изследвания е затворен (${RESEARCH_CLOSED}), както е инсталиран. Въведете по-долу мрежите за изследвания или VPN, за да го отворите.`) : "",
+  ].filter(Boolean).map(note => `<p class="component-detail"><b>${escapeHtml(note)}</b></p>`).join("")
+  let form: string
+  if (unrepresentable) {
+    form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Настройка на сървъра не може да бъде показана тук точно, затова настройките се променят от конзолата: sudo losporctl config plan.")}</p>`
+  } else if (!view.mayManage) {
+    form = `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  } else {
+    const fields = EDITABLE_SETTINGS.filter(setting => settings[setting.key]?.editable !== false).map(setting => {
+      const value = settings[setting.key]?.value ?? ""
+      return `<div><label for="setting-${setting.key}">${escapeHtml(localize(locale, setting.en, setting.bg))}</label><input id="setting-${setting.key}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off"></div>`
+    }).join("")
+    form = `<form method="post" action="/status/maintenance/settings/preview"><div class="form-grid">${fields}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form>`
+  }
+  return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="component">${networkNotes}${facts}${form}</div><div class="component"><div class="component-name">${localize(locale, "Changed only at the console", "Променят се само от конзолата")}</div><div class="component-detail">${localize(locale, "Names, certificate and ports change the address this page is reached at.", "Имената, сертификатът и портовете променят адреса, на който се отваря тази страница.")}</div><div class="facts">${consoleOnly}</div></div></div></section>`
+}
+
+export function renderSettingsConfirm(
+  proposal: SettingsProposal,
+  submitted: Record<string, string>,
+  confirmation: string,
+  locale: StatusLocale = "bg",
+): string {
+  const labels = new Map(EDITABLE_SETTINGS.map(setting => [setting.key, localize(locale, setting.en, setting.bg)]))
+  const blank = localize(locale, "(blank)", "(празно)")
+  const rows = proposal.changes.map(change =>
+    `<div class="component"><div class="component-name">${escapeHtml(labels.get(change.key) ?? change.key)}</div><div class="component-detail mono">${escapeHtml(change.before || blank)} → ${escapeHtml(change.after || blank)}</div></div>`).join("")
+  const hidden = EDITABLE_SETTINGS.filter(setting => submitted[setting.key] !== undefined)
+    .map(setting => `<input type="hidden" name="${setting.key}" value="${escapeHtml(submitted[setting.key]!)}">`).join("")
+  const networks = proposal.changes.some(change => change.key.endsWith("_CIDRS"))
+    ? `<div class="banner warn" role="alert"><strong>${localize(locale, "Network lists decide who can open the site. The computer you are using now stays allowed, but check every other computer that needs access.", "Мрежовите списъци решават кой може да отваря сайта. Компютърът, който използвате сега, остава разрешен, но проверете всеки друг компютър, който има нужда от достъп.")}</strong></div>`
+    : ""
+  return page(
+    localize(locale, "Apply these settings?", "Прилагане на тези настройки?"),
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm settings change", "Потвърждение на промяната")}</div></div></header><main><section class="section" aria-labelledby="settings-confirm"><h2 id="settings-confirm">${localize(locale, "These settings will change", "Тези настройки ще се променят")}</h2><div class="card">${rows}<div class="component">${networks}<p>${localize(locale, "Services whose settings change restart, usually for under a minute. The health check runs afterwards, and if it fails the previous settings are restored automatically.", "Услугите с променени настройки се рестартират, обикновено за под минута. След това се изпълнява проверката на изправността и ако тя се провали, предишните настройки се възстановяват автоматично.")}</p><form method="post" action="/status/maintenance/settings/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("settings-password", locale)}<button type="submit">${localize(locale, "Apply these settings", "Прилагане на настройките")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
     locale,
   )
 }

@@ -9,9 +9,9 @@ LOSPOR Hospital има поддържана двуетапна процедур�
 Изпълнявайте процедурата само от конзолата на системата като root:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh prepare ordinary
-sh scripts/rotate-operational-secrets.sh state
-sh scripts/rotate-operational-secrets.sh commit
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh commit
 ```
 
 Обобщенията и грешките за оператора следват `LOSPOR_DEFAULT_LOCALE` (по
@@ -35,7 +35,7 @@ sh scripts/rotate-operational-secrets.sh commit
 права и изпълнете:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh cleanup
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh cleanup
 ```
 
 `cleanup` приема само защитена транзакция, чийто идентификатор и метаданни
@@ -56,7 +56,7 @@ sh scripts/rotate-operational-secrets.sh cleanup
 | `sessions` | `LOSPOR_AUTH_SECRET` | Всички сесии на Web/PWA/мобилното приложение и връзки за печат се обезсилват умишлено. Потребителите влизат отново. Старият ключ за сесии не се приема. |
 | `workers` | данните за достъп за доставка, научен износ, срока за съхранение/планираните задачи и снимката на справочните опции | API първо приема текущата и предишната стойност, работните услуги преминават към новата, изпълнява се проверка, след което старата стойност се премахва и се доказва, че е отказана. |
 | `status-tokens` | токените за снимката на състоянието, акаунтите/управлението, събитията от API и паролата на PostgreSQL ролята само за проверка | Status и API временно приемат двете поколения. Доказателството за самоличността на оператора се обвързва с точния токен на заявката. Паролата на ролята за проверка се сменя в същата транзакция с възможност за отмяна. Сесиите и MFA на Status не се променят. |
-| `database` | паролата на PostgreSQL ролята `lospor` | Ролята, `.env`, PostgreSQL, миграторът, API, архивирането и зависимите услуги преминават заедно в една транзакция за поддръжка. По TCP се проверява както приемането на новата парола, така и отказът на старата. |
+| `database` | паролите на ролята собственик `lospor` и API ролята `lospor_app` | Двете роли, `.env`, PostgreSQL, миграторът, API, архивирането и зависимите услуги преминават заедно в една транзакция за поддръжка. За всяка роля приемането на новата парола и отказът на старата се проверяват през адреса на услугата, където паролите се изискват. |
 | `ordinary` | четирите обхвата по-горе | Едно поколение и една транзакция за поддръжка. Това е обичайната планирана смяна. |
 
 Поредното поколение се пази като `HOSPITAL_OPERATIONAL_SECRET_GENERATION`.
@@ -69,8 +69,8 @@ sh scripts/rotate-operational-secrets.sh cleanup
 отделно:
 
 ```sh
-./scripts/appliance-operator.sh rotate
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh rotate
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 ## Умишлено извън тази команда

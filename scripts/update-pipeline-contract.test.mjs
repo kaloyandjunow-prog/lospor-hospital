@@ -89,22 +89,21 @@ test("requests and state survive rename and power-loss boundaries", async () => 
   assert.match(online, /update_durable_replace "\$temporary_status" "\$status_path"/)
 })
 
-test("per-hospital publication credentials never travel in argv or environment", async () => {
-  const provision = await source("scripts/provision-update-credentials.sh")
+test("release supply is anonymous: no hospital credential is read, stored or sent", async () => {
   const prepare = await source("scripts/prepare-verified-release.sh")
   const online = await source("scripts/run-online-release.sh")
   const check = await source("scripts/check-for-update.sh")
-  assert.match(provision, /^#!\/bin\/sh\nset -eu\nset \+x/m)
-  assert.match(provision, /IFS= read -r read_result/)
-  assert.match(provision, /github-release-token/)
-  assert.match(provision, /ghcr-user/)
-  assert.match(provision, /ghcr-token/)
-  for (const consumer of [prepare, online, check]) {
-    assert.doesNotMatch(consumer, /HOSPITAL_GITHUB_RELEASE_TOKEN|HOSPITAL_GHCR_USER|HOSPITAL_GHCR_READ_TOKEN/)
-    assert.doesNotMatch(consumer, /--user\s+"[^\n]*token/i)
+  const readiness = await source("scripts/readiness-check.sh")
+  const probe = await source("scripts/host-observability-probe.sh")
+  const guided = await source("scripts/install-guided.sh")
+  await assert.rejects(source("scripts/provision-update-credentials.sh"))
+  for (const consumer of [prepare, online, check, readiness, probe, guided]) {
+    assert.doesNotMatch(consumer, /secrets\/registry|update_credential_read|provision-update-credentials/)
+    assert.doesNotMatch(consumer, /docker login|--password-stdin|user = "%s:%s"/)
   }
-  assert.match(online, /--password-stdin/)
-  assert.match(check, /--config "\$basic_auth_config"/)
+  assert.doesNotMatch(prepare, /Authorization: Bearer/)
+  assert.match(online, /DOCKER_CONFIG="\$temporary_directory\/docker-config"/)
+  // The registry's own short-lived pull token is still used for listing tags.
   assert.match(check, /--config "\$bearer_auth_config"/)
 })
 
@@ -167,4 +166,19 @@ test("agent installation and recovery use the canonical appliance boundary", asy
   assert.match(recovery, /process_active/)
   assert.match(recovery, /--confirm-clear/)
   assert.doesNotMatch(recovery, /rm\s+-rf\s+[^\n]*release-activation/)
+})
+
+test("the first-install bootstrap trusts exactly the repository's release signing key", async () => {
+  const bootstrap = await source("scripts/losporctl-install.sh")
+  const repositoryKey = (await source("infra/release-signing/release-signing-public.pem")).replace(/\r/g, "").trim()
+  const embedded = bootstrap.match(/LOSPOR_RELEASE_SIGNING_PUBLIC_KEY='([^']+)'/)
+  assert.ok(embedded, "the bootstrap must carry its signing key inline")
+  assert.equal(embedded[1].replace(/\r/g, "").trim(), repositoryKey)
+  // Online trust needs lospor.org to agree; there is no path that skips it.
+  assert.match(bootstrap, /key_url=https:\/\/lospor\.org\/\.well-known\/lospor-release-key\.txt/)
+  assert.match(bootstrap, /\[ "\$published" = "\$fingerprint" \]/)
+  // Test overrides exist only behind the explicit test switch.
+  const beforeTestBlock = bootstrap.slice(0, bootstrap.indexOf('if [ "$test_only" = 1 ]; then'))
+  assert.doesNotMatch(beforeTestBlock, /LOSPOR_BOOTSTRAP_(KEY_URL|API_ORIGIN|DOWNLOAD_ORIGIN|HOME|PUBLIC_KEY_FILE)/)
+  assert.doesNotMatch(bootstrap, /--insecure|-k |HOSPITAL_IMAGES_VERIFIED/)
 })

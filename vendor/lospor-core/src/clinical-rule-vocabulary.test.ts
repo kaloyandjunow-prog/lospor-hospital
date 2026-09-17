@@ -19,6 +19,25 @@ describe("clinical rule route vocabulary", () => {
     expect(ADMINISTRATION_ROUTE_CODES).toContain("SL")
   })
 
+  it("knows buccal and enteral (feeding tube) routes", () => {
+    // "Buccal" was offered for premedication but unknown here, so it was
+    // silently dropped whenever a profile was canonicalized.
+    expect(normalizeAdministrationRoute("Buccal")).toBe("BUCCAL")
+    expect(normalizeAdministrationRoute("Enteral")).toBe("ENTERAL")
+    expect(canonicalizeDoseProfile({
+      kind: "bolus",
+      mode: "dose",
+      min: 0,
+      max: 10,
+      step: 1,
+      rounding: "nearest_step",
+      quickValues: [1],
+      unit: "mg",
+      routes: ["PO", "Buccal", "Enteral"],
+      weightBasis: "none",
+    }).routes).toEqual(["PO", "BUCCAL", "ENTERAL"])
+  })
+
   it("stores familiar display units with exact UCUM codes", () => {
     expect(canonicalDoseUnit("mcg/kg/min", "IBW")).toEqual({
       amount: "MCG",

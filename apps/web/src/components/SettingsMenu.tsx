@@ -820,7 +820,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                             onClick={async () => {
                               setDeleting(true)
                               await fetch("/api/user/delete", { method: "POST" })
-                              router.replace("/login")
+                              router.replace("/login"); router.refresh()
                             }}
                             className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                             {t("settings.confirmDeletion")}

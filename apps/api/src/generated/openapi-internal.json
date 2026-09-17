@@ -5513,6 +5513,67 @@
         }
       }
     },
+    "/v1/search/procedures/codes": {
+      "get": {
+        "operationId": "get_v1_search_procedures_codes",
+        "summary": "List the exact ICD-10-PCS operations inside one procedure group",
+        "tags": [
+          "search"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "stable",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/search/drugs": {
       "get": {
         "operationId": "get_v1_search_drugs",
@@ -12592,6 +12653,49 @@
         }
       }
     },
+    "/v1/internal/ehr-import/purge": {
+      "post": {
+        "operationId": "post_v1_internal_ehr_import_purge",
+        "summary": "Delete EHR staging data past its retention window",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/internal/option-library-snapshot": {
       "get": {
         "operationId": "get_v1_internal_option_library_snapshot",
@@ -14645,6 +14749,110 @@
         }
       }
     },
+    "/v1/internal/hospital/control-plane/external-ai/models": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_external_ai_models",
+        "summary": "Choose the pinned Mistral models for the advisor and for reading images",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalExternalAiModelsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalExternalAiModelsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/internal/hospital/control-plane/external-ai/credential": {
       "post": {
         "operationId": "post_v1_internal_hospital_control_plane_external_ai_credential",
@@ -15391,6 +15599,110 @@
         }
       }
     },
+    "/v1/internal/hospital/control-plane/ehr-code-systems": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_ehr_code_systems",
+        "summary": "Say which code list one of this hospital's coding-system addresses stands for",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalEhrCodeSystemAnswerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalEhrCodeSystemAnswerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/internal/hospital/control-plane/ehr-transport/policy": {
       "post": {
         "operationId": "post_v1_internal_hospital_control_plane_ehr_transport_policy",
@@ -15428,6 +15740,110 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HospitalEhrTransportPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/internal/hospital/control-plane/ehr-transport/retention": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_ehr_transport_retention",
+        "summary": "Set how many days staged EHR imports are kept before deletion",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalEhrStagingRetentionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalEhrStagingRetentionResponse"
                 }
               }
             }
@@ -15727,7 +16143,26 @@
             "type": "string",
             "format": "uuid"
           },
-          "details": {}
+          "details": {},
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
         },
         "required": [
           "error"
@@ -17891,6 +18326,74 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrCodeSystemAnswerRequest": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "A coding-system address as the hospital sends it."
+          },
+          "list": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ICD10",
+                  "ICD10PCS",
+                  "KSMP",
+                  "NHIS_CL013",
+                  "NHIS_CL046",
+                  "NHIS_CL024",
+                  "OTHER"
+                ],
+                "description": "The code list the address stands for; OTHER stops it being asked about; null takes the answer back."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "list"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrCodeSystemAnswerResponse": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "list": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ICD10",
+                  "ICD10PCS",
+                  "KSMP",
+                  "NHIS_CL013",
+                  "NHIS_CL046",
+                  "NHIS_CL024",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "list"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrTransportPolicyRequest": {
         "type": "object",
         "properties": {
@@ -17917,6 +18420,59 @@
         },
         "required": [
           "transport",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalExternalAiModelsRequest": {
+        "type": "object",
+        "properties": {
+          "advisorModel": {
+            "type": "string",
+            "enum": [
+              "mistral-small-2603",
+              "mistral-medium-2508",
+              "mistral-large-2512"
+            ]
+          },
+          "visionModel": {
+            "type": "string",
+            "enum": [
+              "mistral-large-2512",
+              "mistral-medium-2508",
+              "mistral-small-2506",
+              "ministral-14b-2512"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "advisorModel",
+          "visionModel",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrStagingRetentionRequest": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "days",
           "reason"
         ],
         "additionalProperties": false
@@ -18157,6 +18713,45 @@
         ],
         "additionalProperties": false
       },
+      "HospitalExternalAiModelsResponse": {
+        "type": "object",
+        "properties": {
+          "advisorModel": {
+            "type": "string",
+            "enum": [
+              "mistral-small-2603",
+              "mistral-medium-2508",
+              "mistral-large-2512"
+            ]
+          },
+          "visionModel": {
+            "type": "string",
+            "enum": [
+              "mistral-large-2512",
+              "mistral-medium-2508",
+              "mistral-small-2506",
+              "ministral-14b-2512"
+            ]
+          },
+          "modelsChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "advisorModel",
+          "visionModel",
+          "modelsChangedAt"
+        ],
+        "additionalProperties": false
+      },
       "HospitalExternalAiCredentialResponse": {
         "type": "object",
         "properties": {
@@ -18243,6 +18838,32 @@
         "required": [
           "transport",
           "transportChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrStagingRetentionResponse": {
+        "type": "object",
+        "properties": {
+          "stagingRetentionDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "stagingRetentionChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "stagingRetentionDays",
+          "stagingRetentionChangedAt"
         ],
         "additionalProperties": false
       },

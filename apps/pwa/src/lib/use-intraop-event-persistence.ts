@@ -14,6 +14,7 @@ import {
   storePendingIntraopEvents,
 } from "@/lib/pending-intraop-events"
 import { uid, type LogEvent } from "@/lib/intraop-log-event"
+import { planEventMutations } from "@/lib/intraop-event-mutations"
 import { notify } from "@/lib/notify"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
@@ -37,10 +38,6 @@ type UseIntraopEventPersistenceArgs = {
   setLastSavedAt: Dispatch<SetStateAction<string | null>>
   setPendingCount: Dispatch<SetStateAction<number>>
   noteVitalsRef: MutableRefObject<() => void>
-}
-
-function sameEvent(a: LogEvent, b: LogEvent): boolean {
-  return JSON.stringify(serializeIntraopEventForServer(a)) === JSON.stringify(serializeIntraopEventForServer(b))
 }
 
 export function useIntraopEventPersistence({
@@ -162,29 +159,11 @@ export function useIntraopEventPersistence({
     setSyncState("saving")
 
     try {
-      const previousById = new Map(previousLog.map((event) => [event.id, event]))
-      const nextById = new Map(newLog.map((event) => [event.id, event]))
-
-      for (const event of newLog) {
-        const previous = previousById.get(event.id)
-        if (previous && sameEvent(previous, event)) continue
+      for (const mutation of planEventMutations(previousLog, newLog)) {
         await autosaveManager.stageEventMutation({
           operationId: uid(),
           caseId,
-          kind: "event.upsert",
-          eventId: event.id,
-          event: serializeIntraopEventForServer(event) as Record<string, unknown>,
-          baseRevision: autosaveManager.getRevision(caseId, "intraop"),
-          queuedAt: new Date().toISOString(),
-        })
-      }
-      for (const event of previousLog) {
-        if (nextById.has(event.id)) continue
-        await autosaveManager.stageEventMutation({
-          operationId: uid(),
-          caseId,
-          kind: "event.delete",
-          eventId: event.id,
+          ...mutation,
           baseRevision: autosaveManager.getRevision(caseId, "intraop"),
           queuedAt: new Date().toISOString(),
         })

@@ -1,0 +1,157 @@
+#cloud-config
+# LOSPOR Hospital host: Ubuntu 24.04 LTS server, ready for the appliance.
+#
+# Hypervisor-neutral. Hyper-V (infra/host/hyperv/New-LosporHospitalVm.ps1),
+# VMware and bare metal all use it the same way: put this file and an empty
+# meta-data file on a small FAT volume labelled CIDATA, attach it next to the
+# Ubuntu 24.04 server ISO, and boot. The installer asks once, "Continue with
+# autoinstall? (yes|no)" -- type yes -- unless `autoinstall` is on the kernel
+# command line; the Hyper-V kit writes an ISO copy whose boot menu adds it.
+#
+# What it sets up: the minimal server, OpenSSH (keys only), Docker Engine and
+# Compose from Docker's repository with its signing key pinned by full
+# fingerprint, the host commands the appliance needs, automatic security
+# updates, time synchronisation, and a first console login that offers to start
+# the LOSPOR installation. When Ubuntu is installed the machine switches off,
+# so the installation media can be removed before it starts again.
+#
+# The console user is `lospor`. There is no shared initial password: the
+# Hyper-V kit writes a one-time password for each machine, and anyone using
+# this file directly replaces LOSPOR_PASSWORD_HASH below (see
+# docs/host-preparation.md). SSH never accepts a password.
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  timezone: Europe/Sofia
+  source:
+    id: ubuntu-server-minimal
+  # Stops before anything is written when the password was never set. A
+  # placeholder left in place would install a server nobody can log in to.
+  early-commands:
+    # The [H] keeps this line from matching itself.
+    - "! grep -Eq '^ *password: *\"?LOSPOR_PASSWORD_[H]ASH' /autoinstall.yaml"
+  identity:
+    hostname: lospor-hospital
+    username: lospor
+    # A SHA-512 crypt hash ($6$). The Hyper-V kit writes a one-time password's
+    # hash here; otherwise use the output of `openssl passwd -6`.
+    password: "LOSPOR_PASSWORD_HASH"
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys: []
+  # LVM leaves room to grow the data volume. Full-disk encryption is the
+  # hospital's decision: the Hyper-V kit replaces this block with a LUKS layout
+  # when given -EncryptDisk, and on other hypervisors use host or storage
+  # encryption, or set `password:` here (see docs/host-preparation.md).
+  storage:
+    layout:
+      name: lvm
+      sizing-policy: all
+  apt:
+    sources:
+      docker.list:
+        # Docker's release signing key, pinned by its full fingerprint and
+        # fetched from the Ubuntu keyserver during installation. The installer
+        # (curtin) has no $KEY_FILE placeholder and stops on one, so the key
+        # lands in trusted.gpg.d and late-commands scope it to this source.
+        source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+        keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+  packages:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-compose-plugin
+    - openssl
+    - curl
+    - ca-certificates
+    - python3
+    - gzip
+    - tar
+    - whiptail
+    - util-linux
+    - openssh-client
+    - unattended-upgrades
+    - systemd-timesyncd
+    # Hyper-V's key-value exchange: the host sees the VM's address, and the
+    # Windows wizard sees the first installation's progress. It runs only on
+    # Hyper-V (the service is conditioned on it) and is inert elsewhere.
+    - linux-cloud-tools-generic
+    - linux-cloud-tools-common
+  updates: security
+  late-commands:
+    # Docker's key signs Docker's repository and nothing else.
+    # On 24.04 the installer writes the source as deb822 docker.sources and
+    # drops the [arch=] option, so both are restored here.
+    - |
+      set -e
+      key="$(ls /target/etc/apt/trusted.gpg.d/docker.list.*)"
+      ext="${key##*.}"
+      install -d -m 0755 /target/etc/apt/keyrings
+      mv "$key" "/target/etc/apt/keyrings/docker.$ext"
+      sources=/target/etc/apt/sources.list.d/docker.sources
+      grep -qx 'URIs: https://download.docker.com/linux/ubuntu' "$sources"
+      sed -i '/^Signed-By:/d; /^Architectures:/d; $a\' "$sources"
+      printf 'Architectures: amd64\nSigned-By: /etc/apt/keyrings/docker.%s\n' "$ext" >> "$sources"
+    # The one-time password works once, at the console, and must then be
+    # changed. The kit removes this line when it is given an SSH key: an expired
+    # password would refuse that key until someone had used the console.
+    - curtin in-target -- chage -d 0 lospor # lospor-kit: expire
+    - curtin in-target -- usermod -aG docker lospor
+    - curtin in-target -- systemctl enable docker.service containerd.service systemd-timesyncd.service unattended-upgrades.service
+    # Security updates install on their own; the appliance's own updates stay a
+    # deliberate action.
+    - |
+      cat > /target/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      EOF
+    # lospor-kit: bootstrap
+    - |
+      cat > /target/etc/profile.d/lospor-first-login.sh <<'EOF'
+      # Offer the LOSPOR installation on the console until it has been installed.
+      #
+      # The installer offered here is the copy the Hyper-V kit carried onto this
+      # machine, so nothing is downloaded and run before it has verified the
+      # release. Without that copy (this seed used by hand) the commands are only
+      # shown: the online one fetches the script from lospor.org unverified.
+      if [ -t 0 ] && [ "$(id -un)" = lospor ] && [ -f /var/lib/lospor-firstboot-result ] && [ ! -e /opt/lospor-hospital/current ]; then
+        # A server made by the Windows wizard installs LOSPOR on its own.
+        printf '\nLOSPOR Hospital, first installation: %s\n' "$(sed -n 's/^message=//p' /var/lib/lospor-firstboot-result)"
+        printf 'Progress: sudo tail -f /var/log/lospor-firstboot.log\n\n'
+      elif [ -t 0 ] && [ "$(id -un)" = lospor ] && [ ! -e /opt/lospor-hospital/current ] && [ -z "${SSH_CONNECTION:-}" ]; then
+        lospor_bootstrap=/usr/local/lib/lospor/losporctl-install.sh
+        printf '\nThis server is ready for LOSPOR Hospital.\n'
+        if [ -f "$lospor_bootstrap" ]; then
+          printf 'Online:  sudo sh %s\n' "$lospor_bootstrap"
+          printf 'Offline: insert the LOSPOR USB, then: sudo sh /media/usb/losporctl-install.sh\n\n'
+          printf 'Start the online installation now? [y/N] '
+          read -r lospor_answer
+          if [ "$lospor_answer" = y ] || [ "$lospor_answer" = Y ]; then
+            sudo sh "$lospor_bootstrap"
+          fi
+          unset lospor_answer
+        else
+          printf 'Online:  curl -fsSLO https://lospor.org/install/losporctl-install.sh && sudo sh losporctl-install.sh\n'
+          printf 'Offline: insert the LOSPOR USB, then: sudo sh /media/usb/losporctl-install.sh\n\n'
+        fi
+        unset lospor_bootstrap
+      fi
+      EOF
+    - chmod 0644 /target/etc/profile.d/lospor-first-login.sh
+    # The Windows wizard replaces this with the first-boot installation and its
+    # answers; otherwise the kit removes it.
+    # lospor-kit: firstboot
+    # Last, so it is written only when everything before it succeeded: the kit
+    # reads this mark from the seed disk once the machine has switched off, and
+    # removes the installation media only when it is there.
+    - |
+      mkdir -p /run/lospor-cidata
+      if mount -t vfat /dev/disk/by-label/CIDATA /run/lospor-cidata; then
+        date -u +%Y-%m-%dT%H:%M:%SZ > /run/lospor-cidata/lospor-installed
+        sync
+        umount /run/lospor-cidata
+      fi || true
+  shutdown: poweroff

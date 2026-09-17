@@ -230,6 +230,7 @@ export function composeContractErrors(models, release) {
     "runtime-secrets-init": expectedImage("postgres", release),
     postgres: expectedImage("postgres", release),
     "status-db-init": expectedImage("postgres", release),
+    "db-app-role-init": expectedImage("postgres", release),
     backup: expectedImage("postgres", release),
     "delivery-worker": expectedImage("curl-worker", release),
     caddy: expectedImage("caddy", release),

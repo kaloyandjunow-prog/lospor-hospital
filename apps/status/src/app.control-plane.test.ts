@@ -159,6 +159,11 @@ const VIEW: ControlPlaneView = {
     credentialConfiguredAt: "2026-08-20T08:00:00.000Z",
     credentialChangedAt: "2026-08-21T08:00:00.000Z",
     policyChangedAt: "2026-08-22T08:00:00.000Z",
+    advisorModel: "mistral-small-2603",
+    visionModel: "mistral-large-2512",
+    advisorModelOptions: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"],
+    visionModelOptions: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"],
+    modelsChangedAt: null,
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
   patientIdentifier: {
@@ -210,6 +215,28 @@ const VIEW: ControlPlaneView = {
     }],
     tests: [{ name: "Haemoglobin (Hb)", unit: "g/L", category: "Haematology" }],
   },
+  ehrCodeSystems: {
+    waiting: [{
+      system: "http://vendor.bg/lists/proc",
+      list: null,
+      seenIn: ["procedures"],
+      sampleCode: "30445-00",
+      sampleLabel: "Лапароскопска холецистектомия",
+      seenCount: 3,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+      answeredAt: null,
+    }],
+    answered: [{
+      system: "http://vendor.bg/lists/route",
+      list: "NHIS_CL013",
+      seenIn: ["routes"],
+      sampleCode: "2",
+      sampleLabel: "букално",
+      seenCount: 5,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+      answeredAt: "2026-09-02T09:00:00.000Z",
+    }],
+  },
 }
 
 const databases: StatusDatabase[] = []
@@ -233,12 +260,15 @@ function setup() {
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
+    setExternalAiModels: vi.fn(async () => {}),
     setPatientIdentifierPolicy: vi.fn(async () => {}),
     setEhrTransportPolicy: vi.fn(async () => {}),
+    setEhrStagingRetention: vi.fn(async () => {}),
     replaceEhrTransportCredential: vi.fn(async () => {}),
     removeEhrTransportCredential: vi.fn(async () => {}),
     mapEhrLabCode: vi.fn(async () => {}),
     unmapEhrLabCode: vi.fn(async () => {}),
+    answerEhrCodeSystem: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
     setEhrIdentifierSystems: vi.fn(async () => {}),
     discoverEhrTransport: vi.fn(async () => ({
@@ -594,6 +624,30 @@ describe("Status Hospital control plane", () => {
     expect(invalid.status).toBe(400)
   })
 
+  it("shortens how long staged EHR data is kept, and never past 14 days", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" })
+    const page = await (await app.request("/status/control", { headers: origin({ cookie: session }) })).text()
+    expect(page).toContain('action="/status/control/ehr-transport/retention"')
+    const saved = await app.request("/status/control/ehr-transport/retention", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({ days: "7", reason: "Clinicians review imports within a week", password: "Initial password phrase1!" }),
+    })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setEhrStagingRetention).toHaveBeenCalledWith({ days: 7, reason: "Clinicians review imports within a week" })
+    for (const days of ["30", "0", "seven"]) {
+      const refused = await app.request("/status/control/ehr-transport/retention", {
+        method: "POST",
+        headers,
+        body: new URLSearchParams({ days, reason: "Trying an out of range value", password: "Initial password phrase1!" }),
+      })
+      expect(refused.status).toBe(400)
+    }
+    expect(controlPlane.setEhrStagingRetention).toHaveBeenCalledTimes(1)
+  })
+
   it("sends a replacement EHR transport credential once and never redisplays it, then removes it only with exact confirmation", async () => {
     const { app, auth, controlPlane } = setup()
     const session = await passwordCookie(app, auth)
@@ -666,6 +720,44 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain("Изберете FHIR или HL7v2 като транспорт")
+  })
+
+  it("chooses the external-AI models from the offered list", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" })
+    const page = await (await app.request("/status/control", { headers: origin({ cookie: session }) })).text()
+    expect(page).toContain('action="/status/control/external-ai/models"')
+    expect(page).toContain('<option value="mistral-small-2603" selected>')
+    expect(page).toContain('<option value="ministral-14b-2512" >')
+    const saved = await app.request("/status/control/external-ai/models", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        advisorModel: "mistral-medium-2508",
+        visionModel: "ministral-14b-2512",
+        reason: "Mistral retired the previous model",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setExternalAiModels).toHaveBeenCalledWith({
+      advisorModel: "mistral-medium-2508",
+      visionModel: "ministral-14b-2512",
+      reason: "Mistral retired the previous model",
+    })
+    const refused = await app.request("/status/control/external-ai/models", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        advisorModel: "<script>",
+        visionModel: "mistral-large-2512",
+        reason: "Not a model name at all",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(refused.status).toBe(400)
+    expect(controlPlane.setExternalAiModels).toHaveBeenCalledTimes(1)
   })
 
   it("sends a replacement Mistral credential once and never redisplays it", async () => {
@@ -750,6 +842,61 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain(message)
+  })
+})
+
+describe("code-list addresses", () => {
+  it("answers an address without a password, and shows what is waiting", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const page = await app.request("/status/control", { headers: { cookie: `${session}; lospor_status_locale=en` } })
+    const html = await page.text()
+    expect(html).toContain("http://vendor.bg/lists/proc")
+    expect(html).toContain("Лапароскопска холецистектомия")
+    expect(html).toContain("Routes: NHIS CL013 (EDQM)")
+
+    const response = await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/proc", list: "KSMP" }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.answerEhrCodeSystem).toHaveBeenCalledWith({ system: "http://vendor.bg/lists/proc", list: "KSMP" })
+  })
+
+  it("takes an answer back with a blank list", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/route", list: "" }),
+    })
+    expect(controlPlane.answerEhrCodeSystem).toHaveBeenCalledWith({ system: "http://vendor.bg/lists/route", list: null })
+  })
+
+  it("refuses a list that does not exist", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/proc", list: "SNOMED" }),
+    })
+    expect(response.status).toBe(400)
+    expect(controlPlane.answerEhrCodeSystem).not.toHaveBeenCalled()
+  })
+
+  it("still refuses a cross-origin post", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: { cookie: session, origin: "https://elsewhere.example", "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/proc", list: "KSMP" }),
+    })
+    expect(response.status).toBe(403)
+    expect(controlPlane.answerEhrCodeSystem).not.toHaveBeenCalled()
   })
 })
 

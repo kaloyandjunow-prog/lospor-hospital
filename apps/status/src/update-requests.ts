@@ -1,5 +1,5 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
-import { link, mkdir, open, unlink } from "node:fs/promises"
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto"
+import { access, link, mkdir, open, unlink } from "node:fs/promises"
 import { join } from "node:path"
 
 // Asking the host agent to apply a release.
@@ -118,11 +118,12 @@ async function publishRequest(
   targetName: string,
   temporaryName: string,
   body: string,
+  mode = 0o644,
 ): Promise<"submitted" | "already-pending"> {
   await mkdir(requestsDir, { recursive: true })
   const target = join(requestsDir, targetName)
   const temporary = join(requestsDir, temporaryName)
-  const handle = await open(temporary, "wx", 0o644)
+  const handle = await open(temporary, "wx", mode)
   try {
     await handle.writeFile(`${body}\n`, "utf8")
     await handle.sync()
@@ -238,4 +239,80 @@ export async function submitTerminologyRequest(
     `.terminology-${request.requestId}.tmp`,
     body,
   )
+}
+
+export const MAINTENANCE_REQUEST_FILE = "maintenance.request.v1.tsv"
+export const SITE_CONFIG_PROPOSAL_FILE = "site-config.proposal.v1.env"
+export const OFFHOST_PROPOSAL_FILE = "offhost.proposal.v1.conf"
+export const ADVANCED_PROPOSAL_FILE = "advanced.proposal.v1.env"
+/** The escrow passphrase Status generated. Readable by Status and root only. */
+export const SECRETS_ESCROW_PROPOSAL_FILE = "secrets-escrow.passphrase.v1"
+
+export type MaintenanceRequest = {
+  requestId: string
+  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
+  /** Pseudonymous Status-operator provenance, derived by Status itself. */
+  operatorRef: string
+  /** The complete proposed site.env, advanced.env or off-host destination, or the escrow passphrase, for those four only. */
+  proposal?: { content: string; sha256: string }
+  /** The SHA-256 of the escrow copy Status handed out, for secrets-escrow-delivered only. */
+  delivered?: string
+}
+
+/**
+ * Leaves maintenance intent for the root host agent.
+ *
+ * A backup or a drill names nothing but itself. A settings change names the
+ * SHA-256 of the one proposal file written beside it; the agent copies that
+ * file, checks the digest, the site-settings contract and the keys Status may
+ * change, and only then applies it. At most one maintenance request waits.
+ */
+export async function submitMaintenanceRequest(
+  requestsDir: string,
+  request: MaintenanceRequest,
+  now: number,
+): Promise<"submitted" | "already-pending"> {
+  if (!/^[a-f0-9]{32}$/.test(request.requestId)
+    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered)$/.test(request.action)
+    || !/^status-operator-[a-f0-9]{16}$/.test(request.operatorRef)
+    || (request.action === "config" || request.action === "advanced" || request.action === "offhost-config" || request.action === "secrets-escrow") !== (request.proposal !== undefined)
+    || (request.action === "secrets-escrow-delivered") !== (request.delivered !== undefined)
+    || (request.delivered !== undefined && !/^[a-f0-9]{64}$/.test(request.delivered))
+    || (request.proposal !== undefined && (
+      Buffer.byteLength(request.proposal.content) > 8192
+      || createHash("sha256").update(request.proposal.content).digest("hex") !== request.proposal.sha256))) {
+    throw new Error("Invalid maintenance request")
+  }
+  await mkdir(requestsDir, { recursive: true })
+  try {
+    await access(join(requestsDir, MAINTENANCE_REQUEST_FILE))
+    return "already-pending"
+  } catch {
+    // Nothing is waiting.
+  }
+  if (request.proposal) {
+    // A proposal with no request is left over from a publication that failed
+    // after writing it. Nothing will ever read it, so it is replaced.
+    const proposalFile = request.action === "config" ? SITE_CONFIG_PROPOSAL_FILE
+      : request.action === "advanced" ? ADVANCED_PROPOSAL_FILE
+        : request.action === "secrets-escrow" ? SECRETS_ESCROW_PROPOSAL_FILE : OFFHOST_PROPOSAL_FILE
+    await unlink(join(requestsDir, proposalFile)).catch(() => undefined)
+    const written = await publishRequest(
+      requestsDir,
+      proposalFile,
+      `.proposal-${request.requestId}.tmp`,
+      request.proposal.content.replace(/\n$/, ""),
+      request.action === "secrets-escrow" ? 0o600 : 0o644,
+    )
+    if (written === "already-pending") return "already-pending"
+  }
+  const body = [
+    "LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1",
+    request.action,
+    request.requestId,
+    request.proposal?.sha256 ?? request.delivered ?? "-",
+    String(Math.floor(now / 1000)),
+    request.operatorRef,
+  ].join("\t")
+  return publishRequest(requestsDir, MAINTENANCE_REQUEST_FILE, `.maintenance-${request.requestId}.tmp`, body)
 }

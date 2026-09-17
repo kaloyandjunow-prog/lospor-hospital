@@ -327,7 +327,12 @@ if [ "${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ] && [ -e "$appliance_home/.data/re
   exit 1
 fi
 
-if [ "$doctor_mode" = go-live ]; then
+# The terminology package is optional: the release carries ICD-10 with its
+# Bulgarian names, procedures, the drug list, English diagnosis synonyms and
+# the research numbers for all of them. Go-live therefore requires a valid
+# package only on an appliance that imported one -- the same rule the restore
+# pre-open check above applies.
+if [ "$doctor_mode" = go-live ] && [ -s "$appliance_home/.data/terminology/active.tsv" ]; then
   sh scripts/terminology-status.sh --go-live
 else
   sh scripts/terminology-status.sh
@@ -403,9 +408,11 @@ if [ ! -s backups/.last-offhost-verified.v1 ]; then
         "Локалното резервно копие е завършено и проверено: $verified_recovery_object."
     fi
   fi
-  operator_error \
-    "CRITICAL: that copy exists only on this appliance. No off-host backup system has acknowledged it, so the data would not survive the loss of this machine." \
-    "КРИТИЧНО: това копие съществува само на този модул. Външна система за архивиране не го е потвърдила, така че данните не биха оцелели при загуба на машината."
+  # Optional since 1.4.0: many hospitals back up the whole VM, which carries
+  # these verified backups with it and which the appliance cannot see.
+  operator_say \
+    "Note: LOSPOR does not copy backups off this machine. Unless the hospital backs up the whole VM, the data would not survive the loss of this machine." \
+    "Бележка: LOSPOR не копира архивите извън тази машина. Ако болницата не архивира цялата виртуална машина, данните не биха оцелели при загуба на машината."
 fi
 
 # Secrets escrow, on the same footing as off-host backup and for the same
@@ -417,10 +424,12 @@ fi
 #
 # The appliance cannot see inside the hospital's safe, so this asks for an
 # acknowledgement and reports its absence, exactly as the off-host gate does.
-if [ ! -s .secrets-escrowed.v1 ]; then
+# Read from the appliance home, where the acknowledgement is written, not from
+# the release directory doctor runs in.
+if [ ! -s "$appliance_home/.secrets-escrowed.v1" ]; then
   operator_error \
-    "CRITICAL: no acknowledgement that .env and secrets/ have been escrowed off this appliance. They cannot be recovered from a backup -- backups hold only their fingerprints -- so losing this machine's .env permanently ends every stored patient identifier and every case already sent to Central. Escrow them in a separate encrypted system, then record it with ./scripts/acknowledge-secrets-escrow.sh." \
-    "КРИТИЧНО: няма потвърждение, че .env и secrets/ са съхранени извън този модул. Те не могат да бъдат възстановени от резервно копие — копията съдържат само отпечатъци — така че загубата на .env на тази машина завинаги прекратява всяка запазена самоличност на пациент и всеки случай, вече изпратен към Central. Съхранете ги в отделна шифрована система и го отбележете с ./scripts/acknowledge-secrets-escrow.sh."
+    "CRITICAL: no acknowledgement that .env and secrets/ have been escrowed off this appliance. They cannot be recovered from a backup -- backups hold only their fingerprints -- so losing this machine's .env permanently ends every stored patient identifier and every case already sent to Central. Plug in a USB stick or mount a share from elsewhere, then run: sudo losporctl secrets escrow DIRECTORY (or, if they were escrowed another way, record it with acknowledge-secrets-escrow.sh)." \
+    "КРИТИЧНО: няма потвърждение, че .env и secrets/ са съхранени извън този модул. Те не могат да бъдат възстановени от резервно копие — копията съдържат само отпечатъци — така че загубата на .env на тази машина завинаги прекратява всяка запазена самоличност на пациент и всеки случай, вече изпратен към Central. Поставете USB памет или монтирайте споделена папка от друго място и изпълнете: sudo losporctl secrets escrow ДИРЕКТОРИЯ (или, ако са съхранени по друг начин, отбележете го с acknowledge-secrets-escrow.sh)."
 fi
 
 operator_say "Hospital appliance checks passed." "Проверките на болничния модул завършиха успешно."

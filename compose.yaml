@@ -36,8 +36,11 @@ x-api-environment: &api-environment
   LOSPOR_MFA_ENCRYPTION_KEY_FILE: /run/secrets/mfa-encryption-key
   LOSPOR_DEFAULT_LOCALE: ${LOSPOR_DEFAULT_LOCALE:-bg}
   HOSPITAL_APPLIANCE_RELEASE: ${HOSPITAL_RELEASE:-source}
-  DATABASE_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
-  DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
+  # The running API connects as lospor_app, which can read and write application
+  # rows and nothing else (infra/postgres/create-app-role.sh). Migrations and the
+  # operator tools override these with the owning lospor role below.
+  DATABASE_URL: postgresql://lospor_app:${HOSPITAL_POSTGRES_APP_PASSWORD}@postgres:5432/lospor
+  DIRECT_URL: postgresql://lospor_app:${HOSPITAL_POSTGRES_APP_PASSWORD}@postgres:5432/lospor
   LOSPOR_AUTH_SECRET: ${LOSPOR_AUTH_SECRET}
   NEXTAUTH_SECRET: ${LOSPOR_AUTH_SECRET}
   LOSPOR_WEB_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
@@ -220,7 +223,10 @@ services:
       target: migrator
       args:
         NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-alpine3.24}
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      DATABASE_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
+      DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
     depends_on:
       postgres:
         condition: service_healthy
@@ -257,6 +263,29 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 256m
+    networks: [backend]
+
+  # Creates or updates the API's restricted database role and its grants, after
+  # migrations and before the API, on every start. See create-app-role.sh.
+  db-app-role-init:
+    image: ${POSTGRES_IMAGE:-lospor-hospital-postgres:source}
+    build: *postgres-build
+    environment:
+      POSTGRES_DB: lospor
+      POSTGRES_USER: lospor
+      PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
+      HOSPITAL_POSTGRES_APP_PASSWORD: ${HOSPITAL_POSTGRES_APP_PASSWORD}
+    volumes:
+      - ./infra/postgres/create-app-role.sh:/usr/local/bin/create-app-role.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/create-app-role.sh"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     restart: "no"
     <<: *hardening
     tmpfs:
@@ -307,6 +336,8 @@ services:
       - api-status-runtime-secrets:/run/status-secrets:ro
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      db-app-role-init:
         condition: service_completed_successfully
       runtime-secrets-init:
         condition: service_completed_successfully
@@ -474,8 +505,8 @@ services:
       HOSPITAL_BACKUP_SITE_ID: ${HOSPITAL_BACKUP_SITE_ID}
       HOSPITAL_BACKUP_APPLIANCE_ID: ${HOSPITAL_BACKUP_APPLIANCE_ID}
       HOSPITAL_APPLIANCE_RELEASE: ${HOSPITAL_RELEASE:-source}
-      HOSPITAL_EXCHANGE_CONTRACT_VERSION: ${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-2.4.0}
-      HOSPITAL_DATA_DICTIONARY_VERSION: ${HOSPITAL_DATA_DICTIONARY_VERSION:-2.4.0}
+      HOSPITAL_EXCHANGE_CONTRACT_VERSION: ${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-2.5.0}
+      HOSPITAL_DATA_DICTIONARY_VERSION: ${HOSPITAL_DATA_DICTIONARY_VERSION:-2.5.0}
       HOSPITAL_BACKUP_TOOL_VERSION: ${HOSPITAL_BACKUP_TOOL_VERSION:-source}
       HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT: ${HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT}
       HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT: ${HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT}
@@ -613,7 +644,10 @@ services:
       target: tools
       args:
         NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-alpine3.24}
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      DATABASE_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
+      DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
     volumes:
       - ./reference-data:/reference-data:ro
       - api-runtime-secrets:/run/secrets:ro

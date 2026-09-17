@@ -92,6 +92,8 @@ async function candidateFixture(t) {
   const checksumPath = join(directory, `${prefix}-release.lock.sha256`)
   const imageLockPath = join(directory, `${prefix}-images.json`)
   const publicationRequestPath = join(directory, `${prefix}-publication-request.tsv`)
+  const windowsKitPath = join(directory, `${prefix}-windows-kit.zip`)
+  const windowsKitChecksumPath = `${windowsKitPath}.sha256`
   const upstream = join(sourceDirectory, "UPSTREAM_VERSIONS.json")
   const lockValue = imageLock()
   await Promise.all([
@@ -117,6 +119,8 @@ async function candidateFixture(t) {
     writeFile(checksumPath, `${sha256(lockBytes)}  ${prefix}-release.lock\n`),
     writeFile(imageLockPath, `${JSON.stringify(lockValue, null, 2)}\n`),
     writeFile(publicationRequestPath, "publication-request\n"),
+    writeFile(windowsKitPath, "windows-kit"),
+    writeFile(windowsKitChecksumPath, `${sha256("windows-kit")}  ${prefix}-windows-kit.zip\n`),
   ])
   return {
     directory,
@@ -127,6 +131,7 @@ async function candidateFixture(t) {
     manifest,
     manifestPath,
     publicationRequestPath,
+    windowsKitPath,
   }
 }
 
@@ -274,6 +279,8 @@ test("release candidate accepts matching canonical metadata and artifacts", asyn
     `lospor-hospital-${VERSION}-release.lock`,
     `lospor-hospital-${VERSION}-release.lock.sha256`,
     `lospor-hospital-${VERSION}-security-evidence.tar.gz`,
+    `lospor-hospital-${VERSION}-windows-kit.zip`,
+    `lospor-hospital-${VERSION}-windows-kit.zip.sha256`,
   ])
 })
 
@@ -325,6 +332,15 @@ test("release asset set rejects both missing and extra candidate assets", async 
   )
   await writeFile(fixture.publicationRequestPath, "publication-request\n")
   await writeFile(join(fixture.directory, "unreviewed.txt"), "unexpected\n")
+  await assert.rejects(
+    verifyReleaseAssetSet(fixture.directory, fixture.manifest, "candidate"),
+    /incomplete or contains unexpected files/,
+  )
+})
+
+test("release asset set requires the Windows kit and its checksum", async t => {
+  const fixture = await candidateFixture(t)
+  await unlink(fixture.windowsKitPath)
   await assert.rejects(
     verifyReleaseAssetSet(fixture.directory, fixture.manifest, "candidate"),
     /incomplete or contains unexpected files/,

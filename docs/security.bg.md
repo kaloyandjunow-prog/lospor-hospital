@@ -7,7 +7,9 @@
 - full-disk encryption на хоста и всяко местоназначение за резервни копия;
 - TLS за целия потребителски и Central трафик;
 - mutual TLS и manifest signatures за доставка Hospital → Central;
-- VPN или identity-aware достъп за научни цели и администрация;
+- VPN или identity-aware достъп за научни цели и администрация (мрежовият
+  списък за изследвания ограничава уебсайта Research Browser; изследователските
+  данни се пазят от акаунтите и авторизацията по grant);
 - локални акаунти с минимални права и защитени administrator credentials;
 - host firewall, автоматично инсталиране на security patches, malware/EDR
   policy, NTP и централизирано наблюдение;
@@ -22,15 +24,24 @@ export volumes е чувствително. То е изключено от Git,
 Софтуерните версии на Hospital използват detached raw 64-byte Ed25519 signature
 върху точния `release.lock`. Поддържащият генерира и пази release private key
 извън GitHub и никога не го предоставя на Actions, repository secrets, USB
-носителя за инсталиране или болница. Сайтът фиксира прегледания public key само
-след съпоставяне на неговия fingerprint по отделен канал. Специфичните за
+носителя за инсталиране или болница. `losporctl-install.sh` носи public key и го
+фиксира само чрез втори канал: онлайн ключът трябва да съвпада и с fingerprint,
+публикуван на lospor.org (обслужван от Cloudflare, а не от GitHub); офлайн този
+канал е физическият контрол на поддържащия върху USB. Самият скрипт няма втори
+канал: той е първото, на което се доверява. Виртуална машина, създадена със
+скрипта за Hyper-V, го носи от папката на версията, с която е дошъл комплектът,
+и го проверява там спрямо SHA-256 на това копие, така че нищо не се изтегля и
+изпълнява преди проверка и доверието започва с това едно изтегляне. Изтеглен
+ръчно от lospor.org, той идва през HTTPS непроверен, както повечето инсталатори
+на производители; неговият SHA-256 е публикуван до него. Комплектът не е
+подписан с код. Специфичните за
 инсталацията ключове в `secrets/api/` остават необходими за обмен Hospital →
 Central и никога не трябва да се приемат като данни за достъп за разпространение
 на софтуер.
 
 Границата на доверие за разпространението включва:
 
-- частното GitHub хранилище и частните GHCR packages;
+- публичното GitHub хранилище, неговите releases и публичните GHCR packages;
 - GitHub акаунта на поддържащия, неговите MFA, recovery methods, sessions и
   scoped tokens;
 - точния CI candidate, задействан от tag, и неговите test/security evidence;
@@ -54,8 +65,8 @@ digest verification. Immutable Releases предотвратяват замян�
 
 Затова поддържащият трябва да използва MFA, да пази account recovery material
 offline, да преглежда активните sessions и tokens и да запази repository write
-permission само за release акаунта. Registry credential на всяка болница
-трябва да е отделно, read-only и revocable. Непосредствено преди изпращане
+permission само за release акаунта. Болниците не пазят registry credential;
+публичният release е достъпен за всеки и се приема само чрез подписа си. Непосредствено преди изпращане
 потвърдете визуално настройката Immutable Releases и въведете и двете точни
 version-bound потвърждения, изисквани от workflow. Workflow не притежава
 administrator token за тази проверка на настройката; след публикуване изисква
@@ -63,7 +74,7 @@ GitHub да отчете получената версия като immutable. �
 candidate run, attempt, commit, tag, очакваният lock hash или настройката не
 съответстват на независимо запазения release record.
 
-За физическо предаване изтеглете окончателните assets от частния immutable
+За физическо предаване изтеглете окончателните assets от immutable
 GitHub Release в нова празна директория на контролирана workstation. Проверете
 lock sidecar, raw `release.lock.sig` срещу прегледания public key и пълния
 payload set (manifest, deployment archive, security evidence и всяка offline
@@ -80,7 +91,7 @@ download time и всяка промяна в custody. Поддържащият 
 Ако е възможно да са компрометирани хранилището/акаунтът, publication run,
 release record, signing workstation или key, review workstation или USB
 custody chain, спрете инсталирането и публикуването. Отменете засегнатите
-sessions, tokens и registry credentials; запазете run, audit, endpoint,
+sessions и tokens; запазете run, audit, endpoint,
 signing и media evidence; оценете вече инсталираните сайтове; и издайте нова
 версия от прегледан чист commit и candidate. Компрометиран release-signing key
 изисква изричен key rotation и нов fingerprint, предаден на всеки сайт през

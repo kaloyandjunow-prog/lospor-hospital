@@ -121,6 +121,7 @@ export type IntraopMedicationSheetBuilderProps = {
   vBis: VitalsProps["bis"]
   vTof: VitalsProps["tofRatio"]
   vCvp: VitalsProps["cvp"]
+  vitalFeedback: VitalsProps["feedback"]
   setVBis: VitalsProps["onBisChange"]
   setVTof: VitalsProps["onTofRatioChange"]
   setVCvp: VitalsProps["onCvpChange"]
@@ -220,7 +221,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
     vitOpen, vitMode, editingVitalId,
     vitScanBusy, vitalVisibility, etco2Unit, temperatureUnit, vSysRef, vDiaRef, vHRRef,
     vSpO2Ref, vEtco2Ref, vTempRef, vBisRef, vTofRef, vCvpRef, cvpUnit,
-    vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp,
+    vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp, vitalFeedback,
     setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance,
     setVSys, setVDia, setVHR, setVSpO2, setVEtco2, setVTemp,
     setVBis, setVTof, setVCvp, confirmVitals, infOpen,
@@ -340,6 +341,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       bis: vBis,
       tofRatio: vTof,
       cvp: vCvp,
+      feedback: vitalFeedback,
       onClose: () => { setVitOpen(false); setEditingVitalId(null) },
       onScan: scanVitalsFromCamera,
       onSystolicChange: v => setAndAdvance(v, setVSys, vDiaRef),

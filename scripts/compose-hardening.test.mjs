@@ -382,3 +382,17 @@ function skipIfNoDocker() {
     return "docker compose is unavailable"
   }
 }
+
+test("the running API connects as its restricted role, and only migrations and tools as the owner", () => {
+  // Until 1.4.0 every API request ran as the database superuser.
+  const apiEnvironment = compose.slice(compose.indexOf("x-api-environment:"), compose.indexOf("\nservices:"))
+  assert.match(apiEnvironment, /DATABASE_URL: postgresql:\/\/lospor_app:\$\{HOSPITAL_POSTGRES_APP_PASSWORD\}@postgres:5432\/lospor/)
+  assert.doesNotMatch(apiEnvironment, /postgresql:\/\/lospor:/)
+  for (const name of ["migrate", "tools"]) {
+    assert.match(blocks.get(name), /DATABASE_URL: postgresql:\/\/lospor:\$\{HOSPITAL_POSTGRES_PASSWORD\}@postgres:5432\/lospor/, `${name} lost the owner role`)
+  }
+  assert.doesNotMatch(blocks.get("api"), /HOSPITAL_POSTGRES_PASSWORD/, "the API was given the owner password")
+  assert.match(blocks.get("db-app-role-init"), /migrate:\s+condition: service_completed_successfully/)
+  assert.match(blocks.get("api"), /db-app-role-init:\s+condition: service_completed_successfully/,
+    "the API can start before its role and grants exist")
+})

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { Hono, type Context } from "hono"
 import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 import type { AuthService } from "./auth.js"
@@ -10,9 +11,10 @@ import {
   readAgentInstallationSignal,
   readAgentSignal,
   readTerminologyAgentSignal,
+  readTerminologyPackagesSignal,
   readUpdateSignal,
 } from "./signals.js"
-import type { ReleaseView } from "./ui.js"
+import type { MaintenanceView, ReleaseView } from "./ui.js"
 import {
   STATUS_NAV,
   renderAccounts,
@@ -26,15 +28,44 @@ import {
   renderStatusAdminCredentialSuccess,
   renderStatusAdminOneTimeLink,
   renderControlPlane,
+  renderGoLive,
+  renderEscrowPassphrase,
+  renderMaintenance,
+  renderSettingsConfirm,
+  renderAdvancedConfirm,
   renderRelease,
   renderTerminology,
 } from "./ui.js"
+import { evaluateGoLive, isGoLiveSignoffItem } from "./go-live.js"
+import { attentionItems } from "./attention.js"
+import { readHostOsSignal } from "./host-os.js"
+import { readReleaseDossier } from "./release-dossier.js"
+import {
+  ADVANCED_SETTINGS,
+  EDITABLE_SETTINGS,
+  advancedDisplayValue,
+  buildAdvancedProposal,
+  buildSettingsProposal,
+  cidrListContains,
+  networkListsState,
+  buildOffhostProposal,
+  offhostDestinationFromForm,
+  readMaintenanceAgentSignal,
+  readOffhostSignal,
+  readSiteConfigSignal,
+  readSupportBundle,
+  generateEscrowPassphrase,
+  readSecretsEscrowBundle,
+  readSecretsEscrowOffer,
+  validSettingValue,
+} from "./maintenance.js"
 import {
   mintConfirmation,
   newRequestId,
   requestFetch,
   submitRequest,
   submitTerminologyRequest,
+  submitMaintenanceRequest,
   verifyConfirmation,
 } from "./update-requests.js"
 import { constantTimeEqual, isRecord, safeJsonParse, sha256 } from "./util.js"
@@ -50,7 +81,9 @@ import { accountLinkQrSvg } from "./account-qr.js"
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
+  EHR_CODE_LIST_ANSWERS,
   type ControlPlanePort,
+  type EhrCodeListAnswer,
   type ResearchGrantInput,
 } from "./control-plane.js"
 
@@ -486,14 +519,24 @@ export function createStatusApp({
     }
     return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
   })
-  app.get("/status/", context => {
+  app.get("/status/", async context => {
     const locale = currentLocale(context)
     const session = getCookie(context, COOKIE_NAME)
     const kind = auth.validateSessionKind(session)
     if (!kind) {
       return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     }
-    return context.html(renderDashboard(db.getDashboard(now()), locale, kind))
+    const dashboard = db.getDashboard(now())
+    const [maintenance, offhost, hostOs, siteConfig, terminology] = await Promise.all([
+      readMaintenanceAgentSignal(config.updateStateDir, now()),
+      readOffhostSignal(config.updateStateDir, now()),
+      readHostOsSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+      readTerminologyAgentSignal(config.updateStateDir, now()),
+    ])
+    const goLive = evaluateGoLive({ components: dashboard.components, terminology, networkLists: networkListsState(siteConfig), signoffs: db.listGoLiveSignoffs(), now: now() })
+    const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, escrowDownloadedAt: db.latestOperationalEventAt("STATUS_SECRETS_ESCROW_DOWNLOADED"), now: now() })
+    return context.html(renderDashboard(dashboard, locale, kind, attention))
   })
 
   app.post("/status/login", async context => {
@@ -603,9 +646,11 @@ export function createStatusApp({
         sameSite: "Strict",
         maxAge: 8 * 60 * 60,
       })
+      // Where to land is a convenience: it must never turn a good sign-in into a failed one.
+      const landing = await signedInLanding().catch(() => "/status/")
       return result.recoveryCodes
-        ? context.html(renderMfaRecoveryCodes(result.recoveryCodes, locale))
-        : context.redirect("/status/", 303)
+        ? context.html(renderMfaRecoveryCodes(result.recoveryCodes, locale, landing))
+        : context.redirect(landing, 303)
     } catch (error) {
       const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
       const invalidChallenge = error instanceof AuthError && error.code === "MFA_CHALLENGE_INVALID"
@@ -1316,6 +1361,21 @@ export function createStatusApp({
     locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral бяха премахнати и промяната беше одитирана."),
   ))
 
+  app.post("/status/control/external-ai/models", context => sensitiveControlAction(
+    context,
+    body => {
+      // The private API accepts only its pinned list; this only keeps
+      // anything that is not a model name from being forwarded at all.
+      const advisorModel = typeof body.advisorModel === "string" ? body.advisorModel.trim() : ""
+      const visionModel = typeof body.visionModel === "string" ? body.visionModel.trim() : ""
+      if (!/^[a-z0-9][a-z0-9.-]{0,63}$/.test(advisorModel) || !/^[a-z0-9][a-z0-9.-]{0,63}$/.test(visionModel)) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setExternalAiModels({ advisorModel, visionModel, reason: formText(body, "reason", 10, 1000) })
+    },
+    locale => localize(locale, "The external-AI models were saved and audited. The next AI request uses them.", "Моделите за външен ИИ бяха запазени и одитирани. Следващата заявка към ИИ ги използва."),
+  ))
+
   app.post("/status/control/patient-identifier", context => sensitiveControlAction(
     context,
     body => controlPlane.setPatientIdentifierPolicy({
@@ -1345,6 +1405,18 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
+  ))
+
+  app.post("/status/control/ehr-transport/retention", context => sensitiveControlAction(
+    context,
+    body => {
+      const raw = typeof body.days === "string" ? body.days.trim() : ""
+      if (!/^\d{1,2}$/.test(raw) || Number(raw) < 1 || Number(raw) > 14) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrStagingRetention({ days: Number(raw), reason: formText(body, "reason", 10, 1000) })
+    },
+    locale => localize(locale, "The EHR staging retention was saved and audited. The next daily retention run applies it.", "Срокът за пазене на данните от ЕЗД беше запазен и одитиран. Следващото ежедневно почистване го прилага."),
   ))
 
   app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
@@ -1459,6 +1531,22 @@ export function createStatusApp({
     locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
   ))
 
+  app.post("/status/control/ehr-code-systems/answer", context => bulkControlAction(
+    context,
+    body => {
+      // Blank takes the answer back; anything else must be one of the lists.
+      const raw = formText(body, "list", 0, 32)
+      if (raw !== "" && !EHR_CODE_LIST_ANSWERS.includes(raw as EhrCodeListAnswer)) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.answerEhrCodeSystem({
+        system: formText(body, "system", 1, 2048),
+        list: raw === "" ? null : raw as EhrCodeListAnswer,
+      })
+    },
+    locale => localize(locale, "The address was answered and audited. Codes from it are read that way from the next import.", "Адресът беше посочен и одитиран. Кодовете от него се четат така от следващия внос."),
+  ))
+
   app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(
     context,
     body => {
@@ -1496,8 +1584,10 @@ export function createStatusApp({
           : "unconfigured" as const
     const blockedPhase = state !== null
       && ["accepted", "working", "needs-operator"].includes(state.phase)
+    const packages = await readTerminologyPackagesSignal(config.updateStateDir, now())
     return renderTerminology({
       state,
+      packages: packages?.packages ?? [],
       agentMode,
       recoverySession: kind === "recovery",
       mayManage: kind === "password" && agentMode === "healthy" && terminologyFresh && !blockedPhase,
@@ -1628,6 +1718,702 @@ export function createStatusApp({
     return context.redirect("/status/terminology", 303)
   })
 
+  // ── maintenance: backup now, restore drill, site settings ──────────────────
+  //
+  // Same shape as terminology: the browser sends a fixed action confirmed with
+  // the administrator password. A settings change is previewed first, and the
+  // confirmation is bound to this session and to the exact proposal. The root
+  // host agent checks every request again and does the work.
+
+  /** The pseudonymous reference a password session's requests carry. */
+  const operatorRefOf = (sessionToken: string | undefined): string | null => {
+    const administrator = auth.statusSessionPrincipal(sessionToken)
+    return administrator?.kind === "password" ? `status-operator-${sha256(administrator.email).slice(0, 16)}` : null
+  }
+
+  const maintenanceView = async (
+    kind: "password" | "recovery",
+    { sessionToken, ...extra }: { notice?: string; error?: string; sessionToken?: string } = {},
+  ): Promise<MaintenanceView> => {
+    const [state, settings, offhost, hostOs, supportBundle, agent, installation, escrowOffer] = await Promise.all([
+      readMaintenanceAgentSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+      readOffhostSignal(config.updateStateDir, now()),
+      readHostOsSignal(config.updateStateDir, now()),
+      readSupportBundle(config.updateStateDir),
+      readAgentSignal(config.updateStateDir, now()),
+      readAgentInstallationSignal(config.updateStateDir, now()),
+      readSecretsEscrowOffer(config.updateStateDir, now()),
+    ])
+    const agentFresh = agent !== null && now() - Date.parse(agent.observedAt) <= 10 * 60_000
+    const agentMode = installation?.mode === "console-only" ? "console-only" as const
+      : agentFresh ? "healthy" as const
+        : installation?.mode === "agent" || agent !== null ? "failed" as const
+          : "unconfigured" as const
+    const idle = state !== null && !["accepted", "working", "needs-operator"].includes(state.phase)
+    return {
+      agentMode,
+      state,
+      settings,
+      offhost,
+      hostOs,
+      supportBundle,
+      secretsEscrow: {
+        offer: escrowOffer,
+        mine: escrowOffer !== null && escrowOffer.operatorRef === operatorRefOf(sessionToken),
+        statusOpenToAllPrivate: networkListsState(settings)?.statusOpenToAllPrivate !== false,
+      },
+      recoverySession: kind === "recovery",
+      mayManage: kind === "password" && agentMode === "healthy" && idle,
+      ...extra,
+    }
+  }
+  const maintenancePage = async (
+    locale: StatusLocale,
+    kind: "password" | "recovery",
+    extra: { notice?: string; error?: string; sessionToken?: string } = {},
+  ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind)
+
+  app.get("/status/maintenance", async context => {
+    const locale = currentLocale(context)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    return context.html(await maintenancePage(locale, kind, { sessionToken }))
+  })
+
+  /** The checks every maintenance POST shares, in order. A string is the refusal. */
+  const maintenanceBody = async (
+    context: Context,
+    locale: StatusLocale,
+    kind: "password" | "recovery",
+  ): Promise<{ refusal: string; status: 400 | 403 } | { body: Record<string, unknown> }> => {
+    if (kind !== "password") {
+      return { refusal: await maintenancePage(locale, kind, {
+        error: localize(locale, "Console-recovery sessions cannot request maintenance. Nothing was requested.", "Аварийните сесии от конзолата не могат да заявяват поддръжка. Не е подадена заявка."),
+      }), status: 403 as const }
+    }
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    const parsed = Number.isFinite(contentLength) && contentLength <= 8192
+      ? await context.req.parseBody().catch(() => null) : null
+    if (!isRecord(parsed)) {
+      return { refusal: await maintenancePage(locale, kind, {
+        error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
+      }), status: 400 as const }
+    }
+    return { body: parsed }
+  }
+
+  const confirmAdministrator = async (
+    sessionToken: string | undefined,
+    password: unknown,
+    locale: StatusLocale,
+  ): Promise<{ operatorRef: string } | { refusal: string; status: 401 | 409 | 429 }> => {
+    if (typeof password !== "string") {
+      return { refusal: await maintenancePage(locale, "password", {
+        error: localize(locale, "The administrator password was not accepted. Nothing was requested.", "Администраторската парола не беше приета. Не е подадена заявка."),
+      }), status: 401 }
+    }
+    try {
+      await auth.reauthenticatePassword(sessionToken, password)
+    } catch (error) {
+      const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
+      return { refusal: await maintenancePage(locale, "password", {
+        error: rateLimited
+          ? localize(locale, "Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново.")
+          : localize(locale, "The administrator password was not accepted. Nothing was requested.", "Администраторската парола не беше приета. Не е подадена заявка."),
+      }), status: rateLimited ? 429 : 401 }
+    }
+    const administrator = auth.statusSessionPrincipal(sessionToken)
+    if (!administrator || administrator.kind !== "password") {
+      return { refusal: await maintenancePage(locale, "password", {
+        error: localize(locale, "The administrator identity is unavailable. Nothing was requested.", "Самоличността на администратора не е достъпна. Не е подадена заявка."),
+      }), status: 409 }
+    }
+    return { operatorRef: `status-operator-${sha256(administrator.email).slice(0, 16)}` }
+  }
+
+  const notOffered = (locale: StatusLocale) => maintenancePage(locale, "password", {
+    error: localize(locale, "The host is not offering maintenance right now. The page has been refreshed and nothing was requested.", "Сървърът в момента не предлага поддръжка. Страницата е обновена и не е подадена заявка."),
+  })
+
+  const submitted = (body: Record<string, unknown>) => {
+    const values: Record<string, string> = {}
+    for (const setting of EDITABLE_SETTINGS) {
+      const value = body[setting.key]
+      if (typeof value === "string") values[setting.key] = value.trim().replace(/\s+/g, " ")
+    }
+    return values
+  }
+
+  /** The proposal these values make, or the reason there is none. */
+  const settingsProposal = async (context: Context, values: Record<string, string>, locale: StatusLocale) => {
+    const invalid = EDITABLE_SETTINGS.filter(setting => values[setting.key] !== undefined
+      && !validSettingValue(setting, values[setting.key]!))
+    if (invalid.length > 0) {
+      return { error: localize(
+        locale,
+        `These values are not valid: ${invalid.map(setting => setting.en).join(", ")}. Nothing was requested.`,
+        `Тези стойности са невалидни: ${invalid.map(setting => setting.bg).join(", ")}. Не е подадена заявка.`,
+      ) }
+    }
+    const current = await readSiteConfigSignal(config.updateStateDir)
+    const proposal = current ? buildSettingsProposal(current, values) : null
+    if (!current || !proposal) {
+      return { error: localize(locale, "The host has not reported settings that can be changed here. Use the console: sudo losporctl config plan.", "Сървърът не е отчел настройки, които могат да се променят тук. Използвайте конзолата: sudo losporctl config plan.") }
+    }
+    // Nobody locks themselves out of this page from this page.
+    const statusList = proposal.changes.find(change => change.key === "HOSPITAL_STATUS_ALLOWED_CIDRS")
+    if (statusList && !cidrListContains(statusList.after, clientAddress(context.req.raw))) {
+      return { error: localize(locale, "The new Status network list does not include the computer you are using, so saving it would lock you out. Nothing was requested.", "Новият мрежов списък за Status не включва компютъра, който използвате, и запазването му би ви заключило отвън. Не е подадена заявка.") }
+    }
+    return { proposal }
+  }
+
+  app.post("/status/maintenance/actions", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const action = parsed.body.action
+    if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill" && action !== "offhost-disable"
+      && action !== "os-update" && action !== "os-reboot" && action !== "support-bundle" && action !== "rotate-credentials") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
+      }), 400)
+    }
+    // Rotation signs everyone out of the clinical apps, so it needs the literal
+    // confirmation as well as the password.
+    if (action === "rotate-credentials" && parsed.body.confirmation !== "ROTATE-CREDENTIALS") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "Confirm that everyone signs in again before rotating the credentials. Nothing was requested.", "Потвърдете, че всички ще влязат отново, преди да смените данните за достъп. Не е подадена заявка."),
+      }), 400)
+    }
+    const offered = await maintenanceView(kind)
+    // A restart is offered only when Ubuntu asks for one; at any other time it
+    // is a console decision (sudo losporctl host reboot).
+    if (!offered.mayManage || (action.startsWith("offhost-") && !offered.offhost?.destination)
+      || (action.startsWith("os-") && !offered.hostOs) || (action === "os-reboot" && !offered.hostOs?.rebootRequired)) {
+      return context.html(await notOffered(locale), 409)
+    }
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action, operatorRef: confirmed.operatorRef,
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The maintenance request could not be recorded. Nothing was changed.", "Заявката за поддръжка не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: ({
+        backup: "STATUS_MAINTENANCE_BACKUP_REQUESTED",
+        drill: "STATUS_MAINTENANCE_DRILL_REQUESTED",
+        "offhost-test": "STATUS_MAINTENANCE_OFFHOST_TEST_REQUESTED",
+        "offhost-drill": "STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED",
+        "offhost-disable": "STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED",
+        "os-update": "STATUS_MAINTENANCE_OS_UPDATE_REQUESTED",
+        "os-reboot": "STATUS_MAINTENANCE_OS_REBOOT_REQUESTED",
+        "support-bundle": "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED",
+        "rotate-credentials": "STATUS_MAINTENANCE_ROTATION_REQUESTED",
+      } as const)[action],
+      severity: "info",
+      message: ({
+        backup: "A backup was requested from Status",
+        drill: "A restore drill was requested from Status",
+        "offhost-test": "An off-host connection test was requested from Status",
+        "offhost-drill": "A drill from the off-host copy was requested from Status",
+        "offhost-disable": "Turning off off-host copies was requested from Status",
+        "os-update": "Installing Ubuntu security updates was requested from Status",
+        "os-reboot": "A server restart was requested from Status",
+        "support-bundle": "A support bundle was requested from Status",
+        "rotate-credentials": "A credential rotation was requested from Status",
+      } as const)[action],
+      facts: { operatorRef: confirmed.operatorRef },
+    })
+    return context.redirect("/status/maintenance", 303)
+  })
+
+  // The newest support bundle, as a download. losporctl reduced it to
+  // allowlisted fields and it is checked again here; a console-recovery session
+  // may view the page but not take the file away.
+  app.get("/status/maintenance/support-bundle", async context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (kind !== "password") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "Console-recovery sessions cannot download the support bundle.", "Аварийните сесии от конзолата не могат да изтеглят файла за поддръжка."),
+      }), 403)
+    }
+    const bundle = await readSupportBundle(config.updateStateDir)
+    if (!bundle) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "There is no support bundle to download. Write one first.", "Няма файл за поддръжка за изтегляне. Първо запишете такъв."),
+      }), 404)
+    }
+    return context.body(bundle.content, 200, {
+      "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="lospor-support-${bundle.createdAt.replace(/[^0-9TZ]/g, "")}.json"`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    })
+  })
+
+  // Secrets escrow from Status. Taking every secret of the installation away is
+  // the most sensitive thing Status does, so beyond the ordinary maintenance
+  // checks it needs Status limited to the IT management networks, the password
+  // and a fresh authenticator code. Status generates the passphrase, shows it
+  // once and keeps nothing; the host writes and checks the copy, allows three a
+  // day, and records escrow when Status reports the download.
+  app.post("/status/maintenance/escrow", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const offered = await maintenanceView(kind, { sessionToken })
+    if (!offered.mayManage) return context.html(await notOffered(locale), 409)
+    if (offered.secretsEscrow?.statusOpenToAllPrivate !== false) {
+      return context.html(await maintenancePage(locale, kind, {
+        sessionToken,
+        error: localize(locale, "Status still opens from every private network. Set its network list first. Nothing was requested.", "Status все още се отваря от всички частни мрежи. Първо задайте мрежите му. Не е подадена заявка."),
+      }), 409)
+    }
+    const { password, code } = parsed.body
+    const refused = (message: [string, string], status: 401 | 429) => maintenancePage(locale, kind, {
+      sessionToken, error: localize(locale, message[0], message[1]),
+    }).then(html => context.html(html, status))
+    if (typeof password !== "string" || typeof code !== "string") {
+      return refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът за удостоверяване не бяха приети. Не е подадена заявка."], 401)
+    }
+    try {
+      await auth.reauthenticateWithMfa(sessionToken, password, code)
+    } catch (error) {
+      return error instanceof AuthError && error.code === "RATE_LIMITED"
+        ? refused(["Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново."], 429)
+        : refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът за удостоверяване не бяха приети. Не е подадена заявка."], 401)
+    }
+    const operatorRef = operatorRefOf(sessionToken)
+    if (!operatorRef) return context.html(await notOffered(locale), 409)
+    const passphrase = generateEscrowPassphrase(randomBytes)
+    const content = `${passphrase}\n`
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action: "secrets-escrow", operatorRef, proposal: { content, sha256: sha256(content) },
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        sessionToken,
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за съхранение не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_ESCROW_REQUESTED",
+      severity: "warning",
+      message: "A secrets escrow copy was requested from Status",
+      facts: { operatorRef },
+    })
+    context.header("cache-control", "no-store")
+    return context.html(renderEscrowPassphrase(passphrase, locale, kind))
+  })
+
+  // The copy, once, to the administrator who asked for it and saw its password.
+  // Handing it out is reported to the host, which records escrow and removes it.
+  app.get("/status/maintenance/escrow/download", async context => {
+    const locale = currentLocale(context)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const unavailable = async (message: [string, string], status: 403 | 404 | 409) =>
+      context.html(await maintenancePage(locale, kind, { sessionToken, error: localize(locale, message[0], message[1]) }), status)
+    if (kind !== "password") {
+      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Аварийните сесии от конзолата не могат да изтеглят копието за съхранение."], 403)
+    }
+    const offer = await readSecretsEscrowOffer(config.updateStateDir, now())
+    const operatorRef = operatorRefOf(sessionToken)
+    if (!offer) {
+      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие за съхранение за изтегляне. Първо създайте такова; копието се предлага 30 минути."], 404)
+    }
+    if (offer.operatorRef !== operatorRef) {
+      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие за съхранение е направено от друг администратор. Само той видя паролата му, затова само той може да го изтегли."], 403)
+    }
+    const bytes = await readSecretsEscrowBundle(config.updateStateDir, offer)
+    if (!bytes) {
+      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието за съхранение на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
+    }
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action: "secrets-escrow-delivered", operatorRef, delivered: offer.sha256,
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "Друга заявка за поддръжка чака на сървъра. Изтеглете копието за съхранение отново след минута."], 409)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_SECRETS_ESCROW_DOWNLOADED",
+      severity: "warning",
+      message: "A secrets escrow copy was downloaded from Status",
+      facts: { operatorRef, sha256: offer.sha256 },
+    })
+    return context.body(new Uint8Array(bytes), 200, {
+      "content-type": "application/octet-stream",
+      "content-disposition": `attachment; filename="${offer.fileName}"`,
+      "content-length": String(bytes.length),
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    })
+  })
+
+  // Setting up off-host copies names only a destination: a mount path, or an
+  // SFTP host, port, user and directory. The host generates and keeps every key.
+  app.post("/status/maintenance/offhost", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const destination = offhostDestinationFromForm(parsed.body)
+    if (!destination) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "The destination is not valid: a share needs an absolute mount path outside the appliance; SFTP needs a server, port, user and directory. Nothing was requested.", "Мястото е невалидно: споделената папка изисква абсолютен път извън системата; SFTP изисква сървър, порт, потребител и директория. Не е подадена заявка."),
+      }), 400)
+    }
+    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action: "offhost-config", operatorRef: confirmed.operatorRef, proposal: buildOffhostProposal(destination),
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The destination could not be recorded. Nothing was changed.", "Мястото не можа да бъде записано. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED",
+      severity: "info",
+      message: "An off-host backup destination was requested from Status",
+      facts: { operatorRef: confirmed.operatorRef, type: destination.type },
+    })
+    return context.redirect("/status/maintenance", 303)
+  })
+
+  // Changes nothing. A POST so the preview cannot be prefetched or linked to.
+  app.post("/status/maintenance/settings/preview", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const values = submitted(parsed.body)
+    const result = await settingsProposal(context, values, locale)
+    if ("error" in result) return context.html(await maintenancePage(locale, kind, { error: result.error }), 400)
+    if (result.proposal.changes.length === 0) {
+      return context.html(await maintenancePage(locale, kind, {
+        notice: localize(locale, "Nothing to change: these are the settings already in use.", "Няма какво да се промени: това са настройките, които вече се използват."),
+      }))
+    }
+    const confirmation = mintConfirmation(config.rateLimitKey, sha256(sessionToken!), result.proposal.sha256, now())
+    return context.html(renderSettingsConfirm(result.proposal, values, confirmation, locale))
+  })
+
+  app.post("/status/maintenance/settings/apply", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const result = await settingsProposal(context, submitted(parsed.body), locale)
+    if ("error" in result) return context.html(await maintenancePage(locale, kind, { error: result.error }), 400)
+    const proposal = result.proposal
+    // The settings on the host must still be the ones the preview was built on,
+    // and the confirmation must be this session's, for this exact proposal.
+    if (parsed.body.proposalSha256 !== proposal.sha256
+      || !verifyConfirmation(config.rateLimitKey, sha256(sessionToken!), proposal.sha256, String(parsed.body.confirmation ?? ""), now())) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "That confirmation has expired, or the settings on the host changed while you were reviewing. Nothing was requested; start again.", "Потвърждението е изтекло или настройките на сървъра се промениха, докато ги преглеждахте. Не е подадена заявка; започнете отново."),
+      }), 409)
+    }
+    if (proposal.changes.length === 0 || !(await maintenanceView(kind)).mayManage) {
+      return context.html(await notOffered(locale), 409)
+    }
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId,
+      action: "config",
+      operatorRef: confirmed.operatorRef,
+      proposal: { content: proposal.content, sha256: proposal.sha256 },
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The settings request could not be recorded. Nothing was changed.", "Заявката за настройките не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_SETTINGS_REQUESTED",
+      severity: "info",
+      message: "A site settings change was requested from Status",
+      facts: { operatorRef: confirmed.operatorRef, settings: proposal.changes.map(change => change.key).join(" ") },
+    })
+    return context.redirect("/status/maintenance", 303)
+  })
+
+  // Advanced settings follow the site-settings shape exactly: preview, then a
+  // confirmation bound to this session and this exact advanced.env, then the
+  // administrator password. "Return every value to its default" is a preview
+  // of the defaults. The host checks every value against its limits again.
+
+  const advancedSubmitted = async (body: Record<string, unknown>) => {
+    const values: Record<string, string> = {}
+    if (body.reset === "all") {
+      const current = await readSiteConfigSignal(config.updateStateDir)
+      for (const label of ADVANCED_SETTINGS) {
+        const setting = current?.advanced?.[label.key]
+        if (setting) values[label.key] = advancedDisplayValue(label, setting.default)
+      }
+      return values
+    }
+    for (const label of ADVANCED_SETTINGS) {
+      const value = body[label.key]
+      if (typeof value === "string") values[label.key] = value.trim().replace(",", ".")
+    }
+    return values
+  }
+
+  const advancedProposal = async (values: Record<string, string>, locale: StatusLocale) => {
+    const current = await readSiteConfigSignal(config.updateStateDir)
+    const result = current ? buildAdvancedProposal(current, values) : null
+    if (!result) {
+      return { error: localize(locale, "The host has not reported advanced settings that can be changed here. Use the console: sudo losporctl config advanced", "Сървърът не е отчел разширени настройки, които могат да се променят тук. Използвайте конзолата: sudo losporctl config advanced") }
+    }
+    if ("invalid" in result) {
+      const names = (language: "en" | "bg") => result.invalid
+        .map(key => ADVANCED_SETTINGS.find(label => label.key === key)?.[language] ?? key).join(", ")
+      return { error: localize(locale, `These values are outside their limits: ${names("en")}. Nothing was requested.`, `Тези стойности са извън допустимите граници: ${names("bg")}. Не е подадена заявка.`) }
+    }
+    return { proposal: result }
+  }
+
+  // Changes nothing. A POST so the preview cannot be prefetched or linked to.
+  app.post("/status/maintenance/advanced/preview", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const values = await advancedSubmitted(parsed.body)
+    const result = await advancedProposal(values, locale)
+    if ("error" in result) return context.html(await maintenancePage(locale, kind, { error: result.error }), 400)
+    if (result.proposal.changes.length === 0) {
+      return context.html(await maintenancePage(locale, kind, {
+        notice: localize(locale, "Nothing to change: these are the values already in use.", "Няма какво да се промени: това са стойностите, които вече се използват."),
+      }))
+    }
+    const confirmation = mintConfirmation(config.rateLimitKey, sha256(sessionToken!), result.proposal.sha256, now())
+    return context.html(renderAdvancedConfirm(result.proposal, values, confirmation, locale))
+  })
+
+  app.post("/status/maintenance/advanced/apply", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const result = await advancedProposal(await advancedSubmitted(parsed.body), locale)
+    if ("error" in result) return context.html(await maintenancePage(locale, kind, { error: result.error }), 400)
+    const proposal = result.proposal
+    if (parsed.body.proposalSha256 !== proposal.sha256
+      || !verifyConfirmation(config.rateLimitKey, sha256(sessionToken!), proposal.sha256, String(parsed.body.confirmation ?? ""), now())) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "That confirmation has expired, or the values on the host changed while you were reviewing. Nothing was requested; start again.", "Потвърждението е изтекло или стойностите на сървъра се промениха, докато ги преглеждахте. Не е подадена заявка; започнете отново."),
+      }), 409)
+    }
+    if (proposal.changes.length === 0 || !(await maintenanceView(kind)).mayManage) {
+      return context.html(await notOffered(locale), 409)
+    }
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId,
+      action: "advanced",
+      operatorRef: confirmed.operatorRef,
+      proposal: { content: proposal.content, sha256: proposal.sha256 },
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The advanced settings request could not be recorded. Nothing was changed.", "Заявката за разширените настройки не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_ADVANCED_REQUESTED",
+      severity: "info",
+      message: "An advanced settings change was requested from Status",
+      facts: { operatorRef: confirmed.operatorRef, settings: proposal.changes.map(change => change.key).join(" ") },
+    })
+    return context.redirect("/status/maintenance", 303)
+  })
+
+  // ── clinical go-live readiness ─────────────────────────────────────────────
+  //
+  // The verdict is computed from the stored component observations and the
+  // terminology projection on every request, so it cannot lag what the
+  // dashboard shows. Only the attestations a person makes are stored.
+
+  // Where a password sign-in lands: the Go-live journey while the appliance is
+  // installed but not yet approved, so the next step is the first thing seen,
+  // and the overview otherwise. During maintenance or recovery the overview's
+  // "needs attention" list is what matters, so it is not redirected there.
+  const signedInLanding = async () => {
+    const [terminology, siteConfig] = await Promise.all([
+      readTerminologyAgentSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+    ])
+    const { state } = evaluateGoLive({
+      components: db.getDashboard(now()).components,
+      terminology,
+      networkLists: networkListsState(siteConfig),
+      signoffs: db.listGoLiveSignoffs(),
+      now: now(),
+    })
+    return state === "GO_LIVE_BLOCKED" ? "/status/go-live" : "/status/"
+  }
+
+  const goLivePage = async (
+    locale: StatusLocale,
+    kind: "password" | "recovery",
+    extra: { notice?: string; error?: string } = {},
+  ) => {
+    const [terminology, siteConfig] = await Promise.all([
+      readTerminologyAgentSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+    ])
+    const view = evaluateGoLive({
+      components: db.getDashboard(now()).components,
+      terminology,
+      networkLists: networkListsState(siteConfig),
+      signoffs: db.listGoLiveSignoffs(),
+      now: now(),
+    })
+    return renderGoLive({ ...view, mayManage: kind === "password", recoverySession: kind === "recovery", ...extra }, locale, kind)
+  }
+
+  app.get("/status/go-live", async context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    return context.html(await goLivePage(locale, kind))
+  })
+
+  app.post("/status/go-live/signoff", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (kind !== "password") {
+      return context.html(await goLivePage(locale, kind, {
+        error: localize(locale, "Console-recovery sessions cannot record sign-offs. Nothing was changed.", "Аварийните сесии от конзолата не могат да записват потвърждения. Нищо не е променено."),
+      }), 403)
+    }
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    const parsed = Number.isFinite(contentLength) && contentLength <= 4096
+      ? await context.req.parseBody().catch(() => null) : null
+    const body = isRecord(parsed) ? parsed : null
+    const note = typeof body?.note === "string" ? body.note.trim() : ""
+    const action = body?.action
+    if (!body || typeof body.password !== "string" || !isGoLiveSignoffItem(body.item)
+      || (action !== "sign" && action !== "withdraw")
+      || (action === "sign" && (note.length < 3 || note.length > 300
+        || [...note].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)))) {
+      return context.html(await goLivePage(locale, kind, {
+        error: localize(locale, "The sign-off request is invalid. A note of 3 to 300 characters is required. Nothing was changed.", "Заявката за потвърждение е невалидна. Нужна е бележка от 3 до 300 знака. Нищо не е променено."),
+      }), 400)
+    }
+    try {
+      await auth.reauthenticatePassword(sessionToken, body.password)
+    } catch (error) {
+      const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
+      return context.html(await goLivePage(locale, kind, {
+        error: rateLimited
+          ? localize(locale, "Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново.")
+          : localize(locale, "The administrator password was not accepted. Nothing was changed.", "Администраторската парола не беше приета. Нищо не е променено."),
+      }), rateLimited ? 429 : 401)
+    }
+    const administrator = auth.statusSessionPrincipal(sessionToken)
+    if (!administrator || administrator.kind !== "password") {
+      return context.html(await goLivePage(locale, kind, {
+        error: localize(locale, "The administrator identity is unavailable. Nothing was changed.", "Самоличността на администратора не е достъпна. Нищо не е променено."),
+      }), 409)
+    }
+    const operatorRef = `status-operator-${sha256(administrator.email).slice(0, 16)}`
+    if (action === "sign") {
+      db.recordGoLiveSignoff({ item: body.item, operatorRef, note, signedAt: now() })
+    } else {
+      db.withdrawGoLiveSignoff(body.item)
+    }
+    db.insertEvent({
+      id: newRequestId(),
+      producer: "status-go-live",
+      occurredAt: now(),
+      code: action === "sign" ? "STATUS_GO_LIVE_SIGNOFF_RECORDED" : "STATUS_GO_LIVE_SIGNOFF_WITHDRAWN",
+      severity: "info",
+      message: action === "sign" ? "A go-live sign-off was recorded" : "A go-live sign-off was withdrawn",
+      facts: { item: body.item, operatorRef },
+    })
+    return context.redirect("/status/go-live", 303)
+  })
+
   // ── the release page and its two-step confirmation ─────────────────────────
   //
   // All under /status/, so the Caddyfile allowlist already covers them and no
@@ -1649,7 +2435,15 @@ export function createStatusApp({
         : installation?.mode === "agent" || agent !== null ? "failed" as const
           : "unconfigured" as const
     const operatorBlocked = agent?.phase === "needs-operator"
+    const installedVersion = config.installedVersion ?? update?.installedVersion ?? "-"
+    const fetchedVersion = agent?.preparedVersion ?? update?.fetchedVersion
+    const [installedDossier, fetchedDossier] = await Promise.all([
+      readReleaseDossier(config.updateStateDir, installedVersion),
+      readReleaseDossier(config.updateStateDir, fetchedVersion),
+    ])
     return {
+      ...(installedDossier ? { installedDossier } : {}),
+      ...(fetchedDossier ? { fetchedDossier } : {}),
       installedVersion: config.installedVersion ?? update?.installedVersion ?? "-",
       ...(update?.latestVersion === undefined ? {} : { latestVersion: update.latestVersion }),
       ...((agent?.preparedVersion ?? update?.fetchedVersion) === undefined ? {} : { fetchedVersion: agent?.preparedVersion ?? update?.fetchedVersion }),

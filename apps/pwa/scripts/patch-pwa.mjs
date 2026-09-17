@@ -2,7 +2,7 @@
 // and stamps the build id into dist/sw.js.
 // Run after `expo export --platform web`.
 import { readFileSync, readdirSync, writeFileSync } from "fs"
-import { resolve, dirname, join } from "path"
+import { resolve, dirname, join, relative } from "path"
 import { fileURLToPath } from "url"
 
 import { pwaBuildId } from "./pwa-build-id.mjs"
@@ -29,6 +29,20 @@ const BASE = baseUrl.replace(/\/+$/, "")
 if (BASE && !BASE.startsWith("/")) {
   console.error(`patch-pwa: experiments.baseUrl must start with "/" (got ${baseUrl})`)
   process.exit(1)
+}
+
+/** Every Expo-emitted static asset required by the installed application. */
+function staticAssetPaths(directory = join(distPath, "_expo", "static")) {
+  const paths = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const absolute = join(directory, entry.name)
+    if (entry.isDirectory()) paths.push(...staticAssetPaths(absolute))
+    else if (entry.isFile()) {
+      const emitted = relative(distPath, absolute).replaceAll("\\", "/")
+      paths.push(`${BASE}/${emitted}`)
+    }
+  }
+  return paths.sort()
 }
 
 /** Stamps __BASE__ through a file emitted into dist, refusing if it has none. */
@@ -83,7 +97,8 @@ writeFileSync(htmlPath, html, "utf8")
 // no app source had changed and the name came out identical.
 const swPath = join(distPath, "sw.js")
 const sw = readFileSync(swPath, "utf8")
-const buildId = pwaBuildId(readdirSync(join(distPath, "_expo", "static", "js", "web")), sw)
+const staticAssets = staticAssetPaths()
+const buildId = pwaBuildId(staticAssets, sw)
 if (!sw.includes("__BUILD_ID__")) {
   // Unstamped caches never expire, and a bad entry in one is unreachable to
   // every later release. Refuse to ship rather than leave that in place.
@@ -94,10 +109,21 @@ if (!sw.includes("__BASE__")) {
   console.error("patch-pwa: dist/sw.js has no __BASE__ placeholder to stamp")
   process.exit(1)
 }
+if (!sw.includes("__STATIC_PRECACHE__")) {
+  console.error("patch-pwa: dist/sw.js has no __STATIC_PRECACHE__ placeholder to stamp")
+  process.exit(1)
+}
 // The build id is taken from the worker's source before either substitution, so
 // it still changes when the caching rules change and does not merely track the
 // path a deployment happens to serve from.
-writeFileSync(swPath, sw.replaceAll("__BUILD_ID__", buildId).replaceAll("__BASE__", BASE), "utf8")
+writeFileSync(
+  swPath,
+  sw
+    .replaceAll("__BUILD_ID__", buildId)
+    .replaceAll("__BASE__", BASE)
+    .replace("__STATIC_PRECACHE__", JSON.stringify(staticAssets)),
+  "utf8",
+)
 
 // The manifest names the installed app's identity (start_url and scope) and the
 // registration names the worker's; both are meaningless at the wrong root.
@@ -106,5 +132,6 @@ stampBase("register-sw.js")
 
 console.log(
   `patch-pwa: hardened reset persisted; ${additions.length} PWA element(s) added; `
-  + `sw build ${buildId}; base ${BASE === "" ? "(site root)" : BASE}`,
+  + `pre-cached ${staticAssets.length} static asset(s); sw build ${buildId}; `
+  + `base ${BASE === "" ? "(site root)" : BASE}`,
 )

@@ -39,4 +39,11 @@ describe("which vocabulary a hospital's code came from", () => {
     // system survive for a human to read instead of resolving to a wrong one.
     expect(vocabularyForSystem("ICD9CM", "ICD10")).toBe("ICD9CM")
   })
+
+  it("recognises a system naming the NHIS ICD-10 list, and nothing that merely contains the letters", () => {
+    expect(vocabularyForSystem("https://his.vendor.bg/nomenclatures/CL011", "SNOMED")).toBe("ICD10")
+    expect(vocabularyForSystem("urn:nhis:cl011", "SNOMED")).toBe("ICD10")
+    expect(vocabularyForSystem("МКБ-10", "SNOMED")).toBe("ICD10")
+    expect(vocabularyForSystem("http://hospital.bg/xcl0119", "SNOMED")).toBe("http://hospital.bg/xcl0119")
+  })
 })

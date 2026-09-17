@@ -1,46 +1,34 @@
 name: Publish Hospital release
 
+# Three inputs, normally filled by scripts/publish-release.mjs on the
+# maintainer's machine: which candidate run, the maintainer's signature over its
+# release.lock, and the typed confirmation. Everything else is derived from the
+# candidate run itself and checked again by the write job: the version from the
+# run's tag, the attempt from the run, and the lock and signature digests from
+# the downloaded bytes. The signature, verified against the committed public
+# key, is what binds the approval to the exact lock.
 on:
   workflow_dispatch:
     inputs:
       candidate_run_id:
-        description: Exact successful Hospital release candidate workflow run ID
-        required: true
-        type: string
-      candidate_run_attempt:
-        description: Exact successful candidate workflow run attempt
-        required: true
-        type: string
-      version:
-        description: Exact MAJOR.MINOR.PATCH Hospital version
-        required: true
-        type: string
-      expected_lock_sha256:
-        description: Independently reviewed SHA-256 of release.lock
+        description: Successful Hospital release candidate workflow run ID
         required: true
         type: string
       release_signature_base64:
-        description: Canonical base64 of the reviewed raw 64-byte Ed25519 release.lock signature
-        required: true
-        type: string
-      expected_signature_sha256:
-        description: Independently reviewed SHA-256 of the raw release.lock signature
+        description: Canonical base64 of the maintainer's 64-byte Ed25519 signature over that run's release.lock
         required: true
         type: string
       confirm_publication:
-        description: Type PUBLISH hospital-X.Y.Z using the exact version above
-        required: true
-        type: string
-      confirm_immutable_releases:
-        description: Type IMMUTABLE RELEASES ENABLED hospital-X.Y.Z after checking the repository setting
+        description: Type PUBLISH hospital-X.Y.Z for the version that run built
         required: true
         type: string
 
 permissions:
   contents: read
 
+# One publication at a time. The version is not known until the run is read.
 concurrency:
-  group: hospital-publication-${{ inputs.version }}
+  group: hospital-publication
   cancel-in-progress: false
 
 jobs:
@@ -49,6 +37,7 @@ jobs:
     timeout-minutes: 240
     permissions:
       actions: read
+      attestations: read
       contents: read
       packages: read
     outputs:
@@ -56,32 +45,30 @@ jobs:
       candidate_artifact_digest: ${{ steps.provenance.outputs.candidate_artifact_digest }}
       candidate_commit: ${{ steps.provenance.outputs.candidate_commit }}
       candidate_tag: ${{ steps.provenance.outputs.candidate_tag }}
+      candidate_run_attempt: ${{ steps.provenance.outputs.candidate_run_attempt }}
+      version: ${{ steps.provenance.outputs.version }}
+      lock_sha256: ${{ steps.lock.outputs.lock_sha256 }}
+      signature_sha256: ${{ steps.lock.outputs.signature_sha256 }}
     steps:
       - name: Validate manual publication inputs and public repository boundary
         shell: bash
         env:
           CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
-          CANDIDATE_RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
-          RELEASE_VERSION: ${{ inputs.version }}
-          LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
           RELEASE_SIGNATURE_BASE64: ${{ inputs.release_signature_base64 }}
-          SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
           CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
-          CONFIRM_IMMUTABLE_RELEASES: ${{ inputs.confirm_immutable_releases }}
           REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main || { echo "Publication must be dispatched from main." >&2; exit 1; }
           test "$GITHUB_REPOSITORY" = kaloyandjunow-prog/lospor-hospital
-          test "$REPOSITORY_VISIBILITY" = public || { echo "Hospital publication requires the public repository trust boundary." >&2; exit 1; }
+          # Hospitals install and update anonymously from this repository and its
+          # GHCR images, so a private repository would publish a release no site
+          # could download.
+          test "$REPOSITORY_VISIBILITY" = public || { echo "Hospital publication requires the public repository hospitals install from." >&2; exit 1; }
           [[ "$CANDIDATE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
-          [[ "$CANDIDATE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          [[ "$LOCK_SHA256" =~ ^[a-f0-9]{64}$ ]]
           test -n "$RELEASE_SIGNATURE_BASE64"
-          [[ "$SIGNATURE_SHA256" =~ ^[a-f0-9]{64}$ ]]
-          test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$RELEASE_VERSION"
-          test "$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-$RELEASE_VERSION"
+          [[ "$CONFIRM_PUBLICATION" =~ ^PUBLISH\ hospital-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
+            || { echo "Type the confirmation as PUBLISH hospital-X.Y.Z." >&2; exit 1; }
 
       - name: Check out only the trusted default-branch publication code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -106,8 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.candidate_run_id }}
-          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
-          VERSION: ${{ inputs.version }}
+          CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
         run: |
           set -euo pipefail
           run_json="$RUNNER_TEMP/candidate-run.json"
@@ -115,9 +101,17 @@ jobs:
             "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$run_json"
           test "$(node -p "require('$run_json').event")" = push
           test "$(node -p "require('$run_json').conclusion")" = success
-          test "$(node -p "require('$run_json').run_attempt")" = "$RUN_ATTEMPT"
           test "$(node -p "require('$run_json').repository.full_name")" = "$GITHUB_REPOSITORY"
           test "$(node -p "require('$run_json').repository.private")" = false
+          # The version is the run's own tag, and the attempt the run's own: a
+          # tag push runs on the tag, so neither is typed by anyone.
+          RUN_ATTEMPT="$(node -p "require('$run_json').run_attempt")"
+          [[ "$RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          candidate_tag="$(node -p "require('$run_json').head_branch")"
+          [[ "$candidate_tag" =~ ^hospital-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          VERSION="${candidate_tag#hospital-}"
+          test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION" \
+            || { echo "The confirmation names a different version than candidate run $RUN_ID built (hospital-$VERSION)." >&2; exit 1; }
           candidate_commit="$(node -p "require('$run_json').head_sha")"
           [[ "$candidate_commit" =~ ^[a-f0-9]{40}$ ]]
           workflow_id="$(node -p "require('$run_json').workflow_id")"
@@ -170,23 +164,29 @@ jobs:
           echo "candidate_artifact_digest=$artifact_digest" >> "$GITHUB_OUTPUT"
           echo "candidate_commit=$candidate_commit" >> "$GITHUB_OUTPUT"
           echo "candidate_tag=hospital-$VERSION" >> "$GITHUB_OUTPUT"
+          echo "candidate_run_attempt=$RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Verify publication request, lock, manifest and exact candidate assets
+      - id: lock
+        name: Verify publication request, lock, manifest and exact candidate assets
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.provenance.outputs.version }}
           COMMIT: ${{ steps.provenance.outputs.candidate_commit }}
           RUN_ID: ${{ inputs.candidate_run_id }}
-          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
-          EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          RUN_ATTEMPT: ${{ steps.provenance.outputs.candidate_run_attempt }}
           RELEASE_SIGNATURE_BASE64: ${{ inputs.release_signature_base64 }}
-          EXPECTED_SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
         run: |
           set -euo pipefail
           prefix="lospor-hospital-$VERSION"
           lock="candidate/$prefix-release.lock"
           checksum="$lock.sha256"
-          test "$(sha256sum "$lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          # Digests of the downloaded bytes. Nothing is trusted for being typed:
+          # the lock is bound by its sidecar, the handoff and the signature, and
+          # the signature is verified against the committed public key below.
+          EXPECTED_LOCK_SHA256="$(sha256sum "$lock" | awk '{print $1}')"
+          EXPECTED_SIGNATURE_SHA256="$(node scripts/materialize-release-signature.mjs --digest "$RELEASE_SIGNATURE_BASE64")"
           test "$(cat "$checksum")" = "$EXPECTED_LOCK_SHA256  $prefix-release.lock"
           (cd candidate && sha256sum --check --strict "$prefix-release.lock.sha256")
           node scripts/verify-release-handoff.mjs \
@@ -195,16 +195,22 @@ jobs:
           node scripts/verify-release-candidate.mjs "$VERSION" candidate candidate-assets "$COMMIT"
           node scripts/verify-release-artifacts.mjs \
             "candidate/$prefix-manifest.json" "$lock" "$checksum" candidate
+          node scripts/verify-release-dossier.mjs \
+            "candidate/$prefix-security-evidence.tar.gz" "$lock" --run "$RUN_ID" --attempt "$RUN_ATTEMPT"
+          gh attestation verify "$lock" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
           git diff --exit-code "$COMMIT" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem
           node scripts/materialize-release-signature.mjs \
             "$lock" "$RELEASE_SIGNATURE_BASE64" "$EXPECTED_SIGNATURE_SHA256" \
             infra/release-signing/release-signing-public.pem
           test "$(sha256sum "$lock.sig" | awk '{print $1}')" = "$EXPECTED_SIGNATURE_SHA256"
+          echo "lock_sha256=$EXPECTED_LOCK_SHA256" >> "$GITHUB_OUTPUT"
+          echo "signature_sha256=$EXPECTED_SIGNATURE_SHA256" >> "$GITHUB_OUTPUT"
 
       - name: Verify all ten private-registry image identities
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.provenance.outputs.version }}
         run: |
           set -euo pipefail
           image_lock="candidate/lospor-hospital-$VERSION-images.json"
@@ -216,10 +222,8 @@ jobs:
         shell: bash
         env:
           HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
-          HOSPITAL_CREDENTIAL_TEST_ONLY: "1"
           HOSPITAL_RELEASE_TEST_ONLY: "1"
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.provenance.outputs.version }}
         run: |
           set -euo pipefail
           prefix="lospor-hospital-$VERSION"
@@ -227,15 +231,13 @@ jobs:
           home="$RUNNER_TEMP/hospital-online/home"
           mkdir -p "$bootstrap/scripts" "$home/secrets"
           cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"
-          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh provision-update-credentials.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
+          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
-          # The connected update path needs this site's own read-only GHCR
-          # credential. This isolated test home starts without one, so
-          # provision it from this job's packages:read workflow token.
-          printf '%s\n%s\n' "$GITHUB_ACTOR" "$GH_TOKEN" \
-            | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr
+          # No registry credential, exactly like a hospital: the launcher pulls
+          # into an empty Docker config, so this passes only while the release
+          # images are public.
           sh "$bootstrap/scripts/run-online-release.sh" \
             "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
             sh -c 'set -e; sudo -E sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
@@ -300,17 +302,16 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
           RUN_ID: ${{ inputs.candidate_run_id }}
-          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
           CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
-          CONFIRM_IMMUTABLE_RELEASES: ${{ inputs.confirm_immutable_releases }}
           REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+          EXPECTED_VERSION: ${{ needs.verify.outputs.version }}
+          EXPECTED_RUN_ATTEMPT: ${{ needs.verify.outputs.candidate_run_attempt }}
           EXPECTED_COMMIT: ${{ needs.verify.outputs.candidate_commit }}
           EXPECTED_TAG: ${{ needs.verify.outputs.candidate_tag }}
-          EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          EXPECTED_LOCK_SHA256: ${{ needs.verify.outputs.lock_sha256 }}
           RELEASE_SIGNATURE_BASE64: ${{ inputs.release_signature_base64 }}
-          EXPECTED_SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
+          EXPECTED_SIGNATURE_SHA256: ${{ needs.verify.outputs.signature_sha256 }}
           EXPECTED_ARTIFACT_ID: ${{ needs.verify.outputs.candidate_artifact_id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ needs.verify.outputs.candidate_artifact_digest }}
         run: |
@@ -319,26 +320,32 @@ jobs:
           test "$GITHUB_REPOSITORY" = kaloyandjunow-prog/lospor-hospital
           test "$REPOSITORY_VISIBILITY" = public
           [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]]
-          [[ "$RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$EXPECTED_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           [[ "$EXPECTED_COMMIT" =~ ^[a-f0-9]{40}$ ]]
-          test "$EXPECTED_TAG" = "hospital-$VERSION"
+          test "$EXPECTED_TAG" = "hospital-$EXPECTED_VERSION"
           [[ "$EXPECTED_LOCK_SHA256" =~ ^[a-f0-9]{64}$ ]]
           test -n "$RELEASE_SIGNATURE_BASE64"
           [[ "$EXPECTED_SIGNATURE_SHA256" =~ ^[a-f0-9]{64}$ ]]
-          test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION"
-          test "$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-$VERSION"
           [[ "$EXPECTED_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$EXPECTED_ARTIFACT_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
 
+          # Everything the read-only job derived is derived again here and must
+          # agree, so a changed run, tag or artifact between jobs stops the write.
           run_json="$RUNNER_TEMP/candidate-run.json"
           gh api -H "X-GitHub-Api-Version: 2026-03-10" \
             "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$run_json"
           test "$(node -p "require('$run_json').event")" = push
           test "$(node -p "require('$run_json').conclusion")" = success
-          test "$(node -p "require('$run_json').run_attempt")" = "$RUN_ATTEMPT"
           test "$(node -p "require('$run_json').repository.full_name")" = "$GITHUB_REPOSITORY"
           test "$(node -p "require('$run_json').repository.private")" = false
+          RUN_ATTEMPT="$(node -p "require('$run_json').run_attempt")"
+          test "$RUN_ATTEMPT" = "$EXPECTED_RUN_ATTEMPT"
+          candidate_tag="$(node -p "require('$run_json').head_branch")"
+          test "$candidate_tag" = "$EXPECTED_TAG"
+          VERSION="${candidate_tag#hospital-}"
+          test "$VERSION" = "$EXPECTED_VERSION"
+          test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION"
           candidate_commit="$(node -p "require('$run_json').head_sha")"
           [[ "$candidate_commit" =~ ^[a-f0-9]{40}$ ]]
           test "$candidate_commit" = "$EXPECTED_COMMIT"
@@ -396,6 +403,7 @@ jobs:
           lock="release-assets/$prefix-release.lock"
           checksum="$lock.sha256"
           test "$(sha256sum "$lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(node scripts/materialize-release-signature.mjs --digest "$RELEASE_SIGNATURE_BASE64")" = "$EXPECTED_SIGNATURE_SHA256"
           test "$(cat "$checksum")" = "$EXPECTED_LOCK_SHA256  $prefix-release.lock"
           (cd release-assets && sha256sum --check --strict "$prefix-release.lock.sha256")
           node scripts/verify-release-handoff.mjs \
@@ -404,6 +412,8 @@ jobs:
           node scripts/verify-release-candidate.mjs "$VERSION" release-assets candidate-assets "$candidate_commit"
           node scripts/verify-release-artifacts.mjs \
             "release-assets/$prefix-manifest.json" "$lock" "$checksum" release-assets
+          node scripts/verify-release-dossier.mjs \
+            "release-assets/$prefix-security-evidence.tar.gz" "$lock" --run "$RUN_ID" --attempt "$RUN_ATTEMPT"
           git diff --exit-code "$candidate_commit" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem
           node scripts/materialize-release-signature.mjs \
             "$lock" "$RELEASE_SIGNATURE_BASE64" "$EXPECTED_SIGNATURE_SHA256" \
@@ -436,7 +446,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
           image_lock="$RUNNER_TEMP/release-images.json"
@@ -471,12 +481,12 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
           COMMIT: ${{ needs.verify.outputs.candidate_commit }}
           RUN_ID: ${{ inputs.candidate_run_id }}
-          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
-          EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
-          EXPECTED_SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
+          RUN_ATTEMPT: ${{ needs.verify.outputs.candidate_run_attempt }}
+          EXPECTED_LOCK_SHA256: ${{ needs.verify.outputs.lock_sha256 }}
+          EXPECTED_SIGNATURE_SHA256: ${{ needs.verify.outputs.signature_sha256 }}
         run: |
           set -euo pipefail
           tag="hospital-$VERSION"
@@ -501,7 +511,7 @@ jobs:
           release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=$VERSION commit=$COMMIT candidate=$RUN_ID/$RUN_ATTEMPT lock-sha256=$EXPECTED_LOCK_SHA256 signature-sha256=$EXPECTED_SIGNATURE_SHA256"
           expected_notes="$release_marker
 
-          Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this public repository."
+          Integrity-verified LOSPOR Hospital $VERSION appliance, signed by the maintainer's release key."
           # The REST release object for this tag, including while it is a draft.
           #
           # `repos/{owner}/{repo}/releases/tags/{tag}` resolves published

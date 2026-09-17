@@ -1,4 +1,5 @@
 import { calcApfel, calcBMI, calcRCRI, calcStopBang } from "./scores"
+import { plannedProcedureText } from "./procedure-codes"
 import { calculateMostellerBsa } from "./pediatric-calculators"
 import type { ClinicalMode } from "./pediatric"
 
@@ -81,6 +82,6 @@ export function buildCanonicalPreopPayload<T extends PreopPayloadValues>(values:
     ...values,
     ...scores,
     diagnosis: (values.diagnoses ?? []).map(d => d.label ?? "").join("; "),
-    plannedProcedure: (values.procedures ?? []).map(p => p.label ?? "").join("; "),
+    plannedProcedure: plannedProcedureText(values.procedures ?? []),
   }
 }

@@ -531,7 +531,7 @@ model Icd10Synonym {
   @@index([icd10Code])
 }
 
-// LOINC codes for the 67-test canonical lab library (seeded once, not full LOINC import)
+// LOINC codes for coded entries in the 66-test canonical lab library (not a full LOINC import)
 model LabLoinc {
   name          String @id // exact name from lab library
   loincCode     String
@@ -672,6 +672,11 @@ model ConceptMap {
   sourceLabelBg      String?
   standardVocabulary String?
   standardConceptId  Int?
+  /// Every standard concept, when the source code maps to several (an ICD-10
+  /// combination code such as E11.2, diabetes with a kidney complication):
+  /// standardConceptId is then null and the export writes one row per id.
+  /// Empty otherwise.
+  standardConceptIds Int[]              @default([])
   standardLabel      String?
   mappingStatus      ConceptMappingStatus @default(SOURCE_ONLY)
   sourceVersion      String?
@@ -1692,6 +1697,11 @@ model PreopDiagnosis {
   sourceVocabulary  String?
   sourceCode        String?
   standardConceptId Int?
+  /// Every standard concept, when the source code maps to several (an ICD-10
+  /// combination code such as E11.2, diabetes with a kidney complication):
+  /// standardConceptId is then null and the export writes one row per id.
+  /// Empty otherwise.
+  standardConceptIds Int[]              @default([])
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
   source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
   clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
@@ -1746,6 +1756,11 @@ model Comorbidity {
   sourceVocabulary  String?
   sourceCode        String?
   standardConceptId Int?
+  /// Every standard concept, when the source code maps to several (an ICD-10
+  /// combination code such as E11.2, diabetes with a kidney complication):
+  /// standardConceptId is then null and the export writes one row per id.
+  /// Empty otherwise.
+  standardConceptIds Int[]              @default([])
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
   source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
   clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
@@ -2140,6 +2155,24 @@ enum EhrImportTransport {
   HL7V2
 }
 
+/// Which code list a hospital's coding-system address stands for.
+enum HospitalEhrCodeList {
+  /// ICD-10, including the Bulgarian МКБ-10 of NHIS list CL011.
+  ICD10
+  /// ICD-10-PCS: an exact operation, and its research code.
+  ICD10PCS
+  /// Bulgarian procedure codes (КСМП, based on ACHI).
+  KSMP
+  /// NHIS routes of administration from EDQM terms.
+  NHIS_CL013
+  /// NHIS routes of administration from HL7.
+  NHIS_CL046
+  /// NHIS laboratory tests.
+  NHIS_CL024
+  /// Answered, and none of the above: stops the address being asked about.
+  OTHER
+}
+
 enum EhrImportStatus {
   /// Waiting for a clinician to review it.
   PENDING
@@ -2526,6 +2559,13 @@ model HospitalExternalAiPolicy {
   policyChangedById            String?
   policyChangedBy              User?              @relation("HospitalExternalAiPolicyChanger", fields: [policyChangedById], references: [id], onDelete: Restrict)
   policyChangeReason           String?
+  /// Pinned Mistral model for the advisor; null means the release default
+  /// (lib/hospital/external-ai-models.ts). Checked against the list in code,
+  /// not by the database, because Mistral retires models between releases.
+  advisorModel                 String?
+  /// Pinned Mistral model that reads lab report and monitor photos.
+  visionModel                  String?
+  modelsChangedAt              DateTime?
   createdAt                    DateTime           @default(now())
   updatedAt                    DateTime           @updatedAt
 }
@@ -2623,6 +2663,10 @@ model HospitalEhrTransportPolicy {
   transportChangedById          String?
   transportChangedBy            User?               @relation("HospitalEhrTransportPolicyChanger", fields: [transportChangedById], references: [id], onDelete: Restrict)
   transportChangeReason         String?
+  /// How many days staged EHR data is kept before it is deleted
+  /// (lib/hospital/ehr-retention.ts). 1 to 14; an import is offered for 14.
+  stagingRetentionDays          Int                 @default(14)
+  stagingRetentionChangedAt     DateTime?
   createdAt                     DateTime            @default(now())
   updatedAt                     DateTime            @updatedAt
 }
@@ -2679,6 +2723,33 @@ model HospitalEhrLabCodeMap {
 
   @@unique([system, code])
   @@index([test])
+  @@index([lastSeenAt])
+}
+
+/// What a hospital's coding-system addresses mean.
+///
+/// NHIS publishes no FHIR address for its lists, so every vendor invents one.
+/// An address that names the list ("…/CL013", "urn:x:ksmp") is recognised on
+/// its own; any other is recorded here when it arrives, and an operator says
+/// once which list it is. The import is never blocked while one is waiting:
+/// its codes arrive as the hospital labelled them.
+model HospitalEhrCodeSystem {
+  id          String               @id @default(cuid())
+  /// The address as the hospital sends it, trimmed.
+  system      String               @unique
+  /// Null while nobody has answered.
+  list        HospitalEhrCodeList?
+  /// Where it arrived: diagnoses, procedures, routes, labs.
+  seenIn      String[]             @default([])
+  /// One code and label that came with it, so the operator recognises it.
+  sampleCode  String?
+  sampleLabel String?
+  seenCount   Int                  @default(0)
+  lastSeenAt  DateTime?
+  answeredAt  DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
   @@index([lastSeenAt])
 }
 

@@ -142,6 +142,34 @@ docker compose --profile tools run --rm -T status-db-init
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts
 
+# The option lists a release ships (routes, premedication, positions...) reach
+# an installed site only through this seed; install runs it once and nothing
+# else ever did, so a new route stayed invisible until a reinstall. Upserts on
+# (category, value) and hides options the release no longer ships; no site
+# edits these rows, and a hidden option stays readable on cases that used it.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-option-library.ts
+
+# The laboratory LOINC codes and units, as install fills them: release data
+# with no licence decision, so every site gets this release's list.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-lab-loinc.ts
+
+# Research links (ConceptMap: LOSPOR code -> standard OMOP concept), rebuilt on
+# every update from this release's bundled research numbers and, where the site
+# has imported terminology, from that. Idempotent; a failure here leaves the
+# previous links in place, so it warns and the update carries on.
+terminology_state="$update_appliance_home/.data/terminology"
+if [ -d "$terminology_state/import.lock" ]; then
+  operator_say "A terminology import is running; it builds the research links itself." "Изпълнява се импорт на терминология; той сам ще изгради връзките за изследвания."
+elif docker compose --profile tools run --rm -T tools \
+    ./node_modules/.bin/tsx scripts/seed-concept-maps.ts; then
+  operator_say "Research links refreshed." "Връзките за изследвания са обновени."
+else
+  operator_error "Research links were not refreshed; the previous ones stay in use. Run the update again to rebuild them." "Връзките за изследвания не бяха обновени; остават предишните. Изпълнете обновяването отново, за да ги изградите."
+fi
+unset terminology_state
+
 docker compose up -d status
 
 # The first status-enabled upgrade needs one explicit operator selection. Both

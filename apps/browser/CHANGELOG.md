@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Database
 
+## [0.7.2] - 2026-09-15
+
+### Fixed
+
+- **A newly saved cohort never appeared in the saved-cohorts list.** Editing
+  an existing cohort already refreshed the list on completion; saving a
+  brand-new one produced the same record but never told the list to refresh,
+  so it saved successfully and then was invisible until the next full page
+  load.
+
 ## [0.7.1] - 2026-09-07
 
 ### Fixed

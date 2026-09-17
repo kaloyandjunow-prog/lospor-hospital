@@ -116,6 +116,8 @@ case "\${1:-} \${2:-}" in
     case "$format" in
       *Architecture*) printf '%s\n' "$3" ;;
       *RootFS*) printf '%s\n' "$4" ;;
+      *Descriptor*) printf 'null\n' ;;
+      *.Id*) printf '%s\n' '${config.configDigest}' ;;
       *) exit 64 ;;
     esac
     ;;

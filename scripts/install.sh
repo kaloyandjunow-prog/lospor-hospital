@@ -323,6 +323,14 @@ unset HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-option-library.ts
 
+# The LOINC code, standard unit and catalogue range of each laboratory test.
+# The research copy of a case reads them from this table when the case is
+# saved; left empty until a terminology import, every result reached the OMOP
+# export and Central without a LOINC code or a unit. The list ships with the
+# release and needs no licence decision. Upserts, so repeating it is harmless.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-lab-loinc.ts
+
 # ICD-10 from the vendored Core bundle, so a diagnosis can be coded before the
 # licensed vocabulary package is imported. /v1/search/icd10 reads Icd10Code and
 # nothing else, unlike its siblings -- procedures serve a bundled file and drugs
@@ -332,6 +340,15 @@ docker compose --profile tools run --rm -T tools \
 # label it imported.
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts
+
+# Research links (ConceptMap: LOSPOR code -> standard OMOP concept), from the
+# research numbers the release bundles -- OMOP ids only for ICD-10, ICD-10-PCS,
+# LOINC and catalogue drugs -- and the hand-curated option and complication
+# concepts. A case saved from the first day exports standard concepts; a later
+# terminology import refines them. Reads the ICD-10, option and lab tables
+# seeded above, so it runs after them.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-concept-maps.ts
 
 # Install the two release-owned clinical baselines only after the database and
 # Hospital administrator bootstrap are complete. The owner provisioner is the
@@ -431,6 +448,9 @@ case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
     # first exact v1 snapshot is complete; Status reads that projection only
     # and never receives host paths, names, credentials or command output.
     sh ./scripts/install-host-observability.sh
+    # The console command. The launcher is fixed and names only the canonical
+    # current release, so updates never need to replace it.
+    install -m 0755 ./infra/losporctl/losporctl /usr/local/bin/losporctl
     ;;
 esac
 unset update_agent_arguments
@@ -463,4 +483,4 @@ if [ -n "$clinical_domain" ]; then
 fi
 operator_say "Outage fallback (from an SSH tunnel): https://localhost:${status_port}/status/" "Авариен достъп (през SSH тунел): https://localhost:${status_port}/status/"
 echo "  ssh -L ${status_port}:127.0.0.1:${status_port} <admin>@$(hostname -f 2>/dev/null || hostname)"
-operator_say "Import the licensed reference vocabulary package before clinical use." "Преди клинична употреба импортирайте лицензирания пакет със справочна терминология."
+operator_say "Installed, not yet approved for clinical use. Complete the checklist on the Status Go-live page (/status/go-live)." "Инсталирано, но все още не е одобрено за клинична употреба. Изпълнете списъка на страницата „Готовност“ в Status (/status/go-live)."

@@ -23,21 +23,20 @@ def observed_at(offset_seconds: int = 0) -> str:
 
 def healthy(**overrides: object) -> dict[str, object]:
     value: dict[str, object] = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "signalType": "host-observability",
         "observedAt": observed_at(),
         "storage": "ok",
         "clock": "synchronized",
         "backup": "fresh",
         "offHostBackup": "acknowledged",
+        "keyEscrow": "acknowledged",
         "updateAgent": "healthy",
         "certificate": "valid",
         "services": "healthy",
         "restoreLock": "clear",
         "activationLock": "clear",
         "updateSupply": "connected",
-        "githubReleaseCredential": "configured",
-        "ghcrCredential": "configured",
     }
     value.update(overrides)
     return value
@@ -47,7 +46,7 @@ class HostCheckTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.directory = Path(self.temporary.name)
-        self.signal = self.directory / "host-observability.v1.json"
+        self.signal = self.directory / "host-observability.v2.json"
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -96,7 +95,25 @@ class HostCheckTest(unittest.TestCase):
             "LOSPOR HOST CRITICAL - HOST_ACTIVATION_LOCK_PRESENT,HOST_SERVICES_DEGRADED\n",
         )
 
-    def test_stale_future_unknown_enum_and_inconsistent_supply_fail_closed(self) -> None:
+    def test_key_escrow_is_graded_like_status(self) -> None:
+        for escrow, code, expected in [
+            ("missing", "KEY_ESCROW_MISSING", 1),
+            ("stale", "KEY_ESCROW_STALE", 2),
+            ("invalid", "KEY_ESCROW_EVIDENCE_INVALID", 2),
+        ]:
+            with self.subTest(escrow=escrow):
+                self.write(healthy(keyEscrow=escrow))
+                result = self.run_check()
+                self.assertEqual(result.returncode, expected)
+                self.assertIn(code, result.stdout)
+
+    def test_previous_schema_with_credential_fields_is_rejected(self) -> None:
+        legacy = healthy(schemaVersion=1, githubReleaseCredential="configured", ghcrCredential="configured")
+        legacy.pop("keyEscrow")
+        self.write(legacy)
+        self.assertEqual(self.run_check().returncode, 3)
+
+    def test_stale_future_and_unknown_enum_fail_closed(self) -> None:
         # Comfortably outside the 180s stale and 300s future windows rather than
         # one second past them. The future variant used +301, which the checker
         # rejects only while `now - observedAt < -300` -- so it required the
@@ -112,11 +129,7 @@ class HostCheckTest(unittest.TestCase):
             healthy(observedAt=observed_at(-900)),
             healthy(observedAt=observed_at(900)),
             healthy(restoreLock="quiet"),
-            healthy(
-                updateSupply="offline",
-                githubReleaseCredential="configured",
-                ghcrCredential="not-required",
-            ),
+            healthy(updateSupply="sideways"),
         ]
         for value in variants:
             with self.subTest(value=value):

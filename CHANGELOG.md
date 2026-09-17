@@ -1,5 +1,568 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased] - 1.4.0
+
+Installation and updates no longer need any GitHub or registry credential. The
+repository, its releases and the ten GHCR images are public; what a site trusts
+is still only the Ed25519 signature over the release lock.
+
+1.4.0 is a fresh-install release: no hospital runs an earlier version, so there
+is no upgrade path from 1.3.x.
+
+Releases 1.0.0 to 1.3.2 were withdrawn on 15 September 2026, to make room for
+the 1.4.0 runs: their GitHub Releases and GHCR image versions were deleted, and
+so were the old CI candidate artifacts and build caches. Their git tags remain.
+1.3.3 stays published as the last working release before 1.4.0.
+
+### Added
+
+- **Install from a Windows wizard, with nothing to type on the server.**
+  `Install LOSPOR Hospital.cmd` starts `infra/host/hyperv/Install-LosporHospital.ps1`,
+  which asks everything once, in English or Bulgarian:
+  - **The VM:** the network switch from those that exist, and the sizes,
+    prefilled at 8 cores, 24 GB and 400 GB.
+  - **Access:** the server password and SSH key.
+  - **The site:** both addresses, the hospital, and the certificate (a hospital
+    `.pfx` or PEM files, Let's Encrypt, or local).
+  - **The administrator.**
+
+  It checks every answer before anything is created, including whether the
+  `.pfx` covers both names and includes its root. Server Core gets the same
+  questions as text. Ubuntu then installs, and a new first-boot service
+  (`infra/host/autoinstall/lospor-firstboot.sh`) installs LOSPOR from those
+  answers:
+  - **Handling:** it deletes the password and certificate files from the disk
+    first, turns a `.pfx` into `secrets/tls`, waits for DNS while showing the
+    server's address, and runs the ordinary signature-verifying installer.
+  - **Reporting:** progress goes to the wizard through Hyper-V's key-value
+    exchange. The wizard ends with the Go-live address, or the reason and the
+    command to run again.
+  - **Offline:** release files beside the kit are copied to a disk the first
+    boot installs from.
+
+  `scripts/create-windows-kit.mjs` builds the deterministic
+  `lospor-hospital-X.Y.Z-windows-kit.zip`. Adding it to the signed release lock
+  and the published assets is still to do. The kit's VM defaults rise to 24 GB
+  and 400 GB. `install-guided.sh` accepts the administrator password as a
+  root-only file (`HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE`), read once and
+  removed.
+- **Secrets escrow from Status.** **Maintenance → Secrets escrow** creates the
+  escrow copy with one button: after the administrator password and a fresh
+  authenticator code, Status generates the passphrase and shows it once, the
+  host agent writes the same encrypted file `losporctl secrets escrow` writes
+  and checks that it opens to the secrets in use, and Status offers it for 30
+  minutes as a download to the administrator who asked, for a USB stick on their
+  own computer. The download is reported to the host, which records the
+  acknowledgement Go-live checks (`method=status-download`) and removes the
+  copy. Safeguards: offered only while Status is limited to the IT management
+  networks; the copy is readable by the Status user only on the host; at most
+  three copies in 24 hours, counted by the host; every request and download is
+  logged, and a download is noted on the overview for a week; not available to
+  console-recovery sessions. Go-live's escrow step now links to it; the console
+  command stays for sites without the agent.
+- **Off-host copies made by LOSPOR are optional.** Many hospitals back up the
+  whole VM (Hyper-V or Veeam backup), which carries LOSPOR's verified backups
+  with it and which the appliance cannot see. Go-live shows the off-host copy as
+  an optional step, doctor reports its absence as a note rather than CRITICAL,
+  and the restore-drill sign-off accepts a Status restore drill, a drill from the
+  off-host copy, or a restore of the VM backup.
+- **The terminology package is optional.** The release carries the codes clinical
+  use needs: ICD-10 with Bulgarian names, procedures, the drug list, English
+  diagnosis synonyms and the research numbers for all of them. Go-live shows
+  the Athena package as an optional step that neither blocks the verdict nor
+  counts in progress; `doctor.sh --go-live` checks a package strictly only where
+  one was imported, the rule restore pre-open already used. A package that was
+  imported and then needs the operator still stops go-live. The bundled drug
+  list research codes and English synonyms arrive with the next vendored
+  `lospor-api`, whose `seed-icd10-from-bundle.ts` (already run by install and
+  update) loads the synonyms; no install step changes.
+- **Go-live is a journey, not only a checklist.** The Status Go-live page puts its
+  thirteen required checks and sign-offs in order, in five stages, counts how many are
+  done, and leads with **Next step**: why it matters, who owns it (the
+  appliance, Hospital IT or the clinical lead), and a link to the Status page
+  that does it or the console command for what Status deliberately cannot do.
+  A password sign-in opens it while the appliance is installed but not yet
+  approved. The verdict and what it requires are unchanged, and nothing new is
+  stored, so it resumes from whatever the appliance reports.
+- **`losporctl secrets escrow DIRECTORY` escrows the secrets in one step.** It
+  writes `site.env`, `.env`, `advanced.env` and `secrets/` encrypted to a USB
+  stick or share, refuses the server's own disk, decrypts the copy and requires
+  it to match the files in use, then records the acknowledgement. The
+  passphrase is generated and shown once, or given with `--passphrase-file`.
+  Go-live, doctor and `losporctl status` point to it.
+- **The terminology import form offers the package folders on the server.** The
+  host probe publishes the names of the direct `reference-data/` folders that
+  hold a `manifest.json` (`terminology-packages.v1.json`, names only, never
+  links or file contents), and the form suggests them; a name can still be
+  typed, and the host still verifies the package.
+
+- **A failed first installation can be continued or discarded.** Running
+  `losporctl-install.sh` again after an attempt that did not finish lists what
+  it left (settings, secrets, an activation lock, containers, volumes, host
+  services) and changes nothing. `--resume` continues with its settings and
+  databases, without asking for the site settings again, and clears the
+  activation lock through the release's own recovery. `--discard-unfinished`
+  removes what the attempt left after a typed DISCARD (or `--yes`), keeping the
+  verified downloads. Neither runs beside another installation or touches an
+  installed appliance.
+- **Hyper-V release gate.** `scripts/hyperv-install-gate.ps1` builds a VM with
+  the host kit, checks it over SSH, optionally installs release media offline
+  with `losporctl check` required to pass, times each step, and removes the VM.
+
+- **Imported procedures arrive the way the pickers store them.** A КСМП-coded
+  procedure is proposed as its crosswalked group, declared as vocabulary КСМП,
+  with the ICD-10-PCS operations its crosswalk reached (up to 30) offered first
+  for the clinician's exact choice. A КСМП code whose crosswalk reached a single
+  operation is proposed as that operation directly only once a clinician has
+  confirmed it is right: all 178 such codes were reviewed and 102 confirmed. The
+  crosswalk is approximate, so the other 76 stay the group with that operation
+  offered first. An ICD-10-PCS-coded procedure is proposed as
+  that exact operation, keeping the hospital's address and wording. Both apply
+  to FHIR and to the watched folder, and ICD-10-PCS is an answer on the Status
+  code-list screen.
+- **Code-list addresses in Status.** NHIS publishes no FHIR address for its
+  code lists, so a hospital system may send ICD-10, КСМП procedures, CL013 or
+  CL046 routes or CL024 lab tests under an address LOSPOR cannot recognise.
+  **Hospital controls → Code-list addresses** lists each such address once a
+  code arrives from it, with a sample code, and the operator says once which
+  list it is (or that it is none of them); an address can also be entered from
+  the vendor's documentation. The FHIR and folder imports then read those codes
+  like a recognised address. No password, audited, and nothing waits on it.
+- **`NOTICE.md`** names the owners of the reference data the appliance ships
+  and imports: LOINC with its required copyright notice, ICD-10 and the NHIS
+  nomenclatures, PRCCSR and ICD-10-PCS, КСМП and the GEM crosswalk, ATC, and
+  the Athena and SNOMED CT terms each hospital accepts itself.
+- **A release dossier, and GitHub build attestations.** Every release carries
+  `release-dossier.json` inside its security evidence, so the signed lock
+  covers it.
+  - It records the build run, compatibility rule, image digests, vulnerability
+    counts and exceptions with expiry dates, the digest of every report and
+    SBOM, the artifacts and upstream versions.
+  - The candidate writes and checks it; both publication jobs check it against
+    the lock, the evidence files and the dispatched run.
+  - The maintainer helper prints it, the installer shows it before installing,
+    preparing an update refuses a mismatching one, and Status shows it on
+    **Updates**.
+  - The candidate also attests its release files with GitHub; publication and
+    the helper require that attestation. It never replaces the signature.
+- **Support bundle in Status.** **Maintenance → Support bundle** writes the
+  same privacy-safe file as `losporctl support-bundle create` through the host
+  agent and offers it as a download to password sessions. Operator transfer
+  stays at the console.
+- **`--json` on the reading `losporctl` commands.** `version`, `backup list`,
+  `backup offhost state`, `config show`, `config advanced` and `host state`
+  print one object for scripts and monitoring; commands that change the
+  appliance refuse `--json`.
+- **Imported diagnoses use LOSPOR's ICD-10.** A diagnosis or comorbidity arriving
+  over FHIR or through the watched folder with an ICD-10 code LOSPOR holds
+  (including the Bulgarian six-character codes, and systems naming NHIS CL011)
+  is proposed exactly as the diagnosis picker records it: LOSPOR's label in the
+  site language, both labels and the canonical code, with the hospital's wording
+  kept beside it. Unknown codes, other vocabularies and free text import as
+  sent.
+- **Bulgarian codes on FHIR import.** A planned operation coded in КСМП (the
+  Bulgarian ACHI-based procedure classification) is proposed as the LOSPOR
+  procedure group it crosswalks to, with the hospital's code kept beside it;
+  2,550 codes have a confident crosswalk (NCPHA КСМП–ICD-9-CM map, CMS GEM,
+  AHRQ PRCCSR), and the rest arrive as the hospital labelled them. A medication
+  route coded in NHIS CL013 or CL046 arrives as LOSPOR's route, including the new
+  buccal and enteral (feeding tube) routes. Sex "other" is proposed as Other.
+- **FHIR import tells comorbidities from diagnoses.** The import reads each
+  condition's role from the admission (`Encounter.diagnosis.use`, FHIR
+  diagnosis-role codes or NHIS CL076 keys). A condition named only as a
+  comorbidity is proposed in the comorbidity list, one named only for billing
+  is left out, and a condition without a role stays a diagnosis as before.
+- **Network lists are set in Status after installation.** The guided installer
+  no longer asks for them. As installed, Status answers every private network
+  (password and MFA still required) and the Research Browser answers nobody;
+  **Needs attention today** and a new **Go-live** check say so until Hospital IT sets
+  both lists in **Maintenance → Site settings**, and that change turns the
+  all-private-networks switch off. Status may turn the switch off, never on.
+- **Credential rotation in Status.** **Maintenance → Credential rotation**
+  runs the ordinary rotation (session key, worker tokens, Status tokens,
+  database passwords) through the host agent after a written confirmation and
+  the password. Patient-identity and encryption keys are never rotated. A
+  console rotation already pending, an interrupted one, or an unproven rollback
+  is left to the console.
+- **Publishing takes three inputs instead of eight.** `publish-release.yml`
+  accepts the candidate run ID, the maintainer's signature and the typed
+  `PUBLISH hospital-X.Y.Z`. The version, run attempt and lock and signature
+  digests are derived from the run and its bytes in both jobs, and must agree.
+  - `scripts/publish-release.mjs prepare <run>` downloads and verifies the
+    candidate and prints the exact signing command.
+  - `scripts/publish-release.mjs publish <run>` verifies the signature against
+    the committed public key, reads the Immutable Releases setting with the
+    maintainer's login, asks for the confirmation and dispatches.
+  - Signing still happens only on the offline machine.
+- **Needs attention today.** The Status overview opens with a to-do list built
+  from the checks Status already makes: what to do, how soon (now, today, soon,
+  for information) and where. It covers:
+  - services down, disk, certificate, clock, backups, off-host copies and
+    escrowed secrets;
+  - the host agent, retention and case closure, an available release;
+  - Ubuntu updates and restarts, and a restore drill older than three months;
+  - go-live items left, and advanced settings that differ from the defaults.
+- **Ubuntu security updates in Status.** A privacy-safe `host-os` signal
+  (counts, fixed words and times, never a package name) feeds a new overview
+  row, a go-live check and **Maintenance → Server operating system (Ubuntu)**.
+  - **Install security updates now** runs unattended-upgrades through the
+    `lospor-host-os-maintenance@` unit inside the shared maintenance lock.
+  - **Restart the server** is offered when Ubuntu asks for one, and always
+    takes a verified backup first.
+  - `HOSPITAL_HOST_REBOOT_POLICY=window` lets the appliance back up and restart
+    itself in the update window when Ubuntu asks, at most once in 20 hours.
+  - At the console: `losporctl host state | security-update | reboot | upgrade`.
+    `upgrade` also updates Docker, which the nightly run never does because it
+    restarts every clinical service.
+- **Advanced settings.** Ten tuning values (backup schedule and retention,
+  backup disk reserve, export retention and batch size, update check interval)
+  can be changed in **Maintenance → Advanced settings**, in hours, days or GB,
+  or with `losporctl config advanced`. Each has fixed limits that keep the
+  backup policy intact. Changes live in an optional `advanced.env`, and are
+  previewed, applied, checked and rolled back like site settings.
+- **A first installation with nothing to type.** `losporctl-install.sh`
+  replaces the 54-line verification block, the release-lock digest and the
+  signing-key fingerprint an operator had to type. It carries the maintainer's
+  release signing public key and, online, requires it to match the fingerprint
+  published at `lospor.org/.well-known/lospor-release-key.txt`. The Cloudflare
+  channel is independent of GitHub, and an unreachable or different fingerprint
+  stops the install before any download. Offline, the maintainer's USB is the
+  second channel. The script verifies the signature, the sidecar, the
+  deployment archive and every archive entry, and refuses an existing
+  installation. It replaces a bootstrap left by an interrupted attempt, pins the
+  key, and starts the guided installer.
+- The guided installer skips the digest prompt when a key is already pinned,
+  verifying the lock's signature instead.
+- **Installed vs. ready for clinical use.** A Status **Go-live** page combines
+  what the appliance already observes into one checklist and one verdict:
+  certificate, services, clock, backups, off-host copy, escrowed secrets,
+  update route, and active terminology. It adds five sign-offs only a person can
+  make: a restore drill (valid 92 days), network verification, stored MFA
+  recovery codes, host patch policy, and clinical acceptance. Signing or
+  withdrawing needs the administrator password and a note, and is logged with a
+  pseudonymous operator reference. The verdict is recomputed on every view, and
+  shows maintenance or recovery-required when a restore, terminology operation
+  or interrupted activation is in the way. Installation now ends by saying the
+  appliance is not yet approved and pointing to this page, instead of printing
+  "Installation complete" twice.
+- **Thirteen installer answers instead of twenty-six.** Guidance, external AI
+  and its key, the support contact, e-mail sender, country, administrator
+  contact e-mail and off-host hook are no longer asked. Each takes the safe
+  default it always offered, and the AI key is added in Status, where it is
+  sealed. The certificate-notice e-mail is asked only for a public certificate.
+- **One file for hospital IT, with a preview and an automatic undo.** The
+  59-line `.env` is split by owner:
+  - `site.env` holds the eighteen settings a hospital changes: names,
+    certificate mode, network lists, ports, sender, support contact and update
+    window;
+  - the root-only `secrets/appliance.env` holds everything generated;
+  - `.env` is compiled from both and marked as generated.
+
+  A secret typed into `site.env`, a site setting hidden among the secrets, a
+  duplicate, or a stored Compose profile is refused before anything changes.
+  `apply-site-config.sh --plan` validates every value, checks the result with
+  Compose, and lists only what changes, never a secret. `--yes` keeps the
+  running configuration, restarts only the services that need it, waits for
+  them, and runs doctor. If doctor fails, it restores the previous
+  configuration, keeps the rejected edit for review, and reports recovery
+  required only if the restored configuration is unhealthy too. Existing
+  appliances are split on first use, and a `site.env` missing after a rebuild
+  from escrow is recovered from `.env`. `site.env.example` documents every
+  setting.
+- **`losporctl`, one console command.** Installation adds
+  `/usr/local/bin/losporctl`, a fixed launcher for the active verified release.
+  Families: `status`, `check`, `backup`, `support-bundle`, `update`, `config`,
+  `accounts operator`, `secrets`. Each runs the appliance's existing script.
+  - `status` grades the host observation in plain words, Bulgarian or English,
+    and gives the next step for every problem. `--json` returns one fixed
+    object.
+  - `support-bundle create` writes a root-only file of allowlisted tokens:
+    versions, states, times, service health and the doctor result. Anything
+    that could carry a name, address, path or free text is redacted.
+  - Changes that restart services (`config apply`, `update apply`,
+    `update offline`, `secrets commit`, `secrets rollback`) say what will happen
+    and ask for `yes`.
+  - Everything except `help` and `version` needs `sudo` and says so.
+- **Maintenance in Status.** A new **Maintenance** page runs three actions
+  without a console: back up now, run a restore drill, and change site settings.
+  Every action states what it needs, whether it interrupts service, whether a
+  backup comes first, what cannot be undone, and what is checked afterwards.
+  - **Restore drill.** `restore-backup.sh --drill` restores the newest backup
+    into a temporary database, migrates and validates it, and removes the copy.
+    Nobody types a confirmation, since nothing clinical changes. The last ten
+    results stay on the page. `losporctl backup drill` uses the same mode.
+  - **Site settings.** The network lists, support contact, e-mail sender,
+    certificate notice e-mail, language, and update route, window and time zone
+    can be changed here. The page previews the exact change, and applying it
+    needs the password plus a confirmation bound to the session and that change.
+    A Status network list that would exclude the operator's own computer is
+    refused. Names, certificate, ports and the all-private-networks switch stay
+    console-only.
+  - **Host agent checks.** The root host agent checks every request again:
+    proposal digest, settings contract, and which keys changed. It applies the
+    change with `apply-site-config.sh`, refuses requests older than 15 minutes,
+    and reports refused, busy, rolled-back and unrecoverable results
+    separately.
+
+- **Encrypted off-host copies to a network share or an SFTP server.**
+  `offhost-copy.sh` runs on the host every 15 minutes, because the backup
+  container has no route out of the appliance.
+  - **Encryption and acknowledgement.** Each new verified backup is encrypted
+    (AES-256 with an HMAC-SHA256 over its name, manifest digest and ciphertext;
+    keys read from a generated, escrowed key file, never from a command line)
+    and copied. It is then read back and compared, and only then acknowledged.
+  - **Shares.** A share must be a real mount, so an unmounted share fails
+    instead of filling the local disk.
+  - **SFTP.** Key authentication only, with the server's host keys pinned at
+    setup.
+  - **Drill.** A drill fetches the newest copy, authenticates, decrypts and
+    restores it into a temporary database, and records the result.
+  - **Where it's available.** Set up, test and drill from Status
+    **Maintenance** or `losporctl backup offhost`.
+  - **Status reporting.** Status reports the copy as configured, and reports
+    the secrets escrow as out of date until it covers the new key.
+  - Proven on a test appliance against a real Samba share, an OpenSSH SFTP
+    server and a mounted filesystem. A single changed byte at the destination
+    fails authentication.
+
+- **A prepared host in one step.** `infra/host/autoinstall/user-data` is an
+  Ubuntu 24.04 autoinstall seed for Hyper-V, VMware or bare metal.
+  - **What it installs.** Minimal server, SSH with keys only, Docker from
+    Docker's repository with its key pinned by full fingerprint, the host
+    commands the appliance needs, and automatic security updates.
+  - **First login.** A console password that must be changed at first login,
+    and an offer to start the signed installer.
+  - **Hyper-V.** `infra/host/hyperv/New-LosporHospitalVm.ps1` (unsigned; run
+    `Unblock-File` once) checks that the named switch exists and never creates
+    one. It accepts only an Ubuntu ISO whose SHA-256 is compiled into it, builds
+    the CIDATA seed disk with built-in Storage cmdlets, and creates a Generation
+    2 Secure Boot VM that boots the installed system before the installer.
+  - **Options.** `-WhatIf` and `-SeedOnly` change nothing and build only the
+    seed, respectively.
+  - **Encryption.** Full-disk encryption is optional (`-EncryptDisk`).
+  - See `docs/host-preparation.md`.
+
+- **A command each for addresses, certificate and ports.** These change the
+  address everyone uses, so they stay at the console, now without editing
+  files:
+  - `sudo losporctl config addresses CLINICAL RESEARCH`;
+  - `sudo losporctl config certificate local | acme EMAIL | operator FULLCHAIN KEY CA`;
+  - `sudo losporctl config ports HTTPS STATUS`.
+
+  Each changes only its own settings, shows the plan, asks for yes, and puts
+  everything back if refused, declined or unhealthy. For the hospital's own
+  certificate it installs the files and runs the full health check. A port
+  change and its revert were proven on a running appliance.
+- **Off-host copies can be turned off from Status**, and they refuse to run
+  beside a custom off-host script plugged into the backup hook, so a backup is
+  never copied by both.
+- **A two-page quick start and an operations checklist** in Bulgarian and
+  English.
+  - `docs/quick-start.md` covers the host, the three ways to install, installed
+    versus ready for clinical use, and every day after.
+  - The operations guide's checklist says what to look at daily, weekly,
+    monthly and quarterly, each line pointing to a Status page or a `losporctl`
+    command.
+  - The Hyper-V kit's defaults (16 GB, 8 processors, 256 GB) now meet the
+    installer's readiness check.
+- **The Hyper-V kit installs Ubuntu without a question.** Ubuntu's installer
+  stopped at "Continue with autoinstall? (yes|no)" and waited silently for
+  someone at the console. After verifying Canonical's ISO, the kit now writes a
+  copy whose boot menu adds `autoinstall` (Windows' built-in IMAPI2 writer; the
+  installer files are unchanged and Secure Boot still applies) and installs from
+  it. `-ConfirmInstall`, or missing imaging components, uses Canonical's ISO and
+  the installer asks once. The copy erases any machine that boots from it, so
+  the kit prints the command to delete it with the installation media.
+
+### Changed
+
+- **The Hyper-V kit carries the installer and needs no shared password.** The
+  VM gets `losporctl-install.sh` from the release folder the kit came in,
+  checked on the VM against its SHA-256, so nothing is downloaded and run before
+  verification. The console password is a one-time password made for each VM
+  (hashed in the kit; only the hash reaches the seed disk), shown once, and not
+  expired when an SSH key is given, so SSH works without a console visit. Ubuntu
+  switches the VM off when it is installed; the kit then removes the seed disk
+  and the ISO copy and starts the VM, and removes nothing unless Ubuntu marked
+  the installation finished. The seed carries no password of its own and stops
+  at once if one was never set.
+
+- **Updates refresh the option lists and research links.** An update now
+  re-seeds the option library, so a route or option added in a release (such as
+  buccal and enteral) reaches installed sites, not only new installs. Install
+  and every update also build the research links (LOSPOR code to OMOP concept)
+  from the research numbers the release bundles and any imported terminology, so
+  cases export standard concepts from the first day; a failed refresh on update
+  keeps the previous links and says so without stopping the update.
+- **The API no longer connects as the database superuser.** It runs as
+  `lospor_app`, which can read and write application rows but cannot change the
+  schema, write the migration history, create databases or roles, or connect to
+  the maintenance databases. Migrations, backups, restores, terminology builds
+  and operator tools keep the owner role.
+  - A one-shot `db-app-role-init` reapplies the role's grants before the API on
+    every Compose start, so they survive updates, restores and terminology
+    swaps. Restores no longer carry a backup's grants.
+  - The `database` rotation scope rotates both passwords.
+  - Verified on a running appliance with doctor, a restore drill, and real
+    `database` and `ordinary` rotations.
+- **Verifying loaded images takes seconds instead of minutes.** Each check read
+  every image back out with `docker image save` to find a few kilobytes of
+  configuration; the 1.3.2 baseline install spent 311 of its 455 seconds doing
+  that twice. The configuration digest is now read from the daemon's own store
+  and bound to the tag: the image ID on the classic store, and a hash-checked
+  descriptor → manifest (through an index when present) → configuration chain on
+  the containerd store. The same check on the test VM went from 158 s to 2 s.
+- **No credentials for connected installation or updates.**
+  `provision-update-credentials.sh` and the `secrets/registry/` files are gone.
+  Release metadata and assets are fetched anonymously, and images are pulled
+  into an empty throwaway Docker configuration, so a pull can never silently
+  depend on a login stored on the host. When GitHub's anonymous per-address
+  allowance is spent, preparation reports `UPDATE_RELEASE_RATE_LIMITED` and the
+  time to retry instead of a generic fetch failure.
+- **Host observability signal v2.** `host-observability.v2.json` drops the two
+  credential fields. Status replaces "Update supply credentials" with "Update
+  supply route", showing connected and offline as valid routes and an unknown
+  mode as an outage.
+- The CI online-installation proofs now install with no registry credential,
+  and the workflow contract refuses one being added back.
+
+### Fixed
+
+- **A first installation with the hospital's own certificate looked for it in
+  the wrong place.** The guided installer's readiness check reads
+  `secrets/tls` from the release it runs in, and the bootstrap release had only
+  an empty placeholder there, so a certificate placed in the appliance home
+  was reported missing. `losporctl-install.sh` now links the bootstrap
+  release's `secrets` to the appliance home, as activation does for every
+  release.
+- **The secrets escrow acknowledgement was written where nothing read it.**
+  `acknowledge-secrets-escrow.sh` wrote `.secrets-escrowed.v1` into the release
+  directory it ran from, while the host probe that feeds Status and Go-live read
+  it from the appliance home, and the next update replaced the release anyway.
+  The escrow check could therefore never pass on an installed appliance. Both
+  the acknowledgement script and the new escrow command now write it to the
+  appliance home, and doctor reads it there.
+
+- **Laboratory results left without their LOINC code and unit.** The table that
+  gives each laboratory test its LOINC code, standard unit and catalogue range
+  was filled only by a terminology import, so on a site without one every saved
+  result reached the OMOP export and Central as `LAB:<test name>`, with no
+  LOINC code and no unit. Install and every update now fill it from the
+  release; it needs no licence decision.
+- **The Hyper-V kit could not install Ubuntu.** Found installing a new VM with
+  the kit: the autoinstall seed used `$KEY_FILE`, which Ubuntu's installer does
+  not support, and it stopped with `KeyError: 'KEY_FILE'`. Docker's key is now
+  moved to `/etc/apt/keyrings` after installation and named by `Signed-By` in
+  the deb822 `docker.sources` the installer writes. A full kit install on
+  Hyper-V now completes, and `apt-get update` verifies Docker's repository.
+- **A 16 GB server failed the readiness check.** It required 16 GiB as Docker
+  reports it, but a 16 GB VM reports about 15.6 GiB after the kernel's share,
+  so every VM made with the Hyper-V kit's defaults was refused. The floor is
+  now 15 GiB as reported, which only a 16 GB machine meets; verified on a kit VM.
+- **The Hyper-V kit left its installation DVD attached.** Found by the first
+  real runs of the Hyper-V release gate. Ubuntu ejects the disc as it switches
+  off, and `Remove-VMDvdDrive` then fails with "cannot be found", so the kit
+  stopped before removing the seed disk and the ISO copy. It now removes the
+  drive through Hyper-V's WMI provider, which works whether the disc was ejected
+  or not, and the manual fallback points to Hyper-V Manager. The same runs found
+  the kit looking for `losporctl-install.sh` one folder too high. A gate run
+  then passed end to end on Hyper-V (see
+  `docs/evidence/hyperv-gate-host-2026-09-15.md`).
+- **The install script refused every release published before 1.4.0** with
+  "The release dossier does not describe the signed release", because such a
+  release does not carry the dossier reader. It now installs them and says they
+  have no dossier.
+- **Every AI feature used a retired Mistral model.** The advisor defaulted to
+  `open-mistral-7b` (retired March 2025) and the lab and monitor scans to
+  `pixtral-12b-2409` (retired December 2025), and the appliance had no way to
+  choose another, so AI failed as soon as a hospital added its key.
+  - Each feature now uses a pinned, dated model: `mistral-small-2603` for the
+    advisor and `mistral-large-2512` for images by default.
+  - **AI models** in Hospital controls chooses from the release's list, with a
+    reason, audited.
+  - A model Mistral refuses answers `503 EXTERNAL_AI_MODEL_UNAVAILABLE` and
+    shows in Status as an AI request failure with the reason
+    `model-unavailable`, so a future retirement is fixed from Status.
+- **EHR staging data was never deleted.** Imports carried a 14-day expiry that
+  only hid them. The rows, their fields, and the kept processed and rejected
+  files stayed forever, with identifiers and clinical content, often for
+  patients who never got a case. The daily retention run now deletes them.
+  - The window is 14 days, and Hospital controls can shorten it (1 to 14, held
+    by a database constraint).
+  - The inbox and outbox are never touched.
+  - A failure shows in Status as `RETENTION_EHR_STAGING_REJECTED`.
+- **Credential rotation could never commit on a real appliance.** Two checks
+  that only ever ran outside test mode were broken:
+  - **Old database passwords.** They were "proven rejected" over loopback,
+    which the PostgreSQL image trusts without a password, so every `database`
+    and `status-tokens` rotation saw the old password still working.
+  - **Old worker and Status tokens.** The script that proves them rejected
+    called `.catch` on an event emitter and threw before making a request, so
+    every `workers` rotation failed too.
+
+  Either way the documented `ordinary` rotation rolled itself back (safely)
+  every time. The checks now use the service address and a script that runs, and
+  on a running appliance a `database` and an `ordinary` rotation both
+  committed and verified. Regression tests fail against the old code.
+- **Internal API routes were reachable through the web app.** Caddy refused
+  `/v1/internal/*`, but the web app rewrites `/api/*` to `/v1/*`, so
+  `/api/internal/…` reached every internal endpoint. They still required their
+  secret, but the network boundary was one prefix away. `/api/internal/*` now
+  gets the same 404, including case, encoding, doubled-slash and `..` variants,
+  verified on a running appliance.
+- **The research network list protects the Research Browser website, not
+  research data**, and the network, security and open-decision documents now
+  say so. An account with a research grant reaches its permitted data through
+  the API on the clinical address, protected by sign-in and per-grant
+  authorisation. This is a decision recorded, not a code change.
+- **A passed restore drill would have put the appliance in recovery.** The
+  host monitor did not recognise a drill's journal, reported the restore state
+  as invalid, and Status would have shown recovery required. Drill journals are
+  now understood; a running drill is reported as in progress, a finished one as
+  clear.
+- **A changed update window never reached the update agent.** The agent read
+  the window and time zone only from `/etc/lospor-hospital/update-agent.env`.
+  That file is written once at installation, and the agent itself cannot rewrite
+  it (`ProtectSystem=strict`). Changing the window in the appliance settings
+  compiled correctly and the Status page showed the new hours, but updates still
+  waited for the old ones. The agent now reads them from the appliance's
+  compiled settings and restarts itself when they change.
+- **Documented appliance commands could not run as printed.** Tried on an
+  installed appliance as the documentation shows them:
+  - `./scripts/doctor.sh` and `./scripts/appliance-operator.sh` failed on
+    root-owned state with a misleading message;
+  - `terminology-status.sh` and `rotate-operational-secrets.sh`, shown as
+    `./scripts/…`, have no executable bit.
+
+  Every operator command in the installation, operations, backup,
+  network, secret-rotation, Status, terminology and update documents (both
+  languages) now reads `sudo sh /opt/lospor-hospital/current/scripts/<name>.sh`.
+  `docs-commands.test.mjs` holds every shell block to that form, checks that
+  each named script exists, and checks that the Bulgarian and English documents
+  give the same commands.
+- **Operational secret rotation failed on every installed appliance.** It
+  worked from the release directory, where `.env` is a symlink into the
+  appliance home, so its protected-file check refused it. Past that check it
+  would have taken the maintenance lock at `.data/runtime/io-mutation.lock`
+  instead of the `.data/io-mutation.lock` that backup, install and update hold.
+  Its tests only ever ran in a source checkout. Rotation now resolves the
+  appliance home through the release's `.lospor-home` link for `.env`, secrets,
+  its audit trail and the shared lock. A new test builds the installed-release
+  layout and fails against the old code with the error the appliance showed.
+- **Image verification accepted a changed configuration on the containerd
+  image store.** `docker image save` omits the configuration blob there, so the
+  check fell back to fetching a blob named by the digest the lock *expected*.
+  Any such blob still in the content store matched, so a tag re-pointed at an
+  image with identical layers but a different entrypoint, environment or user
+  passed verification. Reproduced on Docker 29 with the 1.3.2 images. The check
+  now follows only digests the tag itself leads to, and refuses on any gap.
+- **The host monitoring check rejected every real signal.** The probe gained
+  `keyEscrow` but `check-host-observability.py` never learned it, so on a real
+  appliance the check always reported `HOST_OBSERVABILITY_INVALID` instead of
+  host health. Both suites stayed green because each used its own fixture. The
+  check now grades key escrow the way Status does, and the probe test feeds the
+  probe's own output to the check.
+
 ## [1.3.3] - 2026-09-12
 
 Three faults that stood between a verified release and a working first

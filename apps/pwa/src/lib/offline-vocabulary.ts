@@ -30,9 +30,10 @@ let vocabulary: VocabularyModule | null = null
 /**
  * Loaded on first offline search, never at startup.
  *
- * The ICD-10 module is ~2.6 MB of source; evaluating it eagerly would cost
- * every launch, including the overwhelmingly common online one that never needs
- * it. `require` defers that until a search actually falls back.
+ * The complete ICD-10 module is intentionally large; evaluating it eagerly
+ * would cost every launch, including the overwhelmingly common online one that
+ * never needs it. The dynamic import defers parsing until search falls back,
+ * while the PWA service worker downloads its chunk during installation.
  */
 async function loadVocabulary(): Promise<VocabularyModule> {
   if (!vocabulary) {

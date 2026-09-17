@@ -215,6 +215,24 @@ export async function findFhirEncounter(input: {
   timeoutMs?: number
   fetchImpl?: typeof fetch
 }): Promise<string | null> {
+  const encounter = await findFhirEncounterResource(input)
+  const id = typeof encounter?.id === "string" ? encounter.id : ""
+  return id || null
+}
+
+/**
+ * The same encounter, whole. Its `diagnosis` list says what role each of the
+ * stay's conditions plays (admission, comorbidity, billing), which the
+ * Condition resources themselves do not carry.
+ */
+export async function findFhirEncounterResource(input: {
+  endpoint: string
+  credential: string
+  patientId: string
+  identifier: string
+  timeoutMs?: number
+  fetchImpl?: typeof fetch
+}): Promise<Record<string, unknown> | null> {
   const base = input.endpoint.replace(/\/$/, "")
   const query = new URLSearchParams({
     patient: input.patientId,
@@ -231,8 +249,7 @@ export async function findFhirEncounter(input: {
 
   const entries = bundleEntries(result.body)
   if (entries.length !== 1) return null
-  const id = typeof entries[0].id === "string" ? entries[0].id : ""
-  return id || null
+  return typeof entries[0].id === "string" && entries[0].id ? entries[0] : null
 }
 
 /**

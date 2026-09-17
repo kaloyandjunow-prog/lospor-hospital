@@ -10,6 +10,14 @@ import { resolveFolderLabs } from "./ehr-folder-labs"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
+import {
+  NO_CODE_SYSTEM_ANSWERS,
+  recordUnrecognisedCodeSystems,
+  siteCodeSystemAnswers,
+  unrecognisedCodeSystems,
+} from "./ehr-code-systems"
+import { diagnosisCodeSystemsSeen, resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
+import { resolveImportedProcedures } from "./ehr-procedures"
 
 /**
  * Read what the hospital system left for us.
@@ -116,14 +124,34 @@ export async function ingestInboxFile(
   // mappings costs precision -- results land under the hospital's own names and
   // the operator is asked about them again -- while refusing the file loses the
   // results entirely, and loses them silently.
-  const [siteMap, units] = await Promise.all([
+  const [siteMap, units, codeSystems] = await Promise.all([
     siteLabCodeMap().catch(() => ({})),
     assumedUnits().catch(() => ({})),
+    siteCodeSystemAnswers().catch(() => ({ answers: NO_CODE_SYSTEM_ANSWERS, answered: new Set<string>() })),
   ])
-  const resolvedLabs = resolveFolderLabs(rawFields.labs, { siteMap, assumedUnits: units })
-  const fields = "labs" in rawFields
+  const resolvedLabs = resolveFolderLabs(rawFields.labs, { siteMap, assumedUnits: units, codeSystems: codeSystems.answers })
+  const withLabs: Record<string, unknown> = "labs" in rawFields
     ? { ...rawFields, labs: resolvedLabs.labs }
     : rawFields
+  // Diagnoses resolved against LOSPOR's ICD-10, exactly as the FHIR reader does.
+  const locale = siteLocale()
+  const fields = Object.fromEntries(Object.entries(withLabs).map(([key, value]) =>
+    (key === "diagnoses" || key === "comorbidities") && Array.isArray(value)
+      ? [key, resolveImportedDiagnoses(value.filter(item => item && typeof item === "object") as Record<string, unknown>[], locale, codeSystems.answers)]
+      // КСМП and ICD-10-PCS procedures, read exactly as the FHIR reader reads them.
+      : key === "procedures" && Array.isArray(value)
+        ? [key, resolveImportedProcedures(value.filter(item => item && typeof item === "object") as Record<string, unknown>[], codeSystems.answers)]
+        : [key, value]))
+  const diagnosisTags = ["diagnoses", "comorbidities"].flatMap(key => Array.isArray(withLabs[key])
+    ? (withLabs[key] as unknown[]).filter(item => item && typeof item === "object") as Record<string, unknown>[]
+    : [])
+  const unrecognised = unrecognisedCodeSystems([
+    ...diagnosisCodeSystemsSeen(diagnosisTags),
+    ...resolvedLabs.unmapped.map(item => ({ system: item.system, field: "labs" as const, code: item.code, label: item.display })),
+  ], codeSystems.answered)
+  if (unrecognised.length > 0) {
+    await recordUnrecognisedCodeSystems(unrecognised, now).catch(() => undefined)
+  }
 
   // A code nobody has mapped is a question for the operator, not a failure
   // here. Recorded on the same screen the FHIR reader fills, and never allowed

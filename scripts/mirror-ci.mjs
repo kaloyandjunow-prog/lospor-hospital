@@ -22,7 +22,7 @@
  *
  *   LOSPOR_CI_MIRROR_SSH=user@host             required to mirror POSIX steps
  *   LOSPOR_CI_MIRROR_KEY=/path/to/identity     optional, passed to ssh -i
- *   LOSPOR_CI_MIRROR_PATH=~/lospor-ci-mirror   optional, remote sync directory
+ *   LOSPOR_CI_MIRROR_PATH=~/lospor-ci-mirror   optional; under ~/, recreated on every sync
  *
  * With none of that set, POSIX steps are reported NOT MIRRORED, the same
  * honest degradation this script has always used for anything it cannot
@@ -181,7 +181,14 @@ function ensureSynced() {
   if (synced) return true
   const list = spawnSync("git", ["ls-files", "-z", "--others", "--cached", "--exclude-standard"], { cwd: root, encoding: "buffer" })
   if (list.status !== 0) { console.error("git ls-files failed; cannot sync to POSIX host"); return false }
-  const mkdir = sshRun(`mkdir -p ${posixPath}`)
+  // Recreated rather than overlaid: extracting over an earlier sync leaves files
+  // this tree has since deleted, so a test asserting a removal fails against a
+  // ghost that exists only on the mirror.
+  if (!/^~\/[A-Za-z0-9_-][A-Za-z0-9._-]*(\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/.test(posixPath) || posixPath.includes("..")) {
+    console.error(`refusing to recreate mirror path outside ~/: ${posixPath}`)
+    return false
+  }
+  const mkdir = sshRun(`rm -rf ${posixPath} && mkdir -p ${posixPath}`)
   if (mkdir.status !== 0) return false
   const tar = spawnSync("tar", ["--null", "-czf", "-", "-T", "-", ".git"], { cwd: root, input: list.stdout, maxBuffer: 1024 * 1024 * 1024 })
   if (tar.status !== 0 || !tar.stdout) { console.error("tar failed while packing the working tree"); return false }

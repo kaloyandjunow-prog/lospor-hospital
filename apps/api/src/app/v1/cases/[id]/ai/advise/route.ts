@@ -13,6 +13,7 @@ import { redactText } from "@/lib/pii-check"
 import { corsHeaders } from "@/lib/cors"
 import { SYSTEM_PROMPT, buildPatientSummary } from "@/lib/ai-advisor"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { mistralModelUnavailable } from "@/lib/hospital/external-ai-models"
 import {
   AI_MAX_REQUESTS_PER_HOUR,
   AI_BURST_COOLDOWN_MS,
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let mistralRes: Response
   try {
     mistralRes = await fetchMistralChatCompletions(apiKey, {
-      model: process.env.MISTRAL_MODEL ?? "open-mistral-7b",
+      model: aiAccess.advisorModel,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: `Please analyse this patient's pre-operative data:\n\n${patientSummary}` },
@@ -160,7 +161,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (!mistralRes.ok) {
-    clearTimeout(timeoutHandle)    console.error("[cases/ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    clearTimeout(timeoutHandle)
+    console.error("[cases/ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    if (await mistralModelUnavailable(mistralRes)) {
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "case-advise", failureKind: "model-unavailable" })
+      return NextResponse.json({
+        error: "The configured AI model is no longer offered by Mistral. Hospital IT must choose another in Status.",
+        code: "EXTERNAL_AI_MODEL_UNAVAILABLE",
+      }, { status: 503 })
+    }
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
       feature: "case-advise", failureKind: "provider", httpStatus: mistralRes.status,
     })

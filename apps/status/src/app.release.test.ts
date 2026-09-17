@@ -132,6 +132,36 @@ describe("the release page", () => {
     expect(body).toContain("Apply 1.3.0")
   })
 
+  it("shows the verified release dossier of the installed and the downloaded release", async () => {
+    const { app, auth, stateDir } = setup()
+    const dossier = (version: string, extra: Record<string, unknown> = {}) => ({
+      schemaVersion: 1, signalType: "release-dossier", verifiedAt: "2026-08-20T11:00:00Z", version,
+      commit: "0123456789abcdef0123456789abcdef01234567", createdAt: "2026-08-19T10:00:00.000Z",
+      build: { runId: "34719828380", runAttempt: 1, runUrl: "https://github.com/kaloyandjunow-prog/lospor-hospital/actions/runs/34719828380/attempts/1" },
+      images: 10, sbomComponents: 5321,
+      vulnerabilities: { critical: 0, high: 1, exceptions: [{ image: "postgres", vulnerabilityId: "CVE-2026-16742", expiresAt: "2026-12-08" }] },
+      compatibility: { rollbackPolicy: "backup-required", rollbackWindowDays: 0, schemaMaximum: "20260913130000_external_ai_models" },
+      upstream: { api: "9.9.5", core: "9.9.2" },
+      ...extra,
+    })
+    writeFileSync(join(stateDir, "release-dossier-1.3.2.v1.json"), JSON.stringify(dossier("1.3.2")))
+    writeFileSync(join(stateDir, "release-dossier-1.3.0.v1.json"), JSON.stringify(dossier("1.3.0", { vulnerabilities: { critical: 2, high: 0, exceptions: [] } })))
+    const cookie = await signIn(app, auth)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("Installed release 1.3.2")
+    expect(body).toContain("No critical vulnerabilities; the first accepted exception expires 2026-12-08.")
+    expect(body).toContain("CVE-2026-16742 (postgres, until 2026-12-08)")
+    expect(body).toContain("Downloaded release 1.3.0")
+    expect(body).toContain("it reports critical vulnerabilities. Ask LOSPOR support before applying.")
+    expect(body).toContain('href="https://github.com/kaloyandjunow-prog/lospor-hospital/actions/runs/34719828380/attempts/1"')
+
+    // A projection under another release's name, or with anything extra, is not shown.
+    writeFileSync(join(stateDir, "release-dossier-1.3.2.v1.json"), JSON.stringify(dossier("1.3.9")))
+    writeFileSync(join(stateDir, "release-dossier-1.3.0.v1.json"), JSON.stringify(dossier("1.3.0", { note: "<script>" })))
+    const refused = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(refused).not.toContain("Release dossier")
+  })
+
   it("still names the installed release before an update signal exists", async () => {
     const { app, auth } = setup(null)
     const cookie = await signIn(app, auth)

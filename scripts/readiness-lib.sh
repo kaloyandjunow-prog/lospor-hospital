@@ -7,6 +7,15 @@ readiness_is_uint() {
   case "${1:-}" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac
 }
 
+# A server given 16 GB reports less: the kernel keeps its share before Docker
+# sees any. A 16 GB Hyper-V VM made by the kit reported 16768016384 bytes
+# (15.6 GiB), so the floor is 15 GiB as reported, which only a 16 GB machine meets.
+READINESS_MIN_MEMORY_BYTES=16106127360
+
+readiness_memory_enough() {
+  readiness_at_least "${1:-}" "$READINESS_MIN_MEMORY_BYTES"
+}
+
 readiness_at_least() {
   readiness_is_uint "${1:-}" && readiness_is_uint "${2:-}" \
     && [ "$1" -ge "$2" ]

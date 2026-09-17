@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
+import { hostOsObservation, parseHostOsSignal } from "./host-os.js"
 import type { CheckObservation } from "./types.js"
 import { finiteInteger, hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 
@@ -47,7 +48,7 @@ type WorkerSignal = {
 type RetentionSignal = {
   observedAt: string
   state: "SUCCESS" | "FAILURE"
-  resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED"
+  resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED" | "RETENTION_EHR_STAGING_REJECTED"
 }
 
 type CaseCloseSignal = {
@@ -106,6 +107,16 @@ export type TerminologyAgentSignal = {
   manifestSha256?: string
 }
 
+/**
+ * The terminology package folders Hospital IT has placed under reference-data,
+ * by name only, as the host probe found them. Offered in the import form; the
+ * name is still validated, and the package itself verified, by the host.
+ */
+export type TerminologyPackagesSignal = {
+  observedAt: string
+  packages: string[]
+}
+
 export type HostObservabilitySignal = {
   observedAt: string
   storage: "ok" | "low" | "critical" | "unknown"
@@ -125,8 +136,6 @@ export type HostObservabilitySignal = {
   restoreLock: "clear" | "present" | "invalid"
   activationLock: "clear" | "present" | "invalid"
   updateSupply: "connected" | "offline" | "invalid"
-  githubReleaseCredential: "configured" | "missing" | "not-required"
-  ghcrCredential: "configured" | "missing" | "not-required"
 }
 
 export type UpdateSignal = {
@@ -222,7 +231,7 @@ export function parseRetentionSignal(value: unknown, now = Date.now()): Retentio
   if (value.schemaVersion !== 1 || value.signalType !== "retention" || !validObservedAt(value.observedAt, now)) return null
   const success = value.state === "SUCCESS" && value.resultCode === "RETENTION_COMPLETED"
   const failure = value.state === "FAILURE"
-    && ["RETENTION_API_UNAVAILABLE", "RETENTION_REJECTED"].includes(String(value.resultCode))
+    && ["RETENTION_API_UNAVAILABLE", "RETENTION_REJECTED", "RETENTION_EHR_STAGING_REJECTED"].includes(String(value.resultCode))
   if (!success && !failure) return null
   return {
     observedAt: value.observedAt,
@@ -403,9 +412,9 @@ export function parseHostObservabilitySignal(
   if (!isRecord(value) || !hasExactKeys(value, [
     "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
     "offHostBackup", "keyEscrow", "updateAgent", "certificate", "services", "updateSupply",
-    "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
+    "restoreLock", "activationLock",
   ])) return null
-  if (value.schemaVersion !== 1 || value.signalType !== "host-observability"
+  if (value.schemaVersion !== 2 || value.signalType !== "host-observability"
     || !validObservedAt(value.observedAt, now)) return null
   if (!["ok", "low", "critical", "unknown"].includes(String(value.storage))) return null
   if (!["synchronized", "unsynchronized", "unknown"].includes(String(value.clock))) return null
@@ -420,14 +429,6 @@ export function parseHostObservabilitySignal(
   if (!["clear", "present", "invalid"].includes(String(value.restoreLock))) return null
   if (!["clear", "present", "invalid"].includes(String(value.activationLock))) return null
   if (!["connected", "offline", "invalid"].includes(String(value.updateSupply))) return null
-  if (!["configured", "missing", "not-required"].includes(String(value.githubReleaseCredential))
-    || !["configured", "missing", "not-required"].includes(String(value.ghcrCredential))) return null
-  if (value.updateSupply === "offline"
-    && (value.githubReleaseCredential !== "not-required" || value.ghcrCredential !== "not-required")) return null
-  if (value.updateSupply === "connected"
-    && (value.githubReleaseCredential === "not-required" || value.ghcrCredential === "not-required")) return null
-  if (value.updateSupply === "invalid"
-    && (value.githubReleaseCredential !== "missing" || value.ghcrCredential !== "missing")) return null
   return {
     observedAt: value.observedAt,
     storage: value.storage as HostObservabilitySignal["storage"],
@@ -441,8 +442,6 @@ export function parseHostObservabilitySignal(
     restoreLock: value.restoreLock as HostObservabilitySignal["restoreLock"],
     activationLock: value.activationLock as HostObservabilitySignal["activationLock"],
     updateSupply: value.updateSupply as HostObservabilitySignal["updateSupply"],
-    githubReleaseCredential: value.githubReleaseCredential as HostObservabilitySignal["githubReleaseCredential"],
-    ghcrCredential: value.ghcrCredential as HostObservabilitySignal["ghcrCredential"],
   }
 }
 
@@ -461,7 +460,7 @@ export function hostObservabilityObservations(
     { component: "host-services", label: "Host service health" },
     { component: "host-restore-lock", label: "Restore operation lock" },
     { component: "host-activation-lock", label: "Release activation lock" },
-    { component: "update-credentials", label: "Update supply credentials" },
+    { component: "update-supply", label: "Update supply route" },
   ] as const
   if (!signal) {
     return bases.map(base => ({
@@ -552,24 +551,15 @@ export function hostObservabilityObservations(
       ? ["outage", "HOST_ACTIVATION_LOCK_PRESENT"]
       : ["outage", "HOST_ACTIVATION_LOCK_INVALID"]
 
-  let credentials: readonly [CheckObservation["status"], string]
-  if (signal.updateSupply === "offline") {
-    credentials = ["operational", "UPDATE_SUPPLY_OFFLINE"]
-  } else if (signal.updateSupply === "invalid") {
-    credentials = ["outage", "UPDATE_SUPPLY_MODE_INVALID"]
-  } else if (signal.githubReleaseCredential === "configured" && signal.ghcrCredential === "configured") {
-    credentials = ["operational", "UPDATE_CREDENTIALS_READY"]
-  } else if (signal.githubReleaseCredential === "missing" && signal.ghcrCredential === "missing") {
-    credentials = ["degraded", "UPDATE_CREDENTIALS_MISSING"]
-  } else if (signal.githubReleaseCredential === "missing") {
-    credentials = ["degraded", "UPDATE_GITHUB_CREDENTIAL_MISSING"]
-  } else {
-    credentials = ["degraded", "UPDATE_GHCR_CREDENTIAL_MISSING"]
-  }
+  const supply = signal.updateSupply === "offline"
+    ? ["operational", "UPDATE_SUPPLY_OFFLINE"]
+    : signal.updateSupply === "connected"
+      ? ["operational", "UPDATE_SUPPLY_CONNECTED"]
+      : ["outage", "UPDATE_SUPPLY_MODE_INVALID"]
 
   const derived = [
     storage, clock, backup, offHost, escrow, agent, certificate, services,
-    restoreLock, activationLock, credentials,
+    restoreLock, activationLock, supply,
   ] as const
   return bases.map((base, index) => ({
     ...base,
@@ -667,12 +657,40 @@ export async function readTerminologyAgentSignal(
   )
 }
 
+const TERMINOLOGY_PACKAGE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/
+
+export function parseTerminologyPackagesSignal(
+  value: unknown,
+  now = Date.now(),
+): TerminologyPackagesSignal | null {
+  if (!isRecord(value) || !hasExactKeys(value, ["schemaVersion", "signalType", "observedAt", "packages"], [])) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "terminology-packages"
+    || !validObservedAt(value.observedAt, now)) return null
+  // Older than the probe's own cadence allows is no longer a listing of what is there.
+  if (now - Date.parse(value.observedAt) > 10 * 60_000) return null
+  const packages = value.packages
+  if (!Array.isArray(packages) || packages.length > 20
+    || packages.some(name => typeof name !== "string" || !TERMINOLOGY_PACKAGE_NAME.test(name))
+    || new Set(packages).size !== packages.length) return null
+  return { observedAt: value.observedAt, packages: packages as string[] }
+}
+
+export async function readTerminologyPackagesSignal(
+  stateDir: string,
+  now = Date.now(),
+): Promise<TerminologyPackagesSignal | null> {
+  return parseTerminologyPackagesSignal(
+    await readSignal(join(stateDir, "terminology-packages.v1.json")),
+    now,
+  )
+}
+
 export async function readSignalObservations(
   signalsDir: string,
   now = Date.now(),
   updateStateDir?: string,
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, retentionValue, caseCloseValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, caseCloseValue, updateValue, agentValue, agentInstallationValue, hostValue, hostOsValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
     readSignal(join(signalsDir, "retention-status.v1.json")),
@@ -684,7 +702,8 @@ export async function readSignalObservations(
     updateStateDir
       ? readSignal(join(updateStateDir, "update-agent-installation.v1.json"))
       : Promise.resolve(null),
-    readSignal(join(updateStateDir ?? signalsDir, "host-observability.v1.json")),
+    readSignal(join(updateStateDir ?? signalsDir, "host-observability.v2.json")),
+    readSignal(join(updateStateDir ?? signalsDir, "host-os.v1.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
@@ -815,6 +834,7 @@ export async function readSignalObservations(
     },
     updateObservation(update, now),
     ...hostObservations,
+    hostOsObservation(parseHostOsSignal(hostOsValue, now), now),
     // Only when an agent is actually installed. A site running the older
     // arrangement gets no row rather than a red one about a thing it never
     // asked for.

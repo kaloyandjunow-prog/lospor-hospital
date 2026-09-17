@@ -10,7 +10,9 @@ export const ADMINISTRATION_ROUTE_CODES = [
   "IM",
   "SC",
   "PO",
+  "ENTERAL",
   "SL",
+  "BUCCAL",
   "IN",
   "PR",
   "INHALATION",
@@ -35,7 +37,9 @@ export const ADMINISTRATION_ROUTES: ReadonlyArray<{
   { code: "IM", labelEn: "Intramuscular", labelBg: "Интрамускулно" },
   { code: "SC", labelEn: "Subcutaneous", labelBg: "Подкожно" },
   { code: "PO", labelEn: "Oral", labelBg: "Перорално" },
+  { code: "ENTERAL", labelEn: "Enteral (feeding tube)", labelBg: "Ентерално (през сонда)" },
   { code: "SL", labelEn: "Sublingual", labelBg: "Сублингвално" },
+  { code: "BUCCAL", labelEn: "Buccal", labelBg: "Букално" },
   { code: "IN", labelEn: "Intranasal", labelBg: "Интраназално" },
   { code: "PR", labelEn: "Rectal", labelBg: "Ректално" },
   { code: "INHALATION", labelEn: "Inhalation", labelBg: "Инхалаторно" },
@@ -80,6 +84,10 @@ const ROUTE_ALIASES: Readonly<Record<string, AdministrationRouteCode | null>> = 
   ET: "ENDOTRACHEAL",
   SL: "SL",
   SUBLINGUAL: "SL",
+  BUCCAL: "BUCCAL",
+  // A drug given down a nasogastric, gastrostomy or jejunostomy tube is not an
+  // oral dose: it is not swallowed, and some formulations must not be crushed.
+  ENTERAL: "ENTERAL",
 }
 
 export function normalizeAdministrationRoute(

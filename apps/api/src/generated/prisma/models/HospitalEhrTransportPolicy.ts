@@ -39,10 +39,12 @@ export type AggregateHospitalEhrTransportPolicy = {
 
 export type HospitalEhrTransportPolicyAvgAggregateOutputType = {
   credentialKeyVersion: number | null
+  stagingRetentionDays: number | null
 }
 
 export type HospitalEhrTransportPolicySumAggregateOutputType = {
   credentialKeyVersion: number | null
+  stagingRetentionDays: number | null
 }
 
 export type HospitalEhrTransportPolicyMinAggregateOutputType = {
@@ -72,6 +74,8 @@ export type HospitalEhrTransportPolicyMinAggregateOutputType = {
   transportChangedAt: Date | null
   transportChangedById: string | null
   transportChangeReason: string | null
+  stagingRetentionDays: number | null
+  stagingRetentionChangedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -103,6 +107,8 @@ export type HospitalEhrTransportPolicyMaxAggregateOutputType = {
   transportChangedAt: Date | null
   transportChangedById: string | null
   transportChangeReason: string | null
+  stagingRetentionDays: number | null
+  stagingRetentionChangedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -134,6 +140,8 @@ export type HospitalEhrTransportPolicyCountAggregateOutputType = {
   transportChangedAt: number
   transportChangedById: number
   transportChangeReason: number
+  stagingRetentionDays: number
+  stagingRetentionChangedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -142,10 +150,12 @@ export type HospitalEhrTransportPolicyCountAggregateOutputType = {
 
 export type HospitalEhrTransportPolicyAvgAggregateInputType = {
   credentialKeyVersion?: true
+  stagingRetentionDays?: true
 }
 
 export type HospitalEhrTransportPolicySumAggregateInputType = {
   credentialKeyVersion?: true
+  stagingRetentionDays?: true
 }
 
 export type HospitalEhrTransportPolicyMinAggregateInputType = {
@@ -175,6 +185,8 @@ export type HospitalEhrTransportPolicyMinAggregateInputType = {
   transportChangedAt?: true
   transportChangedById?: true
   transportChangeReason?: true
+  stagingRetentionDays?: true
+  stagingRetentionChangedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -206,6 +218,8 @@ export type HospitalEhrTransportPolicyMaxAggregateInputType = {
   transportChangedAt?: true
   transportChangedById?: true
   transportChangeReason?: true
+  stagingRetentionDays?: true
+  stagingRetentionChangedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -237,6 +251,8 @@ export type HospitalEhrTransportPolicyCountAggregateInputType = {
   transportChangedAt?: true
   transportChangedById?: true
   transportChangeReason?: true
+  stagingRetentionDays?: true
+  stagingRetentionChangedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -355,6 +371,8 @@ export type HospitalEhrTransportPolicyGroupByOutputType = {
   transportChangedAt: Date | null
   transportChangedById: string | null
   transportChangeReason: string | null
+  stagingRetentionDays: number
+  stagingRetentionChangedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: HospitalEhrTransportPolicyCountAggregateOutputType | null
@@ -409,6 +427,8 @@ export type HospitalEhrTransportPolicyWhereInput = {
   transportChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   transportChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   transportChangeReason?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
+  stagingRetentionDays?: Prisma.IntFilter<"HospitalEhrTransportPolicy"> | number
+  stagingRetentionChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"HospitalEhrTransportPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalEhrTransportPolicy"> | Date | string
   credentialChangedBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
@@ -442,6 +462,8 @@ export type HospitalEhrTransportPolicyOrderByWithRelationInput = {
   transportChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   transportChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   transportChangeReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
+  stagingRetentionChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   credentialChangedBy?: Prisma.UserOrderByWithRelationInput
@@ -478,6 +500,8 @@ export type HospitalEhrTransportPolicyWhereUniqueInput = Prisma.AtLeast<{
   transportChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   transportChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   transportChangeReason?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
+  stagingRetentionDays?: Prisma.IntFilter<"HospitalEhrTransportPolicy"> | number
+  stagingRetentionChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"HospitalEhrTransportPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalEhrTransportPolicy"> | Date | string
   credentialChangedBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
@@ -511,6 +535,8 @@ export type HospitalEhrTransportPolicyOrderByWithAggregationInput = {
   transportChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   transportChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   transportChangeReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
+  stagingRetentionChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.HospitalEhrTransportPolicyCountOrderByAggregateInput
@@ -550,6 +576,8 @@ export type HospitalEhrTransportPolicyScalarWhereWithAggregatesInput = {
   transportChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   transportChangedById?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
   transportChangeReason?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
+  stagingRetentionDays?: Prisma.IntWithAggregatesFilter<"HospitalEhrTransportPolicy"> | number
+  stagingRetentionChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"HospitalEhrTransportPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"HospitalEhrTransportPolicy"> | Date | string
 }
@@ -579,6 +607,8 @@ export type HospitalEhrTransportPolicyCreateInput = {
   credentialChangedAt?: Date | string | null
   transportChangedAt?: Date | string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   credentialChangedBy?: Prisma.UserCreateNestedOneWithoutEhrTransportCredentialsChangedInput
@@ -612,6 +642,8 @@ export type HospitalEhrTransportPolicyUncheckedCreateInput = {
   transportChangedAt?: Date | string | null
   transportChangedById?: string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -641,6 +673,8 @@ export type HospitalEhrTransportPolicyUpdateInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   credentialChangedBy?: Prisma.UserUpdateOneWithoutEhrTransportCredentialsChangedNestedInput
@@ -674,6 +708,8 @@ export type HospitalEhrTransportPolicyUncheckedUpdateInput = {
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -705,6 +741,8 @@ export type HospitalEhrTransportPolicyCreateManyInput = {
   transportChangedAt?: Date | string | null
   transportChangedById?: string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -734,6 +772,8 @@ export type HospitalEhrTransportPolicyUpdateManyMutationInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -765,6 +805,8 @@ export type HospitalEhrTransportPolicyUncheckedUpdateManyInput = {
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -806,12 +848,15 @@ export type HospitalEhrTransportPolicyCountOrderByAggregateInput = {
   transportChangedAt?: Prisma.SortOrder
   transportChangedById?: Prisma.SortOrder
   transportChangeReason?: Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
+  stagingRetentionChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type HospitalEhrTransportPolicyAvgOrderByAggregateInput = {
   credentialKeyVersion?: Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
 }
 
 export type HospitalEhrTransportPolicyMaxOrderByAggregateInput = {
@@ -841,6 +886,8 @@ export type HospitalEhrTransportPolicyMaxOrderByAggregateInput = {
   transportChangedAt?: Prisma.SortOrder
   transportChangedById?: Prisma.SortOrder
   transportChangeReason?: Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
+  stagingRetentionChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -872,12 +919,15 @@ export type HospitalEhrTransportPolicyMinOrderByAggregateInput = {
   transportChangedAt?: Prisma.SortOrder
   transportChangedById?: Prisma.SortOrder
   transportChangeReason?: Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
+  stagingRetentionChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type HospitalEhrTransportPolicySumOrderByAggregateInput = {
   credentialKeyVersion?: Prisma.SortOrder
+  stagingRetentionDays?: Prisma.SortOrder
 }
 
 export type HospitalEhrTransportPolicyCreateNestedManyWithoutCredentialChangedByInput = {
@@ -997,6 +1047,8 @@ export type HospitalEhrTransportPolicyCreateWithoutCredentialChangedByInput = {
   credentialChangedAt?: Date | string | null
   transportChangedAt?: Date | string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   transportChangedBy?: Prisma.UserCreateNestedOneWithoutEhrTransportPoliciesChangedInput
@@ -1028,6 +1080,8 @@ export type HospitalEhrTransportPolicyUncheckedCreateWithoutCredentialChangedByI
   transportChangedAt?: Date | string | null
   transportChangedById?: string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1067,6 +1121,8 @@ export type HospitalEhrTransportPolicyCreateWithoutTransportChangedByInput = {
   credentialChangedAt?: Date | string | null
   transportChangedAt?: Date | string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   credentialChangedBy?: Prisma.UserCreateNestedOneWithoutEhrTransportCredentialsChangedInput
@@ -1098,6 +1154,8 @@ export type HospitalEhrTransportPolicyUncheckedCreateWithoutTransportChangedByIn
   credentialChangedById?: string | null
   transportChangedAt?: Date | string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1158,6 +1216,8 @@ export type HospitalEhrTransportPolicyScalarWhereInput = {
   transportChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   transportChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   transportChangeReason?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
+  stagingRetentionDays?: Prisma.IntFilter<"HospitalEhrTransportPolicy"> | number
+  stagingRetentionChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"HospitalEhrTransportPolicy"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalEhrTransportPolicy"> | Date | string
 }
@@ -1204,6 +1264,8 @@ export type HospitalEhrTransportPolicyCreateManyCredentialChangedByInput = {
   transportChangedAt?: Date | string | null
   transportChangedById?: string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1234,6 +1296,8 @@ export type HospitalEhrTransportPolicyCreateManyTransportChangedByInput = {
   credentialChangedById?: string | null
   transportChangedAt?: Date | string | null
   transportChangeReason?: string | null
+  stagingRetentionDays?: number
+  stagingRetentionChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1263,6 +1327,8 @@ export type HospitalEhrTransportPolicyUpdateWithoutCredentialChangedByInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transportChangedBy?: Prisma.UserUpdateOneWithoutEhrTransportPoliciesChangedNestedInput
@@ -1294,6 +1360,8 @@ export type HospitalEhrTransportPolicyUncheckedUpdateWithoutCredentialChangedByI
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1324,6 +1392,8 @@ export type HospitalEhrTransportPolicyUncheckedUpdateManyWithoutCredentialChange
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1353,6 +1423,8 @@ export type HospitalEhrTransportPolicyUpdateWithoutTransportChangedByInput = {
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   credentialChangedBy?: Prisma.UserUpdateOneWithoutEhrTransportCredentialsChangedNestedInput
@@ -1384,6 +1456,8 @@ export type HospitalEhrTransportPolicyUncheckedUpdateWithoutTransportChangedByIn
   credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1414,6 +1488,8 @@ export type HospitalEhrTransportPolicyUncheckedUpdateManyWithoutTransportChanged
   credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transportChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transportChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stagingRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
+  stagingRetentionChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1447,6 +1523,8 @@ export type HospitalEhrTransportPolicySelect<ExtArgs extends runtime.Types.Exten
   transportChangedAt?: boolean
   transportChangedById?: boolean
   transportChangeReason?: boolean
+  stagingRetentionDays?: boolean
+  stagingRetentionChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   credentialChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$credentialChangedByArgs<ExtArgs>
@@ -1480,6 +1558,8 @@ export type HospitalEhrTransportPolicySelectCreateManyAndReturn<ExtArgs extends 
   transportChangedAt?: boolean
   transportChangedById?: boolean
   transportChangeReason?: boolean
+  stagingRetentionDays?: boolean
+  stagingRetentionChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   credentialChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$credentialChangedByArgs<ExtArgs>
@@ -1513,6 +1593,8 @@ export type HospitalEhrTransportPolicySelectUpdateManyAndReturn<ExtArgs extends 
   transportChangedAt?: boolean
   transportChangedById?: boolean
   transportChangeReason?: boolean
+  stagingRetentionDays?: boolean
+  stagingRetentionChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   credentialChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$credentialChangedByArgs<ExtArgs>
@@ -1546,11 +1628,13 @@ export type HospitalEhrTransportPolicySelectScalar = {
   transportChangedAt?: boolean
   transportChangedById?: boolean
   transportChangeReason?: boolean
+  stagingRetentionDays?: boolean
+  stagingRetentionChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type HospitalEhrTransportPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "transport" | "endpoint" | "endpointChangedAt" | "recordNumberSystem" | "recordNumberSystemChangedAt" | "recordNumberSystemChangedById" | "nationalIdentifierSystem" | "nationalIdentifierSystemChangedAt" | "nationalIdentifierSystemChangedById" | "endpointChangedById" | "authMode" | "tokenUrl" | "clientId" | "scope" | "credentialCiphertext" | "credentialNonce" | "credentialAuthTag" | "credentialKeyVersion" | "credentialSealKeyFingerprint" | "credentialConfiguredAt" | "credentialChangedAt" | "credentialChangedById" | "transportChangedAt" | "transportChangedById" | "transportChangeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalEhrTransportPolicy"]>
+export type HospitalEhrTransportPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "transport" | "endpoint" | "endpointChangedAt" | "recordNumberSystem" | "recordNumberSystemChangedAt" | "recordNumberSystemChangedById" | "nationalIdentifierSystem" | "nationalIdentifierSystemChangedAt" | "nationalIdentifierSystemChangedById" | "endpointChangedById" | "authMode" | "tokenUrl" | "clientId" | "scope" | "credentialCiphertext" | "credentialNonce" | "credentialAuthTag" | "credentialKeyVersion" | "credentialSealKeyFingerprint" | "credentialConfiguredAt" | "credentialChangedAt" | "credentialChangedById" | "transportChangedAt" | "transportChangedById" | "transportChangeReason" | "stagingRetentionDays" | "stagingRetentionChangedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalEhrTransportPolicy"]>
 export type HospitalEhrTransportPolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   credentialChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$credentialChangedByArgs<ExtArgs>
   transportChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$transportChangedByArgs<ExtArgs>
@@ -1642,6 +1726,12 @@ export type $HospitalEhrTransportPolicyPayload<ExtArgs extends runtime.Types.Ext
     transportChangedAt: Date | null
     transportChangedById: string | null
     transportChangeReason: string | null
+    /**
+     * How many days staged EHR data is kept before it is deleted
+     * (lib/hospital/ehr-retention.ts). 1 to 14; an import is offered for 14.
+     */
+    stagingRetentionDays: number
+    stagingRetentionChangedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["hospitalEhrTransportPolicy"]>
@@ -2095,6 +2185,8 @@ export interface HospitalEhrTransportPolicyFieldRefs {
   readonly transportChangedAt: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'DateTime'>
   readonly transportChangedById: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>
   readonly transportChangeReason: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>
+  readonly stagingRetentionDays: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'Int'>
+  readonly stagingRetentionChangedAt: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'DateTime'>
 }

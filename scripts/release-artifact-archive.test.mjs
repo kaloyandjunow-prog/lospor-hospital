@@ -12,6 +12,8 @@ function fixture(phase = "candidate", partCount = 2) {
     `${prefix}-release.lock`,
     `${prefix}-release.lock.sha256`,
     `${prefix}-security-evidence.tar.gz`,
+    `${prefix}-windows-kit.zip`,
+    `${prefix}-windows-kit.zip.sha256`,
     ...Array.from({ length: partCount }, (_, index) => `${prefix}-images.tar.gz.part-${String(index).padStart(3, "0")}`),
   ]
   const phaseFiles = phase === "candidate"

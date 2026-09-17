@@ -28,8 +28,11 @@ which case the documentation should say that and this is correct as built — or
 it is meant to bound the research *data*, in which case the restriction has to
 be enforced on the research routes themselves and not only at the hostname.
 
-**Not a code fix until that is settled**, because enforcing it on the clinical
-host would also cut off any legitimate same-origin research use.
+**Decided 13 September 2026: the list bounds the research interface.** The
+research network list restricts who can open the Research Browser website. It
+does not bound research data. Sign-in and per-grant authorisation protect that
+data on every address that serves the API. No code changed. The network and
+security documents now say this and nothing stronger.
 
 ## 2. Should `/api/internal/*` be blocked at the gateway?
 
@@ -42,10 +45,13 @@ refused.
 Every internal endpoint still requires `CRON_SECRET`, so this defeats the
 network restriction, not the authentication.
 
-**The decision.** Whether the network restriction is load-bearing or defence in
-depth. If load-bearing, the rewrite needs an `internal` exclusion and the proxy
-chain needs a test. If defence in depth, the documentation should stop
-describing it as preventing external reachability.
+**Decided and fixed 13 September 2026 (1.4.0).** Caddy now answers
+`/api/internal/*` with the same 404 as `/v1/internal/*`, before the web app's
+catch-all. On a running appliance, `/api/internal/purge-deleted` reached the API
+before the change and got 404 after, and so did the variants: a capital
+`Internal`, a percent-encoded `i`, a doubled slash, and a `..` segment. Ordinary
+`/api/*` routes are unchanged. `caddy-boundaries.test.mjs` holds the matcher
+ahead of the catch-all.
 
 ## 3. Should the API stop connecting as the database superuser?
 
@@ -58,11 +64,22 @@ The appliance already knows the pattern: `create-status-probe.sh` builds
 `default_transaction_read_only`. That discipline was applied to the Status probe
 and not to the application.
 
-**The decision.** Separating migration/administration credentials from a
-restricted runtime role is correct, and touches install, update and restore —
-every path that runs migrations. It is a deliberate piece of work, not a config
-tweak, which is why it is not folded into a release otherwise about case
-closure.
+**Fixed in 1.4.0.** The running API connects as `lospor_app`. That role has no
+superuser, create-database, create-role or replication rights, and a connection
+limit. It can read and write the application's rows but cannot change the
+schema or write the migration history, and it cannot connect to the maintenance
+databases. Migrations, backups, restores, terminology builds and the operator
+tools still use `lospor`.
+
+- **Grants.** `db-app-role-init` runs `create-app-role.sh` after migrations and
+  before the API on every Compose start, so the grants stay true after an update
+  adds tables, after a restore replaces the database, and after a terminology
+  generation is swapped in. Restores use `pg_restore --no-privileges`.
+- **Rotation.** The `database` rotation scope rotates both passwords.
+- **Verified on a running appliance.** The API connects as `lospor_app`; DDL
+  and writes to `_prisma_migrations` are refused; every application table is
+  granted; doctor passes; a restore drill passes; and both a `database` and an
+  `ordinary` rotation committed and verified.
 
 ## 4. How long should EHR staging data be kept, and who deletes it?
 
@@ -76,6 +93,14 @@ technical default — fourteen days is not a legal requirement anywhere. Once a
 period is chosen, the deletion needs implementing, and its failures need to
 surface in Status the way the retention purge and the case-closure sweep do.
 Silent non-deletion is the current state and is the thing to avoid repeating.
+
+**Decided 13 September 2026: 14 days. Fixed in 1.4.0.** The daily retention
+run deletes imports past their window, with their fields, and the files the
+folder transport kept in `processed/` and `rejected/`. It never touches the inbox
+or the outbox. A site can shorten the window in **Hospital controls**, from 1 to
+14 days, and a database constraint holds the stored value in that range. A
+failed deletion turns the Status retention reading to
+`RETENTION_EHR_STAGING_REJECTED`.
 
 ## 5. Which AI models should the appliance use?
 
@@ -92,3 +117,17 @@ and needs checking against the provider's current catalogue.
 **The decision.** Which models are clinically validated for lab and monitor
 extraction, and then whether model selection belongs in the sealed policy row
 alongside the credential — which is where every other external-AI setting lives.
+
+**Checked and fixed 13 September 2026 (1.4.0).** Both defaults were retired:
+`open-mistral-7b` on 30 March 2025 and `pixtral-12b-2409` on 31 December 2025,
+so every AI feature would have failed as soon as a hospital added its key. Model
+selection now lives in the sealed policy row. Each feature uses a pinned, dated
+model from a list in the release: `mistral-small-2603` for the advisor and
+`mistral-large-2512` for reading lab reports and monitor photos by default.
+**AI models** in Hospital controls chooses among them, audited. A model Mistral
+refuses turns into `EXTERNAL_AI_MODEL_UNAVAILABLE` and a `model-unavailable`
+reading in Status, so a future retirement is fixed by choosing another model,
+not by waiting for an update. See [External AI control](external-ai-control.md#models).
+
+Clinical validation of extraction quality is still the hospital's to do before
+relying on it, as it was for the old models.

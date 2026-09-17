@@ -14,7 +14,7 @@ import {
 // converts what's shown and typed in between.
 
 export function ConvertedStepper({
-  measurement, canonicalValue, onCanonicalChange, canonicalMin, canonicalMax, canonicalStep, showSlider,
+  measurement, canonicalValue, onCanonicalChange, canonicalMin, canonicalMax, canonicalStep, showSlider, clampManualInput,
 }: {
   measurement: Measurement
   canonicalValue: number | null | undefined
@@ -23,6 +23,7 @@ export function ConvertedStepper({
   canonicalMax: number
   canonicalStep: number
   showSlider?: boolean
+  clampManualInput?: boolean
 }) {
   const prefs = useUnitPreferences()
   const display = measurementDisplayValues(
@@ -40,6 +41,6 @@ export function ConvertedStepper({
       // would produce NaN and record a measurement nobody took.
       onChange={value => onCanonicalChange(value == null ? null : display.toCanonical(value) ?? null)}
       min={display.min} max={display.max} step={display.step}
-      unit={display.unit} showSlider={showSlider} />
+      unit={display.unit} showSlider={showSlider} clampManualInput={clampManualInput} />
   )
 }

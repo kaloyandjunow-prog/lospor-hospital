@@ -14,15 +14,27 @@ expected to receive HTTP 403; that is a healthy boundary, not an outage.
 
 ## Exact CIDR allowlists
 
-`HOSPITAL_RESEARCH_ALLOWED_CIDRS` is the Research/VPN boundary.
-`HOSPITAL_STATUS_ALLOWED_CIDRS` is the narrower IT-management boundary. The
-guided installer has no permissive default for either. It accepts IPv4 and IPv6
-CIDRs separated by spaces or commas, converts host addresses to their canonical
+`HOSPITAL_RESEARCH_ALLOWED_CIDRS` limits which networks can open the Research
+Browser website. It does not bound research data: an account with a research
+grant can reach the data that grant permits through the API on the clinical
+address. There, sign-in and per-grant authorisation protect it, not the
+network.
+`HOSPITAL_STATUS_ALLOWED_CIDRS` is the narrower IT-management boundary.
+
+The guided installer does not ask for either. As installed, Status answers the
+three RFC1918 ranges with `HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`, so IT
+can reach it to set the real lists (signing in still needs the password and
+MFA), and Research is `127.0.0.1/32`, which no client matches. Status lists both
+under **Needs attention today** and blocks **Go-live** until they are set in
+**Maintenance → Site settings**; the change that leaves neither list with all
+three ranges also turns the switch off. Status may only turn it off.
+
+The validator accepts IPv4 and IPv6 CIDRs separated by spaces or commas, converts host addresses to their canonical
 network, removes duplicates, and refuses:
 
 - an empty or malformed value;
 - `0.0.0.0/0` and `::/0`;
-- the old placeholder containing all three RFC1918 ranges.
+- all three RFC1918 ranges, unless `HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`.
 
 The values in `.env.example` are documentation-only networks and match no real
 hospital client. Replace them during installation.
@@ -30,17 +42,17 @@ hospital client. Replace them during installation.
 Change an installed boundary through the rollback-safe workflow:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.24.30.0/24 fd12:3456:789a:30::/64' \
   --status '10.24.40.0/24 fd12:3456:789a:40::/64'
 ```
 
 The command canonicalizes both values, resolves Compose, parses the exact
 mode-expanded Caddy configuration, protects the previous values, and restores
-the previous `.env` if the edge cannot restart. Run readiness afterwards:
+the previous `site.env` and `.env` if the edge cannot restart. Run readiness afterwards:
 
 ```sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 An exceptional site that has formally documented all three RFC1918 ranges as
@@ -48,7 +60,7 @@ one boundary must provide both explicit flags. This never permits a world-wide
 range:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.0.0.0/8 172.16.0.0/12 192.168.0.0/16' \
   --status '10.24.40.0/24' \
   --unsafe-all-rfc1918 --confirm-all-rfc1918
@@ -76,8 +88,8 @@ least 30 days remaining. Install and update also parse the Caddyfile before any
 new listener starts:
 
 ```sh
-sh scripts/validate-caddy-config.sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/validate-caddy-config.sh
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Changing TLS mode is an IT maintenance action. Update `HOSPITAL_TLS_MODE`, its

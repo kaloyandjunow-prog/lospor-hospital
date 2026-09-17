@@ -63,6 +63,19 @@ export type LabResult = {
   unit: string
   source?: ClinicalItemSource
   takenAt?: string
+  /** Source identifier retained when an imported code is crosswalked. */
+  sourceVocabulary?: string
+  sourceCode?: string
+  /** Standard LOINC represented by this result; null means source-only. */
+  loincCode?: string | null
+  /** Original report fields retained when normalization changes presentation. */
+  reportedTest?: string
+  reportedValue?: string
+  reportedUnit?: string
+  /** The value was not converted to the library unit and must stay source-scaled. */
+  unconverted?: true
+  /** The imported test has no LOSPOR field and cannot be saved as a known lab. */
+  unsupported?: true
   /**
    * The range the reporting laboratory gave for this result.
    *

@@ -9,6 +9,8 @@ hospital's Windows Server 2019, 2022, or 2025, IT enables Hyper-V and creates a
 Generation 2 Ubuntu Server 24.04 LTS virtual machine. LOSPOR does not use
 Windows containers. The appliance does not ship a prebuilt VHDX; IT installs
 and patches the ordinary Ubuntu VM under the hospital's server policy.
+[Preparing the host](host-preparation.md) supplies an autoinstall seed that sets
+up everything listed below, and a Hyper-V script that builds the VM from it.
 
 Install on the Ubuntu VM:
 
@@ -39,9 +41,9 @@ The VM also requires:
   first needs inbound port 80 from the internet;
 - the clinical HTTPS port reachable from the wards, with the loopback Status
   port free for the outage path. These default to 443 and 3443 and can be moved
-  with `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `.env`;
-- separate exact Research/VPN and IT-management CIDR allowlists for the
-  Research Browser and Status page;
+  with `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `site.env`;
+- the Research/VPN and IT-management networks for the Research Browser and
+  the Status page, set in Status after installation;
 - encrypted host storage, NTP, monitored free space, and UPS protection; and
 - a separate encrypted destination for copied backups.
 
@@ -53,11 +55,11 @@ expandable encrypted storage. The Docker storage location needs the same free-
 space capacity if it is on a separate filesystem. Size from measured case,
 image, and backup volume before wider rollout.
 
-Run the non-mutating readiness report after configuring `.env` and before the
-first install:
+The guided installer runs the non-mutating readiness report before it creates
+anything, and stops on any failure. Run it again at any time after installation:
 
 ```sh
-sh ./scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 It checks Ubuntu/architecture, Docker/Compose, CPU, RAM, disk, synchronized
@@ -67,7 +69,7 @@ write configuration.
 
 ## Install a client release
 
-The release comes from the private GitHub repository and carries a raw Ed25519
+The release comes from the public GitHub repository and carries a raw Ed25519
 signature over its release lock. The maintainer downloads the reviewed
 Immutable Release, verifies `release.lock.sig`, checks the versioned
 `release.lock.sha256` sidecar and every payload against the release lock, copies
@@ -76,12 +78,19 @@ retains physical custody, and performs the installation on site. Exact online
 and offline commands are documented in [Hospital release
 validation](release-validation.md#client-verification-and-installation).
 
-The final assets contain the launcher inside the deployment archive, not as a
-separate unarchived file. For the first installation, compare the release lock
-with the SHA-256 retained separately from the reviewed publication, verify the
-deployment payload from that lock, and only then extract the verified archive
-into a new persistent bootstrap directory. Bind that bootstrap directory to
-`/opt/lospor-hospital` as shown in the linked procedure. For later updates, run
+For the first installation, run `losporctl-install.sh`, downloaded from
+lospor.org or carried on the maintainer's USB. It verifies the lock's signature
+against the key it carries, verifies the deployment archive from that lock,
+extracts it into a new bootstrap directory under `/opt/lospor-hospital`, pins
+the key, and starts the guided installer. Nothing has to be typed or compared.
+A VM built with the Hyper-V kit already carries the script, at
+`/usr/local/lib/lospor/losporctl-install.sh`, and offers it at the first
+console login; one built with the Windows wizard runs it by itself at first
+boot, from the answers given there (see [Preparing the host](host-preparation.md)). If a first installation stops part-way, run the same command
+again: it lists what the attempt left and offers `--resume` or
+`--discard-unfinished` (see [When a first installation did not
+finish](release-validation.md#when-a-first-installation-did-not-finish)).
+For later updates, run
 `run-online-release.sh` or `load-offline.sh` from
 `/opt/lospor-hospital/current/scripts`; the active trusted launcher verifies
 and stages the new deployment archive itself.
@@ -96,9 +105,10 @@ not extract over an existing release, pass a custom command, or set
 by those verifiers and is never written to `.env`.
 
 The checksum chain detects changed bytes relative to the lock and sidecar. The
-signature identifies the maintainer only after the hospital has confirmed and
-pinned the public-key fingerprint by a separate route; a key merely carried by
-the same download is not trusted on sight.
+signature identifies the maintainer because the key comes from a second
+channel: online, `losporctl-install.sh` accepts it only when it also matches the
+fingerprint published at lospor.org; offline, it comes from the maintainer's
+USB. A key merely carried by a release download is never trusted on sight.
 
 The guided installer starts with a bilingual language screen. Bulgarian is
 preselected; English remains an obvious choice for a foreign operator. The
@@ -107,12 +117,11 @@ selection changes the rest of the installer immediately and is persisted as
 an explicit login choice is saved to the account and then becomes authoritative
 across applications.
 
-On a fresh installation, two separate Yes-by-default questions ask whether to
-enable the bundled pre-calculated guidance for faster adult and pediatric data
-entry. They are bootstrap choices, not a statement of clinical suitability.
-Pediatric charting itself is a fixed enabled Hospital capability; these prompts
-control only calculated entry assistance and never whether a child can be
-documented.
+On a fresh installation the bundled pre-calculated guidance for faster adult and
+pediatric data entry is enabled by default; the installer does not ask. These
+are bootstrap defaults, not a statement of clinical suitability. Pediatric
+charting itself is a fixed enabled Hospital capability; these settings control
+only calculated entry assistance and never whether a child can be documented.
 Status can later disable or re-enable each population independently with fresh
 operator authentication and an audit reason. Disabling guidance removes only
 prospective drug/infusion/fluid suggestions; manual charting, safety/allergy
@@ -120,7 +129,7 @@ functions, calculators, pediatric documentation, historical records, and
 retrospective totals remain available. An update preserves the stored runtime
 choices and never reapplies the installer defaults.
 
-Those two answers are policy only; they do not decide whether release content
+Those two settings are policy only; they do not decide whether release content
 is clinically suitable. After migrations and Hospital bootstrap, the installer
 runs the owner API's release provisioner exactly once with explicit `--apply`.
 That provisioner atomically publishes and selects the separately reviewed adult
@@ -128,28 +137,30 @@ and pediatric bundled baselines under a release-owned technical principal. It
 refuses collisions, partial state, conflicting selections, or changed content.
 The installer then requires the same read-only exact-v2 assessment used by
 runtime and Status to print **Ready** for both populations before service start,
-doctor, or success. These content checks do not couple the two policy answers,
+doctor, or success. These content checks do not couple the two policy settings,
 and manual charting remains available even when a policy is off. In Status,
 preset identity, publication state, exact rule/profile counts, and SHA-256 must
 continue to match the bundled v2 snapshot before calculated guidance is shown.
 See
 [calculation-guidance policy](clinical-guidance-policy.md).
 
-A third Yes-by-default question controls optional external AI for the
-pre-operative advisor, laboratory-image extraction, and monitor OCR. This is
-separate from the local adult/pediatric guidance choices. When Yes is selected,
-the installer accepts an optional Mistral credential through a hidden prompt;
-blank is valid and leaves the feature visibly unavailable until Hospital IT
-adds the credential in Status. The credential travels only over standard input,
-is immediately sealed with an API-only appliance key, and is never written to
-`.env`, argv, Compose metadata, logs, or a browser response. A password-
-authenticated Status operator can later enable/disable external AI and replace
-or remove the credential, with an audit reason. See
+Optional external AI for the pre-operative advisor, laboratory-image
+extraction, and monitor OCR is enabled by policy by default, separately from the
+local guidance settings, and stays visibly unavailable until Hospital IT adds
+the hospital's own Mistral credential in Status. The installer never asks for
+or carries it. In Status the credential is immediately sealed with an API-only
+appliance key and is never written to `.env`, argv, Compose metadata, logs, or
+a browser response. A password-authenticated Status operator can enable or
+disable external AI and replace or remove the credential, with an audit reason.
+Each hospital uses its own Mistral account and must opt out of Mistral using its
+API data for model training. See
 [External AI control](external-ai-control.md).
 
-The installer also accepts an optional local support destination: either an
-internal HTTPS help/ticket URL without embedded credentials or one bare
-`mailto:` mailbox. Blank is valid and means clinicians are directed to their
+An optional local support destination is not asked during installation. It is
+either an internal HTTPS help/ticket URL without embedded credentials or one
+bare `mailto:` mailbox, set later as `HOSPITAL_SUPPORT_URL` in Status
+**Maintenance → Site settings** or in `site.env`. Blank, the
+default, means clinicians are directed to their
 local administrator without a clickable destination. Mobile/PWA includes
 version-matched offline help and exposes this configured contact through the
 public, non-secret capability response. Its problem-report screen shows the
@@ -158,10 +169,10 @@ case, clinical, account, institution, token, or free-text content. Nothing is
 sent automatically; `mailto:` subject/body content is added only after the
 clinician deliberately opens the reviewed mail draft.
 
-The installer also accepts an optional absolute path to the hospital's own
-encrypted off-host backup executable. A blank answer installs the truthful
-deferred hook and leaves a critical Status warning until Hospital IT configures
-and proves an external acknowledgement. See [Backup and restore](backup-restore.md).
+The installer does not ask for an off-host backup destination. A new installation
+starts with the truthful deferred hook, which leaves a critical Status warning until Hospital IT sets up
+encrypted copies to a network share or SFTP server in **Maintenance → Copies
+kept elsewhere**, or its own external transfer. See [Backup and restore](backup-restore.md).
 
 ## Source installation for development
 
@@ -266,19 +277,12 @@ published to the internet.
 ### Using the hospital's own authority
 
 Ask IT for a certificate covering both names — the clinical one and the
-research one — then:
+research one — then give the certificate, its key and the hospital's authority
+to one command, which installs them, applies the setting and checks the result
+(see [Addresses, certificate and ports](operations.md#addresses-certificate-and-ports)):
 
 ```sh
-install -m 600 fullchain.pem secrets/tls/fullchain.pem
-install -m 600 private.key   secrets/tls/private.key
-```
-
-and in `.env`:
-
-```sh
-HOSPITAL_TLS_MODE=operator
-HOSPITAL_TLS_VERIFY_CA=/etc/ssl/certs/hospital-ca.crt
-COMPOSE_PROFILES=
+sudo losporctl config certificate operator /root/fullchain.pem /root/private.key /etc/ssl/certs/hospital-ca.crt
 ```
 
 `scripts/readiness-check.sh` verifies the key mode and match, both clinical and
@@ -313,6 +317,16 @@ to the token URL, so an unencrypted address puts the hospital's own integration
 password on the wire on every token request. Try the same host on `https://`
 first, then the certificate authority above; that is usually the whole problem.
 
+NHIS publishes no FHIR address for its code lists, so each hospital system
+names them its own way. An address that names its list (`…/CL013`,
+`urn:…:ksmp`, `…/МКБ-10`) is recognised as it is. Any other address is listed
+in Status under **Hospital controls → Code-list addresses** once a code arrives
+from it, and can be entered there beforehand from the vendor's documentation.
+Say once which list it is: ICD-10, ICD-10-PCS operations, КСМП procedures, the
+CL013 or CL046 routes, or CL024 laboratory tests. ICD-10-PCS under its published
+address (`http://www.cms.gov/Medicare/Coding/ICD10`) needs no answer. Nothing waits for an answer; until then the codes
+arrive as the hospital labelled them.
+
 ### A note on `local`
 
 Caddy's own authority issues **twelve-hour** certificates. That is fine for a
@@ -324,12 +338,19 @@ Host port 80 is published only by `COMPOSE_PROFILES=tls-acme`, which the
 installer derives from `HOSPITAL_TLS_MODE=acme`. Operator and local TLS do not
 occupy it.
 
-The guided installer asks separately for exact Research/VPN and IT-management
-CIDRs and deliberately supplies no broad private-network default. It rejects
-malformed, world-wide, and the old all-RFC1918 placeholder. Later changes use:
+The guided installer does not ask for the network lists. Until Hospital IT sets
+them in **Status → Maintenance → Site settings**, Status answers every private
+network (`10.0.0.0/8 172.16.0.0/12 192.168.0.0/16`, with
+`HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`; signing in still needs the
+password and MFA) and the Research Browser answers nobody (`127.0.0.1/32`).
+**Needs attention today** and **Go-live** say so until both are set; the change that
+narrows them turns the all-private switch off. Lists given to the installer in
+`HOSPITAL_STATUS_ALLOWED_CIDRS` and `HOSPITAL_RESEARCH_ALLOWED_CIDRS` are used as
+they are. Malformed, world-wide, and all-RFC1918 lists without the switch are
+rejected. At the console the lists change with:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research "10.24.30.0/24" --status "10.24.40.0/24"
 ```
 
@@ -339,19 +360,24 @@ to loopback.
 
 ## Terminology data
 
-Core provides a deterministic clinical fallback catalog. ICD, procedure,
-drug, and other licensed reference databases must be imported from the
-institution-approved package in `reference-data/` before clinical use. See
-`reference-data/README.md` and [Terminology import](terminology-import.md). A
-successful import is not inferred from table rows: `scripts/doctor.sh
---go-live` requires the active manifest/checksum evidence and repeats the
-relationship/count gate.
+The release carries what clinical use needs: ICD-10 with its Bulgarian names
+(NHIS 1.5.27), the procedure groups and ICD-10-PCS operations, the Bulgarian
+drug list, English ICD-10-CM diagnosis synonyms, and the OMOP research numbers
+of the diagnoses, operations, labs and drugs. The install seeds them.
+
+An Athena terminology package is **optional**. Import one from `reference-data/`
+when research needs a newer vocabulary release or the full OMOP vocabularies on
+the server; see `reference-data/README.md` and
+[Terminology import](terminology-import.md). Once a package has been imported,
+`scripts/doctor.sh --go-live` requires its manifest/checksum evidence to stay
+valid and repeats the relationship/count gate; without one it only reports that
+the bundled codes are in use.
 
 ## First acceptance checks
 
 ```sh
-./scripts/backup-now.sh
-./scripts/doctor.sh
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh
 ```
 
 `doctor.sh` checks both Status paths, Status internal liveness, credential
@@ -363,3 +389,39 @@ an intraoperative edit, reconnect, verify recovery, finalize the case, and
 verify that the local Browser can inspect it. Open the printable protocol from
 both web and PWA, confirm that the browser print dialog opens, and confirm that
 there is no LOSPOR "Download PDF" action or server-generated PDF response.
+
+## Ready for clinical use
+
+An installation ends **installed, not yet approved for clinical use**. The
+Status **Go-live** page (`/status/go-live`) turns what remains into one
+checklist and one verdict. The appliance checks some items itself: a valid
+HTTPS certificate, healthy services, a synchronized clock, current local
+backups, escrowed installation secrets, a working update route. Two steps are
+optional and never block go-live: an imported terminology package (though one
+that was imported and then needs the operator does), and off-host copies made
+by LOSPOR, which a hospital that backs up the whole VM does not need.
+
+People confirm the rest:
+
+- a test restore: a restore drill, a drill from the off-host copy, or a restore of the VM backup (valid for 92 days);
+- the network allowlists, verified from representative computers;
+- administrator MFA recovery codes stored in the IT password vault;
+- a recorded host security-update policy; and
+- clinical acceptance of the web app, phone app, printed record and offline use.
+
+The page is also the way through. It orders the thirteen required items and the two optional steps in five stages
+(reach the appliance safely, protect the data, keep it maintained, clinical
+content, accepted by people), counts how many are done, and leads with the next
+one: why it matters, who owns it (the appliance, Hospital IT or the clinical
+lead), and a link to the Status page that does it, or the console command for
+the few things Status deliberately cannot do (escrowing the secrets, a
+certificate from the hospital's own authority). A password sign-in opens it
+while the appliance is not yet approved. It adds no requirement and stores
+nothing new, so leaving and coming back resumes from what the appliance reports.
+
+Recording or withdrawing a confirmation requires the administrator password
+and a short note, and is logged with a pseudonymous operator reference. The
+verdict is recomputed from current observations every time the page opens, so
+a lapsed check makes the appliance not ready again. While a restore or
+terminology operation runs it shows **maintenance**. An interrupted release
+activation shows **recovery required** until Hospital IT reviews the console.

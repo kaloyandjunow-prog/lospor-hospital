@@ -30,6 +30,8 @@ for arg in "\$@"; do
   case "\$arg" in
     *purge-deleted)
       echo "retention \$*" >> "$calls"; printf '%s' "${1:-200}"; exit 0 ;;
+    *ehr-import/purge)
+      echo "ehrpurge \$*" >> "$calls"; printf '%s' "\${EHR_PURGE_STATUS:-200}"; exit 0 ;;
     *close-expired-cases)
       echo "caseclose \$*" >> "$calls"; printf '%s' "${1:-200}"; exit 0 ;;
     *hospital-delivery/process)
@@ -123,6 +125,28 @@ if grep -q '"state":"FAILURE"' "$signal" \
   pass "a refused purge writes a FAILURE retention signal"
 else
   fail "a refused purge did not surface as a failure"
+fi
+
+# 7b. The same daily run deletes EHR staging data past its window, with the same
+#     secret, and a refused EHR purge is a failed retention run on Status.
+make_work 200
+run_loop
+if grep "^ehrpurge " "$calls" | grep -q "Bearer retention-secret" \
+  && grep -q '"resultCode":"RETENTION_COMPLETED"' "$work/signals/retention-status.v1.json"; then
+  pass "retention also purges EHR staging data with CRON_SECRET"
+else
+  fail "retention did not purge EHR staging data"
+fi
+make_work 200
+EHR_PURGE_STATUS=500
+export EHR_PURGE_STATUS
+run_loop
+unset EHR_PURGE_STATUS
+if grep -q '"state":"FAILURE"' "$work/signals/retention-status.v1.json" \
+  && grep -q '"resultCode":"RETENTION_EHR_STAGING_REJECTED"' "$work/signals/retention-status.v1.json"; then
+  pass "a refused EHR staging purge surfaces as a failed retention run"
+else
+  fail "a refused EHR staging purge did not surface as a failure"
 fi
 
 # 8. The attempt is stamped even when it failed, so a broken endpoint is retried

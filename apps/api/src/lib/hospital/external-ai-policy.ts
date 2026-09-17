@@ -1,6 +1,15 @@
 import "server-only"
 
 import {
+  ADVISOR_MODELS,
+  VISION_MODELS,
+  advisorModelOrDefault,
+  visionModelOrDefault,
+  type AdvisorModel,
+  type VisionModel,
+} from "@/lib/hospital/external-ai-models"
+
+import {
   createCipheriv,
   createDecipheriv,
   createHash,
@@ -47,6 +56,10 @@ export type ExternalAiProviderAccess =
     enabled: true
     provider: typeof PROVIDER
     apiKey: string
+    /** The pinned model for the pre-operative advisor. */
+    advisorModel: AdvisorModel
+    /** The pinned model that reads lab report and monitor photos. */
+    visionModel: VisionModel
   }
   | {
     enabled: false
@@ -259,7 +272,13 @@ export async function externalAiProviderAccess(
   if (!isHospitalDeployment()) {
     const apiKey = process.env.MISTRAL_API_KEY
     return apiKey
-      ? { enabled: true, provider: PROVIDER, apiKey }
+      ? {
+        enabled: true,
+        provider: PROVIDER,
+        apiKey,
+        advisorModel: advisorModelOrDefault(process.env.MISTRAL_MODEL),
+        visionModel: visionModelOrDefault(process.env.MISTRAL_VISION_MODEL),
+      }
       : { enabled: false, provider: PROVIDER, reason: "PROVIDER_NOT_CONFIGURED" }
   }
   const policy = await storedExternalAiPolicy(db)
@@ -279,6 +298,8 @@ export async function externalAiProviderAccess(
       enabled: true,
       provider: PROVIDER,
       apiKey: openExternalAiCredential(sealed, key),
+      advisorModel: advisorModelOrDefault(policy?.advisorModel),
+      visionModel: visionModelOrDefault(policy?.visionModel),
     }
   } catch {
     return { enabled: false, provider: PROVIDER, reason: "PROVIDER_NOT_CONFIGURED" }
@@ -299,6 +320,12 @@ export async function externalAiControlView(db: Database = prisma) {
     credentialConfiguredAt: policy?.credentialConfiguredAt?.toISOString() ?? null,
     credentialChangedAt: policy?.credentialChangedAt?.toISOString() ?? null,
     policyChangedAt: policy?.policyChangedAt?.toISOString() ?? null,
+    // The pinned models in use, and the only ones Status may choose from.
+    advisorModel: advisorModelOrDefault(policy?.advisorModel),
+    visionModel: visionModelOrDefault(policy?.visionModel),
+    advisorModelOptions: [...ADVISOR_MODELS],
+    visionModelOptions: [...VISION_MODELS],
+    modelsChangedAt: policy?.modelsChangedAt?.toISOString() ?? null,
     updatedAt: policy?.updatedAt?.toISOString() ?? null,
   }
 }

@@ -47,7 +47,9 @@ export const preopFormSchema = z.object({
   // every tag-shaped item below so it is not stripped by these otherwise-
   // closed inline schemas before the request is built.
   diagnoses: z.array(z.object({ label: z.string(), code: z.string().optional(), system: z.string().optional(), labelEn: z.string().optional(), labelBg: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
-  procedures: z.array(z.object({ label: z.string(), code: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
+  // system, group, domain and description carry the exact ICD-10-PCS operation
+  // when one was chosen (@lospor/core/procedure-codes).
+  procedures: z.array(z.object({ label: z.string(), code: z.string().optional(), system: z.string().optional(), group: z.string().optional(), domain: z.string().optional(), description: z.string().optional(), sub: z.string().optional(), sourceLabel: z.string().optional(), sourceVocabulary: z.string().optional(), suggestedCodes: z.array(z.string()).optional(), imported: z.record(z.string(), z.unknown()).optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
   highRiskSurgery: z.boolean().default(false),
   elective: z.boolean().default(false),
   emergencySurgery: z.boolean().default(false),

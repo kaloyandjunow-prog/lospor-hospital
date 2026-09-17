@@ -8,7 +8,7 @@ import { X } from "lucide-react"
 // itself never sets it — callers that add AI- or import-derived tags stamp it
 // before/after onChange — but the type has to admit the field or it gets
 // dropped on the next spread inside this component.
-export type Tag = { label: string; sub?: string; code?: string; system?: string; labelEn?: string; labelBg?: string; inn?: string; atcCode?: string; source?: "manual" | "ai-scan" | "import" }
+export type Tag = { label: string; sub?: string; code?: string; system?: string; labelEn?: string; labelBg?: string; inn?: string; atcCode?: string; group?: string; domain?: string; description?: string; sourceLabel?: string; sourceVocabulary?: string; suggestedCodes?: string[]; imported?: Record<string, unknown>; source?: "manual" | "ai-scan" | "import" }
 
 interface Props<T> {
   value: Tag[]

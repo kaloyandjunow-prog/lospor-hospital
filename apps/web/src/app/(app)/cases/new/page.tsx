@@ -15,6 +15,7 @@ import {
   dbPostopToForm,
   dbIntraopToForm,
   sectionPayload,
+  preopSummaryForIntraop,
 } from "./case-record-mapping"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { useTranslations } from "next-intl"
@@ -708,34 +709,7 @@ export default function NewCasePage() {
           <IntraopForm
             defaultValues={intraopData ?? undefined}
             defaultTimetable={timetableDefault ?? undefined}
-            preop={preopData ? {
-              clinicalMode:           preopData.clinicalMode,
-              asaScore:              preopData.asaScore,
-              ageYears:              preopData.ageYears,
-              ageValue:              preopData.ageValue,
-              ageUnit:               preopData.ageUnit,
-              heightCm:              preopData.heightCm,
-              weightKg:              preopData.weightKg,
-              sex:                   preopData.sex,
-              bmi:                   preopData.heightCm && preopData.weightKg ? Math.round(preopData.weightKg / ((preopData.heightCm / 100) ** 2) * 10) / 10 : undefined,
-              bpSystolic:            preopData.bpSystolic,
-              bpDiastolic:           preopData.bpDiastolic,
-              heartRate:             preopData.heartRate,
-              spO2:                  preopData.spO2,
-              mallampati:            preopData.mallampati,
-              neckMobility:          preopData.neckMobility,
-              mouthOpeningCm:        preopData.mouthOpeningCm,
-              cormackLehane:         preopData.cormackLehane,
-              difficultAirwayHistory: preopData.difficultAirwayHistory,
-              allergies:             preopData.allergies,
-              allergyDetails:        preopData.allergyDetails,
-              comorbidities:         preopData.comorbidities,
-              currentMedications:    preopData.currentMedications,
-              labResults:            preopData.labResults,
-              diagnosis:             preopData.diagnoses?.map(t => t.label).join("; ") || null,
-              plannedProcedure:      preopData.procedures?.map(t => t.label).join("; ") || null,
-              emergencySurgery:      preopData.emergencySurgery ?? null,
-            } : null}
+            preop={preopData ? preopSummaryForIntraop(preopData) : null}
             caseStarted={!!(intraopData?.startTime)}
             onSubmit={handleIntraopSubmit}
             onBack={() => setStep(0)}

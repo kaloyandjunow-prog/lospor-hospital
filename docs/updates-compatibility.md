@@ -4,6 +4,12 @@
 
 ## How a site gets a release
 
+**Releases that still exist.** On 15 September 2026, before the first 1.4.0
+runs, releases 1.0.0 to 1.3.2 were withdrawn: their GitHub Releases and GHCR
+images were deleted, and their git tags were kept as history. 1.3.3 remains, as
+the last working release before 1.4.0. 1.4.0 installs fresh; no hospital runs an
+earlier version, so there is no upgrade path from 1.3.x.
+
 Hospital images are built once as a CI candidate from an exact
 `hospital-MAJOR.MINOR.PATCH` tag. The maintainer reviews its run-bound
 publication request and release-lock SHA-256, then manually dispatches
@@ -11,10 +17,11 @@ publication with the offline-produced raw Ed25519 signature and its separately
 recorded SHA-256. Publication verifies the signature twice, then promotes the
 already tested image identities without
 rebuilding them. All ten release images are built and scanned under LOSPOR's
-private GHCR namespace, then recorded in the release lock. A client does not
+public GHCR namespace, then recorded in the release lock. A client does not
 compile them and never uses `latest`.
 
-The repository, GitHub Releases, and GHCR packages remain private. The
+The repository, GitHub Releases, and GHCR packages are public; visibility is
+not part of the trust model. The
 maintainer account uses MFA, publication requires separate version-bound
 publication and Immutable-Releases confirmations, and the resulting GitHub
 Release must be immutable. SHA-256 and image-digest checks detect changes
@@ -45,19 +52,16 @@ host-only command when the installation deliberately runs in console-only
 mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
 ```
 
 The root-owned preparer accepts only the semantic version and an optional fixed-
 shape request id. It chooses the repository, tag, asset names, paths and
-verification commands itself. A revocable read-only GitHub Releases token is
-read from `secrets/registry/github-release-token`; the existing read-only GHCR
-credential remains in `secrets/registry/ghcr-user` and
-`secrets/registry/ghcr-token`. Neither credential is sent to Status or stored in
-its state. The GitHub token is used only in a private `curl` configuration and
-is never forwarded to an asset-storage redirect. The GHCR launcher continues
-to use a throwaway Docker configuration and deletes it on every exit path. Do
-not run `docker login` by hand.
+verification commands itself. The release metadata and assets are
+read anonymously from the public GitHub release, and images are pulled
+anonymously into a throwaway Docker configuration that is deleted on every exit
+path. The appliance stores no GitHub or registry credential. Do not run
+`docker login` by hand.
 
 Preparation refuses a draft, prerelease, mutable release, wrong tag or commit,
 wrong publication marker, missing/extra/duplicate asset, mismatched GitHub asset
@@ -73,7 +77,7 @@ a root-owned prepared-release descriptor. Running services are not touched.
 A connected site can ask the registry what has been published:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/check-for-update.sh
+sudo sh /opt/lospor-hospital/current/scripts/check-for-update.sh
 ```
 
 This only reads. It pulls nothing, changes nothing, and records the answer in
@@ -92,14 +96,14 @@ and do not have to happen together. Preparation performs the download and the
 full identity verification, then stops:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
 ```
 
 Nothing that is running is touched. Afterwards, apply only the exact descriptor
 that preparation wrote:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.0 -
 ```
 
 The apply command revalidates the descriptor, the installed identity it was
@@ -132,17 +136,17 @@ run:
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock \
-  /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock.sha256 \
-  /media/lospor-1.3.0
+  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock \
+  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock.sha256 \
+  /media/lospor-1.4.0
 ```
 
-A first installation has no trusted `current` launcher yet. Follow the
-[first-install bootstrap procedure](release-validation.md#client-verification-and-installation):
-verify the deployment archive from the separately retained lock SHA-256,
-extract it into the new persistent bootstrap directory, bind that directory to
-the appliance home, and then use its production launcher. Do not execute a
-launcher directly from an unverified archive or pass a custom install command.
+A first installation has no trusted `current` launcher yet. Use
+[`losporctl-install.sh`](release-validation.md#client-verification-and-installation):
+it verifies the signed lock and the deployment archive, extracts it into a new
+bootstrap directory bound to the appliance home, pins the key, and hands over to
+the guided installer. Do not execute a launcher directly from an unverified
+archive or pass a custom install command.
 
 Both launchers verify and stage the checksum-covered deployment archive, then
 invoke that candidate kit's own installer or updater. This prevents an older
@@ -176,7 +180,7 @@ of all ten loaded images before the update starts. The sidecar detects corruptio
 attacker able to replace both it and the lock can create a matching pair.
 
 For a hand-carried update, the maintainer downloads assets only from the
-reviewed private immutable GitHub Release onto a clean encrypted USB, verifies
+reviewed immutable GitHub Release onto a clean encrypted USB, verifies
 the bundle, records its lock SHA-256, and retains physical custody through the
 on-site installation. Do not combine assets from different releases or use the
 device for unrelated files. See [Hospital release
@@ -233,7 +237,7 @@ an administrator silently. Later updates fail closed if a credential
 transaction is pending or the generations disagree; inspect safe state with:
 
 ```sh
-./scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
 ```
 
 Database migrations are backward-compatible only when the release's signed

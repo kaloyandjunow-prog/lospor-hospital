@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Modal, Pressable, ScrollView, Text, View } from "react-native"
 import { applyEhrSelections } from "@lospor/core/ehr-import-apply"
+import { importedProcedureOf, isExactProcedure, procedureDisplayText } from "@lospor/core/procedure-codes"
 import { visibleReviewItems, type EhrReviewItem, type EhrReviewPlan } from "@lospor/core/ehr-import-review"
 import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import type { ClinicalMode } from "@lospor/core/pediatric"
@@ -87,9 +88,18 @@ function describe(
           : `${takenLabel} ${lab.takenAt.slice(0, 10)}`,
       }
     }
-    const tag = proposed as EhrTagValue
+    // `sourceLabel` is the hospital's own wording when the label is a LOSPOR
+    // term proposed for it (a Bulgarian procedure name under a procedure
+    // group), so the clinician checks the proposal against what arrived.
+    const tag = proposed as EhrTagValue & { sourceLabel?: string }
     const parts = [tag.dose, tag.route, tag.frequency].filter(Boolean)
-    return { title: tag.label, detail: parts.length ? parts.join(" · ") : tag.code }
+    // An exact operation proposed for a hospital code reads as the operation,
+    // with the code and wording the hospital actually sent beneath it.
+    const exact = isExactProcedure(tag as unknown as Record<string, unknown>)
+    const imported = exact ? importedProcedureOf(tag as unknown as Record<string, unknown>) : undefined
+    const source = (imported ? [imported.code, imported.sourceLabel] : [tag.code, tag.sourceLabel]).filter(Boolean).join(" · ")
+    const title = exact ? procedureDisplayText(tag as unknown as Record<string, unknown>) : tag.label
+    return { title, detail: parts.length ? parts.join(" · ") : source || undefined }
   }
   return { title: proposed === null ? "—" : String(proposed) }
 }

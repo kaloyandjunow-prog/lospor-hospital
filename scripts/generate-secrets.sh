@@ -3,9 +3,11 @@ set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
+. "$root/scripts/site-config.sh"
+if [ -d "$root/.lospor-home" ]; then home="$(CDPATH= cd -- "$root/.lospor-home" && pwd -P)"; else home="$root"; fi
 
-if [ -f .env ]; then
-  echo ".env already exists; refusing to replace Hospital secrets." >&2
+if [ -f .env ] || [ -e "$home/site.env" ] || [ -e "$home/secrets/appliance.env" ]; then
+  echo "Hospital configuration already exists; refusing to replace Hospital secrets." >&2
   exit 1
 fi
 
@@ -190,9 +192,12 @@ random_base64_32() {
 }
 
 umask 077
-cat > .env <<EOF
+# What hospital IT owns goes to site.env; everything generated goes to the
+# root-only secrets/appliance.env. .env is compiled from both and never edited.
+mkdir -p "$home/secrets"
+chmod 700 "$home/secrets"
+cat > "$home/site.env" <<EOF
 LOSPOR_DEFAULT_LOCALE=$default_locale
-COMPOSE_PROFILES=$compose_profiles
 ACME_EMAIL=$acme_email
 HOSPITAL_CLINICAL_DOMAIN=$clinical_domain
 HOSPITAL_RESEARCH_DOMAIN=$research_domain
@@ -202,7 +207,13 @@ HOSPITAL_TLS_VERIFY_CA=$tls_verify_ca
 HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=${HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE:-}
 HOSPITAL_RESEARCH_ALLOWED_CIDRS="$research_cidrs"
 HOSPITAL_STATUS_ALLOWED_CIDRS="$status_cidrs"
+HOSPITAL_UPDATE_SUPPLY_MODE=$update_supply_mode
+AUTH_EMAIL_FROM=$auth_email_from
+AUTH_EMAIL_FROM_NAME=LOSPOR
+EOF
+cat > "$home/secrets/appliance.env" <<EOF
 HOSPITAL_POSTGRES_PASSWORD=$(random_hex 32)
+HOSPITAL_POSTGRES_APP_PASSWORD=$(random_hex 32)
 LOSPOR_AUTH_SECRET=$(random_hex 48)
 HOSPITAL_OPERATIONAL_SECRET_GENERATION=1
 HOSPITAL_PATIENT_HMAC_KEY=$(random_base64_32)
@@ -216,7 +227,6 @@ OPTION_LIBRARY_SNAPSHOT_SECRET=$(random_hex 32)
 HOSPITAL_ADULT_GUIDANCE_DEFAULT=$adult_guidance
 HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=$pediatric_guidance
 HOSPITAL_EXTERNAL_AI_DEFAULT=$external_ai
-HOSPITAL_UPDATE_SUPPLY_MODE=$update_supply_mode
 HOSPITAL_EXPORT_BATCH_CASE_LIMIT=500
 HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS=7
 HOSPITAL_BACKUP_MANIFEST_HMAC_KEY=$(random_hex 32)
@@ -226,10 +236,9 @@ HOSPITAL_BACKUP_KEEP_ALL_SECONDS=172800
 HOSPITAL_BACKUP_DAILY_POINTS=14
 RESEARCH_EXPORT_RETENTION_DAYS=30
 BREVO_API_KEY=
-AUTH_EMAIL_FROM=$auth_email_from
-AUTH_EMAIL_FROM_NAME=LOSPOR
 EOF
-chmod 600 .env
+chmod 600 "$home/site.env" "$home/secrets/appliance.env"
+site_config_compile "$home"
 
 # secrets/tls holds an operator-supplied certificate when the hospital issues
 # one from its own authority. Created empty so the mount exists and the

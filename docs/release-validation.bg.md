@@ -106,7 +106,7 @@ curl delivery worker. Всеки се изгражда като специфич
 images, а не непроменени third-party release payloads. `Core` е компилиран в
 приложенията; не е отделен container.
 
-Всеки private GitHub Release съдържа:
+Всеки GitHub Release съдържа:
 
 - `lospor-hospital-<version>-deployment.tar.gz`;
 - един или повече подредени файла `images.tar.gz.part-NNN`, всеки не по-голям
@@ -154,7 +154,7 @@ clients не са host prerequisites.
 
 Trust chain е:
 
-1. private GitHub repository и private GHCR packages;
+1. публично GitHub repository, чийто release и GHCR images всеки може да чете;
 2. GitHub акаунтът на поддържащия, защитен с MFA;
 3. точен tag-triggered candidate build и automated gates;
 4. отделен manual publication run, обвързан с прегледаните candidate run,
@@ -166,13 +166,15 @@ Trust chain е:
 
 Първите шест осигуряват силен provenance в GitHub account и силни integrity
 checks в доставения bundle. Само седмият е независим от GitHub и независимостта
-му зависи изцяло от мястото, където се пази ключът.
+му зависи изцяло от мястото, където се пази ключът. Публичността не добавя и не
+отнема доверие: всеки може да изтегли версия, а само подписът решава дали сайтът
+я приема.
 
 Изисквайте MFA за maintainer account, защитавайте неговите recovery methods,
 преглеждайте active sessions и access tokens и ограничете write access до
-maintainer. Оставете всичките десет LOSPOR GHCR packages private. Дайте на всяка
-свързана болница отделно revocable, read-only registry credential. Offline
-route не изисква registry или internet access.
+maintainer. Всичките десет LOSPOR GHCR packages са публични, затова свързаната
+болница не пази registry credential. Offline route не изисква registry или
+internet access.
 
 ### Ключът за подписване на версия
 
@@ -261,9 +263,10 @@ private key offline и запазете копие на място, чиято �
   `hospital-MAJOR.MINOR.PATCH`. Изгражда, сканира, инсталира и пакетира
   candidate. Не може да публикува GitHub Release.
 - `.github/workflows/publish-release.yml` започва само чрез manual dispatch.
-  Приема identity на избрания candidate run, независимо проверен lock hash и
-  literal publication confirmation. Повишава само вече тестваните image
-  identities и публикува без повторно изграждане.
+  Приема три входа: ID на candidate run, подписа на поддържащия върху release
+  lock на този run и literal publication confirmation. Извежда версията,
+  attempt и digests от run и неговите bytes, повишава само вече тестваните
+  image identities и публикува без повторно изграждане.
 
 Одобрените `linux/amd64` build, runtime и scanner identities се намират във
 versioned `release-inputs.json`. Всяка reference съдържа очакваните name,
@@ -315,16 +318,15 @@ candidate никога не е бил release.
 ### 1. Еднократно включване на Immutable Releases
 
 Преди първата production версия administrator включва repository-level
-Immutable Releases. Непосредствено преди всеки publication dispatch
-поддържащият визуално проверява настройката и предоставя version-bound
-потвърждението, изисквано от workflow. И двата publication jobs независимо
-проверяват literal confirmation; workflow не използва administrator token, за
-да прочита или променя настройката. Той създава run-bound draft (или безопасно
+Immutable Releases. `scripts/publish-release.mjs` прочита тази настройка с
+GitHub login на поддържащия преди всеки dispatch и отказва, докато тя е
+изключена; workflow не използва administrator token, за да я прочита или
+променя. Workflow създава run-bound draft (или безопасно
 възобновява точно него след прекъсване), качва точен asset list без замяна,
 изтегля и сравнява remote assets, публикува draft и изисква GitHub да отчете
 самия release като immutable.
 
-След като release стане публичен в private repository, не се опитвайте да
+След като release бъде публикуван, не се опитвайте да
 заменяте неговите assets или да местите tag. Поправете проблема в source и
 издайте нова версия.
 
@@ -352,7 +354,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.3.0"
+$Version = "1.4.0"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -375,114 +377,63 @@ commit и маркирайте отново. Изоставеният candidate 
 версия с различен `release.lock` digest, спира с „Release X.Y.Z is already
 installed with a different release identity“ вместо да я инсталира.
 
-Изчакайте всички jobs в `release.yml` да преминат и запишете извън изтегления
-candidate:
+Изчакайте всички jobs в `release.yml` да преминат и запишете ID на run: числото в
+неговия URL. Нищо друго не е нужно да се записва; помощният скрипт прочита
+версията, attempt и commit от run.
 
-- candidate run ID и run attempt;
-- пълния 40-character commit;
-- version и tag; и
-- 64-character release-lock SHA-256, изведен от успешния run.
-
-Изтеглете само candidate artifact от този run в нова празна директория. Не
-смесвайте файлове от различни runs или attempts:
+На свързаната review workstation, влезли с `gh auth login` като поддържащ,
+подгответе candidate:
 
 ```powershell
-$Version = "1.3.0"
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$Commit = "0123456789abcdef0123456789abcdef01234567"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ArtifactName = "hospital-$Version-$CandidateRunId-$CandidateRunAttempt-candidate"
-$CandidateDirectory = Join-Path (Get-Location) "candidate-$Version-$CandidateRunId-$CandidateRunAttempt"
-
-New-Item -ItemType Directory -Path $CandidateDirectory -ErrorAction Stop
-gh run download $CandidateRunId --repo $Repository --name $ArtifactName `
-  --dir $CandidateDirectory
+node .\scripts\publish-release.mjs prepare 12345678901
 ```
 
-Заменете всяка примерна стойност с candidate summary и прегледания tag.
-Candidate се пази само за настроения период на workflow. Завършете review и
-publication в този прозорец; никога не възстановявайте липсващ файл или не
-добавяйте такъв от друг run.
-
-На свързаната review workstation проверете candidate спрямо независимо
-записаните commit и run identity. Candidate verifier проверява canonical
+`prepare` отказва run, който не е успешен, не е изграден от `release.yml` от tag
+`hospital-X.Y.Z` или чийто tag междувременно е преместен. След това изтегля
+candidate на този run в нова директория `candidate-<version>-<run>-<attempt>`
+(отказва директория с нещо друго, за да не се смесват файлове от различни runs),
+изпълнява candidate verifier и handoff verifier върху нея и показва SHA-256 на
+lock и точната команда за подписването му. Candidate verifier проверява canonical
 manifest и lock, lock sidecar, пълния member set, sizes, hashes и image
-identities. Handoff verifier обвързва lock с official repository, candidate
-workflow, run ID/attempt, version, tag и commit. Сравнете и действителния lock
-hash със стойността, записана от успешния Actions run.
+identities; handoff verifier обвързва lock с official repository, candidate
+workflow, run ID и attempt, version, tag и commit. Candidate се пази само за
+настроения период на workflow; завършете publication в този прозорец и никога
+не възстановявайте липсващ файл.
 
-```powershell
-node .\scripts\verify-release-candidate.mjs `
-  $Version $CandidateDirectory candidate-assets $Commit
-node .\scripts\verify-release-handoff.mjs `
-  "$CandidateDirectory\lospor-hospital-$Version-publication-request.tsv" `
-  "$CandidateDirectory\lospor-hospital-$Version-release.lock" `
-  $Version $Commit $CandidateRunId $CandidateRunAttempt
-```
-
-На offline signing workstation подпишете точно този прегледан lock. Оставете
-private key извън GitHub и не го добавяйте в environment, repository secret или
-Actions input:
+На offline signing workstation подпишете точно този lock. Оставете private key
+извън GitHub и не го добавяйте в environment, repository secret или Actions
+input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh \
-      candidate-1.3.0-12345678901-1/lospor-hospital-1.3.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.0-release.lock
 ```
 
-Върнете към review workstation само публичния `.sig`. Потвърдете, че е точно 64
-bytes, изведете canonical base64 от тези bytes и запишете независимо SHA-256:
+Върнете само публичния `lospor-hospital-<version>-release.lock.sig` в
+директорията на candidate на review workstation.
+
+### 3. Публикуване на прегледания candidate
 
 ```powershell
-$Lock = "$CandidateDirectory\lospor-hospital-$Version-release.lock"
-$Signature = "$Lock.sig"
-$SignatureBytes = [IO.File]::ReadAllBytes($Signature)
-if ($SignatureBytes.Length -ne 64) { throw "Ed25519 signature must be exactly 64 bytes" }
-$ReleaseSignatureBase64 = [Convert]::ToBase64String($SignatureBytes)
-$ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLowerInvariant()
+node .\scripts\publish-release.mjs publish 12345678901
 ```
 
-### 3. Ръчно публикуване на прегледания candidate
+`publish` прочита run отново, проверява lock спрямо неговия sidecar, изисква
+подписът да е точно 64 bytes и да се проверява върху този lock с
+`infra/release-signing/release-signing-public.pem`, изисква Immutable Releases да
+е включено и спира, ако версията вече е публикувана. Показва версията, commit,
+run и SHA-256 на lock и иска literal confirmation `PUBLISH hospital-<version>`.
+Едва тогава стартира `publish-release.yml` с трите му входа:
+`candidate_run_id`, `release_signature_base64` и `confirm_publication`. Същите
+три полета могат да се въведат ръчно във формуляра GitHub Actions. Подписът е
+публичен; private key никога не се въвежда никъде. Rerun на candidate workflow е
+отделен candidate и изисква собствен `prepare`.
 
-Dispatch-нете publication само когато сте влезли в private repository с
-maintainer account и MFA. Подайте точните записани стойности и literal
-confirmation, изисквано от workflow:
-
-```powershell
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.3.0"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ReleaseSignatureBase64 = "replace-with-the-canonical-base64-of-the-64-byte-signature"
-$ExpectedSignatureSha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
-
-gh workflow run publish-release.yml --repo $Repository --ref main `
-  -f "candidate_run_id=$CandidateRunId" `
-  -f "candidate_run_attempt=$CandidateRunAttempt" `
-  -f "version=$Version" `
-  -f "expected_lock_sha256=$ExpectedLockSha256" `
-  -f "release_signature_base64=$ReleaseSignatureBase64" `
-  -f "expected_signature_sha256=$ExpectedSignatureSha256" `
-  -f "confirm_publication=PUBLISH hospital-$Version" `
-  -f "confirm_immutable_releases=IMMUTABLE RELEASES ENABLED hospital-$Version"
-```
-
-Същите осем полета могат да се въведат във формуляра GitHub Actions:
-`candidate_run_id`, `candidate_run_attempt`, `version`,
-`expected_lock_sha256`, `release_signature_base64`,
-`expected_signature_sha256`, `confirm_publication` и
-`confirm_immutable_releases`. Signature е публичен; private key никога не
-трябва да се въвежда. Въведете последната стойност само след визуална проверка,
-че Immutable Releases е включено за repository. Изберете само вече прегледаните
-candidate run и attempt. Rerun е отделен candidate и изисква нов review и
-manual decision.
-
-Publication workflow спира, освен ако candidate run е успешен за точните tag и
-commit, handoff и artifact identity съвпадат, lock има очаквания SHA-256 и
-dispatch се изпълнява от разрешения branch. Преди да извлече нещо, проверява
+Publication workflow извежда версията от tag на candidate run, attempt от run, а
+digests на lock и подписа от изтеглените bytes, и write job ги извежда отново и
+изисква съвпадение. Спира, освен ако candidate run е успешен за точните tag и
+commit в това публично repository, потвърждението назовава тази версия, handoff
+и artifact identity съвпадат и dispatch се изпълнява от разрешения branch. Преди да извлече нещо, проверява
 API-reported ZIP SHA-256 на Actions artifact и приема само точния flat candidate
 member set: обикновени файлове, contiguous offline parts, без duplicates,
 directories, links, traversal, missing files или extras.
@@ -503,10 +454,47 @@ release asset list и immutable status на GitHub. Запазете run URL, ta
 candidate identity, lock SHA-256, signature SHA-256, release URL и timestamp
 като release record.
 
+### Досие на изданието и атестация на изграждането от GitHub
+
+Всяко издание носи досие, `release-evidence/release-dossier.json`, в архива с
+доказателства за сигурност. Lock покрива този архив, затова подписът на
+поддържащия покрива досието заедно с всичко останало. То записва:
+
+- изданието, неговия commit и candidate run и attempt, които са го изградили;
+- правилото за съвместимост при обновяване до него;
+- десетте образа и техните digests;
+- броя критични и високи уязвимости и всяко прието изключение със срока му;
+- SHA-256 на всеки доклад за уязвимости и SBOM, и колко компонента изброява
+  всеки SBOM;
+- инсталационния архив и offline частите;
+- версиите, от които е изградено.
+
+Candidate workflow записва досието и го проверява спрямо lock и собствения си
+run. И двата publication jobs го проверяват спрямо lock, всеки файл с
+доказателства, който назовава, и стартирания run. `publish-release.mjs prepare`
+го показва на поддържащия. На системата инсталаторът го показва, преди да започне
+водената инсталация, а подготовката на обновяване отказва издание, чието досие
+не съвпада; Status го показва на страницата **Обновявания** за инсталираната и
+изтеглената версия.
+
+Candidate workflow също иска от GitHub атестация за lock, manifest,
+инсталационния архив, доказателствата за сигурност и offline частите. Този запис
+стои до подписа на поддържащия и никога не го заменя. Read-only publication job
+и `prepare` го изискват. Всеки може да провери изтеглен файл:
+
+```sh
+gh attestation verify lospor-hospital-1.4.0-release.lock \
+  --repo kaloyandjunow-prog/lospor-hospital \
+  --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
+```
+
+Атестациите са безплатни за публични repositories и добавят няколко килобайта на
+издание. Изданията, публикувани преди 1.4.0, нямат нито досие, нито атестация;
+инсталаторът казва това и продължава.
+
 ### 4. Подготовка и пренасяне на USB за инсталиране
 
-Използвайте чист криптиран USB под контрола на поддържащия. От authenticated
-session в private repository изтеглете само assets на прегледания immutable
+Използвайте чист криптиран USB под контрола на поддържащия. Изтеглете само assets на прегледания immutable
 release в нова празна директория. Не копирайте Actions candidate или локално
 възстановен bundle.
 
@@ -584,7 +572,7 @@ date. Stale, duplicate, inexact и unused exceptions водят до failure.
 Static negative gate отказва mutable tag или undocumented pin, преди да може да
 се създаде candidate.
 
-Едва след успех на тази policy се push-ват липсващите private, run-specific
+Едва след успех на тази policy се push-ват липсващите run-specific
 image candidates. Retried workflow run използва повторно candidate само когато
 commit, run и build-input hash съвпадат. Всеки reused или newly built image се
 сканира отново и обвързва с evidence ledger. CI премахва local images, изтегля
@@ -631,149 +619,138 @@ signatures; expired или unused exceptions; и възстановяване н
 
 ## Проверка и инсталиране при клиента
 
-Final release съдържа raw `release.lock.sig` до lock, но не съдържа отделен
-unarchived launcher. При първа инсталация проверете lock спрямо SHA-256, запазен
-отделно от successful candidate/publication record, проверете deployment
-archive от този lock и едва тогава извлечете неговия launcher в нова постоянна
-bootstrap directory. Следва executable Ubuntu пример; заменете version, media
-path и expected hash и го изпълнете като appliance service account:
+Първата инсталация не изисква digest, отпечатък, данни за достъп или ръчно
+въведена проверка. `losporctl-install.sh` носи в себе си публичния ключ, с който
+поддържащият подписва версиите. Той проверява версията спрямо подписания release
+lock, фиксира ключа и стартира водената инсталация.
+
+### Онлайн
+
+На Ubuntu 24.04 сървър с достъп до lospor.org, GitHub и ghcr.io:
 
 ```sh
-set -eu
-export LC_ALL=C
-
-VERSION=1.3.0
-MEDIA=/media/lospor-1.3.0
-EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-APPLIANCE_HOME=/opt/lospor-hospital
-
-LOCK="$MEDIA/lospor-hospital-$VERSION-release.lock"
-SIDECAR="$LOCK.sha256"
-LOCK_NAME="$(basename "$LOCK")"
-DEPLOYMENT_NAME="lospor-hospital-$VERSION-deployment.tar.gz"
-DEPLOYMENT="$MEDIA/$DEPLOYMENT_NAME"
-
-test "$(sha256sum "$LOCK" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
-printf '%s  %s\n' "$EXPECTED_LOCK_SHA256" "$LOCK_NAME" | cmp - "$SIDECAR"
-
-DEPLOYMENT_RECORD="$(awk -F '\t' -v file="$DEPLOYMENT_NAME" '
-  $1 == "artifact" && $2 == "deployment" && $4 == file {
-    count += 1; bytes = $5; digest = $6
-  }
-  END { if (count != 1) exit 1; print bytes, digest }
-' "$LOCK")"
-printf '%s\n' "$DEPLOYMENT_RECORD" \
-  | grep -Eq '^[1-9][0-9]* [a-f0-9]{64}$'
-set -- $DEPLOYMENT_RECORD
-test "$(wc -c < "$DEPLOYMENT" | tr -d '[:space:]')" = "$1"
-test "$(sha256sum "$DEPLOYMENT" | awk '{print $1}')" = "$2"
-
-PREFIX="lospor-hospital-$VERSION/"
-tar -tzf "$DEPLOYMENT" | awk -v prefix="$PREFIX" '
-  index($0, prefix) != 1 { bad = 1 }
-  $0 ~ /(^|\/)\.\.?($|\/)/ { bad = 1 }
-  END { exit bad }
-'
-tar -tvzf "$DEPLOYMENT" \
-  | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 }
-         END { exit bad }'
-
-sudo install -d -m 0750 -o "$(id -un)" -g "$(id -gn)" "$APPLIANCE_HOME"
-test ! -e "$APPLIANCE_HOME/current"
-test ! -e "$APPLIANCE_HOME/.data/installed-release.tsv"
-BOOTSTRAP_PARENT="$APPLIANCE_HOME/bootstrap-$VERSION"
-test ! -e "$BOOTSTRAP_PARENT"
-mkdir -m 0700 "$BOOTSTRAP_PARENT"
-tar -xzf "$DEPLOYMENT" --no-same-owner --no-same-permissions \
-  -C "$BOOTSTRAP_PARENT"
-BOOTSTRAP_ROOT="$BOOTSTRAP_PARENT/lospor-hospital-$VERSION"
-test -f "$BOOTSTRAP_ROOT/scripts/verify-release.sh"
-test ! -e "$BOOTSTRAP_ROOT/.lospor-home"
-ln -s "$APPLIANCE_HOME" "$BOOTSTRAP_ROOT/.lospor-home"
-
-sh "$BOOTSTRAP_ROOT/scripts/verify-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA" all
+curl -fsSLo losporctl-install.sh https://lospor.org/install/losporctl-install.sh
+sudo sh losporctl-install.sh
 ```
 
-Final asset directory в `MEDIA` трябва да е пълна: manifest, deployment
-archive, security-evidence archive, release lock, sidecar, raw 64-byte
-`release.lock.sig` и всяка ordered offline part. Проверката `all` отново
-проверява всеки checksum-covered payload чрез launcher, чийто deployment
-archive току-що е проверен. Тя умишлено не изисква candidate-only image lock
-или `publication-request.tsv`.
+Добавете `--version X.Y.Z`, за да инсталирате конкретна версия вместо
+последната. Скриптът първо потвърждава, че вграденият ключ съвпада с отпечатъка,
+публикуван на `https://lospor.org/.well-known/lospor-release-key.txt`, който се
+обслужва от Cloudflare, а не от GitHub. Ако lospor.org е недостъпен или
+публикува друг отпечатък, скриптът спира преди да изтегли каквото и да е. Той
+никога не се доверява само на GitHub.
 
-За online първа инсталация запишете двете независими read-only credentials на
-болницата в root-owned файлове с режим `0600`, след което стартирайте guided
-installer:
+### Офлайн (USB)
+
+Поддържащият копира `losporctl-install.sh` от lospor.org на чист криптиран USB,
+до пълния окончателен набор файлове на една версия: manifest, deployment
+archive, security evidence, lock, sidecar, raw `release.lock.sig` и всяка
+подредена offline част. На място:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /media/lospor-usb/losporctl-install.sh
+```
+
+Скриптът използва файловете на версията до себе си или тези в
+`--media ДИРЕКТОРИЯ`. Офлайн вторият канал е физическият контрол на поддържащия
+върху USB. Отпечатъкът на ключа се извежда за запис и нищо не се пита.
+
+### Какво проверява скриптът, преди да се изпълни код от версията
+
+- raw 64-байтовия Ed25519 `release.lock.sig` спрямо вградения ключ;
+- каноничния придружаващ файл `release.lock.sha256`;
+- че lock описва точно тази версия и точно един deployment archive, чиито
+  размер и SHA-256 съвпадат;
+- че всеки запис в архива е под `lospor-hospital-X.Y.Z/`, без сегмент `.` или
+  `..`, връзка или специален файл;
+- че ключът в самата версия е довереният ключ, преди да го фиксира в
+  `/opt/lospor-hospital/secrets/release-signing-public.pem`; и
+- всеки payload спрямо lock чрез `verify-release.sh`: всички офлайн и
+  deployment payloads онлайн, където образите се изтеглят по digest по-късно.
+
+Скриптът отказва да пипне съществуваща инсталация. Той заменя bootstrap
+директория, оставена от прекъснат опит, така че повторен опит не изисква
+почистване.
+
+### Когато първа инсталация не е завършила
+
+Изпълнете същата команда отново. Ако опитът е оставил настройки, тайни,
+заключване от активиране, контейнери, бази данни или системни услуги, скриптът
+ги изброява, нищо не променя и предлага два пътя:
+
+```sh
+sudo sh losporctl-install.sh --resume
+sudo sh losporctl-install.sh --discard-unfinished
+```
+
+`--resume` продължава с настройките и базите данни на опита: водената
+инсталация не пита отново за настройките на обекта, а собственото възстановяване
+на версията изчиства заключването, оставено от недовършено активиране. Отказва
+опит, спрял докато създава тайните си, защото базите му данни не биха могли да
+бъдат отворени. `--discard-unfinished` премахва оставеното от опита (контейнери,
+томове, услугите на LOSPOR, конзолната команда и всичко под
+`/opt/lospor-hospital` без проверените изтеглени файлове), след като напишете
+DISCARD или с `--yes`. Нито едното не се изпълнява, докато върви друга
+инсталация, и нито едното никога не докосва инсталирана система.
+
+### Откъде идва скриптът
+
+Виртуална машина, създадена със скрипта за Hyper-V, носи скрипта от папката на
+версията, с която е дошъл комплектът, в
+`/usr/local/lib/lospor/losporctl-install.sh`, проверен там спрямо SHA-256 на
+копието, което комплектът е прочел. Нищо не се изтегля и изпълнява, така че
+доверието започва с едно изтегляне на папката на версията.
+
+Ако вместо това се изтегли ръчно, скриптът идва през HTTPS, преди нещо да го
+провери — същият модел като при повечето инсталатори на производители. Той е
+достатъчно кратък, за да бъде прочетен, а неговият SHA-256 е публикуван на
+`https://lospor.org/install/losporctl-install.sh.sha256` за всеки, който иска да
+го провери ръчно. Проверката не е задължителна.
+
+### Проверка на версията в Hyper-V
+
+Преди публикуване поддържащият изпълнява `scripts/hyperv-install-gate.ps1` на
+Hyper-V хост (с администраторски права). Той създава виртуална машина със
+скрипта точно както болница би го направила, проверява през SSH, че ключът
+работи без влизане в конзолата, еднократната парола не е изтекла, пренесеният
+инсталатор съвпада байт по байт, Docker и системните услуги работят и не са
+останали инсталационни носители, а с `-ReleaseMedia` инсталира кандидата офлайн
+и изисква `losporctl check` да премине. Всяка стъпка се измерва; `-EvidencePath`
+записва резултата, а машината се премахва, освен ако не е зададен `-Keep`.
+
+```powershell
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.0 -EvidencePath .\gate.json
 ```
 
 **Всички launcher команди на тази страница се изпълняват като root.**
 Инсталацията завършва със записване и стартиране на systemd units на системата,
 а `install-update-agent.sh` и `install-host-observability.sh` отказват да се
-изпълнят от друг потребител. Данните за достъп, записани непосредствено по-горе,
-са root-owned `0600` по замисъл, а инсталаторът ги прочита обратно, за да
-потвърди connected режима, преди да поиска администраторска парола. Изпълнена
-като обикновен потребител, командата не спира чисто накрая: прекъсва по средата,
-на първия root-owned път, до който стигне, със съобщение за този път, а не за
-правата.
+изпълнят от друг потребител.
 
-Всяка provisioning команда прочита credential чрез скрит standard-input
-prompt. Никога не приема тайна като argument или environment variable и не
-създава persistent Docker login. `HOSPITAL_UPDATE_SUPPLY_MODE` по подразбиране
-е `connected`; този режим изисква и трите root-owned файла
-`github-release-token`, `ghcr-user` и `ghcr-token` в `secrets/registry/`.
+### Водената инсталация
 
-Той изисква release lock digest, изпратен ви отделно, сравнява го и спира при
-несъответствие; след това събира site и administrator details, показва пълния
-readiness report и стартира същия launcher по-долу. Той е само front end: всяка
-проверка остава в извиканите scripts и никой съобщен failure не може да бъде
-заобиколен. Когато `whiptail` не е достъпен, използва plain prompts, вместо да
-изисква инсталиране на нещо на host.
-
-Launcher може да се стартира и директно — това е последната стъпка на guided
-installer и правилният път за non-interactive install:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-За registry-independent първа инсталация използвайте **същия guided installer**
-със същите complete final asset directory и verified bootstrap root. Той пита
-откъде да бъдат взети образите, така че болница без мрежа получава същото
-посрещане на български, същото потвърждаване на digest, същото фиксиране на
-ключа за подписване, същите въпроси за обекта и същия отчет за готовност като
-свързаната:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-Въпросът се предлага според носителя — offline, когато всички части на
-образите, изброени в lock, са налични — но никога не избира мълчаливо и спира,
-вместо да премине към другия път: избор на offline без частите спира
-инсталацията, както и избор на connected без GHCR credentials. Задайте
-`HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да отговорите
-без interactive prompt.
+След като ключът е фиксиран, водената инсталация сама проверява подписа на lock
+и не пита за digest. Тя пита откъде да бъдат взети образите. Предложението е
+според наличните файлове: offline, когато всички части на образите, изброени в
+lock, са налични, иначе connected. Никога не избира мълчаливо и спира, вместо да
+премине към другия път: избор на offline без частите спира инсталацията.
+Задайте `HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да
+отговорите без interactive prompt.
 
 Ако `HOSPITAL_UPDATE_SUPPLY_MODE` не е зададен изрично, водената инсталация
 използва същия режим за бъдещите обновявания преди проверката за готовност.
-Затова първа offline инсталация не изисква GitHub или GHCR данни само за да
-завърши. Задайте update променливата отделно, ако например инсталирате от USB
-сега, но по-късно ще използвате connected updates.
+Затова първа offline инсталация не изисква мрежов достъп само за да завърши.
+Задайте update променливата отделно, ако например инсталирате от USB сега, но
+по-късно ще използвате connected updates.
 
-Offline launcher може да се изпълни и директно, което guided installer прави
-последно и което всяка non-interactive инсталация трябва да използва:
+Launcher командите могат да се изпълнят и директно от проверената bootstrap
+директория, което водената инсталация прави последно и което всяка
+non-interactive инсталация трябва да използва:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/run-online-release.sh \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -789,12 +766,12 @@ sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-Първата команда е online alternative и прочита root-owned, per-hospital GitHub
-Releases и GHCR credentials, без да съхранява Docker login. Тя проверява
+Първата команда е online alternative и изтегля анонимно от публичния release,
+без Docker login. Тя проверява
 използвания deployment payload; запазването на complete asset set върху
 контролирания носител поддържа един последователен handoff. Втората е offline
-alternative, задава `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, не изисква registry
-credential и строго изисква complete final asset set. Не изпълнявайте и двете
+alternative, задава `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, не изисква мрежов
+достъп и строго изисква complete final asset set. Не изпълнявайте и двете
 при един installation attempt.
 
 И двата launchers проверяват lock sidecar и избраните payloads, преди да

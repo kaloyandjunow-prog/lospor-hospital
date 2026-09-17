@@ -507,7 +507,7 @@ export default function IntraopLiveScreen() {
     vitOpen, setVitOpen, vitMode, vitScanBusy, editingVitalId, setEditingVitalId,
     vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp,
     vBis, setVBis, vTof, setVTof, vCvp, setVCvp,
-    openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
+    vitalFeedback, openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
   } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, eventsToTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit, cvpUnit)
 
   // ── Load auto-fill settings from SecureStore (once) ──────────────────
@@ -746,7 +746,7 @@ export default function IntraopLiveScreen() {
           DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, vitOpen, vitMode, editingVitalId, vitScanBusy,
           vitalVisibility, etco2Unit, temperatureUnit, cvpUnit, vSysRef, vDiaRef, vHRRef, vSpO2Ref,
           vEtco2Ref, vTempRef, vBisRef, vTofRef, vCvpRef,
-          vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp,
+          vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp, vitalFeedback,
           setVBis, setVTof, setVCvp, confirmVitals,
           setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance, setVSys, setVDia,
           setVHR, setVSpO2, setVEtco2, setVTemp, infOpen, setInfOpen,

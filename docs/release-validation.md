@@ -102,7 +102,7 @@ digest-pinned bases; PostgreSQL, Caddy, and curl are hardened Hospital images,
 not unmodified third-party release payloads. `Core` is compiled into the
 applications; it is not another container.
 
-Every private GitHub Release contains:
+Every GitHub Release contains:
 
 - `lospor-hospital-<version>-deployment.tar.gz`;
 - one or more ordered `images.tar.gz.part-NNN` files, each no larger than
@@ -151,7 +151,7 @@ not host prerequisites.
 
 The trust chain is:
 
-1. a private GitHub repository and private GHCR packages;
+1. a public GitHub repository whose release and GHCR images anyone can read;
 2. the maintainer's GitHub account protected by MFA;
 3. an exact tag-triggered candidate build and automated gates;
 4. a separate manual publication run bound to the reviewed candidate run,
@@ -163,13 +163,15 @@ The trust chain is:
 
 The first six provide strong provenance within the GitHub account and strong
 integrity checks within the delivered bundle. Only the seventh is independent of
-GitHub, and its independence rests entirely on where the key is kept.
+GitHub, and its independence rests entirely on where the key is kept. Public
+visibility adds no trust and removes none: anyone may download a release, and
+only the signature decides whether a site accepts it.
 
 Require MFA for the maintainer account, protect its recovery methods, review
 active sessions and access tokens, and keep write access limited to the
-maintainer. Keep all ten LOSPOR GHCR packages private. Give each connected
-hospital a separate revocable, read-only registry credential. The offline
-route needs no registry or internet access.
+maintainer. All ten LOSPOR GHCR packages are public, so a connected hospital
+holds no registry credential. The offline route needs no registry or internet
+access.
 
 ### The release signing key
 
@@ -261,9 +263,10 @@ They have deliberately different authority:
   `hospital-MAJOR.MINOR.PATCH` tag. It builds, scans, installs, and packages a
   candidate. It cannot publish a GitHub Release.
 - `.github/workflows/publish-release.yml` starts only by manual dispatch. It
-  accepts the selected candidate run identity, independently checked lock
-  hash, and literal publication confirmation. It promotes only the already
-  tested image identities and publishes without rebuilding.
+  accepts three inputs: the candidate run ID, the maintainer's signature over
+  that run's release lock, and the literal publication confirmation. It derives
+  the version, attempt and digests from the run and its bytes, promotes only the
+  already tested image identities, and publishes without rebuilding.
 
 Approved `linux/amd64` build, runtime, and scanner identities live in the
 versioned `release-inputs.json`. Every reference includes its expected name,
@@ -314,17 +317,16 @@ a candidate build that fails on artifact storage.
 ### 1. Enable Immutable Releases once
 
 Before the first production release, an administrator enables repository-level
-Immutable Releases. Immediately before every publication dispatch, the
-maintainer visually checks that repository setting and supplies the
-version-bound confirmation required by the workflow. Both publication jobs
-independently check the literal confirmation; the workflow does not use an
-administrator token to query or change the repository setting. It creates a
+Immutable Releases. `scripts/publish-release.mjs` reads that setting with the
+maintainer's own GitHub login before every dispatch and refuses while it is
+off; the workflow does not use an administrator token to query or change it.
+The workflow creates a
 run-bound draft (or safely resumes that exact draft after interruption),
 uploads an exact asset list without replacement, downloads and compares the
 remote assets, publishes the draft, and then requires GitHub to
 report the release itself as immutable.
 
-Once a release is public within the private repository, do not try to replace
+Once a release is published, do not try to replace
 its assets or move its tag. Correct any problem in source and issue a new
 version.
 
@@ -353,7 +355,7 @@ After the ordinary quality checks and capacity check pass, create and push the
 exact release tag. For example:
 
 ```powershell
-$Version = "1.3.0"
+$Version = "1.4.0"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -377,116 +379,66 @@ merely discouraged but refused: an appliance offered the same version with a
 different `release.lock` digest stops with "Release X.Y.Z is already installed
 with a different release identity" rather than installing it.
 
-Wait for every job in `release.yml` to pass, then record outside the downloaded
-candidate:
+Wait for every job in `release.yml` to pass, and note the run ID: the number in
+the run's URL. Nothing else needs writing down; the helper reads the version,
+attempt and commit from the run.
 
-- candidate run ID and run attempt;
-- the full 40-character commit;
-- version and tag; and
-- the 64-character release-lock SHA-256 printed by the successful run.
-
-Download only that run's candidate artifact into a new empty directory. Do not
-combine files from different runs or attempts:
+On the connected review workstation, signed in with `gh auth login` as the
+maintainer, prepare the candidate:
 
 ```powershell
-$Version = "1.3.0"
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$Commit = "0123456789abcdef0123456789abcdef01234567"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ArtifactName = "hospital-$Version-$CandidateRunId-$CandidateRunAttempt-candidate"
-$CandidateDirectory = Join-Path (Get-Location) "candidate-$Version-$CandidateRunId-$CandidateRunAttempt"
-
-New-Item -ItemType Directory -Path $CandidateDirectory -ErrorAction Stop
-gh run download $CandidateRunId --repo $Repository --name $ArtifactName `
-  --dir $CandidateDirectory
+node .\scripts\publish-release.mjs prepare 12345678901
 ```
 
-Replace every example value with the candidate summary and reviewed tag. The
-candidate is retained only for the workflow's configured period. Complete the
-review and publication within that window; never reconstruct a missing file or
-mix in one from another run.
+`prepare` refuses a run that did not succeed, was not built from a
+`hospital-X.Y.Z` tag by `release.yml`, or whose tag has since moved. It then
+downloads that run's candidate into a new directory named
+`candidate-<version>-<run>-<attempt>` (it refuses a directory holding anything
+else, so files from different runs are never combined), runs the candidate
+verifier and the handoff verifier over it, and prints the lock's SHA-256 and the
+exact command to sign it. The candidate verifier checks the canonical manifest
+and lock, lock sidecar, complete member set, sizes, hashes, and image
+identities; the handoff verifier binds the lock to the official repository,
+candidate workflow, run ID and attempt, version, tag, and commit. The candidate
+is retained only for the workflow's configured period; complete publication
+within that window and never reconstruct a missing file.
 
-On the connected review workstation, verify the candidate against the commit
-and run identity recorded independently. The candidate verifier checks the
-canonical manifest and lock, lock sidecar, complete member set, sizes, hashes,
-and image identities. The handoff verifier binds the lock to the official
-repository, candidate workflow, run ID/attempt, version, tag, and commit. Also
-compare the actual lock hash with the value recorded from the successful
-Actions run.
-
-```powershell
-node .\scripts\verify-release-candidate.mjs `
-  $Version $CandidateDirectory candidate-assets $Commit
-node .\scripts\verify-release-handoff.mjs `
-  "$CandidateDirectory\lospor-hospital-$Version-publication-request.tsv" `
-  "$CandidateDirectory\lospor-hospital-$Version-release.lock" `
-  $Version $Commit $CandidateRunId $CandidateRunAttempt
-```
-
-On the offline signing workstation, sign that exact reviewed lock. Keep the
-private key off GitHub and do not add it to any environment, repository secret,
-or Actions input:
+On the offline signing workstation, sign that exact lock. Keep the private key
+off GitHub and do not add it to any environment, repository secret, or Actions
+input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh \
-      candidate-1.3.0-12345678901-1/lospor-hospital-1.3.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.0-release.lock
 ```
 
-Move only the public `.sig` back to the review workstation. Confirm it is
-exactly 64 bytes, derive canonical base64 from those bytes, and record its
-SHA-256 independently:
+Move only the public `lospor-hospital-<version>-release.lock.sig` back into the
+candidate directory on the review workstation.
+
+### 3. Publish the reviewed candidate
 
 ```powershell
-$Lock = "$CandidateDirectory\lospor-hospital-$Version-release.lock"
-$Signature = "$Lock.sig"
-$SignatureBytes = [IO.File]::ReadAllBytes($Signature)
-if ($SignatureBytes.Length -ne 64) { throw "Ed25519 signature must be exactly 64 bytes" }
-$ReleaseSignatureBase64 = [Convert]::ToBase64String($SignatureBytes)
-$ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLowerInvariant()
+node .\scripts\publish-release.mjs publish 12345678901
 ```
 
-### 3. Publish the reviewed candidate manually
+`publish` reads the run again, checks the lock against its sidecar, requires the
+signature to be exactly 64 bytes and to verify over that lock against
+`infra/release-signing/release-signing-public.pem`, requires Immutable Releases
+to be on, and stops if the version is already published. It shows the version,
+commit, run and lock SHA-256, and asks for the literal confirmation
+`PUBLISH hospital-<version>`. Only then does it start `publish-release.yml` with
+its three inputs: `candidate_run_id`, `release_signature_base64` and
+`confirm_publication`. The same three fields can be entered in the GitHub
+Actions form by hand. The signature is public; the private key is never entered
+anywhere. A rerun of the candidate workflow is a distinct candidate and needs
+its own `prepare`.
 
-Dispatch publication only while signed in to the private repository with the
-maintainer account and MFA. Supply the exact recorded values and the literal
-confirmation required by the workflow:
-
-```powershell
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.3.0"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ReleaseSignatureBase64 = "replace-with-the-canonical-base64-of-the-64-byte-signature"
-$ExpectedSignatureSha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
-
-gh workflow run publish-release.yml --repo $Repository --ref main `
-  -f "candidate_run_id=$CandidateRunId" `
-  -f "candidate_run_attempt=$CandidateRunAttempt" `
-  -f "version=$Version" `
-  -f "expected_lock_sha256=$ExpectedLockSha256" `
-  -f "release_signature_base64=$ReleaseSignatureBase64" `
-  -f "expected_signature_sha256=$ExpectedSignatureSha256" `
-  -f "confirm_publication=PUBLISH hospital-$Version" `
-  -f "confirm_immutable_releases=IMMUTABLE RELEASES ENABLED hospital-$Version"
-```
-
-The same eight fields can be entered in the GitHub Actions form:
-`candidate_run_id`, `candidate_run_attempt`, `version`,
-`expected_lock_sha256`, `release_signature_base64`,
-`expected_signature_sha256`, `confirm_publication`, and
-`confirm_immutable_releases`. The signature is public; the private key must
-never be entered. Enter the last value only after visually checking
-that Immutable Releases is enabled for the repository. Select only the
-candidate run and attempt already reviewed. A rerun is a distinct candidate
-and requires a new review and manual decision.
-
-The publication workflow stops unless the candidate run succeeded for the
-exact tag and commit, its handoff and artifact identity agree, the lock has the
-expected SHA-256, and the dispatch runs from the permitted branch. Before
+The publication workflow derives the version from the candidate run's tag, the
+attempt from the run, and the lock and signature digests from the downloaded
+bytes, and the write job derives them all again and requires them to match. It
+stops unless the candidate run succeeded for the exact tag and commit in this
+public repository, the confirmation names that version, its handoff and artifact
+identity agree, and the dispatch runs from the permitted branch. Before
 extracting anything, it verifies the Actions artifact's API-reported ZIP
 SHA-256 and accepts only the exact flat candidate member set: ordinary files,
 contiguous offline parts, no duplicates, directories, links, traversal,
@@ -508,10 +460,49 @@ asset list, and GitHub's immutable status. Retain the run URL, tag, commit,
 candidate identity, lock SHA-256, signature SHA-256, release URL, and timestamp
 as the release record.
 
+### The release dossier and GitHub's build attestation
+
+Every release carries a dossier, `release-evidence/release-dossier.json`, inside
+its security-evidence archive. The lock covers that archive, so the maintainer's
+signature covers the dossier with everything else. It records:
+
+- the release, its commit, and the candidate run and attempt that built it;
+- the compatibility rule for updating to it;
+- the ten images and their digests;
+- the count of critical and high vulnerabilities, and each accepted exception
+  with its expiry date;
+- the SHA-256 of every vulnerability report and SBOM, and how many components
+  each SBOM lists;
+- the deployment archive and offline parts;
+- the upstream versions it was built from.
+
+The candidate workflow writes the dossier and checks it against the lock and
+its own run. Both publication jobs check it against the lock, every evidence
+file it names, and the dispatched run. `publish-release.mjs prepare` prints it
+for the maintainer. On an appliance, the installer shows it before the guided
+installation starts, and preparing an update refuses a release whose dossier
+does not match; Status shows it on the **Updates** page for the installed and
+the downloaded release.
+
+The candidate workflow also asks GitHub to attest the lock, manifest,
+deployment archive, security evidence and offline parts. That record sits
+beside the maintainer's signature and never replaces it. The read-only
+publication job and `prepare` both require it. Anyone can check a downloaded
+file:
+
+```sh
+gh attestation verify lospor-hospital-1.4.0-release.lock \
+  --repo kaloyandjunow-prog/lospor-hospital \
+  --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
+```
+
+Attestations are free for public repositories and add a few kilobytes per
+release. Releases published before 1.4.0 have neither a dossier nor an
+attestation; the installer says so and continues.
+
 ### 4. Prepare and carry the installation USB
 
-Use a clean, encrypted USB controlled by the maintainer. From an authenticated
-session in the private repository, download only the assets of the reviewed
+Use a clean, encrypted USB controlled by the maintainer. Download only the assets of the reviewed
 immutable release into a new empty directory. Do not copy an Actions candidate
 or a locally reconstructed bundle.
 
@@ -592,7 +583,7 @@ workflows is pinned to a reviewed full commit SHA, with its human-readable
 version beside it. A static negative gate rejects a mutable tag or undocumented
 pin before a candidate can be produced.
 
-Only after that policy passes are missing private, run-specific image
+Only after that policy passes are missing run-specific image
 candidates pushed. A retried workflow run reuses a candidate only when its
 commit, run, and build-input hash match. Every reused or newly built image is
 scanned again and bound to the evidence ledger. CI removes its local images,
@@ -642,148 +633,135 @@ failed candidate moved a versioned release tag to a different digest.
 
 ## Client verification and installation
 
-The final release contains the raw `release.lock.sig` beside the lock, but does
-not contain a separate unarchived launcher. On a first
-installation, verify the lock against the SHA-256 retained separately from the
-successful candidate/publication record, verify the deployment archive from
-that lock, and only then extract its launcher into a new persistent bootstrap
-directory. The following is an executable Ubuntu example; replace the version,
-media path, and expected hash, and run it as the appliance service account:
+A first installation needs no digest, fingerprint, credential, or hand-typed
+verification. `losporctl-install.sh` carries the maintainer's release signing
+public key inside itself. It verifies the release against the signed release
+lock, pins that key, and then starts the guided installer.
+
+### Online
+
+On an Ubuntu 24.04 host that can reach lospor.org, GitHub and ghcr.io:
 
 ```sh
-set -eu
-export LC_ALL=C
-
-VERSION=1.3.0
-MEDIA=/media/lospor-1.3.0
-EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-APPLIANCE_HOME=/opt/lospor-hospital
-
-LOCK="$MEDIA/lospor-hospital-$VERSION-release.lock"
-SIDECAR="$LOCK.sha256"
-LOCK_NAME="$(basename "$LOCK")"
-DEPLOYMENT_NAME="lospor-hospital-$VERSION-deployment.tar.gz"
-DEPLOYMENT="$MEDIA/$DEPLOYMENT_NAME"
-
-test "$(sha256sum "$LOCK" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
-printf '%s  %s\n' "$EXPECTED_LOCK_SHA256" "$LOCK_NAME" | cmp - "$SIDECAR"
-
-DEPLOYMENT_RECORD="$(awk -F '\t' -v file="$DEPLOYMENT_NAME" '
-  $1 == "artifact" && $2 == "deployment" && $4 == file {
-    count += 1; bytes = $5; digest = $6
-  }
-  END { if (count != 1) exit 1; print bytes, digest }
-' "$LOCK")"
-printf '%s\n' "$DEPLOYMENT_RECORD" \
-  | grep -Eq '^[1-9][0-9]* [a-f0-9]{64}$'
-set -- $DEPLOYMENT_RECORD
-test "$(wc -c < "$DEPLOYMENT" | tr -d '[:space:]')" = "$1"
-test "$(sha256sum "$DEPLOYMENT" | awk '{print $1}')" = "$2"
-
-PREFIX="lospor-hospital-$VERSION/"
-tar -tzf "$DEPLOYMENT" | awk -v prefix="$PREFIX" '
-  index($0, prefix) != 1 { bad = 1 }
-  $0 ~ /(^|\/)\.\.?($|\/)/ { bad = 1 }
-  END { exit bad }
-'
-tar -tvzf "$DEPLOYMENT" \
-  | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 }
-         END { exit bad }'
-
-sudo install -d -m 0750 -o "$(id -un)" -g "$(id -gn)" "$APPLIANCE_HOME"
-test ! -e "$APPLIANCE_HOME/current"
-test ! -e "$APPLIANCE_HOME/.data/installed-release.tsv"
-BOOTSTRAP_PARENT="$APPLIANCE_HOME/bootstrap-$VERSION"
-test ! -e "$BOOTSTRAP_PARENT"
-mkdir -m 0700 "$BOOTSTRAP_PARENT"
-tar -xzf "$DEPLOYMENT" --no-same-owner --no-same-permissions \
-  -C "$BOOTSTRAP_PARENT"
-BOOTSTRAP_ROOT="$BOOTSTRAP_PARENT/lospor-hospital-$VERSION"
-test -f "$BOOTSTRAP_ROOT/scripts/verify-release.sh"
-test ! -e "$BOOTSTRAP_ROOT/.lospor-home"
-ln -s "$APPLIANCE_HOME" "$BOOTSTRAP_ROOT/.lospor-home"
-
-sh "$BOOTSTRAP_ROOT/scripts/verify-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA" all
+curl -fsSLo losporctl-install.sh https://lospor.org/install/losporctl-install.sh
+sudo sh losporctl-install.sh
 ```
 
-The final asset directory in `MEDIA` must be complete: manifest, deployment
-archive, security-evidence archive, release lock, sidecar, raw 64-byte
-`release.lock.sig`, and every ordered offline part. The `all` check rechecks every checksum-covered payload with the
-launcher whose deployment archive was just verified. It deliberately does not
-require the candidate-only image lock or `publication-request.tsv`.
+Add `--version X.Y.Z` to install a specific release instead of the latest. The
+script first confirms that its built-in key matches the fingerprint published at
+`https://lospor.org/.well-known/lospor-release-key.txt`, which is served from
+Cloudflare rather than GitHub. If lospor.org is unreachable or publishes a
+different fingerprint, the script stops before downloading anything. It never
+falls back to trusting GitHub alone.
 
-For an online first installation, provision the hospital's two independent,
-read-only credentials into root-owned `0600` files, then run the guided
-installer:
+### Offline (USB)
+
+The maintainer copies `losporctl-install.sh` from lospor.org onto a clean
+encrypted USB, beside the complete final asset set of one release: manifest,
+deployment archive, security evidence, lock, sidecar, raw `release.lock.sig`,
+and every ordered offline part. On site:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /media/lospor-usb/losporctl-install.sh
+```
+
+The script uses the release files beside it, or those in `--media DIRECTORY`.
+Offline, the maintainer's physical custody of the USB is the second channel.
+The key fingerprint is printed for the record, and nothing is asked.
+
+### What the script checks before any release code runs
+
+- the raw 64-byte Ed25519 `release.lock.sig` against its built-in key;
+- the canonical `release.lock.sha256` sidecar;
+- that the lock names exactly this version and exactly one deployment archive,
+  whose size and SHA-256 match;
+- that every archive entry lies under `lospor-hospital-X.Y.Z/`, with no `.` or
+  `..` segment, link or special file;
+- that the key shipped inside the release is the key it trusts, before pinning
+  it at `/opt/lospor-hospital/secrets/release-signing-public.pem`; and
+- every payload against the lock with `verify-release.sh`: all of them offline,
+  and the deployment payloads online, where images are later pulled by digest.
+
+It refuses to touch an existing installation. It replaces a bootstrap directory
+left by an interrupted attempt, so a retry needs no clean-up.
+
+### When a first installation did not finish
+
+Run the same command again. If the attempt left settings, secrets, an
+activation lock, containers, databases or host services, the script lists them,
+changes nothing, and offers two ways on:
+
+```sh
+sudo sh losporctl-install.sh --resume
+sudo sh losporctl-install.sh --discard-unfinished
+```
+
+`--resume` continues with the attempt's settings and databases: the guided
+installer does not ask for the site settings again, and the release's own
+recovery clears the lock an unfinished activation leaves. It refuses an attempt
+that stopped while creating its secrets, since its databases could not be
+opened. `--discard-unfinished` removes what the attempt left (containers,
+volumes, LOSPOR's services, the console command and everything under
+`/opt/lospor-hospital` except the verified downloads) after you type DISCARD, or
+with `--yes`. Neither runs while another installation is running, and neither
+ever touches an installed appliance.
+
+### Where the script comes from
+
+A VM built with the Hyper-V kit carries the script from the release folder the
+kit came in, at `/usr/local/lib/lospor/losporctl-install.sh`, checked there
+against the SHA-256 of the copy the kit read. Nothing is downloaded and run, so
+trust begins with the one download of the release folder.
+
+Fetched by hand instead, the script comes over HTTPS before anything verifies
+it, the same model as most vendor installers. It is short enough to read, and
+its SHA-256 is published at
+`https://lospor.org/install/losporctl-install.sh.sha256` for anyone who wants to
+check it by hand. Checking is optional.
+
+### Release gate on Hyper-V
+
+Before publishing, the maintainer runs `scripts/hyperv-install-gate.ps1` on a
+Hyper-V host (elevated). It builds a VM with the kit exactly as a hospital
+would, checks over SSH that the key works without a console login, the
+one-time password is not expired, the carried installer matches byte for byte,
+Docker and the host services run and no installation media are left, and with
+`-ReleaseMedia` installs the candidate offline and requires `losporctl check`
+to pass. Every step is timed; `-EvidencePath` writes the result, and the VM is
+removed unless `-Keep` is given.
+
+```powershell
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.0 -EvidencePath .\gate.json
 ```
 
 **Every launcher on this page runs as root.** An installation ends by writing
 and starting the appliance's systemd units, and `install-update-agent.sh` and
-`install-host-observability.sh` both refuse outright to run as anyone else. The
-credentials provisioned immediately above are root-owned `0600` by design, and
-the installer reads them back to confirm the connected supply route before it
-asks for an administrator password. Run as an ordinary user it does not fail
-cleanly at the end: it stops partway, on whichever root-owned path it reaches
-first, with a message about that path rather than about privilege.
+`install-host-observability.sh` both refuse outright to run as anyone else.
 
-Each provisioning command reads the credential from a hidden standard-input
-prompt. It never accepts a secret in an argument or environment variable and
-does not create a persistent Docker login. `HOSPITAL_UPDATE_SUPPLY_MODE` is
-`connected` by default; that mode requires all three root-owned files
-`github-release-token`, `ghcr-user`, and `ghcr-token` under
-`secrets/registry/`.
+### The guided installer
 
-It asks for the release lock digest you were sent separately, compares it, and
-stops if it differs; then collects the site and administrator details, shows
-the full readiness report, and runs the same launcher below. It is a front end
-only: every check still belongs to the scripts it calls, and no failure it
-reports can be continued past. Where `whiptail` is unavailable it falls back to
-plain prompts rather than requiring anything to be installed on the host.
-
-The launcher can also be run directly, which is what the guided installer does
-last and what any non-interactive install should use:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-For a registry-independent first installation, use the **same guided installer**
-with the same complete final asset directory and verified bootstrap root. It
-asks where the images should come from, and an isolated hospital therefore gets
-the same Bulgarian-first welcome, digest confirmation, signing-key pinning,
-site questions and readiness report as a connected one:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-The question defaults to whichever the media supports — offline when every
-image part the lock names is present — but never chooses silently, and it fails
-closed rather than falling back: choosing offline without the parts stops the
-install, and so does choosing connected without the GHCR credentials. Set
-`HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or `offline` to answer it
-non-interactively.
+Once the key is pinned, the guided installer verifies the lock's signature
+itself and asks no digest. It asks where the images should come from. The
+default is whichever the release files support: offline when every image part
+the lock names is present, connected otherwise. It never chooses silently, and
+it fails closed rather than falling back: choosing offline without the parts
+stops the install. Set `HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or
+`offline` to answer non-interactively.
 
 Unless `HOSPITAL_UPDATE_SUPPLY_MODE` is explicitly set, the guided installer
 uses the same mode for future updates before it runs readiness. An offline
-first install therefore does not require GitHub or GHCR credentials merely to
-finish. Set the update variable separately when, for example, installing from
-USB now but using connected updates later.
+first install therefore needs no network access merely to finish. Set the update
+variable separately when, for example, installing from USB now but using
+connected updates later.
 
-The offline launcher can also be run directly, which is what the guided
-installer does last and what any non-interactive install should use:
+The launchers can also be run directly from the verified bootstrap directory,
+which is what the guided installer does last and what any non-interactive
+install should use:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/run-online-release.sh \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -799,12 +777,11 @@ sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-The first command is the online alternative and reads the root-owned,
-per-hospital GitHub Releases and GHCR credentials without persisting a Docker
-login. It verifies the deployment payload it uses; keeping the complete asset
+The first command is the online alternative and downloads anonymously from the
+public release without a Docker login. It verifies the deployment payload it uses; keeping the complete asset
 set on the controlled media preserves one consistent handoff. The second is the
-offline alternative, sets `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, requires no
-registry credential, and strictly requires that complete final asset set. Do
+offline alternative, sets `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, needs no
+network access, and strictly requires that complete final asset set. Do
 not run both for one installation attempt.
 
 Both launchers verify the lock sidecar and the selected payloads before they

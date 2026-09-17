@@ -10,6 +10,7 @@ import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { mistralModelUnavailable } from "@/lib/hospital/external-ai-models"
 import { logAudit } from "@/lib/audit"
 
 const MISTRAL_TIMEOUT_MS = Number(process.env.MISTRAL_TIMEOUT_MS ?? 45_000)
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // digest or checksum; "mistral-small-latest" let one clinical behaviour
       // change without a release, and it read the same env var as read-labs
       // while defaulting to a different model.
-      model: process.env.MISTRAL_VISION_MODEL ?? "pixtral-12b-2409",
+      model: aiAccess.visionModel,
       messages: [
         {
           role: "user",
@@ -136,6 +137,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!res.ok) {
       // Provider bodies may echo clinical output or request data; do not read them.
       console.error("[vitals-scan] AI_PROVIDER_RESPONSE_FAILED")
+      if (await mistralModelUnavailable(res)) {
+        void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "vitals-scan", failureKind: "model-unavailable" })
+        return NextResponse.json({
+          error: "The configured AI model is no longer offered by Mistral. Hospital IT must choose another in Status.",
+          code: "EXTERNAL_AI_MODEL_UNAVAILABLE",
+        }, { status: 503 })
+      }
       void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
         feature: "vitals-scan", failureKind: "provider", httpStatus: res.status,
       })

@@ -43,6 +43,17 @@ describe("buildEventLabel", () => {
     expect(out.color).toBe("#22c55e")
   })
 
+  it("gives a BIS/TOF/CVP-only observation a readable event-log label", () => {
+    const out = buildEventLabel(
+      ev({ type: "vital", bis: 45, tofRatio: 0.7, cvp: 8 }),
+      undefined,
+      colors,
+    )
+    expect(out.text).toContain("BIS 45")
+    expect(out.text).toContain("TOF 0.7")
+    expect(out.text).toContain("CVP 8")
+  })
+
   it("clinical_event strips the qualifier before resolving colour", () => {
     expect(buildEventLabel(ev({ type: "clinical_event", label: "Hypotension (severe)" }), undefined, colors))
       .toEqual({ text: "Hypotension (severe)", color: "#evt" })

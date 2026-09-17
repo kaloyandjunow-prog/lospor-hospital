@@ -30,6 +30,27 @@ change timestamps. The credential field is always empty. Status, responses,
 SQLite, audits, capability documents, and logs never contain the credential,
 its ciphertext, nonce, authentication tag, or seal key.
 
+## Models
+
+Each feature uses a pinned, dated Mistral model, never a `-latest` alias, so the
+model under a clinical feature changes only when someone chooses it.
+
+| Feature | Default | Also offered |
+|---|---|---|
+| Pre-operative advisor | `mistral-small-2603` | `mistral-medium-2508`, `mistral-large-2512` |
+| Reading lab reports and monitor photos | `mistral-large-2512` | `mistral-medium-2508`, `mistral-small-2506`, `ministral-14b-2512` |
+
+The list comes from Mistral's catalogue as checked on 13 September 2026. Adding
+a model is a release change. **AI models** at `/status/control` chooses among
+these, with a reason and the administrator password, and the change is audited
+like the policy. A stored name that a later release no longer offers falls back
+to that release's default.
+
+Mistral retires models. When it refuses the configured model, the feature
+answers `503 EXTERNAL_AI_MODEL_UNAVAILABLE` instead of a generic error, and
+Status records `AI_PROVIDER_REQUEST_FAILED` with the reason `model-unavailable`.
+Choosing another model in Status fixes it; no update is needed.
+
 ## Credential storage and restore
 
 The credential travels once over the private Status-to-API control route. The

@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest"
 import type { LogEvent } from "./intraop-types"
 import {
   activeTimetableColumnForTimestamp,
+  intraopVitalHardError,
+  intraopVitalWarning,
+  invalidIntraopVitalFields,
+  latestVitalSnapshot,
   normalizeAutoFillVitalsPreferences,
   planAutoFillVitalEvents,
 } from "./intraop-vitals"
@@ -107,5 +111,35 @@ describe("intraop auto-fill vitals", () => {
       diastolic: 70,
       heartRate: 80,
     })
+  })
+})
+
+describe("intraoperative vital entry contract", () => {
+  it("keeps device scales hard while preserving chartable clinical extremes", () => {
+    expect(intraopVitalHardError("bis", 101)).toBe("above_max")
+    expect(intraopVitalHardError("bis", 38.5)).toBe("not_integer")
+    expect(intraopVitalHardError("tofRatio", 1.1)).toBe("above_max")
+    expect(intraopVitalHardError("spO2", 101)).toBe("above_max")
+    expect(intraopVitalHardError("systolic", 301)).toBeNull()
+    expect(intraopVitalHardError("heartRate", 39)).toBeNull()
+    expect(intraopVitalHardError("temp", 27)).toBeNull()
+    expect(intraopVitalHardError("cvp", -2)).toBeNull()
+  })
+
+  it("marks plausibility warnings without turning them into hard errors", () => {
+    expect(intraopVitalWarning("systolic", 301)).toBe("high")
+    expect(intraopVitalWarning("diastolic", 151)).toBe("high")
+    expect(intraopVitalWarning("heartRate", 39)).toBe("low")
+    expect(intraopVitalWarning("heartRate", 251)).toBe("high")
+    expect(intraopVitalWarning("temp", 27)).toBe("low")
+    expect(intraopVitalWarning("temp", 42)).toBe("high")
+    expect(invalidIntraopVitalFields({ systolic: 301, heartRate: 39, temp: 42 })).toEqual([])
+  })
+
+  it("builds the cockpit snapshot from the latest observation of each field", () => {
+    expect(latestVitalSnapshot([
+      vital("2026-09-15T20:05:00.000Z", { bis: 50, tofRatio: 0.9 }),
+      vital("2026-09-15T20:00:00.000Z", { systolic: 120, diastolic: 70, heartRate: 75 }),
+    ])).toEqual({ bis: 50, tofRatio: 0.9, systolic: 120, diastolic: 70, heartRate: 75 })
   })
 })

@@ -412,6 +412,11 @@ export function CohortBuilder({
       setSaved(record)
       setSaveOpen(false)
       setSaveName("")
+      // Editing an existing cohort already tells the parent to refresh the
+      // saved-cohorts list through this same callback; a newly created one
+      // never did, so it saved successfully but never appeared in the list
+      // until the next full page load.
+      onEditComplete(record)
     } catch {
       setError(message("saveFailed"))
     } finally {

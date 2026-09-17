@@ -11,7 +11,11 @@ const nextConfig: NextConfig = {
     root: repositoryRoot,
   },
   outputFileTracingIncludes: {
-    "/v1/search/procedures": ["./src/data/pcs.json"],
+    "/v1/search/procedures": ["./src/data/pcs.json", "./src/data/procedure-terms-bg.json"],
+    "/v1/search/procedures/codes": ["./src/data/pcs.json", "./src/data/procedure-terms-bg.json"],
+    // The EHR import reads ICD-10-PCS operations from the same table.
+    "/v1/cases/[id]/ehr-import": ["./src/data/pcs.json"],
+    "/v1/internal/ehr-import/scan": ["./src/data/pcs.json"],
     "/v1/search/drugs": ["./src/data/drugs.json"],
   },
   poweredByHeader: false,

@@ -90,9 +90,32 @@ run_retention() {
     return 0
   fi
   case "$(printf '%s' "$http_status" | cut -c1)" in
-    2) echo "RETENTION_COMPLETED"; write_retention_marker SUCCESS RETENTION_COMPLETED ;;
+    2) ;;
     *) echo "RETENTION_REJECTED http=${http_status}" >&2
-       write_retention_marker FAILURE RETENTION_REJECTED ;;
+       write_retention_marker FAILURE RETENTION_REJECTED
+       return 0 ;;
+  esac
+
+  # EHR staging data: imports past their window, and the files the folder
+  # transport kept. Part of the same daily run, so it happens whether or not an
+  # EHR transport is configured, and a failure reads as a failed retention run.
+  set +e
+  http_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    --max-time 60 \
+    -X POST \
+    -H "Authorization: Bearer ${CRON_SECRET}" \
+    http://api:3002/v1/internal/ehr-import/purge)"
+  status=$?
+  set -e
+  if [ "$status" -ne 0 ]; then
+    echo "RETENTION_API_UNAVAILABLE" >&2
+    write_retention_marker FAILURE RETENTION_API_UNAVAILABLE
+    return 0
+  fi
+  case "$(printf '%s' "$http_status" | cut -c1)" in
+    2) echo "RETENTION_COMPLETED"; write_retention_marker SUCCESS RETENTION_COMPLETED ;;
+    *) echo "RETENTION_EHR_STAGING_REJECTED http=${http_status}" >&2
+       write_retention_marker FAILURE RETENTION_EHR_STAGING_REJECTED ;;
   esac
 }
 

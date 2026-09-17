@@ -35,8 +35,10 @@ approved package. The appliance cannot make that clinical/licensing decision.
 
 An appliance with the host agent enabled exposes **Status → Terminology
 generations**. Hospital IT first places one approved package in a direct child
-directory of `reference-data/`; Status does not upload, download, enumerate, or
-display the licensed files. The page shows only the active package ID/version,
+directory of `reference-data/`. The host probe lists, by name only, the direct
+folders there that hold a `manifest.json`, and the import form offers those
+names (a name can still be typed). Status never uploads, downloads, lists or
+displays the licensed files themselves. The page shows only the active package ID/version,
 activation time, manifest SHA-256, whether a rollback generation exists, and a
 fixed pending/action state.
 
@@ -70,7 +72,7 @@ containers are stopped so no case write can be lost between database clone and
 activation. Then run:
 
 ```sh
-sh scripts/import-terminology.sh package-directory --operator "Operator name"
+sudo sh /opt/lospor-hospital/current/scripts/import-terminology.sh package-directory --operator "Operator name"
 ```
 
 The importer uses the signed tools image and its local `tsx`; it never invokes a
@@ -99,22 +101,24 @@ cannot take over the pending generation.
 ## Go-live, rollback, and finalization
 
 ```sh
-sh scripts/terminology-status.sh --go-live
-sh scripts/doctor.sh --go-live
+sudo sh /opt/lospor-hospital/current/scripts/terminology-status.sh --go-live
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh --go-live
 ```
 
-Both fail until an approved manifest is active and the live database still
-meets its count and integrity contract. Ordinary `doctor.sh` reports a missing
-package as a warning so maintenance remains possible; `--go-live` is the strict
-clinical acceptance gate. Emergency restore runs the same strict terminology
-gate internally before Caddy is reopened. If readiness fails after activation,
+The package is optional: the release carries the codes clinical use needs.
+`terminology-status.sh --go-live` fails until an approved manifest is active
+and the live database still meets its count and integrity contract, and is how
+an import is verified. `doctor.sh --go-live` applies that strict check only on
+an appliance that has imported a package; without one it reports that the
+bundled codes are in use. Emergency restore applies the same rule internally
+before Caddy is reopened. If readiness fails after activation,
 the importer automatically restores the retained prior database generation and
 keeps public go-live refused.
 
 During the review window, revert with:
 
 ```sh
-sh scripts/rollback-terminology.sh --confirm
+sudo sh /opt/lospor-hospital/current/scripts/rollback-terminology.sh --confirm
 ```
 
 The rejected generation is retained for investigation and the preceding
@@ -122,7 +126,7 @@ activation evidence is restored. Once the hospital accepts the new generation
 and no longer needs instant rollback, permanently remove the retained database:
 
 ```sh
-sh scripts/finalize-terminology.sh --confirm-drop-rollback
+sudo sh /opt/lospor-hospital/current/scripts/finalize-terminology.sh --confirm-drop-rollback
 ```
 
 Finalization is destructive and cannot be undone without a separate verified

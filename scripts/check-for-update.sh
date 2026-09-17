@@ -14,8 +14,8 @@ set +x
 # one-way database migration are both clinical events.
 #
 # Exit 0 means the question was answered, whether or not an update exists.
-# Exit 1 means it could not be answered -- no network, no credentials, a
-# registry that refused. The recorded state is then "unknown", never "current":
+# Exit 1 means it could not be answered -- no network, a registry that refused.
+# The recorded state is then "unknown", never "current":
 # telling a hospital it is up to date because its network was down is the one
 # failure this script exists to prevent.
 #
@@ -78,21 +78,6 @@ say_pair() { [ "$quiet" -eq 1 ] || operator_say "$1" "$2"; }
 command -v curl >/dev/null 2>&1 || { operator_error "curl is required." "Необходим е curl."; exit 2; }
 
 work="$(mktemp -d)"
-
-# Each hospital gets separate revocable, read-only credentials. They are read
-# only from root-protected appliance files; accepting them through environment
-# variables would expose them through process inspection and service metadata.
-ghcr_user=""; ghcr_token=""
-if update_credential_read "$appliance_home/secrets/registry/ghcr-user" \
-  '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39; then
-  ghcr_user="$update_credential_value"
-fi
-update_credential_value=""
-if printf '%s\n' "$ghcr_user" | grep -q -- '--'; then ghcr_user=""; fi
-if update_credential_read "$appliance_home/secrets/registry/ghcr-token" "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-  ghcr_token="$update_credential_value"
-fi
-update_credential_value=""
 
 # Preserve whatever the fetch step last staged, and which exact release it was.
 # This script has no business changing either, and losing them would make a
@@ -184,25 +169,16 @@ fail_unknown() {
   exit 1
 }
 
-# A registry bearer token. Anonymous access is not attempted: the packages are
-# private by policy, so a request without this site's credential would be
-# refused, and a refusal must never be reported as "no updates".
-[ -n "$ghcr_user" ] && [ -n "$ghcr_token" ] \
-  || fail_unknown "this site has no registry credential configured" "за тази болница няма конфигурирани данни за достъп до регистъра"
-
+# The release images are public, so the registry issues an anonymous pull
+# token. A refusal is still reported as "unknown", never as "no updates".
 token_scope="repository:${registry_package}:pull"
-basic_auth_config="$work/registry-basic-auth.conf"
 umask 077
-printf 'user = "%s:%s"\n' "$ghcr_user" "$ghcr_token" > "$basic_auth_config"
-chmod 0600 "$basic_auth_config"
-ghcr_user=""; ghcr_token=""
 curl --fail --silent --show-error --max-time 30 --max-redirs 0 --proto "=$registry_proto" --tlsv1.2 \
-  --config "$basic_auth_config" \
   "${registry_origin}/token?service=ghcr.io&scope=${token_scope}" \
   > "$work/token.json" 2>"$work/token.err" \
   || fail_unknown \
-    "the registry refused this site's credential ($(tr -d '\r\n' < "$work/token.err"))" \
-    "регистърът отхвърли данните за достъп на тази болница ($(tr -d '\r\n' < "$work/token.err"))"
+    "the registry refused an anonymous token ($(tr -d '\r\n' < "$work/token.err"))" \
+    "регистърът отказа анонимен код за достъп ($(tr -d '\r\n' < "$work/token.err"))"
 
 bearer="$(sed -n 's/.*"\(token\|access_token\)":"\([^"]\{16,\}\)".*/\2/p' "$work/token.json" | head -n 1)"
 printf '%s\n' "$bearer" | grep -Eq '^[A-Za-z0-9._~-]{16,4096}$' \

@@ -1,9 +1,18 @@
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 import {
   hasOfflineVocabulary,
   offlineVocabularyVersion,
   searchOfflineVocabulary,
 } from "./offline-vocabulary"
+
+// The first lookup dynamically imports and evaluates the real generated ICD-10
+// module (39,613 rows; roughly 12 MB of TypeScript). On a busy release runner
+// that cold load can legitimately exceed Vitest's 5-second per-test default,
+// even though subsequent searches take milliseconds. Warm it once under an
+// explicit boundary so functional assertions are not coupled to worker load.
+beforeAll(async () => {
+  await offlineVocabularyVersion()
+}, 30_000)
 
 describe("offline clinical vocabulary", () => {
   it("covers diagnoses and procedures but not medications", async () => {

@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import {
   parseTerminologyAgentSignal,
+  parseTerminologyPackagesSignal,
   readTerminologyAgentSignal,
 } from "./signals.js"
 
@@ -64,4 +65,37 @@ describe("the terminology host projection", () => {
 const directories: string[] = []
 afterEach(() => {
   while (directories.length) rmSync(directories.pop()!, { recursive: true, force: true })
+})
+
+describe("the terminology package folders the host found", () => {
+  const listing = (extra: Record<string, unknown> = {}) => ({
+    schemaVersion: 1,
+    signalType: "terminology-packages",
+    observedAt: "2026-08-23T08:59:30Z",
+    packages: ["omop-2026.08", "omop-2026.09"],
+    ...extra,
+  })
+
+  it("accepts a fresh listing of safe folder names", () => {
+    expect(parseTerminologyPackagesSignal(listing(), NOW)).toEqual({
+      observedAt: "2026-08-23T08:59:30Z",
+      packages: ["omop-2026.08", "omop-2026.09"],
+    })
+    expect(parseTerminologyPackagesSignal(listing({ packages: [] }), NOW)?.packages).toEqual([])
+  })
+
+  it("rejects paths, duplicates, extra fields, a stale listing and too many names", () => {
+    for (const bad of [
+      listing({ packages: ["../etc"] }),
+      listing({ packages: ["/opt/lospor-hospital/reference-data/omop"] }),
+      listing({ packages: ["omop; rm -rf /"] }),
+      listing({ packages: ["omop", "omop"] }),
+      listing({ packages: Array.from({ length: 21 }, (_, index) => `omop-${index}`) }),
+      listing({ path: "/opt" }),
+      listing({ observedAt: "2026-08-23T08:40:00Z" }),
+      listing({ signalType: "terminology-agent" }),
+    ]) {
+      expect(parseTerminologyPackagesSignal(bad, NOW), JSON.stringify(bad)).toBeNull()
+    }
+  })
 })

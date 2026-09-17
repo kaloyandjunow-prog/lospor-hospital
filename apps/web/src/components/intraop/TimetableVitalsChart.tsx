@@ -31,7 +31,7 @@ export const VITAL_ROW_DEFS: {
   { key:"systolic",  label:"BP Sys",  unit:"mmHg",  color:"#ef4444", min:0,  max:300, step:1,   defaultVal:120, monitors:["nbpMonitor","invasiveBP"] },
   { key:"diastolic", label:"BP Dia",  unit:"mmHg",  color:"#ef4444", min:0,  max:200, step:1,   defaultVal:80,  monitors:["nbpMonitor","invasiveBP"] },
   { key:"heartRate", label:"HR",      unit:"bpm",   color:"#22c55e", min:0,  max:300, step:1,   defaultVal:70,  monitors:["ecg","spO2Monitor"]       },
-  { key:"spO2",      label:"SpO₂",   unit:"%",     color:"#06b6d4", min:50, max:100, step:1,   defaultVal:98,  monitors:["spO2Monitor"]             },
+  { key:"spO2",      label:"SpO₂",   unit:"%",     color:"#06b6d4", min:0,  max:100, step:1,   defaultVal:98,  monitors:["spO2Monitor"]             },
   { key:"etco2",     label:"EtCO₂",  unit:"mmHg",  color:"#f59e0b", min:0,  max:80,  step:1,   defaultVal:35,  monitors:["etco2Monitor"]            },
   { key:"temp",      label:"Temp",    unit:"°C",    color:"#a78bfa", min:30, max:42,  step:0.1, defaultVal:36.5,monitors:["tempMonitor"]             },
   // The monitors that read a number. Each row appears only while its own
@@ -43,7 +43,7 @@ export const VITAL_ROW_DEFS: {
   // mid-range surgical anaesthesia for BIS and 0.9 is the threshold for
   // adequate reversal, so both open where a clinician is most often heading.
   { key:"bis",       label:"BIS",     unit:"",      color:"#e879f9", min:0,  max:100, step:1,   defaultVal:50,  monitors:["bis"]                     },
-  { key:"tofRatio",  label:"TOF",     unit:"ratio", color:"#fb923c", min:0,  max:1,   step:0.1, defaultVal:0.9, monitors:["tofMonitor"],
+  { key:"tofRatio",  label:"TOF",     unit:"ratio 0–1", color:"#fb923c", min:0,  max:1,   step:0.1, defaultVal:0.9, monitors:["tofMonitor"],
     toPlotValue: v => v * 100 },
   { key:"cvp",       label:"CVP",     unit:"mmHg",  color:"#38bdf8", min:0.1,max:50,  step:0.1, defaultVal:8,   monitors:["cvpMonitor"]              },
 ]

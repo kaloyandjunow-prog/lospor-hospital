@@ -52,7 +52,7 @@ if ! command -v flock >/dev/null 2>&1; then
   printf 'SKIPPED: 0 of 16 update agent assertions ran; they still need a host with flock.\n' >&2
   exit 0
 fi
-for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh update-agent-loop.sh cancel-update-request.sh; do cp "$root/scripts/$name" "$scripts/$name"; done
+for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh site-config.sh secrets-escrow-lib.sh maintenance-agent-lib.sh update-agent-loop.sh cancel-update-request.sh; do cp "$root/scripts/$name" "$scripts/$name"; done
 cat > "$scripts/check-for-update.sh" <<'STUB'
 #!/bin/sh
 exit 0

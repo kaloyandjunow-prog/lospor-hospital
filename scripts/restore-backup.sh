@@ -27,11 +27,15 @@ restore_mode=temporary
 case "${1:-}" in
   --in-place) restore_mode=in-place; shift ;;
   --temporary) shift ;;
+  # A restore drill proves the backup restores, migrates and validates, exactly
+  # as --temporary does, then removes the copy. Repeated drills must not fill
+  # the disk with full copies of the clinical database.
+  --drill) restore_mode=drill; shift ;;
 esac
 if [ "$#" -ne 1 ]; then
   operator_error \
-    "Usage: scripts/restore-backup.sh [--temporary|--in-place] backups/lospor-...backup" \
-    "Употреба: scripts/restore-backup.sh [--temporary|--in-place] backups/lospor-...backup"
+    "Usage: scripts/restore-backup.sh [--temporary|--drill|--in-place] backups/lospor-...backup" \
+    "Употреба: scripts/restore-backup.sh [--temporary|--drill|--in-place] backups/lospor-...backup"
   exit 2
 fi
 requested_artifact="$1"
@@ -329,6 +333,10 @@ if [ "$restore_mode" = in-place ]; then
 else
   required_confirmation="TEMPORARY RESTORE $restore_site $restore_completed"
 fi
+# A drill changes nothing a clinician uses and removes its copy, so nobody is
+# asked to type the site and timestamp. The confirmation is still derived from
+# the verified manifest above and handed to the restore tool as for --temporary.
+[ "$restore_mode" != drill ] || LOSPOR_RESTORE_CONFIRM_INPUT="$required_confirmation"
 if [ -z "${LOSPOR_RESTORE_CONFIRM_INPUT:-}" ]; then
   if [ -t 0 ]; then
     operator_eprintf 'Type exactly: %s\n> ' 'Въведете точно: %s\n> ' "$required_confirmation"
@@ -473,6 +481,19 @@ if ! restore_tool validate "$artifact_container" "$temporary_database"; then
   exit 1
 fi
 journal RECONCILE PASSED
+
+if [ "$restore_mode" = drill ]; then
+  discard_temporary_database
+  journal COMPLETE DRILL_PASSED
+  operator_say \
+    "Restore drill passed: the backup restored, migrated and validated, and the copy was removed." \
+    "Пробното възстановяване премина: архивът беше възстановен, мигриран и проверен, а копието беше премахнато."
+  operator_printf \
+    'Clinical traffic and the live database were not changed. Journal: %s\n' \
+    'Клиничният трафик и действащата база данни не са променени. Журнал: %s\n' \
+    "$journal_file"
+  exit 0
+fi
 
 if [ "$restore_mode" = temporary ]; then
   journal COMPLETE TEMPORARY_READY

@@ -110,29 +110,13 @@ count=0
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 
-# The release packages are private, so pulling needs this site's own read-only
-# registry credential. Authenticate into a throwaway Docker config rather than
-# the operator's ~/.docker/config.json: `docker login` stores the token in
-# recoverable base64, and a clinical appliance should not keep a credential on
-# disk that nothing afterwards needs. Deleted with the temporary directory
-# above, on every exit path including interruption.
-update_credential_read "$appliance_home/secrets/registry/ghcr-user" \
-  '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39 \
-  || { operator_error "This site has no safe GHCR username configured." "За тази болница няма безопасно конфигурирано потребителско име за GHCR."; exit 1; }
-ghcr_user="$update_credential_value"; update_credential_value=""
-printf '%s\n' "$ghcr_user" | grep -q -- '--' \
-  && { ghcr_user=""; operator_error "The GHCR username format is invalid." "Форматът на потребителското име за GHCR е невалиден."; exit 1; }
-update_credential_read "$appliance_home/secrets/registry/ghcr-token" "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM" \
-  || { ghcr_user=""; operator_error "This site has no safe GHCR read token configured." "За тази болница няма безопасно конфигуриран токен за четене от GHCR."; exit 1; }
-ghcr_token="$update_credential_value"; update_credential_value=""
+# The release images are public and pulled anonymously. An empty throwaway
+# Docker config makes that true regardless of any login stored on the host, so a
+# pull can never silently depend on a credential the next site will not have.
 DOCKER_CONFIG="$temporary_directory/docker-config"
 mkdir -p "$DOCKER_CONFIG"
 chmod 700 "$DOCKER_CONFIG"
 export DOCKER_CONFIG
-printf '%s' "$ghcr_token" \
-  | docker login ghcr.io --username "$ghcr_user" --password-stdin >/dev/null \
-  || { ghcr_user=""; ghcr_token=""; operator_error "Could not authenticate to ghcr.io with this site's registry credential." "Удостоверяването в ghcr.io с данните за достъп на тази болница е неуспешно."; exit 1; }
-ghcr_user=""; ghcr_token=""
 
 while IFS="$tab" read -r kind name reference registry_digest platform_digest config_digest platform diff_ids extra; do
   [ "$kind" = image ] || continue
@@ -142,7 +126,8 @@ while IFS="$tab" read -r kind name reference registry_digest platform_digest con
   # Pulling by the top-level digest makes the registry prove the immutable
   # descriptor. Portable config/rootfs/platform verification happens before
   # any stable release tag is changed.
-  docker pull --platform "$platform" "$immutable" >/dev/null
+  docker pull --platform "$platform" "$immutable" >/dev/null \
+    || { operator_error "Could not download release image $name from ghcr.io. Check that this server can reach ghcr.io, or install from USB instead." "Образът $name не можа да бъде изтеглен от ghcr.io. Проверете дали сървърът достига ghcr.io или инсталирайте от USB."; exit 1; }
   printf 'image\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$name" "$immutable" "$registry_digest" "$platform_digest" "$config_digest" "$platform" "$diff_ids" \
     >> "$temporary_directory/pulled.lock"

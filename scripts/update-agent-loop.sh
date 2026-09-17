@@ -12,6 +12,10 @@ appliance_home="$(release_state_appliance_home "$root")"
 update_pipeline_init "$root" "$appliance_home"
 . "$root/scripts/terminology-agent-lib.sh"
 terminology_agent_init
+. "$root/scripts/site-config.sh"
+. "$root/scripts/secrets-escrow-lib.sh"
+. "$root/scripts/maintenance-agent-lib.sh"
+maintenance_agent_init
 command -v flock >/dev/null 2>&1 || { echo UPDATE_AGENT_FLOCK_MISSING >&2; exit 2; }
 agent_request_lock="$update_private_dir/request-agent.lock"
 umask 077
@@ -39,10 +43,33 @@ check_stamp="$update_private_dir/last-update-check"
 terminology_inflight="$terminology_inflight_dir/terminology.request.v1.tsv"
 
 poll="${HOSPITAL_UPDATE_AGENT_POLL_SECONDS:-15}"
-check_interval="${HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS:-86400}"
-window_start="${HOSPITAL_UPDATE_WINDOW_START:-20:00}"
-window_end="${HOSPITAL_UPDATE_WINDOW_END:-06:00}"
-timezone="${HOSPITAL_UPDATE_TIMEZONE:-Europe/Sofia}"
+
+# The update window and time zone are site settings, and the check interval an
+# advanced setting. They are read from the
+# appliance's compiled .env, not only from the environment systemd started this
+# agent with: that file is written once at installation, and the agent cannot
+# rewrite it (ProtectSystem=strict), so a window changed through site.env would
+# otherwise never take effect. A change is noticed below and the agent exits for
+# systemd to start it again with the new values.
+site_window_value() {
+  site_value=""
+  if [ -f "$appliance_home/.env" ]; then
+    site_value="$(sed -n "s/^$1=//p" "$appliance_home/.env" | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//')"
+  fi
+  printf '%s\n' "${site_value:-$2}"
+}
+window_start="$(site_window_value HOSPITAL_UPDATE_WINDOW_START "${HOSPITAL_UPDATE_WINDOW_START:-20:00}")"
+window_end="$(site_window_value HOSPITAL_UPDATE_WINDOW_END "${HOSPITAL_UPDATE_WINDOW_END:-06:00}")"
+timezone="$(site_window_value HOSPITAL_UPDATE_TIMEZONE "${HOSPITAL_UPDATE_TIMEZONE:-Europe/Sofia}")"
+check_interval="$(site_window_value HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS "${HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS:-86400}")"
+site_window_settings() {
+  printf '%s|%s|%s|%s\n' \
+    "$(site_window_value HOSPITAL_UPDATE_WINDOW_START "${HOSPITAL_UPDATE_WINDOW_START:-20:00}")" \
+    "$(site_window_value HOSPITAL_UPDATE_WINDOW_END "${HOSPITAL_UPDATE_WINDOW_END:-06:00}")" \
+    "$(site_window_value HOSPITAL_UPDATE_TIMEZONE "${HOSPITAL_UPDATE_TIMEZONE:-Europe/Sofia}")" \
+    "$(site_window_value HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS "${HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS:-86400}")"
+}
+started_window_settings="$(site_window_settings)"
 zoneinfo_root=/usr/share/zoneinfo
 if [ "${HOSPITAL_UPDATE_TEST_ONLY:-0}" = 1 ]; then
   zoneinfo_root="${HOSPITAL_UPDATE_TEST_ZONEINFO_ROOT:-$zoneinfo_root}"
@@ -444,6 +471,7 @@ if ! flock -w "$poll" 9; then
 fi
 reconcile_startup
 reconcile_terminology_startup
+maintenance_reconcile_startup
 flock -u 9
 while true; do
   if clock_went_backwards; then
@@ -455,6 +483,7 @@ while true; do
 
   current_now="$(readlink "$appliance_home/current" 2>/dev/null || echo unknown)"
   if [ "$current_now" != "$started_from" ]; then exit 0; fi
+  if [ "$(site_window_settings)" != "$started_window_settings" ]; then exit 0; fi
 
   if ! flock -w "$poll" 9; then
     terminal_projection needs-operator UPDATE_REQUEST_LOCK_TIMEOUT
@@ -468,6 +497,7 @@ while true; do
   else
     handled=0
     consume_terminology_pending && handled=1 || true
+    [ "$handled" -eq 1 ] || { maintenance_consume_pending && handled=1 || true; }
     [ "$handled" -eq 1 ] || { consume_pending "$prepare_request" prepare && handled=1 || true; }
     [ "$handled" -eq 1 ] || { consume_pending "$apply_request" apply && handled=1 || true; }
     if [ "$handled" -eq 0 ] && [ -f "$update_inflight_dir/apply.request.v2.tsv" ]; then
@@ -505,8 +535,19 @@ while true; do
         fi
       fi
     fi
+    # A restart Ubuntu asked for, when the site chose to have it done in the
+    # window: never beside an update that is queued, preparing or applying.
+    if [ "$handled" -eq 0 ] && inside_window; then
+      update_busy=0
+      if update_transition_read; then
+        case "$transition_phase" in ACCEPTED|PREPARING|APPLYING) update_busy=1 ;; esac
+      fi
+      [ "$update_busy" -eq 1 ] || maintenance_scheduled_reboot || true
+    fi
   fi
   terminology_refresh_projection
+  maintenance_site_projection_write || true
+  maintenance_escrow_expire || true
   flock -u 9
 
   if [ -e "$check_request" ]; then rm -f "$check_request"; rm -f "$check_stamp"; fi

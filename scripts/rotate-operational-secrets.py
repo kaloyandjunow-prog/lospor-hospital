@@ -49,7 +49,13 @@ ENV_SECRET_BYTES = {
     "CRON_SECRET": 32,
     "OPTION_LIBRARY_SNAPSHOT_SECRET": 32,
     "HOSPITAL_POSTGRES_PASSWORD": 32,
+    # The API's restricted role (lospor_app) moves with the owner role.
+    "HOSPITAL_POSTGRES_APP_PASSWORD": 32,
 }
+DATABASE_ROLES = (
+    ("lospor", "HOSPITAL_POSTGRES_PASSWORD"),
+    ("lospor_app", "HOSPITAL_POSTGRES_APP_PASSWORD"),
+)
 WORKER_KEYS = (
     "HOSPITAL_WORKER_TOKEN",
     "RESEARCH_EXPORT_WORKER_SECRET",
@@ -66,12 +72,26 @@ STATUS_TOKEN_NAMES = (
 _OPERATOR_LOCALE = "bg"
 
 
+def appliance_home(root: Path) -> Path:
+    """Where the appliance keeps .env, secrets and its shared state.
+
+    An installed release runs from .data/releases/<version>/..., where .env is a
+    symlink into the appliance home and .data points at .data/runtime. Working
+    through those links refused the symlinked .env on every real appliance, and
+    would have taken the maintenance lock at .data/runtime/io-mutation.lock --
+    not the .data/io-mutation.lock that backup, install and update hold. A
+    source checkout has no .lospor-home link and is its own home.
+    """
+    link = root / ".lospor-home"
+    return link.resolve(strict=True) if link.is_dir() else root
+
+
 def select_operator_locale(root: Path) -> str:
     explicit = os.environ.get("LOSPOR_OPERATOR_LOCALE") or os.environ.get("LOSPOR_DEFAULT_LOCALE")
     selected = explicit
     if selected is None:
         try:
-            for line in (root / ".env").read_text(encoding="utf-8").splitlines():
+            for line in (appliance_home(root) / ".env").read_text(encoding="utf-8").splitlines():
                 if line.startswith("LOSPOR_DEFAULT_LOCALE="):
                     selected = line.split("=", 1)[1].strip().strip('"')
         except (OSError, UnicodeError):
@@ -247,10 +267,13 @@ def update_env(path: Path, changes: dict[str, str | None]) -> None:
 class Rotation:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
-        self.env_path = self.root / ".env"
-        self.rotation_dir = self.root / "secrets" / "rotation"
+        self.home = appliance_home(self.root)
+        # Secrets are generated values: they live in secrets/appliance.env, and
+        # .env is recompiled from it and site.env after every change.
+        self.env_path = self.home / "secrets" / "appliance.env"
+        self.rotation_dir = self.home / "secrets" / "rotation"
         self.pending = self.rotation_dir / "pending"
-        self.audit_path = self.root / ".data" / "security" / "secret-rotations.v1.jsonl"
+        self.audit_path = self.home / ".data" / "security" / "secret-rotations.v1.jsonl"
         self.test_only = os.environ.get("HOSPITAL_SECRET_ROTATION_TEST_ONLY") == "1"
         self._test_failure_used = False
         self.locale = self._locale()
@@ -307,7 +330,7 @@ class Rotation:
         self._lock_file(self.rotation_dir / "operation.lock")
 
     def lock_io(self) -> None:
-        io_path = self.root / ".data" / "io-mutation.lock"
+        io_path = self.home / ".data" / "io-mutation.lock"
         if not io_path.exists():
             atomic_text(io_path, "")
         self._lock_file(io_path, io_lock=True)
@@ -438,7 +461,7 @@ class Rotation:
             if scope_includes(scope, "workers"):
                 keys.extend(WORKER_KEYS)
             if scope_includes(scope, "database"):
-                keys.append("HOSPITAL_POSTGRES_PASSWORD")
+                keys.extend(key for _, key in DATABASE_ROLES)
             for key in keys:
                 old = env_values.get(key, "")
                 if len(old) < 24 or any(char in old for char in "\r\n\0"):
@@ -454,7 +477,7 @@ class Rotation:
                 old_dir.mkdir(mode=0o700)
                 new_status_dir.mkdir(mode=0o700)
                 for name in STATUS_TOKEN_NAMES:
-                    source = self.root / "secrets" / "status" / name
+                    source = self.home / "secrets" / "status" / name
                     read_secret(source)
                     shutil.copyfile(source, old_dir / name)
                     os.chmod(old_dir / name, 0o600)
@@ -533,7 +556,7 @@ class Rotation:
         )
 
     def _alter_role(self, role: str, password: str) -> None:
-        if role not in {"lospor", "lospor_status_probe"}:
+        if role not in {"lospor", "lospor_app", "lospor_status_probe"}:
             raise RotationError(
                 "Unsupported database role in rotation transaction",
                 "Неподдържана роля в базата данни в транзакцията за смяна",
@@ -553,9 +576,13 @@ class Rotation:
         )
 
     def _verify_db_password(self, role: str, password: str, *, accepted: bool) -> None:
+        # Through the service address, as every client connects, never loopback:
+        # the PostgreSQL image trusts 127.0.0.1 without a password, so a
+        # loopback check accepted the retired password and every database or
+        # Status-token rotation on a real appliance rolled itself back.
         command = (
             "IFS= read -r candidate; export PGPASSWORD=\"$candidate\"; "
-            f"psql --no-psqlrc -h 127.0.0.1 -U {role} -d lospor -c 'SELECT 1' >/dev/null 2>&1"
+            f"psql --no-psqlrc -h postgres -U {role} -d lospor -c 'SELECT 1' >/dev/null 2>&1"
         )
         result = subprocess.run(
             ["docker", "compose", "exec", "-T", "postgres", "sh", "-c", command],
@@ -578,7 +605,7 @@ class Rotation:
         if alternate is not None and alternate != current:
             payload["api-previous"] = alternate
         atomic_text(
-            self.root / "secrets" / "status" / "event-tokens.json",
+            self.home / "secrets" / "status" / "event-tokens.json",
             json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n",
         )
 
@@ -587,7 +614,7 @@ class Rotation:
         atomic_text(destination, value + "\n")
 
     def _status_overlap(self) -> None:
-        source_dir = self.root / "secrets" / "status"
+        source_dir = self.home / "secrets" / "status"
         old_dir = self.pending / "status-original"
         new_dir = self.pending / "status-new"
         for name in STATUS_TOKEN_NAMES[:3]:
@@ -610,7 +637,7 @@ class Rotation:
         self._restart_status()
 
     def _retire_status_overlap(self) -> None:
-        source_dir = self.root / "secrets" / "status"
+        source_dir = self.home / "secrets" / "status"
         for name in STATUS_TOKEN_NAMES[:3]:
             previous = source_dir / f"{name}.previous"
             info = assert_safe_regular(previous, required=False)
@@ -630,17 +657,29 @@ class Rotation:
         if scope_includes(scope, "sessions"):
             changes["LOSPOR_AUTH_SECRET"] = read_secret(self.pending / "new" / "LOSPOR_AUTH_SECRET")
         if scope_includes(scope, "database"):
-            changes["HOSPITAL_POSTGRES_PASSWORD"] = read_secret(
-                self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD",
-            )
+            for _, key in DATABASE_ROLES:
+                changes[key] = read_secret(self.pending / "new" / key)
         if scope_includes(scope, "workers"):
             for key in WORKER_KEYS:
                 changes[key] = read_secret(self.pending / "new" / key)
                 changes[f"{key}_PREVIOUS"] = original[key]
         return changes
 
+    def _compile_environment(self) -> None:
+        compiler = Path(__file__).resolve().with_name("site-config.sh")
+        result = subprocess.run(
+            ["sh", str(compiler), "compile", str(self.home)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False,
+        )
+        if result.returncode != 0:
+            raise RotationError(
+                "The appliance configuration could not be recompiled",
+                "Конфигурацията на системата не можа да бъде компилирана отново",
+            )
+
     def _retire_worker_overlap(self) -> None:
         update_env(self.env_path, {f"{key}_PREVIOUS": None for key in WORKER_KEYS})
+        self._compile_environment()
         self._converge()
 
     def _verify_services(self) -> None:
@@ -666,18 +705,29 @@ class Rotation:
             payload.update({f"STATUS_{name}": read_secret(old_dir / name) for name in STATUS_TOKEN_NAMES[:3]})
         if not payload or self.test_only:
             return
+        # Each request is made only when its turn comes and every failure exits
+        # non-zero with the check's name and status (never a credential). The
+        # previous version called .catch on an event emitter, so it threw
+        # before any request and every real workers or Status-token rotation
+        # rolled itself back.
         script = r"""
 let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);process.stdin.on('end',async()=>{
-  const s=JSON.parse(raw);const checks=[];
-  if(s.HOSPITAL_WORKER_TOKEN)checks.push(['delivery',fetch('http://127.0.0.1:3002/v1/internal/hospital-delivery/process',{method:'POST',headers:{authorization:'Bearer '+s.HOSPITAL_WORKER_TOKEN}}),403]);
-  if(s.RESEARCH_EXPORT_WORKER_SECRET)checks.push(['research',fetch('http://127.0.0.1:3002/v1/internal/research-exports/process',{method:'POST',headers:{authorization:'Bearer '+s.RESEARCH_EXPORT_WORKER_SECRET}}),401]);
-  if(s.CRON_SECRET)checks.push(['cron',fetch('http://127.0.0.1:3002/v1/internal/purge-deleted',{headers:{authorization:'Bearer '+s.CRON_SECRET}}),403]);
-  if(s.OPTION_LIBRARY_SNAPSHOT_SECRET)checks.push(['snapshot',fetch('http://127.0.0.1:3002/v1/internal/option-library-snapshot',{headers:{'x-snapshot-secret':s.OPTION_LIBRARY_SNAPSHOT_SECRET}}),403]);
-  if(s['STATUS_snapshot-token'])checks.push(['status-snapshot',fetch('http://127.0.0.1:3002/internal/appliance-status',{headers:{authorization:'Bearer '+s['STATUS_snapshot-token']}}),401]);
-  if(s['STATUS_account-control-token'])checks.push(['status-control',fetch('http://127.0.0.1:3002/v1/internal/hospital/accounts',{headers:{authorization:'Bearer '+s['STATUS_account-control-token']}}),401]);
-  if(s['STATUS_api-event-token'])checks.push(['status-event',fetch('http://status:3004/internal/events',{method:'POST',headers:{authorization:'Bearer '+s['STATUS_api-event-token'],'content-type':'application/json'},body:'{}'}),401]);
-  for(const [name,promise,expected] of checks){const response=await promise;if(response.status!==expected)throw new Error(name)}
-}).catch(()=>process.exit(1));
+  try{
+    const s=JSON.parse(raw);const checks=[];
+    if(s.HOSPITAL_WORKER_TOKEN)checks.push(['delivery',()=>fetch('http://127.0.0.1:3002/v1/internal/hospital-delivery/process',{method:'POST',headers:{authorization:'Bearer '+s.HOSPITAL_WORKER_TOKEN}}),403]);
+    if(s.RESEARCH_EXPORT_WORKER_SECRET)checks.push(['research',()=>fetch('http://127.0.0.1:3002/v1/internal/research-exports/process',{method:'POST',headers:{authorization:'Bearer '+s.RESEARCH_EXPORT_WORKER_SECRET}}),401]);
+    if(s.CRON_SECRET)checks.push(['cron',()=>fetch('http://127.0.0.1:3002/v1/internal/purge-deleted',{headers:{authorization:'Bearer '+s.CRON_SECRET}}),403]);
+    if(s.OPTION_LIBRARY_SNAPSHOT_SECRET)checks.push(['snapshot',()=>fetch('http://127.0.0.1:3002/v1/internal/option-library-snapshot',{headers:{'x-snapshot-secret':s.OPTION_LIBRARY_SNAPSHOT_SECRET}}),403]);
+    if(s['STATUS_snapshot-token'])checks.push(['status-snapshot',()=>fetch('http://127.0.0.1:3002/internal/appliance-status',{headers:{authorization:'Bearer '+s['STATUS_snapshot-token']}}),401]);
+    if(s['STATUS_account-control-token'])checks.push(['status-control',()=>fetch('http://127.0.0.1:3002/v1/internal/hospital/accounts',{headers:{authorization:'Bearer '+s['STATUS_account-control-token']}}),401]);
+    if(s['STATUS_api-event-token'])checks.push(['status-event',()=>fetch('http://status:3004/internal/events',{method:'POST',headers:{authorization:'Bearer '+s['STATUS_api-event-token'],'content-type':'application/json'},body:'{}'}),401]);
+    for(const [name,request,expected] of checks){
+      const response=await request();
+      if(response.status!==expected){console.error('RETIRED_CREDENTIAL_CHECK '+name+' expected '+expected+' got '+response.status);process.exit(1)}
+    }
+    process.exit(0);
+  }catch(error){console.error('RETIRED_CREDENTIAL_CHECK '+(error&&error.name||'error'));process.exit(1)}
+});
 """
         self._docker(
             ["exec", "-T", "api", "node", "-e", script],
@@ -714,11 +764,10 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
         try:
             self.write_metadata(metadata, "APPLYING")
             if scope_includes(scope, "database"):
-                self._alter_role(
-                    "lospor",
-                    read_secret(self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD"),
-                )
+                for role, key in DATABASE_ROLES:
+                    self._alter_role(role, read_secret(self.pending / "new" / key))
             update_env(self.env_path, self._initial_env_changes(metadata))
+            self._compile_environment()
             if any(scope_includes(scope, member) for member in ("sessions", "workers", "database")):
                 self._converge()
             if scope_includes(scope, "status-tokens"):
@@ -726,12 +775,11 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
                 self._status_overlap()
             self.write_metadata(metadata, "VERIFYING")
             self._verify_services()
-            if scope_includes(scope, "database"):
-                new_db = read_secret(self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD")
-                old_db = parse_env(self.pending / "original.env")[1]["HOSPITAL_POSTGRES_PASSWORD"]
-                if not self.test_only:
-                    self._verify_db_password("lospor", new_db, accepted=True)
-                    self._verify_db_password("lospor", old_db, accepted=False)
+            if scope_includes(scope, "database") and not self.test_only:
+                original_values = parse_env(self.pending / "original.env")[1]
+                for role, key in DATABASE_ROLES:
+                    self._verify_db_password(role, read_secret(self.pending / "new" / key), accepted=True)
+                    self._verify_db_password(role, original_values[key], accepted=False)
             if scope_includes(scope, "status-tokens") and not self.test_only:
                 new_probe = read_secret(self.pending / "status-new" / "db-probe-password")
                 old_probe = read_secret(self.pending / "status-original" / "db-probe-password")
@@ -806,7 +854,7 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
             ) from error
 
     def _restore_status_sources(self) -> None:
-        source_dir = self.root / "secrets" / "status"
+        source_dir = self.home / "secrets" / "status"
         old_dir = self.pending / "status-original"
         for name in STATUS_TOKEN_NAMES:
             self._install_secret(old_dir / name, source_dir / name)
@@ -824,7 +872,8 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
         if scope_includes(scope, "database") or scope_includes(scope, "status-tokens"):
             self._docker(["up", "-d", "postgres"], label="start database for rollback")
         if scope_includes(scope, "database"):
-            self._alter_role("lospor", original["HOSPITAL_POSTGRES_PASSWORD"])
+            for role, key in DATABASE_ROLES:
+                self._alter_role(role, original[key])
         if scope_includes(scope, "status-tokens"):
             self._alter_role(
                 "lospor_status_probe",
@@ -833,6 +882,7 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
             self._restore_status_sources()
         assert_safe_regular(original_path)
         atomic_bytes(self.env_path, original_path.read_bytes())
+        self._compile_environment()
         if scope_includes(scope, "status-tokens"):
             self._runtime_secrets()
         self._converge()
@@ -923,6 +973,12 @@ def main() -> None:
     if action != "prepare" and len(arguments) != 1:
         usage()
     rotation = Rotation(root)
+    if (rotation.home / ".env").exists() and not (
+        rotation.env_path.exists() and (rotation.home / "site.env").exists()
+    ):
+        # A missing source is rebuilt from .env: configured before the split, or
+        # rebuilt from escrow without site.env.
+        rotation._compile_environment()
     if not rotation.test_only and hasattr(os, "geteuid") and os.geteuid() != 0:
         raise RotationError(
             "Operational credential rotation must run as root on the appliance host",

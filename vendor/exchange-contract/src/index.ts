@@ -105,7 +105,11 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
   device_exposure: [
     "device_exposure_id", "person_id", "device_concept_id",
     "device_exposure_start_date", "device_exposure_end_date",
-    "device_type_concept_id", "device_source_value", "visit_occurrence_id",
+    // How much of the product was given, with its unit: the volume of a blood
+    // unit in mL. Added in 2.5.0, when blood products moved here from
+    // DRUG_EXPOSURE. Empty for an airway device, which is one of itself.
+    "device_type_concept_id", "quantity", "device_source_value", "visit_occurrence_id",
+    "unit_concept_id", "unit_source_value",
   ],
   observation: [
     "observation_id", "person_id", "observation_concept_id", "observation_date",

@@ -53,7 +53,6 @@ work="$update_private_dir/.prepare-$version-$$"
 assets="$work/assets"
 metadata="$work/release.json"
 metadata_tsv="$work/release.tsv"
-auth_config="$work/curl-auth.conf"
 io_owned=0
 cleanup_prepare() {
   if [ "$io_owned" -eq 1 ]; then update_io_lock_release; fi
@@ -62,6 +61,32 @@ cleanup_prepare() {
 trap cleanup_prepare EXIT HUP INT TERM
 mkdir "$work" "$assets"
 chmod 0700 "$work" "$assets"
+
+# The repository is public, so release metadata and assets are fetched without a
+# credential. Anonymous API calls share a small hourly allowance per network
+# address; when it is spent, say when it resets so an operator waits instead of
+# investigating a network fault.
+github_response_ok() {
+  response_status="$1"
+  response_headers="$2"
+  case "$response_status" in
+    200) return 0 ;;
+    403|429)
+      remaining="$(tr -d '\r' < "$response_headers" | awk -F': *' 'tolower($1) == "x-ratelimit-remaining" { print $2; exit }')"
+      if [ "$remaining" = 0 ]; then
+        reset_epoch="$(tr -d '\r' < "$response_headers" | awk -F': *' 'tolower($1) == "x-ratelimit-reset" { print $2; exit }')"
+        case "$reset_epoch" in ''|*[!0-9]*) reset_at=unknown ;; *) reset_at="$(date -u -d "@$reset_epoch" +%H:%M 2>/dev/null || echo unknown)" ;; esac
+        echo "UPDATE_RELEASE_RATE_LIMITED $reset_at" >&2
+        operator_error \
+          "GitHub's anonymous download allowance for this network is used up. Try again after $reset_at UTC." \
+          "Анонимният лимит на GitHub за тази мрежа е изчерпан. Опитайте отново след $reset_at UTC."
+        return 1
+      fi
+      ;;
+  esac
+  echo "UPDATE_RELEASE_HTTP_$response_status" >&2
+  return 1
+}
 
 update_io_lock_acquire prepare
 io_owned=1
@@ -75,21 +100,15 @@ if [ -n "$local_assets" ]; then
     || { echo UPDATE_LOCAL_SOURCE_INVALID >&2; exit 1; }
   cp "$local_assets/release.json" "$metadata"
 else
-  github_release_credential="$appliance_home/secrets/registry/github-release-token"
-  update_credential_read "$github_release_credential" "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM" \
-    || { echo UPDATE_RELEASE_CREDENTIAL_MISSING >&2; exit 1; }
-  token="$update_credential_value"
-  update_credential_value=""
-  umask 077
-  {
-    printf 'header = "Authorization: Bearer %s"\n' "$token"
-    printf 'header = "X-GitHub-Api-Version: 2026-03-10"\n'
-  } > "$auth_config"
-  token=""
-  curl --config "$auth_config" --proto '=https' --tlsv1.2 --max-redirs 0 \
-    --fail --silent --show-error --max-time 60 \
+  metadata_headers="$work/metadata-headers"
+  metadata_status="$(curl --proto '=https' --tlsv1.2 --max-redirs 0 \
+    --silent --show-error --max-time 60 --dump-header "$metadata_headers" --output "$metadata" \
+    --write-out '%{http_code}' \
     --header 'Accept: application/vnd.github+json' \
-    "$api_origin/repos/$repository/releases/tags/hospital-$version" > "$metadata" \
+    --header 'X-GitHub-Api-Version: 2026-03-10' \
+    "$api_origin/repos/$repository/releases/tags/hospital-$version")" \
+    || { echo UPDATE_RELEASE_METADATA_FETCH_FAILED >&2; exit 1; }
+  github_response_ok "$metadata_status" "$metadata_headers" \
     || { echo UPDATE_RELEASE_METADATA_FETCH_FAILED >&2; exit 1; }
 fi
 
@@ -125,9 +144,10 @@ EOF
   else
     headers="$work/headers-$asset_id"
     body="$work/body-$asset_id"
-    http_status="$(curl --config "$auth_config" --proto '=https' --tlsv1.2 --max-redirs 0 \
+    http_status="$(curl --proto '=https' --tlsv1.2 --max-redirs 0 \
       --silent --show-error --max-time 300 --dump-header "$headers" --output "$body" \
       --write-out '%{http_code}' --header 'Accept: application/octet-stream' \
+      --header 'X-GitHub-Api-Version: 2026-03-10' \
       "$api_origin/repos/$repository/releases/assets/$asset_id")" \
       || { echo "UPDATE_RELEASE_ASSET_FETCH_FAILED $asset_name" >&2; return 1; }
     case "$http_status" in
@@ -141,6 +161,7 @@ EOF
           --max-time 1800 "$redirect" > "$temporary" \
           || { echo "UPDATE_RELEASE_ASSET_FETCH_FAILED $asset_name" >&2; return 1; }
         ;;
+      403|429) github_response_ok "$http_status" "$headers" || true; echo "UPDATE_RELEASE_ASSET_FETCH_FAILED $asset_name" >&2; return 1 ;;
       *) echo "UPDATE_RELEASE_ASSET_HTTP_$http_status $asset_name" >&2; return 1 ;;
     esac
   fi
@@ -167,9 +188,9 @@ sh "$root/scripts/update-capacity.sh" prepare "$download_total" >/dev/null
 for suffix in deployment.tar.gz manifest.json release.lock release.lock.sha256 release.lock.sig security-evidence.tar.gz; do
   download_asset "$prefix-$suffix" || exit 1
 done
-# The GitHub token and signed redirect responses are needed only while
-# downloading. Never carry either into the persistent prepared-release tree.
-rm -f "$auth_config" "$work"/headers-* "$work"/body-* 2>/dev/null || true
+# Signed redirect responses are needed only while downloading. Never carry them
+# into the persistent prepared-release tree.
+rm -f "$work"/metadata-headers "$work"/headers-* "$work"/body-* 2>/dev/null || true
 
 lock="$assets/$prefix-release.lock"
 checksum="$lock.sha256"
@@ -194,6 +215,16 @@ verify_locked_artifact() {
 }
 verify_locked_artifact manifest "$prefix-manifest.json" || { echo UPDATE_RELEASE_MANIFEST_MISMATCH >&2; exit 1; }
 verify_locked_artifact security-evidence "$prefix-security-evidence.tar.gz" || { echo UPDATE_RELEASE_EVIDENCE_MISMATCH >&2; exit 1; }
+# The release dossier inside that evidence must describe this lock and the
+# candidate run the publication names. Status shows it before anyone applies.
+dossier_result=0
+python3 "$root/scripts/release-dossier.py" project "$assets/$prefix-security-evidence.tar.gz" "$lock" \
+  "$update_projection_dir" --run "$metadata_run" --attempt "$metadata_attempt" || dossier_result=$?
+case "$dossier_result" in
+  0) ;;
+  3) echo UPDATE_RELEASE_DOSSIER_MISSING >&2; exit 1 ;;
+  *) echo UPDATE_RELEASE_DOSSIER_INVALID >&2; exit 1 ;;
+esac
 
 compatibility="$work/release-compatibility.tsv"
 tar -xOf "$assets/$prefix-deployment.tar.gz" "$prefix/release-compatibility.tsv" > "$compatibility" \

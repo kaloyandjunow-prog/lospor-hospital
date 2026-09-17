@@ -280,8 +280,11 @@ case "$mode" in
       --command="SELECT 1 FROM pg_database WHERE datname = '$target_database';")"
     [ -z "$database_exists" ] || { backup_error RESTORE_TEMP_DATABASE_EXISTS; exit 1; }
     createdb --host=postgres --username="$POSTGRES_USER" "$target_database"
+    # --no-privileges: grants belong to the roles of the appliance restoring the
+    # backup, not the one that made it. create-app-role.sh grants them again
+    # before the API starts on the restored database.
     if ! pg_restore --host=postgres --username="$POSTGRES_USER" --dbname="$target_database" \
-        --no-owner "$backup_verified_dump"; then
+        --no-owner --no-privileges "$backup_verified_dump"; then
       dropdb --host=postgres --username="$POSTGRES_USER" --if-exists "$target_database" >/dev/null 2>&1 || true
       backup_error RESTORE_TEMPORARY_FAILED
       exit 1

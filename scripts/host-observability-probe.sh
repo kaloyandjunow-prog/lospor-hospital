@@ -35,7 +35,6 @@ signal_tmp=""
 cleanup_observability() {
   [ -z "$signal_tmp" ] || rm -f -- "$signal_tmp" 2>/dev/null || true
   rm -rf -- "$work" 2>/dev/null || true
-  update_credential_value=""
 }
 trap cleanup_observability EXIT HUP INT TERM
 
@@ -72,18 +71,6 @@ read_env_value() {
     | tr -d '\r' | sed 's/^"//; s/"$//'
 }
 
-credential_ready() {
-  observed_credential="$1"
-  observed_pattern="$2"
-  observed_maximum="$3"
-  update_credential_value=""
-  if update_credential_read "$observed_credential" "$observed_pattern" "$observed_maximum"; then
-    update_credential_value=""
-    return 0
-  fi
-  update_credential_value=""
-  return 1
-}
 
 # Only fixed lock states cross into Status. The activation lock is itself the
 # supported recovery boundary, so its safe directory presence is sufficient.
@@ -138,10 +125,10 @@ if [ -e "$restore_journal_dir" ] || [ -L "$restore_journal_dir" ]; then
         continue
       fi
       if ! grep -Eq \
-          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|in-place)$' \
+          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|DRILL_PASSED|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|drill|in-place)$' \
           "$restore_journal" \
           || [ "$(grep -Ecv \
-            '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|in-place)$' \
+            '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|DRILL_PASSED|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|drill|in-place)$' \
             "$restore_journal")" -ne 0 ]; then
         restore_invalid=1
         continue
@@ -162,7 +149,9 @@ if [ -e "$restore_journal_dir" ] || [ -L "$restore_journal_dir" ]; then
       restore_terminal=present
       if [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:PASSED:in-place ]; then
         restore_terminal=complete-in-place
-      elif [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:TEMPORARY_READY:temporary ]; then
+      elif [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:TEMPORARY_READY:temporary ] \
+          || [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:DRILL_PASSED:drill ]; then
+        # A drill never crosses the destructive boundary and removes its copy.
         restore_terminal=complete-temporary
       elif restore_journal_resolved_without_boundary "$restore_phase" "$restore_result"; then
         restore_terminal=resolved-pre-boundary
@@ -306,9 +295,18 @@ fi
 off_host_backup=not-configured
 offhost_hook="$appliance_home/secrets/backup/offhost-copy"
 deferred_hook="$root/infra/postgres/offhost-deferred.sh"
+# The host-side adapter (scripts/offhost-copy.sh) leaves the container hook at
+# its deferred default and acknowledges copies itself, so its configuration
+# counts as configured just as a replaced hook does.
+offhost_adapter="$appliance_home/secrets/backup/offhost.v1.conf"
+offhost_adapter_configured=0
+if safe_regular_file "$offhost_adapter" \
+    && [ "$(head -n 1 "$offhost_adapter" 2>/dev/null)" = LOSPOR-HOSPITAL-OFFHOST-V1 ]; then
+  offhost_adapter_configured=1
+fi
 if safe_regular_file "$offhost_hook" \
     && { [ -x "$offhost_hook" ] || [ "$test_only" = 1 ]; }; then
-  if [ -f "$deferred_hook" ] && cmp -s "$offhost_hook" "$deferred_hook"; then
+  if [ "$offhost_adapter_configured" -eq 0 ] && [ -f "$deferred_hook" ] && cmp -s "$offhost_hook" "$deferred_hook"; then
     off_host_backup=not-configured
   elif marker_read "$appliance_home/backups/.last-offhost-verified.v1" acknowledgedAtEpoch; then
     offhost_epoch="$marker_epoch"; offhost_object="$marker_object"; offhost_sha="$marker_sha"
@@ -457,33 +455,9 @@ fi
 
 update_supply="$(read_env_value HOSPITAL_UPDATE_SUPPLY_MODE 2>/dev/null || true)"
 [ -n "$update_supply" ] || update_supply=connected
-github_release_credential=missing
-ghcr_credential=missing
 case "$update_supply" in
-  offline)
-    github_release_credential=not-required
-    ghcr_credential=not-required
-    ;;
-  connected)
-    if credential_ready "$appliance_home/secrets/registry/github-release-token" \
-        "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-      github_release_credential=configured
-    fi
-    ghcr_user_ready=0; ghcr_token_ready=0
-    if credential_ready "$appliance_home/secrets/registry/ghcr-user" \
-        '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39; then
-      ghcr_user_ready=1
-    fi
-    if credential_ready "$appliance_home/secrets/registry/ghcr-token" \
-        "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-      ghcr_token_ready=1
-    fi
-    [ "$ghcr_user_ready" -eq 1 ] && [ "$ghcr_token_ready" -eq 1 ] \
-      && ghcr_credential=configured
-    ;;
-  *)
-    update_supply=invalid
-    ;;
+  offline|connected) ;;
+  *) update_supply=invalid ;;
 esac
 
 # Secrets escrow, on the same footing as off-host backup and for a starker
@@ -507,25 +481,63 @@ if [ -s "$escrow_marker" ]; then
     live_fingerprint="sha256:$(printf '%s' "$live_hmac_key" | sha256sum | awk '{ print $1 }')"
     [ "$escrow_recorded" = "$live_fingerprint" ] || key_escrow=stale
   fi
+  # The off-host encryption key is created when off-host copies are first
+  # configured, usually after the secrets were escrowed. Without it no off-host
+  # copy can be read, so an acknowledgement older than the key is stale.
+  offhost_key="$appliance_home/secrets/backup/offhost-encryption.key"
+  [ ! -f "$offhost_key" ] || [ ! "$offhost_key" -nt "$escrow_marker" ] || key_escrow=stale
 elif [ -e "$escrow_marker" ]; then
   key_escrow=invalid
 fi
 
 state_dir="$appliance_home/.data/runtime/update/state"
 mkdir -p "$state_dir"
-signal="$state_dir/host-observability.v1.json"
+signal="$state_dir/host-observability.v2.json"
 [ ! -L "$signal" ] && { [ ! -e "$signal" ] || [ -f "$signal" ]; } \
   && { [ ! -e "$signal" ] || [ "$(stat -c %h "$signal" 2>/dev/null || echo 0)" = 1 ]; } \
   || { echo HOST_OBSERVABILITY_SIGNAL_UNSAFE >&2; exit 1; }
-signal_tmp="$state_dir/.host-observability.v1.json.tmp.$$"
+signal_tmp="$state_dir/.host-observability.v2.json.tmp.$$"
 umask 022
-printf '{"schemaVersion":1,"signalType":"host-observability","observedAt":"%s","storage":"%s","clock":"%s","backup":"%s","offHostBackup":"%s","keyEscrow":"%s","updateAgent":"%s","certificate":"%s","services":"%s","restoreLock":"%s","activationLock":"%s","updateSupply":"%s","githubReleaseCredential":"%s","ghcrCredential":"%s"}\n' \
+printf '{"schemaVersion":2,"signalType":"host-observability","observedAt":"%s","storage":"%s","clock":"%s","backup":"%s","offHostBackup":"%s","keyEscrow":"%s","updateAgent":"%s","certificate":"%s","services":"%s","restoreLock":"%s","activationLock":"%s","updateSupply":"%s"}\n' \
   "$observed_at" "$storage" "$clock" "$backup" "$off_host_backup" "$key_escrow" "$update_agent" \
   "$certificate" "$services" "$restore_lock" "$activation_lock" "$update_supply" \
-  "$github_release_credential" "$ghcr_credential" \
   > "$signal_tmp"
 chmod 0644 "$signal_tmp"
 update_durable_replace "$signal_tmp" "$signal" \
   || { echo HOST_OBSERVABILITY_SIGNAL_WRITE_FAILED >&2; exit 1; }
 signal_tmp=""
+# Ubuntu's own maintenance state, in its own signal: a problem reading it must
+# never cost Status the appliance observation above.
+sh "$root/scripts/host-os-probe.sh" "$appliance_home" >/dev/null 2>&1 || true
 echo HOST_OBSERVABILITY_PUBLISHED
+
+# The terminology package folders Hospital IT has placed, by name only, so the
+# Status import form can offer them instead of asking for a name to be typed
+# exactly. A folder counts when it sits directly under reference-data, is not a
+# link, and holds a manifest.json; its contents are never read here, and the
+# import still verifies the manifest and every file itself. Its own signal, and
+# never fatal: a problem listing folders must not cost Status the observation
+# above.
+packages_json=""
+package_count=0
+reference_data="$appliance_home/reference-data"
+if [ -d "$reference_data" ] && [ ! -L "$reference_data" ]; then
+  for candidate in "$reference_data"/*; do
+    [ -d "$candidate" ] && [ ! -L "$candidate" ] \
+      && [ -f "$candidate/manifest.json" ] && [ ! -L "$candidate/manifest.json" ] || continue
+    package_name="${candidate##*/}"
+    printf '%s\n' "$package_name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$' || continue
+    [ "$package_count" -lt 20 ] || break
+    packages_json="${packages_json:+$packages_json,}\"$package_name\""
+    package_count=$((package_count + 1))
+  done
+fi
+packages_signal="$state_dir/terminology-packages.v1.json"
+if [ ! -L "$packages_signal" ] && { [ ! -e "$packages_signal" ] || [ -f "$packages_signal" ]; }; then
+  signal_tmp="$state_dir/.terminology-packages.v1.json.tmp.$$"
+  printf '{"schemaVersion":1,"signalType":"terminology-packages","observedAt":"%s","packages":[%s]}\n' \
+    "$observed_at" "$packages_json" > "$signal_tmp" \
+    && chmod 0644 "$signal_tmp" \
+    && update_durable_replace "$signal_tmp" "$packages_signal" \
+    && signal_tmp="" || true
+fi

@@ -12,6 +12,7 @@ import type {
   IncidentView,
   OperationalEventView,
 } from "./types.js"
+import type { GoLiveSignoff } from "./go-live.js"
 import { dayKey, safeJsonParse } from "./util.js"
 
 const INITIAL_STATUS_ADMIN_ID = "initial-chief"
@@ -430,8 +431,38 @@ export class StatusDatabase {
         snapshot_json TEXT NOT NULL,
         received_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS go_live_signoffs (
+        item TEXT PRIMARY KEY CHECK (item IN (
+          'restore-drill', 'network-verified', 'mfa-recovery-stored',
+          'host-patch-policy', 'clinical-acceptance'
+        )),
+        operator_ref TEXT NOT NULL,
+        note TEXT NOT NULL,
+        signed_at INTEGER NOT NULL
+      );
     `)
     this.migrateMultiAdminAuth()
+  }
+
+  listGoLiveSignoffs(): GoLiveSignoff[] {
+    return this.sqlite.prepare(
+      "SELECT item, operator_ref, note, signed_at FROM go_live_signoffs ORDER BY item",
+    ).all().map(row => {
+      const value = row as { item: GoLiveSignoff["item"]; operator_ref: string; note: string; signed_at: number }
+      return { item: value.item, operatorRef: value.operator_ref, note: value.note, signedAt: value.signed_at }
+    })
+  }
+
+  recordGoLiveSignoff(signoff: GoLiveSignoff): void {
+    this.sqlite.prepare(`
+      INSERT INTO go_live_signoffs(item, operator_ref, note, signed_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(item) DO UPDATE SET
+        operator_ref = excluded.operator_ref, note = excluded.note, signed_at = excluded.signed_at
+    `).run(signoff.item, signoff.operatorRef, signoff.note, signoff.signedAt)
+  }
+
+  withdrawGoLiveSignoff(item: GoLiveSignoff["item"]): boolean {
+    return this.sqlite.prepare("DELETE FROM go_live_signoffs WHERE item = ?").run(item).changes === 1
   }
 
   /**
@@ -1348,6 +1379,37 @@ export class StatusDatabase {
         credential_generation, auth_kind
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(tokenHash, adminId, now, now, now + 8 * 60 * 60_000, generation, kind)
+  }
+
+  /** When an operational event with this code last happened, or null. */
+  latestOperationalEventAt(code: string): number | null {
+    try {
+      const row = this.sqlite.prepare(
+        "SELECT MAX(occurred_at) AS occurred_at FROM operational_events WHERE code = ?",
+      ).get(code) as { occurred_at: number | null } | undefined
+      return row?.occurred_at ?? null
+    } catch {
+      this.historyStorageHealthy = false
+      return null
+    }
+  }
+
+  /** The enrolled TOTP secret, encrypted, for a sensitive action's fresh MFA check. */
+  getStatusAdminMfaSecretCiphertext(adminId: string, generation: number): string | null {
+    const row = this.sqlite.prepare(`
+      SELECT secret_ciphertext FROM status_admin_mfa_state
+      WHERE admin_id = ? AND credential_generation = ?
+    `).get(adminId, generation) as { secret_ciphertext: string } | undefined
+    return row?.secret_ciphertext ?? null
+  }
+
+  /** Spends a TOTP step, so one code cannot confirm twice. */
+  consumeStatusAdminTotpStep(adminId: string, generation: number, step: number): boolean {
+    return this.sqlite.prepare(`
+      UPDATE status_admin_mfa_state SET last_totp_step = ?
+      WHERE admin_id = ? AND credential_generation = ?
+        AND (last_totp_step IS NULL OR last_totp_step < ?)
+    `).run(step, adminId, generation, step).changes === 1
   }
 
   statusAdminSessionPrincipal(tokenHash: string, now: number): StatusSessionPrincipal | null {

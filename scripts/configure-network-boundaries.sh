@@ -67,12 +67,27 @@ env_link="$root/.env"
 }
 env_real="$(readlink -f "$env_link")"
 case "$env_real" in ""|/) operator_error "Unsafe .env path." "Опасен път до .env."; exit 1 ;; esac
-candidate="${env_real}.network-candidate.$$"
-rollback="${env_real}.network-rollback.$$"
-cleanup() { rm -f "$candidate" "$rollback"; }
-trap cleanup EXIT HUP INT TERM
+# Allowlists are site settings: the change is made to site.env and .env is
+# recompiled, first into a private candidate that is validated, then for real.
+. "$root/scripts/site-config.sh"
+site_config_ensure_split "$appliance_home"
+site_real="$appliance_home/site.env"
 umask 077
+candidate_home="$(mktemp -d)"
+candidate="$candidate_home/.env"
+rollback="${env_real}.network-rollback.$"
+rollback_site="${site_real}.network-rollback.$"
+cleanup() { rm -rf "$candidate_home"; rm -f "$rollback" "$rollback_site"; }
+trap cleanup EXIT HUP INT TERM
 cp "$env_real" "$rollback"
+cp "$site_real" "$rollback_site"
+mkdir "$candidate_home/secrets"
+cp "$appliance_home/secrets/appliance.env" "$candidate_home/secrets/appliance.env"
+restore_prior() {
+  cp "$rollback_site" "$site_real"
+  cp "$rollback" "$env_real"
+  chmod 600 "$site_real" "$env_real"
+}
 
 awk -v research="$research" -v status="$status" -v allow="$allow_value" '
   BEGIN { seen_research=0; seen_status=0; seen_allow=0 }
@@ -91,8 +106,9 @@ awk -v research="$research" -v status="$status" -v allow="$allow_value" '
     if (!seen_status) print "HOSPITAL_STATUS_ALLOWED_CIDRS=\"" status "\""
     if (!seen_allow) print "HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=" allow
   }
-' "$env_real" > "$candidate"
-chmod 600 "$candidate"
+' "$site_real" > "$candidate_home/site.env"
+chmod 600 "$candidate_home/site.env"
+site_config_compile "$candidate_home" || exit 1
 
 # Resolve Compose and parse the exact mode-expanded Caddyfile before replacing
 # the working configuration. The candidate is never loaded into the running
@@ -114,14 +130,16 @@ printf 'LOSPOR-HOSPITAL-NETWORK-V1\t%s\t%s\t%s\n' \
 chmod 600 "${last_good}.tmp.$$"
 mv "${last_good}.tmp.$$" "$last_good"
 
-mv "$candidate" "$env_real"
+cp "$candidate_home/site.env" "$site_real.network-apply.$"
+mv -f "$site_real.network-apply.$" "$site_real"
+cp "$candidate" "$env_real.network-apply.$"
+mv -f "$env_real.network-apply.$" "$env_real"
 if ! docker compose up -d --no-deps --force-recreate caddy; then
-  cp "$rollback" "$env_real"
-  chmod 600 "$env_real"
+  restore_prior
   docker compose up -d --no-deps --force-recreate caddy >/dev/null 2>&1 || true
   operator_error \
-    "The new boundary could not start. The prior .env was restored." \
-    "Новата мрежова граница не можа да се стартира. Предишният .env е възстановен."
+    "The new boundary could not start. The prior site.env and .env were restored." \
+    "Новата мрежова граница не можа да се стартира. Предишните site.env и .env са възстановени."
   exit 1
 fi
 

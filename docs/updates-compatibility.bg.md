@@ -4,17 +4,25 @@
 
 ## Как сайтът получава версия
 
+**Версии, които все още съществуват.** На 15 септември 2026 г., преди първите
+изпълнения за 1.4.0, версиите от 1.0.0 до 1.3.2 бяха оттеглени: техните GitHub
+Releases и GHCR образи бяха изтрити, а git таговете им са запазени като
+история. Остава 1.3.3 като последната работеща версия преди 1.4.0. 1.4.0 се
+инсталира наново; никоя болница не използва по-ранна версия, затова няма път за
+обновяване от 1.3.x.
+
 Hospital images се изграждат еднократно като CI candidate от точен tag
 `hospital-MAJOR.MINOR.PATCH`. Поддържащият преглежда обвързаните с run
 publication request и SHA-256 на release lock, след което ръчно задейства
 публикуването с произведения offline необработен Ed25519 signature и отделно
 записания му SHA-256. Публикуването проверява signature два пъти, след което
 повишава вече тестваните image identities, без да ги изгражда повторно. Всичките
-десет release images се изграждат и сканират в частния GHCR namespace на LOSPOR
+десет release images се изграждат и сканират в публичния GHCR namespace на LOSPOR
 и се записват в release lock. Клиентът не ги компилира и никога не използва
 `latest`.
 
-Хранилището, GitHub Releases и GHCR packages остават частни. Акаунтът на
+Хранилището, GitHub Releases и GHCR packages са публични; публичността не е
+част от модела на доверие. Акаунтът на
 поддържащия използва MFA, публикуването изисква отделни version-bound
 потвърждения за публикацията и Immutable Releases, а полученият GitHub Release
 трябва да е immutable. SHA-256 и image-digest проверките откриват промени спрямо
@@ -44,19 +52,16 @@ runtime data и patient data остават в постоянното appliance 
 командата, когато инсталацията умишлено работи в console-only mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
 ```
 
 Root-owned preparer приема само semantic version и незадължителен request ID с
 фиксирана форма. Сам избира repository, tag, asset names, paths и verification
-commands. Revocable read-only GitHub Releases token се чете от
-`secrets/registry/github-release-token`; съществуващите read-only GHCR данни
-остават в `secrets/registry/ghcr-user` и `secrets/registry/ghcr-token`. Никое
-credential не се изпраща към Status или пази в неговото state. GitHub token се
-използва само в private `curl` configuration и никога не се препраща към
-asset-storage redirect. GHCR launcher продължава да използва throwaway Docker
-configuration и я изтрива при всеки exit path. Не изпълнявайте `docker login`
-ръчно.
+commands. Release metadata и assets се
+четат анонимно от публичния GitHub Release, а образите се изтеглят анонимно в
+throwaway Docker configuration, която се изтрива при всеки exit path. Системата
+не пази данни за достъп до GitHub или регистъра. Не изпълнявайте
+`docker login` ръчно.
 
 Preparation отказва draft, prerelease, mutable release, грешен tag или commit,
 грешен publication marker, липсващ/допълнителен/повторен asset, несъвпадащи
@@ -73,7 +78,7 @@ policy или OCI identity mismatch. След това изтегля точни
 Свързан сайт може да попита registry какво е публикувано:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/check-for-update.sh
+sudo sh /opt/lospor-hospital/current/scripts/check-for-update.sh
 ```
 
 Командата само чете. Не изтегля, не променя и записва отговора в
@@ -92,14 +97,14 @@ appliance не трябва да съобщава, че е актуален, з�
 пълната identity verification, след което спира:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
 ```
 
 Нищо работещо не се засяга. След това приложете само точния descriptor, записан
 от preparation:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.0 -
 ```
 
 Apply командата проверява отново descriptor, installed identity, от която е
@@ -131,17 +136,17 @@ raw 64-byte `.sig` и всички подредени offline parts. За същ
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock \
-  /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock.sha256 \
-  /media/lospor-1.3.0
+  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock \
+  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock.sha256 \
+  /media/lospor-1.4.0
 ```
 
-Първата инсталация още няма trusted `current` launcher. Следвайте
-[процедурата за bootstrap при първа инсталация](release-validation.bg.md#проверка-и-инсталиране-при-клиента):
-проверете deployment archive спрямо отделно запазения lock SHA-256, извлечете го
-в новата постоянна bootstrap directory, свържете тази директория с appliance
-home и след това използвайте нейния production launcher. Не изпълнявайте
-launcher направо от непроверен archive и не подавайте custom install command.
+Първата инсталация още няма trusted `current` launcher. Използвайте
+[`losporctl-install.sh`](release-validation.bg.md#проверка-и-инсталиране-при-клиента):
+той проверява подписания lock и deployment archive, извлича го в нова bootstrap
+directory, свързана с appliance home, фиксира ключа и предава управлението на
+водената инсталация. Не изпълнявайте launcher направо от непроверен archive и
+не подавайте custom install command.
 
 И двата launchers проверяват и stage-ват checksum-covered deployment archive,
 след което извикват собствените installer или updater на candidate kit. Така
@@ -174,7 +179,7 @@ images, преди да започне update. Sidecar открива повре
 може да замени едновременно него и lock, може да създаде съвпадаща двойка.
 
 При update, пренасян на ръка, поддържащият изтегля assets само от прегледания
-private immutable GitHub Release върху чист криптиран USB, проверява bundle,
+immutable GitHub Release върху чист криптиран USB, проверява bundle,
 записва неговия lock SHA-256 и запазва физически контрол до on-site
 инсталацията. Не смесвайте assets от различни версии и не използвайте носителя
 за несвързани файлове. Вижте [Проверка на Hospital
@@ -231,7 +236,7 @@ credential stores още не са инициализирани. Никога н
 или несъответствие на generations; прегледайте безопасното state с:
 
 ```sh
-./scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
 ```
 
 Database migrations са backward-compatible само когато подписаното

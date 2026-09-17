@@ -518,6 +518,17 @@ export type HospitalEhrTransportPolicy = Prisma.HospitalEhrTransportPolicyModel
  */
 export type HospitalEhrLabCodeMap = Prisma.HospitalEhrLabCodeMapModel
 /**
+ * Model HospitalEhrCodeSystem
+ * What a hospital's coding-system addresses mean.
+ * 
+ * NHIS publishes no FHIR address for its lists, so every vendor invents one.
+ * An address that names the list ("…/CL013", "urn:x:ksmp") is recognised on
+ * its own; any other is recorded here when it arrives, and an operator says
+ * once which list it is. The import is never blocked while one is waiting:
+ * its codes arrive as the hospital labelled them.
+ */
+export type HospitalEhrCodeSystem = Prisma.HospitalEhrCodeSystemModel
+/**
  * Model CentralDeliveryBatch
  * 
  */

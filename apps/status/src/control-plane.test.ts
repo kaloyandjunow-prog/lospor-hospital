@@ -172,6 +172,7 @@ const VIEW = {
   // nothing mapped. The view has to be valid in that state, not only once a
   // hospital has been sending for a week.
   ehrLabCodes: { unmapped: [], mapped: [], tests: [] },
+  ehrCodeSystems: { waiting: [], answered: [] },
 } as const
 
 function json(value: unknown, status = 200) {

@@ -25,10 +25,15 @@ env_value() {
     | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//'
 }
 
+# Backup identity and fingerprints are generated values, so they belong to
+# secrets/appliance.env; .env is recompiled so the next read sees them.
+. "$root/scripts/site-config.sh"
+if [ -d "$root/.lospor-home" ]; then config_home="$(CDPATH= cd -- "$root/.lospor-home" && pwd -P)"; else config_home="$root"; fi
+site_config_ensure_split "$config_home"
+
 append_env() {
-  key="$1"
-  value="$2"
-  printf '%s=%s\n' "$key" "$value" >> "$env_file"
+  site_config_set "$config_home/secrets/appliance.env" "$1" "$2"
+  site_config_compile "$config_home"
 }
 
 require_or_append() {

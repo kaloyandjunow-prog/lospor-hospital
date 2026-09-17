@@ -129,6 +129,7 @@ export const ModelName = {
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
   HospitalEhrTransportPolicy: 'HospitalEhrTransportPolicy',
   HospitalEhrLabCodeMap: 'HospitalEhrLabCodeMap',
+  HospitalEhrCodeSystem: 'HospitalEhrCodeSystem',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
@@ -456,6 +457,7 @@ export const ConceptMapScalarFieldEnum = {
   sourceLabelBg: 'sourceLabelBg',
   standardVocabulary: 'standardVocabulary',
   standardConceptId: 'standardConceptId',
+  standardConceptIds: 'standardConceptIds',
   standardLabel: 'standardLabel',
   mappingStatus: 'mappingStatus',
   sourceVersion: 'sourceVersion',
@@ -1099,6 +1101,7 @@ export const PreopDiagnosisScalarFieldEnum = {
   sourceVocabulary: 'sourceVocabulary',
   sourceCode: 'sourceCode',
   standardConceptId: 'standardConceptId',
+  standardConceptIds: 'standardConceptIds',
   mappingStatus: 'mappingStatus',
   source: 'source',
   clinicalSource: 'clinicalSource',
@@ -1145,6 +1148,7 @@ export const ComorbidityScalarFieldEnum = {
   sourceVocabulary: 'sourceVocabulary',
   sourceCode: 'sourceCode',
   standardConceptId: 'standardConceptId',
+  standardConceptIds: 'standardConceptIds',
   mappingStatus: 'mappingStatus',
   source: 'source',
   clinicalSource: 'clinicalSource',
@@ -1610,6 +1614,9 @@ export const HospitalExternalAiPolicyScalarFieldEnum = {
   policyChangedAt: 'policyChangedAt',
   policyChangedById: 'policyChangedById',
   policyChangeReason: 'policyChangeReason',
+  advisorModel: 'advisorModel',
+  visionModel: 'visionModel',
+  modelsChangedAt: 'modelsChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1657,6 +1664,8 @@ export const HospitalEhrTransportPolicyScalarFieldEnum = {
   transportChangedAt: 'transportChangedAt',
   transportChangedById: 'transportChangedById',
   transportChangeReason: 'transportChangeReason',
+  stagingRetentionDays: 'stagingRetentionDays',
+  stagingRetentionChangedAt: 'stagingRetentionChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1680,6 +1689,23 @@ export const HospitalEhrLabCodeMapScalarFieldEnum = {
 } as const
 
 export type HospitalEhrLabCodeMapScalarFieldEnum = (typeof HospitalEhrLabCodeMapScalarFieldEnum)[keyof typeof HospitalEhrLabCodeMapScalarFieldEnum]
+
+
+export const HospitalEhrCodeSystemScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  list: 'list',
+  seenIn: 'seenIn',
+  sampleCode: 'sampleCode',
+  sampleLabel: 'sampleLabel',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  answeredAt: 'answeredAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrCodeSystemScalarFieldEnum = (typeof HospitalEhrCodeSystemScalarFieldEnum)[keyof typeof HospitalEhrCodeSystemScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {

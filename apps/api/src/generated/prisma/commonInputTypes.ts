@@ -1129,6 +1129,23 @@ export type EnumEhrAuthModeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
 }
 
+export type EnumHospitalEhrCodeListNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalEhrCodeList | Prisma.EnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  in?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel> | $Enums.HospitalEhrCodeList | null
+}
+
+export type EnumHospitalEhrCodeListNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalEhrCodeList | Prisma.EnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  in?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumHospitalEhrCodeListNullableWithAggregatesFilter<$PrismaModel> | $Enums.HospitalEhrCodeList | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel>
+}
+
 export type EnumCentralDeliveryStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.CentralDeliveryStatus | Prisma.EnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
   in?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
@@ -2205,6 +2222,23 @@ export type NestedEnumEhrAuthModeWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
   _max?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
+}
+
+export type NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalEhrCodeList | Prisma.EnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  in?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel> | $Enums.HospitalEhrCodeList | null
+}
+
+export type NestedEnumHospitalEhrCodeListNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalEhrCodeList | Prisma.EnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  in?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.HospitalEhrCodeList[] | Prisma.ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumHospitalEhrCodeListNullableWithAggregatesFilter<$PrismaModel> | $Enums.HospitalEhrCodeList | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumHospitalEhrCodeListNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumCentralDeliveryStatusFilter<$PrismaModel = never> = {

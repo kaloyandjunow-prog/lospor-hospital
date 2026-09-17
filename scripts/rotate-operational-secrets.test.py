@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -23,20 +24,30 @@ class OperationalSecretRotationTest(unittest.TestCase):
         (self.root / ".data").mkdir(mode=0o700)
         self.old = {
             "HOSPITAL_POSTGRES_PASSWORD": "1" * 64,
+            "HOSPITAL_POSTGRES_APP_PASSWORD": "a" * 64,
             "LOSPOR_AUTH_SECRET": "2" * 96,
             "HOSPITAL_WORKER_TOKEN": "3" * 64,
             "RESEARCH_EXPORT_WORKER_SECRET": "4" * 64,
             "CRON_SECRET": "5" * 64,
             "OPTION_LIBRARY_SNAPSHOT_SECRET": "6" * 64,
         }
-        env_lines = [
-            "LOSPOR_DEFAULT_LOCALE=en",
-            *(f"{key}={value}" for key, value in self.old.items()),
-            "HOSPITAL_OPERATIONAL_SECRET_GENERATION=1",
-        ]
+        # The configuration a real installation has: site choices in site.env,
+        # generated secrets in secrets/appliance.env, and .env compiled from both.
+        site = self.root / "site.env"
+        site.write_text("LOSPOR_DEFAULT_LOCALE=en\n", encoding="utf-8")
+        site.chmod(0o600)
+        self.appliance_env = self.root / "secrets" / "appliance.env"
+        self.appliance_env.write_text(
+            "".join(f"{key}={value}\n" for key, value in self.old.items())
+            + "HOSPITAL_OPERATIONAL_SECRET_GENERATION=1\n",
+            encoding="utf-8",
+        )
+        self.appliance_env.chmod(0o600)
+        subprocess.run(
+            ["sh", str(SCRIPT.with_name("site-config.sh")), "compile", str(self.root)],
+            check=True,
+        )
         self.env_path = self.root / ".env"
-        self.env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-        self.env_path.chmod(0o600)
         self.old_status = {}
         for index, name in enumerate((
             "snapshot-token", "account-control-token", "api-event-token", "db-probe-password",
@@ -60,11 +71,12 @@ class OperationalSecretRotationTest(unittest.TestCase):
         fail_label: str | None = None,
         fail_point: str | None = None,
         locale: str | None = None,
+        root: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         environment = {
             **os.environ,
             "HOSPITAL_SECRET_ROTATION_TEST_ONLY": "1",
-            "HOSPITAL_SECRET_ROTATION_ROOT": str(self.root),
+            "HOSPITAL_SECRET_ROTATION_ROOT": str(root or self.root),
             "HOSPITAL_SECRET_ROTATION_DOCKER_LOG": str(self.docker_log),
             "PYTHONIOENCODING": "utf-8",
         }
@@ -153,6 +165,13 @@ class OperationalSecretRotationTest(unittest.TestCase):
         self.assertEqual(values["HOSPITAL_OPERATIONAL_SECRET_GENERATION"], "2")
         for key, old in self.old.items():
             self.assertNotEqual(values[key], old)
+        # The API's restricted role moves with the owner role, in the database too.
+        # Three role alters: lospor and lospor_app, then the Status probe.
+        role_alters = [
+            call for call in map(json.loads, self.docker_log.read_text(encoding="utf-8").splitlines())
+            if call["arguments"][:6] == ["exec", "-T", "--user", "postgres", "postgres", "psql"] and call["hadStdin"]
+        ]
+        self.assertEqual(len(role_alters), 3)
         for key in (
             "HOSPITAL_WORKER_TOKEN_PREVIOUS",
             "RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS",
@@ -202,10 +221,38 @@ class OperationalSecretRotationTest(unittest.TestCase):
         ]
         self.assertEqual(phases[-1], "ROLLED_BACK")
 
+    @unittest.skipIf(os.name == "nt", "the installed release layout is built from POSIX symlinks")
+    def test_an_installed_release_rotates_the_appliance_home_under_the_shared_lock(self) -> None:
+        # An installed appliance runs every script from
+        # .data/releases/<version>/lospor-hospital-<version>, where .env and
+        # secrets are symlinks into the appliance home and .data is
+        # .data/runtime. Rotation used to refuse the symlinked .env there, and
+        # would otherwise have locked .data/runtime/io-mutation.lock instead of
+        # the .data/io-mutation.lock that backup, install and update hold.
+        (self.root / ".data" / "runtime").mkdir(mode=0o700)
+        release = self.root / ".data" / "releases" / "9.9.9" / "lospor-hospital-9.9.9"
+        release.mkdir(parents=True)
+        (release / ".env").symlink_to(self.env_path)
+        (release / "secrets").symlink_to(self.root / "secrets")
+        (release / ".data").symlink_to(self.root / ".data" / "runtime")
+        (release / ".lospor-home").symlink_to(self.root)
+
+        prepared = self.run_command("prepare", "ordinary", root=release)
+        self.assertEqual(prepared.returncode, 0, prepared.stderr)
+        committed = self.run_command("commit", root=release)
+        self.assertEqual(committed.returncode, 0, committed.stderr)
+
+        self.assertEqual(self.env_values()["HOSPITAL_OPERATIONAL_SECRET_GENERATION"], "2")
+        self.assertTrue((release / ".env").is_symlink(), "the release link must not be replaced by a file")
+        self.assertTrue((self.root / ".data" / "io-mutation.lock").exists())
+        self.assertFalse((self.root / ".data" / "runtime" / "io-mutation.lock").exists())
+        self.assertTrue((self.root / ".data" / "security" / "secret-rotations.v1.jsonl").exists())
+        self.assertFalse((self.root / ".data" / "runtime" / "security").exists())
+
     def test_protected_environment_hardlink_is_refused(self) -> None:
         alias = self.root / "env-alias"
         try:
-            os.link(self.env_path, alias)
+            os.link(self.appliance_env, alias)
         except OSError:
             self.skipTest("hard links are unavailable")
         result = self.run_command("state")
@@ -253,6 +300,31 @@ class OperationalSecretRotationTest(unittest.TestCase):
         self.assertEqual(self.env_values()["LOSPOR_AUTH_SECRET"], replacement)
         self.assert_no_secret_output(committed, [*self.old.values(), replacement])
         self.assert_no_secret_output(cleaned, [*self.old.values(), replacement])
+
+    # The two checks below never ran in test mode, and both failed every real
+    # database, workers or Status-token rotation. Found on a real appliance.
+    def test_retired_database_passwords_are_checked_where_passwords_are_enforced(self) -> None:
+        source = SCRIPT.read_text(encoding="utf-8")
+        verify = source[source.index("def _verify_db_password"):source.index("def _status_event_file")]
+        # The PostgreSQL image trusts loopback, so a retired password "works" there.
+        self.assertNotIn("-h 127.0.0.1", verify)
+        self.assertNotIn("-h localhost", verify)
+        self.assertNotIn("-h ::1", verify)
+        self.assertIn("-h postgres ", verify)
+
+    @unittest.skipUnless(shutil.which("node"), "needs Node to run the retired-credential check")
+    def test_the_retired_credential_check_runs_and_reports_a_mismatch(self) -> None:
+        source = SCRIPT.read_text(encoding="utf-8")
+        start = source.index('script = r"""', source.index("def _verify_retired_http_credentials")) + len('script = r"""')
+        script = source[start:source.index('"""', start)]
+        nothing_to_check = subprocess.run(["node", "-e", script], input="{}", text=True, capture_output=True, check=False)
+        self.assertEqual(nothing_to_check.returncode, 0, nothing_to_check.stderr)
+        unreachable = subprocess.run(
+            ["node", "-e", script], input=json.dumps({"CRON_SECRET": "x" * 64}), text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(unreachable.returncode, 1)
+        self.assertIn("RETIRED_CREDENTIAL_CHECK", unreachable.stderr)
+        self.assertNotIn("x" * 64, unreachable.stderr)
 
 
 if __name__ == "__main__":

@@ -138,6 +138,12 @@ export type ControlPlaneView = {
     credentialConfiguredAt: string | null
     credentialChangedAt: string | null
     policyChangedAt: string | null
+    // Absent from an API older than 1.4.0, which had no model choice.
+    advisorModel?: string
+    visionModel?: string
+    advisorModelOptions?: string[]
+    visionModelOptions?: string[]
+    modelsChangedAt?: string | null
     updatedAt: string | null
   }
   patientIdentifier: {
@@ -173,6 +179,9 @@ export type ControlPlaneView = {
     credentialConfiguredAt: string | null
     credentialChangedAt: string | null
     transportChangedAt: string | null
+    /** Days staged EHR imports are kept before deletion (1 to 14). */
+    stagingRetentionDays?: number
+    stagingRetentionChangedAt?: string | null
     updatedAt: string | null
   }
   /**
@@ -202,6 +211,29 @@ export type ControlPlaneView = {
     }[]
     tests: { name: string; unit: string; category: string }[]
   }
+  /**
+   * What this hospital's coding-system addresses mean. NHIS publishes no
+   * address for its lists, so an address that does not name its list is asked
+   * about here once it has arrived, or typed in from a vendor's documentation.
+   */
+  ehrCodeSystems: {
+    waiting: EhrCodeSystemRow[]
+    answered: EhrCodeSystemRow[]
+  }
+}
+
+export const EHR_CODE_LIST_ANSWERS = ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] as const
+export type EhrCodeListAnswer = (typeof EHR_CODE_LIST_ANSWERS)[number]
+
+export type EhrCodeSystemRow = {
+  system: string
+  list: EhrCodeListAnswer | null
+  seenIn: string[]
+  sampleCode: string | null
+  sampleLabel: string | null
+  seenCount: number
+  lastSeenAt: string | null
+  answeredAt: string | null
 }
 
 type ClinicalBaselineProfileCounts = {
@@ -281,6 +313,7 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   removeExternalAiCredential(reason: string): Promise<void>
+  setExternalAiModels(input: { advisorModel: string; visionModel: string; reason: string }): Promise<void>
   setPatientIdentifierPolicy(input: {
     egnPermitted: boolean
     reason: string
@@ -289,6 +322,8 @@ export interface ControlPlanePort {
     transport: "FOLDER" | "FHIR" | "HL7V2" | null
     reason: string
   }): Promise<void>
+  /** How many days staged EHR imports are kept before they are deleted. */
+  setEhrStagingRetention(input: { days: number; reason: string }): Promise<void>
   /**
    * Where a network transport sends, and how it presents itself.
    *
@@ -352,6 +387,11 @@ export interface ControlPlanePort {
     assumedUnit: string | null
   }): Promise<void>
   unmapEhrLabCode(input: { system: string; code: string }): Promise<void>
+  /**
+   * Say which code list an address stands for, or take the answer back with
+   * null. No password, for the lab map's reason; audited.
+   */
+  answerEhrCodeSystem(input: { system: string; list: EhrCodeListAnswer | null }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -371,6 +411,10 @@ const finiteInteger = (value: unknown, maximum = 1_000_000_000): value is number
   typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= maximum
 const hash = (value: unknown): value is string => text(value, 64) && /^[a-f0-9]{64}$/.test(value)
 const nullableHash = (value: unknown): value is string | null => value === null || hash(value)
+const modelName = (value: unknown): value is string => typeof value === "string" && /^[a-z0-9][a-z0-9.-]{0,63}$/.test(value)
+const optionalModel = (value: unknown) => value === undefined || modelName(value)
+const optionalModelList = (value: unknown) =>
+  value === undefined || (Array.isArray(value) && value.length <= 20 && value.every(modelName))
 
 function certificate(value: unknown): CertificateView | null | false {
   if (value === null) return null
@@ -560,7 +604,12 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.externalAi.credentialConfiguredAt)
     || !nullableIso(value.externalAi.credentialChangedAt)
     || !nullableIso(value.externalAi.policyChangedAt)
-    || !nullableIso(value.externalAi.updatedAt)) return null
+    || !nullableIso(value.externalAi.updatedAt)
+    || !optionalModel(value.externalAi.advisorModel)
+    || !optionalModel(value.externalAi.visionModel)
+    || !optionalModelList(value.externalAi.advisorModelOptions)
+    || !optionalModelList(value.externalAi.visionModelOptions)
+    || !(value.externalAi.modelsChangedAt === undefined || nullableIso(value.externalAi.modelsChangedAt))) return null
   if (typeof value.patientIdentifier.egnPermitted !== "boolean"
     || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
     || !nullableIso(value.patientIdentifier.changedAt)
@@ -578,9 +627,29 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.ehrTransport.credentialConfiguredAt)
     || !nullableIso(value.ehrTransport.credentialChangedAt)
     || !nullableIso(value.ehrTransport.transportChangedAt)
+    || !(value.ehrTransport.stagingRetentionDays === undefined
+      || (Number.isInteger(value.ehrTransport.stagingRetentionDays)
+        && Number(value.ehrTransport.stagingRetentionDays) >= 1 && Number(value.ehrTransport.stagingRetentionDays) <= 14))
+    || !(value.ehrTransport.stagingRetentionChangedAt === undefined || nullableIso(value.ehrTransport.stagingRetentionChangedAt))
     || !nullableIso(value.ehrTransport.updatedAt)) return null
   if (!ehrLabCodesShape(value.ehrLabCodes)) return null
+  if (!ehrCodeSystemsShape(value.ehrCodeSystems)) return null
   return value as unknown as ControlPlaneView
+}
+
+/** Validated for the lab map's reason: its rows become answers in a form. */
+function ehrCodeSystemsShape(value: unknown): boolean {
+  if (!isRecord(value) || !Array.isArray(value.waiting) || !Array.isArray(value.answered)) return false
+  const row = (entry: unknown, answered: boolean): boolean => isRecord(entry)
+    && typeof entry.system === "string" && entry.system.trim().length > 0 && entry.system.length <= 2048
+    && (answered
+      ? EHR_CODE_LIST_ANSWERS.includes(entry.list as EhrCodeListAnswer)
+      : entry.list === null)
+    && Array.isArray(entry.seenIn) && entry.seenIn.every(field => text(field, 32))
+    && nullableText(entry.sampleCode, 512) && nullableText(entry.sampleLabel, 512)
+    && finiteInteger(entry.seenCount, 1_000_000_000)
+    && nullableIso(entry.lastSeenAt) && nullableIso(entry.answeredAt)
+  return value.waiting.every(entry => row(entry, false)) && value.answered.every(entry => row(entry, true))
 }
 
 /**
@@ -699,6 +768,9 @@ export class ControlPlaneClient implements ControlPlanePort {
   removeExternalAiCredential(reason: string): Promise<void> {
     return this.mutate("/external-ai/credential", { reason }, "DELETE")
   }
+  setExternalAiModels(input: Parameters<ControlPlanePort["setExternalAiModels"]>[0]): Promise<void> {
+    return this.mutate("/external-ai/models", input)
+  }
   setPatientIdentifierPolicy(
     input: Parameters<ControlPlanePort["setPatientIdentifierPolicy"]>[0],
   ): Promise<void> {
@@ -708,6 +780,11 @@ export class ControlPlaneClient implements ControlPlanePort {
     input: Parameters<ControlPlanePort["setEhrTransportPolicy"]>[0],
   ): Promise<void> {
     return this.mutate("/ehr-transport/policy", input)
+  }
+  setEhrStagingRetention(
+    input: Parameters<ControlPlanePort["setEhrStagingRetention"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/retention", input)
   }
   setEhrTransportEndpoint(
     input: Parameters<ControlPlanePort["setEhrTransportEndpoint"]>[0],
@@ -751,5 +828,8 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   unmapEhrLabCode(input: Parameters<ControlPlanePort["unmapEhrLabCode"]>[0]): Promise<void> {
     return this.mutate("/ehr-lab-codes", { action: "unmap", ...input })
+  }
+  answerEhrCodeSystem(input: Parameters<ControlPlanePort["answerEhrCodeSystem"]>[0]): Promise<void> {
+    return this.mutate("/ehr-code-systems", input)
   }
 }

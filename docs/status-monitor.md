@@ -86,12 +86,49 @@ source files, source paths, database names, logs, credentials, or patient data.
 A normal password+MFA session can request import, exact-package resume,
 rollback, and destructive finalization after fresh password reauthentication
 and an action-specific confirmation. A console-recovery session is read-only.
-The browser supplies only a fixed action and one direct package-directory label;
+The browser supplies only a fixed action and one direct package-directory label,
+chosen from the package folders the host probe found (by name, those holding a
+`manifest.json`) or typed;
 the root host agent maps that intent to the packaged scripts and shares the
 backup/update maintenance lock. Console-only or stale-agent state disables the
 buttons. An interrupted mutation is never retried automatically. See
 [Terminology import](terminology-import.md) for the package, manifest, go-live,
 rollback, privacy, and host-recovery contracts.
+
+## Maintenance
+
+Open **Maintenance** to back up now, run a restore drill, or change site
+settings without a console. Every action shows what it needs, whether it
+interrupts service, whether a backup is taken first, what cannot be undone, and
+what is checked afterwards. All of them share the maintenance lock with backups,
+updates and terminology.
+
+- **Back up now** takes an ordinary verified backup.
+- **Restore drill** restores the newest backup into a separate temporary
+  database, migrates and validates it, then removes the copy. The live database
+  and clinical services are not touched. The last ten results stay on the page;
+  record a passed drill on **Go-live**.
+- **Site settings** change the network lists, the clinicians' support contact,
+  the sign-in e-mail sender, the certificate notice e-mail, the default
+  language, and the update route, window and time zone. The page shows the exact
+  change first. Applying it takes the administrator password, and the
+  confirmation is bound to this session and to that exact change. A Status
+  network list that would exclude the computer making the change is refused.
+  As installed, Status is open to every private network and Research to none;
+  **Needs attention today** and **Go-live** say so until IT sets both lists here, and
+  that change also turns the all-private-networks switch off.
+  Names, certificate mode, ports and the all-private-networks switch change the
+  address Status is reached at, so they stay at the console
+  (`sudo losporctl config plan`).
+
+A password+MFA session can request these; a console-recovery session only
+views. The browser sends a fixed action or, for settings, the complete proposed
+`site.env`. The root host agent checks the proposal's digest, the settings
+contract and which settings changed before it applies anything, runs the health
+check, and restores the previous settings if that fails. A request that waited
+more than 15 minutes is refused rather than run. An interrupted settings change
+waits for Hospital IT at the console. In-place restore and recovery stay
+console-only.
 
 ## Access
 
@@ -102,7 +139,7 @@ https://<clinical-domain>/status/
 ```
 
 Caddy permits this path only from `HOSPITAL_STATUS_ALLOWED_CIDRS`; the Status
-login is still required after that network check. Set the allowlist in `.env`
+login is still required after that network check. Set the allowlist in `site.env`
 to the exact hospital management, VPN, or trusted LAN ranges that should have
 access. Do not make it an unrestricted public range.
 
@@ -211,8 +248,8 @@ arguments or environment variables.
 Check synchronization without printing an email or hash:
 
 ```sh
-./scripts/appliance-operator.sh state
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 The supported operations are:
@@ -239,7 +276,7 @@ the pending generation; the command checks that condition and refuses an
 unsafe abort:
 
 ```sh
-./scripts/appliance-operator.sh abort-pending
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh abort-pending
 ```
 
 ### Console recovery
@@ -248,7 +285,7 @@ If the normal Status credential cannot be used, a host administrator can issue
 a single-use token:
 
 ```sh
-./scripts/appliance-operator.sh recovery-token
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh recovery-token
 ```
 
 The token expires after 15 minutes by default. Paste it into **Single-use

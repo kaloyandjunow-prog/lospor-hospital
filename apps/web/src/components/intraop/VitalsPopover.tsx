@@ -1,9 +1,13 @@
 "use client"
 
+import { useState } from "react"
 import { createPortal } from "react-dom"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { NumberStepper } from "@/components/NumberStepper"
 import { useIntraopUiCopy } from "./ui-copy"
+import { useTranslations } from "next-intl"
+import type { IntraopVitalKey } from "@lospor/core/intraop-vitals"
+import { evaluateVitalValue, vitalFeedbackMessageKey } from "@/lib/intraop-vital-entry"
 
 /**
  * Entering one vital sign into one chart column.
@@ -25,10 +29,13 @@ export type VitalsPopoverProps = {
   label: string
   unit: string
   color: string
+  vitalKey: IntraopVitalKey
   /** Canonical measurement kind, for the two that need unit conversion. */
   converts: "etco2" | "temperature" | null
   /** The value stored for this cell, or undefined when nothing has been entered. */
   value: number | undefined
+  /** A raw grid draft takes precedence over the stored value, including when invalid. */
+  inputDraft?: string
   /** What the cell displays when empty — usually the previous column's reading. */
   fallbackValue: number
   min: number
@@ -44,8 +51,10 @@ export function VitalsPopover({
   label,
   unit,
   color,
+  vitalKey,
   converts,
   value,
+  inputDraft,
   fallbackValue,
   min,
   max,
@@ -54,12 +63,27 @@ export function VitalsPopover({
   onCommit,
 }: VitalsPopoverProps) {
   const copy = useIntraopUiCopy()
+  const t = useTranslations("intraop.timetable")
+  const [draftValue, setDraftValue] = useState<number | null>(() => {
+    if (inputDraft != null) {
+      const parsed = Number(inputDraft.trim().replace(",", "."))
+      if (Number.isFinite(parsed)) return parsed
+    }
+    return value ?? fallbackValue
+  })
   if (typeof document === "undefined") return null
 
-  const shown = value ?? fallbackValue
+  const shown = draftValue
+  const feedback = evaluateVitalValue(vitalKey, shown ?? undefined)
+  const messageKey = vitalFeedbackMessageKey(vitalKey, feedback)
+  const commit = () => { if (!feedback.error) onCommit() }
+  const change = (next: number | null) => {
+    setDraftValue(next)
+    onChange(next)
+  }
 
   return createPortal(
-    <div className="fixed inset-0 z-50" onClick={onCommit}>
+    <div className="fixed inset-0 z-50" onClick={commit}>
       <div
         className="absolute bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl p-4 w-64 border border-slate-200 dark:border-[#3a3a3a] space-y-3"
         style={{
@@ -78,28 +102,39 @@ export function VitalsPopover({
           <ConvertedStepper
             measurement={converts}
             canonicalValue={shown}
-            onCanonicalChange={onChange}
+            onCanonicalChange={change}
             canonicalMin={min}
             canonicalMax={max}
             canonicalStep={step}
             showSlider
+            clampManualInput={false}
           />
         ) : (
           <NumberStepper
             value={shown}
-            onChange={onChange}
+            onChange={change}
             min={min}
             max={max}
             step={step}
             unit={unit}
             showSlider
+            clampManualInput={false}
           />
         )}
 
+        {messageKey ? (
+          <p role={feedback.error ? "alert" : undefined}
+            className={`text-xs ${feedback.error ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+            {t(messageKey)}
+          </p>
+        ) : null}
+
         <button
           type="button"
-          onClick={onCommit}
-          className="w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors"
+          onClick={commit}
+          disabled={feedback.error != null}
+          aria-disabled={feedback.error != null}
+          className="w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-lg py-1.5 transition-colors"
         >
           {copy.done}
         </button>

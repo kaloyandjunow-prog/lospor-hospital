@@ -8,6 +8,8 @@ import {
   type SiteLabCodeMap,
 } from "@lospor/core/ehr-lab-codes"
 
+import { withAnsweredLabCodings, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers } from "./ehr-code-systems"
+
 /**
  * Naming and unit-filling a dropped file's laboratory results.
  *
@@ -86,6 +88,8 @@ export function resolveFolderLabs(
     siteMap?: SiteLabCodeMap
     /** Units a site has stated for codes that arrive without one. */
     assumedUnits?: Readonly<Record<string, string>>
+    /** Addresses this hospital said are NHIS CL024. */
+    codeSystems?: CodeSystemAnswers
   } = {},
 ): FolderLabResolution {
   if (!Array.isArray(raw)) return { labs: [], unmapped: [] }
@@ -103,7 +107,10 @@ export function resolveFolderLabs(
     if (!name) { labs.push({ ...(item as Record<string, unknown>) }); continue }
 
     const codings = codingsFor(lab, name)
-    const resolved = resolveLabTest(codings, { siteMap: options.siteMap, text: name })
+    const resolved = resolveLabTest(
+      withAnsweredLabCodings(codings, options.codeSystems ?? NO_CODE_SYSTEM_ANSWERS),
+      { siteMap: options.siteMap, text: name },
+    )
 
     if (resolved.unmapped && resolved.unresolved) {
       unmapped.set(`${resolved.unresolved.system}|${resolved.unresolved.code}`, resolved.unresolved)

@@ -31,6 +31,7 @@ vi.mock("@/lib/audit", () => ({ logAuditInTransaction: mocks.audit }))
 import {
   removeExternalAiCredential,
   replaceExternalAiCredential,
+  setExternalAiModels,
   setExternalAiPolicy,
 } from "./control-plane"
 
@@ -88,6 +89,42 @@ describe("Hospital external AI Status mutations", () => {
       "local",
       expect.objectContaining({ externalAiEnabled: false, provider: "MISTRAL" }),
     )
+  })
+
+  it("changes the pinned models without touching the policy or the credential", async () => {
+    mocks.policyFind.mockResolvedValue({ id: "local", advisorModel: null, visionModel: "mistral-large-2512" })
+    mocks.policyUpsert.mockImplementation(async ({ update }) => ({ id: "local", ...update }))
+
+    await setExternalAiModels({
+      advisorModel: "mistral-medium-2508",
+      visionModel: "ministral-14b-2512",
+      reason: "Mistral retired the previous model",
+    })
+
+    const call = mocks.policyUpsert.mock.calls[0]?.[0]
+    expect(Object.keys(call.update).sort()).toEqual(["advisorModel", "modelsChangedAt", "visionModel"])
+    expect(call.update).toMatchObject({ advisorModel: "mistral-medium-2508", visionModel: "ministral-14b-2512" })
+    expect(mocks.audit).toHaveBeenCalledWith(
+      tx,
+      "admin-1",
+      "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE",
+      "local",
+      expect.objectContaining({
+        advisorModel: "mistral-medium-2508",
+        visionModel: "ministral-14b-2512",
+        previousAdvisorModel: null,
+        previousVisionModel: "mistral-large-2512",
+      }),
+    )
+  })
+
+  it("refuses a model outside the pinned list before opening a transaction", async () => {
+    await expect(setExternalAiModels({
+      advisorModel: "open-mistral-7b" as never,
+      visionModel: "mistral-large-2512",
+      reason: "Try a retired model again",
+    })).rejects.toThrow()
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it("seals replacement before the same transaction writes metadata and audit", async () => {

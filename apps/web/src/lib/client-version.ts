@@ -15,4 +15,4 @@
  * thing that will notice: a stale version string breaks nothing on the day it
  * goes stale.
  */
-export const LOSPOR_WEB_CLIENT_VERSION = "9.9.5"
+export const LOSPOR_WEB_CLIENT_VERSION = "9.10.2"

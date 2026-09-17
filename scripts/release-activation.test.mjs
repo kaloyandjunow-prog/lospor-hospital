@@ -160,6 +160,8 @@ case "$command" in
         case "$format" in
           '{{.Os}}/{{.Architecture}}') printf '%s\n' "$3" ;;
           '{{join .RootFS.Layers ","}}') printf '%s\n' "$4" ;;
+          '{{json .Descriptor}}') printf 'null\n' ;;
+          '{{.Id}}') printf 'sha256:%s\n' "$5" ;;
           *) exit 64 ;;
         esac
         ;;

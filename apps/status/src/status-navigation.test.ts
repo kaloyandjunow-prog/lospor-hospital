@@ -19,9 +19,11 @@ describe("the shared Status navigation", () => {
     const links = hrefs(renderTerminology(view, "en", "password"))
     expect(links).toEqual([
       "/status/",
+      "/status/go-live",
       "/status/accounts",
       "/status/control",
       "/status/terminology",
+      "/status/maintenance",
       "/status/release",
     ])
   })
@@ -31,7 +33,7 @@ describe("the shared Status navigation", () => {
   // dead end presented as a destination.
   it("offers a recovery session only what it can actually open", () => {
     const links = hrefs(renderTerminology(view, "en", "recovery"))
-    expect(links).toEqual(["/status/", "/status/terminology", "/status/release"])
+    expect(links).toEqual(["/status/", "/status/go-live", "/status/terminology", "/status/maintenance", "/status/release"])
     expect(links).not.toContain("/status/accounts")
     expect(links).not.toContain("/status/control")
   })
@@ -88,12 +90,14 @@ describe("the navigation registry", () => {
 
     // Deliberately outside the authenticated shell. The first three are
     // reached before a normal session exists and must not show navigation that
-    // implies one; the last is a script asset, not a page.
+    // implies one; the rest are a script asset and file downloads, not pages.
     const outsideTheShell = new Set([
       "/status/login",
       "/status/admin-activate",
       "/status/admin-recover",
       "/status/admin-link.js",
+      "/status/maintenance/support-bundle",
+      "/status/maintenance/escrow/download",
     ])
     const navigational = new Set<string>(STATUS_NAV.map(entry => entry.path))
 

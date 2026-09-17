@@ -7,7 +7,9 @@
 - full-disk encryption on the host and every backup destination;
 - TLS for all user and Central traffic;
 - mutual TLS plus manifest signatures for Hospital-to-Central delivery;
-- VPN or identity-aware access for research and administration;
+- VPN or identity-aware access for research and administration (the appliance's
+  research network list restricts the Research Browser website; research data
+  is protected by accounts and per-grant authorisation);
 - least-privilege local accounts and protected administrator credentials;
 - host firewall, automatic security patching, malware/EDR policy, NTP, and
   centralized monitoring;
@@ -23,14 +25,22 @@ filesystem permissions and encrypted media.
 Hospital software releases use a detached, raw 64-byte Ed25519 signature over
 the exact `release.lock`. The maintainer generates and holds the release private
 key outside GitHub and never gives it to Actions, repository secrets, the
-installation USB, or a hospital. A site pins the reviewed public key only after
-matching its fingerprint through a separate channel. The installation-specific
+installation USB, or a hospital. `losporctl-install.sh` carries the public key
+and pins it only through a second channel: online, the key must also match the
+fingerprint published at lospor.org (served from Cloudflare, not GitHub);
+offline, the maintainer's physical custody of the USB is that channel. The
+script itself has no second channel: it is the first thing trusted. A VM built
+with the Hyper-V kit carries it from the release folder the kit came in and
+checks it there against the SHA-256 of that copy, so nothing is downloaded and
+run before verification and trust begins with that one download. Fetched by
+hand from lospor.org, it comes over HTTPS unverified, as most vendor installers
+do; its SHA-256 is published beside it. The kit is not code-signed. The installation-specific
 keys under `secrets/api/` remain necessary for Hospital-to-Central exchange and
 must never be treated as software distribution credentials.
 
 The software distribution trust boundary consists of:
 
-- the private GitHub repository and private GHCR packages;
+- the public GitHub repository, its releases, and public GHCR packages;
 - the maintainer's GitHub account, MFA, recovery methods, sessions, and scoped
   tokens;
 - the exact tag-triggered CI candidate and its test/security evidence;
@@ -55,8 +65,8 @@ signature.
 
 The maintainer must therefore use MFA, keep account recovery material offline,
 review active sessions and tokens, and reserve repository write permission for
-the release account. Each hospital registry credential must be separate,
-read-only, and revocable. Immediately before dispatch, visually confirm the
+the release account. Hospitals hold no registry credential; the public release
+is readable by anyone and is trusted only through its signature. Immediately before dispatch, visually confirm the
 repository's Immutable Releases setting and enter both exact version-bound
 confirmations required by the workflow. The workflow does not hold an
 administrator token for that settings check; after publication it requires
@@ -64,7 +74,7 @@ GitHub to report the resulting release as immutable. Stop publication if the
 candidate run, attempt, commit, tag, expected lock hash, or setting does not
 agree with the independently retained release record.
 
-For physical delivery, download the final assets from the private immutable
+For physical delivery, download the final assets from the immutable
 GitHub Release into a new empty directory on a controlled workstation. Verify
 the lock sidecar, the raw `release.lock.sig` against the reviewed public key,
 and the complete payload set (manifest, deployment archive, security evidence,
@@ -80,8 +90,7 @@ unrelated files.
 
 If the repository/account, publication run, release record, signing workstation
 or key, review workstation, or USB custody chain may have been compromised,
-stop installation and publication. Revoke affected sessions, tokens, and
-registry credentials; preserve the run, audit, endpoint, signing, and media
+stop installation and publication. Revoke affected sessions and tokens; preserve the run, audit, endpoint, signing, and media
 evidence; assess already installed sites; and issue a new version from a
 reviewed clean commit and candidate. A compromised release-signing key requires
 an explicit key rotation and a new fingerprint delivered to every site through

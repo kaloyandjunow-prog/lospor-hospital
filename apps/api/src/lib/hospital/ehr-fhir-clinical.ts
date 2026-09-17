@@ -2,6 +2,10 @@ import "server-only"
 
 import { EHR_ITEM_SOURCE, type EhrTagValue } from "@lospor/core/ehr-import"
 
+import { isCodeList, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers, type SeenCodeSystem } from "./ehr-code-systems"
+import { procedureFromCodings } from "./ehr-procedures"
+import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
+
 /**
  * Everything a FHIR server can tell us that is not a laboratory result.
  *
@@ -48,17 +52,23 @@ function readConcept(concept: CodeableConcept | undefined): {
   }
 }
 
-function tag(parts: { label?: string; code?: string; system?: string } & Partial<EhrTagValue>): EhrTagValue | null {
+function tag(
+  parts: { label?: string; code?: string; system?: string; sourceLabel?: string } & Partial<EhrTagValue>,
+): EhrTagValue | null {
   if (!parts.label) return null
-  return {
+  const value = {
     label: parts.label,
     ...(parts.code ? { code: parts.code } : {}),
     ...(parts.system ? { system: parts.system } : {}),
     ...(parts.dose ? { dose: parts.dose } : {}),
     ...(parts.route ? { route: parts.route } : {}),
     ...(parts.frequency ? { frequency: parts.frequency } : {}),
+    // The hospital's own wording under a proposed LOSPOR term; kept by core's
+    // normalizer from the release that carries EhrTagValue.sourceLabel.
+    ...(parts.sourceLabel ? { sourceLabel: parts.sourceLabel } : {}),
     source: EHR_ITEM_SOURCE,
   }
+  return value
 }
 
 /**
@@ -81,15 +91,80 @@ function statusCode(concept: CodeableConcept | undefined): string {
 }
 
 export function mapFhirConditions(resources: Record<string, unknown>[]): EhrTagValue[] {
-  const tags: EhrTagValue[] = []
+  return splitFhirConditions(resources, new Map()).diagnoses
+}
+
+/**
+ * The role each of a stay's conditions plays, keyed by Condition id.
+ *
+ * FHIR keeps the role on the encounter (`Encounter.diagnosis.use`), not on the
+ * Condition. The codes are FHIR's diagnosis-role codes, which NHIS CL076 maps
+ * to one for one (AD, DD, CC, CM, pre-op, post-op, billing); a coding in a
+ * system naming CL076 carries the NHIS key instead (4 comorbidity, 7 billing).
+ * R4 has one `use`; R5 has a list and names the condition as a CodeableReference.
+ */
+export type DiagnosisRole = "comorbidity" | "billing" | "clinical"
+
+const NHIS_CL076: Readonly<Record<string, DiagnosisRole>> = {
+  "1": "clinical", "2": "clinical", "3": "clinical", "4": "comorbidity", "5": "clinical", "6": "clinical", "7": "billing",
+}
+const FHIR_DIAGNOSIS_ROLE: Readonly<Record<string, DiagnosisRole>> = {
+  ad: "clinical", dd: "clinical", cc: "clinical", cm: "comorbidity", "pre-op": "clinical", "post-op": "clinical", billing: "billing",
+}
+
+export function encounterDiagnosisRoles(encounter: Record<string, unknown> | null): Map<string, Set<DiagnosisRole>> {
+  const roles = new Map<string, Set<DiagnosisRole>>()
+  const entries = Array.isArray(encounter?.diagnosis) ? encounter.diagnosis as Record<string, unknown>[] : []
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue
+    const condition = entry.condition as { reference?: unknown } | undefined
+    const reference = typeof condition?.reference === "string"
+      ? condition.reference
+      : str((condition?.reference as { reference?: unknown } | undefined)?.reference)
+    const id = reference?.match(/(?:^|\/)Condition\/([^/]+)$/)?.[1]
+    if (!id) continue
+    const uses = (Array.isArray(entry.use) ? entry.use : [entry.use]) as CodeableConcept[]
+    for (const use of uses) {
+      for (const coding of use?.coding ?? []) {
+        const code = str(coding.code)
+        if (!code) continue
+        const role = /(?:^|[^a-z0-9])cl076(?:$|[^a-z0-9])/i.test(String(coding.system ?? ""))
+          ? NHIS_CL076[code]
+          : FHIR_DIAGNOSIS_ROLE[code.toLowerCase()]
+        if (!role) continue
+        roles.set(id, (roles.get(id) ?? new Set()).add(role))
+      }
+    }
+  }
+  return roles
+}
+
+/**
+ * Conditions as diagnoses and comorbidities.
+ *
+ * A condition the stay names only as a comorbidity goes to the comorbidity
+ * list. One named only for billing is left out: billing diagnoses repeat the
+ * clinical ones in the form a payer wants. Any clinical role, or no role at all
+ * (most servers send none), keeps it a diagnosis, as before.
+ */
+export function splitFhirConditions(
+  resources: Record<string, unknown>[],
+  roles: Map<string, Set<DiagnosisRole>>,
+): { diagnoses: EhrTagValue[]; comorbidities: EhrTagValue[] } {
+  const diagnoses: EhrTagValue[] = []
+  const comorbidities: EhrTagValue[] = []
   for (const resource of resources) {
     if (resource.resourceType !== "Condition") continue
     if (INACTIVE_CLINICAL.has(statusCode(resource.clinicalStatus as CodeableConcept))) continue
     if (UNTRUE_VERIFICATION.has(statusCode(resource.verificationStatus as CodeableConcept))) continue
     const mapped = tag(readConcept(resource.code as CodeableConcept))
-    if (mapped) tags.push(mapped)
+    if (!mapped) continue
+    const role = roles.get(String(resource.id ?? ""))
+    if (role && !role.has("clinical") && role.has("comorbidity")) comorbidities.push(mapped)
+    else if (role && role.size === 1 && role.has("billing")) continue
+    else diagnoses.push(mapped)
   }
-  return tags
+  return { diagnoses, comorbidities }
 }
 
 /**
@@ -168,6 +243,8 @@ export function mapFhirMedications(
    * `_include`. A `medicationReference` points at one of these.
    */
   included: Record<string, unknown>[] = [],
+  /** Addresses this hospital said are NHIS route lists. */
+  answers: CodeSystemAnswers = NO_CODE_SYSTEM_ANSWERS,
 ): EhrTagValue[] {
   const byKey = new Map<string, EhrTagValue>()
   const byReference = medicationsById(included)
@@ -190,7 +267,7 @@ export function mapFhirMedications(
     const mapped = tag({
       ...concept,
       dose: str(first?.text),
-      route: readConcept(first?.route).label,
+      route: nhisRoute(first?.route, answers) ?? readConcept(first?.route).label,
     })
     if (!mapped) continue
 
@@ -288,7 +365,11 @@ function containedById(
  * that describes what is about to happen rather than what already has, so an
  * entry whose status says it is finished or gone is not a plan for this case.
  */
-export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): EhrTagValue[] {
+export function mapFhirPlannedProcedures(
+  resources: Record<string, unknown>[],
+  /** Addresses this hospital said are КСМП. */
+  answers: CodeSystemAnswers = NO_CODE_SYSTEM_ANSWERS,
+): EhrTagValue[] {
   const tags: EhrTagValue[] = []
   for (const resource of resources) {
     const type = resource.resourceType
@@ -300,7 +381,10 @@ export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): 
       ? ((resource.serviceType as CodeableConcept[] | undefined) ?? [])
       : [resource.code as CodeableConcept]
     for (const concept of concepts) {
-      const mapped = tag(readConcept(concept))
+      const proposal = procedureFromCodings(concept?.coding ?? [], readConcept(concept).label, answers)
+      // A coded proposal keeps every field the pickers store; tag() is the
+      // narrow shape for everything else.
+      const mapped = proposal ? { ...proposal, source: EHR_ITEM_SOURCE } as EhrTagValue : tag(readConcept(concept))
       if (mapped) tags.push(mapped)
     }
   }
@@ -308,18 +392,63 @@ export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): 
 }
 
 /**
+ * The addresses planned procedures and medication routes arrived with, so the
+ * ones nothing recognises can be asked about in Status. Filtering to the
+ * unrecognised happens in ehr-code-systems, which knows the answers.
+ */
+export function fhirCodeSystemsSeen(resources: Record<string, unknown>[]): SeenCodeSystem[] {
+  const seen: SeenCodeSystem[] = []
+  const add = (concept: CodeableConcept | undefined, field: SeenCodeSystem["field"]) => {
+    for (const coding of concept?.coding ?? []) {
+      const system = str(coding?.system)
+      if (system) seen.push({ system, field, code: str(coding.code), label: str(coding.display) ?? str(concept?.text) })
+    }
+  }
+  for (const resource of resources) {
+    const type = resource.resourceType
+    if (type === "ServiceRequest") add(resource.code as CodeableConcept, "procedures")
+    if (type === "Appointment") {
+      for (const concept of (resource.serviceType as CodeableConcept[] | undefined) ?? []) add(concept, "procedures")
+    }
+    if (type === "MedicationStatement" || type === "MedicationRequest") {
+      const dosage = (resource.dosage ?? resource.dosageInstruction) as { route?: CodeableConcept }[] | undefined
+      for (const entry of Array.isArray(dosage) ? dosage : []) add(entry?.route, "routes")
+    }
+  }
+  return seen
+}
+
+/**
+ * A route coded in NHIS CL013 (EDQM terms) or CL046 (HL7), as LOSPOR's route.
+ * NHIS publishes no FHIR address for either list, so an address counts when it
+ * names the list or when this hospital said so in Status.
+ */
+function nhisRoute(concept: CodeableConcept | undefined, answers: CodeSystemAnswers): string | undefined {
+  for (const coding of concept?.coding ?? []) {
+    const code = str(coding.code)
+    if (!code) continue
+    if (isCodeList(coding.system, "NHIS_CL013", answers) && NHIS_CL013_ROUTES[code]) return NHIS_CL013_ROUTES[code]
+    if (isCodeList(coding.system, "NHIS_CL046", answers) && NHIS_CL046_ROUTES[code]) return NHIS_CL046_ROUTES[code]
+  }
+  return undefined
+}
+
+/**
  * Sex, as the record stores it.
  *
  * FHIR's administrative gender is not a clinical sex, and the difference
  * matters for the calculators this feeds — ideal body weight and several risk
- * scores are computed from it. `other` and `unknown` are therefore dropped
- * rather than mapped onto one of ours: leaving the field for the anaesthetist
- * to complete is correct, and guessing would silently change a dose.
+ * scores are computed from it. `other` is proposed as OTHER, which the record
+ * and its calculators already handle (NHIS retired the value in 1.5.20, but
+ * older records still carry it); like every proposal it is only applied when
+ * the clinician ticks it, and a sex already on the case shows as a conflict.
+ * `unknown` says nothing and is left for the anaesthetist.
  */
-export function mapFhirSex(patient: Record<string, unknown>): "MALE" | "FEMALE" | undefined {
+export function mapFhirSex(patient: Record<string, unknown>): "MALE" | "FEMALE" | "OTHER" | undefined {
   const gender = String(patient.gender ?? "").toLowerCase()
   if (gender === "male") return "MALE"
   if (gender === "female") return "FEMALE"
+  if (gender === "other") return "OTHER"
   return undefined
 }
 
