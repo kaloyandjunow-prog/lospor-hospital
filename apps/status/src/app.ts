@@ -30,6 +30,7 @@ import {
   renderControlPlane,
   renderGoLive,
   renderEscrowPassphrase,
+  MAINTENANCE_SECTIONS,
   renderMaintenance,
   renderSettingsConfirm,
   renderAdvancedConfirm,
@@ -1802,15 +1803,35 @@ export function createStatusApp({
     locale: StatusLocale,
     kind: "password" | "recovery",
     extra: { notice?: string; error?: string; sessionToken?: string } = {},
-  ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind)
+    section?: string,
+  ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind, section)
 
-  app.get("/status/maintenance", async context => {
+  const maintenanceGet = async (context: Context, section?: string) => {
     const locale = currentLocale(context)
     const sessionToken = getCookie(context, COOKIE_NAME)
     const kind = auth.validateSessionKind(sessionToken)
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
-    return context.html(await maintenancePage(locale, kind, { sessionToken }))
-  })
+    return context.html(await maintenancePage(locale, kind, { sessionToken }, section))
+  }
+
+  app.get("/status/maintenance", context => maintenanceGet(context))
+  // One address per maintenance section, each written out.
+  //
+  // Not a :section parameter: /status/maintenance/support-bundle is the
+  // download itself, and a pattern that also matched it would hand back a page
+  // where a file was expected. Static routes cannot shadow one another.
+  //
+  // Written as literals rather than a loop so the navigation registry test,
+  // which scans this file for registered status paths, can still see them. A
+  // route it cannot see is a route nobody is checking.
+  app.get("/status/maintenance/backups", context => maintenanceGet(context, "backups"))
+  app.get("/status/maintenance/offhost", context => maintenanceGet(context, "offhost"))
+  app.get("/status/maintenance/host-os", context => maintenanceGet(context, "host-os"))
+  app.get("/status/maintenance/escrow", context => maintenanceGet(context, "escrow"))
+  app.get("/status/maintenance/support", context => maintenanceGet(context, "support"))
+  app.get("/status/maintenance/rotation", context => maintenanceGet(context, "rotation"))
+  app.get("/status/maintenance/settings", context => maintenanceGet(context, "settings"))
+  app.get("/status/maintenance/advanced", context => maintenanceGet(context, "advanced"))
 
   /** The checks every maintenance POST shares, in order. A string is the refusal. */
   const maintenanceBody = async (

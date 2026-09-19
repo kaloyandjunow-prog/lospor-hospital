@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
-import { STATUS_NAV, renderTerminology, type TerminologyView } from "./ui.js"
+import { MAINTENANCE_SECTIONS, STATUS_NAV, renderTerminology, type TerminologyView } from "./ui.js"
 
 const view: TerminologyView = {
   state: null,
@@ -101,7 +101,20 @@ describe("the navigation registry", () => {
     ])
     const navigational = new Set<string>(STATUS_NAV.map(entry => entry.path))
 
-    const unaccounted = routes.filter(path => !navigational.has(path) && !outsideTheShell.has(path))
+    // Sections of a page that is already in the header. They carry that page's
+    // navigation and its sub-navigation, so they are accounted for by their
+    // parent rather than each becoming a header tab. This is what lets a long
+    // page be split without the header growing: /status/maintenance/settings is
+    // Maintenance, shown under Maintenance, reached from Maintenance.
+    const sections = new Set(MAINTENANCE_SECTIONS.map(slug => `/status/maintenance/${slug}`))
+
+    const unaccounted = routes.filter(path =>
+      !navigational.has(path) && !outsideTheShell.has(path) && !sections.has(path))
     expect(unaccounted).toEqual([])
+
+    // And the other way round: every section the page offers must have a route,
+    // or a tab in the sub-navigation leads nowhere.
+    const registered = new Set(routes)
+    expect([...sections].filter(path => !registered.has(path))).toEqual([])
   })
 })

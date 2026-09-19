@@ -105,19 +105,25 @@ describe("the maintenance page", () => {
       drills: [{ completedAt: "2026-09-13T08:00:00Z", result: "passed", backup: "lospor-20260913T072635Z-W3UVqwGn.backup" }],
     })
     const cookie = await signIn(auth)
+    // Backups and Site settings are separate sections now, so each is asked for
+    // by its own address. /status/maintenance lands on the first of them.
     const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
     for (const text of ["Back up now", "Run a restore drill", "Service interruption", "Cannot be undone", "Checked afterwards",
-      "lospor-20260913T072635Z-W3UVqwGn.backup", "Changed only at the console", "clinical.example.org"]) {
+      "lospor-20260913T072635Z-W3UVqwGn.backup"]) {
       expect(body).toContain(text)
     }
-    expect(body).not.toContain('name="HOSPITAL_CLINICAL_DOMAIN"')
-    expect(body).toContain('name="HOSPITAL_SUPPORT_URL"')
+    const settings = await (await app.request("/status/maintenance/settings", { headers: headers({ cookie }) })).text()
+    for (const text of ["Changed only at the console", "clinical.example.org"]) {
+      expect(settings).toContain(text)
+    }
+    expect(settings).not.toContain('name="HOSPITAL_CLINICAL_DOMAIN"')
+    expect(settings).toContain('name="HOSPITAL_SUPPORT_URL"')
   })
 
   it("offers the closed sets as choices instead of asking them to be typed", async () => {
     const { app, auth } = setup()
     const cookie = await signIn(auth)
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/settings", { headers: headers({ cookie }) })).text()
 
     // A setting with two accepted lowercase words is a choice, not free text.
     // Typed blind on a phone that capitalises the first letter, "Bg",
@@ -141,7 +147,7 @@ describe("the maintenance page", () => {
   it("is read-only for a recovery session, and refuses its requests", async () => {
     const { app, auth, requestsDir } = setup()
     const cookie = await signIn(auth, true)
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/settings", { headers: headers({ cookie }) })).text()
     expect(body).toContain("cannot request maintenance")
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "backup", password: PASSWORD })).status).toBe(403)
     expect(readdirSync(requestsDir)).toEqual([])
@@ -235,7 +241,7 @@ describe("off-host copies from Status", () => {
   it("offers setup when nothing is configured, and refuses a test or drill until it is", async () => {
     const { app, auth, requestsDir } = setup()
     const cookie = await signIn(auth)
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/offhost", { headers: headers({ cookie }) })).text()
     expect(body).toContain("Off-host copies are not set up")
     expect(body).toContain('action="/status/maintenance/offhost"')
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "offhost-test", password: PASSWORD })).status).toBe(409)
@@ -275,7 +281,7 @@ describe("off-host copies from Status", () => {
       destination: { type: "mount", path: "/mnt/lospor-backups" }, encryptionKeyFingerprint: "d9f6f5b437cdf812", drills: [],
     }))
     const cookie = await signIn(auth)
-    const page = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const page = await (await app.request("/status/maintenance/offhost", { headers: headers({ cookie }) })).text()
     expect(page).toContain("Turn off off-host copies")
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "offhost-disable", password: "wrong" })).status).toBe(401)
     expect(readdirSync(requestsDir)).toEqual([])
@@ -296,7 +302,7 @@ describe("off-host copies from Status", () => {
       drills: [],
     }))
     const cookie = await signIn(auth)
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/offhost", { headers: headers({ cookie }) })).text()
     expect(body).toContain("sftp://lospor@backup.hospital.test:22/lospor-backups")
     expect(body).toContain("AAAAC3NzaC1lZDI1NTE5AAAAILEGRRwahtYCtDjvfHPauq9loMXBk9YV5MttcPoLnVhV")
     expect(body).toContain("SHA256:hXX1vE8kygq7WwC/7qqqV95G+/hAAFK/kH370JphmHo")
@@ -331,7 +337,7 @@ describe("advanced settings from Status", () => {
     const { app, auth, stateDir } = setup()
     withAdvanced(stateDir)
     const cookie = await signIn(auth)
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/advanced", { headers: headers({ cookie }) })).text()
     expect(body).toContain("1 value(s) differ from the defaults")
     expect(body).toContain('name="HOSPITAL_BACKUP_INTERVAL_SECONDS" value="4"')
     expect(body).toContain("1 to 4 hours; default 4")
@@ -380,7 +386,7 @@ describe("Ubuntu maintenance from Status", () => {
     const { app, auth, stateDir, requestsDir, db } = setup()
     hostOs(stateDir)
     const cookie = await signIn(auth)
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/host-os", { headers: headers({ cookie }) })).text()
     for (const text of ["Server operating system (Ubuntu)", "2029-04-30", "Install security updates now", "Ubuntu does not need a restart right now."]) {
       expect(body).toContain(text)
     }
@@ -397,7 +403,7 @@ describe("Ubuntu maintenance from Status", () => {
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "os-reboot", password: PASSWORD })).status).toBe(409)
     expect(readdirSync(requestsDir)).toEqual([])
     hostOs(stateDir, { rebootRequired: true, rebootRequiredSince: "2026-09-12T06:10:00Z" })
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/host-os", { headers: headers({ cookie }) })).text()
     expect(body).toContain('value="os-reboot"')
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "os-reboot", password: PASSWORD })).status).toBe(303)
     expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("os-reboot")
@@ -428,14 +434,14 @@ describe("the support bundle from Status", () => {
   it("requests a bundle after the password, then offers exactly that file as a download", async () => {
     const { app, auth, stateDir, requestsDir, db } = setup()
     const cookie = await signIn(auth)
-    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain("No support bundle has been written yet.")
+    expect(await (await app.request("/status/maintenance/support", { headers: headers({ cookie }) })).text()).toContain("No support bundle has been written yet.")
     expect((await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie }) })).status).toBe(404)
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "support-bundle", password: PASSWORD })).status).toBe(303)
     expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("support-bundle")
     expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED")).toBe(true)
 
     writeFileSync(join(stateDir, "support-bundle.v1.json"), bundle)
-    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain('href="/status/maintenance/support-bundle"')
+    expect(await (await app.request("/status/maintenance/support", { headers: headers({ cookie }) })).text()).toContain('href="/status/maintenance/support-bundle"')
     const download = await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie }) })
     expect(download.status).toBe(200)
     expect(download.headers.get("content-disposition")).toBe('attachment; filename="lospor-support-20260913T083000Z.json"')
@@ -458,7 +464,7 @@ describe("credential rotation from Status", () => {
   it("needs the written confirmation and the password before it leaves a request", async () => {
     const { app, auth, requestsDir, db } = setup()
     const cookie = await signIn(auth)
-    const page = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const page = await (await app.request("/status/maintenance/rotation", { headers: headers({ cookie }) })).text()
     expect(page).toContain('value="ROTATE-CREDENTIALS"')
     expect(page).toContain("Patient-identity and encryption keys are never rotated here")
 
@@ -497,7 +503,7 @@ describe("the network lists left as installed", () => {
     const dashboard = await (await app.request("/status/", { headers: headers({ cookie }) })).text()
     expect(dashboard).toContain("Status can be opened from every internal hospital network. Limit it to the IT management networks.")
     expect(dashboard).toContain("The Research website is closed to every network until its networks are set.")
-    const maintenance = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const maintenance = await (await app.request("/status/maintenance/settings", { headers: headers({ cookie }) })).text()
     expect(maintenance).toContain("Status can be opened from every internal hospital network, as installed.")
     expect(maintenance).toContain("The Research website is closed (127.0.0.1/32), as installed.")
     const goLive = await (await app.request("/status/go-live", { headers: headers({ cookie }) })).text()
@@ -558,7 +564,7 @@ describe("secrets escrow from Status", () => {
     const { app, auth, requestsDir, stateDir } = setup()
     const { cookie, secret } = await signInWithSecret(auth)
     limitedNetworks(stateDir, ALL_PRIVATE_NETWORKS.join(" "))
-    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/maintenance/escrow", { headers: headers({ cookie }) })).text()
     expect(body).toContain("Secrets escrow")
     expect(body).not.toContain('action="/status/maintenance/escrow"')
     expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: nextCode(secret) })).status).toBe(409)
@@ -569,7 +575,7 @@ describe("secrets escrow from Status", () => {
     const { app, auth, requestsDir, stateDir } = setup()
     const { cookie, secret } = await signInWithSecret(auth)
     limitedNetworks(stateDir)
-    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain('action="/status/maintenance/escrow"')
+    expect(await (await app.request("/status/maintenance/escrow", { headers: headers({ cookie }) })).text()).toContain('action="/status/maintenance/escrow"')
     expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: "000000" })).status).toBe(401)
     expect((await post(app, "/status/maintenance/escrow", cookie, { password: "wrong", code: nextCode(secret) })).status).toBe(401)
     expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD })).status).toBe(401)
@@ -604,7 +610,7 @@ describe("secrets escrow from Status", () => {
       expect(statSync(join(requestsDir, "secrets-escrow.passphrase.v1")).mode & 0o777).toBe(0o600)
     }
     expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_ESCROW_REQUESTED")).toBe(true)
-    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).not.toContain(passphrase!)
+    expect(await (await app.request("/status/maintenance/escrow", { headers: headers({ cookie }) })).text()).not.toContain(passphrase!)
   })
 
   it("hands the copy only to the administrator who made it, reports the download, and notes it on the overview", async () => {
@@ -613,11 +619,11 @@ describe("secrets escrow from Status", () => {
     limitedNetworks(stateDir)
     expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(404)
     offer(stateDir, "status-operator-0123456789abcdef")
-    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain("made by another administrator")
+    expect(await (await app.request("/status/maintenance/escrow", { headers: headers({ cookie }) })).text()).toContain("made by another administrator")
     expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(403)
 
     const digest = offer(stateDir, operatorRef)
-    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain('href="/status/maintenance/escrow/download"')
+    expect(await (await app.request("/status/maintenance/escrow", { headers: headers({ cookie }) })).text()).toContain('href="/status/maintenance/escrow/download"')
     const download = await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })
     expect(download.status).toBe(200)
     expect(download.headers.get("content-disposition")).toBe('attachment; filename="lospor-hospital-secrets-20260913T085900Z.tar.gz.enc"')
