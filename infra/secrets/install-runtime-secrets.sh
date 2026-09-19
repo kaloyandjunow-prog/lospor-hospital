@@ -54,7 +54,14 @@ fi
 # request here and a host agent acts on it. requests/ has to be writable by
 # Status; state/ is the agent's and Status only reads it.
 #
-# Owned the same way and for the same reason as the signals directory above.
+# Owned by Status -- deliberately NOT by SIGNALS_UID. The mechanism is the same
+# as the signals directory above; the owner is not. /signals belongs to the curl
+# worker, which is uid 100 inside curlimages/curl. These directories belong to
+# Status, whose image creates lospor as uid 1001 (infra/docker/status.Dockerfile).
+# Reusing SIGNALS_UID here left them owned by 100 while Status ran as 1001, so
+# every maintenance request -- site settings, secrets escrow, terminology,
+# release prepare and apply -- failed with EACCES and reported only "could not
+# be recorded".
 update_requests="${UPDATE_REQUESTS_TARGET:-/target/update/requests}"
 update_state="${UPDATE_STATE_TARGET:-/target/update/state}"
 for update_directory in "$update_requests" "$update_state"; do
@@ -62,7 +69,7 @@ for update_directory in "$update_requests" "$update_state"; do
   if [ -O "$update_directory" ]; then
     chmod 755 "$update_directory"
   fi
-  chown "${SIGNALS_UID:-100}:${SIGNALS_GID:-101}" "$update_directory"
+  chown "${STATUS_UID:-1001}:${STATUS_GID:-1001}" "$update_directory"
 done
 
 install_secret() {
