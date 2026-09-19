@@ -142,7 +142,14 @@ if command -v timedatectl >/dev/null 2>&1; then
   fi
 fi
 if command -v systemctl >/dev/null 2>&1 && command -v sshd >/dev/null 2>&1; then
-  if systemctl is-active --quiet ssh 2>/dev/null; then
+  # ssh.socket counts. Ubuntu 24.04 socket-activates OpenSSH, so ssh.service
+  # reads "inactive" until the first connection arrives and ssh.socket is the
+  # unit actually listening. Checking only ssh.service failed a server whose
+  # recovery tunnel was perfectly available -- and failed it hardest at first
+  # boot, before anyone had connected even once.
+  if systemctl is-active --quiet ssh 2>/dev/null \
+    || systemctl is-active --quiet ssh.socket 2>/dev/null \
+    || systemctl is-active --quiet sshd 2>/dev/null; then
     pass "$(pick 'OpenSSH Server is active for the Status recovery tunnel' 'OpenSSH Server е активен за резервния тунел към Status')"
   else
     fail "$(pick 'OpenSSH Server is not active; the Status recovery tunnel would be unavailable' 'OpenSSH Server не е активен; резервният тунел към Status няма да бъде достъпен')"

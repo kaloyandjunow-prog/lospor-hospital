@@ -292,9 +292,15 @@ fi
 cyrillic="$(printf '[\320\321]')"
 reason="$(sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | grep -v '^[[:space:]]*$' | grep -v '^[0-9T:-]*Z  installing: ' \
   | LC_ALL=C grep -v "$cyrillic" | tail -n 4 | tr '\n' ' ' | tr -s ' ' | cut -c 1-1500)"
-rm -rf "$state_dir"
-# Run again, the installer itself says whether to resume what this attempt left
-# or to start afresh; the password is typed again at the console.
-report failed "The installation stopped: ${reason:-see $log} On the console, run it again: sudo sh $bootstrap"
+# answers.env stays. Everything secret is already gone -- the password was
+# shredded before the installer ran and the certificate files as they were
+# placed -- and what remains is the settings the wizard was given, which the
+# operator needs in front of them to repeat the attempt at the console. On a
+# failure early enough that site.env was never written, deleting this was the
+# only record of what the machine had been told.
+#
+# The service has been disabled by finish_attempt, so leaving the file does not
+# arm another unattended run.
+report failed "The installation stopped: ${reason:-see $log} The answers from the wizard are still in $state_dir/answers.env. On the console, run it again: sudo sh $bootstrap"
 finish_attempt
 exit 1
