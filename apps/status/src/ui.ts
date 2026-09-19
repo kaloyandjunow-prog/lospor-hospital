@@ -2286,9 +2286,54 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
   } else if (!view.mayManage) {
     form = `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
   } else {
+    // Each field is drawn from the kind it already declares.
+    //
+    // Every one of these was a bare text box, so a closed set of two lowercase
+    // words was typed blind -- and typed on a phone, which capitalises the first
+    // letter, so "Bg", "Connected" and "Manual" were the natural inputs and all
+    // three were refused. The accepted values were documented in a label,
+    // "Restart after Ubuntu updates (manual or window)", which is the tell that
+    // the control could not express them. kind has always known; only the
+    // renderer did not ask.
     const fields = EDITABLE_SETTINGS.filter(setting => settings[setting.key]?.editable !== false).map(setting => {
       const value = settings[setting.key]?.value ?? ""
-      return `<div><label for="setting-${setting.key}">${escapeHtml(localize(locale, setting.en, setting.bg))}</label><input id="setting-${setting.key}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off"></div>`
+      const id = `setting-${setting.key}`
+      const label = `<label for="${id}">${escapeHtml(localize(locale, setting.en, setting.bg))}</label>`
+      const option = (candidate: string, text: string) =>
+        `<option value="${escapeHtml(candidate)}"${candidate === value ? " selected" : ""}>${escapeHtml(text)}</option>`
+      // A value the host holds but this list does not offer must not be replaced
+      // by whichever option happens to be first. An unselectable placeholder
+      // keeps the choice with the operator; submitting it fails validation and
+      // says so, which is honest, where a silent default would not be.
+      const placeholder = (choices: readonly string[]) => choices.includes(value) ? ""
+        : `<option value="" disabled selected>${escapeHtml(localize(locale, "Choose one", "Изберете"))}</option>`
+      const select = (body: string) => `<select id="${id}" name="${setting.key}">${body}</select>`
+      let control: string
+      switch (setting.kind) {
+        case "locale":
+          control = select(placeholder(["bg", "en"]) + option("bg", "Български") + option("en", "English"))
+          break
+        case "supply":
+          control = select(placeholder(["connected", "offline"])
+            + option("connected", localize(locale, "Connected to the internet", "Свързан с интернет"))
+            + option("offline", localize(locale, "Offline, from media", "Офлайн, от носител")))
+          break
+        case "reboot-policy":
+          // Blank is a real answer here, so it is an option rather than a gap.
+          control = select(option("", localize(locale, "Not set", "Не е зададено"))
+            + option("manual", localize(locale, "Only by hand", "Само ръчно"))
+            + option("window", localize(locale, "Inside the update window", "В прозореца за обновяване")))
+          break
+        case "time":
+          control = `<input id="${id}" name="${setting.key}" type="time" value="${escapeHtml(value)}" autocomplete="off">`
+          break
+        case "timezone":
+          control = `<input id="${id}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="64" autocomplete="off" placeholder="Europe/Sofia">`
+          break
+        default:
+          control = `<input id="${id}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off">`
+      }
+      return `<div>${label}${control}</div>`
     }).join("")
     form = `<form method="post" action="/status/maintenance/settings/preview"><div class="form-grid">${fields}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form>`
   }

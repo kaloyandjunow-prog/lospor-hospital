@@ -210,9 +210,16 @@ export function validSettingValue(setting: EditableSetting, value: string): bool
         && !entries.some(entry => /^(0\.0\.0\.0|::)\/0$/.test(entry))
     }
     case "supply": return value === "connected" || value === "offline"
-    case "time": return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
-    case "timezone": return /^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)+$/.test(value) && value.length <= 64
-    case "reboot-policy": return value === "manual" || value === "window"
+    // Blank is a real answer for these three, and apply-site-config.sh accepts
+    // it: `[ -z "$window" ] ||`, `[ -z "$timezone" ] ||`, and `''|manual|window`.
+    // Refusing it here meant a freshly installed appliance -- which leaves all
+    // four of these unset -- was in a state its own form would not submit, so an
+    // operator opening Site settings to change one unrelated field could not
+    // save at all until they invented values they had never chosen.
+    case "time": return value === "" || /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+    case "timezone": return value === ""
+      || (/^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)+$/.test(value) && value.length <= 64)
+    case "reboot-policy": return value === "" || value === "manual" || value === "window"
   }
 }
 

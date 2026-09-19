@@ -114,6 +114,30 @@ describe("the maintenance page", () => {
     expect(body).toContain('name="HOSPITAL_SUPPORT_URL"')
   })
 
+  it("offers the closed sets as choices instead of asking them to be typed", async () => {
+    const { app, auth } = setup()
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+
+    // A setting with two accepted lowercase words is a choice, not free text.
+    // Typed blind on a phone that capitalises the first letter, "Bg",
+    // "Connected" and "Manual" are the natural inputs and all three are refused.
+    for (const key of ["LOSPOR_DEFAULT_LOCALE", "HOSPITAL_UPDATE_SUPPLY_MODE", "HOSPITAL_HOST_REBOOT_POLICY"]) {
+      expect(body).toContain(`<select id="setting-${key}" name="${key}">`)
+    }
+    // A time is a time.
+    expect(body).toContain('name="HOSPITAL_UPDATE_WINDOW_START" type="time"')
+    expect(body).toContain('name="HOSPITAL_UPDATE_WINDOW_END" type="time"')
+    // Blank is a real answer for the restart policy, so it is offered as one.
+    expect(body).toContain('<option value="" selected>Not set</option>')
+    // A value the host does not hold is not silently replaced by the first
+    // option: the operator is asked, and an unanswered choice fails validation.
+    expect(body).toContain('<option value="" disabled selected>Choose one</option>')
+    // Anything genuinely free stays a text box.
+    expect(body).toContain('name="HOSPITAL_SUPPORT_URL"')
+    expect(body).not.toContain('<select id="setting-HOSPITAL_SUPPORT_URL"')
+  })
+
   it("is read-only for a recovery session, and refuses its requests", async () => {
     const { app, auth, requestsDir } = setup()
     const cookie = await signIn(auth, true)
