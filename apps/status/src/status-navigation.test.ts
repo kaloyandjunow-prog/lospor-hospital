@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
-import { MAINTENANCE_SECTIONS, STATUS_NAV, renderTerminology, type TerminologyView } from "./ui.js"
+import { HOSPITAL_CONTROL_SECTIONS, MAINTENANCE_SECTIONS, STATUS_NAV, renderTerminology, type TerminologyView } from "./ui.js"
 
 const view: TerminologyView = {
   state: null,
@@ -106,7 +106,10 @@ describe("the navigation registry", () => {
     // parent rather than each becoming a header tab. This is what lets a long
     // page be split without the header growing: /status/maintenance/settings is
     // Maintenance, shown under Maintenance, reached from Maintenance.
-    const sections = new Set(MAINTENANCE_SECTIONS.map(slug => `/status/maintenance/${slug}`))
+    const sections = new Set([
+      ...MAINTENANCE_SECTIONS.map(slug => `/status/maintenance/${slug}`),
+      ...HOSPITAL_CONTROL_SECTIONS.map(slug => `/status/control/${slug}`),
+    ])
 
     const unaccounted = routes.filter(path =>
       !navigational.has(path) && !outsideTheShell.has(path) && !sections.has(path))

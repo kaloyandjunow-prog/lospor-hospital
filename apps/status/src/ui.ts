@@ -1075,12 +1075,20 @@ function dateFact(label: string, value: string | null, locale: StatusLocale): st
   return `<div class="fact"><b>${escapeHtml(label)}</b>${value ? `${escapeHtml(utcDate(Date.parse(value), locale))} UTC` : "—"}</div>`
 }
 
+// One tab per concern, reached by its own address, for the same reason
+// Maintenance stopped being one long page in 1.4.1: eleven sections in a row
+// meant EHR integration was scrolled past to reach research, and research
+// past to reach external AI. Each is now /status/control/<slug>: a real
+// address, linkable and bookmarked, and the POST endpoints are unchanged.
+export const HOSPITAL_CONTROL_SECTIONS = ["clinical", "ehr", "research", "ai"] as const
+
 export function renderControlPlane(
   view: ControlPlaneView | null,
   locale: StatusLocale = "bg",
   error?: string,
   notice?: string,
   audience: StatusNavAudience = "password",
+  section?: string,
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1416,20 +1424,45 @@ export function renderControlPlane(
     ${answeredSystems || `<div class="empty">${localize(locale, "No addresses have been answered yet.", "Все още няма посочени адреси.")}</div>`}
   ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
 
-  return page(
-    localize(locale, "Hospital controls", "Управление на болничната система"),
-    `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "Research, Central, clinical guidance and external AI", "Изследвания, Central, клинични насоки и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Този вход в страницата за състояние не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие във всеки формуляр.")}</strong></div>
+  const sections: { slug: typeof HOSPITAL_CONTROL_SECTIONS[number]; label: string; html: string }[] = [
+    {
+      slug: "clinical",
+      label: localize(locale, "Clinical guidance", "Клинични насоки"),
+      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Предварителни изчислителни насоки")}</h2><div class="card">${guidanceForm}</div></section>`,
+    },
+    {
+      slug: "ehr",
+      label: localize(locale, "EHR integration", "Интеграция с ЕЗД"),
+      html: `
+    <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
+    <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>`,
+    },
+    {
+      slug: "research",
+      label: localize(locale, "Research & Central", "Изследвания и Central"),
+      html: `
     <section class="section"><h2>${localize(locale, "Research grants", "Разрешения за изследвания")}</h2><div class="card"><div class="component">${grantForm}</div>${grantRows}</div></section>
     <section class="section"><h2>${localize(locale, "Exact OMOP approvals", "Точни одобрения за OMOP")}</h2><div class="card">${omopRows}</div></section>
     <section class="section"><h2>${localize(locale, "Central transport (push-only)", "Пренос към Central (само изпращане)")}</h2><div class="card"><div class="component"><p><strong>${localize(locale, "Disabled by default.", "Изключено по подразбиране.")}</strong> ${localize(locale, "Central cannot query or write this hospital database.", "Central не може да чете или записва в болничната база данни.")}</p>${certificateFacts}${transport}</div></div></section>
     <section class="section"><h2>${localize(locale, "Central automatic clinical delivery", "Автоматично клинично изпращане към Central")}</h2><div class="card"><div class="component">${policy}</div></div></section>
-    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Опашки, пакети и подписани разписки от Central")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, които чакат приета разписка")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "Queues", "Опашки")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>
-    <section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Предварителни изчислителни насоки")}</h2><div class="card">${guidanceForm}</div></section>
-    <section class="section"><h2>${localize(locale, "External AI (Mistral)", "Външен ИИ (Mistral)")}</h2><div class="card">${externalAiControls}</div></section>
-    <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
-    <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Опашки, пакети и подписани разписки от Central")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, които чакат приета разписка")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "Queues", "Опашки")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>`,
+    },
+    {
+      slug: "ai",
+      label: localize(locale, "External AI", "Външен ИИ"),
+      html: `<section class="section"><h2>${localize(locale, "External AI (Mistral)", "Външен ИИ (Mistral)")}</h2><div class="card">${externalAiControls}</div></section>`,
+    },
+  ]
+  const active = sections.find(entry => entry.slug === section) ?? sections[0]
+  const subnav = `<nav class="statusnav subnav" aria-label="${escapeHtml(localize(locale, "Hospital control sections", "Раздели на управлението"))}">${
+    sections.map(entry => `<a href="/status/control/${entry.slug}"${entry.slug === active.slug ? ' aria-current="page"' : ""}>${escapeHtml(entry.label)}</a>`).join("")
+  }</nav>`
+
+  return page(
+    localize(locale, "Hospital controls", "Управление на болничната система"),
+    `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "EHR integration, research, Central and external AI", "ЕЗД, изследвания, Central и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Този вход в страницата за състояние не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие във всеки формуляр.")}</strong></div>${subnav}${active.html}
     </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не съхранява и не показва токен за свързване, парола, данни за достъп до ИИ, защитената им стойност, съдържание на сертификат или клиничен запис.")}</footer></div>`,
     locale,
   )

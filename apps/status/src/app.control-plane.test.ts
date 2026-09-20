@@ -327,53 +327,67 @@ async function recoveryCookie(app: ReturnType<typeof setup>["app"], auth: AuthSe
 
 describe("Status Hospital control plane", () => {
   it("shows Bulgarian metadata, exact hashes, and no secret or clinical payload fields", async () => {
+    // Hospital controls is four tabs now (1.4.3), not one page, so the
+    // surface this test covers is fetched from each address it actually
+    // lives at. The secret-leak checks run against all four concatenated,
+    // which is a stronger net than the single page they used to share.
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    const response = await app.request("/status/control", { headers: { cookie } })
-    const body = await response.text()
-    expect(response.status).toBe(200)
-    expect(body).toContain('<html lang="bg">')
-    expect(body).toContain("Точни одобрения за OMOP")
-    expect(body).toContain(HASH)
-    expect(body).toContain("Допустим активен профил")
-    expect(body).toContain("началник на отделение")
-    expect(body).not.toContain("HEAD_OF_DEPT")
-    expect(body).toContain("Изключено по подразбиране")
-    expect(body).toContain("https://central.example.test")
-    expect(body).toContain("hospital-signing-key-1")
-    expect(body).toContain("Клиентският сертификат е валиден от")
-    expect(body).toContain("CA за Central е валиден до")
-    expect(body).toContain("Външен ИИ (Mistral)")
-    expect(body).toContain("central-encryption-key-1")
-    expect(body).toContain("Версии на манифеста, поддържани от Central")
-    expect(body).toContain("67_108_864".replaceAll("_", ""))
-    expect(body).toContain("4194304")
-    expect(body).toContain("Данните за достъп са настроени на")
-    expect(body).toContain("Политика за национален идентификатор (ЕГН)")
-    expect(body).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
-    expect(body).toContain("Транспорт за внос на ЕЗД")
-    expect(body).toContain("Наблюдаваната папка не се нуждае от данни за достъп")
-    expect(body).toContain("Документиране на педиатрични случаи")
-    expect(body).toContain("постоянна възможност на Hospital")
-    expect(body).toContain("pediatric-v2")
-    expect(body).toContain("Готовност на базовата конфигурация")
-    expect(body).toContain("Не е готово")
-    expect(body).toContain("Няма избрана базова конфигурация за цялата система")
-    expect(body).toContain("Политиката е включена")
-    expect(body).toContain("Публикуван")
-    expect(body).not.toContain("PUBLISHED")
-    expect(body).toContain(ADULT_BASELINE_HASH)
-    expect(body).toContain(PEDIATRIC_BASELINE_HASH)
-    expect(body).toContain("Опашки: Нов опит: 1")
-    expect(body).toContain("#7 · Нов опит")
-    expect(body).not.toContain('{&quot;RETRY&quot;')
-    expect(body).toContain('name="credential" type="password"')
-    expect(body).not.toContain("clientCertificatePem")
-    expect(body).not.toContain("enrollmentToken")
-    expect(body).not.toContain("patientName")
-    expect(body).not.toContain("credentialCiphertext")
-    expect(body).not.toContain("credentialAuthTag")
-    expect(controlPlane.get).toHaveBeenCalledOnce()
+    const [clinical, ehr, research, ai] = await Promise.all(
+      ["clinical", "ehr", "research", "ai"].map(async section => {
+        const response = await app.request(`/status/control/${section}`, { headers: { cookie } })
+        expect(response.status).toBe(200)
+        return response.text()
+      }),
+    )
+    const all = clinical + ehr + research + ai
+    expect(all).toContain('<html lang="bg">')
+
+    expect(research).toContain("Точни одобрения за OMOP")
+    expect(research).toContain(HASH)
+    expect(research).toContain("Допустим активен профил")
+    expect(research).toContain("началник на отделение")
+    expect(research).not.toContain("HEAD_OF_DEPT")
+    expect(research).toContain("Изключено по подразбиране")
+    expect(research).toContain("https://central.example.test")
+    expect(research).toContain("hospital-signing-key-1")
+    expect(research).toContain("Клиентският сертификат е валиден от")
+    expect(research).toContain("CA за Central е валиден до")
+    expect(research).toContain("central-encryption-key-1")
+    expect(research).toContain("Версии на манифеста, поддържани от Central")
+    expect(research).toContain("67_108_864".replaceAll("_", ""))
+    expect(research).toContain("4194304")
+    expect(research).toContain("Опашки: Нов опит: 1")
+    expect(research).toContain("#7 · Нов опит")
+    expect(research).not.toContain('{&quot;RETRY&quot;')
+
+    expect(ai).toContain("Външен ИИ (Mistral)")
+    expect(ai).toContain("Данните за достъп са настроени на")
+    expect(ai).toContain('name="credential" type="password"')
+
+    expect(ehr).toContain("Политика за национален идентификатор (ЕГН)")
+    expect(ehr).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
+    expect(ehr).toContain("Транспорт за внос на ЕЗД")
+    expect(ehr).toContain("Наблюдаваната папка не се нуждае от данни за достъп")
+
+    expect(clinical).toContain("Документиране на педиатрични случаи")
+    expect(clinical).toContain("постоянна възможност на Hospital")
+    expect(clinical).toContain("pediatric-v2")
+    expect(clinical).toContain("Готовност на базовата конфигурация")
+    expect(clinical).toContain("Не е готово")
+    expect(clinical).toContain("Няма избрана базова конфигурация за цялата система")
+    expect(clinical).toContain("Политиката е включена")
+    expect(clinical).toContain("Публикуван")
+    expect(clinical).not.toContain("PUBLISHED")
+    expect(clinical).toContain(ADULT_BASELINE_HASH)
+    expect(clinical).toContain(PEDIATRIC_BASELINE_HASH)
+
+    expect(all).not.toContain("clientCertificatePem")
+    expect(all).not.toContain("enrollmentToken")
+    expect(all).not.toContain("patientName")
+    expect(all).not.toContain("credentialCiphertext")
+    expect(all).not.toContain("credentialAuthTag")
+    expect(controlPlane.get).toHaveBeenCalledTimes(4)
   })
 
   it("keeps recovery sessions away from every Hospital control", async () => {
@@ -467,23 +481,23 @@ describe("Status Hospital control plane", () => {
   it("renders the complete control surface in English when EN is selected", async () => {
     const { app, auth } = setup()
     const session = await passwordCookie(app, auth)
-    const response = await app.request("/status/control", {
-      headers: { cookie: `${session}; lospor_status_locale=en` },
-    })
-    const body = await response.text()
-    expect(body).toContain('<html lang="en">')
-    expect(body).toContain("Exact OMOP approvals")
-    expect(body).toContain("Central automatic clinical delivery")
-    expect(body).toContain("every eligible finalized case is queued automatically")
-    expect(body).toContain("clinicians do not approve cases one by one")
-    expect(body).toContain("Prospective calculation guidance")
-    expect(body).toContain("Pediatric charting")
-    expect(body).toContain("fixed Hospital capability")
-    expect(body).toContain("Baseline readiness")
-    expect(body).toContain("Not ready")
-    expect(body).toContain("No platform baseline is selected")
-    expect(body).toContain("Policy enabled")
-    expect(body).toContain("External AI (Mistral)")
+    const cookie = { cookie: `${session}; lospor_status_locale=en` }
+    const research = await (await app.request("/status/control/research", { headers: cookie })).text()
+    const clinical = await (await app.request("/status/control/clinical", { headers: cookie })).text()
+    const ai = await (await app.request("/status/control/ai", { headers: cookie })).text()
+    expect(research + clinical + ai).toContain('<html lang="en">')
+    expect(research).toContain("Exact OMOP approvals")
+    expect(research).toContain("Central automatic clinical delivery")
+    expect(research).toContain("every eligible finalized case is queued automatically")
+    expect(research).toContain("clinicians do not approve cases one by one")
+    expect(clinical).toContain("Prospective calculation guidance")
+    expect(clinical).toContain("Pediatric charting")
+    expect(clinical).toContain("fixed Hospital capability")
+    expect(clinical).toContain("Baseline readiness")
+    expect(clinical).toContain("Not ready")
+    expect(clinical).toContain("No platform baseline is selected")
+    expect(clinical).toContain("Policy enabled")
+    expect(ai).toContain("External AI (Mistral)")
   })
 
   it("explains that clinical export approval is required before a retry", async () => {
@@ -628,7 +642,7 @@ describe("Status Hospital control plane", () => {
     const { app, auth, controlPlane } = setup()
     const session = await passwordCookie(app, auth)
     const headers = origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" })
-    const page = await (await app.request("/status/control", { headers: origin({ cookie: session }) })).text()
+    const page = await (await app.request("/status/control/ehr", { headers: origin({ cookie: session }) })).text()
     expect(page).toContain('action="/status/control/ehr-transport/retention"')
     const saved = await app.request("/status/control/ehr-transport/retention", {
       method: "POST",
@@ -650,6 +664,14 @@ describe("Status Hospital control plane", () => {
 
   it("sends a replacement EHR transport credential once and never redisplays it, then removes it only with exact confirmation", async () => {
     const { app, auth, controlPlane } = setup()
+    // A FOLDER transport has no credential form at all, so this has to run
+    // against FHIR to exercise the EHR tab's own form -- the FOLDER-default
+    // fixture only ever passed this check by coincidence, via the identical
+    // name="credential" input on the unrelated External AI tab.
+    vi.mocked(controlPlane.get).mockResolvedValue({
+      ...VIEW,
+      ehrTransport: { ...VIEW.ehrTransport, transport: "FHIR" as const },
+    })
     const session = await passwordCookie(app, auth)
     const headers = origin({
       cookie: session,
@@ -671,6 +693,7 @@ describe("Status Hospital control plane", () => {
       reason: "Configure the approved FHIR endpoint credential",
     })
     const body = await replaced.text()
+    expect(body).toContain('action="/status/control/ehr-transport/credential"')
     expect(body).toContain('name="credential" type="password"')
     expect(body).not.toContain(credential)
 
@@ -726,7 +749,7 @@ describe("Status Hospital control plane", () => {
     const { app, auth, controlPlane } = setup()
     const session = await passwordCookie(app, auth)
     const headers = origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" })
-    const page = await (await app.request("/status/control", { headers: origin({ cookie: session }) })).text()
+    const page = await (await app.request("/status/control/ai", { headers: origin({ cookie: session }) })).text()
     expect(page).toContain('action="/status/control/external-ai/models"')
     expect(page).toContain('<option value="mistral-small-2603" selected>')
     expect(page).toContain('<option value="ministral-14b-2512" >')
@@ -849,7 +872,7 @@ describe("code-list addresses", () => {
   it("answers an address without a password, and shows what is waiting", async () => {
     const { app, auth, controlPlane } = setup()
     const session = await passwordCookie(app, auth)
-    const page = await app.request("/status/control", { headers: { cookie: `${session}; lospor_status_locale=en` } })
+    const page = await app.request("/status/control/ehr", { headers: { cookie: `${session}; lospor_status_locale=en` } })
     const html = await page.text()
     expect(html).toContain("http://vendor.bg/lists/proc")
     expect(html).toContain("Лапароскопска холецистектомия")
@@ -1020,7 +1043,7 @@ describe("configuring the EHR integration", () => {
     const { app, auth, controlPlane } = setup()
     vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
     const cookie = await passwordCookie(app, auth)
-    const body = await (await app.request("/status/control", { headers: { cookie } })).text()
+    const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
 
     expect(body).toContain("/status/control/ehr-transport/endpoint")
     expect(body).toContain("/status/control/ehr-transport/identifier-systems")
@@ -1035,7 +1058,7 @@ describe("configuring the EHR integration", () => {
   it("shows none of it for a watched folder", async () => {
     const { app, auth } = setup()
     const cookie = await passwordCookie(app, auth)
-    const body = await (await app.request("/status/control", { headers: { cookie } })).text()
+    const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
 
     expect(body).not.toContain("/status/control/ehr-transport/identifier-systems")
   })
