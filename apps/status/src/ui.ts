@@ -2355,7 +2355,25 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
   if (unrepresentable) {
     form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Настройка на сървъра не може да бъде показана тук точно, затова настройките се променят от конзолата: sudo losporctl config plan.")}</p>`
   } else if (!view.mayManage) {
-    form = `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+    // Read-only, not invisible. Replacing the whole form with the reason meant
+    // that the moment a session could not change the settings it could not see
+    // them either: an operator who had just saved an update window came back to
+    // a page that showed neither the window nor the time zone they had set, and
+    // nothing said the values were still there. That happens in an ordinary
+    // recovery session, and -- until the agent projection was fixed to refresh
+    // while idle -- ten minutes after every agent restart.
+    //
+    // These are the same values the form shows when it is editable, so showing
+    // them here reveals nothing new; what it removes is a page that answers
+    // "what is configured?" with silence.
+    const shown = EDITABLE_SETTINGS
+      .filter(setting => settings[setting.key]?.editable !== false)
+      .map(setting => {
+        const value = settings[setting.key]?.value ?? ""
+        const text = value === "" ? localize(locale, "Not set", "Не е зададено") : value
+        return `<div class="fact"><b>${escapeHtml(localize(locale, setting.en, setting.bg))}</b>${escapeHtml(text)}</div>`
+      }).join("")
+    form = `<div class="facts">${shown}</div><p class="component-detail">${escapeHtml(disabledReason)}</p>`
   } else {
     // Each field is drawn from the kind it already declares.
     //
