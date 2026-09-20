@@ -1,6 +1,6 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.3
+## [1.4.3] - 2026-09-20
 
 Five defects found the same day 1.4.2 shipped, rehearsing the EHR/FHIR
 adapter against a real server for the first time -- and, at your request,
