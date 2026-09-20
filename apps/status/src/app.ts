@@ -369,6 +369,36 @@ export function createStatusApp({
   const currentLocale = (context: Context): StatusLocale =>
     statusLocale(getCookie(context, LOCALE_COOKIE_NAME), statusLocale(config.defaultLocale))
 
+  /**
+   * Why a maintenance request could not be written, kept rather than discarded.
+   *
+   * These calls all ended `.catch(() => "failed")`, so an operational failure --
+   * a directory the container cannot write, a read-only mount -- reached the
+   * operator as an unexplained "could not be recorded" and reached nobody else
+   * at all. Status writes no logs by design, so the reason goes where the rest
+   * of its diagnostics go: the event list, and from there the support bundle.
+   *
+   * The operator still sees the same sentence. Only the diagnosis improves.
+   */
+  const maintenanceRequestFailed = (requestId: string, error: unknown): "failed" => {
+    const errno = (error as { code?: unknown } | null)?.code
+    const path = (error as { path?: unknown } | null)?.path
+    const reason = error instanceof Error ? error.message : String(error)
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_REQUEST_WRITE_FAILED",
+      severity: "warning",
+      message: `A maintenance request could not be written: ${reason || "unknown error"}`,
+      facts: {
+        ...(errno === undefined ? {} : { errno: String(errno) }),
+        ...(path === undefined ? {} : { path: String(path) }),
+      },
+    })
+    return "failed"
+  }
+
   app.use("*", async (context, next) => {
     await next()
     securityHeaders(context.res)
@@ -1699,7 +1729,7 @@ export function createStatusApp({
       action: terminologyAction,
       packageDirectory,
       operatorRef: `status-operator-${sha256(administrator.email).slice(0, 16)}`,
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       const message = outcome === "already-pending"
         ? localize(locale, "A terminology operation is already waiting on the host. Nothing replaced it.", "Операция с терминология вече чака на сървъра. Тя не е заменена.")
@@ -1772,15 +1802,35 @@ export function createStatusApp({
     locale: StatusLocale,
     kind: "password" | "recovery",
     extra: { notice?: string; error?: string; sessionToken?: string } = {},
-  ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind)
+    section?: string,
+  ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind, section)
 
-  app.get("/status/maintenance", async context => {
+  const maintenanceGet = async (context: Context, section?: string) => {
     const locale = currentLocale(context)
     const sessionToken = getCookie(context, COOKIE_NAME)
     const kind = auth.validateSessionKind(sessionToken)
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
-    return context.html(await maintenancePage(locale, kind, { sessionToken }))
-  })
+    return context.html(await maintenancePage(locale, kind, { sessionToken }, section))
+  }
+
+  app.get("/status/maintenance", context => maintenanceGet(context))
+  // One address per maintenance section, each written out.
+  //
+  // Not a :section parameter: /status/maintenance/support-bundle is the
+  // download itself, and a pattern that also matched it would hand back a page
+  // where a file was expected. Static routes cannot shadow one another.
+  //
+  // Written as literals rather than a loop so the navigation registry test,
+  // which scans this file for registered status paths, can still see them. A
+  // route it cannot see is a route nobody is checking.
+  app.get("/status/maintenance/backups", context => maintenanceGet(context, "backups"))
+  app.get("/status/maintenance/offhost", context => maintenanceGet(context, "offhost"))
+  app.get("/status/maintenance/host-os", context => maintenanceGet(context, "host-os"))
+  app.get("/status/maintenance/escrow", context => maintenanceGet(context, "escrow"))
+  app.get("/status/maintenance/support", context => maintenanceGet(context, "support"))
+  app.get("/status/maintenance/rotation", context => maintenanceGet(context, "rotation"))
+  app.get("/status/maintenance/settings", context => maintenanceGet(context, "settings"))
+  app.get("/status/maintenance/advanced", context => maintenanceGet(context, "advanced"))
 
   /** The checks every maintenance POST shares, in order. A string is the refusal. */
   const maintenanceBody = async (
@@ -1904,7 +1954,7 @@ export function createStatusApp({
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action, operatorRef: confirmed.operatorRef,
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
@@ -2013,7 +2063,7 @@ export function createStatusApp({
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action: "secrets-escrow", operatorRef, proposal: { content, sha256: sha256(content) },
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         sessionToken,
@@ -2062,7 +2112,7 @@ export function createStatusApp({
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action: "secrets-escrow-delivered", operatorRef, delivered: offer.sha256,
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "Друга заявка за поддръжка чака на сървъра. Изтеглете копието за съхранение отново след минута."], 409)
     }
@@ -2106,7 +2156,7 @@ export function createStatusApp({
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action: "offhost-config", operatorRef: confirmed.operatorRef, proposal: buildOffhostProposal(destination),
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
@@ -2178,7 +2228,7 @@ export function createStatusApp({
       action: "config",
       operatorRef: confirmed.operatorRef,
       proposal: { content: proposal.content, sha256: proposal.sha256 },
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
@@ -2284,7 +2334,7 @@ export function createStatusApp({
       action: "advanced",
       operatorRef: confirmed.operatorRef,
       proposal: { content: proposal.content, sha256: proposal.sha256 },
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
@@ -2484,7 +2534,7 @@ export function createStatusApp({
       }), locale))
     }
     const outcome = await requestFetch(config.updateRequestsDir, view.latestVersion, now())
-      .catch(() => "failed" as const)
+      .catch(error => maintenanceRequestFailed(newRequestId(), error))
     if (outcome === "already-pending") {
       return context.html(renderRelease(await releaseView(locale, {
         error: localize(locale, "A release is already waiting to be prepared.", "Вече има версия, която чака да бъде подготвена."),
@@ -2557,11 +2607,12 @@ export function createStatusApp({
       }), locale))
     }
 
+    const requestId = newRequestId()
     const outcome = await submitRequest(config.updateRequestsDir, {
-      requestId: newRequestId(),
+      requestId,
       targetVersion: view.fetchedVersion,
       window,
-    }, now()).catch(() => "failed" as const)
+    }, now()).catch(error => maintenanceRequestFailed(requestId, error))
 
     if (outcome === "already-pending") {
       return context.html(renderRelease(await releaseView(locale, {

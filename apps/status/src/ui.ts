@@ -511,7 +511,7 @@ const PAGE_STYLE = `
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}a{color:inherit}.shell{width:min(1040px,calc(100% - 2rem));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 0}.brand{font-weight:760;letter-spacing:-.02em}.subbrand{color:var(--muted);font-size:.86rem}.banner{border-radius:14px;padding:1.15rem 1.25rem;color:#fff;margin:.75rem 0 2rem;display:flex;gap:.8rem;align-items:center}.banner.good{background:var(--good)}.banner.warn{background:var(--warn)}.banner.bad{background:var(--bad)}.banner.unknown{background:var(--unknown)}.banner strong{font-size:1.12rem}.dot{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid currentColor;border-radius:50%;font-size:.75rem;font-weight:bold;flex:none}.section{margin:2rem 0}.section h2{font-size:1.05rem;margin:0 0 .65rem}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.component{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.component:last-child{border-bottom:0}.component-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.component-name{font-weight:670}.component-detail{font-size:.86rem;color:var(--muted);margin-top:.2rem}.state{white-space:nowrap;font-weight:650;font-size:.9rem}.state::before{content:"";display:inline-block;width:.62rem;height:.62rem;border-radius:50%;background:currentColor;margin-right:.4rem}.step-action{margin-top:.5rem}
 .step-action a{font-weight:650;text-decoration:underline}
 .step-command{display:inline-block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.85rem;background:var(--line);border-radius:6px;padding:.25rem .5rem;overflow-wrap:anywhere}
-.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.subnav{order:0;border-top:0;border-bottom:1px solid var(--line);padding:0 0 .5rem;margin:0 0 1.1rem}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .qr{display:grid;place-items:center;margin:1rem auto;padding:.5rem;width:max-content;max-width:100%;border:1px solid var(--line);background:#fff}.qr svg{display:block;max-width:248px;width:100%;height:auto}.checks{display:grid;gap:.45rem;margin:.75rem 0}.check{display:flex;align-items:flex-start;gap:.55rem;font-weight:500;margin:.25rem 0}.check input{width:auto;flex:none;margin:.25rem 0 0}.pad{padding:1rem}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}fieldset{border:1px solid var(--line);border-radius:9px;padding:.75rem 1rem;margin-top:1rem}legend{font-weight:650;padding:0 .3rem}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -1951,7 +1951,18 @@ function passwordConfirm(id: string, locale: StatusLocale): string {
   return `<label for="${id}">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="${id}" name="password" type="password" autocomplete="current-password" maxlength="256" required>`
 }
 
-export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+/**
+ * The maintenance sections, in the order they are offered.
+ *
+ * Each is its own address under /status/maintenance. "support" rather than
+ * "support-bundle" because /status/maintenance/support-bundle is already the
+ * download, and a section of that name would shadow it.
+ */
+export const MAINTENANCE_SECTIONS = [
+  "backups", "offhost", "host-os", "escrow", "support", "rotation", "settings", "advanced",
+] as const
+
+export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password", section?: string): string {
   const notice = view.notice ? `<div class="notice" role="status">${escapeHtml(view.notice)}</div>` : ""
   const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
   const state = view.state
@@ -1995,9 +2006,44 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
     verification: ["The result is kept below. Record a passed drill on the Go-live page.", "Резултатът се пази по-долу. Отбележете успешна проверка на страницата „Готовност“."],
   }, locale)}${actionForm("drill", localize(locale, "Run a restore drill", "Пробно възстановяване"))}${drills}</div>`
 
+  // One page per concern, reached by its own address.
+  //
+  // Maintenance used to render all eight of these one after another, so
+  // changing a setting meant scrolling past backups, off-host copies, the
+  // server OS, escrow, the support bundle and credential rotation to reach it.
+  // On a phone that is a long way down. Each is now its own view under
+  // /status/maintenance/<name>: real addresses, so they can be linked and
+  // bookmarked, they work without JavaScript, and the browser's back button
+  // means what it says. The POST endpoints are unchanged.
+  const sections: { slug: string; label: string; html: string }[] = [
+    {
+      slug: "backups",
+      label: localize(locale, "Backups", "Архиви"),
+      html: `<section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>`,
+    },
+    { slug: "offhost", label: localize(locale, "Copies kept elsewhere", "Копия извън сървъра"), html: offhostSection(view, disabledReason, actionForm, locale) },
+    { slug: "host-os", label: localize(locale, "Server OS", "Операционна система"), html: hostOsSection(view, actionForm, locale) },
+    { slug: "escrow", label: localize(locale, "Secrets escrow", "Съхранение на тайните"), html: escrowSection(view, disabledReason, locale) },
+    // "support", not "support-bundle": GET /status/maintenance/support-bundle
+    // is already the download itself, and a tab of that name would hand the
+    // operator a file instead of a page.
+    { slug: "support", label: localize(locale, "Support bundle", "Файл за поддръжка"), html: supportBundleSection(view, actionForm, locale) },
+    { slug: "rotation", label: localize(locale, "Credential rotation", "Смяна на данните за достъп"), html: rotationSection(view, disabledReason, locale) },
+    { slug: "settings", label: localize(locale, "Site settings", "Настройки на сайта"), html: settingsSection(view, disabledReason, locale) },
+    { slug: "advanced", label: localize(locale, "Advanced settings", "Разширени настройки"), html: advancedSection(view, disabledReason, locale) },
+  ]
+  const active = sections.find(entry => entry.slug === section) ?? sections[0]
+  const subnav = `<nav class="statusnav subnav" aria-label="${escapeHtml(localize(locale, "Maintenance sections", "Раздели на поддръжката"))}">${
+    sections.map(entry => `<a href="/status/maintenance/${entry.slug}"${entry.slug === active.slug ? ' aria-current="page"' : ""}>${escapeHtml(entry.label)}</a>`).join("")
+  }</nav>`
+
+  // The agent's state stays on every section: it is one line, and it is the
+  // reason a form below it may be disabled.
+  const agent = `<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section>`
+
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${escrowSection(view, disabledReason, locale)}${supportBundleSection(view, actionForm, locale)}${rotationSection(view, disabledReason, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}${subnav}${agent}${active.html}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
     locale,
   )
 }
@@ -2286,9 +2332,54 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
   } else if (!view.mayManage) {
     form = `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
   } else {
+    // Each field is drawn from the kind it already declares.
+    //
+    // Every one of these was a bare text box, so a closed set of two lowercase
+    // words was typed blind -- and typed on a phone, which capitalises the first
+    // letter, so "Bg", "Connected" and "Manual" were the natural inputs and all
+    // three were refused. The accepted values were documented in a label,
+    // "Restart after Ubuntu updates (manual or window)", which is the tell that
+    // the control could not express them. kind has always known; only the
+    // renderer did not ask.
     const fields = EDITABLE_SETTINGS.filter(setting => settings[setting.key]?.editable !== false).map(setting => {
       const value = settings[setting.key]?.value ?? ""
-      return `<div><label for="setting-${setting.key}">${escapeHtml(localize(locale, setting.en, setting.bg))}</label><input id="setting-${setting.key}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off"></div>`
+      const id = `setting-${setting.key}`
+      const label = `<label for="${id}">${escapeHtml(localize(locale, setting.en, setting.bg))}</label>`
+      const option = (candidate: string, text: string) =>
+        `<option value="${escapeHtml(candidate)}"${candidate === value ? " selected" : ""}>${escapeHtml(text)}</option>`
+      // A value the host holds but this list does not offer must not be replaced
+      // by whichever option happens to be first. An unselectable placeholder
+      // keeps the choice with the operator; submitting it fails validation and
+      // says so, which is honest, where a silent default would not be.
+      const placeholder = (choices: readonly string[]) => choices.includes(value) ? ""
+        : `<option value="" disabled selected>${escapeHtml(localize(locale, "Choose one", "Изберете"))}</option>`
+      const select = (body: string) => `<select id="${id}" name="${setting.key}">${body}</select>`
+      let control: string
+      switch (setting.kind) {
+        case "locale":
+          control = select(placeholder(["bg", "en"]) + option("bg", "Български") + option("en", "English"))
+          break
+        case "supply":
+          control = select(placeholder(["connected", "offline"])
+            + option("connected", localize(locale, "Connected to the internet", "Свързан с интернет"))
+            + option("offline", localize(locale, "Offline, from media", "Офлайн, от носител")))
+          break
+        case "reboot-policy":
+          // Blank is a real answer here, so it is an option rather than a gap.
+          control = select(option("", localize(locale, "Not set", "Не е зададено"))
+            + option("manual", localize(locale, "Only by hand", "Само ръчно"))
+            + option("window", localize(locale, "Inside the update window", "В прозореца за обновяване")))
+          break
+        case "time":
+          control = `<input id="${id}" name="${setting.key}" type="time" value="${escapeHtml(value)}" autocomplete="off">`
+          break
+        case "timezone":
+          control = `<input id="${id}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="64" autocomplete="off" placeholder="Europe/Sofia">`
+          break
+        default:
+          control = `<input id="${id}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off">`
+      }
+      return `<div>${label}${control}</div>`
     }).join("")
     form = `<form method="post" action="/status/maintenance/settings/preview"><div class="form-grid">${fields}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form>`
   }

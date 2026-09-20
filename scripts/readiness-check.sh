@@ -7,7 +7,26 @@ root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 . "$root/scripts/mfa-encryption-key.sh"
 . "$root/scripts/readiness-lib.sh"
 
-configured_locale="$(sed -n 's/^LOSPOR_DEFAULT_LOCALE=//p' "$root/.env" 2>/dev/null | tail -n 1 | tr -d '\r\"')"
+# Configuration lives in the appliance home, which is not the release root.
+#
+# A release tree reaches it through the .lospor-home symlink that both
+# activation and losporctl-install.sh drop beside it -- the same idiom
+# generate-secrets.sh, site-config.sh and ensure-backup-configuration.sh use.
+# Reading "$root/.env" directly worked only for an already-activated release
+# that happened to have one. On a resumed install the bootstrap tree has no
+# .env, so every lookup returned empty and the network boundaries were reported
+# as unsafe when they were merely unread:
+#   FAIL HOSPITAL_RESEARCH_ALLOWED_CIDRS is not a safe exact network boundary
+# which made --resume impossible to get past.
+if [ -d "$root/.lospor-home" ]; then
+  config_home="$(CDPATH= cd -- "$root/.lospor-home" && pwd -P)"
+else
+  config_home="$root"
+fi
+config_env="$config_home/.env"
+[ -f "$config_env" ] || config_env="$root/.env"
+
+configured_locale="$(sed -n 's/^LOSPOR_DEFAULT_LOCALE=//p' "$config_env" 2>/dev/null | tail -n 1 | tr -d '\r\"')"
 readiness_locale="${LOSPOR_DEFAULT_LOCALE:-$configured_locale}"
 case "$readiness_locale" in bg|en) ;; *) readiness_locale=bg ;; esac
 pick() {
@@ -123,7 +142,14 @@ if command -v timedatectl >/dev/null 2>&1; then
   fi
 fi
 if command -v systemctl >/dev/null 2>&1 && command -v sshd >/dev/null 2>&1; then
-  if systemctl is-active --quiet ssh 2>/dev/null; then
+  # ssh.socket counts. Ubuntu 24.04 socket-activates OpenSSH, so ssh.service
+  # reads "inactive" until the first connection arrives and ssh.socket is the
+  # unit actually listening. Checking only ssh.service failed a server whose
+  # recovery tunnel was perfectly available -- and failed it hardest at first
+  # boot, before anyone had connected even once.
+  if systemctl is-active --quiet ssh 2>/dev/null \
+    || systemctl is-active --quiet ssh.socket 2>/dev/null \
+    || systemctl is-active --quiet sshd 2>/dev/null; then
     pass "$(pick 'OpenSSH Server is active for the Status recovery tunnel' 'OpenSSH Server е активен за резервния тунел към Status')"
   else
     fail "$(pick 'OpenSSH Server is not active; the Status recovery tunnel would be unavailable' 'OpenSSH Server не е активен; резервният тунел към Status няма да бъде достъпен')"
@@ -138,7 +164,7 @@ env_value() {
     printf '%s\n' "$inherited_value"
     return 0
   fi
-  sed -n "s/^${key}=//p" "$root/.env" 2>/dev/null \
+  sed -n "s/^${key}=//p" "$config_env" 2>/dev/null \
     | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//'
 }
 
@@ -149,7 +175,7 @@ if [ "$preinstall" = true ] && [ -n "${HOSPITAL_CLINICAL_DOMAIN:-}" ] \
     && [ -n "${HOSPITAL_TLS_MODE:-}" ]; then
   configuration_available=true
   using_preinstall_environment=true
-elif [ -f "$root/.env" ]; then
+elif [ -f "$config_env" ]; then
   configuration_available=true
 elif [ "$preinstall" = true ] && [ -n "$(env_value HOSPITAL_CLINICAL_DOMAIN)" ] \
     && [ -n "$(env_value HOSPITAL_RESEARCH_DOMAIN)" ] \

@@ -90,6 +90,21 @@ describe("validating a setting", () => {
     ["HOSPITAL_UPDATE_WINDOW_START", "24:00", false],
     ["HOSPITAL_UPDATE_TIMEZONE", "Europe/Sofia", true],
     ["HOSPITAL_UPDATE_TIMEZONE", "../../etc/passwd", false],
+    // Blank, for the keys a fresh install genuinely leaves unset. The host
+    // accepts all three (apply-site-config.sh: `[ -z "$window" ] ||`,
+    // `[ -z "$timezone" ] ||`, `''|manual|window`), so refusing them here left
+    // a new appliance unable to save its own settings form at all.
+    ["HOSPITAL_UPDATE_WINDOW_START", "", true],
+    ["HOSPITAL_UPDATE_WINDOW_END", "", true],
+    ["HOSPITAL_UPDATE_TIMEZONE", "", true],
+    ["HOSPITAL_HOST_REBOOT_POLICY", "", true],
+    ["HOSPITAL_HOST_REBOOT_POLICY", "manual", true],
+    ["HOSPITAL_HOST_REBOOT_POLICY", "sometimes", false],
+    // The two the host does not accept blank stay refused.
+    ["LOSPOR_DEFAULT_LOCALE", "", false],
+    ["LOSPOR_DEFAULT_LOCALE", "Bg", false],
+    ["HOSPITAL_UPDATE_SUPPLY_MODE", "", false],
+    ["HOSPITAL_UPDATE_SUPPLY_MODE", "Connected", false],
   ])("%s = %j is %s", (key, value, valid) => {
     expect(validSettingValue(setting(key), value)).toBe(valid)
   })

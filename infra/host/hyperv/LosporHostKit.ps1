@@ -193,8 +193,11 @@ function ConvertTo-LosporFirstbootCommand([string] $Firstboot) {
   $unit = "[Unit]`n" +
     "Description=LOSPOR Hospital first installation from the Windows wizard's answers`n" +
     "ConditionPathExists=/var/lib/lospor-firstboot/answers.env`n" +
-    "Wants=network-online.target`n" +
-    "After=network-online.target docker.service hv-kvp-daemon.service`n`n" +
+    # time-sync.target as well as the network: readiness fails the install if the
+    # clock is not confirmed synchronized, and first boot otherwise reaches that
+    # check seconds after boot, before systemd-timesyncd has confirmed anything.
+    "Wants=network-online.target time-sync.target`n" +
+    "After=network-online.target time-sync.target docker.service hv-kvp-daemon.service`n`n" +
     "[Service]`nType=oneshot`nExecStart=/bin/sh /usr/local/lib/lospor/lospor-firstboot.sh`nTimeoutStartSec=4h`n`n" +
     "[Install]`nWantedBy=multi-user.target`n"
   $script = "/target/usr/local/lib/lospor/lospor-firstboot.sh"

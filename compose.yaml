@@ -117,8 +117,13 @@ services:
       SIGNALS_TARGET: /target/signals
       SIGNALS_UID: 100
       SIGNALS_GID: 101
+      # lospor in the Status image (infra/docker/status.Dockerfile creates it as
+      # 1001). The update directories are Status's, not the curl worker's, so
+      # they must not inherit SIGNALS_UID.
       UPDATE_REQUESTS_TARGET: /target/update/requests
       UPDATE_STATE_TARGET: /target/update/state
+      STATUS_UID: 1001
+      STATUS_GID: 1001
     volumes:
       - ./infra/secrets/install-runtime-secrets.sh:/usr/local/bin/install-runtime-secrets.sh:ro
       - ./secrets/status:/source/status:ro

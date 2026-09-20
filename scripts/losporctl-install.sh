@@ -339,7 +339,22 @@ tar -tvzf "$deployment" | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d
 bootstrap_parent="$appliance_home/bootstrap-$version"
 rm -rf "$bootstrap_parent"
 install -d -m 0700 "$bootstrap_parent"
-tar -xzf "$deployment" --no-same-owner --no-same-permissions -C "$bootstrap_parent"
+# Extract under 022, not whatever the caller left behind.
+#
+# --no-same-permissions applies the umask to every extracted file, and the
+# first-boot installer runs the whole installation under `umask 077` because it
+# handles the administrator password and the TLS private key. Inheriting that
+# here turned the release payload owner-only: 100644 became 0600 and 100755
+# became 0700, all owned by the appliance user. compose.yaml bind-mounts eleven
+# of these scripts into containers that run as other users -- Postgres is 999,
+# the curl worker 100 -- so the install died on the first one it reached with
+# "cannot open /usr/local/bin/create-status-probe.sh: Permission denied" and
+# rolled back before the activation commit.
+#
+# The release payload is a public, signed artifact; nothing in it is a secret.
+# The secrets this installer goes on to create set their own 077 (see
+# generate-secrets.sh and ensure-*-secrets.sh), so tightening is not lost.
+(umask 022; tar -xzf "$deployment" --no-same-owner --no-same-permissions -C "$bootstrap_parent")
 chown -R "$owner:$owner_group" "$bootstrap_parent"
 bootstrap_root="$bootstrap_parent/$prefix"
 [ -f "$bootstrap_root/scripts/install-guided.sh" ] && [ -f "$bootstrap_root/scripts/verify-release.sh" ] \

@@ -1,6 +1,115 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.0
+## [Unreleased] - 1.4.1
+
+Six defects found by installing 1.4.0 on a real appliance rather than by
+reading it, and a seventh caught by the release gates on the way out. Four of
+them stopped an installation completing; one stopped an installed appliance
+being administered at all. No schema change, so the compatibility row moves
+only its version.
+
+### Status could not write its own maintenance requests
+
+`install-runtime-secrets.sh` gave `.data/update/requests` and
+`.data/update/state` to `SIGNALS_UID:SIGNALS_GID`. That pair is 100:101 because
+curl_user is uid 100 inside the worker image, which is right for `/signals` and
+wrong for these: they belong to Status, whose image creates lospor as uid 1001.
+Every write failed with EACCES.
+
+That is not one broken screen. Everything routed through
+`submitMaintenanceRequest` was dead: site settings, advanced settings, secrets
+escrow, terminology, and release prepare and apply. Secrets escrow is a Go-live
+requirement, so a hospital could not reach Go-live either.
+
+Nine call sites ended `.catch(() => "failed")`, so the operator saw only "The
+settings request could not be recorded." The reason now reaches the event list
+as `STATUS_MAINTENANCE_REQUEST_WRITE_FAILED`, with the errno and path in facts.
+
+### A clean install could not complete
+
+The first-boot installer runs under `umask 077` because it handles the
+administrator password and the TLS private key. `losporctl-install.sh` then
+extracted the deployment archive with `--no-same-permissions`, which applies
+that umask, so the payload arrived owner-only: 100644 became 0600.
+
+compose.yaml bind-mounts eleven scripts out of that payload into containers
+running as other users. A clean install therefore pulled all ten images,
+migrated the database, passed the GIN statistics gate, and then died on the
+first one it reached:
+
+```
+/bin/sh: 0: cannot open /usr/local/bin/create-status-probe.sh: Permission denied
+```
+
+Activation extracts the same archive under a normal umask, which is why only
+the bootstrap path was affected and why nothing in testing saw it. The
+extraction is now explicitly `umask 022`; the payload is a public signed
+artifact and holds no secrets.
+
+`script-executable-bits.test.sh`, which already existed for the 1.3.0 version
+of this class, now also checks that the extraction is umask-guarded and that
+every bind-mounted script exists.
+
+### Readiness read the wrong .env, and --resume could never work
+
+`readiness-check.sh` read `$root/.env`, where `$root` is the release tree.
+Configuration lives in the appliance home, reached through the `.lospor-home`
+symlink that seven other scripts already use. A bootstrap tree has no `.env`, so
+every lookup returned empty, and an empty value is not a valid CIDR list:
+
+```
+FAIL HOSPITAL_RESEARCH_ALLOWED_CIDRS is not a safe exact network boundary
+```
+
+Nothing was wrong with the boundaries. They were unread, and reported as unsafe.
+Because `--resume` runs readiness first, the documented recovery path could
+never get past it.
+
+### First boot raced the clock and sshd
+
+The unit waited for the network but not for `time-sync.target`, so readiness
+reached the clock check before systemd-timesyncd had confirmed anything. And
+Ubuntu 24.04 socket-activates OpenSSH, so `ssh.service` reads inactive until the
+first connection; the check now accepts `ssh.socket` and `sshd` as well. Both
+failed the same install and both were true a minute later.
+
+### Site settings refused blanks the host accepts, and asked for typed answers
+
+`apply-site-config.sh` permits an empty update window, time zone and restart
+policy, and a fresh install leaves all four unset — so a new appliance was in a
+state its own settings form would not submit. Validation is atomic, so a wrong
+guess discarded the whole form.
+
+Every closed set was also a bare text box, including six whose accepted values
+are one or two lowercase words. On a phone keyboard that capitalises the first
+letter, "Bg", "Connected" and "Manual" are the natural inputs and all three were
+refused. The label "Restart after Ubuntu updates (manual or window)" documented
+the accepted set in prose because the control could not express it. Each field
+already declared its `kind`; the renderer now reads it.
+
+### Maintenance was one page of eight concerns
+
+Site settings sat below backups, off-host copies, the server OS, escrow, the
+support bundle and credential rotation. Each is now its own address under
+`/status/maintenance/`, with sub-navigation. Real addresses, so they can be
+linked and bookmarked and work without JavaScript. Every POST endpoint is
+unchanged.
+
+### Exported batches declared the wrong release
+
+`manifest.versions.hospital` was still 1.4.0. It is the only provenance a
+research batch carries once it reaches Central, and Central believes it rather
+than checking it, so a 1.4.1 appliance would have attributed everything it
+exported to the release before it with nothing downstream able to notice.
+
+### Also
+
+The PeriOp Laboratories mark on the legal documents is refreshed: 288x96 and
+8 KB, replacing a 2724x2448 PNG of 161 KB that was rendered 24 pixels tall. The
+horizontal lockup replaces the stacked one, which at that height was 24 pixels
+wide and illegible.
+
+## [1.4.0] - 2026-09-17
 
 Installation and updates no longer need any GitHub or registry credential. The
 repository, its releases and the ten GHCR images are public; what a site trusts
