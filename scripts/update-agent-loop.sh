@@ -518,7 +518,36 @@ while true; do
             ;;
           FAILED) terminal_projection failed "$transition_code" "${transition_target#-}" ;;
           COMPLETED) update_projection_write completed "$transition_code" "${transition_target#-}" ;;
-          NEEDS_OPERATOR) terminal_projection needs-operator "$transition_code" "${transition_target#-}" ;;
+          NEEDS_OPERATOR)
+            # This arm only runs in the branch where the activation lock does
+            # not exist, so a latch saying the lock is present is provably
+            # stale. It was written by this same loop while the lock was real,
+            # mid-activation, and nothing ever wrote it back once activation
+            # finished and removed the lock.
+            #
+            # Left latched, a successful update reports itself as an
+            # interrupted one for good: Status withdraws the update controls,
+            # doctor exits 1, and `losporctl update recover` -- the remedy both
+            # of them name -- correctly answers that there is no journal to
+            # recover, because there is no lock. A site would hit that on its
+            # first update with no way out from either surface.
+            #
+            # Only this exact latch is cleared, by code and by action, so a
+            # needs-operator state that means anything else still stands.
+            if [ "$transition_code" = UPDATE_ACTIVATION_LOCK_PRESENT ] \
+              && [ "$transition_action" = reconcile ]; then
+              rm -f "$update_transition"
+              update_sync_path "$(dirname "$update_transition")"
+              if update_latest_descriptor; then
+                update_projection_write prepared UPDATE_PREPARED "$descriptor_version" "" \
+                  "$descriptor_version" "$descriptor_lock_sha" "$descriptor_rollback_policy"
+              else
+                update_projection_write idle UPDATE_AGENT_READY
+              fi
+            else
+              terminal_projection needs-operator "$transition_code" "${transition_target#-}"
+            fi
+            ;;
           ACCEPTED) update_projection_write accepted "$transition_code" "${transition_target#-}" ;;
           PREPARING) update_projection_write preparing "$transition_code" "${transition_target#-}" ;;
           APPLYING) terminal_projection needs-operator UPDATE_AMBIGUOUS_APPLY "${transition_target#-}" ;;

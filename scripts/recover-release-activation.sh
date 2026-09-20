@@ -14,13 +14,16 @@ confirmation="${2:-}"
 case "$command" in inspect|resume-rollback|verify-and-clear) ;; *) operator_error "Usage: recover-release-activation.sh [inspect|resume-rollback --confirm|verify-and-clear --confirm-clear]" "Употреба: recover-release-activation.sh [inspect|resume-rollback --confirm|verify-and-clear --confirm-clear]"; exit 2 ;; esac
 
 read_journal() {
+  # Set when this function has already named the exact failure, so the caller
+  # does not paper over it with a vaguer message.
+  journal_reported=0
   [ -d "$lock_dir" ] && [ ! -L "$lock_dir" ] && [ -f "$journal" ] && [ ! -L "$journal" ] \
-    || { operator_error "No supported activation journal is present." "Няма поддържан дневник за активиране."; return 1; }
+    || { operator_error "No supported activation journal is present." "Няма поддържан дневник за активиране."; journal_reported=1; return 1; }
   [ "$(wc -l < "$journal" | tr -d '[:space:]')" = 1 ] \
     && [ "$(wc -c < "$journal" | tr -d '[:space:]')" -le 4096 ] \
-    || { operator_error "The activation journal is malformed." "Дневникът за активиране е невалиден."; return 1; }
+    || { operator_error "The activation journal is malformed." "Дневникът за активиране е невалиден."; journal_reported=1; return 1; }
   awk -F '\t' 'NR == 1 && NF == 15 { ok=1 } END { exit !ok }' "$journal" \
-    || { operator_error "The activation journal has an unsupported field count." "Дневникът за активиране има неподдържан брой полета."; return 1; }
+    || { operator_error "The activation journal has an unsupported field count." "Дневникът за активиране има неподдържан брой полета."; journal_reported=1; return 1; }
   tab="$(printf '\t')"
   IFS="$tab" read -r journal_header journal_epoch journal_phase journal_boot journal_pid \
     journal_process_start journal_old_version journal_old_root journal_old_sha \
@@ -127,7 +130,17 @@ verify_backup_recovery_proof() {
   [ "$restore_proof_count" -ge 1 ]
 }
 
-read_journal || { operator_error "The activation journal failed strict validation." "Дневникът за активиране не премина строгата проверка."; exit 1; }
+# read_journal has already said which check failed, and says so precisely: no
+# journal present, malformed, wrong field count. Adding "failed strict
+# validation" on top of that replaced a precise diagnosis with a vaguer one,
+# and a misleading one -- an operator told the journal failed validation looks
+# for a corrupt journal, when the common case is that there is no lock at all
+# and nothing is wrong. Only speak here when read_journal did not.
+read_journal || {
+  [ "$journal_reported" = 1 ] \
+    || operator_error "The activation journal failed strict validation." "Дневникът за активиране не премина строгата проверка."
+  exit 1
+}
 
 if [ "$command" = inspect ]; then
   active=no; process_active && active=yes
