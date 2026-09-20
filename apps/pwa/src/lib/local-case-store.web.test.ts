@@ -7,6 +7,7 @@ import {
   getAllLocalCaseDrafts,
   loadLocalCaseDraft,
   loadLocalPatientReference,
+  localDraftCanBeWritten,
   makeLocalCaseId,
   saveLocalCaseDraft,
   type LocalDraftOwner,
@@ -154,5 +155,91 @@ describe("web local case drafts", () => {
     expect(await allStoredRecords("patient-reference-keys")).toHaveLength(1)
     await clearAllLocalCaseDrafts()
     expect(await allStoredRecords("patient-reference-keys")).toEqual([])
+  })
+})
+
+// A blank new-case form reported "the draft was not saved on this device" the
+// instant it opened: saveLocalCaseDraft refuses a draft with nothing to anchor
+// to, and the screen could not tell that refusal apart from a storage fault.
+// Asking first is what lets it stay silent until there is something to save.
+describe("whether a local draft has anything to anchor to", () => {
+  beforeEach(async () => {
+    Platform.OS = "web"
+    await clearAllLocalCaseDrafts()
+  })
+
+  it("says no for a new case with no patient number yet", async () => {
+    await expect(localDraftCanBeWritten({
+      localId: makeLocalCaseId(),
+      owner: ownerA,
+    })).resolves.toBe(false)
+  })
+
+  it("says no for a patient number of only whitespace", async () => {
+    await expect(localDraftCanBeWritten({
+      localId: makeLocalCaseId(),
+      owner: ownerA,
+      patientNumber: "   ",
+    })).resolves.toBe(false)
+  })
+
+  it("says yes once a patient number is entered", async () => {
+    await expect(localDraftCanBeWritten({
+      localId: makeLocalCaseId(),
+      owner: ownerA,
+      patientNumber: "3000",
+    })).resolves.toBe(true)
+  })
+
+  it("says yes once the case exists on the server, number or not", async () => {
+    await expect(localDraftCanBeWritten({
+      localId: makeLocalCaseId(),
+      owner: ownerA,
+      serverCaseId: "case-1",
+    })).resolves.toBe(true)
+  })
+
+  // Reopening a draft whose number was entered earlier: the form field may be
+  // empty, but the encrypted reference is already stored, so the draft still
+  // has its anchor and must keep saving.
+  it("says yes when a reference was already stored for this draft", async () => {
+    const localId = makeLocalCaseId()
+    expect(await saveLocalCaseDraft({
+      localId,
+      owner: ownerA,
+      formValues: { age: 40 },
+      patientNumber: "3000",
+    })).toBe(true)
+
+    await expect(localDraftCanBeWritten({ localId, owner: ownerA })).resolves.toBe(true)
+  })
+
+  // The contract the screen now leans on: whenever this says no, the write
+  // would have been refused anyway. If these two ever disagree, the screen is
+  // back to reporting a refusal it cannot explain -- which is the whole bug.
+  it("says no exactly when the write would be refused", async () => {
+    const localId = makeLocalCaseId()
+    const input = { localId, owner: ownerA, formValues: { age: 40 } }
+
+    expect(await localDraftCanBeWritten({ localId, owner: ownerA })).toBe(false)
+    expect(await saveLocalCaseDraft(input)).toBe(false)
+
+    expect(await localDraftCanBeWritten({
+      localId, owner: ownerA, patientNumber: "3000",
+    })).toBe(true)
+    expect(await saveLocalCaseDraft({ ...input, patientNumber: "3000" })).toBe(true)
+  })
+  // The reference belongs to whoever stored it; another clinician signing in
+  // on the same device has no draft here to anchor to.
+  it("says no to a different owner than the one who stored the reference", async () => {
+    const localId = makeLocalCaseId()
+    expect(await saveLocalCaseDraft({
+      localId,
+      owner: ownerA,
+      formValues: { age: 40 },
+      patientNumber: "3000",
+    })).toBe(true)
+
+    await expect(localDraftCanBeWritten({ localId, owner: ownerB })).resolves.toBe(false)
   })
 })

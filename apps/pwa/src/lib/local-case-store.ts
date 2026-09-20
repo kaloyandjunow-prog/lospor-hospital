@@ -342,6 +342,34 @@ async function ensureNativeDirectory(): Promise<void> {
 }
 
 /**
+ * Whether a local draft has anything to anchor to yet.
+ *
+ * Before a server case exists, a draft is anchored by the encrypted patient
+ * reference -- the hospital patient number, held in its own protected store,
+ * never in the clinical values. With no number entered and no reference
+ * already stored, there is nothing to write, and saveLocalCaseDraft correctly
+ * refuses.
+ *
+ * It refuses by returning false, though, which the caller cannot tell apart
+ * from a genuine storage failure. A blank new-case form therefore reported
+ * "the draft was not saved on this device" the instant it opened, before the
+ * clinician could type anything -- a device fault for a form not yet filled
+ * in. Asking first lets the caller stay silent until there is something to
+ * save, and keep the storage message for storage actually failing.
+ */
+export async function localDraftCanBeWritten(input: {
+  localId: string
+  owner: LocalDraftOwner
+  serverCaseId?: string | undefined
+  patientNumber?: string | undefined
+}): Promise<boolean> {
+  if (!validOwner(input.owner) || !input.localId) return false
+  if (input.serverCaseId) return true
+  if (typeof input.patientNumber === "string" && input.patientNumber.trim()) return true
+  return protectedReferenceExists(input.localId, input.owner)
+}
+
+/**
  * Persist one account-bound draft.
  *
  * Raw patient identifiers are rejected inside formValues. Before a server case
