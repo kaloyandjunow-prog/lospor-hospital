@@ -122,6 +122,15 @@ describe("validating a setting", () => {
     expect(TIME_ZONES.filter(zone => zone.length > 64)).toEqual([])
   })
 
+  // Intl offers no Etc/* zone, and Europe/London is GMT only in winter, so
+  // without this entry there is no way to choose a fixed UTC+0 for an update
+  // window at all.
+  it("offers a fixed UTC zone", () => {
+    expect(TIME_ZONES).toContain("Etc/UTC")
+    expect(validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), "Etc/UTC")).toBe(true)
+    expect(new Set(TIME_ZONES).size).toBe(TIME_ZONES.length)
+  })
+
   it("keeps blank a valid time zone now that a picker exists", () => {
     expect(validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), "")).toBe(true)
     expect(validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), "Europe/Sofia")).toBe(true)

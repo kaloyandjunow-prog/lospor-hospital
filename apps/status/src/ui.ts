@@ -1970,7 +1970,17 @@ function passwordConfirm(id: string, locale: StatusLocale): string {
  * Sorted so the rendered order is stable between runs and between machines.
  */
 export const TIME_ZONES: readonly string[] = Object.freeze(
-  [...Intl.supportedValuesOf("timeZone")].sort(),
+  [...new Set([
+    ...Intl.supportedValuesOf("timeZone"),
+    // Intl offers no Etc/* zone, so without this there is no way to pick a
+    // fixed UTC+0 at all. Europe/London is not a substitute: it is GMT in
+    // winter and BST in summer, so an update window set to it moves by an hour
+    // for half the year. Etc/UTC is on the host, carries a "/" like every
+    // other entry, and so needs nothing relaxed to be accepted. Bare "UTC" is
+    // on the host too but has no "/", and widening the field to admit it is a
+    // change to what saves rather than to what is offered.
+    "Etc/UTC",
+  ])].sort(),
 )
 
 export const MAINTENANCE_SECTIONS = [
