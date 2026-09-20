@@ -1,6 +1,91 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.2
+## [Unreleased] - 1.4.3
+
+Five defects found the same day 1.4.2 shipped, rehearsing the EHR/FHIR
+adapter against a real server for the first time -- and, at your request,
+the resulting redesign of how EHR, research, Central and external AI are
+reached in Status. No schema change, so the compatibility row moves only
+its version.
+
+### A successful EHR setup made the whole control page unusable
+
+Choosing FHIR transport and storing a credential before an endpoint is set
+is the ordinary shape of the browser's own two-step form, and the API has
+reported it as `capability: "ENDPOINT_NOT_CONFIGURED"` since Hospital 1.4.0.
+Status's response validator checked that field against an allowlist that
+never learned about it, and discarded the *entire* composed response the
+moment it saw a value it did not recognise: Research grants, OMOP approvals
+and everything else on Hospital controls went blank, not only EHR, and
+stayed blank on every later reload, because the state does not clear
+itself. An operator could not fix it through the page, because the page
+would not render enough of itself to offer the form that would.
+
+Reproduced live: setting FHIR transport and a static-bearer credential
+against a real appliance, with no endpoint yet, put Hospital controls into
+exactly this state.
+
+### A new case said the phone's storage had failed
+
+Opening a new case on the PWA showed "Storage error -- the draft was not
+saved on this device" immediately, before anything had been typed, together
+with an instruction to edit a marked field and no field marked. Entering an
+age without a hospital patient number did the same.
+
+Nothing was wrong with the device. A draft is anchored by the hospital
+patient number, which is encrypted into its own protected store and never
+written into the clinical values, so before a case exists on the server and
+before a number is entered there is genuinely nothing to anchor a draft to
+and the write is refused. The refusal returns the same `false` as a real
+storage failure, and the screen reported the only cause it knew.
+
+The requirement is deliberate and unchanged -- a case still needs its
+hospital patient number. What changed is that autosave now asks whether
+there is anything to save before trying, and stays silent when there is not.
+The required-field validation still speaks at submit, where it can mark the
+field it means.
+
+### A save error that could never be taken back
+
+The same banner was set when a draft write failed and never cleared when a
+later one succeeded, so it stayed on screen over a form that was by then
+saving on every keystroke. Combined with the above, a patient number that
+had in fact been stored looked rejected. It is now cleared on success: the
+message is state, not a log.
+
+### Every preference a clinician set was refused by the API
+
+Settings reported `400 /api/user` as the last API error, on this appliance
+and on any other. Core's clinical preferences carry five entry units; the
+API's patch schema listed four and is strict, so a client sending its whole
+preferences object -- which always includes the fifth, cvp -- had the entire
+request rejected rather than that one field ignored. No preference ever
+reached the server, and the pending-changes flag never cleared, so it
+retried and failed identically on every launch.
+
+Fixed upstream in lospor-api 9.10.4 and vendored here. An unknown unit is
+still refused.
+### Hospital controls was eleven sections in one scroll
+
+Research grants, OMOP approvals, three Central sections, guidance, external
+AI, the national-identifier policy, EHR transport, the laboratory code map
+and code-list addresses all lived on one page, so reaching EHR meant
+scrolling past Central and everything else. Split into four tabs, the same
+fix Maintenance got in 1.4.1 and for the same reason: real addresses under
+`/status/control/<slug>` instead of one long page.
+
+- **Clinical guidance** -- prospective calculation guidance, pediatric mode
+- **EHR integration** -- national identifier (ЕГН) policy, EHR transport,
+  the laboratory code map, code-list addresses
+- **Research & Central** -- research grants, OMOP approvals, Central
+  transport, Central clinical delivery, Central queues and batches
+- **External AI** -- Mistral
+
+The POST endpoints are unchanged; only where each form's page lives moved.
+A submission now returns to the tab it came from, rather than to whichever
+section happened to be first.
+
+## [1.4.2] - 2026-09-20
 
 Six defects, all found by installing 1.4.1 on a real appliance and updating it
 rather than by reading the code. Two of them made an online update impossible,

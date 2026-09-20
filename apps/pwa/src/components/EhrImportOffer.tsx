@@ -45,6 +45,16 @@ type Props = {
    */
   onlyFields?: readonly string[]
   onRequestModeChange?: () => void
+  /**
+   * Saves the draft so there is a case to ask against, before one exists.
+   *
+   * The lookup is case-scoped, so until the draft is saved this component
+   * rendered nothing and the number simply sat there: the only way to reach
+   * the hospital system was to start filling a second field and let autosave
+   * create the case as a side effect. Returns whether the save succeeded --
+   * the case id arriving is what triggers the ask, so this does not ask.
+   */
+  onEnsureSaved?: () => Promise<boolean>
 }
 
 type State =
@@ -54,6 +64,7 @@ type State =
   | { kind: "none" }
   | { kind: "ambiguous" }
   | { kind: "unavailable" }
+  | { kind: "error" }
 
 export function EhrImportOffer({
   caseId,
@@ -67,22 +78,23 @@ export function EhrImportOffer({
   onApply,
   onlyFields,
   onRequestModeChange,
+  onEnsureSaved,
 }: Props) {
   const strings = STRINGS[language as "en" | "bg"]
   const [state, setState] = useState<State>({ kind: "idle" })
   const [open, setOpen] = useState(false)
 
-  const ask = useCallback(async () => {
-    if (!caseId || !identifier) return
+  const ask = useCallback(async (id: string) => {
+    if (!identifier) return
     setState({ kind: "asking" })
-    const result = await lookupEhrImport(caseId, identifier, identifierType)
+    const result = await lookupEhrImport(id, identifier, identifierType)
     if (result.status === "offer") {
       setState({ kind: "offer", offer: result.offer })
       setOpen(true)
       return
     }
     setState({ kind: result.status === "none" ? "none" : result.status })
-  }, [caseId, identifier, identifierType])
+  }, [identifier, identifierType])
 
   // Asked once per case and identifier, not polled. A later look is a
   // deliberate act — the button below — because a hospital system that has
@@ -91,7 +103,7 @@ export function EhrImportOffer({
   useEffect(() => {
     if (!available || !caseId || !identifier) return
     setState(current => (current.kind === "idle" ? current : current))
-    void ask()
+    void ask(caseId)
     // `ask` is declared with exactly this effect's own reactive inputs
     // (caseId, identifier, identifierType) as its useCallback deps, so its
     // identity only changes when this effect would already rerun -- naming it
@@ -100,7 +112,18 @@ export function EhrImportOffer({
     // lint gate even though nothing was actually unsafe.
   }, [available, caseId, identifier, identifierType, ask])
 
-  if (!available || !caseId || !identifier) return null
+  // With a case already saved this is a deliberate second look. Without one,
+  // it saves the draft and stops: the effect above asks as soon as the case
+  // id arrives, so the request is not made twice.
+  const fetchNow = async () => {
+    if (caseId) { await ask(caseId); return }
+    if (!onEnsureSaved) return
+    setState({ kind: "asking" })
+    if (!await onEnsureSaved()) setState({ kind: "error" })
+  }
+
+  if (!available || !identifier) return null
+  if (!caseId && !onEnsureSaved) return null
 
   // Narrowed to the fields this surface asked about. The preselected keys are
   // narrowed with them, or the review would arrive with items ticked that it
@@ -135,6 +158,26 @@ export function EhrImportOffer({
       {state.kind === "ambiguous" ? banner(strings.ehrAmbiguous, "warn") : null}
       {state.kind === "none" ? banner(strings.ehrNothingHeld, "info") : null}
 
+      {state.kind === "error" ? banner(strings.ehrLookupFailed, "warn") : null}
+
+      {/* Offered whenever there is no plan on screen: before the first ask,
+          and again after one that found nothing, since the number may simply
+          have been mistyped. */}
+      {state.kind !== "offer" && state.kind !== "asking" ? (
+        <FeedbackPressable
+          onPress={() => { void fetchNow() }}
+          style={{
+            borderRadius: 12, borderWidth: 1, borderColor: withAlpha(colors.primary, "66"),
+            backgroundColor: colors.surfaceRaised, paddingVertical: 12, alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 13 }}>
+            {state.kind === "idle" ? strings.ehrFetchPatient : strings.ehrFetchPatientAgain}
+          </Text>
+        </FeedbackPressable>
+      ) : null}
+
       {state.kind === "offer" && !open ? (
         <FeedbackPressable
           onPress={() => setOpen(true)}
@@ -150,7 +193,9 @@ export function EhrImportOffer({
         </FeedbackPressable>
       ) : null}
 
-      {state.kind === "offer" && open ? (
+      {/* caseId is necessarily set here: an offer only exists because the ask
+          above was made against one. */}
+      {state.kind === "offer" && open && caseId ? (
         <EhrImportPanel
           plan={planFor(state.offer)}
           identityUnverified={state.offer.identityUnverified}

@@ -25,7 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { ensureSavedCaseForAi } from "@/lib/ensure-saved-case"
-import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftOwnerFromIdentity, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
+import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftCanBeWritten, localDraftOwnerFromIdentity, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
 import { useAuth } from "@/lib/auth-context"
 import { buildPreopPayload } from "@/lib/preop-payload"
 import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
@@ -380,16 +380,27 @@ export default function NewCaseScreen() {
     }
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
     const { patientNumber, ...clinicalValues } = values
+    // A new case anchors its draft to the hospital patient number. Until one
+    // is entered there is nothing to write, which is a form not yet filled in
+    // rather than a fault: autosave stays silent and the required-field
+    // validation speaks at submit, where it can mark the field it means.
+    if (!await localDraftCanBeWritten({
+      localId: localIdRef.current,
+      owner: draftOwner,
+      serverCaseId: caseIdRef.current ?? undefined,
+      patientNumber,
+    })) return false
     const ok = await saveLocalCaseDraft({
       localId: localIdRef.current,
       owner: draftOwner,
       formValues: clinicalValues,
       ...(caseIdRef.current ? { serverCaseId: caseIdRef.current } : { patientNumber }),
     })
-    if (!ok) {
-      // Storage write failed — tell the user the draft is NOT saved
-      setSaveError(tc("storageDraftFailed"))
-    }
+    // Set on failure and cleared on success: this banner is state, not a log.
+    // Leaving a previous failure on screen after the draft has since been
+    // written tells the clinician their work is unsaved when it is saved --
+    // the one thing this message exists to be trusted about.
+    setSaveError(ok ? null : tc("storageDraftFailed"))
     return ok
   }, [draftOwner, tc])
 
@@ -1083,6 +1094,15 @@ export default function NewCaseScreen() {
                   deployment says it has a hospital system to ask. */}
               <EhrImportOffer
                 caseId={caseId}
+                onEnsureSaved={async () => {
+                  // The same helper the advisor and the lab scan use: the
+                  // lookup is case-scoped, so the draft has to become a case
+                  // before the hospital system can be asked about it.
+                  // Pressing the button is what makes that happen, rather
+                  // than the clinician discovering they must fill a second
+                  // field for autosave to do it as a side effect.
+                  return Boolean(await ensureCaseForAi())
+                }}
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
                 language={language}

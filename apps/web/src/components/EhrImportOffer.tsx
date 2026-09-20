@@ -42,6 +42,16 @@ type Props = {
    */
   onlyFields?: readonly string[]
   onRequestModeChange?: () => void
+  /**
+   * Saves the draft and resolves the case id, for asking before a case exists.
+   *
+   * The lookup is case-scoped, so until the case is saved there is nothing to
+   * ask against and this component used to render nothing at all. The number
+   * was therefore typed, and then nothing happened: the only way to reach the
+   * hospital system was to start filling a second field and let autosave
+   * create the case as a side effect. Nobody could be expected to guess that.
+   */
+  onEnsureSaved?: () => Promise<boolean>
 }
 
 type State =
@@ -51,6 +61,7 @@ type State =
   | { kind: "none" }
   | { kind: "ambiguous" }
   | { kind: "unavailable" }
+  | { kind: "error" }
 
 export function EhrImportOffer({
   caseId,
@@ -63,22 +74,23 @@ export function EhrImportOffer({
   onApply,
   onlyFields,
   onRequestModeChange,
+  onEnsureSaved,
 }: Props) {
   const t = useTranslations("ehr")
   const [state, setState] = useState<State>({ kind: "idle" })
   const [open, setOpen] = useState(false)
 
-  const ask = useCallback(async () => {
-    if (!caseId || !identifier) return
+  const ask = useCallback(async (id: string) => {
+    if (!identifier) return
     setState({ kind: "asking" })
-    const result = await lookupEhrImport(caseId, identifier, identifierType)
+    const result = await lookupEhrImport(id, identifier, identifierType)
     if (result.status === "offer") {
       setState({ kind: "offer", offer: result.offer })
       setOpen(true)
       return
     }
     setState({ kind: result.status === "none" ? "none" : result.status })
-  }, [caseId, identifier, identifierType])
+  }, [identifier, identifierType])
 
   // Asked once per case and identifier, never polled. A hospital system that
   // answered "nothing" will not be nagged into a different answer, and a poll
@@ -92,11 +104,24 @@ export function EhrImportOffer({
   useEffect(() => {
     if (!available || !caseId || !identifier) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void ask()
+    void ask(caseId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, caseId, identifier, identifierType])
 
-  if (!available || !caseId || !identifier) return null
+  // With a case already saved this is a deliberate second look. Without one,
+  // it saves the draft and stops: the effect above asks as soon as the case
+  // id arrives, so the request is not made twice.
+  const fetchNow = async () => {
+    if (caseId) { await ask(caseId); return }
+    if (!onEnsureSaved) return
+    setState({ kind: "asking" })
+    // Stays in "asking" on success: the case id arriving is what triggers
+    // the effect above, so the ask happens once rather than here and again.
+    if (!await onEnsureSaved()) setState({ kind: "error" })
+  }
+
+  if (!available || !identifier) return null
+  if (!caseId && !onEnsureSaved) return null
 
   // Narrowed to the fields this surface asked about. The preselected keys are
   // narrowed with them, or the review would arrive with items ticked that it
@@ -127,6 +152,25 @@ export function EhrImportOffer({
         </p>
       )}
 
+      {state.kind === "error" && (
+        <p className="text-xs mt-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-3 py-2">
+          {t("lookupFailed")}
+        </p>
+      )}
+
+      {/* Offered whenever there is no plan on screen: before the first ask,
+          and again after one that found nothing, since the number may simply
+          have been mistyped. */}
+      {state.kind !== "offer" && state.kind !== "asking" && (
+        <button
+          type="button"
+          onClick={() => { void fetchNow() }}
+          className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg border-2 border-sky-400 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors cursor-pointer"
+        >
+          {state.kind === "idle" ? t("fetchPatient") : t("fetchPatientAgain")}
+        </button>
+      )}
+
       {state.kind === "offer" && !open && (
         <button
           type="button"
@@ -137,7 +181,9 @@ export function EhrImportOffer({
         </button>
       )}
 
-      {state.kind === "offer" && open && (
+      {/* caseId is necessarily set here: an offer only exists because the ask
+          above was made against one. */}
+      {state.kind === "offer" && open && caseId && (
         <EhrImportReview
           plan={planFor(state.offer)}
           identityUnverified={state.offer.identityUnverified}

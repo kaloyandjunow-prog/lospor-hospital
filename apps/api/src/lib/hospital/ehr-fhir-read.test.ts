@@ -148,6 +148,50 @@ describe("keeping the newest results rather than the first page of them", () => 
   })
 
   /**
+   * The failure this exists to prevent, found against a live server.
+   *
+   * Every type was asked to sort by `date`, which only some of them have.
+   * A conformant server does not ignore the rest -- it refuses the search
+   * with a 400 -- so diagnoses, current medications and planned procedures
+   * came back unread every time, while the types that do have `date` came
+   * through and made it look like the server was merely incomplete.
+   */
+  it.each([
+    ["Condition", "-recorded-date"],
+    ["MedicationStatement", "-effective"],
+    ["ServiceRequest", "-authored"],
+    ["MedicationRequest", "-authoredon"],
+    ["Observation", "-date"],
+    ["AllergyIntolerance", "-date"],
+    ["Appointment", "-date"],
+  ])("sorts %s by the date parameter it actually has", async (resourceType, expected) => {
+    const { impl, seen } = pagedServer([])
+    await fetchPatientResources({ ...OPTIONS, resourceType, patientId: "p1", fetchImpl: impl })
+    expect(seen[0]).toContain(`_sort=${encodeURIComponent(expected)}`)
+  })
+
+  // The same parameter, for the same reason: a window asked for in `date` on
+  // a type without one refuses the search rather than widening it.
+  it("asks for the date window in the type's own parameter", async () => {
+    const { impl, seen } = pagedServer([])
+    await fetchPatientResources({
+      ...OPTIONS, resourceType: "Condition", patientId: "p1", since: "2026-01-01", fetchImpl: impl,
+    })
+    expect(seen[0]).toContain(`recorded-date=${encodeURIComponent("ge2026-01-01")}`)
+    expect(seen[0]).not.toContain("date=ge2026-01-01&")
+  })
+
+  // Better to sort here, which happens anyway, than to guess a parameter and
+  // have the server reject the search and return nothing at all.
+  it("asks for no sort at all on a type it has no date parameter for", async () => {
+    const { impl, seen } = pagedServer([])
+    await fetchPatientResources({
+      ...OPTIONS, resourceType: "Flag", patientId: "p1", since: "2026-01-01", fetchImpl: impl,
+    })
+    expect(seen[0]).not.toContain("_sort")
+    expect(seen[0]).not.toContain("ge2026-01-01")
+  })
+  /**
    * The next link is content from the response, and following it is a
    * server-side request carrying the bearer token. A tampered or
    * proxy-mangled link pointing elsewhere must not be dialled.

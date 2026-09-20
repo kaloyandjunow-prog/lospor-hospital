@@ -1104,6 +1104,7 @@ export function createStatusApp({
     locale: StatusLocale,
     error?: string,
     notice?: string,
+    section?: string,
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1111,6 +1112,8 @@ export function createStatusApp({
       locale,
       error ?? (current.error ? controlPlaneMessage(current.error, locale) : undefined),
       notice,
+      "password",
+      section,
     )
   }
 
@@ -1150,6 +1153,7 @@ export function createStatusApp({
     context: Context,
     action: (body: Record<string, unknown>) => Promise<void>,
     notice: (locale: StatusLocale) => string,
+    section?: string,
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1160,24 +1164,24 @@ export function createStatusApp({
         locale,
         "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
         "Влезте с администраторската парола, за да използвате управлението. Аварийните сесии от конзолата не могат да разрешават тези промени.",
-      )), 403)
+      ), undefined, section), 403)
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
     if (!Number.isFinite(contentLength) || contentLength > 16_384) {
-      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale), undefined, section), 400)
     }
     const parsed = await context.req.parseBody().catch(() => null)
     const body = isRecord(parsed) ? parsed : null
     if (!body) {
-      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale), undefined, section), 400)
     }
     try {
       await action(body)
-      return context.html(await controlHtml(locale, undefined, notice(locale)))
+      return context.html(await controlHtml(locale, undefined, notice(locale), section))
     } catch (error) {
       const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
       return context.html(
-        await controlHtml(locale, controlPlaneMessage(code, locale)),
+        await controlHtml(locale, controlPlaneMessage(code, locale), undefined, section),
         controlErrorStatus(code),
       )
     }
@@ -1195,6 +1199,7 @@ export function createStatusApp({
     context: Context,
     action: (body: Record<string, unknown>) => Promise<T>,
     notice: (locale: StatusLocale, result: T) => string,
+    section?: string,
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1205,16 +1210,16 @@ export function createStatusApp({
         locale,
         "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
         "Влезте с администраторската парола, за да използвате управлението. Аварийните сесии от конзолата не могат да разрешават тези промени.",
-      )), 403)
+      ), undefined, section), 403)
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
     if (!Number.isFinite(contentLength) || contentLength > 16_384) {
-      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale), undefined, section), 400)
     }
     const parsed = await context.req.parseBody().catch(() => null)
     const body = isRecord(parsed) ? parsed : null
     if (!body || typeof body.password !== "string") {
-      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale), undefined, section), 400)
     }
     try {
       await auth.reauthenticatePassword(getCookie(context, COOKIE_NAME), body.password)
@@ -1223,15 +1228,15 @@ export function createStatusApp({
       const message = rateLimited
         ? localize(locale, "Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново.")
         : localize(locale, "The administrator password was not accepted. Nothing was changed.", "Администраторската парола не беше приета. Нищо не е променено.")
-      return context.html(await controlHtml(locale, message), rateLimited ? 429 : 401)
+      return context.html(await controlHtml(locale, message, undefined, section), rateLimited ? 429 : 401)
     }
     try {
       const result = await action(body)
-      return context.html(await controlHtml(locale, undefined, notice(locale, result)))
+      return context.html(await controlHtml(locale, undefined, notice(locale, result), section))
     } catch (error) {
       const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
       return context.html(
-        await controlHtml(locale, controlPlaneMessage(code, locale)),
+        await controlHtml(locale, controlPlaneMessage(code, locale), undefined, section),
         controlErrorStatus(code),
       )
     }
@@ -1259,7 +1264,7 @@ export function createStatusApp({
     return value
   }
 
-  app.get("/status/control", async context => {
+  const controlGet = async (context: Context, section?: string) => {
     const locale = currentLocale(context)
     const session = passwordAccountSession(context)
     if (session === "missing") return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
@@ -1268,10 +1273,18 @@ export function createStatusApp({
         locale,
         "Sign in with the administrator password to use hospital controls.",
         "Влезте с администраторската парола, за да използвате управлението на болничната система.",
-      )), 403)
+      ), undefined, "recovery", section), 403)
     }
-    return context.html(await controlHtml(locale))
-  })
+    return context.html(await controlHtml(locale, undefined, undefined, section))
+  }
+  app.get("/status/control", context => controlGet(context))
+  // One address per section, written as literals rather than a loop so the
+  // navigation registry test, which scans this file for registered status
+  // paths, can still see them.
+  app.get("/status/control/clinical", context => controlGet(context, "clinical"))
+  app.get("/status/control/ehr", context => controlGet(context, "ehr"))
+  app.get("/status/control/research", context => controlGet(context, "research"))
+  app.get("/status/control/ai", context => controlGet(context, "ai"))
 
   app.post("/status/control/research/grants", context => sensitiveControlAction(
     context,
@@ -1303,18 +1316,21 @@ export function createStatusApp({
       await controlPlane.issueGrant(input)
     },
     locale => localize(locale, "The immutable research grant was issued and audited.", "Непроменимото разрешение за изследвания беше издадено и одитирано."),
+    "research",
   ))
 
   app.post("/status/control/research/grants/:id/revoke", context => sensitiveControlAction(
     context,
     body => controlPlane.revokeGrant(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
     locale => localize(locale, "The research grant was revoked and audited.", "Разрешението за изследвания беше отменено и одитирано."),
+    "research",
   ))
 
   app.post("/status/control/research/omop/:id/approve", context => sensitiveControlAction(
     context,
     body => controlPlane.approveOmop(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
     locale => localize(locale, "The exact frozen OMOP dataset was approved and audited.", "Точно този замразен OMOP набор беше одобрен и одитиран."),
+    "research",
   ))
 
   app.post("/status/control/central/transport", context => sensitiveControlAction(
@@ -1328,6 +1344,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "Central transport was configured, locked, and audited.", "Преносът към Central беше настроен, заключен и одитиран."),
+    "research",
   ))
 
   app.post("/status/control/central/policy", context => sensitiveControlAction(
@@ -1344,12 +1361,14 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The separate Central clinical-export policy was saved and audited.", "Отделната политика за клиничен износ към Central беше запазена и одитирана."),
+    "research",
   ))
 
   app.post("/status/control/central/batches/:id/retry", context => sensitiveControlAction(
     context,
     body => controlPlane.retryCentralBatch(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
     locale => localize(locale, "The Central batch was queued for a controlled retry.", "Пакетът за Central беше поставен в опашката за контролиран нов опит."),
+    "research",
   ))
 
   app.post("/status/control/guidance", context => sensitiveControlAction(
@@ -1360,6 +1379,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The prospective guidance policy was saved and audited; historical records were not changed.", "Политиката за бъдещи насоки беше запазена и одитирана; старите записи не бяха променени."),
+    "clinical",
   ))
 
   app.post("/status/control/external-ai/policy", context => sensitiveControlAction(
@@ -1369,6 +1389,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The external-AI policy was saved and audited.", "Политиката за външен ИИ беше запазена и одитирана."),
+    "ai",
   ))
 
   app.post("/status/control/external-ai/credential", context => sensitiveControlAction(
@@ -1378,6 +1399,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The Mistral credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп до Mistral бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+    "ai",
   ))
 
   app.post("/status/control/external-ai/credential/remove", context => sensitiveControlAction(
@@ -1389,6 +1411,7 @@ export function createStatusApp({
       return controlPlane.removeExternalAiCredential(formText(body, "reason", 10, 1000))
     },
     locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral бяха премахнати и промяната беше одитирана."),
+    "ai",
   ))
 
   app.post("/status/control/external-ai/models", context => sensitiveControlAction(
@@ -1404,6 +1427,7 @@ export function createStatusApp({
       return controlPlane.setExternalAiModels({ advisorModel, visionModel, reason: formText(body, "reason", 10, 1000) })
     },
     locale => localize(locale, "The external-AI models were saved and audited. The next AI request uses them.", "Моделите за външен ИИ бяха запазени и одитирани. Следващата заявка към ИИ ги използва."),
+    "ai",
   ))
 
   app.post("/status/control/patient-identifier", context => sensitiveControlAction(
@@ -1413,6 +1437,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Политиката за национален идентификатор (ЕГН) беше запазена и одитирана."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/policy", context => sensitiveControlAction(
@@ -1435,6 +1460,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/retention", context => sensitiveControlAction(
@@ -1447,6 +1473,7 @@ export function createStatusApp({
       return controlPlane.setEhrStagingRetention({ days: Number(raw), reason: formText(body, "reason", 10, 1000) })
     },
     locale => localize(locale, "The EHR staging retention was saved and audited. The next daily retention run applies it.", "Срокът за пазене на данните от ЕЗД беше запазен и одитиран. Следващото ежедневно почистване го прилага."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
@@ -1472,6 +1499,7 @@ export function createStatusApp({
         "The server answered. Enter a real record number above to see which numberings it uses.",
         "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите какви номерови системи използва.")
     },
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/endpoint", context => sensitiveControlAction(
@@ -1500,6 +1528,7 @@ export function createStatusApp({
     locale => localize(locale,
       "The EHR endpoint was saved and audited. Any stored credential was cleared, because a secret belongs to the arrangement it was issued for.",
       "Адресът на ЕЗД беше запазен и одитиран. Съхранените данни за достъп бяха изчистени, защото тайната принадлежи на настройката, за която е издадена."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/identifier-systems", context => sensitiveControlAction(
@@ -1528,6 +1557,7 @@ export function createStatusApp({
     locale => localize(locale,
       "The identifier numbering was saved and audited. Patient matches are now verified against it.",
       "Номеровата система беше запазена и одитирана. Съвпаденията по пациент вече се проверяват спрямо нея."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/credential", context => sensitiveControlAction(
@@ -1537,6 +1567,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп за преноса на ЕЗД бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-lab-codes/map", context => bulkControlAction(
@@ -1550,6 +1581,7 @@ export function createStatusApp({
       assumedUnit: formText(body, "assumedUnit", 0, 64) || null,
     }),
     locale => localize(locale, "The laboratory code was mapped and audited.", "Лабораторният код беше съпоставен и одитиран."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-lab-codes/unmap", context => bulkControlAction(
@@ -1559,6 +1591,7 @@ export function createStatusApp({
       code: formText(body, "code", 1, 512),
     }),
     locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-code-systems/answer", context => bulkControlAction(
@@ -1575,6 +1608,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The address was answered and audited. Codes from it are read that way from the next import.", "Адресът беше посочен и одитиран. Кодовете от него се четат така от следващия внос."),
+    "ehr",
   ))
 
   app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(
@@ -1586,6 +1620,7 @@ export function createStatusApp({
       return controlPlane.removeEhrTransportCredential(formText(body, "reason", 10, 1000))
     },
     locale => localize(locale, "The EHR transport credential was removed and the change was audited.", "Данните за достъп за преноса на ЕЗД бяха премахнати и промяната беше одитирана."),
+    "ehr",
   ))
 
   // ── governed terminology generations ─────────────────────────────────────

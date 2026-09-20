@@ -426,6 +426,14 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             it has a hospital system to ask. */}
         <EhrImportOffer
           caseId={caseId ?? null}
+          onEnsureSaved={onAutoSave ? async () => {
+            // The same flush the AI advisor uses before it reads the case
+            // back, for the same reason: the lookup is case-scoped, so the
+            // draft has to be a case before the hospital system can be asked
+            // about it. Pressing the button is what makes that happen, rather
+            // than the clinician discovering they must fill a second field.
+            try { await flushSave(); return true } catch { return false }
+          } : undefined}
           identifier={watch("patientId") ?? null}
           available={ehrImportCapability.enabled}
           current={getValues() as unknown as Record<string, unknown>}
