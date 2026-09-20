@@ -1,6 +1,55 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.1
+## [Unreleased] - 1.4.2
+
+One defect, found by trying to apply 1.4.1 from the status page on a real
+appliance. No schema change, so the compatibility row moves only its version.
+
+### Browser maintenance stopped ten minutes after the agent started
+
+Status decides whether the host maintenance agent is alive by the age of
+`maintenance-agent.v1.json`, and treats anything older than ten minutes as a
+dead agent:
+
+```js
+const agentFresh = agent !== null && now() - Date.parse(agent.observedAt) <= 10 * 60_000
+```
+
+Every browser control that needs the agent is gated on that -- updates, site
+settings, secrets escrow, backups, terminology -- through `mayManage` and
+`mayPrepare`.
+
+The projection was written correctly whenever an action ran, and once at
+startup by `maintenance_reconcile_startup`. Nothing refreshed it while the
+agent sat idle. So a healthy agent went stale ten minutes after it started and
+stayed that way, and the status page reported "The host maintenance agent is
+not working, so updates and Maintenance requests will not run." The browser
+route worked for ten minutes per restart and then silently stopped.
+
+The agent's poll loop already refreshed the terminology projection on the line
+above; the maintenance one was simply missing from the same place. It is now
+refreshed every poll.
+
+Nothing else was affected. The console routes never consult this file, so
+`prepare-verified-release.sh`, `apply-prepared-release.sh` and `losporctl`
+worked throughout -- an appliance was always updatable by someone with a
+console. What was lost was exactly the case the feature exists for: an
+appliance on a hospital LAN, and an operator with a browser rather than SSH.
+
+The test runs the real loop without `HOSPITAL_UPDATE_AGENT_ONESHOT`, so one
+long-lived process has to refresh the projection more than once. A
+single-iteration check cannot tell a startup-only write from a per-poll one,
+which is why the rest of the suite passed while this was broken.
+
+### Also
+
+web is re-pinned 9.10.2 to 9.10.3 and browser 0.7.1 to 0.7.3. Both upstreams
+moved for the PeriOp Laboratories mark the appliance had already refreshed in
+1.4.1, so the bytes were identical and only the claimed versions were not.
+browser's vendored tree already carried the 0.7.2 cohort-list fix; its pin had
+never caught up.
+
+## [1.4.1] - 2026-09-20
 
 Six defects found by installing 1.4.0 on a real appliance rather than by
 reading it, and a seventh caught by the release gates on the way out. Four of

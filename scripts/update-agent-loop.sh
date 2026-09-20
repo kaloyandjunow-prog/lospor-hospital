@@ -546,6 +546,16 @@ while true; do
     fi
   fi
   terminology_refresh_projection
+  # Every poll, not only at startup. Status treats a maintenance projection
+  # older than ten minutes as a dead agent and withdraws every browser control
+  # that needs one -- updates, site settings, escrow, backups. Writing this
+  # only from maintenance_reconcile_startup meant a healthy idle agent went
+  # stale ten minutes after it started and stayed that way, so the browser
+  # route worked for ten minutes per restart and then silently stopped. The
+  # terminology projection on the line above was already refreshed here; this
+  # one was not, and nothing noticed because both are written correctly while
+  # an action is actually running.
+  maintenance_refresh_projection
   maintenance_site_projection_write || true
   maintenance_escrow_expire || true
   flock -u 9
