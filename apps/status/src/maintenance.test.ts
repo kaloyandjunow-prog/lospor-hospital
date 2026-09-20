@@ -21,6 +21,7 @@ import {
   type SiteConfigSignal,
 } from "./maintenance.js"
 import { MAINTENANCE_REQUEST_FILE, SECRETS_ESCROW_PROPOSAL_FILE, SITE_CONFIG_PROPOSAL_FILE, submitMaintenanceRequest } from "./update-requests.js"
+import { TIME_ZONES } from "./ui.js"
 
 const NOW = Date.parse("2026-09-13T09:00:00Z")
 const OPERATOR = "status-operator-0123456789abcdef"
@@ -107,6 +108,24 @@ describe("validating a setting", () => {
     ["HOSPITAL_UPDATE_SUPPLY_MODE", "Connected", false],
   ])("%s = %j is %s", (key, value, valid) => {
     expect(validSettingValue(setting(key), value)).toBe(valid)
+  })
+
+  // The list is generated, so the thing worth pinning is not its contents but
+  // that offering it cannot change what saves. A zone offered in the picker
+  // that the field then refuses would be the worst outcome of adding one.
+  it("offers only zones the timezone field already accepts", () => {
+    expect(TIME_ZONES.length).toBeGreaterThan(300)
+    const refused = TIME_ZONES.filter(
+      zone => !validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), zone))
+    expect(refused).toEqual([])
+    // And the field's own 64-character cap, which the control still sets.
+    expect(TIME_ZONES.filter(zone => zone.length > 64)).toEqual([])
+  })
+
+  it("keeps blank a valid time zone now that a picker exists", () => {
+    expect(validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), "")).toBe(true)
+    expect(validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), "Europe/Sofia")).toBe(true)
+    expect(validSettingValue(setting("HOSPITAL_UPDATE_TIMEZONE"), "not a zone")).toBe(false)
   })
 
   it("knows whether an address is inside a network list", () => {
