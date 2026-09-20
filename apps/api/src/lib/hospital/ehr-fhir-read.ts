@@ -381,6 +381,36 @@ export const FHIR_RESULT_LIMIT = 300
  */
 const MAX_PAGES = 12
 
+/**
+ * The date search parameter each resource type actually has.
+ *
+ * `date` is not a search parameter every resource carries. Condition dates
+ * what was recorded, MedicationStatement when it was effective, ServiceRequest
+ * when it was authored, and none of them answers to `date` at all.
+ *
+ * Sending one anyway is not quietly ignored, which is what the paging notes
+ * above assumed. A conformant server refuses the search outright -- HAPI
+ * replies `HAPI-1194: Unknown _sort parameter value` with a 400 -- so the
+ * whole group comes back unread. Against a real server that meant diagnoses,
+ * current medications and planned procedures never imported at all, while the
+ * groups that happen to have a `date` came through normally, and the review
+ * screen could only report the three as unreadable.
+ *
+ * The names below are the R4 ones and each is verified against a live server.
+ * A type not listed here is sorted and filtered here rather than there: the
+ * local sort below is unconditional, so the order is still right, and asking
+ * with a parameter the server may not have is what this map exists to stop.
+ */
+const DATE_SEARCH_PARAM: Record<string, string> = {
+  Observation: "date",
+  AllergyIntolerance: "date",
+  Appointment: "date",
+  Condition: "recorded-date",
+  MedicationRequest: "authoredon",
+  MedicationStatement: "effective",
+  ServiceRequest: "authored",
+}
+
 export async function fetchPatientResources(input: {
   endpoint: string
   credential: string
@@ -417,14 +447,17 @@ export async function fetchPatientResources(input: {
 }> {
   const base = input.endpoint.replace(/\/$/, "")
   const limit = input.count ?? FHIR_RESULT_LIMIT
+  // Both the order and the date window have to be asked for in this type's
+  // own parameter, or the server refuses the search and the group is lost.
+  const dateParam = DATE_SEARCH_PARAM[input.resourceType]
   const query = new URLSearchParams({
     patient: input.patientId,
     _count: String(limit),
     // Asked for, then verified below. A server free to choose the order is a
     // server free to hand back the oldest results first.
-    _sort: "-date",
+    ...(dateParam ? { _sort: `-${dateParam}` } : {}),
     ...(input.encounterId ? { encounter: input.encounterId } : {}),
-    ...(input.since ? { date: `ge${input.since}` } : {}),
+    ...(input.since && dateParam ? { [dateParam]: `ge${input.since}` } : {}),
     ...(input.include ? { _include: input.include } : {}),
     ...(input.params ?? {}),
   })

@@ -1094,6 +1094,15 @@ export default function NewCaseScreen() {
                   deployment says it has a hospital system to ask. */}
               <EhrImportOffer
                 caseId={caseId}
+                onEnsureSaved={async () => {
+                  // The same helper the advisor and the lab scan use: the
+                  // lookup is case-scoped, so the draft has to become a case
+                  // before the hospital system can be asked about it.
+                  // Pressing the button is what makes that happen, rather
+                  // than the clinician discovering they must fill a second
+                  // field for autosave to do it as a side effect.
+                  return Boolean(await ensureCaseForAi())
+                }}
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
                 language={language}
