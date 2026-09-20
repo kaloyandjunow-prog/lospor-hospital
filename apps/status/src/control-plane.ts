@@ -619,7 +619,15 @@ function parseView(value: unknown): ControlPlaneView | null {
     || typeof value.ehrTransport.policyEnabled !== "boolean"
     || typeof value.ehrTransport.credentialStored !== "boolean"
     || typeof value.ehrTransport.providerConfigured !== "boolean"
-    || !["ENABLED", "DISABLED_BY_DEPLOYMENT", "CREDENTIAL_NOT_CONFIGURED"]
+    // The API has reported ENDPOINT_NOT_CONFIGURED since 1.4.0 -- FHIR chosen,
+    // a credential stored, no endpoint yet, which is exactly the state between
+    // the two saves the browser asks for in that order. This allowlist never
+    // learned about it, so the one appliance state that path always passes
+    // through failed this check, and failing this one field discards the
+    // whole composed response: every other section on Hospital controls went
+    // blank too, not just EHR, and stayed blank on every later reload because
+    // the state does not change itself.
+    || !["ENABLED", "DISABLED_BY_DEPLOYMENT", "CREDENTIAL_NOT_CONFIGURED", "ENDPOINT_NOT_CONFIGURED"]
       .includes(String(value.ehrTransport.capability))
     || !["STATIC_BEARER", "OAUTH2_CLIENT_CREDENTIALS"]
       .includes(String(value.ehrTransport.authMode))

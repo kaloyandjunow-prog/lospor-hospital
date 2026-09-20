@@ -490,6 +490,27 @@ describe("Status control-plane client", () => {
     await expect(malformedClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
   })
 
+  // A credential can be stored before an endpoint is, because the browser
+  // saves them as two separate forms -- and the API has reported this exact
+  // combination as ENDPOINT_NOT_CONFIGURED since 1.4.0. It is not malformed;
+  // it must parse, or the one state that path always passes through takes
+  // down every other section on the page along with it.
+  it("accepts ENDPOINT_NOT_CONFIGURED as a real, expected EHR transport state", async () => {
+    const view = {
+      ...VIEW,
+      ehrTransport: { ...VIEW.ehrTransport, credentialStored: true, capability: "ENDPOINT_NOT_CONFIGURED", endpoint: null },
+    }
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(view)) as unknown as typeof fetch,
+    )
+    await expect(client.get()).resolves.toMatchObject({
+      ehrTransport: { capability: "ENDPOINT_NOT_CONFIGURED", credentialStored: true, endpoint: null },
+    })
+  })
+
   it("sends EHR transport policy and credential inputs as their own bounded mutations", async () => {
     const fetcher = vi.fn(async () => json({})) as unknown as typeof fetch
     const client = new ControlPlaneClient(
