@@ -2,8 +2,10 @@
 
 ## [Unreleased] - 1.4.2
 
-One defect, found by trying to apply 1.4.1 from the status page on a real
-appliance. No schema change, so the compatibility row moves only its version.
+Three defects, all found by trying to apply 1.4.1 to a real appliance rather
+than by reading the code. Two of them made an online update impossible: one
+for every route, including the console. No schema change, so the
+compatibility row moves only its version.
 
 ### Browser maintenance stopped ten minutes after the agent started
 
@@ -40,6 +42,58 @@ The test runs the real loop without `HOSPITAL_UPDATE_AGENT_ONESHOT`, so one
 long-lived process has to refresh the projection more than once. A
 single-iteration check cannot tell a startup-only write from a per-poll one,
 which is why the rest of the suite passed while this was broken.
+
+### The connected update check threw away every token the registry issued
+
+`check-for-update.sh` reported "the registry returned no usable access token"
+and recorded the available version as unknown, on an appliance whose network
+was fine. The registry was fine too: HTTP 200, with a valid anonymous token.
+
+GHCR's token is base64 and is padded, and the allowlist it was checked against
+did not permit `=`:
+
+```
+^[A-Za-z0-9._~-]{16,4096}$
+```
+
+So the token was extracted correctly and then discarded. The padding is not
+intermittent -- the encoded payload is `v1:<package>:<nonce>`, whose length is
+stable -- so this check has never succeeded against GHCR for this repository.
+
+The guard exists because the token is written into a curl config header, so
+what must stay excluded is whitespace, quotes, backslashes and newlines.
+Padding is now accepted at the end, and `+` and `/`, the remaining base64
+characters, with it.
+
+The suite passed throughout because its fixture token was hand-written,
+`a-sufficiently-long-bearer-token`, which is neither base64 nor padded.
+
+### No appliance could be updated online at all
+
+`prepare-verified-release.sh` refused every release from 1.4.0 onwards:
+
+```
+published release asset list is missing, duplicated or contains an unexpected file
+UPDATE_RELEASE_METADATA_INVALID
+```
+
+The unexpected file was ours. The release workflow publishes
+`lospor-hospital-<version>-windows-kit.zip` and its `.sha256` beside the
+installable assets, and `expected_asset_names` is a closed set that was never
+told about them.
+
+This was not specific to the browser route. Every path that resolves a
+published GitHub release hit it, the console included, so the only way to
+update an appliance was the offline path with a hand-assembled asset
+directory. 1.3.3 predates the kit and is the last release the old check
+accepts.
+
+The kit is now tolerated when present rather than required: it is not in the
+manifest, not covered by the lock, and releases without it are still valid. It
+is deliberately left out of the returned order, so it is never downloaded.
+
+The fixture had seven assets and no kit, which is why the suite was green
+while no appliance could update.
 
 ### Also
 
