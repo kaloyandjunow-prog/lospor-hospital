@@ -10,6 +10,17 @@ images were deleted, and their git tags were kept as history. 1.3.3 remains, as
 the last working release before 1.4.0. 1.4.0 installs fresh; no hospital runs an
 earlier version, so there is no upgrade path from 1.3.x.
 
+**Coming from 1.4.0 or 1.4.1, use the offline path.** Those releases carry
+their own copy of the published-asset check, and it predates the Windows kit
+that the release workflow now publishes beside the installable assets. They
+therefore refuse every release that carries one, with
+`UPDATE_RELEASE_METADATA_INVALID` and "published release asset list is missing,
+duplicated or contains an unexpected file". This is not specific to the status
+page: every route that resolves a published GitHub release hits it, the console
+included. Assemble the seven installable assets in a directory yourself, as
+described under **Sites with no registry access** below, and install from
+there. 1.4.2 onwards accepts the kit and updates online normally.
+
 Hospital images are built once as a CI candidate from an exact
 `hospital-MAJOR.MINOR.PATCH` tag. The maintainer reviews its run-bound
 publication request and release-lock SHA-256, then manually dispatches
@@ -52,7 +63,7 @@ host-only command when the installation deliberately runs in console-only
 mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.2 -
 ```
 
 The root-owned preparer accepts only the semantic version and an optional fixed-
@@ -96,14 +107,14 @@ and do not have to happen together. Preparation performs the download and the
 full identity verification, then stops:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.2 -
 ```
 
 Nothing that is running is touched. Afterwards, apply only the exact descriptor
 that preparation wrote:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.0 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.2 -
 ```
 
 The apply command revalidates the descriptor, the installed identity it was
@@ -136,9 +147,9 @@ run:
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock \
-  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock.sha256 \
-  /media/lospor-1.4.0
+  /media/lospor-1.4.2/lospor-hospital-1.4.2-release.lock \
+  /media/lospor-1.4.2/lospor-hospital-1.4.2-release.lock.sha256 \
+  /media/lospor-1.4.2
 ```
 
 A first installation has no trusted `current` launcher yet. Use

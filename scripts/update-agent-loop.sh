@@ -518,7 +518,36 @@ while true; do
             ;;
           FAILED) terminal_projection failed "$transition_code" "${transition_target#-}" ;;
           COMPLETED) update_projection_write completed "$transition_code" "${transition_target#-}" ;;
-          NEEDS_OPERATOR) terminal_projection needs-operator "$transition_code" "${transition_target#-}" ;;
+          NEEDS_OPERATOR)
+            # This arm only runs in the branch where the activation lock does
+            # not exist, so a latch saying the lock is present is provably
+            # stale. It was written by this same loop while the lock was real,
+            # mid-activation, and nothing ever wrote it back once activation
+            # finished and removed the lock.
+            #
+            # Left latched, a successful update reports itself as an
+            # interrupted one for good: Status withdraws the update controls,
+            # doctor exits 1, and `losporctl update recover` -- the remedy both
+            # of them name -- correctly answers that there is no journal to
+            # recover, because there is no lock. A site would hit that on its
+            # first update with no way out from either surface.
+            #
+            # Only this exact latch is cleared, by code and by action, so a
+            # needs-operator state that means anything else still stands.
+            if [ "$transition_code" = UPDATE_ACTIVATION_LOCK_PRESENT ] \
+              && [ "$transition_action" = reconcile ]; then
+              rm -f "$update_transition"
+              update_sync_path "$(dirname "$update_transition")"
+              if update_latest_descriptor; then
+                update_projection_write prepared UPDATE_PREPARED "$descriptor_version" "" \
+                  "$descriptor_version" "$descriptor_lock_sha" "$descriptor_rollback_policy"
+              else
+                update_projection_write idle UPDATE_AGENT_READY
+              fi
+            else
+              terminal_projection needs-operator "$transition_code" "${transition_target#-}"
+            fi
+            ;;
           ACCEPTED) update_projection_write accepted "$transition_code" "${transition_target#-}" ;;
           PREPARING) update_projection_write preparing "$transition_code" "${transition_target#-}" ;;
           APPLYING) terminal_projection needs-operator UPDATE_AMBIGUOUS_APPLY "${transition_target#-}" ;;
@@ -546,6 +575,16 @@ while true; do
     fi
   fi
   terminology_refresh_projection
+  # Every poll, not only at startup. Status treats a maintenance projection
+  # older than ten minutes as a dead agent and withdraws every browser control
+  # that needs one -- updates, site settings, escrow, backups. Writing this
+  # only from maintenance_reconcile_startup meant a healthy idle agent went
+  # stale ten minutes after it started and stayed that way, so the browser
+  # route worked for ten minutes per restart and then silently stopped. The
+  # terminology projection on the line above was already refreshed here; this
+  # one was not, and nothing noticed because both are written correctly while
+  # an action is actually running.
+  maintenance_refresh_projection
   maintenance_site_projection_write || true
   maintenance_escrow_expire || true
   flock -u 9

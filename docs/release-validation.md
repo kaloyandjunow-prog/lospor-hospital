@@ -355,7 +355,7 @@ After the ordinary quality checks and capacity check pass, create and push the
 exact release tag. For example:
 
 ```powershell
-$Version = "1.4.0"
+$Version = "1.4.2"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -409,7 +409,7 @@ input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.2-release.lock
 ```
 
 Move only the public `lospor-hospital-<version>-release.lock.sig` back into the
@@ -491,7 +491,7 @@ publication job and `prepare` both require it. Anyone can check a downloaded
 file:
 
 ```sh
-gh attestation verify lospor-hospital-1.4.0-release.lock \
+gh attestation verify lospor-hospital-1.4.2-release.lock \
   --repo kaloyandjunow-prog/lospor-hospital \
   --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
 ```
@@ -731,7 +731,7 @@ to pass. Every step is timed; `-EvidencePath` writes the result, and the VM is
 removed unless `-Keep` is given.
 
 ```powershell
-.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.0 -EvidencePath .\gate.json
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.2 -EvidencePath .\gate.json
 ```
 
 **Every launcher on this page runs as root.** An installation ends by writing

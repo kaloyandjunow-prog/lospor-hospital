@@ -354,7 +354,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.4.0"
+$Version = "1.4.2"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -406,7 +406,7 @@ input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.2-release.lock
 ```
 
 Върнете само публичния `lospor-hospital-<version>-release.lock.sig` в
@@ -483,7 +483,7 @@ Candidate workflow също иска от GitHub атестация за lock, m
 и `prepare` го изискват. Всеки може да провери изтеглен файл:
 
 ```sh
-gh attestation verify lospor-hospital-1.4.0-release.lock \
+gh attestation verify lospor-hospital-1.4.2-release.lock \
   --repo kaloyandjunow-prog/lospor-hospital \
   --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
 ```
@@ -719,7 +719,7 @@ Hyper-V хост (с администраторски права). Той съз
 записва резултата, а машината се премахва, освен ако не е зададен `-Keep`.
 
 ```powershell
-.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.0 -EvidencePath .\gate.json
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.2 -EvidencePath .\gate.json
 ```
 
 **Всички launcher команди на тази страница се изпълняват като root.**

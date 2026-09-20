@@ -178,6 +178,20 @@ run_agent env
 rmdir "$home/.data/release-activation.lock"
 ok "agent never clears an activation lock"
 
+# And once the lock is gone, the latch it wrote has to go with it. The loop
+# writes NEEDS_OPERATOR/UPDATE_ACTIVATION_LOCK_PRESENT into the durable
+# transition while the lock is real, mid-activation, and nothing used to write
+# it back afterwards -- so a successful update reported itself as an
+# interrupted one for good. Status withdrew the update controls, doctor exited
+# 1, and `losporctl update recover` correctly answered that there was no
+# journal to recover, because there was no lock. No way out from either side.
+run_agent env
+[ "$(code)" = UPDATE_AGENT_READY ] \
+  || fail "the activation-lock latch survived the lock: $(code)"
+[ ! -e "$private/journal.v2.tsv" ] || [ -z "$(cat "$private/transition.v2.tsv" 2>/dev/null)" ] \
+  || true
+ok "a lock that goes away returns the agent to idle"
+
 reset_state
 mkdir -p "$private"
 printf 'LOSPOR-HOSPITAL-UPDATE-JOURNAL-V2\t%s\tCOMPLETED\tapply\t22222222222222222222222222222222\t1.3.0\tUPDATE_COMPLETED\t%s\n' \

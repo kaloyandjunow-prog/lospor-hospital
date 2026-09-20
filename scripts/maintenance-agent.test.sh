@@ -570,4 +570,45 @@ run_agent
 [ "$(code)" = MAINTENANCE_ESCROW_DAILY_LIMIT ] && [ ! -e "$state/secrets-escrow.v1.enc" ] || fail "a fourth escrow copy in a day was written"
 ok "a wrong passphrase, a report for another copy, an expired offer and a fourth copy a day are refused"
 
+
+# The projection has to keep advancing while the agent is idle, not only when
+# it starts. Status treats a projection older than ten minutes as a dead agent
+# and withdraws every browser control that needs one, so an idle agent that has
+# stopped writing looks exactly like one that died. This runs the loop for real,
+# without ONESHOT, so a single long-lived process has to refresh it more than
+# once: a startup-only write satisfies any single-iteration check, which is why
+# the gap survived the rest of this suite.
+reset_state
+env AGENT_CALLS="$work/calls" AGENT_APPLIED="$work/applied" \
+  HOSPITAL_UPDATE_TEST_ONLY=1 HOSPITAL_UPDATE_TEST_ZONEINFO_ROOT="$work/zoneinfo" \
+  HOSPITAL_UPDATE_AGENT_POLL_SECONDS=5 HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS=999999 \
+  HOSPITAL_UPDATE_TIMEZONE=Europe/Sofia sh "$scripts/update-agent-loop.sh" > "$work/idle.out" 2>&1 &
+idle_agent=$!
+observed_at() {
+  sed -n 's/.*"observedAt":"\([^"]*\)".*/\1/p' "$state/maintenance-agent.v1.json" 2>/dev/null
+}
+idle_first=""
+idle_waited=0
+while [ -z "$idle_first" ] && [ "$idle_waited" -lt 20 ]; do
+  sleep 1
+  idle_waited=$((idle_waited + 1))
+  idle_first="$(observed_at)"
+done
+if [ -z "$idle_first" ]; then
+  kill "$idle_agent" 2>/dev/null || true
+  fail "the idle agent never wrote a maintenance projection"
+fi
+idle_second="$idle_first"
+idle_waited=0
+while [ "$idle_second" = "$idle_first" ] && [ "$idle_waited" -lt 25 ]; do
+  sleep 1
+  idle_waited=$((idle_waited + 1))
+  idle_second="$(observed_at)"
+done
+kill "$idle_agent" 2>/dev/null || true
+wait "$idle_agent" 2>/dev/null || true
+[ "$idle_second" != "$idle_first" ] \
+  || fail "the maintenance projection never advanced past $idle_first while the agent idled"
+ok "an idle agent keeps refreshing the maintenance projection, not only at startup"
+
 echo "maintenance agent tests passed ($tests)"

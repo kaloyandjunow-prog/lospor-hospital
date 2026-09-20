@@ -152,6 +152,23 @@ describe("the maintenance page", () => {
     expect((await post(app, "/status/maintenance/actions", cookie, { action: "backup", password: PASSWORD })).status).toBe(403)
     expect(readdirSync(requestsDir)).toEqual([])
   })
+
+  // Read-only must not mean invisible. The whole form used to be replaced by
+  // the reason it was disabled, so a session that could not change the
+  // settings could not see them either -- an operator who had just set an
+  // update window came back to a page showing neither the window nor the zone.
+  it("still shows what is configured when it cannot be changed", async () => {
+    const { app, auth } = setup()
+    const cookie = await signIn(auth, true)
+    const body = await (await app.request("/status/maintenance/settings", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("cannot request maintenance")
+    expect(body).toContain("10.20.40.0/24")
+    expect(body).toContain("Default language")
+    // A blank value reads as blank, not as a missing row.
+    expect(body).toContain("Not set")
+    // And it is genuinely read-only: no editable control, no submit path.
+    expect(body).not.toContain("/status/maintenance/settings/preview")
+  })
 })
 
 describe("requesting a backup or a drill", () => {

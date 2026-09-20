@@ -66,6 +66,32 @@ class MetadataTests(unittest.TestCase):
         for candidate in (missing, extra, duplicate, gapped):
             with self.assertRaises(SystemExit): self.parse(candidate)
 
+    def test_tolerates_the_windows_kit_without_offering_it_for_download(self):
+        # The kit rides along on the GitHub release but is not part of the
+        # release the appliance installs. A closed asset list that did not know
+        # about it rejected every release carrying one, which was every release
+        # from 1.4.0 onwards, so no appliance could be updated online at all.
+        with_kit = release()
+        for index, name in enumerate((f"{PREFIX}-windows-kit.zip", f"{PREFIX}-windows-kit.zip.sha256")):
+            with_kit["assets"].append({
+                "id": 90 + index, "name": name, "size": 4096 + index,
+                "state": "uploaded", "digest": f"sha256:{90 + index:064x}",
+            })
+        output = self.parse(with_kit)
+        # Accepted, and still exactly the header plus the seven installable
+        # assets: the kit is tolerated, never downloaded.
+        self.assertEqual(output.count("\n"), 8)
+        self.assertNotIn("windows-kit", output)
+
+    def test_still_rejects_an_unexpected_file_beside_the_windows_kit(self):
+        candidate = release()
+        candidate["assets"].append({
+            "id": 90, "name": f"{PREFIX}-windows-kit.zip", "size": 4096,
+            "state": "uploaded", "digest": f"sha256:{90:064x}",
+        })
+        candidate["assets"].append({"id": 91, "name": "evil", "size": 1, "state": "uploaded"})
+        with self.assertRaises(SystemExit): self.parse(candidate)
+
     def test_rejects_unbounded_numeric_identities_and_asset_sizes(self):
         huge_release = release(); huge_release["id"] = 10 ** 30
         huge_asset = release(); huge_asset["assets"][0]["id"] = 10 ** 30

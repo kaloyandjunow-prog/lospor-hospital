@@ -11,6 +11,18 @@ Releases и GHCR образи бяха изтрити, а git таговете �
 инсталира наново; никоя болница не използва по-ранна версия, затова няма път за
 обновяване от 1.3.x.
 
+**При преминаване от 1.4.0 или 1.4.1 използвайте офлайн пътя.** Тези версии
+носят собствено копие на проверката на публикуваните файлове, а то предхожда
+Windows комплекта, който работният процес вече публикува до файловете за
+инсталиране. Затова те отказват всяка версия, която съдържа такъв комплект, с
+`UPDATE_RELEASE_METADATA_INVALID` и „публикуваният списък с файлове липсва, е
+дублиран или съдържа неочакван файл“. Това не се отнася само за страницата за
+състояние: всеки път, който разрешава публикувано GitHub издание, стига до
+същото, включително от конзолата. Съберете седемте файла за инсталиране в
+директория, както е описано в **Сайтове без достъп до регистър** по-долу, и
+инсталирайте оттам. От 1.4.2 нататък комплектът се приема и обновяването
+онлайн работи нормално.
+
 Hospital images се изграждат еднократно като CI candidate от точен tag
 `hospital-MAJOR.MINOR.PATCH`. Поддържащият преглежда обвързаните с run
 publication request и SHA-256 на release lock, след което ръчно задейства
@@ -52,7 +64,7 @@ runtime data и patient data остават в постоянното appliance 
 командата, когато инсталацията умишлено работи в console-only mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.2 -
 ```
 
 Root-owned preparer приема само semantic version и незадължителен request ID с
@@ -97,14 +109,14 @@ appliance не трябва да съобщава, че е актуален, з�
 пълната identity verification, след което спира:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.2 -
 ```
 
 Нищо работещо не се засяга. След това приложете само точния descriptor, записан
 от preparation:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.0 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.2 -
 ```
 
 Apply командата проверява отново descriptor, installed identity, от която е
@@ -136,9 +148,9 @@ raw 64-byte `.sig` и всички подредени offline parts. За същ
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock \
-  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock.sha256 \
-  /media/lospor-1.4.0
+  /media/lospor-1.4.2/lospor-hospital-1.4.2-release.lock \
+  /media/lospor-1.4.2/lospor-hospital-1.4.2-release.lock.sha256 \
+  /media/lospor-1.4.2
 ```
 
 Първата инсталация още няма trusted `current` launcher. Използвайте

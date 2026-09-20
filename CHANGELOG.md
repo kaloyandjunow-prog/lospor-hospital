@@ -1,6 +1,180 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.1
+## [Unreleased] - 1.4.2
+
+Six defects, all found by installing 1.4.1 on a real appliance and updating it
+rather than by reading the code. Two of them made an online update impossible,
+one of those for every route including the console, so a site could reach
+1.4.2 only through the offline path. A third left a successful update
+reporting itself as interrupted for good, with no way out from either the
+browser or the console.
+
+In every case the suite passed while the real thing was broken, because the
+fixture was friendlier than reality: a single-iteration agent run, a
+hand-written token, a seven-asset release with no kit, a lock removed but
+never re-polled. Each fix here carries a test that was checked to fail without
+it.
+
+No schema change, so the compatibility row moves only its version.
+
+### Browser maintenance stopped ten minutes after the agent started
+
+Status decides whether the host maintenance agent is alive by the age of
+`maintenance-agent.v1.json`, and treats anything older than ten minutes as a
+dead agent:
+
+```js
+const agentFresh = agent !== null && now() - Date.parse(agent.observedAt) <= 10 * 60_000
+```
+
+Every browser control that needs the agent is gated on that -- updates, site
+settings, secrets escrow, backups, terminology -- through `mayManage` and
+`mayPrepare`.
+
+The projection was written correctly whenever an action ran, and once at
+startup by `maintenance_reconcile_startup`. Nothing refreshed it while the
+agent sat idle. So a healthy agent went stale ten minutes after it started and
+stayed that way, and the status page reported "The host maintenance agent is
+not working, so updates and Maintenance requests will not run." The browser
+route worked for ten minutes per restart and then silently stopped.
+
+The agent's poll loop already refreshed the terminology projection on the line
+above; the maintenance one was simply missing from the same place. It is now
+refreshed every poll.
+
+Nothing else was affected. The console routes never consult this file, so
+`prepare-verified-release.sh`, `apply-prepared-release.sh` and `losporctl`
+worked throughout -- an appliance was always updatable by someone with a
+console. What was lost was exactly the case the feature exists for: an
+appliance on a hospital LAN, and an operator with a browser rather than SSH.
+
+The test runs the real loop without `HOSPITAL_UPDATE_AGENT_ONESHOT`, so one
+long-lived process has to refresh the projection more than once. A
+single-iteration check cannot tell a startup-only write from a per-poll one,
+which is why the rest of the suite passed while this was broken.
+
+### The connected update check threw away every token the registry issued
+
+`check-for-update.sh` reported "the registry returned no usable access token"
+and recorded the available version as unknown, on an appliance whose network
+was fine. The registry was fine too: HTTP 200, with a valid anonymous token.
+
+GHCR's token is base64 and is padded, and the allowlist it was checked against
+did not permit `=`:
+
+```
+^[A-Za-z0-9._~-]{16,4096}$
+```
+
+So the token was extracted correctly and then discarded. The padding is not
+intermittent -- the encoded payload is `v1:<package>:<nonce>`, whose length is
+stable -- so this check has never succeeded against GHCR for this repository.
+
+The guard exists because the token is written into a curl config header, so
+what must stay excluded is whitespace, quotes, backslashes and newlines.
+Padding is now accepted at the end, and `+` and `/`, the remaining base64
+characters, with it.
+
+The suite passed throughout because its fixture token was hand-written,
+`a-sufficiently-long-bearer-token`, which is neither base64 nor padded.
+
+### No appliance could be updated online at all
+
+`prepare-verified-release.sh` refused every release from 1.4.0 onwards:
+
+```
+published release asset list is missing, duplicated or contains an unexpected file
+UPDATE_RELEASE_METADATA_INVALID
+```
+
+The unexpected file was ours. The release workflow publishes
+`lospor-hospital-<version>-windows-kit.zip` and its `.sha256` beside the
+installable assets, and `expected_asset_names` is a closed set that was never
+told about them.
+
+This was not specific to the browser route. Every path that resolves a
+published GitHub release hit it, the console included, so the only way to
+update an appliance was the offline path with a hand-assembled asset
+directory. 1.3.3 predates the kit and is the last release the old check
+accepts.
+
+The kit is now tolerated when present rather than required: it is not in the
+manifest, not covered by the lock, and releases without it are still valid. It
+is deliberately left out of the returned order, so it is never downloaded.
+
+The fixture had seven assets and no kit, which is why the suite was green
+while no appliance could update.
+
+### Settings you could not change became settings you could not see
+
+Applying a change reported success, the health checks passed, and the page
+then showed neither the update window nor the time zone that had just been
+set. Nothing said the values were still there, so the only reading available
+to the operator was that the save had not stuck. It had: the host was
+publishing all four values correctly the whole time.
+
+The settings section replaced the entire form with the reason it was
+disabled, so a session that could not change the settings could not see them
+either. `docs/status-monitor.md` already promised the opposite -- "a
+password+MFA session can request these; a console-recovery session only
+views" -- so this restores the documented behaviour rather than changing it.
+
+That state is reached by an ordinary recovery session, and, until the
+maintenance projection above was fixed, by every session more than ten
+minutes after an agent restart: exactly when someone who has just applied an
+update comes back to look.
+
+The values are now listed read-only with the reason beneath them, blanks
+reading "Not set" rather than vanishing.
+
+### A successful update reported itself as interrupted, permanently
+
+The agent writes NEEDS_OPERATOR with UPDATE_ACTIVATION_LOCK_PRESENT into its
+durable transition while the activation lock exists, which is correct while
+activation is running. Nothing wrote it back once activation finished and
+removed the lock, so every later poll re-read the latch and re-published it.
+
+On a real appliance after a clean 1.4.0 to 1.4.1 update: no
+release-activation.lock anywhere, `current` pointing at 1.4.1,
+installed-release.tsv and the activation history both written -- and
+update-agent.v2.json still saying needs-operator, re-stamped thirty-five
+minutes later.
+
+Status withdrew the update controls, `doctor` exited 1 so `losporctl status`
+and Go-live stayed blocked, and `losporctl update recover` -- the remedy both
+of them name -- correctly answered that there was no journal to recover,
+because there was no lock. A site would hit this on its first update with no
+way out from either surface.
+
+The arm that re-published it only ever runs where the lock does not exist, so
+a latch claiming otherwise there is provably stale. Only that exact latch is
+cleared, matched on both code and action.
+
+### The recovery command talked over itself
+
+`read_journal` names precisely which check failed -- no journal present,
+malformed, unsupported field count -- and its caller added "The activation
+journal failed strict validation" on top. An operator told that looks for a
+corrupt journal; the common case is that there is no lock at all and nothing
+is wrong. It now speaks only when `read_journal` did not.
+
+### Also
+
+The update window time zone is a searchable list of all 418 IANA zones rather
+than a text box to spell one into, with Etc/UTC added because Intl offers no
+Etc zone and Europe/London is GMT only in winter -- an update window set to it
+moves by an hour for half the year. It stays an input with a datalist, so
+blank is still valid and a zone the host holds that the list does not offer is
+still typeable. Every offered zone already satisfied the validation this field
+has always had, so nothing about what saves changed.
+
+web is re-pinned 9.10.2 to 9.10.3 and browser 0.7.1 to 0.7.3. Both upstreams
+moved for the PeriOp Laboratories mark the appliance had already refreshed in
+1.4.1, so the bytes were identical and only the claimed versions were not.
+browser's vendored tree already carried the 0.7.2 cohort-list fix; its pin had
+never caught up.
+
+## [1.4.1] - 2026-09-20
 
 Six defects found by installing 1.4.0 on a real appliance rather than by
 reading it, and a seventh caught by the release gates on the way out. Four of

@@ -1,5 +1,11 @@
 # Changelog - LOSPOR Web App
 
+## [9.10.3] - 2026-09-20
+
+### Fixed
+
+- **The PeriOp Laboratories badge on the legal documents was the old mark, and unreadable.** It was a 2724x2448 PNG of 161 KB rendered 24 pixels tall, in the stacked lockup, so the wordmark occupied 24 pixels of width and read as a smudge. The replacement is the current horizontal mark at 288x96 and 8 KB: 95% smaller, four times the rendered height so it stays sharp, and 72 pixels wide at that height so it actually reads. The badge was already sized by height with an auto width, so nothing else changed.
+
 ## [9.10.2] - 2026-09-16
 
 ### Fixed

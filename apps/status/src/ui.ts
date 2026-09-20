@@ -1958,6 +1958,31 @@ function passwordConfirm(id: string, locale: StatusLocale): string {
  * "support-bundle" because /status/maintenance/support-bundle is already the
  * download, and a section of that name would shadow it.
  */
+/**
+ * The IANA zones offered for the update window, from the runtime's own tz data.
+ *
+ * Not a hand-kept list: one would drift from the host's /usr/share/zoneinfo,
+ * and a zone offered here that the host then rejects is worse than no list at
+ * all. Every entry carries at least one "/" and none exceeds the field's 64
+ * characters, so the validation this field has always had accepts all of them
+ * unchanged -- this adds a way to find a zone, not a new set of valid answers.
+ *
+ * Sorted so the rendered order is stable between runs and between machines.
+ */
+export const TIME_ZONES: readonly string[] = Object.freeze(
+  [...new Set([
+    ...Intl.supportedValuesOf("timeZone"),
+    // Intl offers no Etc/* zone, so without this there is no way to pick a
+    // fixed UTC+0 at all. Europe/London is not a substitute: it is GMT in
+    // winter and BST in summer, so an update window set to it moves by an hour
+    // for half the year. Etc/UTC is on the host, carries a "/" like every
+    // other entry, and so needs nothing relaxed to be accepted. Bare "UTC" is
+    // on the host too but has no "/", and widening the field to admit it is a
+    // change to what saves rather than to what is offered.
+    "Etc/UTC",
+  ])].sort(),
+)
+
 export const MAINTENANCE_SECTIONS = [
   "backups", "offhost", "host-os", "escrow", "support", "rotation", "settings", "advanced",
 ] as const
@@ -2330,7 +2355,25 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
   if (unrepresentable) {
     form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Настройка на сървъра не може да бъде показана тук точно, затова настройките се променят от конзолата: sudo losporctl config plan.")}</p>`
   } else if (!view.mayManage) {
-    form = `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+    // Read-only, not invisible. Replacing the whole form with the reason meant
+    // that the moment a session could not change the settings it could not see
+    // them either: an operator who had just saved an update window came back to
+    // a page that showed neither the window nor the time zone they had set, and
+    // nothing said the values were still there. That happens in an ordinary
+    // recovery session, and -- until the agent projection was fixed to refresh
+    // while idle -- ten minutes after every agent restart.
+    //
+    // These are the same values the form shows when it is editable, so showing
+    // them here reveals nothing new; what it removes is a page that answers
+    // "what is configured?" with silence.
+    const shown = EDITABLE_SETTINGS
+      .filter(setting => settings[setting.key]?.editable !== false)
+      .map(setting => {
+        const value = settings[setting.key]?.value ?? ""
+        const text = value === "" ? localize(locale, "Not set", "Не е зададено") : value
+        return `<div class="fact"><b>${escapeHtml(localize(locale, setting.en, setting.bg))}</b>${escapeHtml(text)}</div>`
+      }).join("")
+    form = `<div class="facts">${shown}</div><p class="component-detail">${escapeHtml(disabledReason)}</p>`
   } else {
     // Each field is drawn from the kind it already declares.
     //
@@ -2374,7 +2417,15 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
           control = `<input id="${id}" name="${setting.key}" type="time" value="${escapeHtml(value)}" autocomplete="off">`
           break
         case "timezone":
-          control = `<input id="${id}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="64" autocomplete="off" placeholder="Europe/Sofia">`
+          // A list rather than a select: 418 zones is too many to scroll, and a
+          // datalist gives the browser's own type-to-search over all of them
+          // while staying an <input>. That matters for what is already here --
+          // blank stays a valid answer, and a zone the host holds that this
+          // list does not offer is still typeable rather than silently replaced.
+          // Every offered zone already satisfies the validation this field has
+          // always had, so nothing about what is accepted changes.
+          control = `<input id="${id}" name="${setting.key}" list="${id}-zones" value="${escapeHtml(value)}" maxlength="64" autocomplete="off" placeholder="Europe/Sofia">`
+            + `<datalist id="${id}-zones">${TIME_ZONES.map(zone => `<option value="${escapeHtml(zone)}"></option>`).join("")}</datalist>`
           break
         default:
           control = `<input id="${id}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off">`

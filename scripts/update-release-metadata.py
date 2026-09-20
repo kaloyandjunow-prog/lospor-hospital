@@ -64,8 +64,20 @@ def expected_asset_names(version: str, actual: set[str]) -> list[str]:
         index += 1
     if not parts:
         die("Published release has no offline image parts.")
+    # The Windows kit rides along on the GitHub release but is not part of the
+    # release the appliance installs: it is not in the manifest, not covered by
+    # the lock, and never downloaded here. It was added to the published asset
+    # set without being added to this closed list, so every release carrying it
+    # failed as "an unexpected file" and no appliance could be updated online at
+    # all -- 1.4.0 and 1.4.1 both, for the console path as well as the browser
+    # one. Tolerated when present rather than required, because releases before
+    # it exist and a release without it is still a valid release.
+    optional = [name for name in (
+        f"{prefix}-windows-kit.zip",
+        f"{prefix}-windows-kit.zip.sha256",
+    ) if name in actual]
     expected = fixed + parts
-    if actual != set(expected):
+    if actual != set(expected) | set(optional):
         die("Published release asset list is missing, duplicated, or contains an unexpected file.")
     return expected
 
