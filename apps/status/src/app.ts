@@ -30,7 +30,6 @@ import {
   renderControlPlane,
   renderGoLive,
   renderEscrowPassphrase,
-  MAINTENANCE_SECTIONS,
   renderMaintenance,
   renderSettingsConfirm,
   renderAdvancedConfirm,
