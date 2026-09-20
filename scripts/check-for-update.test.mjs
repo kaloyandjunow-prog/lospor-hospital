@@ -7,6 +7,11 @@ import { join } from "node:path"
 import test, { after } from "node:test"
 import { promisify } from "node:util"
 
+// Shaped like the token GHCR actually issues: base64, and padded. A
+// hand-written token without the trailing "=" is what let an allowlist that
+// rejected padding pass this suite while failing against the real registry.
+const REGISTRY_TOKEN = "djE6a2Fsb3lhbmRqdW5vdy1wcm9nL2xvc3Bvci1ob3NwaXRhbC1hcGk6MTc4OTkwMzA2MzU4OTE1ODQ0Nw=="
+
 const run = promisify(execFile)
 const root = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")
 
@@ -49,7 +54,7 @@ function tagListRegistry(tags) {
   return fakeRegistry((request, response) => {
     if (request.url.startsWith("/token")) {
       response.writeHead(200, { "content-type": "application/json" })
-      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      response.end(JSON.stringify({ token: REGISTRY_TOKEN }))
       return
     }
     response.writeHead(200, { "content-type": "application/json" })
@@ -128,7 +133,7 @@ test("the token request is anonymous", async () => {
     if (request.url.startsWith("/token")) {
       tokenAuthorizations.push(request.headers.authorization)
       response.writeHead(200, { "content-type": "application/json" })
-      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      response.end(JSON.stringify({ token: REGISTRY_TOKEN }))
       return
     }
     response.writeHead(200, { "content-type": "application/json" })
@@ -237,7 +242,7 @@ test("does not follow an authenticated redirect to another origin", async () => 
   const registry = await fakeRegistry((request, response) => {
     if (request.url.startsWith("/token")) {
       response.writeHead(200, { "content-type": "application/json" })
-      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      response.end(JSON.stringify({ token: REGISTRY_TOKEN }))
       return
     }
     response.writeHead(302, { location: `${hostile.origin}/stolen` })
@@ -265,7 +270,7 @@ test("refuses cross-origin pagination before sending the bearer token", async ()
   const registry = await fakeRegistry((request, response) => {
     if (request.url.startsWith("/token")) {
       response.writeHead(200, { "content-type": "application/json" })
-      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      response.end(JSON.stringify({ token: REGISTRY_TOKEN }))
       return
     }
     response.writeHead(200, {

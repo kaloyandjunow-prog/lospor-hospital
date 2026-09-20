@@ -181,7 +181,15 @@ curl --fail --silent --show-error --max-time 30 --max-redirs 0 --proto "=$regist
     "регистърът отказа анонимен код за достъп ($(tr -d '\r\n' < "$work/token.err"))"
 
 bearer="$(sed -n 's/.*"\(token\|access_token\)":"\([^"]\{16,\}\)".*/\2/p' "$work/token.json" | head -n 1)"
-printf '%s\n' "$bearer" | grep -Eq '^[A-Za-z0-9._~-]{16,4096}$' \
+# GHCR's anonymous token is base64 and is routinely padded, so the trailing
+# "=" has to be allowed. It was not, and the allowlist threw away every token
+# the real registry issued: the check reported "the registry returned no
+# usable access token" and recorded the available version as unknown, on an
+# appliance whose network was fine. + and / are the remaining base64
+# characters and are equally harmless here. What this guard is actually for
+# is the line below, which writes the token into a curl config header, so
+# what must stay excluded is whitespace, quotes, backslashes and newlines.
+printf '%s\n' "$bearer" | grep -Eq '^[A-Za-z0-9._~+/-]{16,4096}={0,2}$' \
   || fail_unknown "the registry returned no usable access token" "регистърът не върна използваем код за достъп"
 bearer_auth_config="$work/registry-bearer-auth.conf"
 printf 'header = "Authorization: Bearer %s"\n' "$bearer" > "$bearer_auth_config"
