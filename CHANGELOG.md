@@ -3,9 +3,10 @@
 ## [Unreleased] - 1.4.1
 
 Six defects found by installing 1.4.0 on a real appliance rather than by
-reading it. Four of them stopped an installation completing; one stopped an
-installed appliance being administered at all. No schema change, so the
-compatibility row moves only its version.
+reading it, and a seventh caught by the release gates on the way out. Four of
+them stopped an installation completing; one stopped an installed appliance
+being administered at all. No schema change, so the compatibility row moves
+only its version.
 
 ### Status could not write its own maintenance requests
 
@@ -93,6 +94,13 @@ support bundle and credential rotation. Each is now its own address under
 `/status/maintenance/`, with sub-navigation. Real addresses, so they can be
 linked and bookmarked and work without JavaScript. Every POST endpoint is
 unchanged.
+
+### Exported batches declared the wrong release
+
+`manifest.versions.hospital` was still 1.4.0. It is the only provenance a
+research batch carries once it reaches Central, and Central believes it rather
+than checking it, so a 1.4.1 appliance would have attributed everything it
+exported to the release before it with nothing downstream able to notice.
 
 ### Also
 
