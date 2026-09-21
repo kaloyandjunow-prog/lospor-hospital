@@ -334,3 +334,41 @@ describe("only preselected items are ticked", () => {
     )).toBe(true)
   })
 })
+
+describe("a value recorded as not known is not a conflict", () => {
+  // Found on a real appliance. The case had no sex recorded, which the form
+  // stores as UNKNOWN rather than leaving empty. The hospital answered FEMALE,
+  // that counted as a disagreement with a value the clinician had supposedly
+  // chosen, and a conflict is never preselected -- so accepting the import
+  // brought in fourteen diagnoses and eleven medications and silently left the
+  // sex behind. The row said "Unknown" beside the proposal, which reads as the
+  // import being refused because of something the clinician picked.
+  it("preselects a proposal when the case records the value as unknown", () => {
+    const result = buildEhrReviewPlan({
+      canonical: normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields: { sex: "FEMALE" } }).canonical,
+      current: { sex: "UNKNOWN" },
+    })
+
+    expect(stateOf(result, ehrItemKey("sex"))).toBe("preselected")
+    expect(result.preselectedKeys).toContain(ehrItemKey("sex"))
+  })
+
+  it("still treats a real recorded value as a conflict", () => {
+    const result = buildEhrReviewPlan({
+      canonical: normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields: { sex: "FEMALE" } }).canonical,
+      current: { sex: "MALE" },
+    })
+
+    expect(stateOf(result, ehrItemKey("sex"))).toBe("conflict")
+    expect(result.preselectedKeys).not.toContain(ehrItemKey("sex"))
+  })
+
+  it("leaves an unchanged value unchanged", () => {
+    const result = buildEhrReviewPlan({
+      canonical: normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields: { sex: "FEMALE" } }).canonical,
+      current: { sex: "FEMALE" },
+    })
+
+    expect(stateOf(result, ehrItemKey("sex"))).toBe("unchanged")
+  })
+})
