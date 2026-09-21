@@ -353,6 +353,51 @@ emergency restore of the exact recorded backup; `verify-and-clear
 release identity, image verification and `doctor.sh` before it archives the
 journal and clears only the known lock objects.
 
+### When updating itself is broken
+
+Twice now a defect has lived in the update machinery rather than in what it
+installs, and both times the fix could not arrive through the path it fixed:
+the broken copy is the one already installed and doing the work. 1.4.0 and
+1.4.1 refused every release carrying a Windows kit, and 1.4.2 and 1.4.3
+extract the release tree unreadable when the agent runs the activation.
+
+The offline path is the way through, and it is not a workaround. A human
+assembles the assets and runs the activation from a shell, which uses none of
+the machinery that is broken. It is how 1.4.0 reached 1.4.2, and it would have
+carried 1.4.3 without incident.
+
+Reach a working release offline, then update online again from there.
+
+### Why an activation stopped
+
+An activation writes everything it did to a root-only log, one per attempt:
+
+```sh
+sudo ls -1t /opt/lospor-hospital/.data/update-private/apply-*.log | head -1
+```
+
+The last lines name what failed. `recover-release-activation.sh inspect`
+prints the tail of the newest one, and a failed activation puts it in the
+agent's journal as well:
+
+```sh
+sudo journalctl -u lospor-update-agent.service --since today
+```
+
+The file is root-only because it carries paths, digests and image identities.
+
+### If the site runs virtualised
+
+A hypervisor snapshot taken before an update is the fastest recovery there is,
+and for an interrupted activation it is often better than the supported
+recovery commands: it restores the whole appliance to a coherent prior state
+in about a minute, with no emergency database restore and no lock to clear.
+
+It is not a substitute for backups. A snapshot rolls back everything,
+including clinical work recorded since it was taken, so it is only the right
+answer while an update is the only thing that has happened since. Take one
+immediately before an update, and delete it once the release is proved.
+
 ### If the agent stops
 
 Its own row on the status page degrades after ten minutes without a heartbeat.

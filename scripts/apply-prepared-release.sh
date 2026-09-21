@@ -86,6 +86,22 @@ chmod 0600 "$apply_log" 2>/dev/null || true
 update_sync_path "$apply_log" 2>/dev/null || true
 
 if [ "$result" -ne 0 ]; then
+  # Say why, where the operator is already looking.
+  #
+  # The activation's whole output goes to a 0600 file, which is right -- it
+  # carries paths, digests and image identities. But nothing named that file
+  # or quoted a line of it, so a failed update told the operator only that
+  # one had "stopped part way": Status said it, losporctl status said it, and
+  # recover said it. The reason -- a permission denied on one bind-mounted
+  # script -- sat unread on disk while three commands in a row declined to
+  # mention it.
+  #
+  # The tail goes to stderr, which is the agent's journal: root-readable,
+  # already where an operator looks for a failed service, and not a surface
+  # a non-root Status viewer can reach.
+  echo "Activation failed. The last lines of $apply_log were:" >&2
+  tail -n 20 "$apply_log" 2>/dev/null | sed "s/^/  /" >&2 || true
+  echo "Full output: $apply_log (root-only)" >&2
   if [ -e "$update_activation_lock" ]; then
     update_transition_write NEEDS_OPERATOR apply "$request_id" "$version" UPDATE_ACTIVATION_NEEDS_RECOVERY "$descriptor_lock_sha"
     update_projection_write needs-operator UPDATE_ACTIVATION_NEEDS_RECOVERY "$version" "" \

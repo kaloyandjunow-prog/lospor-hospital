@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readFile } from "node:fs/promises"
+import { readFile, readdir } from "node:fs/promises"
 import { resolve } from "node:path"
 import test from "node:test"
 
@@ -105,6 +105,30 @@ test("release supply is anonymous: no hospital credential is read, stored or sen
   assert.match(online, /DOCKER_CONFIG="\$temporary_directory\/docker-config"/)
   // The registry's own short-lived pull token is still used for listing tags.
   assert.match(check, /--config "\$bearer_auth_config"/)
+})
+
+// The compatibility row is written by hand and copied forward, and nothing
+// read schema_max back against the migrations actually in the release. A row
+// carried from the previous version keeps that version's schema_max, so the
+// release declares a schema it does not ship -- and the declaration is what
+// the activation, the dossier and every rollback decision are made from.
+//
+// Agreed for 1.2.4 and never built. 1.4.3 is what it costs: its row was
+// copied from 1.4.2 with only the version changed, and while schema_max
+// happened to still be right, the rollback policy beside it was inherited
+// unexamined and sent a site into an emergency database restore to recover
+// from a file-permissions bug in a release that migrates nothing.
+test("schema_max names the newest migration this release actually ships", async () => {
+  const row = (await source("release-compatibility.tsv")).trim().split("	")
+  const declared = row[3]
+  const migrations = (await readdir(resolve(root, "apps/api/prisma/migrations"), { withFileTypes: true }))
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort()
+  const newest = migrations[migrations.length - 1]
+  assert.equal(declared, newest,
+    `release-compatibility.tsv declares schema_max ${declared}, but the newest migration in this release is ${newest}. ` +
+    "A row copied forward keeps the previous release's schema, which every rollback decision is then made from.")
 })
 
 test("rollback compatibility is a release gate, not an optimistic runtime guess", async () => {
