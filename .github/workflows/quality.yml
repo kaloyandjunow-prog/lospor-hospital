@@ -273,3 +273,22 @@ jobs:
 
       - name: Run the complete Hospital Research Browser E2E suite
         run: npm run e2e:browser-full
+
+      # A visual-regression suite that cannot show you the diff is a suite you
+      # have to guess at. The clinical e2e job compares the preop form against a
+      # committed screenshot, and when that failed the run reported a pixel
+      # ratio and kept the image, the diff and the trace on a machine that was
+      # about to be destroyed. Nothing was uploaded, so the only way to see what
+      # had moved was to reproduce the whole job locally.
+      - name: Keep the evidence when an end-to-end run fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: clinical-e2e-failure
+          path: |
+            apps/web/test-results/**
+            apps/web/playwright-report/**
+            apps/pwa/test-results/**
+            apps/browser/test-results/**
+          retention-days: 7
+          if-no-files-found: ignore
