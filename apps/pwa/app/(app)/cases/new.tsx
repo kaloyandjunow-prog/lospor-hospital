@@ -38,6 +38,7 @@ import { postPreopServerCase } from "@/lib/preop-server-create"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
 import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
+import { recordEhrDecisions } from "@/lib/ehr-import"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -743,6 +744,21 @@ export default function NewCaseScreen() {
     }
   }
 
+  // What the typed number is. ИЗ № unless the site permits national
+  // identifiers and the clinician says otherwise.
+  const [identifierType, setIdentifierType] = useState<"IZ" | "EGN">("IZ")
+
+  // Accepting an import is what brings the case into being: the imported
+  // values are usually the ones that make it saveable. ensureCaseForAi does
+  // exactly that and returns the id, so the decisions can be recorded against
+  // it. A failure here loses the decision record, not the clinical values --
+  // those are in the case, and the import offers them again as unchanged.
+  const recordAcceptedBeforeCase = async (importId: string, appliedKeys: string[]) => {
+    const id = await ensureCaseForAi()
+    if (!id) return
+    await recordEhrDecisions(id, importId, appliedKeys, [])
+  }
+
   const ensureCaseForAi = () => ensureSavedCaseForAi({
     caseIdRef, autosaveInFlightRef, createCase: () => tryCreateServerCase(getValues()),
   })
@@ -1082,6 +1098,9 @@ export default function NewCaseScreen() {
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
               <PatientIdentityField
                 caseId={caseId}
+                identifierType={identifierType}
+                onIdentifierTypeChange={setIdentifierType}
+                egnPermitted={ehrImportCapability.egnPermitted}
                 control={control}
                 error={localizedPreopValidationMessage(errors.patientNumber?.message, tc)}
                 language={language}
@@ -1094,15 +1113,8 @@ export default function NewCaseScreen() {
                   deployment says it has a hospital system to ask. */}
               <EhrImportOffer
                 caseId={caseId}
-                onEnsureSaved={async () => {
-                  // The same helper the advisor and the lab scan use: the
-                  // lookup is case-scoped, so the draft has to become a case
-                  // before the hospital system can be asked about it.
-                  // Pressing the button is what makes that happen, rather
-                  // than the clinician discovering they must fill a second
-                  // field for autosave to do it as a side effect.
-                  return Boolean(await ensureCaseForAi())
-                }}
+                onAcceptedBeforeCase={recordAcceptedBeforeCase}
+                identifierType={identifierType}
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
                 language={language}

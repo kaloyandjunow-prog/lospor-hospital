@@ -1,4 +1,4 @@
-import { Text } from "react-native"
+import { Pressable, Text, View } from "react-native"
 import { Controller, type Control } from "react-hook-form"
 import { STRINGS } from "@/i18n/strings"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
@@ -15,6 +15,11 @@ type Props = {
   reference: PatientReference | null
   onReferenceChange: (reference: PatientReference) => void
   allowCorrection: boolean
+  /** Which numbering the typed number belongs to. */
+  identifierType: "IZ" | "EGN"
+  onIdentifierTypeChange: (kind: "IZ" | "EGN") => void
+  /** Whether this site permits linking by national identifier at all. */
+  egnPermitted: boolean
 }
 
 /** Keeps patient identity entry/relinking separate from the clinical form UI. */
@@ -26,6 +31,9 @@ export function PatientIdentityField({
   reference,
   onReferenceChange,
   allowCorrection,
+  identifierType,
+  onIdentifierTypeChange,
+  egnPermitted,
 }: Props) {
   if (caseId) {
     return (
@@ -50,6 +58,43 @@ export function PatientIdentityField({
       required
       error={error}
     >
+      {/* Which numbering this is.
+
+          Only where the site permits national identifiers. The API has
+          accepted both since the adapter existed and the policy has defaulted
+          to permitting both, but no client ever sent anything but IZ -- so an
+          ЕГН typed here was looked up as a record number, found nothing, and
+          there was no way to say what it actually was. */}
+      {egnPermitted ? (
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+          {(["IZ", "EGN"] as const).map(kind => (
+            <Pressable
+              key={kind}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: identifierType === kind }}
+              onPress={() => onIdentifierTypeChange(kind)}
+              style={{
+                borderRadius: 10,
+                borderWidth: 1,
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderColor: identifierType === kind ? colors.primary : colors.border,
+                backgroundColor: identifierType === kind ? colors.primarySoft : "transparent",
+              }}
+            >
+              <Text style={{
+                color: identifierType === kind ? colors.primary : colors.textSecondary,
+                fontWeight: "700",
+                fontSize: 12,
+              }}>
+                {kind === "IZ"
+                  ? STRINGS[language as "en" | "bg"].patientNumberKindRecord
+                  : STRINGS[language as "en" | "bg"].patientNumberKindEgn}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
       <Controller control={control} name="patientNumber" render={({ field }) => (
         <>
           <StyledInput
