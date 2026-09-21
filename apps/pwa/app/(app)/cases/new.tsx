@@ -39,6 +39,7 @@ import { patientReferenceFromResponse, type PatientReference } from "@/lib/patie
 import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { recordEhrDecisions } from "@/lib/ehr-import"
+import { toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -382,9 +383,8 @@ export default function NewCaseScreen() {
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
     const { patientNumber, ...clinicalValues } = values
     // A new case anchors its draft to the hospital patient number. Until one
-    // is entered there is nothing to write, which is a form not yet filled in
-    // rather than a fault: autosave stays silent and the required-field
-    // validation speaks at submit, where it can mark the field it means.
+    // is entered there is nothing to write -- a form not yet filled in, not a
+    // fault -- so autosave stays silent and validation speaks at submit.
     if (!await localDraftCanBeWritten({
       localId: localIdRef.current,
       owner: draftOwner,
@@ -397,10 +397,8 @@ export default function NewCaseScreen() {
       formValues: clinicalValues,
       ...(caseIdRef.current ? { serverCaseId: caseIdRef.current } : { patientNumber }),
     })
-    // Set on failure and cleared on success: this banner is state, not a log.
-    // Leaving a previous failure on screen after the draft has since been
-    // written tells the clinician their work is unsaved when it is saved --
-    // the one thing this message exists to be trusted about.
+    // State, not a log: a failure left on screen after the draft has since
+    // been written tells the clinician their work is unsaved when it is not.
     setSaveError(ok ? null : tc("storageDraftFailed"))
     return ok
   }, [draftOwner, tc])
@@ -744,14 +742,12 @@ export default function NewCaseScreen() {
     }
   }
 
-  // What the typed number is. ИЗ № unless the site permits national
-  // identifiers and the clinician says otherwise.
+  // ИЗ № unless the site permits ЕГН and the clinician says so.
   const [identifierType, setIdentifierType] = useState<"IZ" | "EGN">("IZ")
 
-  // Accepting an import is what brings the case into being: the imported
-  // values are usually the ones that make it saveable. ensureCaseForAi does
-  // that and returns the id. A failure here loses the decision record, not
-  // the clinical values -- the import offers those again as unchanged.
+  // Accepting is what brings the case into being: the imported values are
+  // usually what make it saveable. ensureCaseForAi does that and returns the
+  // id. A failure loses the decision record, not the values.
   const recordAcceptedBeforeCase = async (importId: string, appliedKeys: string[]) => {
     const id = await ensureCaseForAi()
     if (!id) return
@@ -1113,6 +1109,8 @@ export default function NewCaseScreen() {
               <EhrImportOffer
                 caseId={caseId}
                 onAcceptedBeforeCase={recordAcceptedBeforeCase}
+                onRequestModeChange={pediatricModeCapability.enabled
+                  ? () => toggleClinicalMode(pediatricMode, getValues, setValue as never) : undefined}
                 identifierType={identifierType}
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}

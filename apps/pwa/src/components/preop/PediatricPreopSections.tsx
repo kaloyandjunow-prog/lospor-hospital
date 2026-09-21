@@ -26,6 +26,7 @@ import { PovocSection } from "@/components/preop/PovocSection"
 import { SegmentedSelect } from "@/components/preop/PreopFormWidgets"
 import { PEDIATRIC_PREOP_LABELS, type PediatricPreopLabels } from "@/components/preop/pediatric-preop-labels"
 import { apiFetch } from "@/lib/api"
+import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import type { PediatricModeCapability } from "@/lib/deployment-capabilities"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
@@ -91,26 +92,7 @@ export function PediatricModeAgeFields({
   function selectMode(next: ClinicalMode) {
     if (next === "PEDIATRIC" && !pediatricModeEnabled) return
     if (pediatricRecordLocked) return
-    setValue("clinicalMode", next, { shouldDirty: true })
-    setValue("aiOptIn", false, { shouldDirty: true })
-    if (next === "PEDIATRIC") {
-      const currentYears = ageYears != null && ageYears < 18 ? ageYears : undefined
-      setValue("ageUnit", "YEARS", { shouldDirty: true })
-      setValue("ageValue", currentYears, { shouldDirty: true })
-      setValue("ageYears", currentYears, { shouldDirty: true })
-      setValue("bpSystolic", undefined, { shouldDirty: true })
-      setValue("bpDiastolic", undefined, { shouldDirty: true })
-      setValue("heartRate", undefined, { shouldDirty: true })
-      setValue("spO2", undefined, { shouldDirty: true })
-      setValue("temperature", undefined, { shouldDirty: true })
-      setValue("respiratoryRate", undefined, { shouldDirty: true })
-      return
-    }
-    setValue("ageYears", ageValue != null && ageUnit === "YEARS" ? ageValue : null, { shouldDirty: true })
-    setValue("ageValue", null, { shouldDirty: true }) // null, never undefined: undefined is dropped from the patch
-    setValue("ageUnit", null, { shouldDirty: true })  // and the server then keeps the pediatric age it has
-    setValue("pediatricFasting", [], { shouldDirty: true })
-    setValue("coldsApplicable", false, { shouldDirty: true })
+    applyClinicalModeSwitch(next, { ageYears, ageValue, ageUnit }, setValue as never)
   }
 
   function updateAge(value: number | null | undefined, unit = ageUnit) {

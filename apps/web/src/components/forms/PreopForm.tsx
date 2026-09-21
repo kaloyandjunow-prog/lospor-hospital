@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react"
 import { usePreopAutosave } from "@/lib/use-preop-autosave"
 import { missingPreopFields } from "@/lib/preop-validation"
+import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
@@ -474,6 +475,16 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           current={getValues() as unknown as Record<string, unknown>}
           currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
           labelFor={field => field}
+          onRequestModeChange={pediatricCapability.enabled ? () => {
+            // The same switch the Adult / Paediatric toggle performs, which
+            // is the point: an imported age belonging to the other mode
+            // cannot be accepted until the case is in it, and the toggle
+            // can be a long way up the form. Refused where the deployment
+            // has no paediatric mode, exactly as the toggle refuses.
+            applyClinicalModeSwitch(isPediatric ? "ADULT" : "PEDIATRIC",
+              { ageYears: getValues("ageYears"), ageValue: getValues("ageValue"), ageUnit: getValues("ageUnit") },
+              setValue as never)
+          } : undefined}
           onApply={async patch => {
             // Applied as an ordinary edit by this clinician: same form, same
             // validation, same audit. That is what keeps an import off the
