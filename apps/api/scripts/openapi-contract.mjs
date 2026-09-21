@@ -1486,6 +1486,18 @@ add("GET", "/v1/cases/{id}/ehr-import", "Review what the hospital system sent fo
   ],
   result: { type: "object" },
 })
+// Asked before a case exists: a record number is the first thing typed on a
+// new case, and the case-scoped route above could not answer until an age, a
+// height and a weight had been filled in first. Scoped to the signed-in
+// account's institution; decisions are still recorded against a case.
+add("GET", "/v1/ehr-import/lookup", "Ask the hospital system about a patient before a case exists", {
+  parameters: [
+    query("identifier", { type: "string" }, true, "The record number or national identifier the clinician typed"),
+    query("identifierType", { type: "string", enum: ["IZ", "EGN"] }, false, "Which numbering space the identifier belongs to"),
+  ],
+  result: { type: "object" },
+})
+
 add("POST", "/v1/cases/{id}/ehr-import", "Record which proposals the clinician accepted or refused", {
   parameters: [id],
   requestBody: body({ type: "object" }),
