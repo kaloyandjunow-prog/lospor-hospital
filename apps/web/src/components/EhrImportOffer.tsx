@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 
-import { lookupEhrImport, recordEhrDecisions, type EhrImportOffer as Offer } from "@/lib/ehr-import"
+import {
+  lookupEhrImport,
+  lookupEhrImportWithoutCase,
+  recordEhrDecisions,
+  type EhrImportOffer as Offer,
+} from "@/lib/ehr-import"
 import { EhrImportReview } from "./EhrImportReview"
 
 /**
@@ -27,6 +32,17 @@ type Props = {
   identifierType?: "IZ" | "EGN"
   /** False when the deployment has no hospital system to ask. */
   available: boolean
+  /**
+   * How this site receives EHR data, when it receives any.
+   *
+   * Only FHIR answers a question. A watched folder and an HL7 feed are
+   * pushed: the hospital writes when it writes, and asking cannot make it
+   * happen. Offering a button that fetches on those sites promises
+   * something the transport cannot do, and the honest answer it produces
+   * -- the hospital holds nothing -- is indistinguishable from the patient
+   * having no history.
+   */
+  transport?: "FOLDER" | "FHIR" | "HL7V2" | null
   current: Record<string, unknown>
   currentClinicalMode?: ClinicalMode | null
   labelFor: (field: string) => string
@@ -51,7 +67,15 @@ type Props = {
    * hospital system was to start filling a second field and let autosave
    * create the case as a side effect. Nobody could be expected to guess that.
    */
-  onEnsureSaved?: () => Promise<boolean>
+  /**
+   * Records an acceptance made before the case existed.
+   *
+   * The decisions belong to a case, and accepting is what produces one --
+   * the imported age, height and weight are usually the values that make it
+   * saveable. So the offer hands the acceptance back, and the page records
+   * it once the case id exists.
+   */
+  onAcceptedBeforeCase?: (importId: string, appliedKeys: string[]) => Promise<void>
 }
 
 type State =
@@ -68,22 +92,25 @@ export function EhrImportOffer({
   identifier,
   identifierType = "IZ",
   available,
+  transport,
   current,
   currentClinicalMode,
   labelFor,
   onApply,
   onlyFields,
   onRequestModeChange,
-  onEnsureSaved,
+  onAcceptedBeforeCase,
 }: Props) {
   const t = useTranslations("ehr")
   const [state, setState] = useState<State>({ kind: "idle" })
   const [open, setOpen] = useState(false)
 
-  const ask = useCallback(async (id: string) => {
+  const ask = useCallback(async (id: string | null) => {
     if (!identifier) return
     setState({ kind: "asking" })
-    const result = await lookupEhrImport(id, identifier, identifierType)
+    const result = id
+      ? await lookupEhrImport(id, identifier, identifierType)
+      : await lookupEhrImportWithoutCase(identifier, identifierType)
     if (result.status === "offer") {
       setState({ kind: "offer", offer: result.offer })
       setOpen(true)
@@ -102,26 +129,20 @@ export function EhrImportOffer({
   // the deps below is derived from `state`, so the re-render it causes does not
   // re-run this effect.
   useEffect(() => {
-    if (!available || !caseId || !identifier) return
+    if (!available || !identifier) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void ask(caseId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, caseId, identifier, identifierType])
 
-  // With a case already saved this is a deliberate second look. Without one,
-  // it saves the draft and stops: the effect above asks as soon as the case
-  // id arrives, so the request is not made twice.
-  const fetchNow = async () => {
-    if (caseId) { await ask(caseId); return }
-    if (!onEnsureSaved) return
-    setState({ kind: "asking" })
-    // Stays in "asking" on success: the case id arriving is what triggers
-    // the effect above, so the ask happens once rather than here and again.
-    if (!await onEnsureSaved()) setState({ kind: "error" })
-  }
+
+  // No case needed to ask any more. Typing the number and pressing this is
+  // the whole interaction; the case comes into existence if the clinician
+  // accepts something.
+  const fetchNow = async () => { await ask(caseId) }
 
   if (!available || !identifier) return null
-  if (!caseId && !onEnsureSaved) return null
+
 
   // Narrowed to the fields this surface asked about. The preselected keys are
   // narrowed with them, or the review would arrive with items ticked that it
@@ -161,7 +182,7 @@ export function EhrImportOffer({
       {/* Offered whenever there is no plan on screen: before the first ask,
           and again after one that found nothing, since the number may simply
           have been mistyped. */}
-      {state.kind !== "offer" && state.kind !== "asking" && (
+      {state.kind !== "offer" && state.kind !== "asking" && transport === "FHIR" && (
         <button
           type="button"
           onClick={() => { void fetchNow() }}
@@ -181,9 +202,7 @@ export function EhrImportOffer({
         </button>
       )}
 
-      {/* caseId is necessarily set here: an offer only exists because the ask
-          above was made against one. */}
-      {state.kind === "offer" && open && caseId && (
+      {state.kind === "offer" && open && (
         <EhrImportReview
           plan={planFor(state.offer)}
           identityUnverified={state.offer.identityUnverified}
@@ -195,8 +214,10 @@ export function EhrImportOffer({
           onRequestModeChange={onRequestModeChange}
           onDecline={itemKey => {
             // Recorded on its own so the refusal survives the clinician closing
-            // the review without accepting anything else.
-            void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey])
+            // the review without accepting anything else. With no case yet
+            // there is nothing to record it against, and nothing to survive:
+            // closing an unaccepted offer leaves no case behind either.
+            if (caseId) void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey])
           }}
           onAccept={async (patch, appliedKeys) => {
             // The write goes first, deliberately. A failure between the two
@@ -204,7 +225,14 @@ export function EhrImportOffer({
             // already in the case comes back unchanged; recording first would
             // mark an item decided that never reached the record.
             await onApply(patch)
-            await recordEhrDecisions(caseId, state.offer.importId, appliedKeys, [])
+            if (caseId) {
+              await recordEhrDecisions(caseId, state.offer.importId, appliedKeys, [])
+            } else {
+              // Accepting is what creates the case: the values just applied
+              // are usually the ones that make it saveable. The page owns
+              // that, and records the decisions once the id exists.
+              await onAcceptedBeforeCase?.(state.offer.importId, appliedKeys)
+            }
             setOpen(false)
             setState({ kind: "none" })
           }}

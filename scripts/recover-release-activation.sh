@@ -150,6 +150,14 @@ if [ "$command" = inspect ]; then
   operator_say "Rollback policy: $journal_policy" "Политика за връщане: $journal_policy"
   operator_say "Pre-update backup: $journal_backup" "Архив преди обновяването: $journal_backup"
   operator_say "Original activation process still active: $active" "Първоначалният процес за активиране още работи: $active"
+  # Why it stopped, not only that it stopped. Inspect is the command the
+  # documentation sends an operator to first, and it described the state
+  # exactly while never mentioning that the reason was written down.
+  latest_apply_log="$(ls -1t "$appliance_home/.data/update-private"/apply-*.log 2>/dev/null | head -n 1 || true)"
+  if [ -n "$latest_apply_log" ] && [ -f "$latest_apply_log" ]; then
+    operator_say "Why it stopped, from $latest_apply_log:" "Защо спря, според $latest_apply_log:"
+    tail -n 12 "$latest_apply_log" 2>/dev/null | sed "s/^/  /" || true
+  fi
   operator_say "Nothing was changed. Use the supported recovery command only after reviewing this state." "Нищо не е променено. Използвайте поддържаната команда за възстановяване само след преглед на това състояние."
   exit 0
 fi

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react"
 import { usePreopAutosave } from "@/lib/use-preop-autosave"
 import { missingPreopFields } from "@/lib/preop-validation"
+import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
@@ -59,7 +60,7 @@ type ProcedureSearchItem = { code: string; group?: string; description: string; 
 type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?: string }
 
 
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, submitting = false, submitError, onClinicalInput }: {
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, onEhrAcceptedBeforeCase, submitting = false, submitError, onClinicalInput }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
   onNameChange?: (name: string) => void
@@ -69,6 +70,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   caseId?: string | null
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
+  /** Records an EHR acceptance made before the case existed. */
+  onEhrAcceptedBeforeCase?: (importId: string, appliedKeys: string[]) => Promise<void>
   submitting?: boolean
   /** Shown above the submit action when the gated submit rejects the case. */
   submitError?: string | null
@@ -79,6 +82,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const clinicalAi = useClinicalAiCapabilities()
   const pediatricCapability = usePediatricModeCapability()
   const ehrImportCapability = useEhrImportCapability()
+  // What the typed number is. ИЗ № unless the site permits national
+  // identifiers and the clinician says otherwise -- the server supports
+  // both and the policy allows both, but nothing ever offered the choice,
+  // so every lookup went out as an ИЗ № whatever the clinician had typed.
+  const [identifierType, setIdentifierType] = useState<"IZ" | "EGN">("IZ")
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -402,6 +410,34 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
             </Label>
+            {/* Which numbering the typed number belongs to.
+
+                Only where the site permits national identifiers. The API has
+                accepted both since the adapter existed and the policy has
+                defaulted to permitting both, but no client ever sent
+                anything but IZ -- so an ЕГН typed here was looked up as a
+                record number and found nothing, with no way to say what it
+                actually was. */}
+            {ehrImportCapability.egnPermitted && (
+              <div className="flex gap-1" role="radiogroup" aria-label={locale === "bg" ? "Вид на номера" : "Kind of number"}>
+                {(["IZ", "EGN"] as const).map(kind => (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="radio"
+                    aria-checked={identifierType === kind}
+                    onClick={() => setIdentifierType(kind)}
+                    className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
+                      identifierType === kind
+                        ? "border-sky-400 bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400"
+                        : "border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    }`}
+                  >
+                    {kind === "IZ" ? (locale === "bg" ? "ИЗ №" : "Record no.") : "ЕГН"}
+                  </button>
+                ))}
+              </div>
+            )}
             <Input
               id="hospital-patient-number"
               autoComplete="off"
@@ -421,24 +457,34 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             )}
           </div>
         )}
-        {/* Directly under the number, because that is what it answers. The
-            offer only exists once the case has an id and this deployment says
-            it has a hospital system to ask. */}
+        {/* Directly under the number, because that is what it answers. */}
         <EhrImportOffer
           caseId={caseId ?? null}
-          onEnsureSaved={onAutoSave ? async () => {
-            // The same flush the AI advisor uses before it reads the case
-            // back, for the same reason: the lookup is case-scoped, so the
-            // draft has to be a case before the hospital system can be asked
-            // about it. Pressing the button is what makes that happen, rather
-            // than the clinician discovering they must fill a second field.
-            try { await flushSave(); return true } catch { return false }
-          } : undefined}
+          onAcceptedBeforeCase={onEhrAcceptedBeforeCase && (async (importId, appliedKeys) => {
+            // Flush here, record there. The values the clinician just
+            // accepted are in the form; writing them is what creates the
+            // case, and only the page sees the new id without waiting for
+            // a render.
+            await flushSave()
+            await onEhrAcceptedBeforeCase(importId, appliedKeys)
+          })}
           identifier={watch("patientId") ?? null}
+          identifierType={identifierType}
           available={ehrImportCapability.enabled}
+          transport={ehrImportCapability.transport}
           current={getValues() as unknown as Record<string, unknown>}
           currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
           labelFor={field => field}
+          onRequestModeChange={pediatricCapability.enabled ? () => {
+            // The same switch the Adult / Paediatric toggle performs, which
+            // is the point: an imported age belonging to the other mode
+            // cannot be accepted until the case is in it, and the toggle
+            // can be a long way up the form. Refused where the deployment
+            // has no paediatric mode, exactly as the toggle refuses.
+            applyClinicalModeSwitch(isPediatric ? "ADULT" : "PEDIATRIC",
+              { ageYears: getValues("ageYears"), ageValue: getValues("ageValue"), ageUnit: getValues("ageUnit") },
+              setValue as never)
+          } : undefined}
           onApply={async patch => {
             // Applied as an ordinary edit by this clinician: same form, same
             // validation, same audit. That is what keeps an import off the

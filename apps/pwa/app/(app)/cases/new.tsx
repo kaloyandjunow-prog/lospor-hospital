@@ -38,6 +38,8 @@ import { postPreopServerCase } from "@/lib/preop-server-create"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
 import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
+import { recordEhrDecisions } from "@/lib/ehr-import"
+import { toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -381,9 +383,8 @@ export default function NewCaseScreen() {
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
     const { patientNumber, ...clinicalValues } = values
     // A new case anchors its draft to the hospital patient number. Until one
-    // is entered there is nothing to write, which is a form not yet filled in
-    // rather than a fault: autosave stays silent and the required-field
-    // validation speaks at submit, where it can mark the field it means.
+    // is entered there is nothing to write -- a form not yet filled in, not a
+    // fault -- so autosave stays silent and validation speaks at submit.
     if (!await localDraftCanBeWritten({
       localId: localIdRef.current,
       owner: draftOwner,
@@ -396,10 +397,8 @@ export default function NewCaseScreen() {
       formValues: clinicalValues,
       ...(caseIdRef.current ? { serverCaseId: caseIdRef.current } : { patientNumber }),
     })
-    // Set on failure and cleared on success: this banner is state, not a log.
-    // Leaving a previous failure on screen after the draft has since been
-    // written tells the clinician their work is unsaved when it is saved --
-    // the one thing this message exists to be trusted about.
+    // State, not a log: a failure left on screen after the draft has since
+    // been written tells the clinician their work is unsaved when it is not.
     setSaveError(ok ? null : tc("storageDraftFailed"))
     return ok
   }, [draftOwner, tc])
@@ -743,6 +742,18 @@ export default function NewCaseScreen() {
     }
   }
 
+  // ИЗ № unless the site permits ЕГН and the clinician says so.
+  const [identifierType, setIdentifierType] = useState<"IZ" | "EGN">("IZ")
+
+  // Accepting is what brings the case into being: the imported values are
+  // usually what make it saveable. ensureCaseForAi does that and returns the
+  // id. A failure loses the decision record, not the values.
+  const recordAcceptedBeforeCase = async (importId: string, appliedKeys: string[]) => {
+    const id = await ensureCaseForAi()
+    if (!id) return
+    await recordEhrDecisions(id, importId, appliedKeys, [])
+  }
+
   const ensureCaseForAi = () => ensureSavedCaseForAi({
     caseIdRef, autosaveInFlightRef, createCase: () => tryCreateServerCase(getValues()),
   })
@@ -1082,6 +1093,9 @@ export default function NewCaseScreen() {
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
               <PatientIdentityField
                 caseId={caseId}
+                identifierType={identifierType}
+                onIdentifierTypeChange={setIdentifierType}
+                egnPermitted={ehrImportCapability.egnPermitted}
                 control={control}
                 error={localizedPreopValidationMessage(errors.patientNumber?.message, tc)}
                 language={language}
@@ -1094,17 +1108,13 @@ export default function NewCaseScreen() {
                   deployment says it has a hospital system to ask. */}
               <EhrImportOffer
                 caseId={caseId}
-                onEnsureSaved={async () => {
-                  // The same helper the advisor and the lab scan use: the
-                  // lookup is case-scoped, so the draft has to become a case
-                  // before the hospital system can be asked about it.
-                  // Pressing the button is what makes that happen, rather
-                  // than the clinician discovering they must fill a second
-                  // field for autosave to do it as a side effect.
-                  return Boolean(await ensureCaseForAi())
-                }}
+                onAcceptedBeforeCase={recordAcceptedBeforeCase}
+                onRequestModeChange={pediatricModeCapability.enabled
+                  ? () => toggleClinicalMode(pediatricMode, getValues, setValue as never) : undefined}
+                identifierType={identifierType}
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
+                transport={ehrImportCapability.transport}
                 language={language}
                 current={getValues() as unknown as Record<string, unknown>}
                 currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}

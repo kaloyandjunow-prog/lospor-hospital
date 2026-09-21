@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readFile } from "node:fs/promises"
+import { readFile, readdir } from "node:fs/promises"
 import { resolve } from "node:path"
 import test from "node:test"
 
@@ -105,6 +105,62 @@ test("release supply is anonymous: no hospital credential is read, stored or sen
   assert.match(online, /DOCKER_CONFIG="\$temporary_directory\/docker-config"/)
   // The registry's own short-lived pull token is still used for listing tags.
   assert.match(check, /--config "\$bearer_auth_config"/)
+})
+
+// The compatibility row is written by hand and copied forward, and nothing
+// read schema_max back against the migrations actually in the release. A row
+// carried from the previous version keeps that version's schema_max, so the
+// release declares a schema it does not ship -- and the declaration is what
+// the activation, the dossier and every rollback decision are made from.
+//
+// Agreed for 1.2.4 and never built. 1.4.3 is what it costs: its row was
+// copied from 1.4.2 with only the version changed, and while schema_max
+// happened to still be right, the rollback policy beside it was inherited
+// unexamined and sent a site into an emergency database restore to recover
+// from a file-permissions bug in a release that migrates nothing.
+test("schema_max names the newest migration this release actually ships", async () => {
+  const row = (await source("release-compatibility.tsv")).trim().split("	")
+  const declared = row[3]
+  const migrations = (await readdir(resolve(root, "apps/api/prisma/migrations"), { withFileTypes: true }))
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort()
+  const newest = migrations[migrations.length - 1]
+  assert.equal(declared, newest,
+    `release-compatibility.tsv declares schema_max ${declared}, but the newest migration in this release is ${newest}. ` +
+    "A row copied forward keeps the previous release's schema, which every rollback decision is then made from.")
+})
+
+// backup-required is the unproven claim, and it is the expensive one.
+//
+// verify-rollback-compatibility.sh returns 20 for it immediately and asks for
+// nothing; service-compatible has to ship a digest-matched proof. So the
+// declaration that costs a site an emergency database restore to recover from
+// any failed activation is the one nobody has to justify, and the cheap way to
+// produce a release is to copy the row forward with the version changed.
+//
+// 1.4.3 is what that costs. It migrates nothing, its row said backup-required
+// because 1.4.2's did, and when its activation failed on a file-permissions
+// bug both non-destructive recoveries refused: resume-rollback on the policy,
+// verify-and-clear for want of a restore that had not happened. The only
+// supported exit was restoring the database.
+//
+// This does not relax the runtime rule -- an authenticated declaration stays
+// final at the moment of failure, which is the one place it must not be
+// argued with. It makes the declaration a decision somebody recorded.
+test("a backup-required release says why", async () => {
+  const row = (await source("release-compatibility.tsv")).trim().split("	")
+  const policy = row[4]
+  if (policy !== "backup-required") return
+
+  const stated = JSON.parse(await source("release-rollback-justification.json"))
+  const version = row[1]
+  assert.equal(stated.release, version,
+    `release-rollback-justification.json is for ${stated.release}, but this release is ${version}. ` +
+    "A justification carried forward unchanged is the inheritance this check exists to stop.")
+  assert.equal(stated.policy, policy)
+  assert.ok(typeof stated.justification === "string" && stated.justification.trim().length >= 80,
+    "backup-required needs a stated reason, not a placeholder: it is what makes a site restore a database to recover.")
 })
 
 test("rollback compatibility is a release gate, not an optimistic runtime guess", async () => {

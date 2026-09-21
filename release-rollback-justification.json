@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
+  "release": "1.4.4",
+  "policy": "backup-required",
+  "justification": "Conservative rather than assessed. This release ships no migration -- its schema_max is unchanged from 1.4.2 -- so going back to the prior release does not in fact require restoring a backup. Declaring service-compatible would be the accurate statement, but it requires a rollback-compatibility proof this release does not ship, and producing one is a larger change than the release warrants. The conservative declaration therefore stands, and is recorded here as conservative so the next maintainer inherits the reasoning rather than the value.",
+  "assessedBy": "maintainer",
+  "assessedAt": "2026-09-21"
+}

@@ -75,11 +75,26 @@ export class EhrImportError extends Error {
  * on the payload means the same content cannot become a second pending import
  * for the clinician to read and decide twice.
  */
-export function ehrPayloadHash(canonical: CanonicalEhrImport): string {
+/**
+ * Identity of a staged payload, for not staging the same delivery twice.
+ *
+ * `scope` narrows that sameness. A folder drop passes none: the same file
+ * written twice is one delivery and must not become two imports. A clinician
+ * asking the hospital about a patient passes the case, because two cases
+ * asking the same question are two questions, and the answer belongs to each.
+ *
+ * Without it the second case got nothing. The pull returned identical data,
+ * matched the first case's import -- already reviewed -- staged nothing, and
+ * the caller then looked for a pending import and told the clinician the
+ * hospital holds nothing for this patient. It held plenty; it had already
+ * been handed to someone else.
+ */
+export function ehrPayloadHash(canonical: CanonicalEhrImport, scope?: string): string {
   return createHash("sha256")
     .update(JSON.stringify({
       identifier: canonical.identifier,
       fields: canonical.fields,
+      ...(scope ? { scope } : {}),
     }))
     .digest("hex")
 }
@@ -183,10 +198,15 @@ export async function recordEhrImport(
     unread?: EhrUnreadSource[]
     now?: Date
     retentionDays?: number
+    /**
+     * Stage separately for this scope rather than deduplicating against other
+     * scopes. The case id, for a clinician-initiated pull.
+     */
+    restageFor?: string
   },
 ): Promise<{ id: string; created: boolean }> {
   const now = input.now ?? new Date()
-  const payloadHash = ehrPayloadHash(input.canonical)
+  const payloadHash = ehrPayloadHash(input.canonical, input.restageFor)
 
   const existing = await client.ehrImport.findFirst({
     where: { institutionId: input.institutionId, payloadHash },

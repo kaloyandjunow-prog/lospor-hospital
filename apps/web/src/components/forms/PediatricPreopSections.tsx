@@ -8,6 +8,7 @@ import {
   type UseFormSetValue,
 } from "react-hook-form"
 import { useLocale, useTranslations } from "next-intl"
+import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import { ShieldAlert } from "lucide-react"
 import {
   APAGBI_FASTING_POLICY_2023,
@@ -87,31 +88,7 @@ export function ClinicalModeAgeFields({
     if (!pediatricCapability.enabled && (
       next === "PEDIATRIC" || existingPediatricRecord
     )) return
-    setValue("clinicalMode", next, { shouldDirty: true })
-    setValue("aiOptIn", false, { shouldDirty: true })
-    if (next === "PEDIATRIC") {
-      const currentYears = ageYears != null && ageYears < 18 ? ageYears : undefined
-      setValue("ageUnit", "YEARS", { shouldDirty: true })
-      setValue("ageValue", currentYears, { shouldDirty: true })
-      setValue("ageYears", currentYears, { shouldDirty: true })
-      setValue("rcriScore", undefined, { shouldDirty: true })
-      setValue("apfelScore", undefined, { shouldDirty: true })
-      setValue("stopBangScore", undefined, { shouldDirty: true })
-      setValue("bpSystolic", undefined, { shouldDirty: true })
-      setValue("bpDiastolic", undefined, { shouldDirty: true })
-      setValue("heartRate", undefined, { shouldDirty: true })
-      setValue("spO2", undefined, { shouldDirty: true })
-      setValue("temperature", undefined, { shouldDirty: true })
-      setValue("respiratoryRate", undefined, { shouldDirty: true })
-      return
-    }
-    // null, not undefined: undefined is dropped from the patch, so the server
-    // keeps the pediatric age it has and refuses adult mode on every retry.
-    setValue("ageYears", ageValue != null && ageUnit === "YEARS" ? ageValue : null, { shouldDirty: true })
-    setValue("ageValue", null, { shouldDirty: true })
-    setValue("ageUnit", null, { shouldDirty: true })
-    setValue("pediatricFasting", [], { shouldDirty: true })
-    setValue("coldsApplicable", false, { shouldDirty: true })
+    applyClinicalModeSwitch(next, { ageYears, ageValue, ageUnit }, setValue as never)
   }
 
   function updatePediatricAge(value: number | null | undefined, unit = ageUnit) {

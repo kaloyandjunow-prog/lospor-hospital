@@ -124,7 +124,17 @@ tar -tzf "$archive" | awk -v prefix="$prefix/" '
 ' || { echo "Deployment archive contains an unsafe or unexpected path." >&2; exit 1; }
 tar -tvzf "$archive" | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 } END { exit bad }' \
   || { echo "Deployment archive contains links or special files." >&2; exit 1; }
-tar -xzf "$archive" --no-same-owner --no-same-permissions -C "$temporary_root"
+# umask 022 around the extraction, exactly as losporctl-install.sh does it.
+# --no-same-permissions applies this process's umask to every extracted path,
+# and the update agent runs with UMask=0077, so without this the whole release
+# tree lands 0700/0600 and every one of the eleven scripts compose.yaml
+# bind-mounts into a container running as another user becomes unreadable.
+# That is the 1.4.0 failure -- "cannot open /usr/local/bin/create-status-probe.sh:
+# Permission denied" -- which was fixed in the install path and left here,
+# where only the agent reaches it. An operator running an offline update from a
+# shell brings umask 022 and never sees it; the online path, driven by the
+# agent, fails after the images are pulled and the migrations are applied.
+(umask 022; tar -xzf "$archive" --no-same-owner --no-same-permissions -C "$temporary_root")
 candidate="$temporary_root/$prefix"
 [ -d "$candidate" ] && [ -f "$candidate/compose.yaml" ] && [ -f "$candidate/compose.release.yaml" ] \
   || { echo "Deployment archive did not contain the expected release root." >&2; exit 1; }

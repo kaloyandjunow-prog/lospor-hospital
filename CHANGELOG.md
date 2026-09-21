@@ -1,5 +1,89 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased] - 1.4.4
+
+Everything here was found by using 1.4.3 on a real appliance against a real
+FHIR server: updating to it, importing a patient, and importing the same
+patient again an hour later.
+
+### Updating from the status page could not finish
+
+The first update ever driven by the agent rather than by an operator at the
+console failed four minutes in, after pulling every image and running the
+migrations, and left the site on the previous release with an activation lock
+it could not clear.
+
+`tar --no-same-permissions` applies the calling process's umask to everything
+it extracts, and the update agent runs with `UMask=0077`. The release tree
+landed root-only, and the first of the eleven scripts compose.yaml bind-mounts
+into a container running as another user could not be opened. An operator's
+shell carries umask 022 and never saw it; only the agent, which is the online
+path, does.
+
+This is the 1.4.0 failure exactly. It was fixed then in the installer and
+guarded by a test that only ever looked at the installer, so the same bug sat
+in the activation path until something came through it. The guard now checks
+both.
+
+### A failed update would not say why
+
+The activation writes everything it did to a root-only log, which is right --
+it carries paths, digests and image identities -- but nothing named that file
+or quoted a line of it. Status said an update "stopped part way", and both
+console commands said the phase and the versions. Finding the actual reason
+took reading the source. The tail now reaches the agent's journal, and
+`recover ... inspect` prints it.
+
+### A second case could not ask about the same patient
+
+Importing a patient onto one case and then opening another an hour later
+answered "the hospital system holds nothing for this patient". It held the
+same data as before: the pull matched the first case's import, which was by
+then reviewed, and "nothing staged" was reported as "nothing held". Each case
+now stages its own import and keeps its own decisions. A repeated delivery is
+still deduplicated.
+
+### Asking the hospital needed answers the hospital was going to give
+
+The lookup hung off a saved case, and a case cannot be saved without an age, a
+height and a weight -- so a clinician had to fill in three fields they were
+about to be told. Typing a record number and pressing the button is now the
+whole interaction; the case is created when the import is accepted.
+
+### A number could only ever be an ИЗ №
+
+The API has accepted ЕГН lookups since the adapter existed and the site policy
+has permitted them, but no client ever offered the choice, so an ЕГН was looked
+up as a record number and found nothing. Where the site permits it, the
+clinician can now say which a number is.
+
+### An imported sex was quietly left behind
+
+A case with no sex recorded holds `UNKNOWN`, which counted as a value the
+clinician had chosen -- so the hospital's answer was a conflict with it, and
+conflicts are never preselected. Accepting an import brought in everything
+except the fields nobody had a value for. Fixed in core 9.10.2.
+
+### A blocked age had no way out
+
+An imported age belonging to the other clinical mode is refused, correctly:
+switching mode clears the adult risk scores and every vital and withdraws AI
+consent, which an import does not get to decide. The review row offers the
+switch, and neither client had ever wired it up, so the control did nothing.
+
+### Also
+
+The fetch button no longer appears where the transport cannot be asked: a
+watched folder and an HL7 feed are pushed, and only FHIR answers a question.
+A release declaring `backup-required` must now say why, because that
+declaration costs a site an emergency database restore and nothing else made
+anyone justify it. The component size ratchet, shipped but never wired here,
+now runs. Documentation gained where a failed activation writes its reason,
+why the offline path is the route when updating itself is broken, and what a
+hypervisor snapshot is and is not good for.
+
+Built from api 9.10.5, web 9.10.5, pwa 9.10.5, core 9.10.2.
+
 ## [1.4.3] - 2026-09-20
 
 Five defects found the same day 1.4.2 shipped, rehearsing the EHR/FHIR

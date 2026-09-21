@@ -121,6 +121,44 @@ describe("a redelivered message is not a second thing to read", () => {
     expect(db.imports).toHaveLength(1)
   })
 
+  // Found on a real appliance. A clinician imported a patient onto one case,
+  // opened a second case an hour later, typed the same number, and was told
+  // the hospital held nothing for that patient. It held the same data it had
+  // held before: the pull matched the first case's import, which by then was
+  // reviewed, staged nothing, and the caller found no pending import.
+  //
+  // Deduplicating a repeated delivery is right. Deduplicating a second
+  // clinician's question is not.
+  it("stages again for a different case, and still once for a repeated delivery", async () => {
+    const db = client()
+    const payload = canonical({ weightKg: 80 })
+
+    const caseA = await recordEhrImport(db, { ...base, canonical: payload, restageFor: "case-a" })
+    const caseB = await recordEhrImport(db, { ...base, canonical: payload, restageFor: "case-b" })
+    const caseAAgain = await recordEhrImport(db, { ...base, canonical: payload, restageFor: "case-a" })
+
+    expect(caseA.created).toBe(true)
+    expect(caseB.created).toBe(true)
+    expect(caseB.id).not.toBe(caseA.id)
+
+    // The same case asking twice is still one import: a retried lookup must
+    // not put the same proposals up twice.
+    expect(caseAAgain).toEqual({ id: caseA.id, created: false })
+    expect(db.imports).toHaveLength(2)
+  })
+
+  // The delivery path passes no scope and keeps the old behaviour exactly.
+  it("still deduplicates a delivery that names no case", async () => {
+    const db = client()
+    const payload = canonical({ weightKg: 80 })
+
+    const first = await recordEhrImport(db, { ...base, canonical: payload })
+    const second = await recordEhrImport(db, { ...base, canonical: payload })
+
+    expect(second).toEqual({ id: first.id, created: false })
+    expect(db.imports).toHaveLength(1)
+  })
+
   it("keys on what the message says, not what the sender calls it", async () => {
     // Same content, different filename or HL7 control id: still one import.
     expect(ehrPayloadHash(canonical({ weightKg: 80 }, "file-a.json")))

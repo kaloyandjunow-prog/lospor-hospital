@@ -157,6 +157,11 @@ export async function GET(
       // worse statement than "we could not ask".
       const pulled = await pullFhirImport(prisma, {
         institutionId: existing.institutionId,
+        // Scoped to this case, so a second case asking about the same
+        // patient stages its own import instead of matching the first
+        // case's -- which, once reviewed, read as the hospital holding
+        // nothing.
+        restageFor: id,
         endpoint: access.endpoint,
         credential: auth.token,
         identifier: parsed.data.identifier,

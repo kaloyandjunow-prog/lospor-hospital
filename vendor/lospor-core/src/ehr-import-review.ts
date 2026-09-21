@@ -123,6 +123,24 @@ function norm(value: unknown): string {
   return String(value).trim().toLowerCase().replace(/\s+/g, " ")
 }
 
+/**
+ * Values that say "nobody recorded this", spelled as a value.
+ *
+ * A sex of UNKNOWN is the absence of information, not a clinical assertion.
+ * Treating it as one made the hospital's answer a conflict with it: conflicts
+ * are never preselected, so the row arrived unticked, and a clinician who
+ * accepted the import got everything except the field they had no value for.
+ * The row showed "Unknown" beside the proposal, which reads as the import
+ * being refused because of something they chose.
+ */
+const NOT_KNOWN = new Set(["UNKNOWN", "NOT_KNOWN", "UNSPECIFIED"])
+
+/** Nothing recorded: absent, empty, or recorded as not known. */
+function isUnrecorded(value: unknown): boolean {
+  if (isBlank(value)) return true
+  return typeof value === "string" && NOT_KNOWN.has(value.trim().toUpperCase())
+}
+
 function isBlank(value: unknown): boolean {
   if (value === null || value === undefined) return true
   if (typeof value === "string") return value.trim() === ""
@@ -296,7 +314,7 @@ export function buildEhrReviewPlan(input: EhrReviewInput): EhrReviewPlan {
         declined.has(itemKey) ? "declined"
         : norm(current) === norm(field.value) ? "unchanged"
         : modeDecision && AGE_FIELDS.has(field.field) ? "needs-mode-decision"
-        : isBlank(current) ? "preselected"
+        : isUnrecorded(current) ? "preselected"
         : "conflict"
       items.push({
         field: field.field,

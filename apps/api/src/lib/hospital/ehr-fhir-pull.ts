@@ -149,6 +149,13 @@ export async function pullFhirImport(
     credential: string
     identifier: string
     /**
+     * Stage for this case rather than deduplicating against other cases.
+     * A clinician asking about a patient for a second case is a second
+     * question, and must not be answered with "the hospital holds nothing"
+     * because the first case already took the answer.
+     */
+    restageFor?: string
+    /**
      * Which numbering the record number lives in, when the site has said.
      */
     recordNumberSystem?: string | null
@@ -366,6 +373,7 @@ export async function pullFhirImport(
 
   const recorded = await recordEhrImport(client, {
     institutionId: input.institutionId,
+    ...(input.restageFor ? { restageFor: input.restageFor } : {}),
     identifier: input.identifier,
     identifierType: input.identifierType,
     transport: "FHIR",

@@ -41,22 +41,33 @@ check_executable scripts/install-update-agent.sh
 # first one it reached -- "cannot open /usr/local/bin/create-status-probe.sh:
 # Permission denied" -- and rolled back after every image had been pulled and
 # every migration applied.
-extraction_line="$(grep -n 'tar -xzf "$deployment"' scripts/losporctl-install.sh || true)"
-if [ -z "$extraction_line" ]; then
-  echo "Could not find the deployment extraction in scripts/losporctl-install.sh." >&2
-  fail=1
-else
-  case "$extraction_line" in
+# Both of them. The install path was fixed after 1.4.0 and guarded here; the
+# activation path extracts the same payload the same way and was not, so the
+# identical failure waited there until an update ran from the agent, which
+# carries UMask=0077, rather than from an operator's shell, which does not.
+check_extraction() {
+  file="$1"; pattern="$2"
+  line="$(grep -n "$pattern" "$file" || true)"
+  if [ -z "$line" ]; then
+    echo "Could not find the deployment extraction in $file." >&2
+    fail=1
+    return
+  fi
+  case "$line" in
     *"umask 022"*) ;;
     *)
-      echo "The deployment extraction must run under an explicit umask 022." >&2
-      echo "Without it the payload inherits the first-boot installer's umask 077" >&2
-      echo "and every bind-mounted script becomes unreadable to its container." >&2
-      echo "Found: $extraction_line" >&2
+      echo "The deployment extraction in $file must run under an explicit umask 022." >&2
+      echo "Without it the payload inherits the caller's umask -- 077 for the" >&2
+      echo "first-boot installer and for the update agent -- and every" >&2
+      echo "bind-mounted script becomes unreadable to its container." >&2
+      echo "Found: $line" >&2
       fail=1
       ;;
   esac
-fi
+}
+
+check_extraction scripts/losporctl-install.sh 'tar -xzf "$deployment"'
+check_extraction scripts/activate-verified-release.sh 'tar -xzf "$archive"'
 
 # Every script compose.yaml bind-mounts has to survive that extraction readable.
 # Listing them here is not the point -- the umask check above is what keeps them
