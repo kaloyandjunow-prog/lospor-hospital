@@ -1,12 +1,12 @@
 {
-  "importedAt": "2026-09-21T17:29:50.173Z",
+  "importedAt": "2026-09-21T17:52:19.687Z",
   "sources": {
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
       "version": "9.10.4",
       "commit": "b3d6f4934229108a14961391db98f7ba3cfc25fe",
       "path": "apps/api",
-      "treeOid": "276bf7af63bf230a4eac0b9da4a5883230fde31f"
+      "treeOid": "6faafd3d89598e2b7f0049cae4fdf874a0e07b32"
     },
     "web": {
       "repository": "kaloyandjunow-prog/lospor-app",
