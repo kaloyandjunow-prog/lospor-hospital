@@ -18,6 +18,7 @@ import {
   preopSummaryForIntraop,
 } from "./case-record-mapping"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
+import { recordEhrDecisions } from "@/lib/ehr-import"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { CaseSummary } from "@/components/CaseSummary"
@@ -446,6 +447,25 @@ export default function NewCasePage() {
   const onPreopAutoSave = useCallback((data: PreopData) =>
     !caseIdRef.current && !data.patientId?.trim() ? undefined : handleAutoSave("preop", data),
   [handleAutoSave])
+  /**
+   * Records an EHR acceptance that happened before the case existed.
+   *
+   * Accepting is what brings the case into being: the imported age, height
+   * and weight are usually the values that make it saveable at all. The
+   * form has already flushed them by the time this runs, which creates the
+   * case, and caseIdRef carries the new id immediately rather than on the
+   * next render -- which is why this lives here and not in the form.
+   *
+   * A failure here loses the decision record, not the clinical values --
+   * those are in the case. The import stays pending and offers them again,
+   * where they come back as unchanged.
+   */
+  const onEhrAcceptedBeforeCase = useCallback(async (importId: string, appliedKeys: string[]) => {
+    const id = caseIdRef.current
+    if (!id) return
+    await recordEhrDecisions(id, importId, appliedKeys, [])
+  }, [])
+
   const onIntraopAutoSave = useCallback((data: IntraopData) =>
     handleAutoSave("intraop", data),
   [handleAutoSave])
@@ -700,6 +720,7 @@ export default function NewCasePage() {
             onAutoSave={onPreopAutoSave}
             layoutMode={preopLayout}
             caseId={caseId}
+            onEhrAcceptedBeforeCase={onEhrAcceptedBeforeCase}
             submitting={submitting}
             submitError={preopSubmitError}
             onClinicalInput={markPreopInput}
