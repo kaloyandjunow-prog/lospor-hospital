@@ -32,6 +32,17 @@ type Props = {
   identifierType?: "IZ" | "EGN"
   /** False when the deployment has no hospital system to ask. */
   available: boolean
+  /**
+   * How this site receives EHR data, when it receives any.
+   *
+   * Only FHIR answers a question. A watched folder and an HL7 feed are
+   * pushed: the hospital writes when it writes, and asking cannot make it
+   * happen. Offering a button that fetches on those sites promises
+   * something the transport cannot do, and the honest answer it produces
+   * -- the hospital holds nothing -- is indistinguishable from the patient
+   * having no history.
+   */
+  transport?: "FOLDER" | "FHIR" | "HL7V2" | null
   current: Record<string, unknown>
   currentClinicalMode?: ClinicalMode | null
   labelFor: (field: string) => string
@@ -81,6 +92,7 @@ export function EhrImportOffer({
   identifier,
   identifierType = "IZ",
   available,
+  transport,
   current,
   currentClinicalMode,
   labelFor,
@@ -170,7 +182,7 @@ export function EhrImportOffer({
       {/* Offered whenever there is no plan on screen: before the first ask,
           and again after one that found nothing, since the number may simply
           have been mistyped. */}
-      {state.kind !== "offer" && state.kind !== "asking" && (
+      {state.kind !== "offer" && state.kind !== "asking" && transport === "FHIR" && (
         <button
           type="button"
           onClick={() => { void fetchNow() }}

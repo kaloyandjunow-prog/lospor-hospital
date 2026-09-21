@@ -34,6 +34,17 @@ type Props = {
   identifierType?: "IZ" | "EGN"
   /** False when the deployment has no hospital system to ask. */
   available: boolean
+  /**
+   * How this site receives EHR data, when it receives any.
+   *
+   * Only FHIR answers a question. A watched folder and an HL7 feed are
+   * pushed: the hospital writes when it writes, and asking cannot make it
+   * happen. Offering a button that fetches on those sites promises
+   * something the transport cannot do, and the honest answer it produces
+   * -- the hospital holds nothing -- is indistinguishable from the patient
+   * having no history.
+   */
+  transport?: "FOLDER" | "FHIR" | "HL7V2" | null
   language: string
   current: Record<string, unknown>
   currentClinicalMode?: ClinicalMode | null
@@ -84,6 +95,7 @@ export function EhrImportOffer({
   identifier,
   identifierType = "IZ",
   available,
+  transport,
   language,
   current,
   currentClinicalMode,
@@ -116,7 +128,7 @@ export function EhrImportOffer({
   // nothing now will not have something a second later, and a form that polls
   // is a form polling all morning.
   useEffect(() => {
-    if (!available || !caseId || !identifier) return
+    if (!available || !identifier) return
     setState(current => (current.kind === "idle" ? current : current))
     void ask(caseId)
     // `ask` is declared with exactly this effect's own reactive inputs
@@ -175,7 +187,7 @@ export function EhrImportOffer({
       {/* Offered whenever there is no plan on screen: before the first ask,
           and again after one that found nothing, since the number may simply
           have been mistyped. */}
-      {state.kind !== "offer" && state.kind !== "asking" ? (
+      {state.kind !== "offer" && state.kind !== "asking" && transport === "FHIR" ? (
         <FeedbackPressable
           onPress={() => { void fetchNow() }}
           style={{

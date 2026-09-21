@@ -750,9 +750,8 @@ export default function NewCaseScreen() {
 
   // Accepting an import is what brings the case into being: the imported
   // values are usually the ones that make it saveable. ensureCaseForAi does
-  // exactly that and returns the id, so the decisions can be recorded against
-  // it. A failure here loses the decision record, not the clinical values --
-  // those are in the case, and the import offers them again as unchanged.
+  // that and returns the id. A failure here loses the decision record, not
+  // the clinical values -- the import offers those again as unchanged.
   const recordAcceptedBeforeCase = async (importId: string, appliedKeys: string[]) => {
     const id = await ensureCaseForAi()
     if (!id) return
@@ -1117,6 +1116,7 @@ export default function NewCaseScreen() {
                 identifierType={identifierType}
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
+                transport={ehrImportCapability.transport}
                 language={language}
                 current={getValues() as unknown as Record<string, unknown>}
                 currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}
