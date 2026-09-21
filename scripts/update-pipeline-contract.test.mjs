@@ -131,6 +131,38 @@ test("schema_max names the newest migration this release actually ships", async 
     "A row copied forward keeps the previous release's schema, which every rollback decision is then made from.")
 })
 
+// backup-required is the unproven claim, and it is the expensive one.
+//
+// verify-rollback-compatibility.sh returns 20 for it immediately and asks for
+// nothing; service-compatible has to ship a digest-matched proof. So the
+// declaration that costs a site an emergency database restore to recover from
+// any failed activation is the one nobody has to justify, and the cheap way to
+// produce a release is to copy the row forward with the version changed.
+//
+// 1.4.3 is what that costs. It migrates nothing, its row said backup-required
+// because 1.4.2's did, and when its activation failed on a file-permissions
+// bug both non-destructive recoveries refused: resume-rollback on the policy,
+// verify-and-clear for want of a restore that had not happened. The only
+// supported exit was restoring the database.
+//
+// This does not relax the runtime rule -- an authenticated declaration stays
+// final at the moment of failure, which is the one place it must not be
+// argued with. It makes the declaration a decision somebody recorded.
+test("a backup-required release says why", async () => {
+  const row = (await source("release-compatibility.tsv")).trim().split("	")
+  const policy = row[4]
+  if (policy !== "backup-required") return
+
+  const stated = JSON.parse(await source("release-rollback-justification.json"))
+  const version = row[1]
+  assert.equal(stated.release, version,
+    `release-rollback-justification.json is for ${stated.release}, but this release is ${version}. ` +
+    "A justification carried forward unchanged is the inheritance this check exists to stop.")
+  assert.equal(stated.policy, policy)
+  assert.ok(typeof stated.justification === "string" && stated.justification.trim().length >= 80,
+    "backup-required needs a stated reason, not a placeholder: it is what makes a site restore a database to recover.")
+})
+
 test("rollback compatibility is a release gate, not an optimistic runtime guess", async () => {
   const policy = await source("release-compatibility.tsv")
   const activation = await source("scripts/activate-verified-release.sh")
