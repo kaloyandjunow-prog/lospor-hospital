@@ -62,7 +62,7 @@
     "lint:strict": "npm run lint -- --max-warnings 0 --no-inline-config",
     "check:shared-core": "node scripts/check-shared-core-boundaries.mjs",
     "typecheck": "tsc --noEmit --pretty false",
-    "test": "vitest run",
+    "test": "npm run check:shared-core && vitest run",
     "export:web": "expo export --platform web --clear && node scripts/patch-pwa.mjs",
     "e2e:pwa": "npm run export:web && playwright test --config playwright.pwa.config.ts",
     "postinstall": "patch-package"
