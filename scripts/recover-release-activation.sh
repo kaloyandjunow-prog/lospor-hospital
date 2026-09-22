@@ -227,7 +227,7 @@ if [ "$command" = resume-rollback ]; then
     HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256="$journal_old_sha" \
     COMPOSE_FILE="$journal_old_root/compose.yaml:$journal_old_root/compose.release.yaml" \
       docker compose up -d --force-recreate
-  (cd "$journal_old_root" && sh scripts/doctor.sh)
+  (cd "$journal_old_root" && HOSPITAL_DOCTOR_ACTIVATION_RECOVERY=1 sh scripts/doctor.sh)
   release_state_read "$appliance_home"
   current="$(CDPATH= cd -- "$appliance_home/current" && pwd -P)"
   [ "$state_version" = "$journal_old_version" ] && [ "$state_lock_sha" = "$journal_old_sha" ] \
@@ -338,7 +338,7 @@ case "$state_lock_sha" in
     ;;
 esac
 sh "$state_release_root/scripts/verify-loaded-release-images.sh" "$state_release_lock"
-(cd "$state_release_root" && sh scripts/doctor.sh)
+(cd "$state_release_root" && HOSPITAL_DOCTOR_ACTIVATION_RECOVERY=1 sh scripts/doctor.sh)
 else
   # Nothing is installed, so there are no images to verify and no appliance for
   # doctor to examine. The lock is the only artefact left to clear.

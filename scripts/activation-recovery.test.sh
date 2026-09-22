@@ -139,8 +139,27 @@ ok "no backup and no prior snapshot still fails closed"
 # snapshot is sufficient. When they disagree the restore proof is still required.
 mkdir -p "$lock" "$candidate" "$prior_root/scripts"
 printf '#!/bin/sh\nexit 0\n' > "$prior_root/scripts/verify-loaded-release-images.sh"
-printf '#!/bin/sh\nexit 0\n' > "$prior_root/scripts/doctor.sh"
+# The real doctor.sh refuses while an activation lock exists, and recovery runs
+# doctor as its last check before removing that lock -- so it necessarily runs
+# with the lock still there. Unless recovery says it is the one asking, the
+# clear can never pass its own precondition: the appliance is unhealthy exactly
+# because of the lock the clear is about to remove. This stub fails if recovery
+# ever stops saying so.
+cat > "$prior_root/scripts/doctor.sh" <<'DOCTOR_STUB'
+#!/bin/sh
+set -eu
+[ "${HOSPITAL_DOCTOR_ACTIVATION_RECOVERY:-}" = 1 ] || {
+  echo "doctor ran without the activation-recovery flag; a real doctor would refuse here" >&2
+  exit 1
+}
+DOCTOR_STUB
 chmod 0755 "$prior_root/scripts/verify-loaded-release-images.sh" "$prior_root/scripts/doctor.sh"
+
+# ...and doctor must honour the very name recovery sets. The two live in
+# different files, which is how the mode token drifted into something no code
+# path could produce.
+grep -q 'HOSPITAL_DOCTOR_ACTIVATION_RECOVERY' "$root/scripts/doctor.sh" \
+  || fail "doctor.sh does not honour the activation-recovery flag recovery sets"
 declare_schema() {
   printf 'LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t%s\t20260530000000_init\t%s\tbackup-required\t-\t0\n' \
     "$1" "$2" > "$3/release-compatibility.tsv"

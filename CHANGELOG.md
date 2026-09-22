@@ -64,6 +64,14 @@ grep this same script for the literal `mode=emergency` -- asserting that the
 string it was reading existed, which is true for any value -- and now checks
 that the mode the gate demands is one `restore-backup.sh` can journal.
 
+And it could not pass its own precondition. `verify-and-clear` runs `doctor.sh`
+as its last check before removing the lock, so it necessarily runs doctor while
+the lock is still there -- and doctor refuses outright when an activation lock
+exists, because that is exactly what it is for. The clear required a healthy
+appliance, and the appliance was unhealthy precisely because of the lock the
+clear was about to remove. Recovery now tells doctor it is the one asking, and
+doctor's fixture in the recovery suite fails if it ever stops.
+
 `verify-and-clear` also no longer demands a restore for a candidate that
 shipped no migration. It already accepted that a lock with no recorded backup
 proves nothing was mutated; the same is true when both release trees declare
