@@ -14850,6 +14850,139 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrVitalCodeMapRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "map",
+              "unmap"
+            ]
+          },
+          "system": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "field": {
+            "type": "string",
+            "enum": [
+              "systolic",
+              "diastolic",
+              "heartRate",
+              "respiratoryRate",
+              "temperature",
+              "oxygenSaturation"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrVitalCodeMapResponse": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "mappedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrMedicationCodeMapRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "map",
+              "unmap"
+            ]
+          },
+          "system": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "drugId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrMedicationCodeMapResponse": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "drugId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mappedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "code"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrCodeSystemAnswerRequest": {
         "type": "object",
         "properties": {

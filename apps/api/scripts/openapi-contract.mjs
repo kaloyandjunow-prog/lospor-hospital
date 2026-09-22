@@ -444,6 +444,30 @@ export const schemas = {
     test: { type: "string" },
     mappedAt: { type: "string", format: "date-time" },
   }, ["system", "code"]),
+  HospitalEhrVitalCodeMapRequest: object({
+    action: { type: "string", enum: ["map", "unmap"] },
+    system: { type: "string", maxLength: 512 },
+    code: { type: "string", minLength: 1, maxLength: 512 },
+    field: { type: "string", enum: ["systolic", "diastolic", "heartRate", "respiratoryRate", "temperature", "oxygenSaturation"] },
+  }, ["code"]),
+  HospitalEhrVitalCodeMapResponse: object({
+    system: { type: "string" },
+    code: { type: "string" },
+    field: { type: "string" },
+    mappedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["system", "code"]),
+  HospitalEhrMedicationCodeMapRequest: object({
+    action: { type: "string", enum: ["map", "unmap"] },
+    system: { type: "string", maxLength: 512 },
+    code: { type: "string", minLength: 1, maxLength: 512 },
+    drugId: { type: "string", minLength: 1, maxLength: 128 },
+  }, ["code"]),
+  HospitalEhrMedicationCodeMapResponse: object({
+    system: { type: "string" },
+    code: { type: "string" },
+    drugId: nullable({ type: "string" }),
+    mappedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["system", "code"]),
   HospitalEhrCodeSystemAnswerRequest: object({
     system: { type: "string", minLength: 1, maxLength: 2048, description: "A coding-system address as the hospital sends it." },
     list: nullable({ type: "string", enum: ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"], description: "The code list the address stands for; OTHER stops it being asked about; null takes the answer back." }),
@@ -1931,6 +1955,22 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-lab-codes", "Map one of thi
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalEhrLabCodeMapRequest")),
   result: ref("HospitalEhrLabCodeMapResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-vital-codes", "Map one of this hospital's vital-sign codes to a safe PREOP destination, or unmap it", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrVitalCodeMapRequest")),
+  result: ref("HospitalEhrVitalCodeMapResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-medication-codes", "Map one of this hospital's medication codes to a local drug, or unmap it", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrMedicationCodeMapRequest")),
+  result: ref("HospitalEhrMedicationCodeMapResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

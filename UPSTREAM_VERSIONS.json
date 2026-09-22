@@ -6,7 +6,7 @@
       "version": "9.10.6",
       "commit": "a62bc550bc073e7290f70908f8ca18251eabac2f",
       "path": "apps/api",
-      "treeOid": "220d3fdd637042184a7d95637f2edf07c76abde8"
+      "treeOid": "f2bfbf27ff59291856b40fdb024f3b0fc151ba7f"
     },
     "web": {
       "repository": "kaloyandjunow-prog/lospor-app",
