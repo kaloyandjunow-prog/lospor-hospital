@@ -157,10 +157,16 @@ export function createDeploymentKit(directory, version) {
   writeFileSync(join(root, "secrets", ".gitkeep"), "")
   writeFileSync(join(root, "release-compatibility.tsv"), compatibilityFor(version))
   writeFileSync(join(root, "rollback-compatibility-proof.json"), proofFor(version))
+  // A real release tree carries its own activation driver and release
+  // verifier -- a release has to be able to activate itself. That matters now
+  // that apply-prepared-release.sh runs the candidate's driver rather than the
+  // installed release's, so a kit without them is not a kit an update can use.
   for (const script of [
-    "installed-release-state.sh", "operator-locale.sh", "release-compatibility.sh", "release-dossier.py",
+    "activate-verified-release.sh", "installed-release-state.sh", "operator-locale.sh",
+    "release-compatibility.sh", "release-dossier.py",
     "rollback-compatibility-evidence.py", "update-pipeline-lib.sh",
-    "verify-loaded-release-images.sh", "verify-rollback-compatibility.sh",
+    "verify-loaded-release-images.sh", "verify-release.sh", "verify-release-signature.sh",
+    "verify-rollback-compatibility.sh",
   ]) {
     cpSync(join(repository, "scripts", script), join(root, "scripts", script))
   }
@@ -468,10 +474,16 @@ export function createAppliance({ installedVersion = "1.0.0" } = {}) {
   const releaseRoot = join(home, ".data", "releases", installedVersion, `lospor-hospital-${installedVersion}`)
   mkdirSync(join(releaseRoot, ".release"), { recursive: true })
   mkdirSync(join(releaseRoot, "scripts"), { recursive: true })
+  // A real release tree carries its own activation driver and release
+  // verifier -- a release has to be able to activate itself. That matters now
+  // that apply-prepared-release.sh runs the candidate's driver rather than the
+  // installed release's, so a kit without them is not a kit an update can use.
   for (const script of [
-    "installed-release-state.sh", "operator-locale.sh", "release-compatibility.sh", "release-dossier.py",
+    "activate-verified-release.sh", "installed-release-state.sh", "operator-locale.sh",
+    "release-compatibility.sh", "release-dossier.py",
     "rollback-compatibility-evidence.py", "update-pipeline-lib.sh",
-    "verify-loaded-release-images.sh", "verify-rollback-compatibility.sh",
+    "verify-loaded-release-images.sh", "verify-release.sh", "verify-release-signature.sh",
+    "verify-rollback-compatibility.sh",
   ]) {
     cpSync(join(repository, "scripts", script), join(releaseRoot, "scripts", script))
   }

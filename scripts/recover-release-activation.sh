@@ -138,6 +138,32 @@ verify_backup_recovery_proof() {
   [ "$restore_proof_count" -ge 1 ]
 }
 
+# The newest migration a release tree declares it ships, from its own
+# release-compatibility.tsv, which its release lock authenticates. Anything
+# missing, oversized, malformed or symlinked fails rather than guesses.
+read_declared_schema_max() {
+  schema_descriptor="$1/release-compatibility.tsv"
+  [ -f "$schema_descriptor" ] && [ ! -L "$schema_descriptor" ] || return 1
+  [ "$(wc -c < "$schema_descriptor" | tr -d '[:space:]')" -le 512 ] || return 1
+  schema_declared="$(awk -F '\t' \
+    'NR == 1 && NF == 7 && $1 == "LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1" { print $4 }' \
+    "$schema_descriptor")"
+  printf '%s\n' "$schema_declared" | grep -Eq '^[0-9]{14}_[a-z0-9_]{1,80}$' || return 1
+  printf '%s\n' "$schema_declared"
+}
+
+# Whether the candidate carried no migration at all, in which case the database
+# cannot have moved and there is nothing a restore would recover. Both trees are
+# on disk and both declarations are authenticated, so this is evidence rather
+# than an assertion -- unlike the rollback policy, which is only ever asserted.
+# Any doubt answers "no" and the caller falls back to demanding a restore proof.
+candidate_shipped_no_migration() {
+  [ -n "${journal_old_root:-}" ] && [ -n "${journal_candidate_root:-}" ] || return 1
+  no_migration_prior="$(read_declared_schema_max "$journal_old_root")" || return 1
+  no_migration_candidate="$(read_declared_schema_max "$journal_candidate_root")" || return 1
+  [ "$no_migration_prior" = "$no_migration_candidate" ]
+}
+
 # read_journal has already said which check failed, and says so precisely: no
 # journal present, malformed, wrong field count. Adding "failed strict
 # validation" on top of that replaced a precise diagnosis with a vaguer one,
@@ -267,11 +293,22 @@ case "$state_lock_sha" in
         # case arm and the check above), and the recorded snapshot must still
         # agree with the journal, so the appliance is demonstrably on the
         # release it started from.
-        if [ "$journal_backup" = - ]; then
+        #
+        # A candidate that shipped no migration stands in exactly the same
+        # place. Both release trees declare the newest migration they carry,
+        # each authenticated by its own release lock, so when the two agree
+        # nothing could have been applied and the database is untouched
+        # whatever the rollback policy asserted. Requiring a restore there
+        # required restoring a backup of a database that had not changed, to
+        # recover from it -- and on the release that found this, the restore
+        # was impossible anyway, because a pre-update backup is stamped with
+        # the candidate's version and every consumer rejects it as newer than
+        # the appliance it belongs to.
+        if [ "$journal_backup" = - ] || candidate_shipped_no_migration; then
           expected_before="LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1${tab}${journal_old_version}${tab}.data/releases/$journal_old_version/lospor-hospital-$journal_old_version${tab}${journal_old_sha}"
           [ -s "$lock_dir/installed-release.before.tsv" ] \
             && [ "$(cat "$lock_dir/installed-release.before.tsv")" = "$expected_before" ] \
-            || { operator_error "No pre-update backup was recorded and the prior release snapshot does not prove the appliance is unchanged." "Не е записан архив преди обновяването и снимката на предишната версия не доказва, че системата е непроменена."; exit 1; }
+            || { operator_error "The prior release snapshot does not prove the appliance is unchanged." "Снимката на предишната версия не доказва, че системата е непроменена."; exit 1; }
         else
           [ "$journal_policy" = backup-required ] \
             && [ "$journal_backup" != invalid ] \

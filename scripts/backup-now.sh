@@ -22,6 +22,7 @@ cd "$root"
 operator_locale_load "$root"
 
 backup_kind=manual
+manifest_release=""
 lock_wait="${HOSPITAL_BACKUP_LOCK_WAIT_SECONDS:-120}"
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -41,10 +42,27 @@ while [ "$#" -gt 0 ]; do
       lock_wait="$2"
       shift 2
       ;;
+    # Which release the dump came from, for the manifest only -- never which
+    # images run. An update takes its pre-update backup from inside the
+    # candidate, so the release in scope is already the one being installed,
+    # while the database being dumped is still the prior release's.
+    --release)
+      [ "$#" -ge 2 ] || {
+        operator_error "--release requires a value." "--release изисква стойност."
+        exit 2
+      }
+      manifest_release="$2"
+      printf '%s\n' "$manifest_release" \
+        | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || {
+        operator_error "--release must be an exact version." "--release трябва да е точна версия."
+        exit 2
+      }
+      shift 2
+      ;;
     *)
       operator_error \
-        "Usage: scripts/backup-now.sh [--kind manual|pre-update|immutable|pre-restore] [--wait-seconds N]" \
-        "Употреба: scripts/backup-now.sh [--kind manual|pre-update|immutable|pre-restore] [--wait-seconds N]"
+        "Usage: scripts/backup-now.sh [--kind manual|pre-update|immutable|pre-restore] [--release X.Y.Z] [--wait-seconds N]" \
+        "Употреба: scripts/backup-now.sh [--kind manual|pre-update|immutable|pre-restore] [--release X.Y.Z] [--wait-seconds N]"
       exit 2
       ;;
   esac
@@ -162,7 +180,14 @@ if [ -z "${HOSPITAL_BACKUP_APPLIANCE_ID:-}" ]; then
   HOSPITAL_BACKUP_APPLIANCE_ID="appliance-$(printf '%s:%s' "$HOSPITAL_BACKUP_SITE_ID" "$HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT" \
     | sha256sum | awk '{ print substr($1, 1, 24) }')"
 fi
-HOSPITAL_APPLIANCE_RELEASE="${HOSPITAL_RELEASE:-$package_version}"
+# The manifest records the release the DATABASE came from, which is not always
+# the release this script belongs to. restore.sh refuses any backup whose
+# manifest names a release newer than the appliance it is being restored onto,
+# and recover-release-activation.sh requires the manifest to name the release
+# the activation journal recorded as prior. A pre-update backup stamped with
+# the candidate failed both, so the safety net for every backup-required
+# release was unrestorable in the one situation it exists for.
+HOSPITAL_APPLIANCE_RELEASE="${manifest_release:-${HOSPITAL_RELEASE:-$package_version}}"
 HOSPITAL_EXCHANGE_CONTRACT_VERSION="${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-$exchange_version}"
 HOSPITAL_DATA_DICTIONARY_VERSION="${HOSPITAL_DATA_DICTIONARY_VERSION:-$exchange_version}"
 HOSPITAL_BACKUP_TOOL_VERSION="$package_version"

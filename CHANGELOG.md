@@ -9,6 +9,43 @@ interrupted activation, and that is where these were found: not in the failure
 itself, which was already understood, but in everything that was supposed to
 recover from it.
 
+### The fix for the update path can now arrive through the update path
+
+`apply-prepared-release.sh` resolves its root from its own location, so an
+update has always been driven by the release being replaced. Any defect in the
+activation path was therefore unfixable by the release that fixed it: the fix
+shipped, and then sat unused while the installed copy repeated the failure on
+the very hop meant to carry it in. 1.4.0 introduced the extraction bug, 1.4.3
+carried it, and 1.4.4 shipped the fix that 1.4.3 then declined to run.
+
+Activation now runs the candidate's own driver. The trust boundary does not
+move -- the candidate's `update.sh` already runs as root as part of activation,
+so "a verified archive implies trusted code" was already the rule. The
+installed, trusted verifier authenticates the archive against the signed lock
+before anything is extracted, the archive's path-safety checks are made before
+that, and the candidate's driver verifies the archive again before using it.
+
+The end-to-end suite exercised this without noticing, because its fixture kits
+did not contain an activation driver at all -- something no real deployment
+archive can be missing, since a release has to be able to activate itself.
+
+### The pre-update backup could not be restored
+
+A pre-update backup is taken by the candidate's own `update.sh`, so everything
+in scope already names the incoming release while the database being dumped is
+still exactly what the installed release left. The manifest was stamped with
+the candidate.
+
+Both of its consumers then rejected it. `restore.sh` refuses any backup whose
+manifest names a release newer than the appliance it is being restored onto,
+and `recover-release-activation.sh` requires the manifest to name the release
+the activation journal recorded as prior. So the safety net for every
+`backup-required` release was unrestorable in the one situation it exists for,
+and this is the third reason the appliance could not be recovered by hand.
+
+`backup-now.sh` takes `--release` for the manifest stamp only -- never for which
+images run -- and `update.sh` passes the release the database is actually on.
+
 ### An interrupted update could not be recovered at all
 
 `recover-release-activation.sh verify-and-clear` required a completed restore
@@ -26,6 +63,14 @@ The gate now names the mode the restore tool actually writes. Its test used to
 grep this same script for the literal `mode=emergency` -- asserting that the
 string it was reading existed, which is true for any value -- and now checks
 that the mode the gate demands is one `restore-backup.sh` can journal.
+
+`verify-and-clear` also no longer demands a restore for a candidate that
+shipped no migration. It already accepted that a lock with no recorded backup
+proves nothing was mutated; the same is true when both release trees declare
+the same newest migration, each declaration authenticated by its own release
+lock. The prior-state snapshot then carries the clear on its own, because there
+is no database change for a restore to recover. Where the two declarations
+disagree, the restore proof is still required.
 
 ### A release that changed no schema still demanded a database restore
 
