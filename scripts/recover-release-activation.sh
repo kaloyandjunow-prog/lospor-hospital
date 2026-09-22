@@ -123,11 +123,45 @@ verify_backup_recovery_proof() {
   for restore_journal in "$restore_journal_root"/restore-*.journal; do
     [ -e "$restore_journal" ] || continue
     [ -f "$restore_journal" ] && [ ! -L "$restore_journal" ] || return 1
-    if grep -Eq "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=COMPLETE result=PASSED object=${journal_backup} mode=emergency$" "$restore_journal"; then
+    # The mode token is restore-backup.sh's own flag name, `in-place` -- the
+    # mode whose typed confirmation is "EMERGENCY RESTORE <site> <timestamp>".
+    # This gate used to demand `mode=emergency`, a token no code path writes:
+    # restore_mode is only ever temporary, drill or in-place. That made the one
+    # supported recovery from BACKUP_RECOVERY_REQUIRED unreachable, so a
+    # backup-required release that failed after its pre-update backup was taken
+    # locked the appliance permanently -- resume-rollback refuses such a
+    # release, and verify-and-clear could never be satisfied.
+    if grep -Eq "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=COMPLETE result=PASSED object=${journal_backup} mode=in-place$" "$restore_journal"; then
       restore_proof_count=$((restore_proof_count + 1))
     fi
   done
   [ "$restore_proof_count" -ge 1 ]
+}
+
+# The newest migration a release tree declares it ships, from its own
+# release-compatibility.tsv, which its release lock authenticates. Anything
+# missing, oversized, malformed or symlinked fails rather than guesses.
+read_declared_schema_max() {
+  schema_descriptor="$1/release-compatibility.tsv"
+  [ -f "$schema_descriptor" ] && [ ! -L "$schema_descriptor" ] || return 1
+  [ "$(wc -c < "$schema_descriptor" | tr -d '[:space:]')" -le 512 ] || return 1
+  schema_declared="$(awk -F '\t' \
+    'NR == 1 && NF == 7 && $1 == "LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1" { print $4 }' \
+    "$schema_descriptor")"
+  printf '%s\n' "$schema_declared" | grep -Eq '^[0-9]{14}_[a-z0-9_]{1,80}$' || return 1
+  printf '%s\n' "$schema_declared"
+}
+
+# Whether the candidate carried no migration at all, in which case the database
+# cannot have moved and there is nothing a restore would recover. Both trees are
+# on disk and both declarations are authenticated, so this is evidence rather
+# than an assertion -- unlike the rollback policy, which is only ever asserted.
+# Any doubt answers "no" and the caller falls back to demanding a restore proof.
+candidate_shipped_no_migration() {
+  [ -n "${journal_old_root:-}" ] && [ -n "${journal_candidate_root:-}" ] || return 1
+  no_migration_prior="$(read_declared_schema_max "$journal_old_root")" || return 1
+  no_migration_candidate="$(read_declared_schema_max "$journal_candidate_root")" || return 1
+  [ "$no_migration_prior" = "$no_migration_candidate" ]
 }
 
 # read_journal has already said which check failed, and says so precisely: no
@@ -193,7 +227,7 @@ if [ "$command" = resume-rollback ]; then
     HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256="$journal_old_sha" \
     COMPOSE_FILE="$journal_old_root/compose.yaml:$journal_old_root/compose.release.yaml" \
       docker compose up -d --force-recreate
-  (cd "$journal_old_root" && sh scripts/doctor.sh)
+  (cd "$journal_old_root" && HOSPITAL_DOCTOR_ACTIVATION_RECOVERY=1 sh scripts/doctor.sh)
   release_state_read "$appliance_home"
   current="$(CDPATH= cd -- "$appliance_home/current" && pwd -P)"
   [ "$state_version" = "$journal_old_version" ] && [ "$state_lock_sha" = "$journal_old_sha" ] \
@@ -259,11 +293,22 @@ case "$state_lock_sha" in
         # case arm and the check above), and the recorded snapshot must still
         # agree with the journal, so the appliance is demonstrably on the
         # release it started from.
-        if [ "$journal_backup" = - ]; then
+        #
+        # A candidate that shipped no migration stands in exactly the same
+        # place. Both release trees declare the newest migration they carry,
+        # each authenticated by its own release lock, so when the two agree
+        # nothing could have been applied and the database is untouched
+        # whatever the rollback policy asserted. Requiring a restore there
+        # required restoring a backup of a database that had not changed, to
+        # recover from it -- and on the release that found this, the restore
+        # was impossible anyway, because a pre-update backup is stamped with
+        # the candidate's version and every consumer rejects it as newer than
+        # the appliance it belongs to.
+        if [ "$journal_backup" = - ] || candidate_shipped_no_migration; then
           expected_before="LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1${tab}${journal_old_version}${tab}.data/releases/$journal_old_version/lospor-hospital-$journal_old_version${tab}${journal_old_sha}"
           [ -s "$lock_dir/installed-release.before.tsv" ] \
             && [ "$(cat "$lock_dir/installed-release.before.tsv")" = "$expected_before" ] \
-            || { operator_error "No pre-update backup was recorded and the prior release snapshot does not prove the appliance is unchanged." "Не е записан архив преди обновяването и снимката на предишната версия не доказва, че системата е непроменена."; exit 1; }
+            || { operator_error "The prior release snapshot does not prove the appliance is unchanged." "Снимката на предишната версия не доказва, че системата е непроменена."; exit 1; }
         else
           [ "$journal_policy" = backup-required ] \
             && [ "$journal_backup" != invalid ] \
@@ -293,7 +338,7 @@ case "$state_lock_sha" in
     ;;
 esac
 sh "$state_release_root/scripts/verify-loaded-release-images.sh" "$state_release_lock"
-(cd "$state_release_root" && sh scripts/doctor.sh)
+(cd "$state_release_root" && HOSPITAL_DOCTOR_ACTIVATION_RECOVERY=1 sh scripts/doctor.sh)
 else
   # Nothing is installed, so there are no images to verify and no appliance for
   # doctor to examine. The lock is the only artefact left to clear.

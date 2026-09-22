@@ -8,6 +8,7 @@ import {
   TERMINOLOGY_REQUEST_FILE,
   mintConfirmation,
   newRequestId,
+  requestCheck,
   requestFetch,
   submitRequest,
   submitTerminologyRequest,
@@ -120,6 +121,16 @@ describe("leaving a request for the agent", () => {
       "1.3.0",
       String(Math.floor(NOW / 1000)),
       "none",
+    ])
+  })
+
+  it("leaves one fixed manual-check request and refuses a duplicate", async () => {
+    const dir = workspace()
+    expect(await requestCheck(dir, NOW)).toBe("submitted")
+    expect(await requestCheck(dir, NOW)).toBe("already-pending")
+    expect(readFileSync(join(dir, "check.request"), "utf8").trim().split("\t")).toEqual([
+      "LOSPOR-HOSPITAL-UPDATE-CHECK-V1",
+      String(Math.floor(NOW / 1000)),
     ])
   })
 })

@@ -66,9 +66,19 @@ grep -Fq -- '--confirm-clear' "$work/out" || fail "clear did not explain require
 ok "verify-and-clear requires a separate explicit confirmation"
 
 grep -q 'backup_verify_object.*integrity' "$root/scripts/recover-release-activation.sh" \
-  && grep -q 'phase=COMPLETE result=PASSED.*mode=emergency' "$root/scripts/recover-release-activation.sh" \
   && grep -q "grep -Ec '\^HOSPITAL_BACKUP_MANIFEST_HMAC_KEY='" "$root/scripts/recover-release-activation.sh" \
   || fail "backup recovery clear lacks authenticated-object and completed-restore proof"
+
+# The completed-restore proof used to be checked by grepping this very script
+# for the literal `mode=emergency` -- a tautology that asserts the string it is
+# reading exists. It passed for as long as the gate demanded a token
+# restore-backup.sh could never write, leaving the one supported recovery from
+# BACKUP_RECOVERY_REQUIRED unreachable. Assert instead that the two scripts
+# agree: the mode the gate demands must be one the restore tool journals.
+gate_mode="$(sed -n 's/.*phase=COMPLETE result=PASSED object=.* mode=\([a-z][a-z-]*\)[$]".*/\1/p' "$root/scripts/recover-release-activation.sh")"
+[ -n "$gate_mode" ] || fail "backup recovery clear has no completed-restore proof"
+grep -Eq "restore_mode=$gate_mode([;[:space:]]|\$)" "$root/scripts/restore-backup.sh" \
+  || fail "recovery demands restore mode '$gate_mode', which restore-backup.sh never journals"
 if grep -Eq 'rm[[:space:]]+-rf[[:space:]].*release-activation' "$root/scripts/recover-release-activation.sh"; then
   fail "recovery script contains broad activation-lock deletion"
 fi
@@ -118,6 +128,68 @@ grep -q "does not prove the appliance is unchanged" "$work/out" \
   || fail "the refusal did not name the missing prior-state snapshot"
 [ -d "$lock" ] || fail "a refused clear removed the lock anyway"
 ok "no backup and no prior snapshot still fails closed"
+
+# With a pre-update backup recorded, the clear used to demand a completed
+# emergency restore -- of a database that a release shipping no migration never
+# touched, and which on the release that found this could not be restored at
+# all, because a pre-update backup is stamped with the candidate's version and
+# every consumer rejects it as newer than the appliance. Both release trees
+# declare the newest migration they ship, each authenticated by its own release
+# lock, so when they agree the database is provably unmoved and the prior-state
+# snapshot is sufficient. When they disagree the restore proof is still required.
+mkdir -p "$lock" "$candidate" "$prior_root/scripts"
+printf '#!/bin/sh\nexit 0\n' > "$prior_root/scripts/verify-loaded-release-images.sh"
+# The real doctor.sh refuses while an activation lock exists, and recovery runs
+# doctor as its last check before removing that lock -- so it necessarily runs
+# with the lock still there. Unless recovery says it is the one asking, the
+# clear can never pass its own precondition: the appliance is unhealthy exactly
+# because of the lock the clear is about to remove. This stub fails if recovery
+# ever stops saying so.
+cat > "$prior_root/scripts/doctor.sh" <<'DOCTOR_STUB'
+#!/bin/sh
+set -eu
+[ "${HOSPITAL_DOCTOR_ACTIVATION_RECOVERY:-}" = 1 ] || {
+  echo "doctor ran without the activation-recovery flag; a real doctor would refuse here" >&2
+  exit 1
+}
+DOCTOR_STUB
+chmod 0755 "$prior_root/scripts/verify-loaded-release-images.sh" "$prior_root/scripts/doctor.sh"
+
+# ...and doctor must honour the very name recovery sets. The two live in
+# different files, which is how the mode token drifted into something no code
+# path could produce.
+grep -q 'HOSPITAL_DOCTOR_ACTIVATION_RECOVERY' "$root/scripts/doctor.sh" \
+  || fail "doctor.sh does not honour the activation-recovery flag recovery sets"
+declare_schema() {
+  printf 'LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t%s\t20260530000000_init\t%s\tbackup-required\t-\t0\n' \
+    "$1" "$2" > "$3/release-compatibility.tsv"
+}
+stage_backup_recovery_lock() {
+  printf 'LOSPOR-HOSPITAL-ACTIVATION-JOURNAL-V1\t1\tBACKUP_RECOVERY_REQUIRED\t11111111-2222-3333-4444-555555555555\t999999\t1\t1.2.9\t%s\t%s\t1.3.0\t%s\t%s\tbackup-required\tlospor-20260821T120000Z-abcdef.backup\t-\n' \
+    "$prior_root" "$prior_sha" "$candidate" "$sha" > "$journal"
+  chmod 0600 "$journal"
+  printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1.2.9\t.data/releases/1.2.9/lospor-hospital-1.2.9\t%s\n' \
+    "$prior_sha" > "$lock/installed-release.before.tsv"
+  chmod 0600 "$lock/installed-release.before.tsv"
+}
+
+declare_schema 1.2.9 20260914130000_same "$prior_root"
+declare_schema 1.3.0 20260920000000_moved "$candidate"
+stage_backup_recovery_lock
+if sh "$scripts/recover-release-activation.sh" verify-and-clear --confirm-clear > "$work/out" 2>&1; then
+  fail "cleared a lock although the candidate shipped a migration"
+fi
+grep -q "cannot be proved" "$work/out" \
+  || fail "the refusal did not name the missing restore proof"
+[ -d "$lock" ] || fail "a refused clear removed the lock anyway"
+ok "a candidate that shipped a migration still requires the restore proof"
+
+declare_schema 1.3.0 20260914130000_same "$candidate"
+stage_backup_recovery_lock
+sh "$scripts/recover-release-activation.sh" verify-and-clear --confirm-clear > "$work/out" 2>&1 \
+  || fail "a candidate that shipped no migration could not be cleared"
+[ ! -d "$lock" ] || fail "the lock survived a successful no-migration clear"
+ok "a candidate that shipped no migration clears without an emergency restore"
 
 # Contract-level, not behavioural: reaching this branch for real needs a failed
 # candidate plus a docker stub, which this suite has no harness for. It still

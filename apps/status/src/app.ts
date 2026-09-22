@@ -62,6 +62,7 @@ import {
 import {
   mintConfirmation,
   newRequestId,
+  requestCheck,
   requestFetch,
   submitRequest,
   submitTerminologyRequest,
@@ -2583,6 +2584,18 @@ export function createStatusApp({
     return context.redirect("/status/release", 303)
   })
 
+  app.post("/status/actions/check", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "\u0417\u0430\u0431\u0440\u0430\u043d\u0435"), 403)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const view = await releaseView(locale)
+    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "\u041d\u044f\u043c\u0430 \u0440\u0430\u0431\u043e\u0442\u0435\u0449 \u0430\u0433\u0435\u043d\u0442") }), locale, kind))
+    const outcome = await requestCheck(config.updateRequestsDir, now()).catch(error => maintenanceRequestFailed(newRequestId(), error))
+    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\u0442\u0430 \u0432\u0435\u0447\u0435 \u0447\u0430\u043a\u0430.") }), locale, kind))
+    if (outcome === "failed") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "The update check request could not be recorded.", "\u0417\u0430\u044f\u0432\u043a\u0430\u0442\u0430 \u043d\u0435 \u043c\u043e\u0436\u0430 \u0434\u0430 \u0431\u044a\u0434\u0435 \u0437\u0430\u043f\u0438\u0441\u0430\u043d\u0430.") }), locale, kind))
+    return context.redirect("/status/release", 303)
+  })
   // Acts on nothing. A POST rather than a GET so the confirmation cannot be
   // prefetched, bookmarked, or arrived at by a link someone was sent.
   app.post("/status/actions/apply", async context => {

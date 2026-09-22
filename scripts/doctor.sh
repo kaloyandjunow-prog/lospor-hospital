@@ -321,7 +321,16 @@ else
   operator_error "Warning: update mode has not been selected (agent or console-only)." "Предупреждение: не е избран режим за обновяване (агент или само конзола)."
   [ "$doctor_mode" != install ] || exit 1
 fi
-if [ "${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ] && [ -e "$appliance_home/.data/release-activation.lock" ]; then
+# HOSPITAL_DOCTOR_ACTIVATION_RECOVERY is set only by
+# recover-release-activation.sh, which runs doctor as the last check before it
+# clears the lock -- and so necessarily runs it while the lock is still there.
+# Without this, that check could never pass: the clear required a healthy
+# appliance, and the appliance was unhealthy precisely because the lock the
+# clear was about to remove still existed. It is the lock's own recovery asking,
+# and it is about to remove it, so the lock is not news.
+if [ "${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ] \
+  && [ "${HOSPITAL_DOCTOR_ACTIVATION_RECOVERY:-}" != 1 ] \
+  && [ -e "$appliance_home/.data/release-activation.lock" ]; then
   sh scripts/recover-release-activation.sh inspect >&2 || true
   operator_error "An activation lock requires supported operator recovery." "Заключване на активирането изисква поддържано възстановяване от оператор."
   exit 1

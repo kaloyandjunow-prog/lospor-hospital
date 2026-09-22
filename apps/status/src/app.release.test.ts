@@ -6,7 +6,7 @@ import { createStatusApp } from "./app.js"
 import { AuthService } from "./auth.js"
 import type { StatusConfig } from "./config.js"
 import { StatusDatabase } from "./db.js"
-import { PREPARE_REQUEST_FILE, REQUEST_FILE } from "./update-requests.js"
+import { CHECK_REQUEST_FILE, PREPARE_REQUEST_FILE, REQUEST_FILE } from "./update-requests.js"
 import { totpCode } from "./mfa.js"
 
 // Asking for an update from the status page.
@@ -191,6 +191,28 @@ describe("the release page", () => {
 })
 
 describe("asking for an update", () => {
+  it("writes a manual check request from the authenticated release page", async () => {
+    const { app, auth, requestsDir } = setup()
+    const cookie = await signIn(app, auth)
+    const response = await post(app, "/status/actions/check", cookie, {})
+    expect(response.status).toBe(303)
+    expect(readFileSync(join(requestsDir, CHECK_REQUEST_FILE), "utf8").trim().split("\t")).toEqual([
+      "LOSPOR-HOSPITAL-UPDATE-CHECK-V1",
+      String(Math.floor(NOW / 1000)),
+    ])
+  })
+
+  it("refuses a manual check request from another origin", async () => {
+    const { app, auth, requestsDir } = setup()
+    const cookie = await signIn(app, auth)
+    const response = await app.request("/status/actions/check", {
+      method: "POST",
+      headers: { origin: "https://elsewhere.test", host: "hospital.test", cookie },
+    })
+    expect(response.status).toBe(403)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
   // The confirmation exists so the destructive step is never one click from a
   // page that might have been left open.
   it("acts on nothing when the button is first pressed", async () => {

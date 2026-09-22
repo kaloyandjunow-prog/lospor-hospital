@@ -41,7 +41,12 @@ async function writeExecutable(path, contents) {
   await chmod(path, 0o755)
 }
 
-async function createKit(fixture, version, { link = false, brokenVerifier = false } = {}) {
+async function createKit(fixture, version, {
+  link = false,
+  brokenVerifier = false,
+  rollbackPolicy = "service-compatible",
+  schemaMax = "20260822180000_additive",
+} = {}) {
   const prefix = `lospor-hospital-${version}`
   const source = join(fixture, `kit-source-${version}-${link ? "link" : "plain"}`)
   const root = join(source, prefix)
@@ -65,14 +70,19 @@ async function createKit(fixture, version, { link = false, brokenVerifier = fals
     releaseVersion: version,
     previousVersion: "1.0.0",
     previousLockSha256: "9".repeat(64),
-    newSchemaMigration: "20260822180000_additive",
+    newSchemaMigration: schemaMax,
     testedAt: "2026-08-22T00:00:00Z",
     checks: ["previous-api-live", "previous-api-ready", "previous-web-smoke", "previous-pwa-smoke", "clinical-read", "clinical-write", "doctor"],
   })}\n`)
   await writeFile(join(root, "rollback-compatibility-proof.json"), proof)
+  // A backup-required release may claim no service-rollback evidence at all:
+  // the parser requires an empty proof digest and a zero window.
+  const compatibility = rollbackPolicy === "backup-required"
+    ? `backup-required\t-\t0`
+    : `service-compatible\t${hash(proof)}\t30`
   await writeFile(
     join(root, "release-compatibility.tsv"),
-    `LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t${version}\t20260530000000_init\t20260822180000_additive\tservice-compatible\t${hash(proof)}\t30\n`,
+    `LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t${version}\t20260530000000_init\t${schemaMax}\t${compatibility}\n`,
   )
   if (brokenVerifier) {
     await writeExecutable(join(root, "scripts", "verify-loaded-release-images.sh"), "#!/bin/sh\nexit 88\n")
@@ -363,6 +373,56 @@ test("state-write and current-promotion failures fully restore the prior activat
       await assert.rejects(lstat(join(f.home, ".data", "release-activation.lock")))
       const restoredState = await readFile(join(f.directory, "fake-docker-state.tsv"), "utf8")
       assert.match(restoredState, new RegExp(`^ghcr\\.io/kaloyandjunow-prog/lospor-hospital-caddy:1\\.0\\.0\\t${oldCaddyId}\\tlinux/amd64\\t`, "m"))
+    })
+  }
+})
+
+// A backup-required declaration is asserted and never proved:
+// verify-rollback-compatibility.sh short-circuits on it and asks for no
+// evidence at all, while service-compatible must ship a digest-matched proof.
+// The heavier claim is the cheaper one to make, so it gets carried forward
+// conservatively from release to release. Taken at face value it turns every
+// pre-commit failure into emergency-restore-only recovery -- including for a
+// release that ships no migration and therefore cannot have touched the
+// database. 1.4.4 shipped no migration, logged "No pending migrations to
+// apply", and still locked the appliance when it failed on a file permission.
+test("a backup-required release that ships no migration still rolls back automatically", { skip: process.platform === "win32" }, async t => {
+  for (const scenario of [
+    { name: "schema unchanged: automatic rollback, no lock", version: "1.0.1", schemaMax: "20260822180000_additive", expectLock: false },
+    { name: "schema moved: lock retained for backup recovery", version: "1.0.2", schemaMax: "20260901000000_later", expectLock: true },
+  ]) {
+    await t.test(scenario.name, async () => {
+      const f = await fixture()
+      const first = await createVerifiedRelease(f.directory, "1.0.0")
+      assert.equal(activate(f, first, "exit 0").status, 0)
+      const oldCurrent = await readlink(join(f.home, "current"))
+      const next = await createVerifiedRelease(f.directory, scenario.version, {
+        brokenVerifier: true,
+        rollbackPolicy: "backup-required",
+        schemaMax: scenario.schemaMax,
+      })
+      const { oldCaddyId } = await writeRollbackDockerState(f)
+      const result = activate(f, next, "exit 0", {
+        FAIL_MV_TARGET_SUFFIX: "installed-release.tsv",
+        FAIL_MV_MARKER: join(f.directory, `br-mv-${scenario.version}`),
+        ROLLBACK_MARKER: join(f.directory, `br-rollback-${scenario.version}`),
+        ROLLBACK_COMPOSE_MARKER: join(f.directory, `br-compose-${scenario.version}`),
+        ROLLBACK_EXPECTED_CADDY_ID: oldCaddyId,
+      })
+
+      const lockPath = join(f.home, ".data", "release-activation.lock")
+      if (scenario.expectLock) {
+        assert.equal(result.status, 1, result.stderr)
+        assert.match(result.stderr, /Automatic service rollback is not supported/i)
+        await lstat(lockPath)
+        return
+      }
+      assert.equal(result.status, 73, result.stderr)
+      assert.match(result.stderr, /ships no migration/i)
+      assert.match(result.stderr, /prior activation state, image tags, and services were restored/i)
+      assert.equal(await readlink(join(f.home, "current")), oldCurrent)
+      assert.equal(await readFile(join(f.directory, `br-rollback-${scenario.version}`), "utf8"), "rollback-ok\n")
+      await assert.rejects(lstat(lockPath))
     })
   }
 })

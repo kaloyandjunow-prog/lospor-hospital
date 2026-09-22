@@ -70,6 +70,52 @@ if [ -n "$current_lock" ]; then
   sh "$root/scripts/verify-loaded-release-images.sh" "$current_lock"
 fi
 
+# Run the candidate's activation driver, not the installed release's.
+#
+# This script resolves its root from its own location, so an update has always
+# been driven by the release being replaced. That makes any defect in the
+# activation path unfixable by the release that fixes it: the fix ships, and
+# then sits unused while the installed copy repeats the failure on the very hop
+# that was meant to carry it in. The umask extraction bug did exactly that three
+# times -- 1.4.0 introduced it, 1.4.3 carried it, and 1.4.4 shipped the fix that
+# 1.4.3 then declined to run, so 1.4.4 could not be installed over 1.4.3 by any
+# route the agent drives. Only an operator's shell got through, and only because
+# it happens to carry a different umask.
+#
+# The trust boundary does not move. The candidate's own update.sh already runs
+# as root as part of activation, so "a verified archive implies trusted code" is
+# already the rule here; this brings the driver inside the same boundary. The
+# installed, trusted verify-release.sh authenticates the archive against the
+# signed lock before anything is extracted, the same path-safety checks the
+# activation makes are made here first, and the candidate's own driver verifies
+# the archive again before it uses it.
+activation_bootstrap="$update_private_dir/activation-bootstrap.$$"
+trap 'rm -rf "$activation_bootstrap" 2>/dev/null || true' EXIT HUP INT TERM
+deployment_file="$(awk -F '\t' '$1 == "artifact" && $2 == "deployment" { print $4 }' "$descriptor_lock")"
+[ -n "$deployment_file" ] || { echo UPDATE_PREPARED_DESCRIPTOR_INVALID >&2; exit 1; }
+sh "$root/scripts/verify-release.sh" \
+  "$descriptor_lock" "$descriptor_checksum" "$descriptor_root" deployment >/dev/null
+activation_archive="$descriptor_root/$deployment_file"
+activation_prefix="lospor-hospital-$version"
+tar -tzf "$activation_archive" | awk -v prefix="$activation_prefix/" '
+  index($0, prefix) != 1 { bad = 1 }
+  $0 ~ /(^|\/)\.\.?($|\/)/ { bad = 1 }
+  END { exit bad }
+' || { echo "Deployment archive contains an unsafe or unexpected path." >&2; exit 1; }
+tar -tvzf "$activation_archive" \
+  | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 } END { exit bad }' \
+  || { echo "Deployment archive contains links or special files." >&2; exit 1; }
+rm -rf "$activation_bootstrap"
+(umask 022; mkdir -p "$activation_bootstrap")
+(umask 022; tar -xzf "$activation_archive" \
+  --no-same-owner --no-same-permissions -C "$activation_bootstrap")
+activation_root="$activation_bootstrap/$activation_prefix"
+[ -f "$activation_root/scripts/activate-verified-release.sh" ] \
+  || { echo "The verified deployment archive has no activation driver." >&2; exit 1; }
+# How the driver finds the appliance it is activating, and through it the
+# release-signing public key, exactly as an installed release does.
+ln -s "$appliance_home" "$activation_root/.lospor-home"
+
 update_transition_write APPLYING apply "$request_id" "$version" UPDATE_APPLYING "$descriptor_lock_sha"
 update_projection_write applying UPDATE_APPLYING "$version" "" \
   "$descriptor_version" "$descriptor_lock_sha" "$descriptor_rollback_policy"
@@ -78,7 +124,7 @@ set +e
 HOSPITAL_PREPARED_DESCRIPTOR="$update_prepared_dir/$version/prepared-release.v2.tsv" \
 HOSPITAL_ROLLBACK_POLICY="$descriptor_rollback_policy" \
 HOSPITAL_ROLLBACK_PROOF_SHA256="$descriptor_proof_sha" \
-  sh "$root/scripts/activate-verified-release.sh" \
+  sh "$activation_root/scripts/activate-verified-release.sh" \
     "$descriptor_lock" "$descriptor_checksum" "$descriptor_root" > "$apply_log" 2>&1
 result=$?
 set -e

@@ -55,7 +55,7 @@ fi
 for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh site-config.sh secrets-escrow-lib.sh maintenance-agent-lib.sh update-agent-loop.sh cancel-update-request.sh; do cp "$root/scripts/$name" "$scripts/$name"; done
 cat > "$scripts/check-for-update.sh" <<'STUB'
 #!/bin/sh
-exit 0
+printf 'check\tbmanual' >> "$AGENT_CALLS"
 STUB
 cat > "$scripts/prepare-verified-release.sh" <<'STUB'
 #!/bin/sh
@@ -99,6 +99,15 @@ run_agent() {
     > "$work/out" 2>&1 || true
 }
 code() { sed -n 's/.*"resultCode":"\([^"]*\)".*/\1/p' "$state/update-agent.v2.json" | head -1; }
+# The agent may perform its periodic registry check on startup. Rejected update requests must not invoke the mutating prepare/apply commands, so assertions filter out the independent checker call.
+update_calls() { grep -E '^(prepare|apply)[[:space:]]' "$work/calls" 2>/dev/null || true; }
+
+reset_state
+: > "$requests/check.request"
+run_agent env
+grep -Fxq "$(printf 'check\tbmanual')" "$work/calls" || fail "manual check request did not run the checker"
+[ ! -e "$requests/check.request" ] || fail "manual check request was not consumed"
+ok "manual check intent triggers an immediate registry check"
 
 . "$scripts/update-pipeline-lib.sh"
 if [ "$(TZ=Europe/Sofia date -d '2026-03-29 20:00' -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" = 2026-03-29T17:00:00Z ]; then
@@ -129,7 +138,7 @@ ok "apply intent reaches only the exact prepared-release command"
 reset_state
 request prepare cccccccccccccccccccccccccccccccc 1.3.0 "$(( $(now) - 8 * 86400 ))" none
 run_agent env
-[ ! -s "$work/calls" ] || fail "expired request ran"
+[ -z "$(update_calls)" ] || fail "expired request ran"
 [ "$(code)" = UPDATE_REQUEST_EXPIRED ] || fail "expired request did not retain its exact failure"
 run_agent env
 [ "$(code)" = UPDATE_REQUEST_EXPIRED ] || fail "terminal request failure was silently reset"
@@ -144,7 +153,7 @@ for malformed in \
   reset_state
   printf '%b\n' "$malformed" > "$requests/prepare.request.v2.tsv"
   run_agent env
-  [ ! -s "$work/calls" ] || fail "malformed request ran"
+  [ -z "$(update_calls)" ] || fail "malformed request ran"
 done
 ok "traversal, extra fields, and unknown formats are rejected"
 
@@ -153,7 +162,7 @@ outside_start="$(TZ=Europe/Sofia date -d '+2 hours' +%H:%M)"
 outside_end="$(TZ=Europe/Sofia date -d '+2 hours 1 minute' +%H:%M)"
 request apply ffffffffffffffffffffffffffffffff 1.3.0 "$(now)" scheduled
 run_agent env HOSPITAL_UPDATE_WINDOW_START="$outside_start" HOSPITAL_UPDATE_WINDOW_END="$outside_end"
-[ ! -s "$work/calls" ] || fail "scheduled request ran outside its window"
+[ -z "$(update_calls)" ] || fail "scheduled request ran outside its window"
 [ -s "$private/inflight/apply.request.v2.tsv" ] || fail "queued intent did not survive in root-owned state"
 [ "$(code)" = UPDATE_QUEUED ] || fail "queued state was not projected"
 run_agent env HOSPITAL_UPDATE_WINDOW_START="$outside_start" HOSPITAL_UPDATE_WINDOW_END="$outside_end"
@@ -166,7 +175,7 @@ mkdir -p "$private/inflight" "$state"
 update_pipeline_init "$site" "$home"
 update_transition_write APPLYING apply 11111111111111111111111111111111 1.3.0 UPDATE_APPLYING "$(printf lock | sha256sum | awk '{print $1}')"
 run_agent env
-[ ! -s "$work/calls" ] || fail "ambiguous apply was retried"
+[ -z "$(update_calls)" ] || fail "ambiguous apply was retried"
 [ "$(code)" = UPDATE_AMBIGUOUS_APPLY ] || fail "ambiguous apply did not require operator"
 ok "restart never retries an ambiguous apply"
 
@@ -198,7 +207,7 @@ printf 'LOSPOR-HOSPITAL-UPDATE-JOURNAL-V2\t%s\tCOMPLETED\tapply\t222222222222222
   "$(now)" "$(printf lock | sha256sum | awk '{print $1}')" > "$private/journal.v2.tsv"
 request apply 22222222222222222222222222222222 1.3.0 "$(now)" override
 run_agent env
-[ ! -s "$work/calls" ] || fail "replayed request ran"
+[ -z "$(update_calls)" ] || fail "replayed request ran"
 [ "$(code)" = UPDATE_REQUEST_REPLAYED ] || fail "replay did not retain its exact refusal"
 ok "terminal request IDs cannot be replayed"
 
@@ -238,7 +247,7 @@ reset_state
 if ln -s "$work/elsewhere" "$requests/prepare.request.v2.tsv" 2>/dev/null \
   && [ -L "$requests/prepare.request.v2.tsv" ]; then
   run_agent env
-  [ ! -s "$work/calls" ] || fail "symlink request ran"
+  [ -z "$(update_calls)" ] || fail "symlink request ran"
   [ "$(code)" = UPDATE_REQUEST_UNSAFE ] || fail "symlink request did not retain refusal"
   ok "symlink requests are rejected"
 else
@@ -265,7 +274,7 @@ printf 'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2\tprepare\t%s\t1.3.0\t%s\tnone\n' \
   "$persistent_id" "$(now)" > "$persistent"
 ln "$persistent" "$requests/prepare.request.v2.tsv"
 run_agent env
-[ ! -s "$work/calls" ] || fail "a persistently hard-linked request ran"
+[ -z "$(update_calls)" ] || fail "a persistently hard-linked request ran"
 [ "$(code)" = UPDATE_REQUEST_UNSAFE ] || fail "persistent hard link did not retain refusal"
 [ -e "$persistent" ] || fail "agent changed the hard-link alias outside the inbox"
 rm -f "$persistent"
@@ -278,7 +287,7 @@ ln "$work/request-lock-alias" "$private/request-agent.lock"
 run_agent env
 grep -Fxq UPDATE_REQUEST_LOCK_UNSAFE "$work/out" \
   || fail "multiply-linked agent mutex was accepted"
-[ ! -s "$work/calls" ] || fail "agent acted while its mutex identity was unsafe"
+[ -z "$(update_calls)" ] || fail "agent acted while its mutex identity was unsafe"
 rm -f "$work/request-lock-alias"
 ok "agent refuses an unsafe request-mutex inode before reconciliation"
 
