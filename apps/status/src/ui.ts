@@ -1624,12 +1624,15 @@ export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", au
     action = `<p>${localize(locale, "This appliance is running the newest release it knows about. Nothing to do.", "Системата използва най-новата известна версия. Не е необходимо действие.")}</p>`
   }
 
+  const checkAction = view.agentMode === "healthy"
+    ? `<form method="post" action="/status/actions/check"><button type="submit">${localize(locale, "Check for updates", "Проверка за обновявания")}</button></form>`
+    : ""
   const notice = view.notice ? `<div class="banner good" role="status"><strong>${escapeHtml(view.notice)}</strong></div>` : ""
   const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
 
   return page(
     localize(locale, "Hospital appliance release", "Версия на болничната система"),
-    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на обновяване рестартира клиничните услуги и може да промени базата данни. То е умишлено отделна стъпка от изтеглянето.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${checkAction}${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на обновяване рестартира клиничните услуги и може да промени базата данни. То е умишлено отделна стъпка от изтеглянето.")}</footer></div>`,
     locale,
     true,
   )

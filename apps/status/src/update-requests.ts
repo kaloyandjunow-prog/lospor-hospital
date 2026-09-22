@@ -200,6 +200,18 @@ export async function requestFetch(
   return publishRequest(requestsDir, PREPARE_REQUEST_FILE, `.${requestId}.tmp`, body)
 }
 
+/** Asks the host agent to query the release registry now. */
+export async function requestCheck(
+  requestsDir: string,
+  now: number,
+): Promise<"submitted" | "already-pending"> {
+  const body = [
+    "LOSPOR-HOSPITAL-UPDATE-CHECK-V1",
+    String(Math.floor(now / 1000)),
+  ].join("\t")
+  return publishRequest(requestsDir, CHECK_REQUEST_FILE, ".check.request.tmp", body)
+}
+
 /**
  * Leaves bounded terminology intent for the root host agent.
  *

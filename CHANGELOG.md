@@ -1,6 +1,6 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.5
+## [1.4.5] - 2026-09-22
 
 1.4.4 fixed the extraction bug that broke agent-driven updates, and then could
 not be installed by an agent-driven update, because the hop that carries a fix

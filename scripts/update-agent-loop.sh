@@ -622,8 +622,13 @@ while true; do
   maintenance_escrow_expire || true
   flock -u 9
 
-  if [ -e "$check_request" ]; then rm -f "$check_request"; rm -f "$check_stamp"; fi
-  if check_due; then run_check; fi
+  check_requested=0
+  if [ -e "$check_request" ]; then
+    rm -f "$check_request"
+    rm -f "$check_stamp"
+    check_requested=1
+  fi
+  if [ "$check_requested" -eq 1 ] || check_due; then run_check; fi
   [ "${HOSPITAL_UPDATE_AGENT_ONESHOT:-0}" != 1 ] || exit 0
   sleep "$poll"
 done

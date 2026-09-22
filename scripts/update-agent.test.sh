@@ -55,7 +55,7 @@ fi
 for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh site-config.sh secrets-escrow-lib.sh maintenance-agent-lib.sh update-agent-loop.sh cancel-update-request.sh; do cp "$root/scripts/$name" "$scripts/$name"; done
 cat > "$scripts/check-for-update.sh" <<'STUB'
 #!/bin/sh
-exit 0
+printf 'check\tbmanual' >> "$AGENT_CALLS"
 STUB
 cat > "$scripts/prepare-verified-release.sh" <<'STUB'
 #!/bin/sh
@@ -99,6 +99,13 @@ run_agent() {
     > "$work/out" 2>&1 || true
 }
 code() { sed -n 's/.*"resultCode":"\([^"]*\)".*/\1/p' "$state/update-agent.v2.json" | head -1; }
+
+reset_state
+: > "$requests/check.request"
+run_agent env
+grep -Fxq "$(printf 'check\tbmanual')" "$work/calls" || fail "manual check request did not run the checker"
+[ ! -e "$requests/check.request" ] || fail "manual check request was not consumed"
+ok "manual check intent triggers an immediate registry check"
 
 . "$scripts/update-pipeline-lib.sh"
 if [ "$(TZ=Europe/Sofia date -d '2026-03-29 20:00' -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" = 2026-03-29T17:00:00Z ]; then

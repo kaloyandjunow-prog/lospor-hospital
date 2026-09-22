@@ -81,14 +81,14 @@ sh ./scripts/ensure-backup-configuration.sh
 pre_update_release="$(awk -F '\t' \
   'NR == 1 && $1 == "LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1" { print $2 }' \
   "$(release_state_appliance_home "$root")/.data/installed-release.tsv" 2>/dev/null || true)"
+backup_release_arg=""
 if printf '%s\n' "$pre_update_release" \
   | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
-  ./scripts/backup-now.sh --kind pre-update --release "$pre_update_release"
-else
-  # A first installation has no prior release, and no pre-update backup to key
-  # to one either.
-  ./scripts/backup-now.sh --kind pre-update
+  # A prior installed release is recorded on the backup manifest; a first
+  # installation has no prior release to key the backup to.
+  backup_release_arg="--release $pre_update_release"
 fi
+./scripts/backup-now.sh --kind pre-update $backup_release_arg
 
 # The verified backup finishes before the update-wide mutation lock is taken,
 # so this update's own backup can run while other scheduled/manual backups are
