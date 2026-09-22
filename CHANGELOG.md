@@ -1,6 +1,77 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased] - 1.4.4
+## [Unreleased] - 1.4.5
+
+1.4.4 fixed the extraction bug that broke agent-driven updates, and then could
+not be installed by an agent-driven update, because the hop that carries a fix
+is run by the release being replaced. Trying it anyway produced a second
+interrupted activation, and that is where these were found: not in the failure
+itself, which was already understood, but in everything that was supposed to
+recover from it.
+
+### An interrupted update could not be recovered at all
+
+`recover-release-activation.sh verify-and-clear` required a completed restore
+journalled as `mode=emergency`. `restore-backup.sh` writes `mode=temporary`,
+`mode=drill` or `mode=in-place`, and has no fourth mode. No code path could
+produce the token the gate demanded.
+
+So a `backup-required` release that failed after its pre-update backup was
+taken locked the appliance permanently: `resume-rollback` refuses such a
+release by design, and `verify-and-clear` could not be satisfied by any action
+an operator could take. The only ways out were a hypervisor snapshot or
+deleting the lock by hand, which the documentation tells you never to do.
+
+The gate now names the mode the restore tool actually writes. Its test used to
+grep this same script for the literal `mode=emergency` -- asserting that the
+string it was reading existed, which is true for any value -- and now checks
+that the mode the gate demands is one `restore-backup.sh` can journal.
+
+### A release that changed no schema still demanded a database restore
+
+`backup-required` means "going back from here needs a database restore". It is
+asserted and never proved: `verify-rollback-compatibility.sh` short-circuits on
+it and asks for no evidence, while `service-compatible` must ship a
+digest-matched proof. The heavier claim is the cheaper one to make, so it gets
+carried forward conservatively and stops meaning anything.
+
+Taken at face value it turned every pre-commit failure into emergency-restore-
+only recovery. 1.4.4 ships no migration at all -- its activation logged "No
+pending migrations to apply" -- and still demanded one when it failed on a file
+permission.
+
+Activation now compares the newest migration each release declares. Both
+declarations are authenticated by their own release lock, so when they agree
+nothing can have been applied, the database is exactly as it was, and the
+ordinary automatic rollback runs instead.
+
+### The activation no longer depends on its caller's umask
+
+1.4.4 wrapped the extraction in `umask 022`. Everything else the activation
+creates for someone else to read -- including the runtime request and state
+directories Status writes as uid 1001 -- still inherited the agent's `077`. The
+script now sets its own umask once; its private artefacts already set and
+restore their own, so nothing was relying on the owner-only default.
+
+The guard behind this was textual, and the behaviour it guards is
+counter-intuitive: as root, `tar` restores the archive's recorded modes and
+ignores umask entirely, so `--no-same-permissions` is what makes the umask
+apply at all -- the flag without a umask reset is strictly worse than no flag,
+which is how 1.4.3 shipped. There is now a real extraction under `umask 077`,
+with a control that fails if `tar` ever stops behaving this way and leaves the
+guard passing vacuously.
+
+### The agent stopped its own heartbeat while it worked
+
+The agent is a single loop, and a prepare or an apply blocks it. Status treats
+a maintenance projection older than ten minutes as a dead agent and withdraws
+every browser control that needs one -- including the controls for the update
+in progress. A prepare downloads and verifies the whole release, so on a slow
+link it can outrun that threshold and make the console report the agent as
+stopped precisely while it is doing what was asked. The heartbeat now continues
+for the duration of both operations.
+
+## [1.4.4] - 2026-09-21
 
 Everything here was found by using 1.4.3 on a real appliance against a real
 FHIR server: updating to it, importing a patient, and importing the same

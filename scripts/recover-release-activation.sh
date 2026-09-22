@@ -123,7 +123,15 @@ verify_backup_recovery_proof() {
   for restore_journal in "$restore_journal_root"/restore-*.journal; do
     [ -e "$restore_journal" ] || continue
     [ -f "$restore_journal" ] && [ ! -L "$restore_journal" ] || return 1
-    if grep -Eq "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=COMPLETE result=PASSED object=${journal_backup} mode=emergency$" "$restore_journal"; then
+    # The mode token is restore-backup.sh's own flag name, `in-place` -- the
+    # mode whose typed confirmation is "EMERGENCY RESTORE <site> <timestamp>".
+    # This gate used to demand `mode=emergency`, a token no code path writes:
+    # restore_mode is only ever temporary, drill or in-place. That made the one
+    # supported recovery from BACKUP_RECOVERY_REQUIRED unreachable, so a
+    # backup-required release that failed after its pre-update backup was taken
+    # locked the appliance permanently -- resume-rollback refuses such a
+    # release, and verify-and-clear could never be satisfied.
+    if grep -Eq "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=COMPLETE result=PASSED object=${journal_backup} mode=in-place$" "$restore_journal"; then
       restore_proof_count=$((restore_proof_count + 1))
     fi
   done

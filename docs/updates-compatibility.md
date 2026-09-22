@@ -353,6 +353,17 @@ emergency restore of the exact recorded backup; `verify-and-clear
 release identity, image verification and `doctor.sh` before it archives the
 journal and clears only the known lock objects.
 
+The emergency restore that produces that proof is the in-place restore of the
+exact backup `inspect` names:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --in-place \
+  backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
+```
+
+A release that ships no migration never reaches this state. It rolls back on
+its own, because the database the restore would recover was never altered.
+
 ### When updating itself is broken
 
 Twice now a defect has lived in the update machinery rather than in what it

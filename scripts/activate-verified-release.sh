@@ -6,6 +6,22 @@ set -eu
 # the active deployment. Persistent site configuration and data remain outside
 # the immutable release directory.
 
+# Almost everything this script creates has to be readable by someone else: the
+# release tree is bind-mounted into containers running as other users, and the
+# runtime request and state directories are read and written by Status as uid
+# 1001. The few private artefacts -- the activation journal, the installed-state
+# backups, the io mutation lock, the history copies -- each set their own umask
+# and chmod already, so an owner-only default protects nothing here and instead
+# leaks into the shared paths.
+#
+# It leaked from update-agent-loop.sh, which runs the whole agent under
+# `umask 077` because it handles release credentials. An operator running the
+# same activation from a shell brings 022 and never sees the failure, so this
+# only ever broke the online path: the tree landed 0700/0600 and activation died
+# on the first bind-mounted script a container opened. That is the 1.4.0 bug in
+# its second door, and it cost 1.4.3 and 1.4.4 as well.
+umask 022
+
 bootstrap_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 . "$bootstrap_root/scripts/installed-release-state.sh"
 . "$bootstrap_root/scripts/update-pipeline-lib.sh"
@@ -409,11 +425,45 @@ rollback_candidate() {
   return 1
 }
 
+# A backup-required declaration says "going back from here needs a database
+# restore". That is only true if this release actually migrated the database,
+# and the declaration does not establish that: verify-rollback-compatibility.sh
+# short-circuits on backup-required and asks for no evidence at all, while
+# service-compatible must ship a digest-matched proof. The heavier claim is the
+# cheaper one to make, so it gets carried forward conservatively from release to
+# release and stops meaning anything.
+#
+# Both release trees declare the newest migration they ship, and each
+# declaration is authenticated by its own release lock. When the two agree,
+# prisma had nothing to deploy, the database is byte-for-byte what it was before
+# activation started, and the automatic service rollback below is both correct
+# and sufficient -- no restore is needed or useful.
+#
+# Without this, a release that ships no migration at all still locked the
+# appliance into backup-only recovery on any pre-commit failure. 1.4.4 shipped
+# no migration, logged "No pending migrations to apply", and still demanded an
+# emergency restore when it failed on a file-permission error.
+prior_schema_unchanged() {
+  [ "$old_available" -eq 1 ] || return 1
+  prior_descriptor="$old_root/release-compatibility.tsv"
+  [ -f "$prior_descriptor" ] && [ ! -L "$prior_descriptor" ] || return 1
+  [ "$(wc -c < "$prior_descriptor" | tr -d '[:space:]')" -le 512 ] || return 1
+  prior_schema_max="$(awk -F '\t' \
+    'NR == 1 && NF == 7 && $1 == "LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1" { print $4 }' \
+    "$prior_descriptor")"
+  printf '%s\n' "$prior_schema_max" | grep -Eq '^[0-9]{14}_[a-z0-9_]{1,80}$' || return 1
+  [ "$prior_schema_max" = "$compatibility_schema_max" ]
+}
+
 fail_after_candidate() {
   failure_message="$1"
   failure_status="$2"
   echo "$failure_message" >&2
-  if [ "$old_available" -eq 1 ] && [ "$compatibility_rollback_policy" = backup-required ]; then
+  if [ "$old_available" -eq 1 ] && [ "$compatibility_rollback_policy" = backup-required ] \
+    && prior_schema_unchanged; then
+    echo "This release ships no migration ($compatibility_schema_max is unchanged from $old_version)," >&2
+    echo "so the database was not altered and an automatic service rollback is sufficient." >&2
+  elif [ "$old_available" -eq 1 ] && [ "$compatibility_rollback_policy" = backup-required ]; then
     keep_activation_lock=1
     journal_doctor=failed
     journal_write BACKUP_RECOVERY_REQUIRED || true

@@ -66,9 +66,19 @@ grep -Fq -- '--confirm-clear' "$work/out" || fail "clear did not explain require
 ok "verify-and-clear requires a separate explicit confirmation"
 
 grep -q 'backup_verify_object.*integrity' "$root/scripts/recover-release-activation.sh" \
-  && grep -q 'phase=COMPLETE result=PASSED.*mode=emergency' "$root/scripts/recover-release-activation.sh" \
   && grep -q "grep -Ec '\^HOSPITAL_BACKUP_MANIFEST_HMAC_KEY='" "$root/scripts/recover-release-activation.sh" \
   || fail "backup recovery clear lacks authenticated-object and completed-restore proof"
+
+# The completed-restore proof used to be checked by grepping this very script
+# for the literal `mode=emergency` -- a tautology that asserts the string it is
+# reading exists. It passed for as long as the gate demanded a token
+# restore-backup.sh could never write, leaving the one supported recovery from
+# BACKUP_RECOVERY_REQUIRED unreachable. Assert instead that the two scripts
+# agree: the mode the gate demands must be one the restore tool journals.
+gate_mode="$(sed -n 's/.*phase=COMPLETE result=PASSED object=.* mode=\([a-z][a-z-]*\)[$]".*/\1/p' "$root/scripts/recover-release-activation.sh")"
+[ -n "$gate_mode" ] || fail "backup recovery clear has no completed-restore proof"
+grep -Eq "restore_mode=$gate_mode([;[:space:]]|\$)" "$root/scripts/restore-backup.sh" \
+  || fail "recovery demands restore mode '$gate_mode', which restore-backup.sh never journals"
 if grep -Eq 'rm[[:space:]]+-rf[[:space:]].*release-activation' "$root/scripts/recover-release-activation.sh"; then
   fail "recovery script contains broad activation-lock deletion"
 fi

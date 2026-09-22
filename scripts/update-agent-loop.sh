@@ -106,6 +106,35 @@ write_epoch_stamp() {
   update_durable_replace "$stamp_temporary" "$stamp_target"
 }
 
+# The agent is a single loop, so a long operation blocks its own heartbeat, and
+# Status treats a maintenance projection older than ten minutes as a dead agent
+# and withdraws every browser control that needs one -- updates, site settings,
+# escrow, backups. A prepare downloads and verifies the entire release, several
+# gigabytes, and an apply migrates the database, so on a slow link or a large
+# site either can outrun that threshold. The console would then report the agent
+# as stopped precisely while it was busy doing what the operator had asked, and
+# withdraw the controls needed to see it through.
+#
+# Nothing else refreshes these while an operation runs: the loop writes the
+# clock stamp at the top of an iteration and the maintenance projection near the
+# bottom, and both are on the far side of the call that blocks.
+start_heartbeat() {
+  (
+    while :; do
+      sleep "$poll"
+      write_epoch_stamp "$clock_stamp" || exit 0
+      maintenance_refresh_projection || exit 0
+    done
+  ) &
+  heartbeat_pid=$!
+}
+stop_heartbeat() {
+  [ -n "${heartbeat_pid:-}" ] || return 0
+  kill "$heartbeat_pid" 2>/dev/null || true
+  wait "$heartbeat_pid" 2>/dev/null || true
+  heartbeat_pid=
+}
+
 minutes_of() { printf '%s' "$1" | awk -F: '{print ($1 * 60) + $2}'; }
 inside_window() {
   now_minutes="$(TZ="$timezone" date +%H:%M | awk -F: '{print ($1 * 60) + $2}')"
@@ -178,9 +207,11 @@ process_consumed() {
 
   if [ "$action" = prepare ]; then
     set +e
+    start_heartbeat
     sh "$root/scripts/prepare-verified-release.sh" "$request_target_version" "$request_id" \
       > "$update_private_dir/last-prepare.log" 2>&1
     result=$?
+    stop_heartbeat
     set -e
     if [ "$result" -ne 0 ]; then
       update_transition_write FAILED prepare "$request_id" "$request_target_version" UPDATE_PREPARE_FAILED -
@@ -188,8 +219,10 @@ process_consumed() {
     fi
   else
     set +e
+    start_heartbeat
     sh "$root/scripts/apply-prepared-release.sh" "$request_target_version" "$request_id"
     result=$?
+    stop_heartbeat
     set -e
     # apply-prepared-release writes the exact terminal state. Do not overwrite
     # NEEDS_OPERATOR with a generic failure and never retry an ambiguous apply.
