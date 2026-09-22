@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Hospital
 
+## [1.4.6] - 2026-09-23
+
+### Changed
+
+- **EHR clinical import is extended for the coordinated upstream train.** The
+  appliance now vendors API 9.10.6, Web/PWA 9.10.6, Browser 0.7.4 and Core
+  9.10.3, including the vital-sign and medication-code mapping contracts used
+  by the Status review workflow. Unresolved source values remain reviewable;
+  clinician airway and risk assignments remain manual.
+- **Mobile and Browser dependency gates are remediated.** PWA pins the patched
+  Metro line and image-size resolution; Browser carries Next.js 16.3.6 and
+  Sharp 0.35.4. Their release audits are clean for high and critical findings.
+- **Release provenance and risk acceptance are stamped for 1.4.6.** The
+  remaining unfixed PostgreSQL base findings are explicitly accepted through
+  2026-12-08 under the existing reachability rationale.
+
+### Documentation
+
+- The release validation notes now describe the 1.4.6 upstream pins and the
+  required local verification sequence before the Hospital tag is created.
+
 ## [1.4.5] - 2026-09-22
 
 1.4.4 fixed the extraction bug that broke agent-driven updates, and then could
