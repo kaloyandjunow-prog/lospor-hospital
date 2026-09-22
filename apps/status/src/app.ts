@@ -1595,6 +1595,47 @@ export function createStatusApp({
     "ehr",
   ))
 
+  app.post("/status/control/ehr-vital-codes/map", context => bulkControlAction(
+    context,
+    body => controlPlane.mapEhrVitalCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+      field: formText(body, "field", 1, 64),
+    }),
+    locale => localize(locale, "The vital code was mapped and audited.", "Кодът за жизнен показател беше съпоставен и одитиран."),
+    "ehr",
+  ))
+
+  app.post("/status/control/ehr-vital-codes/unmap", context => bulkControlAction(
+    context,
+    body => controlPlane.unmapEhrVitalCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+    }),
+    locale => localize(locale, "The vital mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката на жизнения показател беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
+    "ehr",
+  ))
+
+  app.post("/status/control/ehr-medication-codes/map", context => bulkControlAction(
+    context,
+    body => controlPlane.mapEhrMedicationCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+      drugId: formId(formText(body, "drugId", 1, 128)),
+    }),
+    locale => localize(locale, "The medication code was mapped and audited. Future imports will show the selected LOSPOR drug as the proposal.", "Лекарственият код беше съпоставен и одитиран. При бъдещи вносове избраното лекарство от LOSPOR ще се показва като предложение."),
+    "ehr",
+  ))
+
+  app.post("/status/control/ehr-medication-codes/unmap", context => bulkControlAction(
+    context,
+    body => controlPlane.unmapEhrMedicationCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+    }),
+    locale => localize(locale, "The medication mapping was removed and audited. Existing cases are unchanged.", "Съпоставката на лекарството беше премахната и одитирана. Съществуващите случаи не са променени."),
+    "ehr",
+  ))
   app.post("/status/control/ehr-code-systems/answer", context => bulkControlAction(
     context,
     body => {
@@ -2546,6 +2587,12 @@ export function createStatusApp({
     }
   }
 
+  const fetchedReleaseIsCurrentTarget = (view: ReleaseView): boolean =>
+    view.fetchedVersion !== undefined
+    && view.fetchedLockSha256 !== undefined
+    && view.fetchedVersion !== view.installedVersion
+    && view.fetchedVersion === view.latestVersion
+
   app.get("/status/release", async context => {
     const locale = currentLocale(context)
     const session = getCookie(context, COOKIE_NAME)
@@ -2614,7 +2661,7 @@ export function createStatusApp({
     // The digest the page offered has to match the one still on offer. If a
     // newer release landed while the operator was reading, this is where they
     // find out rather than approving something they never saw.
-    if (!/^[a-f0-9]{64}$/.test(target) || target !== view.fetchedLockSha256) {
+    if (!/^[a-f0-9]{64}$/.test(target) || target !== view.fetchedLockSha256 || !fetchedReleaseIsCurrentTarget(view)) {
       return context.html(renderRelease(await releaseView(locale, {
         error: localize(locale, "That release is no longer the one ready to apply. This page has been refreshed.", "Тази версия вече не е готовата за прилагане. Страницата е обновена."),
       }), locale))
@@ -2649,7 +2696,7 @@ export function createStatusApp({
     }
 
     const view = await releaseView(locale)
-    if (target !== view.fetchedLockSha256 || view.fetchedVersion === undefined) {
+    if (target !== view.fetchedLockSha256 || !fetchedReleaseIsCurrentTarget(view)) {
       return context.html(renderRelease(await releaseView(locale, {
         error: localize(locale, "That release is no longer the one ready to apply. This page has been refreshed.", "Тази версия вече не е готовата за прилагане. Страницата е обновена."),
       }), locale))
@@ -2658,7 +2705,7 @@ export function createStatusApp({
     const requestId = newRequestId()
     const outcome = await submitRequest(config.updateRequestsDir, {
       requestId,
-      targetVersion: view.fetchedVersion,
+      targetVersion: view.fetchedVersion!,
       window,
     }, now()).catch(error => maintenanceRequestFailed(requestId, error))
 

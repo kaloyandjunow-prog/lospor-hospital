@@ -26,6 +26,9 @@ import {
   sealExternalAiCredential,
 } from "./external-ai-policy"
 import { patientIdentifierControlView } from "./patient-identifier-policy"
+import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
+import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
+import { ehrMedicationCodeMapView } from "./ehr-medication-code-map"
 import {
   approveHospitalOmopExport,
   issueHospitalResearchGrant,
@@ -1256,7 +1259,7 @@ export async function centralControlView() {
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrCodeSystems] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrVitalCodes, ehrMedicationCodes, ehrCodeSystems] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
@@ -1265,6 +1268,8 @@ export async function hospitalControlPlaneView() {
     patientIdentifierControlView(prisma),
     ehrTransportControlView(prisma),
     ehrLabCodeMapView(),
+    ehrVitalCodeMapView(),
+    ehrMedicationCodeMapView(),
     ehrCodeSystemView(),
   ])
   const pediatricMode = pediatricCapabilities()
@@ -1290,6 +1295,8 @@ export async function hospitalControlPlaneView() {
     patientIdentifier,
     ehrTransport,
     ehrLabCodes,
+    ehrVitalCodes,
+    ehrMedicationCodes,
     ehrCodeSystems,
   }
 }
@@ -1389,6 +1396,142 @@ export async function clearEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeUnm
       system: parsed.system,
       code: parsed.code,
       previousTest: existing.test,
+    })
+    return { system: parsed.system, code: parsed.code }
+  })
+}
+
+export const ehrVitalCodeMapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+  field: z.enum(FHIR_VITAL_FIELDS),
+}).strict()
+
+export const ehrVitalCodeUnmapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+}).strict()
+
+export async function setEhrVitalCodeMapping(input: z.infer<typeof ehrVitalCodeMapSchema>) {
+  const parsed = ehrVitalCodeMapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const previous = await tx.hospitalEhrVitalCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { id: true, field: true },
+    })
+    const row = await tx.hospitalEhrVitalCodeMap.upsert({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      create: {
+        system: parsed.system,
+        code: parsed.code,
+        field: parsed.field,
+        mappedAt: new Date(),
+        mappedById: actor.id,
+      },
+      update: {
+        field: parsed.field,
+        mappedAt: new Date(),
+        mappedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_VITAL_CODE_MAP", row.id, {
+      system: parsed.system,
+      code: parsed.code,
+      field: parsed.field,
+      previousField: previous?.field || null,
+    })
+    return { system: row.system, code: row.code, field: row.field, mappedAt: row.mappedAt?.toISOString() ?? null }
+  })
+}
+
+export const ehrMedicationCodeMapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+  drugId: z.string().trim().min(1).max(128),
+}).strict()
+
+export const ehrMedicationCodeUnmapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+}).strict()
+
+export async function setEhrMedicationCodeMapping(input: z.infer<typeof ehrMedicationCodeMapSchema>) {
+  const parsed = ehrMedicationCodeMapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const drug = await tx.drug.findUnique({
+      where: { id: parsed.drugId },
+      select: { id: true },
+    })
+    if (!drug) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    const previous = await tx.hospitalEhrMedicationCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { id: true, drugId: true },
+    })
+    const row = await tx.hospitalEhrMedicationCodeMap.upsert({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      create: {
+        system: parsed.system,
+        code: parsed.code,
+        drugId: drug.id,
+        mappedAt: new Date(),
+        mappedById: actor.id,
+      },
+      update: {
+        drugId: drug.id,
+        mappedAt: new Date(),
+        mappedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_MEDICATION_CODE_MAP", row.id, {
+      system: parsed.system,
+      code: parsed.code,
+      drugId: drug.id,
+      previousDrugId: previous?.drugId ?? null,
+    })
+    return { system: row.system, code: row.code, drugId: row.drugId, mappedAt: row.mappedAt?.toISOString() ?? null }
+  })
+}
+
+export async function clearEhrMedicationCodeMapping(input: z.infer<typeof ehrMedicationCodeUnmapSchema>) {
+  const parsed = ehrMedicationCodeUnmapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrMedicationCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { id: true, drugId: true },
+    })
+    if (!existing) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    await tx.hospitalEhrMedicationCodeMap.update({
+      where: { id: existing.id },
+      data: { drugId: null, mappedAt: new Date(), mappedById: actor.id },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_MEDICATION_CODE_UNMAP", existing.id, {
+      system: parsed.system,
+      code: parsed.code,
+      previousDrugId: existing.drugId,
+    })
+    return { system: parsed.system, code: parsed.code }
+  })
+}
+export async function clearEhrVitalCodeMapping(input: z.infer<typeof ehrVitalCodeUnmapSchema>) {
+  const parsed = ehrVitalCodeUnmapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrVitalCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { id: true, field: true },
+    })
+    if (!existing) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    await tx.hospitalEhrVitalCodeMap.update({
+      where: { id: existing.id },
+      data: { field: "", mappedAt: new Date(), mappedById: actor.id },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_VITAL_CODE_UNMAP", existing.id, {
+      system: parsed.system,
+      code: parsed.code,
+      previousField: existing.field,
     })
     return { system: parsed.system, code: parsed.code }
   })

@@ -48,6 +48,13 @@ export const EHR_IMPORTABLE_FIELDS = {
   bloodType: "scalar",
   rhFactor: "scalar",
 
+  bpSystolic: "scalar",
+  bpDiastolic: "scalar",
+  heartRate: "scalar",
+  spO2: "scalar",
+  temperature: "scalar",
+  respiratoryRate: "scalar",
+
   // Clinical history, all tag lists.
   diagnoses: "tags",
   comorbidities: "tags",
@@ -81,6 +88,10 @@ export type EhrTagValue = {
   /** The hospital's own code, kept verbatim so a mapping failure stays visible. */
   code?: string
   system?: string
+  /** Local LOSPOR Drug selected by a Status operator for this source code. */
+  drugId?: string
+  /** Exact source code retained separately from the display label. */
+  sourceCode?: string
   inn?: string
   atcCode?: string
   dose?: string
@@ -280,6 +291,8 @@ function normalizeTags(raw: unknown): EhrTagValue[] {
       label,
       code: optionalText(record.code),
       system: optionalText(record.system),
+      sourceCode: optionalText(record.sourceCode),
+      drugId: optionalText(record.drugId),
       inn: optionalText(record.inn),
       atcCode: optionalText(record.atcCode),
       dose: optionalText(record.dose),

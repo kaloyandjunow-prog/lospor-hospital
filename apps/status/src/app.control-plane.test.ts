@@ -215,6 +215,11 @@ const VIEW: ControlPlaneView = {
     }],
     tests: [{ name: "Haemoglobin (Hb)", unit: "g/L", category: "Haematology" }],
   },
+  ehrVitalCodes: {
+    unmapped: [],
+    mapped: [],
+    fields: ["bpSystolic", "bpDiastolic", "heartRate", "spO2", "temperature", "respiratoryRate"],
+  },
   ehrCodeSystems: {
     waiting: [{
       system: "http://vendor.bg/lists/proc",
@@ -268,6 +273,10 @@ function setup() {
     removeEhrTransportCredential: vi.fn(async () => {}),
     mapEhrLabCode: vi.fn(async () => {}),
     unmapEhrLabCode: vi.fn(async () => {}),
+    mapEhrVitalCode: vi.fn(async () => {}),
+    unmapEhrVitalCode: vi.fn(async () => {}),
+    mapEhrMedicationCode: vi.fn(async () => {}),
+    unmapEhrMedicationCode: vi.fn(async () => {}),
     answerEhrCodeSystem: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
     setEhrIdentifierSystems: vi.fn(async () => {}),

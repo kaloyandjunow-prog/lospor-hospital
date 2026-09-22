@@ -462,6 +462,8 @@ function medicationRows(preopId: string, caseId: string, json: unknown, kind: "C
       const rawAtc = str(m.atc ?? m.atcCode)
       const atc = normalizeAtcCode(rawAtc)
       const inn = str(m.inn)
+      const sourceVocabulary = str(m.sourceVocabulary ?? m.system)
+      const sourceCode = str(m.sourceCode ?? m.code)
       const mapped = atc
         ? concept(concepts, "drug", "ATC", atc)
         : concept(concepts, "drug", inn ? "INN" : "LOSPOR_DRUG_RAW", inn ?? str(m.label ?? m.name))
@@ -475,6 +477,10 @@ function medicationRows(preopId: string, caseId: string, json: unknown, kind: "C
         route:     str(m.route),
         frequency: str(m.frequency),
         ...mapped,
+        drugId:    str(m.drugId),
+        sourceVocabulary: sourceVocabulary ?? mapped.sourceVocabulary,
+        sourceCode: sourceCode ?? mapped.sourceCode,
+        ...(m.sourceLabel ? { nameRaw: String(m.sourceLabel) } : {}),
         source: SYNC_SOURCE,
         // See diagnosisRows: `source` is sync-audit metadata, not who/what
         // recorded the item, so clinical provenance gets its own column.

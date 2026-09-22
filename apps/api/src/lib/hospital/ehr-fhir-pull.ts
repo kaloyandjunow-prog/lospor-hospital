@@ -4,11 +4,13 @@ import { ehrAgeProposal } from "@lospor/core/ehr-age"
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
 
 import { splitBodyObservations } from "./ehr-fhir-body"
+import { splitVitalObservations } from "./ehr-fhir-vitals"
 import {
   mapFhirAllergies,
   mapFhirBirthDate,
   encounterDiagnosisRoles,
   fhirCodeSystemsSeen,
+  fhirMedicationCodesSeen,
   splitFhirConditions,
   mapFhirMedications,
   mapFhirPlannedProcedures,
@@ -25,6 +27,8 @@ import {
 import { diagnosisCodeSystemsSeen, resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
+import { recordUnmappedMedicationCodes, siteMedicationCodeMap } from "./ehr-medication-code-map"
+import { recordUnmappedVitalCodes, siteVitalCodeMap } from "./ehr-vital-code-map"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
 
 /**
@@ -269,7 +273,14 @@ export async function pullFhirImport(
   // laboratory results. They come out first so the rest can go to the lab
   // reader unchanged — sending them through it would have every one refused as
   // a test the catalogue has no entry for.
-  const { body, rest } = splitBodyObservations(of("Observation"))
+  const { body, rest: afterBody } = splitBodyObservations(of("Observation"))
+  const { vitals, rest, unmapped: unmappedVitals } = splitVitalObservations(
+    afterBody,
+    await siteVitalCodeMap(),
+  )
+  if (unmappedVitals.length > 0) {
+    await recordUnmappedVitalCodes(unmappedVitals, now).catch(() => undefined)
+  }
 
   // What this hospital said its code-list addresses mean. A failure to read
   // it loses only the recognition it adds, never the import.
@@ -296,11 +307,18 @@ export async function pullFhirImport(
     diagnoses: resolveImportedDiagnoses(split.diagnoses, locale, answers),
     comorbidities: resolveImportedDiagnoses(split.comorbidities, locale, answers),
   }
+  const medicationResources = [...of("MedicationStatement"), ...of("MedicationRequest")]
+  const medicationMap = await siteMedicationCodeMap().catch(() => ({}))
   const medications = mapFhirMedications(
-    [...of("MedicationStatement"), ...of("MedicationRequest")],
+    medicationResources,
     included,
     answers,
+    medicationMap,
   )
+  const unmappedMedications = fhirMedicationCodesSeen(medicationResources, included, medicationMap)
+  if (unmappedMedications.length > 0) {
+    await recordUnmappedMedicationCodes(unmappedMedications, now).catch(() => undefined)
+  }
   // Both, deduplicated by the mapper: a site exposing its theatre list as
   // bookings *and* orders would otherwise offer the same operation twice.
   const procedures = mapFhirPlannedProcedures([
@@ -313,7 +331,7 @@ export async function pullFhirImport(
   // one to LOSPOR's own ICD-10.
   const unrecognised = unrecognisedCodeSystems([
     ...diagnosisCodeSystemsSeen([...split.diagnoses, ...split.comorbidities]),
-    ...fhirCodeSystemsSeen([...of("ServiceRequest"), ...of("Appointment"), ...of("MedicationStatement"), ...of("MedicationRequest")]),
+    ...fhirCodeSystemsSeen([...of("ServiceRequest"), ...of("Appointment"), ...medicationResources]),
     ...labs.unmapped.map(item => ({ system: item.system, field: "labs" as const, code: item.code, label: item.display })),
   ], codeSystems.answered)
   if (unrecognised.length > 0) {
@@ -342,6 +360,7 @@ export async function pullFhirImport(
     ...(age ? { ageValue: age.ageValue, ageUnit: age.ageUnit } : {}),
     ...(mapFhirSex(patient.resource) ? { sex: mapFhirSex(patient.resource) } : {}),
     ...body,
+    ...vitals,
     ...(conditions.diagnoses.length ? { diagnoses: conditions.diagnoses } : {}),
     ...(conditions.comorbidities.length ? { comorbidities: conditions.comorbidities } : {}),
     ...(medications.length ? { currentMedications: medications } : {}),
@@ -396,4 +415,3 @@ export async function pullFhirImport(
     unread,
   }
 }
-
