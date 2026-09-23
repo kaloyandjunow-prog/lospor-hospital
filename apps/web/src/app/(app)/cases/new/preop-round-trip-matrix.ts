@@ -51,7 +51,6 @@ const flags = (...fields: string[]) =>
 
 export const MATRIX: Record<string, RoundTrip> = {
   clinicalMode: { record: { clinicalMode: "PEDIATRIC" }, form: "PEDIATRIC" },
-  preopProfileVersion: { db: { preopProfileVersion: 1 }, form: 1 },
   preopAnswers: {
     db: {
       assessmentAnswers: [{
@@ -129,26 +128,6 @@ export const MATRIX: Record<string, RoundTrip> = {
   currentMedications: {
     db: { currentMedications: JSON.stringify([{ label: "Salbutamol" }]) },
     form: [{ label: "Salbutamol" }],
-  },
-  preopAnswers: {
-    db: {
-      assessmentAnswers: [{
-        question: { stableKey: "A2_REDUCED_EXERCISE_TOLERANCE" },
-        state: "YES",
-        optionKey: null,
-        valueText: null,
-        valueNumber: null,
-        valueDate: null,
-      }],
-    },
-    form: [{
-      stableKey: "A2_REDUCED_EXERCISE_TOLERANCE",
-      state: "YES",
-      optionKey: null,
-      valueText: null,
-      valueNumber: null,
-      valueDate: null,
-    }],
   },
 }
 

@@ -138,17 +138,6 @@ export const RESEARCH_DETAIL_SELECT = {
         },
         orderBy: { ordinal: "asc" },
       },
-      assessmentAnswers: {
-        select: {
-          state: true,
-          optionKey: true,
-          profileVersion: true,
-          source: true,
-          provenance: true,
-          question: { select: { stableKey: true } },
-        },
-        orderBy: { questionId: "asc" },
-      },
       labRows: {
         select: {
           loincCode: true,
@@ -494,14 +483,6 @@ export function mapResearchDetail(row: ResearchDetailRow): ResearchCaseDetail & 
       unit: item.unitCanon,
       flag: item.abnormalFlag,
       mappingStatus: item.mappingStatus,
-    })),
-    preoperativeAnswers: (row.preop?.assessmentAnswers ?? []).map(item => ({
-      stableKey: item.question.stableKey,
-      state: item.state,
-      optionKey: item.optionKey,
-      profileVersion: item.profileVersion,
-      source: item.source,
-      provenance: item.provenance,
     })),
     intraoperative: {
       durationMinutes: row.intraop?.durationMinutes ?? null,
