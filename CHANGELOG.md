@@ -23,8 +23,10 @@
   positive A3 exports condition concept 40491502; optional unanswered questions
   produce no OMOP row.
 - The serverless repositories remain the source/demo layer for this feature;
-  this Hospital tree carries the shared contract through the normal local
-  upstream-vendoring step. No GitHub release or push is part of this commit.
+  this Hospital tree carries the shared contract through the normal upstream
+  release-and-vendoring train. Upstream tags are published before the Hospital
+  tree is vendored, and Hospital candidate publication remains a separate
+  tag-driven step.
 
 ## [1.4.6] - 2026-09-23
 
