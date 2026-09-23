@@ -32,6 +32,12 @@ function isoToHHMM(iso: unknown): string | undefined {
   return undefined
 }
 
+function storedPreopAnswerState(value: unknown): "YES" | "NO" | "UNKNOWN" | "NOT_APPLICABLE" | "NOT_ASKED" {
+  return value === "YES" || value === "NO" || value === "UNKNOWN" || value === "NOT_APPLICABLE" || value === "NOT_ASKED"
+    ? value
+    : "NOT_ASKED"
+}
+
 
 // Convert flat DB preop record -> PreopForm defaultValues shape.
 //
@@ -88,6 +94,16 @@ export function dbPreopToForm(
     elective:             p.elective              ?? false,
     emergencySurgery:     p.emergencySurgery      ?? false,
     aiOptIn:              p.aiOptIn               ?? false,
+
+    preopAnswers: Array.isArray(p.assessmentAnswers) ? p.assessmentAnswers.map(answer => ({
+      stableKey: typeof answer === "object" && answer !== null ? String((answer as { question?: { stableKey?: unknown } }).question?.stableKey ?? "") : "",
+      state: storedPreopAnswerState(typeof answer === "object" && answer !== null ? (answer as { state?: unknown }).state : undefined),
+      optionKey: typeof answer === "object" && answer !== null ? ((answer as { optionKey?: string | null }).optionKey ?? null) : null,
+      valueText: typeof answer === "object" && answer !== null ? ((answer as { valueText?: string | null }).valueText ?? null) : null,
+      valueNumber: typeof answer === "object" && answer !== null ? ((answer as { valueNumber?: number | null }).valueNumber ?? null) : null,
+      valueDate: typeof answer === "object" && answer !== null ? ((answer as { valueDate?: string | Date | null }).valueDate ? new Date((answer as { valueDate: string | Date }).valueDate).toISOString() : null) : null,
+    })).filter((answer): answer is typeof answer & { state: "YES" | "NO" | "UNKNOWN" | "NOT_APPLICABLE" } =>
+      answer.stableKey.length > 0 && answer.state !== "NOT_ASKED") : [],
 
     // Medical history
     comorbidities: Array.isArray(p.comorbidities)

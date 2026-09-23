@@ -33,6 +33,7 @@ import {
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
 import { requiresPediatricModeDecision } from "@lospor/core/pediatric"
+import { PreopContractError, savePreopAnswers } from "@/lib/preop/service"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 const REVISION_HEADER = SECTION_REVISION_HEADER
@@ -90,7 +91,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const record = await prisma.case.findFirst({
     where,
     include: {
-      preop: true,
+      preop: {
+        include: {
+          assessmentAnswers: {
+            include: { question: { include: { options: { orderBy: { sortOrder: "asc" } } } } },
+            orderBy: { questionId: "asc" },
+          },
+          assessmentSuggestions: { orderBy: { createdAt: "desc" } },
+        },
+      },
+      preopProfilePin: {
+        include: {
+          profile: {
+            include: {
+              questions: {
+                include: { question: { include: { options: { orderBy: { sortOrder: "asc" } } } } },
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          },
+        },
+      },
       intraop: true,
       postop: true,
       clinicalCalculations: true,
@@ -342,6 +363,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       } else {
         await tx.preoperativeAssessment.create({
           data: { caseId: id, ...mapPreop(mappedPreop), syncRevision: 1 },
+        })
+      }
+      const savedPreop = await tx.preoperativeAssessment.findUnique({ where: { caseId: id } })
+      if (savedPreop) {
+        await savePreopAnswers(tx, {
+          caseId: id,
+          preopId: savedPreop.id,
+          actorId: userId,
+          preop: mappedPreop,
+          answers: (mappedPreop as Record<string, unknown>).preopAnswers as never,
+          requestedProfileVersion: (mappedPreop as Record<string, unknown>).preopProfileVersion as number | undefined,
+          adoptProfile: (mappedPreop as Record<string, unknown>).adoptPreopProfile === true,
         })
       }
     }
@@ -598,6 +631,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (err instanceof z.ZodError) {
       console.error("[PATCH /api/cases/:id] INVALID_REQUEST")
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+    }
+    if (err instanceof PreopContractError) {
+      return NextResponse.json({ error: err.code, details: err.details }, { status: 400 })
     }
     console.error("[PATCH /api/cases/:id] CASE_UPDATE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })

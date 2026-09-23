@@ -22,6 +22,14 @@ const tagSchema = z.object({ label: z.string(), sub: z.string().optional() }).pa
 // with the tag instead of being stripped before the request is built — see
 // the sibling tagSchema, which needed the same fix.
 const drugTagSchema = z.object({ label: z.string(), sub: z.string().optional(), inn: z.string().optional(), atcCode: z.string().optional() }).passthrough()
+const preopAnswerSchema = z.object({
+  stableKey: z.string().min(1),
+  state: z.enum(["YES", "NO", "UNKNOWN", "NOT_APPLICABLE"]),
+  optionKey: z.string().nullable().optional(),
+  valueText: z.string().nullable().optional(),
+  valueNumber: z.number().nullable().optional(),
+  valueDate: z.string().datetime().nullable().optional(),
+}).passthrough()
 
 export const schema = z.object({
   // For printed protocol only
@@ -52,6 +60,11 @@ export const schema = z.object({
   elective:             z.boolean().default(false),
   emergencySurgery:     z.boolean().default(false),
   aiOptIn:              z.boolean().default(false),
+  // API-owned definition-driven answers. Specialized controls remain the
+  // presentation layer, but round-trip the shared relational rows unchanged.
+  preopAnswers: z.array(preopAnswerSchema).default([]),
+  preopProfileVersion: z.number().int().positive().optional(),
+  adoptPreopProfile: z.boolean().optional(),
 
   // Medical history — ICD-10 tags
   comorbidities: z.array(tagSchema).default([]),

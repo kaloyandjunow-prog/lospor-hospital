@@ -257,6 +257,14 @@ export type ResearchCaseDetail = ResearchCaseSummary & {
   intraoperative: Record<string, string | number | boolean | string[] | null>
   postoperative: Record<string, string | number | boolean | string[] | null>
   timeline: ResearchTimelineEvent[]
+  preoperativeAnswers?: Array<{
+    stableKey: string
+    state: string
+    optionKey: string | null
+    profileVersion: number
+    source: string
+    provenance: unknown
+  }>
   quality: {
     snapshotPresent: boolean
     finalized: boolean

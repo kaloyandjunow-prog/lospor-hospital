@@ -21,6 +21,12 @@ const VIEW: ControlPlaneView = {
     minimumClientVersion: "8.0.0",
     reviewedDoseProfilesRequired: true,
   },
+  preoperative: {
+    scope: "APPLIANCE_WIDE",
+    catalogVersion: "1.4.7",
+    source: "BUNDLED_IMMUTABLE_CATALOG",
+    profileAdministrationPath: "/v1/preop/profile",
+  },
   research: {
     policy: { defaultExpiryDays: 90, maximumExpiryDays: 365 },
     accounts: [{

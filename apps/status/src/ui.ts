@@ -1171,6 +1171,7 @@ export function renderControlPlane(
   }).join("") : `<div class="empty">${localize(locale, "No Central batches.", "Няма пакети за Central.")}</div>`
 
   const guidance = view?.guidance
+  const preoperative = view?.preoperative
   const pediatricMode = view?.pediatricMode
   const pediatricModeFacts = pediatricMode ? `<div class="component"><div class="facts">
       ${textFact(localize(locale, "Pediatric charting", "Документиране на педиатрични случаи"), boolWord(pediatricMode.enabled, locale))}
@@ -1182,7 +1183,8 @@ export function renderControlPlane(
     ? clinicalBaselineFacts("Adult calculation guidance", "Изчислителни насоки за възрастни", guidance.adultEnabled, guidance.baselines.adult, locale)
       + clinicalBaselineFacts("Pediatric calculation guidance", "Изчислителни насоки за деца", guidance.pediatricEnabled, guidance.baselines.pediatric, locale)
     : ""
-  const guidanceForm = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Настройката на политиката не може да направи липсваща или променена базова конфигурация готова. Изключването премахва бъдещите предложения за лекарства, инфузии и течности. То не променя вече записани данни или стари случаи.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на политиката за насоки")}</button></form></div>` : ""
+  const preoperativePanel = preoperative ? `<div class="component"><h3>${localize(locale, "Preoperative assessment contract", "Договор за предоперативната оценка")}</h3><div class="facts">${textFact(localize(locale, "Profile scope", "Обхват на профила"), preoperative.scope)}${textFact(localize(locale, "Bundled catalog", "Включен каталог"), preoperative.catalogVersion)}${textFact(localize(locale, "Catalog source", "Източник на каталога"), preoperative.source)}${textFact(localize(locale, "Clinical administration API", "API за клинично администриране"), preoperative.profileAdministrationPath)}</div><p>${localize(locale, "Questions are bundled and immutable. Administrators publish appliance-wide versioned profiles; cases stay pinned until a clinician explicitly adopts a newer profile. This Status view reports the contract only; it does not mutate clinical profiles.", "Въпросите са включени и неизменяеми. Администраторите публикуват версионирани профили за целия уред; случаите остават фиксирани, докато клиницист изрично не приеме по-нов профил. Този Status изглед отчита договора, без да променя клинични профили.")}</p></div>` : ""
+  const guidanceForm = guidance ? `${preoperativePanel}${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Настройката на политиката не може да направи липсваща или променена базова конфигурация готова. Изключването премахва бъдещите предложения за лекарства, инфузии и течности. То не променя вече записани данни или стари случаи.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на политиката за насоки")}</button></form></div>` : ""
 
   const externalAi = view?.externalAi
   const externalAiCapability = externalAi
@@ -1370,17 +1372,21 @@ export function renderControlPlane(
   // raw HIS medication remains visible and an unmapped medication still follows
   // the ordinary clinician import screen; no accepted or frozen case is edited.
   const medicationCodes = view?.ehrMedicationCodes
-  const medicationDrugOptions = (selected: string | null) => (medicationCodes?.drugs ?? []).map(drug => {
-    const detail = [drug.inn, drug.atcCode, drug.form, drug.strength].filter(Boolean).join(" · ")
-    return "<option value='" + escapeHtml(drug.id) + "'" + (drug.id === selected ? " selected" : "") + ">" + escapeHtml(drug.name) + (detail ? " — " + escapeHtml(detail) : "") + "</option>"
-  }).join("")
+  const medicationDrugOptions = (selected: string | null, candidates: NonNullable<typeof medicationCodes>["unmapped"][number]["candidates"] = []) => {
+    const options = [...(candidates ?? []), ...(medicationCodes?.drugs ?? [])]
+      .filter((drug, index, all) => all.findIndex(candidate => candidate.id === drug.id) === index)
+    return options.map(drug => {
+      const detail = [drug.inn, drug.atcCode, drug.form, drug.strength].filter(Boolean).join(" · ")
+      return "<option value='" + escapeHtml(drug.id) + "'" + (drug.id === selected ? " selected" : "") + ">" + escapeHtml(drug.name) + (detail ? " — " + escapeHtml(detail) : "") + "</option>"
+    }).join("")
+  }
   const unmappedMedicationRows = (medicationCodes?.unmapped ?? []).map(row =>
     "<div class='component'><form method='post' action='/status/control/ehr-medication-codes/map'>" +
     "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
     "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
     "<p><strong>" + escapeHtml(row.code) + "</strong>" + (row.reportedLabel ? " — " + escapeHtml(row.reportedLabel) : "") + "</p>" +
     "<p class='component-detail'>" + (row.system ? escapeHtml(row.system) + " · " : "") + escapeHtml(seenFact(row)) + "</p>" +
-    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Тълкувайте това като лекарство от LOSPOR") + "<select name='drugId' required><option value=''>" + localize(locale, "Choose a drug…", "Изберете лекарство…") + "</option>" + medicationDrugOptions(null) + "</select></label>" +
+    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Тълкувайте това като лекарство от LOSPOR") + "<select name='drugId' required><option value=''>" + localize(locale, "Choose a drug…", "Изберете лекарство…") + "</option>" + medicationDrugOptions(null, row.candidates) + "</select></label>" +
     "<button type='submit'>" + localize(locale, "Map this medication", "Съпоставяне на лекарството") + "</button></form></div>").join("")
   const mappedMedicationRows = (medicationCodes?.mapped ?? []).map(row =>
     "<div class='component'><div class='facts'>" +
