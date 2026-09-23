@@ -1,5 +1,33 @@
 # Changelog - LOSPOR Hospital
 
+## [1.4.7] - 2026-09-23
+
+### Changed
+
+- Imported medication codings are now resolved at the API import boundary from
+  the local Drug catalogue and bundled RxNorm/ATC concepts when one product is
+  identified uniquely. Raw HIS vocabulary, code, and display remain attached
+  to the proposal.
+- Ingredient-level or ambiguous medication matches remain in Status with local
+  candidates instead of selecting an arbitrary brand or strength. Status
+  mappings remain forward-only and do not rewrite accepted or frozen cases.
+- Medication CodeableConcepts prefer an ATC or RxNorm coding when a FHIR
+  resource carries several codings, while unknown and NHIS product codes remain
+  reviewable under their original identity.
+- Added the appliance-wide, definition-driven preoperative assessment contract:
+  immutable bundled catalog, versioned published profiles, relational answers,
+  case pinning/adoption, deterministic suggestions, audit events, and shared
+  web/PWA/Status administration metadata.
+- Relational preoperative answers are now authoritative for OMOP and research
+  export. YES/NO use concepts 4188539/4188540; A2 uses a LOSPOR source key;
+  positive A3 exports condition concept 40491502; optional unanswered questions
+  produce no OMOP row.
+- The serverless repositories remain the source/demo layer for this feature;
+  this Hospital tree carries the shared contract through the normal upstream
+  release-and-vendoring train. Upstream tags are published before the Hospital
+  tree is vendored, and Hospital candidate publication remains a separate
+  tag-driven step.
+
 ## [1.4.6] - 2026-09-23
 
 ### Changed

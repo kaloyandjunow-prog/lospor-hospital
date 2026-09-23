@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Core
 
+## [9.10.4] - 2026-09-23
+
+### Added
+
+- **Shared preoperative assessment contract.** Core now publishes the bundled
+  question catalog, answer options, versioned profiles, relational answers,
+  deterministic suggestions, and research/OMOP export metadata used by the
+  Hospital 1.4.7 preoperative redesign.
+
 ## [9.10.1] - 2026-09-16
 
 ### Fixed

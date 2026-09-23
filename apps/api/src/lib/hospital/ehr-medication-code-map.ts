@@ -22,6 +22,146 @@ export type MedicationCodeMapEntry = {
   mappedAt: Date | null
 }
 
+export type MedicationVocabulary = "ATC" | "RXNORM" | "NHIS_PRODUCT"
+
+export type MedicationCatalogDrug = {
+  id: string
+  name: string
+  inn: string | null
+  atcCode: string | null
+  form?: string | null
+  strength?: string | null
+}
+
+export type MedicationCodeCandidate = MedicationCatalogDrug
+
+export function medicationVocabulary(system: string | null | undefined): MedicationVocabulary | null {
+  const value = (system ?? "").trim().toLowerCase()
+  if (!value) return null
+  if (value.includes("rxnorm")) return "RXNORM"
+  if (value.includes("atc") || value.includes("whocc") || value.includes("who.cc")) return "ATC"
+  if (value.includes("cl009") || value.includes("cl026")) return "NHIS_PRODUCT"
+  return null
+}
+
+export function normalizeAtcCode(code: string | null | undefined): string {
+  return (code ?? "").trim().toUpperCase().replace(/\s+/g, "")
+}
+
+export function medicationLabelKey(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+}
+
+export function selectUniqueMedicationCandidate(
+  candidates: readonly MedicationCatalogDrug[],
+  reportedLabel: string | null | undefined,
+): MedicationCatalogDrug | undefined {
+  const unique = [...new Map(candidates.map(candidate => [candidate.id, candidate])).values()]
+  if (unique.length === 0) return undefined
+
+  const label = medicationLabelKey(reportedLabel)
+  if (label) {
+    const exactName = unique.filter(candidate => {
+      const name = medicationLabelKey(candidate.name)
+      return name && (label === name || label.startsWith(name + " ") || label.includes(" " + name + " "))
+    })
+    if (exactName.length === 1) return exactName[0]
+  }
+  return unique.length === 1 ? unique[0] : undefined
+}
+
+function mappingForDrug(drug: MedicationCatalogDrug): FhirMedicationMapping {
+  return { drugId: drug.id, name: drug.name, inn: drug.inn, atcCode: drug.atcCode }
+}
+
+async function drugsMatchingLabels(labels: readonly string[]): Promise<MedicationCatalogDrug[]> {
+  const values = [...new Set(labels.map(medicationLabelKey).filter(Boolean))]
+  if (values.length === 0) return []
+  return prisma.drug.findMany({
+    where: {
+      OR: values.flatMap(value => [
+        { name: { contains: value, mode: "insensitive" as const } },
+        { inn: { contains: value, mode: "insensitive" as const } },
+      ]),
+    },
+    orderBy: [{ name: "asc" }, { inn: "asc" }],
+    take: 100,
+    select: { id: true, name: true, inn: true, atcCode: true, form: true, strength: true },
+  })
+}
+
+export async function automaticMedicationCodeMap(
+  seen: readonly { system: string; code: string; display?: string }[],
+): Promise<Record<string, FhirMedicationMapping>> {
+  const result: Record<string, FhirMedicationMapping> = {}
+  for (const item of seen) {
+    const vocabulary = medicationVocabulary(item.system)
+    const sourceLabel = item.display?.trim() || undefined
+    let candidates: MedicationCatalogDrug[] = []
+
+    if (vocabulary === "ATC") {
+      const atcCode = normalizeAtcCode(item.code)
+      if (atcCode) {
+        candidates = await prisma.drug.findMany({
+          where: { atcCode },
+          orderBy: [{ name: "asc" }, { inn: "asc" }],
+          take: 100,
+          select: { id: true, name: true, inn: true, atcCode: true, form: true, strength: true },
+        })
+      }
+    }
+
+    let selected = selectUniqueMedicationCandidate(candidates, sourceLabel)
+    if (!selected && sourceLabel) {
+      selected = selectUniqueMedicationCandidate(await drugsMatchingLabels([sourceLabel]), sourceLabel)
+    }
+
+    if (!selected && vocabulary === "RXNORM") {
+      const concepts = await prisma.omopConcept.findMany({
+        where: {
+          vocabularyId: { in: ["RxNorm", "RxNorm Extension"] },
+          conceptCode: item.code.trim(),
+          invalidReason: null,
+        },
+        select: { conceptName: true },
+        take: 10,
+      })
+      const labels = [sourceLabel, ...concepts.map(concept => concept.conceptName)].filter((value): value is string => Boolean(value))
+      selected = selectUniqueMedicationCandidate(await drugsMatchingLabels(labels), sourceLabel ?? concepts[0]?.conceptName)
+    }
+
+    if (selected) result[medicationCodeKey(item.system, item.code)] = mappingForDrug(selected)
+  }
+  return result
+}
+
+export async function medicationCodeCandidates(
+  system: string,
+  code: string,
+  reportedLabel: string | null,
+  limit = 20,
+): Promise<MedicationCodeCandidate[]> {
+  const vocabulary = medicationVocabulary(system)
+  let candidates: MedicationCatalogDrug[] = []
+  if (vocabulary === "ATC") {
+    const atcCode = normalizeAtcCode(code)
+    if (atcCode) {
+      candidates = await prisma.drug.findMany({
+        where: { atcCode },
+        orderBy: [{ name: "asc" }, { inn: "asc" }],
+        take: limit,
+        select: { id: true, name: true, inn: true, atcCode: true, form: true, strength: true },
+      })
+    }
+  }
+  if (candidates.length === 0 && reportedLabel) candidates = await drugsMatchingLabels([reportedLabel])
+  return candidates.slice(0, limit)
+}
 export function medicationCodeKey(
   system: string | null | undefined,
   code: string | null | undefined,
@@ -134,8 +274,12 @@ export async function ehrMedicationCodeMapView() {
     lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
     mappedAt: row.mappedAt?.toISOString() ?? null,
   })
+  const unmappedWithCandidates = await Promise.all(unmapped.map(async row => ({
+    ...serialize(row),
+    candidates: await medicationCodeCandidates(row.system, row.code, row.reportedLabel).catch(() => []),
+  })))
   return {
-    unmapped: unmapped.map(serialize),
+    unmapped: unmappedWithCandidates,
     mapped: mapped.map(serialize),
     drugs,
   }

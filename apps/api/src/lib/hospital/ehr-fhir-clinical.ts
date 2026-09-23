@@ -4,7 +4,7 @@ import { EHR_ITEM_SOURCE, type EhrTagValue } from "@lospor/core/ehr-import"
 
 import { isCodeList, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers, type SeenCodeSystem } from "./ehr-code-systems"
 import { procedureFromCodings } from "./ehr-procedures"
-import { medicationCodeKey, type FhirMedicationMapping } from "./ehr-medication-code-map"
+import { medicationCodeKey, medicationVocabulary, type FhirMedicationMapping } from "./ehr-medication-code-map"
 import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
 
 /**
@@ -45,6 +45,22 @@ function readConcept(concept: CodeableConcept | undefined): {
 } {
   if (!concept) return {}
   const coding = (concept.coding ?? []).find(entry => str(entry?.code))
+  return {
+    label: str(concept.text) ?? str(coding?.display) ?? str(coding?.code),
+    code: str(coding?.code),
+    system: str(coding?.system),
+  }
+}
+
+function readMedicationConceptValue(concept: CodeableConcept | undefined): {
+  label?: string
+  code?: string
+  system?: string
+} {
+  if (!concept) return {}
+  const coding = (concept.coding ?? []).find(entry =>
+    str(entry?.code) && medicationVocabulary(str(entry?.system))
+  ) ?? (concept.coding ?? []).find(entry => str(entry?.code))
   return {
     label: str(concept.text) ?? str(coding?.display) ?? str(coding?.code),
     code: str(coding?.code),
@@ -362,7 +378,7 @@ function readMedicationConcept(
   resource: Record<string, unknown>,
   byReference: Map<string, Record<string, unknown>>,
 ): { label?: string; code?: string; system?: string } {
-  const inline = readConcept(resource.medicationCodeableConcept as CodeableConcept)
+  const inline = readMedicationConceptValue(resource.medicationCodeableConcept as CodeableConcept)
   if (inline.label) return inline
 
   const reference = resource.medicationReference as
@@ -375,7 +391,7 @@ function readMedicationConcept(
       ? containedById(resource, pointer.slice(1))
       : byReference.get(pointer) ?? byReference.get(pointer.split("/").slice(-2).join("/"))
     if (target) {
-      const resolved = readConcept(target.code as CodeableConcept)
+      const resolved = readMedicationConceptValue(target.code as CodeableConcept)
       if (resolved.label) return resolved
     }
   }

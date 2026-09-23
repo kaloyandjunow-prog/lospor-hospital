@@ -28,6 +28,18 @@ function addCoreIssues(
 }
 
 export const preopFormSchema = z.object({
+  // API-owned definition-driven answers. The PWA’s specialized controls
+  // round-trip these rows and never invent a second question catalog.
+  preopAnswers: z.array(z.object({
+    stableKey: z.string().min(1),
+    state: z.enum(["YES", "NO", "UNKNOWN", "NOT_APPLICABLE"]),
+    optionKey: z.string().nullable().optional(),
+    valueText: z.string().nullable().optional(),
+    valueNumber: z.number().nullable().optional(),
+    valueDate: z.string().datetime().nullable().optional(),
+  }).passthrough()).default([]),
+  preopProfileVersion: z.number().int().positive().optional(),
+  adoptPreopProfile: z.boolean().optional(),
   patientNumber: z.string().trim().max(128).optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
   // nullable, not merely optional. Switching a case out of pediatric mode has

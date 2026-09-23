@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.10.3",
+  "version": "9.10.4",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -23,6 +23,7 @@
     "./option-surface": "./src/option-surface.ts",
     "./option-aliases": "./src/option-aliases.ts",
     "./preop": "./src/preop.ts",
+    "./preop-assessment": "./src/preop-assessment.ts",
     "./postop": "./src/postop.ts",
     "./units": "./src/units.ts",
     "./ranges": "./src/ranges.ts",

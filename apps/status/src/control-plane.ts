@@ -129,6 +129,12 @@ export type ControlPlaneView = {
       pediatric: ClinicalBaselineReadiness
     }
   }
+  preoperative: {
+    scope: "APPLIANCE_WIDE"
+    catalogVersion: "1.4.7"
+    source: "BUNDLED_IMMUTABLE_CATALOG"
+    profileAdministrationPath: string
+  }
   externalAi: {
     externalAiEnabled: boolean
     provider: "MISTRAL"
@@ -250,6 +256,15 @@ export type ControlPlaneView = {
       seenCount: number
       lastSeenAt: string | null
       mappedAt: string | null
+      candidates?: {
+        id: string
+        name: string
+        inn: string | null
+        atcCode: string | null
+        form: string | null
+        strength: string | null
+      }[]
+
     }[]
     mapped: {
       system: string
@@ -705,7 +720,15 @@ function parseView(value: unknown): ControlPlaneView | null {
   if (!ehrVitalCodesShape(value.ehrVitalCodes)) return null
   if (value.ehrMedicationCodes !== undefined && !ehrMedicationCodesShape(value.ehrMedicationCodes)) return null
   if (!ehrCodeSystemsShape(value.ehrCodeSystems)) return null
-  return value as unknown as ControlPlaneView
+  return {
+    ...value,
+    preoperative: {
+      scope: "APPLIANCE_WIDE",
+      catalogVersion: "1.4.7",
+      source: "BUNDLED_IMMUTABLE_CATALOG",
+      profileAdministrationPath: "/v1/preop/profile",
+    },
+  } as unknown as ControlPlaneView
 }
 
 /** Validated for the lab map's reason: its rows become answers in a form. */
@@ -796,7 +819,15 @@ function ehrMedicationCodesShape(value: unknown): boolean {
     && nullableText(row.atcCode, 64)
     && nullableText(row.form, 256)
     && nullableText(row.strength, 256))
-  return unmapped && mapped && drugs
+  const candidates = value.unmapped.every(row => !isRecord(row) || row.candidates === undefined || (Array.isArray(row.candidates) && row.candidates.every(candidate =>
+    isRecord(candidate)
+    && Boolean(text(candidate.id, 128))
+    && Boolean(text(candidate.name, 512))
+    && nullableText(candidate.inn, 512)
+    && nullableText(candidate.atcCode, 64)
+    && nullableText(candidate.form, 256)
+    && nullableText(candidate.strength, 256))))
+  return unmapped && mapped && drugs && candidates
 }
 type Fetch = typeof globalThis.fetch
 

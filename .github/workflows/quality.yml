@@ -103,6 +103,7 @@ jobs:
         run: |
           npx prisma generate
           npx prisma migrate deploy
+          npx tsx scripts/provision-preop-catalog.ts
 
       - name: Verify provenance, privacy, and telemetry boundaries
         run: npm run verify:provenance

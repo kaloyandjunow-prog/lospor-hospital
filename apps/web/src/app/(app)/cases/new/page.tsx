@@ -170,7 +170,6 @@ export default function NewCasePage() {
         setCaseId(continueId)
         acceptPatientReference(record)
         if (record.caseCode) setCaseCode(record.caseCode)
-
         const [queuedPreop, queuedIntraop, queuedPostop, pendingEvents, pendingMutations] = await Promise.all([
           autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
           autosaveManager.outbox.load<Record<string, unknown>>(continueId, "intraop").catch(() => null),
@@ -178,7 +177,6 @@ export default function NewCasePage() {
           autosaveManager.pendingEvents.loadPending<Record<string, unknown> & { id: string }>(continueId).catch(() => []),
           autosaveManager.eventMutations.load(continueId).catch(() => []),
         ])
-
         if (record.preop) {
           const serverForm = dbPreopToForm(record.preop, record.clinicalMode) as PreopData
           autosaveManager.hydrateSection(

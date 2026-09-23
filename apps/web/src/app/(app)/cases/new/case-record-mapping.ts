@@ -13,6 +13,8 @@ import { calcBMI } from "@/lib/scores"
 import { localTimeOf } from "@/lib/intraop-time"
 import { plannedProcedureText } from "@lospor/core/procedure-codes"
 
+type FormPreopAnswerState = "YES" | "NO" | "UNKNOWN" | "NOT_APPLICABLE"
+
 
 // Convert Prisma DateTime -> HH:MM. DB values are stored in UTC (ref date 2000-01-01),
 // so read UTC hours/minutes to recover the original local time the user entered.
@@ -31,7 +33,6 @@ function isoToHHMM(iso: unknown): string | undefined {
   } catch {}
   return undefined
 }
-
 
 // Convert flat DB preop record -> PreopForm defaultValues shape.
 //
@@ -67,6 +68,11 @@ export function dbPreopToForm(
     if (Array.isArray(json) && json.length > 0) return json as { label: string; sub?: string }[]
     return str ? str.split(";").map(s => s.trim()).filter(Boolean).map(label => ({ label })) : []
   }
+  const formAnswerState = (value: unknown): FormPreopAnswerState | null => {
+    return value === "YES" || value === "NO" || value === "UNKNOWN" || value === "NOT_APPLICABLE"
+      ? value
+      : null
+  }
 
   return {
     // Demographics
@@ -88,6 +94,26 @@ export function dbPreopToForm(
     elective:             p.elective              ?? false,
     emergencySurgery:     p.emergencySurgery      ?? false,
     aiOptIn:              p.aiOptIn               ?? false,
+    preopAnswers: Array.isArray(p.assessmentAnswers) ? p.assessmentAnswers.map(answer => {
+      const objectAnswer = typeof answer === "object" && answer !== null ? answer as {
+        question?: { stableKey?: unknown }
+        state?: unknown
+        optionKey?: string | null
+        valueText?: string | null
+        valueNumber?: number | null
+        valueDate?: string | Date | null
+      } : null
+      return {
+        stableKey: objectAnswer ? String(objectAnswer.question?.stableKey ?? "") : "",
+        state: formAnswerState(objectAnswer?.state),
+        optionKey: objectAnswer?.optionKey ?? null,
+        valueText: objectAnswer?.valueText ?? null,
+        valueNumber: objectAnswer?.valueNumber ?? null,
+        valueDate: objectAnswer?.valueDate ? new Date(objectAnswer.valueDate).toISOString() : null,
+      }
+    }).filter((answer): answer is typeof answer & { state: FormPreopAnswerState } =>
+      answer.stableKey.length > 0 && answer.state !== null,
+    ) : [],
 
     // Medical history
     comorbidities: Array.isArray(p.comorbidities)

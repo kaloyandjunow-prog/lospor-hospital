@@ -18,6 +18,7 @@ import {
 // belongs to "Без институция" rather than to NULL.
 import { NO_INSTITUTION_ID } from "../src/lib/institutions"
 import { canonicalizeUsername } from "../src/lib/username-identity"
+import { ensureInitialPreopProfile } from "../src/lib/preop/service"
 
 const PROD_PROJECT_REF = "yzqszvlvccyufrkbuhtv" // never seed E2E data here
 
@@ -58,6 +59,7 @@ async function main() {
       "../src/lib/clinical-rules/bundled-baseline-provisioner"
     )
     await provisionBundledClinicalBaselines(prisma)
+    await ensureInitialPreopProfile(prisma, "e2e-seed")
 
     const passwordHash = await bcrypt.hash(E2E_PASSWORD, 10)
     const now = new Date()
