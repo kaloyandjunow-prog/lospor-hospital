@@ -4,7 +4,7 @@ import { completeCaseFixture } from "./fixtures/complete-case"
 
 describe("relational preoperative OMOP answers", () => {
   it("exports coded yes/no answers, skips NOT_ASKED, and maps A2 with a LOSPOR key", () => {
-    const source = completeCaseFixture() as any
+    const source = completeCaseFixture() as unknown as { preop: { assessmentAnswers: Array<Record<string, unknown>> } }
     source.preop.assessmentAnswers = [
       {
         state: "YES",
@@ -38,7 +38,7 @@ describe("relational preoperative OMOP answers", () => {
   })
 
   it("exports positive A3 as condition occurrence and avoids duplicate linked diagnosis export", () => {
-    const source = completeCaseFixture() as any
+    const source = completeCaseFixture() as unknown as { preop: { assessmentAnswers: Array<Record<string, unknown>> } }
     source.preop.assessmentAnswers = [{
       state: "YES",
       optionKey: null,

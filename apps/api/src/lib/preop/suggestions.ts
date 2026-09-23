@@ -1,5 +1,5 @@
 import { Prisma, PreopAnswerState, PreopSuggestionStatus } from "@/generated/prisma/client"
-import { activePreopProfile, pinPreopProfile, type PreopProfileShape } from "./service"
+import { pinPreopProfile, type PreopDb, type PreopProfileShape } from "./service"
 
 export const PREOP_SUGGESTION_RULE_VERSION = "1.4.7.1"
 
@@ -150,9 +150,7 @@ export function buildPreopSuggestionCandidates(input: EvidenceInput): Suggestion
   })
 }
 
-type Db = any
-
-export async function generatePreopSuggestions(db: Db, args: {
+export async function generatePreopSuggestions(db: PreopDb, args: {
   caseId: string
   preopId: string
   actorId: string
@@ -164,7 +162,7 @@ export async function generatePreopSuggestions(db: Db, args: {
     include: { diagnoses: true, comorbidityRows: true, medications: true, labRows: true },
   })
   if (!preop) throw new Error("PREOP_NOT_FOUND")
-  const enabled = new Set(profile.questions.filter((row: any) => row.enabled).map((row: any) => row.question.stableKey))
+  const enabled = new Set(profile.questions.filter(row => row.enabled).map(row => row.question.stableKey))
   const candidates = buildPreopSuggestionCandidates({
     clinicalMode: caseRow?.clinicalMode ?? undefined,
     diagnoses: preop.diagnoses,
@@ -172,7 +170,7 @@ export async function generatePreopSuggestions(db: Db, args: {
     medications: preop.medications,
     labs: preop.labRows,
   }).filter(item => enabled.has(item.stableKey))
-  const questionByKey = new Map(profile.questions.map((row: any) => [row.question.stableKey, row.questionId]))
+  const questionByKey = new Map(profile.questions.map(row => [row.question.stableKey, row.questionId]))
   const suggestions: unknown[] = []
   for (const item of candidates) {
     const questionId = questionByKey.get(item.stableKey)
@@ -198,7 +196,7 @@ export async function generatePreopSuggestions(db: Db, args: {
   return { profileVersion: profile.version, suggestions }
 }
 
-export async function reviewPreopSuggestion(db: Db, args: {
+export async function reviewPreopSuggestion(db: PreopDb, args: {
   caseId: string
   suggestionId: string
   reviewerId: string
@@ -216,13 +214,15 @@ export async function reviewPreopSuggestion(db: Db, args: {
       orderBy: { updatedAt: "desc" },
     })
     if (!clinicianAnswer) {
+      const pin = await db.preopCaseProfilePin.findUnique({ where: { caseId: args.caseId } })
+      if (!pin) throw new Error("PREOP_PROFILE_NOT_PINNED")
       await db.preopAssessmentAnswer.upsert({
         where: { preopId_questionId_profileVersion: {
           preopId: suggestion.preopId, questionId: suggestion.questionId, profileVersion: suggestion.profileVersion,
         } },
         create: {
           preopId: suggestion.preopId, questionId: suggestion.questionId,
-          profileId: (await db.preopCaseProfilePin.findUnique({ where: { caseId: args.caseId } })).profileId,
+          profileId: pin.profileId,
           profileVersion: suggestion.profileVersion,
           state: suggestion.proposedState, optionKey: suggestion.proposedOptionKey ?? null,
           valueText: suggestion.proposedValueText ?? null, valueNumber: suggestion.proposedValueNumber ?? null,

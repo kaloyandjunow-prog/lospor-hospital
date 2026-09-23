@@ -1,6 +1,5 @@
-import { Prisma, PreopAnswerState, PreopProfileStatus } from "@/generated/prisma/client"
+import { Prisma, PreopAnswerState, PreopProfileStatus, type PrismaClient } from "@/generated/prisma/client"
 import {
-  A3_WEIGHT_LOSS_CONCEPT_ID,
   BUNDLED_PREOP_QUESTIONS,
   DEFAULT_ENABLED_QUESTION_KEYS,
   PREOP_CATALOG_VERSION,
@@ -8,13 +7,48 @@ import {
 } from "./catalog"
 
 type Db = Prisma.TransactionClient | PrismaClientLike
-type PrismaClientLike = {
-  preopQuestionDefinition: any
-  preopAssessmentProfile: any
-  preopCaseProfilePin: any
-  preopAssessmentAnswer: any
-  preopAssessmentAuditEvent: any
+type PrismaClientLike = Pick<PrismaClient, "case" | "preoperativeAssessment" | "preopQuestionDefinition" | "preopAssessmentProfile" | "preopCaseProfilePin" | "preopAssessmentAnswer" | "preopAssessmentAuditEvent" | "preopAssessmentSuggestion">
+
+type PreopQuestionOptionRow = {
+  key: string
+  labelEn: string
+  labelBg: string
+  omopConceptId: number | null
+  omopVocabulary: string | null
+  omopSourceCode: string | null
 }
+
+type PreopProfileQuestionRow = {
+  questionId: string
+  enabled: boolean
+  required: boolean
+  sortOrder: number
+  question: {
+    stableKey: string
+    allowUnknown: boolean
+    allowNotApplicable: boolean
+    applicability: string[]
+    options: PreopQuestionOptionRow[]
+    labelEn: string
+    labelBg: string
+    answerType: string
+    conditionalRuleKey: string | null
+    omopDomain: string | null
+    omopConceptId: number | null
+    omopSourceCode: string | null
+  }
+}
+
+type PreopProfileRow = {
+  id: string
+  version: number
+  catalogVersion: string
+  status: string
+  publishedAt: Date | null
+  questions: PreopProfileQuestionRow[]
+}
+
+export type PreopDb = Db
 
 export type PreopAnswerInput = {
   stableKey: string
@@ -122,7 +156,7 @@ export async function provisionPreopCatalog(db: Db): Promise<void> {
       }
     }
     for (const option of item.options) {
-      const found = existing.options.find((value: any) => value.key === option.key)
+      const found = existing.options.find(value => value.key === option.key)
       if (!found || found.labelEn !== option.labelEn || found.labelBg !== option.labelBg
         || found.omopConceptId !== (option.omopConceptId ?? null)
         || found.omopVocabulary !== (option.omopVocabulary ?? null)
@@ -192,8 +226,8 @@ export async function publishPreopProfile(
     ? profileCreateQuestions(requested)
     : BUNDLED_PREOP_QUESTIONS.map((item, sortOrder) => ({
         stableKey: item.stableKey,
-        enabled: current?.questions.find((row: any) => row.question.stableKey === item.stableKey)?.enabled ?? DEFAULT_ENABLED_QUESTION_KEYS.has(item.stableKey),
-        required: current?.questions.find((row: any) => row.question.stableKey === item.stableKey)?.required ?? item.requiredDefault,
+        enabled: current?.questions.find(row => row.question.stableKey === item.stableKey)?.enabled ?? DEFAULT_ENABLED_QUESTION_KEYS.has(item.stableKey),
+        required: current?.questions.find(row => row.question.stableKey === item.stableKey)?.required ?? item.requiredDefault,
         sortOrder,
       }))
   const latest = await db.preopAssessmentProfile.findFirst({ orderBy: { version: "desc" }, select: { version: true } })
@@ -272,14 +306,14 @@ export function legacyAnswers(preop: Record<string, unknown>): PreopAnswerInput[
   return answers
 }
 
-function validateAnswer(profile: any, input: PreopAnswerInput, byKey: Map<string, any>): any {
+function validateAnswer(input: PreopAnswerInput, byKey: Map<string, PreopProfileQuestionRow>): PreopProfileQuestionRow {
   const row = byKey.get(input.stableKey)
   if (!row || !row.enabled) throw new PreopContractError("PREOP_QUESTION_NOT_ENABLED", { stableKey: input.stableKey })
   if (input.state === PreopAnswerState.NOT_ASKED) throw new PreopContractError("NOT_ASKED_IS_SERVER_GENERATED", { stableKey: input.stableKey })
   if (input.state === PreopAnswerState.UNKNOWN && !row.question.allowUnknown) throw new PreopContractError("UNKNOWN_NOT_ALLOWED", { stableKey: input.stableKey })
   if (input.state === PreopAnswerState.NOT_APPLICABLE && !row.question.allowNotApplicable) throw new PreopContractError("NOT_APPLICABLE_NOT_ALLOWED", { stableKey: input.stableKey })
   if ((input.state === PreopAnswerState.YES || input.state === PreopAnswerState.NO) && input.optionKey) {
-    const option = row.question.options.find((value: any) => value.key === input.optionKey)
+    const option = row.question.options.find(value => value.key === input.optionKey)
     if (!option) throw new PreopContractError("UNKNOWN_PREOP_ANSWER_OPTION", { stableKey: input.stableKey, optionKey: input.optionKey })
   }
   return row
@@ -333,21 +367,21 @@ export async function savePreopAnswers(
   if (mode) {
     const otherMode = mode === "PEDIATRIC" ? "ADULT" : "PEDIATRIC"
     const otherQuestionIds = profile.questions
-      .filter((row: any) => row.question.applicability.includes(otherMode))
-      .map((row: any) => row.questionId)
+      .filter(row => row.question.applicability.includes(otherMode))
+      .map(row => row.questionId)
     if (otherQuestionIds.length > 0) {
       await db.preopAssessmentAnswer.deleteMany({
         where: { preopId: args.preopId, questionId: { in: otherQuestionIds } },
       })
     }
   }
-  const byKey = new Map<string, any>(profile.questions.map((row: any) => [row.question.stableKey, row] as [string, any]))
+  const byKey = new Map<string, PreopProfileQuestionRow>(profile.questions.map(row => [row.question.stableKey, row]))
   const deduped = new Map<string, PreopAnswerInput>()
   for (const answer of submitted) {
-    validateAnswer(profile, answer, byKey)
+    validateAnswer(answer, byKey)
     deduped.set(answer.stableKey, answer)
   }
-  const writes = profile.questions.filter((row: any) => row.enabled).map((row: any) => {
+  const writes = profile.questions.filter(row => row.enabled).map(row => {
     const answer = deduped.get(row.question.stableKey)
     if (!answer && row.required) throw new PreopContractError("REQUIRED_PREOP_QUESTION_UNANSWERED", { stableKey: row.question.stableKey })
     const state = answer?.state ?? PreopAnswerState.NOT_ASKED
@@ -376,14 +410,14 @@ export async function savePreopAnswers(
   return { profile, pin, answersWritten: writes.length }
 }
 
-export function serializePreopProfile(profile: any): PreopProfileShape {
+export function serializePreopProfile(profile: PreopProfileRow): PreopProfileShape {
   return {
     id: profile.id,
     version: profile.version,
     catalogVersion: profile.catalogVersion,
     status: profile.status,
     publishedAt: profile.publishedAt,
-    questions: profile.questions.map((row: any) => ({
+    questions: profile.questions.map(row => ({
       stableKey: row.question.stableKey,
       enabled: row.enabled,
       required: row.required,
@@ -398,7 +432,7 @@ export function serializePreopProfile(profile: any): PreopProfileShape {
       omopDomain: row.question.omopDomain,
       omopConceptId: row.question.omopConceptId,
       omopSourceCode: row.question.omopSourceCode,
-      options: row.question.options.map((option: any) => ({
+      options: row.question.options.map(option => ({
         key: option.key,
         labelEn: option.labelEn,
         labelBg: option.labelBg,
