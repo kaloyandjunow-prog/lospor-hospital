@@ -1903,8 +1903,6 @@ model PreopDiagnosis {
   ordinal           Int                    @default(0)
   createdAt         DateTime               @default(now())
 
-  suggestions      PreopAssessmentSuggestion[]
-
   @@index([caseId])
   @@index([preopId])
   @@index([code])

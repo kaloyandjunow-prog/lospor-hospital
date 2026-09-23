@@ -1,5 +1,7 @@
 # LOSPOR Hospital 1.4.7 preoperative assessment
 
+[Български](preoperative-assessment-1.4.7.bg.md) | **English**
+
 The 1.4.7 assessment is an appliance-wide contract. It is not site-specific.
 The bundled immutable question catalog is the source of truth for baseline and
 approved adult/pediatric additions. The web and PWA may keep specialized
