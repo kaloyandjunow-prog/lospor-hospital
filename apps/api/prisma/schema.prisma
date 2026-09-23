@@ -1898,6 +1898,7 @@ model PreopDiagnosis {
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
   source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
   clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
+  suggestions       PreopAssessmentSuggestion[]
   sourceVersion     String?
   ordinal           Int                    @default(0)
   createdAt         DateTime               @default(now())

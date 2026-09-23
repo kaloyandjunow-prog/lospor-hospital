@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Web App
 
+## [9.10.7] - 2026-09-23
+
+### Added
+
+- **Shared preoperative assessment contract.** Web now consumes the bundled
+  catalog/profile definitions and round-trips relational preoperative answers,
+  profile pins, and suggestion state for Hospital 1.4.7.
+
 ## [9.10.6] - 2026-09-23
 
 ### Changed

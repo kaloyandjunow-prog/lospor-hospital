@@ -42,6 +42,18 @@ export const preopFormSchema = z.object({
   adoptPreopProfile: z.boolean().optional(),
   patientNumber: z.string().trim().max(128).optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
+  // API-owned definition-driven answers. The PWA’s specialized controls
+  // round-trip these rows and never invent a second question catalog.
+  preopAnswers: z.array(z.object({
+    stableKey: z.string().min(1),
+    state: z.enum(["YES", "NO", "UNKNOWN", "NOT_APPLICABLE"]),
+    optionKey: z.string().nullable().optional(),
+    valueText: z.string().nullable().optional(),
+    valueNumber: z.number().nullable().optional(),
+    valueDate: z.string().datetime().nullable().optional(),
+  }).passthrough()).default([]),
+  preopProfileVersion: z.number().int().positive().optional(),
+  adoptPreopProfile: z.boolean().optional(),
   // nullable, not merely optional. Switching a case out of pediatric mode has
   // to clear the stored precise age, and only an explicit null survives into
   // the patch -- undefined is dropped before it reaches the wire.

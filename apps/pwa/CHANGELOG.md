@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Mobile
 
+## [9.10.7] - 2026-09-23
+
+### Added
+
+- **Shared preoperative assessment contract.** Mobile/PWA now preserves the
+  catalog-driven answers, profile pin, suggestion state, and offline
+  reconciliation fields used by Hospital 1.4.7.
+
 ## [9.10.6] - 2026-09-23
 
 ### Security

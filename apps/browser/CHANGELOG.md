@@ -1,5 +1,12 @@
 # Changelog - LOSPOR Database
 
+## [0.7.5] - 2026-09-23
+
+### Changed
+
+- **Shared Core pin advanced to 9.10.4.** The Database Browser follows the
+  Core baseline used by the Hospital 1.4.7 release.
+
 ## [0.7.4] - 2026-09-23
 
 ### Security

@@ -51,6 +51,27 @@ const flags = (...fields: string[]) =>
 
 export const MATRIX: Record<string, RoundTrip> = {
   clinicalMode: { record: { clinicalMode: "PEDIATRIC" }, form: "PEDIATRIC" },
+  preopProfileVersion: { db: { preopProfileVersion: 1 }, form: 1 },
+  preopAnswers: {
+    db: {
+      assessmentAnswers: [{
+        question: { stableKey: "A1_SMOKING" },
+        state: "YES",
+        optionKey: "YES",
+        valueText: null,
+        valueNumber: null,
+        valueDate: null,
+      }],
+    },
+    form: [{
+      stableKey: "A1_SMOKING",
+      state: "YES",
+      optionKey: "YES",
+      valueText: null,
+      valueNumber: null,
+      valueDate: null,
+    }],
+  },
 
   // ageYears is 0 on purpose — a neonate is 0 years old.
   ...rows({
