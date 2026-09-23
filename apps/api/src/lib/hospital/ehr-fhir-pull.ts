@@ -27,7 +27,7 @@ import {
 import { diagnosisCodeSystemsSeen, resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
-import { recordUnmappedMedicationCodes, siteMedicationCodeMap } from "./ehr-medication-code-map"
+import { automaticMedicationCodeMap, recordUnmappedMedicationCodes, siteMedicationCodeMap } from "./ehr-medication-code-map"
 import { recordUnmappedVitalCodes, siteVitalCodeMap } from "./ehr-vital-code-map"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
 
@@ -309,13 +309,18 @@ export async function pullFhirImport(
   }
   const medicationResources = [...of("MedicationStatement"), ...of("MedicationRequest")]
   const medicationMap = await siteMedicationCodeMap().catch(() => ({}))
+  const observedMedicationCodes = fhirMedicationCodesSeen(medicationResources, included, medicationMap)
+  const automaticMap = await automaticMedicationCodeMap(observedMedicationCodes).catch(() => ({}))
+  // An operator's explicit Status decision wins over an automatic catalog
+  // match. Both are forward-only interpretations for this new import.
+  const importMedicationMap = { ...automaticMap, ...medicationMap }
   const medications = mapFhirMedications(
     medicationResources,
     included,
     answers,
-    medicationMap,
+    importMedicationMap,
   )
-  const unmappedMedications = fhirMedicationCodesSeen(medicationResources, included, medicationMap)
+  const unmappedMedications = fhirMedicationCodesSeen(medicationResources, included, importMedicationMap)
   if (unmappedMedications.length > 0) {
     await recordUnmappedMedicationCodes(unmappedMedications, now).catch(() => undefined)
   }
