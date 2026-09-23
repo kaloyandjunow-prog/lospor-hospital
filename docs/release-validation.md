@@ -6,11 +6,11 @@ A Hospital release is acceptable only after the automated quality workflow and
 this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
-For the 1.4.6 train, verify the vendored release set before creating the
-Hospital tag: API/Web/PWA must be 9.10.6, Browser must be 0.7.4, and Core must
-be 9.10.3. Run the local provenance, merge-safety, release-input, and update
+For the 1.4.7 train, verify the vendored release set before creating the
+Hospital tag: API/Web/PWA must be 9.10.7, Browser must be 0.7.5, and Core must
+be 9.10.4. Run the local provenance, merge-safety, release-input, and update
 pipeline gates from the repository root after those pins are stamped. The
-release inputs explicitly record the 1.4.6 vulnerability review; the two
+release inputs explicitly record the 1.4.7 vulnerability review; the two
 unfixed PostgreSQL base findings remain accepted only through 2026-12-08 and
 must not be silently carried to a later release.
 
