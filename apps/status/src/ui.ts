@@ -1364,6 +1364,82 @@ export function renderControlPlane(
     ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Все още няма съпоставени местни кодове.")}</div>`}
   ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Картата на лабораторните кодове не е достъпна.")}</div>`
 
+  // ── the medication code map ─────────────────────────────────────────────────
+  //
+  // Mapping is a forward-looking interpretation for new import proposals. The
+  // raw HIS medication remains visible and an unmapped medication still follows
+  // the ordinary clinician import screen; no accepted or frozen case is edited.
+  const medicationCodes = view?.ehrMedicationCodes
+  const medicationDrugOptions = (selected: string | null) => (medicationCodes?.drugs ?? []).map(drug => {
+    const detail = [drug.inn, drug.atcCode, drug.form, drug.strength].filter(Boolean).join(" · ")
+    return "<option value='" + escapeHtml(drug.id) + "'" + (drug.id === selected ? " selected" : "") + ">" + escapeHtml(drug.name) + (detail ? " — " + escapeHtml(detail) : "") + "</option>"
+  }).join("")
+  const unmappedMedicationRows = (medicationCodes?.unmapped ?? []).map(row =>
+    "<div class='component'><form method='post' action='/status/control/ehr-medication-codes/map'>" +
+    "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
+    "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
+    "<p><strong>" + escapeHtml(row.code) + "</strong>" + (row.reportedLabel ? " — " + escapeHtml(row.reportedLabel) : "") + "</p>" +
+    "<p class='component-detail'>" + (row.system ? escapeHtml(row.system) + " · " : "") + escapeHtml(seenFact(row)) + "</p>" +
+    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Тълкувайте това като лекарство от LOSPOR") + "<select name='drugId' required><option value=''>" + localize(locale, "Choose a drug…", "Изберете лекарство…") + "</option>" + medicationDrugOptions(null) + "</select></label>" +
+    "<button type='submit'>" + localize(locale, "Map this medication", "Съпоставяне на лекарството") + "</button></form></div>").join("")
+  const mappedMedicationRows = (medicationCodes?.mapped ?? []).map(row =>
+    "<div class='component'><div class='facts'>" +
+    textFact(escapeHtml(row.code), escapeHtml(row.drugName)) +
+    textFact(localize(locale, "Reported as", "Изпраща се като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "няма изпратено име")) +
+    textFact(localize(locale, "INN / ATC", "INN / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "няма в каталога"))) +
+    textFact(localize(locale, "Traffic", "Трафик"), escapeHtml(seenFact(row))) +
+    dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
+    "</div><form method='post' action='/status/control/ehr-medication-codes/unmap'>" +
+    "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
+    "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
+    "<button type='submit' class='danger'>" + localize(locale, "Unmap", "Премахване на съпоставката") + "</button></form></div>").join("")
+  const medicationCodeControls = medicationCodes
+    ? "<div class='component'><p>" + localize(locale, "Unmapped medications are still offered to clinicians in the normal import review. Mapping only adds a LOSPOR Drug proposal to future imports; it does not backfill, rewrite, or reopen accepted or frozen cases.", "Несъпоставените лекарства пак се предлагат на клиницистите в обичайния преглед на вноса. Съпоставянето само добавя предложение за лекарство от LOSPOR при бъдещи вносове; то не попълва назад, не променя и не отваря приети или замразени случаи.") + "</p></div>" +
+      "<h3>" + localize(locale, "Waiting for an answer", "Чакат отговор") + "</h3>" +
+      (unmappedMedicationRows || "<div class='empty'>" + localize(locale, "Every medication code this hospital has sent is understood.", "Всеки лекарствен код, който тази болница е изпратила, е разпознат.") + "</div>") +
+      "<h3>" + localize(locale, "Already answered", "Вече отговорени") + "</h3>" +
+      (mappedMedicationRows || "<div class='empty'>" + localize(locale, "No local medication codes have been mapped yet.", "Все още няма съпоставени местни лекарствени кодове.") + "</div>")
+    : "<div class='empty'>" + localize(locale, "The medication code map is unavailable.", "Картата на лекарствените кодове не е достъпна.") + "</div>"
+  // ── the PREOP vital-code map ──────────────────────────────────────────────
+  const vitalCodes = view?.ehrVitalCodes
+  const vitalFieldNames: Record<string, [string, string]> = {
+    bpSystolic: ["Systolic blood pressure", "Систолно артериално налягане"],
+    bpDiastolic: ["Diastolic blood pressure", "Диастолно артериално налягане"],
+    heartRate: ["Heart rate", "Сърдечна честота"],
+    spO2: ["Oxygen saturation (SpO₂)", "Кислородна сатурация (SpO₂)"],
+    temperature: ["Temperature", "Температура"],
+    respiratoryRate: ["Respiratory rate", "Дихателна честота"],
+  }
+  const vitalFieldName = (field: string) => localize(locale, vitalFieldNames[field]?.[0] ?? field, vitalFieldNames[field]?.[1] ?? field)
+  const vitalFieldOptions = (selected: string | null) => (vitalCodes?.fields ?? []).map(field =>
+    "<option value=\"" + escapeHtml(field) + "\"" + (field === selected ? " selected" : "") + ">" + escapeHtml(vitalFieldName(field)) + "</option>").join("")
+  const unmappedVitalRows = (vitalCodes?.unmapped ?? []).map(row =>
+    "<div class=\"component\"><form method=\"post\" action=\"/status/control/ehr-vital-codes/map\">" +
+    "<input type=\"hidden\" name=\"system\" value=\"" + escapeHtml(row.system) + "\">" +
+    "<input type=\"hidden\" name=\"code\" value=\"" + escapeHtml(row.code) + "\">" +
+    "<p><strong>" + escapeHtml(row.code) + "</strong>" + (row.reportedLabel ? " — " + escapeHtml(row.reportedLabel) : "") + "</p>" +
+    "<p class=\"component-detail\">" + (row.system ? escapeHtml(row.system) + " · " : "") + escapeHtml(seenFact(row)) + "</p>" +
+    "<label>" + localize(locale, "Assign this code to", "Този код означава") + "<select name=\"field\" required><option value=\"\">" +
+    localize(locale, "Choose a PREOP vital…", "Изберете жизнен показател от ПРЕДОП…") + "</option>" + vitalFieldOptions(null) + "</select></label>" +
+    "<button type=\"submit\">" + localize(locale, "Assign vital", "Присвояване на показателя") + "</button></form></div>").join("")
+  const mappedVitalRows = (vitalCodes?.mapped ?? []).map(row =>
+    "<div class=\"component\"><div class=\"facts\">" +
+    textFact(escapeHtml(row.code), escapeHtml(vitalFieldName(row.field))) +
+    textFact(localize(locale, "Reported as", "Изпраща се като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "няма изпратено име")) +
+    textFact(localize(locale, "Traffic", "Трафик"), escapeHtml(seenFact(row))) +
+    dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
+    "</div><form method=\"post\" action=\"/status/control/ehr-vital-codes/unmap\">" +
+    "<input type=\"hidden\" name=\"system\" value=\"" + escapeHtml(row.system) + "\">" +
+    "<input type=\"hidden\" name=\"code\" value=\"" + escapeHtml(row.code) + "\">" +
+    "<button type=\"submit\" class=\"danger\">" + localize(locale, "Unmap", "Премахване на съпоставката") + "</button></form></div>").join("")
+  const vitalCodeControls = vitalCodes
+    ? "<div class=\"component\"><p>" + localize(locale, "Unknown FHIR vital-sign codes are kept here until the hospital's code is assigned to one of the six PREOP vital fields. Nothing is guessed or written directly into a case; the assignment only teaches future imports where the value belongs.", "Непознатите FHIR кодове за жизнени показатели се пазят тук, докато кодът на болницата бъде присвоен към едно от шестте полета за жизнени показатели в ПРЕДОП. Нищо не се отгатва и не се записва директно в случай; присвояването само учи бъдещите вносове къде принадлежи стойността.") + "</p></div>" +
+      "<h3>" + localize(locale, "Waiting for an answer", "Чакат отговор") + "</h3>" +
+      (unmappedVitalRows || "<div class=\"empty\">" + localize(locale, "Every vital-sign code this hospital has sent is understood.", "Всеки код за жизнен показател, който тази болница е изпратила, е разпознат.") + "</div>") +
+      "<h3>" + localize(locale, "Already answered", "Вече отговорени") + "</h3>" +
+      (mappedVitalRows || "<div class=\"empty\">" + localize(locale, "No local vital-sign codes have been assigned yet.", "Все още няма присвоени местни кодове за жизнени показатели.") + "</div>")
+    : "<div class=\"empty\">" + localize(locale, "The PREOP vital-code map is unavailable.", "Картата на кодовете за жизнени показатели в ПРЕДОП не е достъпна.") + "</div>"
+
   // ── code-list addresses ────────────────────────────────────────────────────
   //
   // NHIS publishes no address for its lists, so each hospital system invents
@@ -1437,6 +1513,8 @@ export function renderControlPlane(
     <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
     <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
     <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Medication code map", "Карта на лекарствените кодове")}</h2><div class="card">${medicationCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "PREOP vital-code map", "Карта на кодовете за жизнени показатели в ПРЕДОП")}</h2><div class="card">${vitalCodeControls}</div></section>
     <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>`,
     },
     {
@@ -1576,6 +1654,8 @@ function dossierSection(view: ReleaseView, locale: StatusLocale): string {
 export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
   const readyToApply = view.fetchedVersion !== undefined
     && view.fetchedLockSha256 !== undefined
+    && view.fetchedVersion !== view.installedVersion
+    && view.fetchedVersion === view.latestVersion
 
   const busy = view.agentPhase !== undefined
     && ["accepted", "queued", "preparing", "applying"].includes(view.agentPhase)

@@ -92,6 +92,8 @@ model User {
   ehrTransportCredentialsChanged  HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportCredentialChanger")
   ehrTransportPoliciesChanged     HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportPolicyChanger")
   ehrLabCodesMapped               HospitalEhrLabCodeMap[]              @relation("HospitalEhrLabCodeMapper")
+  ehrMedicationCodesMapped        HospitalEhrMedicationCodeMap[]        @relation("HospitalEhrMedicationCodeMapper")
+  ehrVitalCodesMapped             HospitalEhrVitalCodeMap[]            @relation("HospitalEhrVitalCodeMapper")
   externalAiCredentialsChanged    HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
   externalAiPoliciesChanged       HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
   hospitalAccountTokens           HospitalAccountAccessToken[]
@@ -560,6 +562,7 @@ model Drug {
   form          String?
   strength      String?
   optionLibrary OptionLibrary[]
+  ehrMedicationCodeMaps HospitalEhrMedicationCodeMap[]
 
   @@index([name])
   @@index([inn])
@@ -2726,6 +2729,30 @@ model HospitalEhrLabCodeMap {
   @@index([lastSeenAt])
 }
 
+/// What a hospital's local vital-sign codes mean.
+///
+/// This is separate from the laboratory map because the destination is a
+/// scalar PREOP field, not a laboratory test. Unknown local vital codes remain
+/// visible in Status until an operator assigns one of the six safe destinations.
+model HospitalEhrVitalCodeMap {
+  id             String    @id @default(cuid())
+  system         String    @default("")
+  code           String
+  reportedLabel  String?
+  field          String
+  mappedAt       DateTime?
+  mappedById     String?
+  mappedBy       User?     @relation("HospitalEhrVitalCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
+  seenCount      Int       @default(0)
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([system, code])
+  @@index([field])
+  @@index([lastSeenAt])
+}
+
 /// What a hospital's coding-system addresses mean.
 ///
 /// NHIS publishes no FHIR address for its lists, so every vendor invents one.
@@ -2900,4 +2927,29 @@ enum ExternalAiProvider {
 enum HospitalAccountTokenPurpose {
   ACTIVATION
   RECOVERY
+}
+
+/// What a hospital's local medication codes mean.
+///
+/// The source code and label remain the hospital's. The selected Drug is a
+/// non-destructive interpretation used for the import proposal and future
+/// accepted rows; nothing here rewrites an existing case or frozen export.
+model HospitalEhrMedicationCodeMap {
+  id            String    @id @default(cuid())
+  system        String    @default("")
+  code          String
+  reportedLabel String?
+  drugId        String?
+  drug          Drug?     @relation(fields: [drugId], references: [id], onDelete: Restrict)
+  mappedAt      DateTime?
+  mappedById    String?
+  mappedBy      User?     @relation("HospitalEhrMedicationCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
+  seenCount     Int       @default(0)
+  lastSeenAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([system, code])
+  @@index([drugId])
+  @@index([lastSeenAt])
 }

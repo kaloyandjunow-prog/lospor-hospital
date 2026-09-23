@@ -191,6 +191,7 @@ export type DrugWhereInput = {
   form?: Prisma.StringNullableFilter<"Drug"> | string | null
   strength?: Prisma.StringNullableFilter<"Drug"> | string | null
   optionLibrary?: Prisma.OptionLibraryListRelationFilter
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapListRelationFilter
 }
 
 export type DrugOrderByWithRelationInput = {
@@ -201,6 +202,7 @@ export type DrugOrderByWithRelationInput = {
   form?: Prisma.SortOrderInput | Prisma.SortOrder
   strength?: Prisma.SortOrderInput | Prisma.SortOrder
   optionLibrary?: Prisma.OptionLibraryOrderByRelationAggregateInput
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapOrderByRelationAggregateInput
 }
 
 export type DrugWhereUniqueInput = Prisma.AtLeast<{
@@ -214,6 +216,7 @@ export type DrugWhereUniqueInput = Prisma.AtLeast<{
   form?: Prisma.StringNullableFilter<"Drug"> | string | null
   strength?: Prisma.StringNullableFilter<"Drug"> | string | null
   optionLibrary?: Prisma.OptionLibraryListRelationFilter
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapListRelationFilter
 }, "id">
 
 export type DrugOrderByWithAggregationInput = {
@@ -248,6 +251,7 @@ export type DrugCreateInput = {
   form?: string | null
   strength?: string | null
   optionLibrary?: Prisma.OptionLibraryCreateNestedManyWithoutDrugInput
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapCreateNestedManyWithoutDrugInput
 }
 
 export type DrugUncheckedCreateInput = {
@@ -258,6 +262,7 @@ export type DrugUncheckedCreateInput = {
   form?: string | null
   strength?: string | null
   optionLibrary?: Prisma.OptionLibraryUncheckedCreateNestedManyWithoutDrugInput
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapUncheckedCreateNestedManyWithoutDrugInput
 }
 
 export type DrugUpdateInput = {
@@ -268,6 +273,7 @@ export type DrugUpdateInput = {
   form?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   strength?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   optionLibrary?: Prisma.OptionLibraryUpdateManyWithoutDrugNestedInput
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapUpdateManyWithoutDrugNestedInput
 }
 
 export type DrugUncheckedUpdateInput = {
@@ -278,6 +284,7 @@ export type DrugUncheckedUpdateInput = {
   form?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   strength?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   optionLibrary?: Prisma.OptionLibraryUncheckedUpdateManyWithoutDrugNestedInput
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapUncheckedUpdateManyWithoutDrugNestedInput
 }
 
 export type DrugCreateManyInput = {
@@ -355,6 +362,22 @@ export type DrugUpdateOneWithoutOptionLibraryNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DrugUpdateToOneWithWhereWithoutOptionLibraryInput, Prisma.DrugUpdateWithoutOptionLibraryInput>, Prisma.DrugUncheckedUpdateWithoutOptionLibraryInput>
 }
 
+export type DrugCreateNestedOneWithoutEhrMedicationCodeMapsInput = {
+  create?: Prisma.XOR<Prisma.DrugCreateWithoutEhrMedicationCodeMapsInput, Prisma.DrugUncheckedCreateWithoutEhrMedicationCodeMapsInput>
+  connectOrCreate?: Prisma.DrugCreateOrConnectWithoutEhrMedicationCodeMapsInput
+  connect?: Prisma.DrugWhereUniqueInput
+}
+
+export type DrugUpdateOneWithoutEhrMedicationCodeMapsNestedInput = {
+  create?: Prisma.XOR<Prisma.DrugCreateWithoutEhrMedicationCodeMapsInput, Prisma.DrugUncheckedCreateWithoutEhrMedicationCodeMapsInput>
+  connectOrCreate?: Prisma.DrugCreateOrConnectWithoutEhrMedicationCodeMapsInput
+  upsert?: Prisma.DrugUpsertWithoutEhrMedicationCodeMapsInput
+  disconnect?: Prisma.DrugWhereInput | boolean
+  delete?: Prisma.DrugWhereInput | boolean
+  connect?: Prisma.DrugWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DrugUpdateToOneWithWhereWithoutEhrMedicationCodeMapsInput, Prisma.DrugUpdateWithoutEhrMedicationCodeMapsInput>, Prisma.DrugUncheckedUpdateWithoutEhrMedicationCodeMapsInput>
+}
+
 export type DrugCreateWithoutOptionLibraryInput = {
   id?: string
   name: string
@@ -362,6 +385,7 @@ export type DrugCreateWithoutOptionLibraryInput = {
   atcCode?: string | null
   form?: string | null
   strength?: string | null
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapCreateNestedManyWithoutDrugInput
 }
 
 export type DrugUncheckedCreateWithoutOptionLibraryInput = {
@@ -371,6 +395,7 @@ export type DrugUncheckedCreateWithoutOptionLibraryInput = {
   atcCode?: string | null
   form?: string | null
   strength?: string | null
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapUncheckedCreateNestedManyWithoutDrugInput
 }
 
 export type DrugCreateOrConnectWithoutOptionLibraryInput = {
@@ -396,6 +421,7 @@ export type DrugUpdateWithoutOptionLibraryInput = {
   atcCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   form?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   strength?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapUpdateManyWithoutDrugNestedInput
 }
 
 export type DrugUncheckedUpdateWithoutOptionLibraryInput = {
@@ -405,6 +431,63 @@ export type DrugUncheckedUpdateWithoutOptionLibraryInput = {
   atcCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   form?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   strength?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ehrMedicationCodeMaps?: Prisma.HospitalEhrMedicationCodeMapUncheckedUpdateManyWithoutDrugNestedInput
+}
+
+export type DrugCreateWithoutEhrMedicationCodeMapsInput = {
+  id?: string
+  name: string
+  inn?: string | null
+  atcCode?: string | null
+  form?: string | null
+  strength?: string | null
+  optionLibrary?: Prisma.OptionLibraryCreateNestedManyWithoutDrugInput
+}
+
+export type DrugUncheckedCreateWithoutEhrMedicationCodeMapsInput = {
+  id?: string
+  name: string
+  inn?: string | null
+  atcCode?: string | null
+  form?: string | null
+  strength?: string | null
+  optionLibrary?: Prisma.OptionLibraryUncheckedCreateNestedManyWithoutDrugInput
+}
+
+export type DrugCreateOrConnectWithoutEhrMedicationCodeMapsInput = {
+  where: Prisma.DrugWhereUniqueInput
+  create: Prisma.XOR<Prisma.DrugCreateWithoutEhrMedicationCodeMapsInput, Prisma.DrugUncheckedCreateWithoutEhrMedicationCodeMapsInput>
+}
+
+export type DrugUpsertWithoutEhrMedicationCodeMapsInput = {
+  update: Prisma.XOR<Prisma.DrugUpdateWithoutEhrMedicationCodeMapsInput, Prisma.DrugUncheckedUpdateWithoutEhrMedicationCodeMapsInput>
+  create: Prisma.XOR<Prisma.DrugCreateWithoutEhrMedicationCodeMapsInput, Prisma.DrugUncheckedCreateWithoutEhrMedicationCodeMapsInput>
+  where?: Prisma.DrugWhereInput
+}
+
+export type DrugUpdateToOneWithWhereWithoutEhrMedicationCodeMapsInput = {
+  where?: Prisma.DrugWhereInput
+  data: Prisma.XOR<Prisma.DrugUpdateWithoutEhrMedicationCodeMapsInput, Prisma.DrugUncheckedUpdateWithoutEhrMedicationCodeMapsInput>
+}
+
+export type DrugUpdateWithoutEhrMedicationCodeMapsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  inn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  atcCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  form?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  strength?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  optionLibrary?: Prisma.OptionLibraryUpdateManyWithoutDrugNestedInput
+}
+
+export type DrugUncheckedUpdateWithoutEhrMedicationCodeMapsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  inn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  atcCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  form?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  strength?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  optionLibrary?: Prisma.OptionLibraryUncheckedUpdateManyWithoutDrugNestedInput
 }
 
 
@@ -414,10 +497,12 @@ export type DrugUncheckedUpdateWithoutOptionLibraryInput = {
 
 export type DrugCountOutputType = {
   optionLibrary: number
+  ehrMedicationCodeMaps: number
 }
 
 export type DrugCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   optionLibrary?: boolean | DrugCountOutputTypeCountOptionLibraryArgs
+  ehrMedicationCodeMaps?: boolean | DrugCountOutputTypeCountEhrMedicationCodeMapsArgs
 }
 
 /**
@@ -437,6 +522,13 @@ export type DrugCountOutputTypeCountOptionLibraryArgs<ExtArgs extends runtime.Ty
   where?: Prisma.OptionLibraryWhereInput
 }
 
+/**
+ * DrugCountOutputType without action
+ */
+export type DrugCountOutputTypeCountEhrMedicationCodeMapsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HospitalEhrMedicationCodeMapWhereInput
+}
+
 
 export type DrugSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -446,6 +538,7 @@ export type DrugSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   form?: boolean
   strength?: boolean
   optionLibrary?: boolean | Prisma.Drug$optionLibraryArgs<ExtArgs>
+  ehrMedicationCodeMaps?: boolean | Prisma.Drug$ehrMedicationCodeMapsArgs<ExtArgs>
   _count?: boolean | Prisma.DrugCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["drug"]>
 
@@ -479,6 +572,7 @@ export type DrugSelectScalar = {
 export type DrugOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "inn" | "atcCode" | "form" | "strength", ExtArgs["result"]["drug"]>
 export type DrugInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   optionLibrary?: boolean | Prisma.Drug$optionLibraryArgs<ExtArgs>
+  ehrMedicationCodeMaps?: boolean | Prisma.Drug$ehrMedicationCodeMapsArgs<ExtArgs>
   _count?: boolean | Prisma.DrugCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DrugIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -488,6 +582,7 @@ export type $DrugPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name: "Drug"
   objects: {
     optionLibrary: Prisma.$OptionLibraryPayload<ExtArgs>[]
+    ehrMedicationCodeMaps: Prisma.$HospitalEhrMedicationCodeMapPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -891,6 +986,7 @@ readonly fields: DrugFieldRefs;
 export interface Prisma__DrugClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   optionLibrary<T extends Prisma.Drug$optionLibraryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Drug$optionLibraryArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$OptionLibraryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  ehrMedicationCodeMaps<T extends Prisma.Drug$ehrMedicationCodeMapsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Drug$ehrMedicationCodeMapsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HospitalEhrMedicationCodeMapPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1340,6 +1436,30 @@ export type Drug$optionLibraryArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.OptionLibraryScalarFieldEnum | Prisma.OptionLibraryScalarFieldEnum[]
+}
+
+/**
+ * Drug.ehrMedicationCodeMaps
+ */
+export type Drug$ehrMedicationCodeMapsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalEhrMedicationCodeMap
+   */
+  select?: Prisma.HospitalEhrMedicationCodeMapSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalEhrMedicationCodeMap
+   */
+  omit?: Prisma.HospitalEhrMedicationCodeMapOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalEhrMedicationCodeMapInclude<ExtArgs> | null
+  where?: Prisma.HospitalEhrMedicationCodeMapWhereInput
+  orderBy?: Prisma.HospitalEhrMedicationCodeMapOrderByWithRelationInput | Prisma.HospitalEhrMedicationCodeMapOrderByWithRelationInput[]
+  cursor?: Prisma.HospitalEhrMedicationCodeMapWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HospitalEhrMedicationCodeMapScalarFieldEnum | Prisma.HospitalEhrMedicationCodeMapScalarFieldEnum[]
 }
 
 /**

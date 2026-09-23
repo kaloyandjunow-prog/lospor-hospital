@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Mobile
 
+## [9.10.6] - 2026-09-23
+
+### Security
+
+- **Pinned patched Metro and image-size dependency lines.** Mobile now resolves
+  Metro, Metro Config and Metro Transform Worker to 0.84.5 and removes the
+  vulnerable image-size resolution from the installed dependency tree. The
+  remaining moderate decode-uri-component advisory requires a breaking Expo
+  Router upgrade and is deferred separately.
+
+### Changed
+
+- **Shared EHR import contract aligned with Core 9.10.3.** Mobile/PWA consumes
+  the coordinated API/Core release used by Hospital 1.4.6 for reviewable vital
+  and medication proposals. The client version remains aligned at 9.10.6.
+
 ## [9.10.3] - 2026-09-20
 
 ### Changed

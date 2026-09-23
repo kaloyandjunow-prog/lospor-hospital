@@ -211,11 +211,67 @@ export type ControlPlaneView = {
     }[]
     tests: { name: string; unit: string; category: string }[]
   }
+  ehrVitalCodes: {
+    unmapped: {
+      system: string
+      code: string
+      field: string
+      reportedLabel: string | null
+      seenCount: number
+      lastSeenAt: string | null
+      mappedAt: string | null
+    }[]
+    mapped: {
+      system: string
+      code: string
+      field: string
+      reportedLabel: string | null
+      seenCount: number
+      lastSeenAt: string | null
+      mappedAt: string | null
+    }[]
+    fields: string[]
+  }
   /**
    * What this hospital's coding-system addresses mean. NHIS publishes no
    * address for its lists, so an address that does not name its list is asked
    * about here once it has arrived, or typed in from a vendor's documentation.
    */
+  /**
+   * HIS medication codes seen at this hospital and the local Drug interpretation
+   * an operator has chosen. This field is optional for one release so an older
+   * API can still be read during a rolling upgrade.
+   */
+  ehrMedicationCodes?: {
+    unmapped: {
+      system: string
+      code: string
+      reportedLabel: string | null
+      seenCount: number
+      lastSeenAt: string | null
+      mappedAt: string | null
+    }[]
+    mapped: {
+      system: string
+      code: string
+      reportedLabel: string | null
+      drugId: string
+      drugName: string
+      inn: string | null
+      atcCode: string | null
+      seenCount: number
+      lastSeenAt: string | null
+      mappedAt: string | null
+    }[]
+    drugs: {
+      id: string
+      name: string
+      inn: string | null
+      atcCode: string | null
+      form: string | null
+      strength: string | null
+    }[]
+  }
   ehrCodeSystems: {
     waiting: EhrCodeSystemRow[]
     answered: EhrCodeSystemRow[]
@@ -387,6 +443,10 @@ export interface ControlPlanePort {
     assumedUnit: string | null
   }): Promise<void>
   unmapEhrLabCode(input: { system: string; code: string }): Promise<void>
+  mapEhrVitalCode(input: { system: string; code: string; field: string }): Promise<void>
+  unmapEhrVitalCode(input: { system: string; code: string }): Promise<void>
+  mapEhrMedicationCode(input: { system: string; code: string; drugId: string }): Promise<void>
+  unmapEhrMedicationCode(input: { system: string; code: string }): Promise<void>
   /**
    * Say which code list an address stands for, or take the answer back with
    * null. No password, for the lab map's reason; audited.
@@ -502,7 +562,8 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !isRecord(value.pediatricMode)
     || !isRecord(value.research) || !isRecord(value.central)
     || !isRecord(value.guidance) || !isRecord(value.externalAi)
-    || !isRecord(value.patientIdentifier) || !isRecord(value.ehrTransport)) return null
+    || !isRecord(value.patientIdentifier) || !isRecord(value.ehrTransport)
+    || !isRecord(value.ehrVitalCodes)) return null
   if (typeof value.pediatricMode.enabled !== "boolean"
     || typeof value.pediatricMode.productionReady !== "boolean"
     || typeof value.pediatricMode.releaseReviewed !== "boolean"
@@ -641,6 +702,8 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !(value.ehrTransport.stagingRetentionChangedAt === undefined || nullableIso(value.ehrTransport.stagingRetentionChangedAt))
     || !nullableIso(value.ehrTransport.updatedAt)) return null
   if (!ehrLabCodesShape(value.ehrLabCodes)) return null
+  if (!ehrVitalCodesShape(value.ehrVitalCodes)) return null
+  if (value.ehrMedicationCodes !== undefined && !ehrMedicationCodesShape(value.ehrMedicationCodes)) return null
   if (!ehrCodeSystemsShape(value.ehrCodeSystems)) return null
   return value as unknown as ControlPlaneView
 }
@@ -692,6 +755,49 @@ function ehrLabCodesShape(value: unknown): boolean {
       && Boolean(text(row.category, 200)))
 }
 
+function ehrVitalCodesShape(value: unknown): boolean {
+  if (!isRecord(value) || !Array.isArray(value.unmapped) || !Array.isArray(value.mapped)
+    || !Array.isArray(value.fields) || !value.fields.every(field => text(field, 64))) return false
+  const fields = value.fields as unknown[]
+  const rowShape = (row: unknown, mapped: boolean): boolean => {
+    if (!isRecord(row)) return false
+    if (typeof row.system !== "string" || !text(row.code, 512)) return false
+    if (!(row.reportedLabel === null || text(row.reportedLabel, 512))) return false
+    if (!text(row.field, 64) || !finiteInteger(row.seenCount, 1_000_000_000)) return false
+    if (!nullableIso(row.lastSeenAt) || !nullableIso(row.mappedAt)) return false
+    return mapped
+      ? fields.includes(row.field as string) && row.mappedAt !== null
+      : row.field === ""
+  }
+  return value.unmapped.every(row => rowShape(row, false))
+    && value.mapped.every(row => rowShape(row, true))
+}
+
+function ehrMedicationCodesShape(value: unknown): boolean {
+  if (!isRecord(value) || !Array.isArray(value.unmapped) || !Array.isArray(value.mapped)
+    || !Array.isArray(value.drugs)) return false
+  const base = (row: unknown): boolean => isRecord(row)
+    && typeof row.system === "string"
+    && Boolean(text(row.code, 512))
+    && (row.reportedLabel === null || Boolean(text(row.reportedLabel, 512)))
+    && finiteInteger(row.seenCount, 1_000_000_000)
+    && nullableIso(row.lastSeenAt)
+    && nullableIso(row.mappedAt)
+  const unmapped = value.unmapped.every(row => base(row))
+  const mapped = value.mapped.every(row => base(row)
+    && Boolean(text(row.drugId, 128))
+    && Boolean(text(row.drugName, 512))
+    && nullableText(row.inn, 512)
+    && nullableText(row.atcCode, 64))
+  const drugs = value.drugs.every(row => isRecord(row)
+    && Boolean(text(row.id, 128))
+    && Boolean(text(row.name, 512))
+    && nullableText(row.inn, 512)
+    && nullableText(row.atcCode, 64)
+    && nullableText(row.form, 256)
+    && nullableText(row.strength, 256))
+  return unmapped && mapped && drugs
+}
 type Fetch = typeof globalThis.fetch
 
 export class ControlPlaneClient implements ControlPlanePort {
@@ -836,6 +942,18 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   unmapEhrLabCode(input: Parameters<ControlPlanePort["unmapEhrLabCode"]>[0]): Promise<void> {
     return this.mutate("/ehr-lab-codes", { action: "unmap", ...input })
+  }
+  mapEhrVitalCode(input: Parameters<ControlPlanePort["mapEhrVitalCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-vital-codes", { action: "map", ...input })
+  }
+  unmapEhrVitalCode(input: Parameters<ControlPlanePort["unmapEhrVitalCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-vital-codes", { action: "unmap", ...input })
+  }
+  mapEhrMedicationCode(input: Parameters<ControlPlanePort["mapEhrMedicationCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-medication-codes", { action: "map", ...input })
+  }
+  unmapEhrMedicationCode(input: Parameters<ControlPlanePort["unmapEhrMedicationCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-medication-codes", { action: "unmap", ...input })
   }
   answerEhrCodeSystem(input: Parameters<ControlPlanePort["answerEhrCodeSystem"]>[0]): Promise<void> {
     return this.mutate("/ehr-code-systems", input)

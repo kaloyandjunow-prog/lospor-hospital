@@ -129,12 +129,14 @@ export const ModelName = {
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
   HospitalEhrTransportPolicy: 'HospitalEhrTransportPolicy',
   HospitalEhrLabCodeMap: 'HospitalEhrLabCodeMap',
+  HospitalEhrVitalCodeMap: 'HospitalEhrVitalCodeMap',
   HospitalEhrCodeSystem: 'HospitalEhrCodeSystem',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
   CentralExportRejection: 'CentralExportRejection',
-  ResearchOmopApproval: 'ResearchOmopApproval'
+  ResearchOmopApproval: 'ResearchOmopApproval',
+  HospitalEhrMedicationCodeMap: 'HospitalEhrMedicationCodeMap'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1691,6 +1693,23 @@ export const HospitalEhrLabCodeMapScalarFieldEnum = {
 export type HospitalEhrLabCodeMapScalarFieldEnum = (typeof HospitalEhrLabCodeMapScalarFieldEnum)[keyof typeof HospitalEhrLabCodeMapScalarFieldEnum]
 
 
+export const HospitalEhrVitalCodeMapScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  code: 'code',
+  reportedLabel: 'reportedLabel',
+  field: 'field',
+  mappedAt: 'mappedAt',
+  mappedById: 'mappedById',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrVitalCodeMapScalarFieldEnum = (typeof HospitalEhrVitalCodeMapScalarFieldEnum)[keyof typeof HospitalEhrVitalCodeMapScalarFieldEnum]
+
+
 export const HospitalEhrCodeSystemScalarFieldEnum = {
   id: 'id',
   system: 'system',
@@ -1818,6 +1837,23 @@ export const ResearchOmopApprovalScalarFieldEnum = {
 } as const
 
 export type ResearchOmopApprovalScalarFieldEnum = (typeof ResearchOmopApprovalScalarFieldEnum)[keyof typeof ResearchOmopApprovalScalarFieldEnum]
+
+
+export const HospitalEhrMedicationCodeMapScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  code: 'code',
+  reportedLabel: 'reportedLabel',
+  drugId: 'drugId',
+  mappedAt: 'mappedAt',
+  mappedById: 'mappedById',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrMedicationCodeMapScalarFieldEnum = (typeof HospitalEhrMedicationCodeMapScalarFieldEnum)[keyof typeof HospitalEhrMedicationCodeMapScalarFieldEnum]
 
 
 export const SortOrder = {

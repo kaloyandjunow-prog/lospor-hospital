@@ -6,6 +6,10 @@ vi.mock("./ehr-lab-code-map", () => ({
   assumedUnits: async () => ({}),
   recordUnmappedCodes: async () => undefined,
 }))
+vi.mock("./ehr-vital-code-map", () => ({
+  siteVitalCodeMap: async () => ({}),
+  recordUnmappedVitalCodes: async () => undefined,
+}))
 
 process.env.HOSPITAL_PATIENT_HMAC_KEY ??= Buffer.alloc(32, 1).toString("base64")
 

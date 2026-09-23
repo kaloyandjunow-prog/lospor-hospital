@@ -26,6 +26,9 @@ vi.mock("@/lib/prisma", () => ({
     // A site with nothing mapped yet, which is what every site is on its first
     // day. The view has to hold up with all three lists empty.
     hospitalEhrLabCodeMap: { findMany: async () => [] },
+    hospitalEhrVitalCodeMap: { findMany: async () => [] },
+    hospitalEhrMedicationCodeMap: { findMany: async () => [] },
+    drug: { findMany: async () => [] },
     hospitalEhrCodeSystem: { findMany: async () => [] },
   },
 }))

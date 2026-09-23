@@ -26,8 +26,8 @@ export type PreopRawInput = Partial<Prisma.PreoperativeAssessmentUncheckedCreate
   familyProblemNotes?: string | null
   diagnoses?: { label?: string; sub?: string; code?: string }[]
   procedures?: { label?: string; sub?: string; code?: string; group?: string; domain?: string; description?: string }[]
-  allergyDetails?: string | { label?: string; inn?: string; atcCode?: string; dose?: string; route?: string; frequency?: string; source?: string }[] | null
-  currentMedications?: string | { label?: string; inn?: string; atcCode?: string; dose?: string; route?: string; frequency?: string; source?: string }[] | null
+  allergyDetails?: string | { label?: string; code?: string; system?: string; sourceLabel?: string; sourceVocabulary?: string; sourceCode?: string; drugId?: string; inn?: string; atcCode?: string; dose?: string; route?: string; frequency?: string; source?: string }[] | null
+  currentMedications?: string | { label?: string; code?: string; system?: string; sourceLabel?: string; sourceVocabulary?: string; sourceCode?: string; drugId?: string; inn?: string; atcCode?: string; dose?: string; route?: string; frequency?: string; source?: string }[] | null
   clinicalMode?: ClinicalMode
 }
 
@@ -39,6 +39,12 @@ export function taggedListToStorage(value: TaggedDrugList): string | null {
     .filter(item => item && (item.label || item.inn || item.atcCode))
     .map(item => ({
       label: item.label ?? item.inn ?? item.atcCode ?? "",
+      code: item.code ?? undefined,
+      system: item.system ?? undefined,
+      sourceLabel: item.sourceLabel ?? undefined,
+      sourceVocabulary: item.sourceVocabulary ?? undefined,
+      sourceCode: item.sourceCode ?? item.code ?? undefined,
+      drugId: item.drugId ?? undefined,
       inn: item.inn ?? undefined,
       atcCode: item.atcCode ?? undefined,
       dose: item.dose ?? undefined,

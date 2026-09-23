@@ -188,6 +188,63 @@ describe("the release page", () => {
     expect(body).toContain("will not retry an ambiguous database or service mutation automatically")
     expect(body).not.toContain("Apply 1.3.0")
   })
+
+  it("offers the newest release instead of applying an older staged release", async () => {
+    const { app, auth, stateDir } = setup({
+      schemaVersion: 1,
+      signalType: "appliance-update",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      state: "update-available",
+      installedVersion: "1.3.2",
+      latestVersion: "1.3.3",
+      fetchedVersion: "1.3.2",
+      fetchedLockSha256: LOCK,
+    })
+    writeFileSync(join(stateDir, "update-agent.v2.json"), JSON.stringify({
+      schemaVersion: 2,
+      signalType: "update-agent",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      phase: "prepared",
+      resultCode: "UPDATE_PREPARED",
+      targetVersion: "1.3.2",
+      preparedVersion: "1.3.2",
+      preparedLockSha256: LOCK,
+      rollbackPolicy: "backup-required",
+    }))
+    const cookie = await signIn(app, auth)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("Download and verify 1.3.3")
+    expect(body).not.toContain("Apply 1.3.2")
+  })
+
+  it("does not offer Apply for the release that is already installed", async () => {
+    const { app, auth, stateDir } = setup({
+      schemaVersion: 1,
+      signalType: "appliance-update",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      state: "current",
+      installedVersion: "1.3.2",
+      latestVersion: "1.3.2",
+      fetchedVersion: "1.3.2",
+      fetchedLockSha256: LOCK,
+    })
+    writeFileSync(join(stateDir, "update-agent.v2.json"), JSON.stringify({
+      schemaVersion: 2,
+      signalType: "update-agent",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      phase: "prepared",
+      resultCode: "UPDATE_PREPARED",
+      targetVersion: "1.3.2",
+      preparedVersion: "1.3.2",
+      preparedLockSha256: LOCK,
+      rollbackPolicy: "backup-required",
+    }))
+    const cookie = await signIn(app, auth)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(body).not.toContain("Apply 1.3.2")
+    expect(body).toContain("This appliance is running the newest release it knows about")
+  })
+
 })
 
 describe("asking for an update", () => {
@@ -275,6 +332,35 @@ describe("asking for an update", () => {
     const cookie = await signIn(app, auth)
     const response = await post(app, "/status/actions/apply", cookie, { targetLockSha256: "c".repeat(64) })
     expect(await response.text()).toContain("no longer the one ready to apply")
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
+
+  it("refuses to apply a release that is already installed", async () => {
+    const { app, auth, requestsDir, stateDir } = setup({
+      schemaVersion: 1,
+      signalType: "appliance-update",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      state: "current",
+      installedVersion: "1.3.2",
+      latestVersion: "1.3.2",
+      fetchedVersion: "1.3.2",
+      fetchedLockSha256: LOCK,
+    })
+    writeFileSync(join(stateDir, "update-agent.v2.json"), JSON.stringify({
+      schemaVersion: 2,
+      signalType: "update-agent",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      phase: "prepared",
+      resultCode: "UPDATE_PREPARED",
+      targetVersion: "1.3.2",
+      preparedVersion: "1.3.2",
+      preparedLockSha256: LOCK,
+      rollbackPolicy: "backup-required",
+    }))
+    const cookie = await signIn(app, auth)
+    const response = await post(app, "/status/actions/apply", cookie, { targetLockSha256: LOCK })
+    expect(await response.text()).not.toContain("This restarts the clinical services")
     expect(readdirSync(requestsDir)).toEqual([])
   })
 

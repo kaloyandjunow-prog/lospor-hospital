@@ -4,6 +4,7 @@ import { EHR_ITEM_SOURCE, type EhrTagValue } from "@lospor/core/ehr-import"
 
 import { isCodeList, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers, type SeenCodeSystem } from "./ehr-code-systems"
 import { procedureFromCodings } from "./ehr-procedures"
+import { medicationCodeKey, type FhirMedicationMapping } from "./ehr-medication-code-map"
 import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
 
 /**
@@ -15,10 +16,9 @@ import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
  * is exactly the tag shape the review screen already renders and the case
  * already stores.
  *
- * The codes are never translated here. A hospital's ICD-10 is kept verbatim as
- * `code`/`system`, and mapping it onto ours is a separate, per-site decision
- * that does not exist yet — the same shape the folder drop has always had.
- * Passing an unmapped code through as a labelled tag is honest; guessing at one
+ * The codes are never guessed here. A hospital's code and system remain verbatim,
+ * while an optional per-site mapping can add a LOSPOR interpretation to a new
+ * proposal. Passing an unmapped code through as a labelled tag is honest; guessing at one
  * would put a diagnosis the hospital never made into a patient's record.
  */
 
@@ -66,6 +66,11 @@ function tag(
     // The hospital's own wording under a proposed LOSPOR term; kept by core's
     // normalizer from the release that carries EhrTagValue.sourceLabel.
     ...(parts.sourceLabel ? { sourceLabel: parts.sourceLabel } : {}),
+    ...(parts.drugId ? { drugId: parts.drugId } : {}),
+    ...(parts.sourceVocabulary ? { sourceVocabulary: parts.sourceVocabulary } : {}),
+    ...(parts.sourceCode ? { sourceCode: parts.sourceCode } : {}),
+    ...(parts.inn ? { inn: parts.inn } : {}),
+    ...(parts.atcCode ? { atcCode: parts.atcCode } : {}),
     source: EHR_ITEM_SOURCE,
   }
   return value
@@ -245,6 +250,8 @@ export function mapFhirMedications(
   included: Record<string, unknown>[] = [],
   /** Addresses this hospital said are NHIS route lists. */
   answers: CodeSystemAnswers = NO_CODE_SYSTEM_ANSWERS,
+  /** Site-approved source-code mappings. A missing entry remains importable. */
+  siteMap: Record<string, FhirMedicationMapping> = {},
 ): EhrTagValue[] {
   const byKey = new Map<string, EhrTagValue>()
   const byReference = medicationsById(included)
@@ -264,8 +271,19 @@ export function mapFhirMedications(
       { text?: unknown; route?: CodeableConcept }[] | undefined
     const first = Array.isArray(dosage) ? dosage[0] : undefined
 
+    const mappedDrug = concept.code
+      ? siteMap[medicationCodeKey(concept.system, concept.code)]
+      : undefined
     const mapped = tag({
-      ...concept,
+      label: mappedDrug?.name ?? concept.label,
+      code: concept.code,
+      system: concept.system,
+      sourceLabel: mappedDrug && mappedDrug.name !== concept.label ? concept.label : undefined,
+      sourceVocabulary: concept.system,
+      sourceCode: concept.code,
+      drugId: mappedDrug?.drugId,
+      inn: mappedDrug?.inn ?? undefined,
+      atcCode: mappedDrug?.atcCode ?? undefined,
       dose: str(first?.text),
       route: nhisRoute(first?.route, answers) ?? readConcept(first?.route).label,
     })
@@ -276,6 +294,29 @@ export function mapFhirMedications(
   }
 
   return [...byKey.values()]
+}
+
+/** Source-coded medication identities that still need a Status answer. */
+export function fhirMedicationCodesSeen(
+  resources: Record<string, unknown>[],
+  included: Record<string, unknown>[] = [],
+  siteMap: Record<string, FhirMedicationMapping> = {},
+): { system: string; code: string; display: string; count: number }[] {
+  const byReference = medicationsById(included)
+  const seen = new Map<string, { system: string; code: string; display: string; count: number }>()
+  for (const resource of resources) {
+    if (resource.resourceType !== "MedicationStatement" && resource.resourceType !== "MedicationRequest") continue
+    const status = String(resource.status ?? "").toLowerCase()
+    if (["stopped", "cancelled", "entered-in-error", "draft", "intended", "not-taken"].includes(status)) continue
+    const concept = readMedicationConcept(resource, byReference)
+    if (!concept.code || siteMap[medicationCodeKey(concept.system, concept.code)]) continue
+    const system = concept.system ?? ""
+    const key = medicationCodeKey(system, concept.code)
+    const current = seen.get(key)
+    if (current) current.count += 1
+    else seen.set(key, { system, code: concept.code, display: concept.label ?? concept.code, count: 1 })
+  }
+  return [...seen.values()].sort((left, right) => right.count - left.count)
 }
 
 /**

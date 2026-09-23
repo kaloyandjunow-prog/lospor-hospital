@@ -518,6 +518,15 @@ export type HospitalEhrTransportPolicy = Prisma.HospitalEhrTransportPolicyModel
  */
 export type HospitalEhrLabCodeMap = Prisma.HospitalEhrLabCodeMapModel
 /**
+ * Model HospitalEhrVitalCodeMap
+ * What a hospital's local vital-sign codes mean.
+ * 
+ * This is separate from the laboratory map because the destination is a
+ * scalar PREOP field, not a laboratory test. Unknown local vital codes remain
+ * visible in Status until an operator assigns one of the six safe destinations.
+ */
+export type HospitalEhrVitalCodeMap = Prisma.HospitalEhrVitalCodeMapModel
+/**
  * Model HospitalEhrCodeSystem
  * What a hospital's coding-system addresses mean.
  * 
@@ -553,3 +562,12 @@ export type CentralExportRejection = Prisma.CentralExportRejectionModel
  * 
  */
 export type ResearchOmopApproval = Prisma.ResearchOmopApprovalModel
+/**
+ * Model HospitalEhrMedicationCodeMap
+ * What a hospital's local medication codes mean.
+ * 
+ * The source code and label remain the hospital's. The selected Drug is a
+ * non-destructive interpretation used for the import proposal and future
+ * accepted rows; nothing here rewrites an existing case or frozen export.
+ */
+export type HospitalEhrMedicationCodeMap = Prisma.HospitalEhrMedicationCodeMapModel

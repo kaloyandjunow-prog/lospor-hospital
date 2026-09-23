@@ -475,12 +475,14 @@ export const ModelName = {
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
   HospitalEhrTransportPolicy: 'HospitalEhrTransportPolicy',
   HospitalEhrLabCodeMap: 'HospitalEhrLabCodeMap',
+  HospitalEhrVitalCodeMap: 'HospitalEhrVitalCodeMap',
   HospitalEhrCodeSystem: 'HospitalEhrCodeSystem',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
   CentralExportRejection: 'CentralExportRejection',
-  ResearchOmopApproval: 'ResearchOmopApproval'
+  ResearchOmopApproval: 'ResearchOmopApproval',
+  HospitalEhrMedicationCodeMap: 'HospitalEhrMedicationCodeMap'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -496,7 +498,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "administrativeReason" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "ehrDelivery" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "hospitalPatientIdentifierPolicy" | "hospitalEhrTransportPolicy" | "hospitalEhrLabCodeMap" | "hospitalEhrCodeSystem" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval"
+    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "administrativeReason" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "ehrDelivery" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "hospitalPatientIdentifierPolicy" | "hospitalEhrTransportPolicy" | "hospitalEhrLabCodeMap" | "hospitalEhrVitalCodeMap" | "hospitalEhrCodeSystem" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval" | "hospitalEhrMedicationCodeMap"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -6272,6 +6274,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    HospitalEhrVitalCodeMap: {
+      payload: Prisma.$HospitalEhrVitalCodeMapPayload<ExtArgs>
+      fields: Prisma.HospitalEhrVitalCodeMapFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalEhrVitalCodeMapFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalEhrVitalCodeMapFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalEhrVitalCodeMapFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalEhrVitalCodeMapFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalEhrVitalCodeMapFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalEhrVitalCodeMapCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalEhrVitalCodeMapCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalEhrVitalCodeMapCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalEhrVitalCodeMapDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>
+        }
+        update: {
+          args: Prisma.HospitalEhrVitalCodeMapUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalEhrVitalCodeMapDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalEhrVitalCodeMapUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalEhrVitalCodeMapUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalEhrVitalCodeMapUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrVitalCodeMapPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalEhrVitalCodeMapAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalEhrVitalCodeMap>
+        }
+        groupBy: {
+          args: Prisma.HospitalEhrVitalCodeMapGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalEhrVitalCodeMapGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalEhrVitalCodeMapCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalEhrVitalCodeMapCountAggregateOutputType> | number
+        }
+      }
+    }
     HospitalEhrCodeSystem: {
       payload: Prisma.$HospitalEhrCodeSystemPayload<ExtArgs>
       fields: Prisma.HospitalEhrCodeSystemFieldRefs
@@ -6713,6 +6789,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ResearchOmopApprovalCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ResearchOmopApprovalCountAggregateOutputType> | number
+        }
+      }
+    }
+    HospitalEhrMedicationCodeMap: {
+      payload: Prisma.$HospitalEhrMedicationCodeMapPayload<ExtArgs>
+      fields: Prisma.HospitalEhrMedicationCodeMapFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalEhrMedicationCodeMapFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalEhrMedicationCodeMapFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalEhrMedicationCodeMapFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalEhrMedicationCodeMapFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalEhrMedicationCodeMapFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalEhrMedicationCodeMapCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalEhrMedicationCodeMapCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalEhrMedicationCodeMapCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalEhrMedicationCodeMapDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>
+        }
+        update: {
+          args: Prisma.HospitalEhrMedicationCodeMapUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalEhrMedicationCodeMapDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalEhrMedicationCodeMapUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalEhrMedicationCodeMapUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalEhrMedicationCodeMapUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalEhrMedicationCodeMapPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalEhrMedicationCodeMapAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalEhrMedicationCodeMap>
+        }
+        groupBy: {
+          args: Prisma.HospitalEhrMedicationCodeMapGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalEhrMedicationCodeMapGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalEhrMedicationCodeMapCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalEhrMedicationCodeMapCountAggregateOutputType> | number
         }
       }
     }
@@ -8293,6 +8443,23 @@ export const HospitalEhrLabCodeMapScalarFieldEnum = {
 export type HospitalEhrLabCodeMapScalarFieldEnum = (typeof HospitalEhrLabCodeMapScalarFieldEnum)[keyof typeof HospitalEhrLabCodeMapScalarFieldEnum]
 
 
+export const HospitalEhrVitalCodeMapScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  code: 'code',
+  reportedLabel: 'reportedLabel',
+  field: 'field',
+  mappedAt: 'mappedAt',
+  mappedById: 'mappedById',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrVitalCodeMapScalarFieldEnum = (typeof HospitalEhrVitalCodeMapScalarFieldEnum)[keyof typeof HospitalEhrVitalCodeMapScalarFieldEnum]
+
+
 export const HospitalEhrCodeSystemScalarFieldEnum = {
   id: 'id',
   system: 'system',
@@ -8420,6 +8587,23 @@ export const ResearchOmopApprovalScalarFieldEnum = {
 } as const
 
 export type ResearchOmopApprovalScalarFieldEnum = (typeof ResearchOmopApprovalScalarFieldEnum)[keyof typeof ResearchOmopApprovalScalarFieldEnum]
+
+
+export const HospitalEhrMedicationCodeMapScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  code: 'code',
+  reportedLabel: 'reportedLabel',
+  drugId: 'drugId',
+  mappedAt: 'mappedAt',
+  mappedById: 'mappedById',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrMedicationCodeMapScalarFieldEnum = (typeof HospitalEhrMedicationCodeMapScalarFieldEnum)[keyof typeof HospitalEhrMedicationCodeMapScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -9411,12 +9595,14 @@ export type GlobalOmitConfig = {
   hospitalPatientIdentifierPolicy?: Prisma.HospitalPatientIdentifierPolicyOmit
   hospitalEhrTransportPolicy?: Prisma.HospitalEhrTransportPolicyOmit
   hospitalEhrLabCodeMap?: Prisma.HospitalEhrLabCodeMapOmit
+  hospitalEhrVitalCodeMap?: Prisma.HospitalEhrVitalCodeMapOmit
   hospitalEhrCodeSystem?: Prisma.HospitalEhrCodeSystemOmit
   centralDeliveryBatch?: Prisma.CentralDeliveryBatchOmit
   centralDeliveryCase?: Prisma.CentralDeliveryCaseOmit
   centralExportCheckpoint?: Prisma.CentralExportCheckpointOmit
   centralExportRejection?: Prisma.CentralExportRejectionOmit
   researchOmopApproval?: Prisma.ResearchOmopApprovalOmit
+  hospitalEhrMedicationCodeMap?: Prisma.HospitalEhrMedicationCodeMapOmit
 }
 
 /* Types for Logging */

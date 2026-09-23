@@ -8,6 +8,7 @@ import {
   mapFhirConditions,
   splitFhirConditions,
   mapFhirMedications,
+  fhirMedicationCodesSeen,
   mapFhirPlannedProcedures,
   mapFhirSex,
 } from "./ehr-fhir-clinical"
@@ -184,6 +185,50 @@ describe("medications", () => {
       dosage: [{ text: "1 g twice daily", route: { text: "Oral" } }],
     }])
     expect(tag).toMatchObject({ dose: "1 g twice daily", route: "Oral" })
+  })
+  it("uses a site medication map while preserving the HIS identity", () => {
+    const resources = [{
+      resourceType: "MedicationStatement",
+      status: "active",
+      medicationCodeableConcept: concept("HSUSOA", "HIS aspirin", "urn:bg:his:medications"),
+    }]
+    const tags = mapFhirMedications(resources, [], undefined, {
+      "urn:bg:his:medications|HSUSOA": {
+        drugId: "drug-aspirin",
+        name: "Aspirin 100 mg",
+        inn: "acetylsalicylic acid",
+        atcCode: "B01AC06",
+      },
+    })
+    expect(tags[0]).toMatchObject({
+      label: "Aspirin 100 mg",
+      sourceLabel: "HIS aspirin",
+      code: "HSUSOA",
+      system: "urn:bg:his:medications",
+      sourceVocabulary: "urn:bg:his:medications",
+      sourceCode: "HSUSOA",
+      drugId: "drug-aspirin",
+      inn: "acetylsalicylic acid",
+      atcCode: "B01AC06",
+    })
+  })
+
+  it("reports only active source-coded medications that still need mapping", () => {
+    const resources = [
+      { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: concept("HSUSOA", "HIS aspirin", "urn:bg:his:medications") },
+      { resourceType: "MedicationRequest", status: "active", medicationCodeableConcept: concept("HSUNKNOWN", "HIS unknown", "urn:bg:his:medications") },
+      { resourceType: "MedicationRequest", status: "stopped", medicationCodeableConcept: concept("HISSTOP", "Stopped", "urn:bg:his:medications") },
+    ]
+    expect(fhirMedicationCodesSeen(resources, [], {
+      "urn:bg:his:medications|HSUSOA": {
+        drugId: "drug-aspirin", name: "Aspirin", inn: "acetylsalicylic acid", atcCode: "B01AC06",
+      },
+    })).toEqual([{
+      system: "urn:bg:his:medications",
+      code: "HSUNKNOWN",
+      display: "HIS unknown",
+      count: 1,
+    }])
   })
 })
 
