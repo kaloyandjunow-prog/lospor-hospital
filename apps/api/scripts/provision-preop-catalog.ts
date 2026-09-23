@@ -9,9 +9,16 @@ if (!connectionString) throw new Error("DATABASE_URL or DIRECT_URL is required")
 const adapter = new PrismaPg({ connectionString })
 const prisma = new PrismaClient({ adapter } satisfies Prisma.PrismaClientOptions)
 
-try {
-  await ensureInitialPreopProfile(prisma, "seed")
-  console.log("Bundled preoperative catalog/profile: provisioned")
-} finally {
-  await prisma.$disconnect()
+async function main() {
+  try {
+    await ensureInitialPreopProfile(prisma, "seed")
+    console.log("Bundled preoperative catalog/profile: provisioned")
+  } finally {
+    await prisma.$disconnect()
+  }
 }
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})
