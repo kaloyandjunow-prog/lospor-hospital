@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import * as Haptics from "expo-haptics"
 import { notify } from "@/lib/notify"
-import type { IntraopTab } from "@/lib/intraop-tabs"
 import type { PremDrug } from "@/lib/intraop-types"
 import { addOrReplacePremedicationEntry, buildPremedicationPatch, formatPremedicationEntry } from "@/lib/intraop-premedication"
 import { usePreferences } from "@/lib/preferences-context"
 
 type PatchIntraopSection = (payload: Record<string, unknown>) => Promise<unknown>
 
+// Every premedication control (add, remove, N/A) saves as it is tapped. There
+// is no save on leaving the tab: it re-sent both lists unchanged every time.
 export function useIntraopPremedication(
-  tab: IntraopTab,
   patchIntraopSection: PatchIntraopSection,
   errorLabel: string,
 ) {
@@ -17,8 +17,6 @@ export function useIntraopPremedication(
   const [premedEveningText, setPremedEveningText] = useState("")
   const [premedMorningText, setPremedMorningText] = useState("")
   const [premedSaving, setPremedSaving] = useState(false)
-  const prevTabRef = useRef<IntraopTab>("equipment")
-  const savePremedicationRef = useRef<(overrides?: { evening?: string | null; morning?: string | null }) => Promise<void>>(async () => {})
 
   const [premedPickOpen, setPremedPickOpen] = useState(false)
   const [premedPickPhase, setPremedPickPhase] = useState<"evening" | "morning">("evening")
@@ -39,14 +37,6 @@ export function useIntraopPremedication(
     }
   }
 
-  savePremedicationRef.current = savePremedication
-
-  useEffect(() => {
-    if (prevTabRef.current === "premedication" && tab !== "premedication") {
-      void savePremedicationRef.current()
-    }
-    prevTabRef.current = tab
-  }, [tab])
 
   function openPremedPicker(phase: "evening" | "morning") {
     setPremedPickPhase(phase)

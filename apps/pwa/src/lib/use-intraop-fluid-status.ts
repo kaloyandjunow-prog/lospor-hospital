@@ -13,13 +13,18 @@ type FluidStatusFields = {
 
 const EMPTY: FluidStatusFields = { urineMl: null, bloodLossMl: null }
 
+/** Pause after the last change before the figures are sent. */
+export const FLUID_SAVE_PAUSE_MS = 800
+
 /**
  * The two fluid-status figures a clinician types. Everything else on the tab
  * — infusion, bolus and fluid totals — is a projection of the timetable and is
  * never written from here.
  *
- * They save when the tab is left, the same way premedication does, so numbers
- * entered mid-case survive a swipe back to the timetable.
+ * They save shortly after each change (and at once when the tab or the screen
+ * is left). Saving only on leaving the tab lost a figure whenever the screen
+ * was left another way, e.g. End case or the app going to the background.
+ * Nothing is sent when the figures equal what the server holds.
  *
  * The numeric fields send `null` when cleared, never `undefined`: an undefined
  * key is dropped from the patch as "not mentioned", so the previous figure
@@ -80,13 +85,30 @@ export function useIntraopFluidStatus(
   }
 
   saveRef.current = saveFluidStatus
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const flushNow = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = null
+    void saveRef.current()
+  }, [])
 
   useEffect(() => {
-    if (prevTabRef.current === "fluids" && tab !== "fluids") {
-      void saveRef.current()
-    }
+    const saved = lastSavedRef.current
+    const baseline = saved ?? EMPTY
+    if (baseline.urineMl === fields.urineMl && baseline.bloodLossMl === fields.bloodLossMl) return
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(flushNow, FLUID_SAVE_PAUSE_MS)
+  }, [fields, flushNow])
+
+  useEffect(() => {
+    if (prevTabRef.current === "fluids" && tab !== "fluids") flushNow()
     prevTabRef.current = tab
-  }, [tab])
+  }, [tab, flushNow])
+
+  useEffect(() => () => {
+    if (saveTimerRef.current) flushNow()
+  }, [flushNow])
 
   return {
     urineMl: fields.urineMl,

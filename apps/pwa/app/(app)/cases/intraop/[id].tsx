@@ -329,7 +329,7 @@ export default function IntraopLiveScreen() {
     premedPickRoute,
     setPremedPickRoute,
     addSelectedPremedication,
-  } = useIntraopPremedication(tab, patchIntraopSection, tc("errorLabel"))
+  } = useIntraopPremedication(patchIntraopSection, tc("errorLabel"))
 
   // Fluid status tab — urine output, blood loss and the blood products note.
   const {

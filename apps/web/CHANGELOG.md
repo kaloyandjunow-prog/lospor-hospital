@@ -1,5 +1,22 @@
 # Changelog - LOSPOR Web App
 
+## [9.11.4] - 2026-09-25
+
+### Fixed
+
+- **A queued save could be sent twice and reported as a conflict.** When the
+  save after an edit and the background sync picked up the same queued change,
+  the second copy came back as a conflict and could show the conflict dialog
+  for a change nobody else had made. Fixed in Core 9.11.4, which this release
+  uses. Released with API and Mobile 9.11.4.
+
+### Tests
+
+- **The institution-flow end-to-end test no longer fails now and then.** After
+  an approved department move it signed the clinician in again within the same
+  second, and a session issued in that second counts as older than the move.
+  It now waits for the next second.
+
 ## [9.11.3] - 2026-09-25
 
 ### Changed
