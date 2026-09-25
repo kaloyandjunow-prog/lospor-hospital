@@ -704,6 +704,7 @@
     "preopRequiredMissing": "Answer the required preoperative questions before continuing: {questions}",
     "submitForReviewBlocked": "This case is not complete enough to close yet. Check the preoperative, intraoperative and postoperative records, then submit again.",
     "submitForReviewUnreachable": "The case could not be submitted for review. It is still in progress — try again when you are back online.",
+    "submitForReviewFinalised": "This case has already been finalised.",
     "blockedPreopAnswer": "This answer does not fit the hospital’s preoperative form. Change it to save.",
     "saveRefused": "The server refused this save. Your entries are still on this screen — correct them and try again.",
     "preopRequiredMissing": "Answer the required preoperative questions before continuing: {questions}"

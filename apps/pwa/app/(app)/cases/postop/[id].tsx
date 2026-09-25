@@ -325,12 +325,12 @@ export default function PostopFormScreen() {
     try {
       const result = await persistPostop(data)
       if (result === "saved") {
-        // The postop is stored either way; what a refusal means is that no
-        // closure countdown started. This used to swallow every refusal and
-        // navigate regardless, so an unsubmitted case and a submitted one
-        // looked identical, and nothing said otherwise later.
+        // The postop is stored either way; a refusal means no closure countdown
+        // started, and it used to be swallowed. A case finalised elsewhere is
+        // named, then opened like a submitted one.
         const submitted = await submitCaseForReview(id)
-        if (!submitted.ok) return notify(tc("errorLabel"), tc(submitForReviewMessage(submitted)))
+        if (!submitted.ok) notify(tc("errorLabel"), tc(submitForReviewMessage(submitted)))
+        if (!submitted.ok && submitted.reason !== "finalised") return
         router.replace(`/(app)/cases/${id}`)
       } else if (result === "blocked") {
         notify(tc("draftBlocked"), autosaveManager.getState(id).error ?? tc("autosaveError"))

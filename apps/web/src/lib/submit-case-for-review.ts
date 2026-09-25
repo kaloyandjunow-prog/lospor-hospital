@@ -21,6 +21,8 @@ export type SubmitForReviewResult =
   | { ok: true; awaitingReviewAt: string | null }
   /** The server read the case and refused it: incomplete documentation. */
   | { ok: false; reason: "blocked"; blockers: SubmitForReviewBlocker[] }
+  /** Finalised meanwhile (for example on the phone): nothing left to submit. */
+  | { ok: false; reason: "finalised" }
   /** The request never got an answer, or got one that made no sense. */
   | { ok: false; reason: "unreachable" }
 
@@ -43,6 +45,8 @@ export async function submitCaseForReview(caseId: string): Promise<SubmitForRevi
   if (res.status === 422 && Array.isArray(body?.blockers)) {
     return { ok: false, reason: "blocked", blockers: body.blockers }
   }
+  // Said as what it is, not as the server being unreachable.
+  if (res.status === 409 && body?.code === "CASE_ALREADY_FINALISED") return { ok: false, reason: "finalised" }
   return { ok: false, reason: "unreachable" }
 }
 
@@ -51,6 +55,7 @@ export async function submitCaseForReview(caseId: string): Promise<SubmitForRevi
  * site so the two reasons stay beside the code that distinguishes them.
  */
 export function submitForReviewMessage(result: SubmitForReviewResult & { ok: false }): string {
+  if (result.reason === "finalised") return "case.submitForReviewFinalised"
   return result.reason === "blocked"
     ? "case.submitForReviewBlocked"
     : "case.submitForReviewUnreachable"

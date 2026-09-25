@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const hoisted = vi.hoisted(() => ({ apiFetch: vi.fn() }))
 vi.mock("@/lib/api", () => ({ apiFetch: hoisted.apiFetch }))
 
-import { submitCaseForReview } from "./submit-case-for-review"
+import { submitCaseForReview, submitForReviewMessage } from "./submit-case-for-review"
 
 /** A `Response` only so far as this helper reads one. */
 const reply = (status: number, body: unknown) => ({
@@ -57,6 +57,20 @@ describe("submitCaseForReview", () => {
       ok: false, status: 502, json: async () => { throw new Error("not json") },
     } as unknown as Response)
 
+    expect(await submitCaseForReview("case-1")).toEqual({ ok: false, reason: "unreachable" })
+  })
+
+  // Finalised on the web while the phone was on postop: that is not the
+  // server being unreachable, and saying so sent clinicians to retry.
+  it("names a case finalised elsewhere instead of calling the server unreachable", async () => {
+    hoisted.apiFetch.mockResolvedValue(reply(409, { error: "Case is already finalised", code: "CASE_ALREADY_FINALISED" }))
+    const result = await submitCaseForReview("case-1")
+    expect(result).toEqual({ ok: false, reason: "finalised" })
+    expect(submitForReviewMessage(result as { ok: false; reason: "finalised" })).toBe("submitForReviewFinalised")
+  })
+
+  it("still treats an uncoded 409 as not confirmed", async () => {
+    hoisted.apiFetch.mockResolvedValue(reply(409, { error: "Case must be in progress" }))
     expect(await submitCaseForReview("case-1")).toEqual({ ok: false, reason: "unreachable" })
   })
 })

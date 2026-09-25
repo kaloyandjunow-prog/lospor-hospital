@@ -74,7 +74,8 @@ export function PreopAnamnesisFields({
         <SectionHeader title={tc("apfelSection")} />
         <ChecklistGroup>
           <ChecklistRow label={tc("apfelFemaleSex")} checked={sex === "FEMALE"} muted />
-          <ChecklistRow label={tc("apfelNonSmoker")} checked={!smoking} muted />
+          {/* Answered "No" only, as the Apfel score counts it: an unanswered smoking question is not a non-smoker. */}
+          <ChecklistRow label={tc("apfelNonSmoker")} checked={smoking === false} muted />
           {shownField("apfelPONVHistory") ? <Controller control={control} name="apfelPONVHistory" render={({ field }) => <ChecklistRow label={tc("apfelPONV")} checked={!!field.value} onPress={() => field.onChange(!field.value)} />} /> : null}
           {shownField("apfelPostopOpioids") ? <Controller control={control} name="apfelPostopOpioids" render={({ field }) => <ChecklistRow label={tc("apfelOpioids")} checked={!!field.value} onPress={() => field.onChange(!field.value)} last />} /> : null}
         </ChecklistGroup>

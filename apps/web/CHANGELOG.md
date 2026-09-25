@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Web App
 
+## [9.11.5] - 2026-09-25
+
+### Fixed
+
+- **An accepted suggestion keeps its source.** Accepting a suggestion from the
+  hospital record, then saving anything else on the form, turned it into the
+  clinician's own answer and dropped the link to the record (API 9.11.5).
+- **Submitting a case that was finalised elsewhere says so.** The form showed
+  "could not be submitted, try again when online" for a case already
+  finalised on the phone; it now says the case is finalised and opens it.
+  Released with API and Mobile 9.11.5.
+
 ## [9.11.4] - 2026-09-25
 
 ### Fixed

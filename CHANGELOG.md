@@ -38,10 +38,22 @@
   only, which ends the double export of baseline answers.
 - Answer and suggestion rows of a finalized case are refused by the database,
   and suggestion writes take the case lock.
-- Upstream: Core/API/Web/Mobile 9.11.4, Browser 0.8.0.
+- Upstream: API/Web/Mobile 9.11.5, Core 9.11.4, Browser 0.8.0.
 
 ### Fixed
 
+- Accepting a suggestion from the hospital record, then saving anything else
+  on the form, turned it into the clinician's own answer and dropped the link
+  to the record; for unintentional weight loss that link is what stops OMOP
+  exporting the condition twice. Accepted suggestions now keep their source
+  (API 9.11.5).
+- On the PWA, "Non-smoker (auto)" was ticked for an unanswered smoking
+  question; the Apfel score did not count it. It is now ticked only for an
+  answered No. The background sync no longer replays a local draft over the
+  case whose preoperative form is open, where an older draft could land after
+  a newer save (Mobile 9.11.5).
+- Submitting a case already finalised elsewhere said "could not be submitted,
+  try again when online"; web and PWA now say it is finalised and open it.
 - A background save could put back a value the clinician had already
   changed. The save after an edit and the periodic background sync could send
   the same queued change twice; the late copy was retried on the newer
