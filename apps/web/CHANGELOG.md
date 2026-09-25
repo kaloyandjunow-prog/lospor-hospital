@@ -1,5 +1,27 @@
 # Changelog - LOSPOR Web App
 
+## [9.11.3] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with Mobile 9.11.3.
+  The web preop form only mounts after the case has loaded and was not
+  affected by the reopen autosave issue fixed there.
+
+## [9.11.2] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API 9.11.2.
+
+## [9.11.1] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API 9.11.1,
+  which fixes preoperative saves failing after the catalogue upgrade on a
+  hosted database.
+
 ## [9.11.0] - 2026-09-24
 
 ### Added

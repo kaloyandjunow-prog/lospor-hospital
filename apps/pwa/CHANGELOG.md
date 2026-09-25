@@ -1,5 +1,31 @@
 # Changelog - LOSPOR Mobile
 
+## [9.11.3] - 2026-09-25
+
+### Fixed
+
+- **Reopening a case could erase its preoperative diagnosis and procedure.**
+  The preop screen renders blank defaults and autosaves every change after a
+  2-second pause. When the case read took longer than that, the autosave ran
+  first and wrote the blanks (empty diagnosis, procedures, medications) over
+  the stored assessment. A reopened case is now never autosaved until its
+  server copy is in the form, and not at all if it could not be read.
+
+## [9.11.2] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API 9.11.2,
+  which fixes preoperative saves staying at "Saved locally" on the hosted demo.
+
+## [9.11.1] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API 9.11.1,
+  which fixes preoperative saves failing ("Saved locally") after the
+  catalogue upgrade on a hosted database.
+
 ## [9.11.0] - 2026-09-24
 
 ### Added

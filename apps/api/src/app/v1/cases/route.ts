@@ -1,4 +1,4 @@
-import { PREOP_ANSWER_REFUSED, PreopContractError, preopContractBlockedKeys, savePreopAnswers } from "@/lib/preop/service"
+import { PREOP_ANSWER_REFUSED, PreopContractError, preopContractBlockedKeys, preparePreopProfile, savePreopAnswers } from "@/lib/preop/service"
 import { NextRequest, NextResponse, after } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
@@ -188,6 +188,9 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
+    // One-off catalogue and profile setup happens here, outside the case
+    // transaction, so a first save never spends that transaction on it.
+    await preparePreopProfile(prisma, userId)
     let caseRecord
     for (let attempt = 0; ; attempt++) {
       try {

@@ -38,10 +38,19 @@
   only, which ends the double export of baseline answers.
 - Answer and suggestion rows of a finalized case are refused by the database,
   and suggestion writes take the case lock.
-- Upstream: Core 9.11.0, API/Web/Mobile 9.11.0, Browser 0.8.0.
+- Upstream: Core 9.11.0, API/Web/Mobile 9.11.3, Browser 0.8.0.
 
 ### Fixed
 
+- Reopening a case on the phone could erase its preoperative diagnosis and
+  procedure: the screen autosaved its blank defaults before the case had
+  loaded. A reopened case is now never autosaved until its stored copy is in
+  the form (Mobile 9.11.3).
+- The first preoperative save on a database without a profile, or after a
+  catalogue upgrade, could outlive the save transaction on a slow or remote
+  database, and then every save failed. The profile is created and upgraded
+  in a handful of statements, in a transaction of its own before the
+  clinician's save (API 9.11.1 and 9.11.2).
 - Preoperative autosave stayed on "Saved locally - syncs when online" after an
   import from the hospital system. The appliance had no preoperative profile,
   so every save was refused with a 400 that both clients treated as offline,

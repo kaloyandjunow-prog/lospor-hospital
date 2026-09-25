@@ -1,5 +1,55 @@
 # Changelog - LOSPOR API
 
+## [9.11.3] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with Mobile
+  9.11.3, which stops a reopened case from autosaving blank preop values
+  before the case has loaded.
+
+## [9.11.2] - 2026-09-25
+
+### Fixed
+
+- **Preoperative saves still failed with a 500 on the hosted demo after
+  9.11.1.** Its database had never been given a catalogue or a profile, so
+  the first save had to create both. Creating the profile with a nested
+  write resolved each of the 75 questions with its own queries, 172 in all;
+  with the API about 90 ms from its database that took 16 seconds and ran
+  out the save's 5-second transaction, every time. The profile is now
+  created with flat writes (23 queries in all from an empty database).
+- **The one-off setup no longer runs inside a clinician's save.** Case
+  create and update, the profile read and suggestion generation first put
+  the catalogue and profile in place in a transaction of their own (up to
+  30 seconds); the save itself then finds the profile in five queries.
+
+### Added
+
+- A PostgreSQL regression test counts the queries of setting up an empty
+  database (at most 30) and of an already-set-up one (at most 6).
+
+## [9.11.1] - 2026-09-25
+
+### Fixed
+
+- **Preoperative saves failed with a 500 after upgrading a database that ran
+  9.10.7.** The first save on the new release brings the stored question
+  catalogue up to the bundled one, inside the save's own transaction. It
+  wrote the 75 questions and their options one row at a time, about 300
+  round trips; on a hosted database that outlived the 5-second transaction,
+  everything rolled back, and the next save tried again, so every preop save
+  and the profile read failed. The catalogue is now compared in one read and,
+  only if it differs, written in two statements; questions a release adds
+  are added to the profile in one insert.
+- **A case's first preoperative save** creates its answer rows in one
+  statement instead of one per question, and resets to "not asked" in one
+  statement, for the same reason.
+
+### Changed
+
+- Web, Mobile and API are released together at 9.11.1; Core stays 9.11.0.
+
 ## [9.11.0] - 2026-09-24
 
 ### Changed
