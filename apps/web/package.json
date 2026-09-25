@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:crossapp": "playwright test --config playwright.crossapp.config.ts",
     "e2e:ui": "playwright test --ui",
     "e2e:seed": "npm --prefix ../api run e2e:seed",
     "typecheck": "next typegen && tsc --noEmit --pretty false"

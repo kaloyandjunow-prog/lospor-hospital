@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test"
 import { contextFor, JSON_HEADERS } from "./roles"
-import { E2E_MEMBER_A_EMAIL } from "./credentials"
+import { E2E_MEMBER_A_USERNAME } from "./credentials"
 import { openPhone, openPhoneIntraop, PWA_BASE } from "./pwa"
 
 // 120s was tight even before the reload fixes below: each test drives two
@@ -169,7 +169,7 @@ test("an offline PWA vital replays once, appears on Web, and keeps mobile proven
     contextFor(browser, "admin"),
   ])
   const caseId = await createStartedCase(web)
-  const { context: phoneContext, page: phone } = await openPhone(browser, E2E_MEMBER_A_EMAIL)
+  const { context: phoneContext, page: phone } = await openPhone(browser, E2E_MEMBER_A_USERNAME)
 
   try {
     await phone.clock.install({ time: SYNTHETIC_END_NOW })
@@ -231,7 +231,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
     contextFor(browser, "admin"),
   ])
   const caseId = await createStartedCase(web)
-  const { context: phoneContext, page: phone } = await openPhone(browser, E2E_MEMBER_A_EMAIL)
+  const { context: phoneContext, page: phone } = await openPhone(browser, E2E_MEMBER_A_USERNAME)
   const drugId = `crossapp-drug-${caseId}`
   const vitalId = `crossapp-vital-${caseId}`
   const fluidId = `crossapp-fluid-${caseId}`

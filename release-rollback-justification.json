@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.4.7",
+  "release": "1.4.8",
   "policy": "backup-required",
-  "justification": "Conservative rather than assessed. This release adds the relational preoperative assessment schema and migration. Although the migration is designed to be forward compatible, this release does not ship a release-specific rollback proof. Declaring service-compatible would therefore be an unverified claim; the conservative backup-required declaration stands so the next maintainer inherits the reasoning rather than an unsupported value.",
+  "justification": "Assessed, not merely conservative. Migration 20260924120000_preop_single_profile_answers drops the PreopCaseProfilePin table and replaces the preoperative answer unique key (preopId, questionId, profileVersion) with (preopId, questionId). Hospital 1.4.7 reads and writes that pin table on every preoperative save, so 1.4.7 services started against a 1.4.8 database would fail preoperative writes. A rollback to 1.4.7 is therefore only safe by restoring the verified pre-update backup, which is what backup-required enforces.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-09-23"
+  "assessedAt": "2026-09-25"
 }

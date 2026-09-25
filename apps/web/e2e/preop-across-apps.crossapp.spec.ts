@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import { contextFor, JSON_HEADERS } from "./roles"
-import { E2E_MEMBER_A_EMAIL } from "./credentials"
+import { E2E_MEMBER_A_USERNAME } from "./credentials"
 import { openPhone, openPhonePreop } from "./pwa"
 
 // One clinician, one case, both apps.
@@ -86,7 +86,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
       await expect.poll(async () => (await serverPreop(web, id)).teamNotes)
         .toBe("Theatre 4, list starts 08:30")
 
-      const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_EMAIL)
+      const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_USERNAME)
       try {
         await openPhonePreop(phone, id)
 
@@ -141,7 +141,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
       // because they finished.
       expect(await notes.evaluate(el => el === document.activeElement)).toBe(true)
 
-      const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_EMAIL)
+      const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_USERNAME)
       try {
         await openPhonePreop(phone, id)
         await expect(phone.getByPlaceholder(TEAM_NOTES)).toHaveValue("Interrupted mid-")
@@ -159,7 +159,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
       headers: JSON_HEADERS, data: { patientNumber: `PREOP-CROSSAPP-E2E-${Date.now()}`, preop: PREOP },
     })).json() as { id: string }
 
-    const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_EMAIL)
+    const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_USERNAME)
     const phoneSaves = watchSaves(phone, id)
 
     try {
@@ -219,6 +219,38 @@ test.describe("a preoperative assessment carried between the two apps", () => {
       await expect(page.locator('textarea[name="teamNotes"]')).toHaveValue("Survives a reload")
     } finally {
       await web.request.delete(`/api/cases/${id}`, { headers: JSON_HEADERS }).catch(() => {})
+    }
+  })
+  test("shared relational answers survive a real save and preserve optional omissions", async ({ browser }) => {
+    const web = await contextFor(browser, "member-a")
+    const { id } = await (await web.request.post("/api/cases", {
+      headers: JSON_HEADERS, data: { patientNumber: "PREOP-RELATIONAL-E2E-" + Date.now(), preop: PREOP },
+    })).json() as { id: string }
+
+    try {
+      const saved = await web.request.patch("/api/cases/" + id, {
+        headers: JSON_HEADERS,
+        // A baseline question is answered through its own form field; the
+        // answer row follows it.
+        data: { preop: { allergies: true } },
+      })
+      expect(saved.ok(), await saved.text()).toBeTruthy()
+
+      await expect.poll(async () => {
+        const preop = await serverPreop(web, id)
+        const answers = Array.isArray(preop.assessmentAnswers)
+          ? preop.assessmentAnswers as Array<{ state?: string; question?: { stableKey?: string } }>
+          : []
+        return {
+          clinicianAnswer: answers.find(answer => answer.question?.stableKey === "BASE_ALLERGIES"),
+          optionalAnswer: answers.find(answer => answer.question?.stableKey === "BASE_LATEX_ALLERGY"),
+        }
+      }, { timeout: 20_000 }).toEqual({
+        clinicianAnswer: expect.objectContaining({ state: "YES", question: expect.objectContaining({ stableKey: "BASE_ALLERGIES" }) }),
+        optionalAnswer: expect.objectContaining({ state: "NOT_ASKED", question: expect.objectContaining({ stableKey: "BASE_LATEX_ALLERGY" }) }),
+      })
+    } finally {
+      await web.request.delete("/api/cases/" + id, { headers: JSON_HEADERS }).catch(() => {})
     }
   })
 })

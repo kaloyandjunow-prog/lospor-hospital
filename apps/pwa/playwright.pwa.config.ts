@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test"
 
+// Keep direct local runs identical to the hospital CI job. The webServer
+// child receives this value below, but Playwright workers evaluate the test
+// guards in their own process.
+process.env.LOSPOR_DEPLOYMENT_MODE ??= "hospital"
+const skipWebServer = process.env.E2E_SKIP_WEBSERVER === "true"
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "../web/e2e/global-setup.ts",
@@ -17,7 +23,7 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
-  webServer: [
+  webServer: skipWebServer ? undefined : [
     {
       command: "npm --prefix ../api run dev",
       url: "http://localhost:3002/health/live",

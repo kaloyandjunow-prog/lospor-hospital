@@ -45,6 +45,7 @@ const e2eApiInternalUrl = process.env.E2E_API_INTERNAL_URL ?? `http://127.0.0.1:
 process.env.E2E_BASE_URL ??= e2eWebBaseUrl
 process.env.E2E_API_BASE ??= e2eApiInternalUrl
 process.env.LOSPOR_API_INTERNAL_URL ??= e2eApiInternalUrl
+process.env.LOSPOR_DEPLOYMENT_MODE ??= "hospital"
 
 // The suite runs against a disposable local PostgreSQL, not the shared dev
 // project. See e2e/docker-compose.e2e.yaml: the seeder is not transactional and

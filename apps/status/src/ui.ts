@@ -13,7 +13,7 @@ import type {
   ManagedAccount,
   OneTimeAccountLink,
 } from "./account-control.js"
-import type { ClinicalBaselineReadiness, ControlPlaneView } from "./control-plane.js"
+import type { ClinicalBaselineReadiness, ControlPlaneView, PreopAdministrationView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
 import {
   ADVANCED_SETTINGS,
@@ -513,7 +513,9 @@ const PAGE_STYLE = `
 .step-command{display:inline-block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.85rem;background:var(--line);border-radius:6px;padding:.25rem .5rem;overflow-wrap:anywhere}
 .state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.subnav{order:0;border-top:0;border-bottom:1px solid var(--line);padding:0 0 .5rem;margin:0 0 1.1rem}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .qr{display:grid;place-items:center;margin:1rem auto;padding:.5rem;width:max-content;max-width:100%;border:1px solid var(--line);background:#fff}.qr svg{display:block;max-width:248px;width:100%;height:auto}.checks{display:grid;gap:.45rem;margin:.75rem 0}.check{display:flex;align-items:flex-start;gap:.55rem;font-weight:500;margin:.25rem 0}.check input{width:auto;flex:none;margin:.25rem 0 0}.pad{padding:1rem}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}fieldset{border:1px solid var(--line);border-radius:9px;padding:.75rem 1rem;margin-top:1rem}legend{font-weight:650;padding:0 .3rem}
+.preop-order-panel{border:1px solid var(--line);border-radius:10px;padding:1rem;margin:1rem 0;background:var(--paper)}.preop-order-list{list-style:none;padding:0;margin:1rem 0 0;display:grid;gap:.45rem}.preop-order-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:.65rem;align-items:center;border:1px solid var(--line);border-radius:9px;padding:.65rem .75rem;background:var(--card)}.preop-order-row.is-dragging{opacity:.55}.preop-order-row.is-drag-over{border-color:var(--info)}.preop-drag-handle{margin:0;padding:.35rem .55rem;background:transparent;color:var(--muted);border:1px solid var(--line);cursor:grab;font-size:1.1rem;line-height:1}.preop-order-position{font-variant-numeric:tabular-nums;color:var(--muted);min-width:2ch;text-align:right}.preop-order-label{min-width:0}.preop-order-label strong{display:block;overflow-wrap:anywhere}.preop-order-actions{display:flex;gap:.25rem}.preop-order-actions button{margin:0;padding:.35rem .55rem;font-size:.85rem}.preop-order-actions button:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
+@media(max-width:760px){.preop-order-row{grid-template-columns:auto auto minmax(0,1fr)}.preop-order-row .pill,.preop-order-actions{grid-column:3}.preop-order-actions{justify-content:flex-start}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{body{background:#fff}.no-print,.header-actions,.statusnav,.foot{display:none!important}.shell{width:100%}.secret-card{break-inside:avoid}.secret{font-size:10pt;min-height:9rem}}
 `
@@ -1082,6 +1084,150 @@ function dateFact(label: string, value: string | null, locale: StatusLocale): st
 // address, linkable and bookmarked, and the POST endpoints are unchanged.
 export const HOSPITAL_CONTROL_SECTIONS = ["clinical", "ehr", "research", "ai"] as const
 
+/**
+ * Drag and button reordering for the preop profile editor, served from
+ * /status/preop-order.js. It must be a same-origin file: Status sends
+ * script-src 'self', so an inline <script> is blocked and the controls did
+ * nothing. It only rewrites the numeric order_<key> inputs, so publishing still
+ * works without it.
+ */
+export const PREOP_ORDER_SCRIPT = `(() => {
+    const list = document.querySelector("[data-preop-order-list]");
+    if (!list) return;
+    const status = list.parentElement?.querySelector("[data-preop-order-status]");
+    const rows = () => Array.from(list.querySelectorAll("[data-preop-order-row]"));
+    const sync = () => rows().forEach((row, index) => {
+      const key = row.getAttribute("data-stable-key");
+      const input = key ? document.querySelector('input[name="order_' + key + '"]') : null;
+      if (input) input.value = String(index);
+      const position = row.querySelector("[data-preop-order-position]");
+      if (position) position.textContent = String(index + 1);
+      const up = row.querySelector('button[data-move="up"]');
+      const down = row.querySelector('button[data-move="down"]');
+      if (up) up.disabled = index === 0;
+      if (down) down.disabled = index === rows().length - 1;
+    });
+    const announce = () => { if (status) status.textContent = list.getAttribute("data-order-updated") || ""; };
+    const move = (row, direction) => {
+      const all = rows();
+      const index = all.indexOf(row);
+      const target = direction === "up" ? all[index - 1] : all[index + 1];
+      if (!target) return;
+      if (direction === "up") list.insertBefore(row, target);
+      else list.insertBefore(row, target.nextElementSibling);
+      sync();
+      row.querySelector("[data-drag-handle]")?.focus();
+      announce();
+    };
+    let dragged = null;
+    list.addEventListener("click", event => {
+      const button = event.target.closest("button[data-move]");
+      const row = event.target.closest("[data-preop-order-row]");
+      if (button && row) move(row, button.getAttribute("data-move"));
+    });
+    list.addEventListener("dragstart", event => {
+      const row = event.target.closest("[data-preop-order-row]");
+      if (!row) return;
+      dragged = row;
+      row.classList.add("is-dragging");
+      row.setAttribute("aria-grabbed", "true");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", row.getAttribute("data-stable-key") || "");
+    });
+    list.addEventListener("dragover", event => {
+      if (!dragged) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    });
+    list.addEventListener("drop", event => {
+      event.preventDefault();
+      const target = event.target.closest("[data-preop-order-row]");
+      if (!dragged || !target || target === dragged) return;
+      const rect = target.getBoundingClientRect();
+      if (event.clientY < rect.top + rect.height / 2) list.insertBefore(dragged, target);
+      else list.insertBefore(dragged, target.nextElementSibling);
+      sync();
+      announce();
+    });
+    list.addEventListener("dragend", () => {
+      if (dragged) {
+        dragged.classList.remove("is-dragging");
+        dragged.setAttribute("aria-grabbed", "false");
+      }
+      dragged = null;
+      sync();
+    });
+    sync();
+  })()
+`
+
+function renderPreopAdministration(
+  preoperative: ControlPlaneView["preoperative"],
+  locale: StatusLocale,
+): string {
+  const administration = preoperative.administration
+  if (!administration) return ""
+  const active = administration.activeProfile
+  const activeByKey = new Map(active?.questions.map(question => [question.stableKey, question]) ?? [])
+  const sectionLabel = (section: string): string => ({
+    SAFETY: localize(locale, "Safety", "Безопасност"),
+    AIRWAY: localize(locale, "Airway", "Дихателен път"),
+    HISTORY: localize(locale, "History", "Анамнеза"),
+    CARDIOVASCULAR: localize(locale, "Cardiovascular", "Сърдечно-съдова система"),
+    RISK: localize(locale, "Risk", "Риск"),
+    CASE: localize(locale, "Case", "Случай"),
+    PEDIATRIC_RISK: localize(locale, "Pediatric risk", "Педиатричен риск"),
+    PEDIATRIC_SAFETY: localize(locale, "Pediatric safety", "Педиатрична безопасност"),
+    ADULT_ADDITIONS: localize(locale, "Adult additions", "Допълнителни въпроси за възрастни"),
+    PEDIATRIC_ADDITIONS: localize(locale, "Pediatric additions", "Допълнителни въпроси за деца"),
+  }[section] ?? section)
+  const optionSummary = (question: PreopAdministrationView["catalog"][number]): string => question.options.length
+    ? question.options.map(option => escapeHtml(locale === "bg" ? option.labelBg : option.labelEn)).join(" / ")
+    : localize(locale, "Free text or numeric value", "Свободен текст или числова стойност")
+  const catalogIndex = new Map(administration.catalog.map((question, index) => [question.stableKey, index]))
+  const orderQuestions = [...administration.catalog].sort((left, right) => {
+    const leftOrder = activeByKey.get(left.stableKey)?.sortOrder
+    const rightOrder = activeByKey.get(right.stableKey)?.sortOrder
+    if (leftOrder !== undefined || rightOrder !== undefined) {
+      return (leftOrder ?? Number.MAX_SAFE_INTEGER) - (rightOrder ?? Number.MAX_SAFE_INTEGER)
+    }
+    return (catalogIndex.get(left.stableKey) ?? 0) - (catalogIndex.get(right.stableKey) ?? 0)
+  })
+  const orderUpdatedMessage = escapeHtml(localize(locale, "Question order updated.", "\u041f\u043e\u0440\u0435\u0434\u044a\u0442 \u043d\u0430 \u0432\u044a\u043f\u0440\u043e\u0441\u0438\u0442\u0435 \u0435 \u043e\u0431\u043d\u043e\u0432\u0435\u043d."))
+  const dragLabel = escapeHtml(localize(locale, "Drag to reorder", "\u041f\u043b\u044a\u0437\u043d\u0435\u0442\u0435 \u0437\u0430 \u043f\u043e\u0434\u0440\u0435\u0436\u0434\u0430\u043d\u0435"))
+  const moveUpLabel = escapeHtml(localize(locale, "Move question up", "\u041f\u0440\u0435\u043c\u0435\u0441\u0442\u0435\u0442\u0435 \u0432\u044a\u043f\u0440\u043e\u0441\u0430 \u043d\u0430\u0433\u043e\u0440\u0435"))
+  const moveDownLabel = escapeHtml(localize(locale, "Move question down", "\u041f\u0440\u0435\u043c\u0435\u0441\u0442\u0435\u0442\u0435 \u0432\u044a\u043f\u0440\u043e\u0441\u0430 \u043d\u0430\u0434\u043e\u043b\u0443"))
+  const orderRows = orderQuestions.map((question, index) => {
+    const current = activeByKey.get(question.stableKey)
+    const enabled = current?.enabled ?? false
+    const label = locale === "bg" ? question.labelBg : question.labelEn
+    return `<li class="preop-order-row" data-preop-order-row data-stable-key="${escapeHtml(question.stableKey)}" draggable="true" aria-grabbed="false"><button class="preop-drag-handle" type="button" title="${dragLabel}" aria-label="${dragLabel}" data-drag-handle>&#9776;</button><span class="preop-order-position" data-preop-order-position>${index + 1}</span><span class="preop-order-label"><strong>${escapeHtml(label)}</strong><span class="component-detail mono">${escapeHtml(question.stableKey)} &#183; ${escapeHtml(sectionLabel(question.section))}</span></span><span class="pill ${enabled ? "info" : "warning"}">${enabled ? localize(locale, "Enabled", "\u0412\u043a\u043b\u044e\u0447\u0435\u043d") : localize(locale, "Disabled", "\u0418\u0437\u043a\u043b\u044e\u0447\u0435\u043d")}</span><span class="preop-order-actions"><button type="button" data-move="up" aria-label="${moveUpLabel}" title="${moveUpLabel}">&#8593;</button><button type="button" data-move="down" aria-label="${moveDownLabel}" title="${moveDownLabel}">&#8595;</button></span></li>`
+  }).join("")
+  const orderPanel = `<details class="component preop-order-panel" open><summary class="component-name">${localize(locale, "Reorder bundled questions", "\u041f\u043e\u0434\u0440\u0435\u0436\u0434\u0430\u043d\u0435 \u043d\u0430 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0442\u0435 \u0432\u044a\u043f\u0440\u043e\u0441\u0438")}</summary><p class="component-detail">${localize(locale, "Drag a question to move it. The up and down buttons are available for keyboard users. The bundled question text and rules remain immutable.", "\u041f\u043b\u044a\u0437\u043d\u0435\u0442\u0435 \u0432\u044a\u043f\u0440\u043e\u0441, \u0437\u0430 \u0434\u0430 \u0433\u043e \u043f\u0440\u0435\u043c\u0435\u0441\u0442\u0438\u0442\u0435. \u0411\u0443\u0442\u043e\u043d\u0438\u0442\u0435 \u043d\u0430\u0433\u043e\u0440\u0435 \u0438 \u043d\u0430\u0434\u043e\u043b\u0443 \u0441\u0430 \u0434\u043e\u0441\u0442\u044a\u043f\u043d\u0438 \u0437\u0430 \u043f\u043e\u0442\u0440\u0435\u0431\u0438\u0442\u0435\u043b\u0438 \u0441 \u043a\u043b\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430. \u0422\u0435\u043a\u0441\u0442\u044a\u0442 \u0438 \u043f\u0440\u0430\u0432\u0438\u043b\u0430\u0442\u0430 \u043d\u0430 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0442\u0435 \u0432\u044a\u043f\u0440\u043e\u0441\u0438 \u043e\u0441\u0442\u0430\u0432\u0430\u0442 \u043d\u0435\u043f\u0440\u043e\u043c\u0435\u043d\u0435\u043d\u0438.")}</p><ol class="preop-order-list" data-preop-order-list data-order-updated="${orderUpdatedMessage}" aria-label="${localize(locale, "Question order", "\u0420\u0435\u0434 \u043d\u0430 \u0432\u044a\u043f\u0440\u043e\u0441\u0438\u0442\u0435")}">${orderRows}</ol><p class="component-detail" data-preop-order-status aria-live="polite"></p><noscript><p class="component-detail">${localize(locale, "JavaScript is disabled; use the numeric Order fields below.", "JavaScript \u0435 \u0438\u0437\u043a\u043b\u044e\u0447\u0435\u043d; \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430\u0439\u0442\u0435 \u0447\u0438\u0441\u043b\u043e\u0432\u0438\u0442\u0435 \u043f\u043e\u043b\u0435\u0442\u0430 \u0437\u0430 \u0440\u0435\u0434 \u043f\u043e-\u0434\u043e\u043b\u0443.")}</p></noscript><script src="/status/preop-order.js" defer></script></details>`
+  const rows = orderPanel + administration.catalog.map((question, index) => {
+    const current = activeByKey.get(question.stableKey)
+    const enabled = current?.enabled ?? false
+    const required = current?.required ?? question.requiredDefault
+    const order = current?.sortOrder ?? index
+    const applicability = question.applicability.length ? question.applicability.join(" / ") : localize(locale, "Adult and pediatric", "Възрастни и деца")
+    const conditional = question.conditionalRuleKey
+      ? `${localize(locale, "Shown when", "Показва се при")}: ${escapeHtml(question.conditionalRuleKey)}`
+      : localize(locale, "No conditional rule", "Без условно правило")
+    return `<div class="component"><div class="component-head"><div><div class="component-name">${escapeHtml(locale === "bg" ? question.labelBg : question.labelEn)}</div><div class="component-detail mono">${escapeHtml(question.stableKey)} · ${escapeHtml(sectionLabel(question.section))} · ${escapeHtml(applicability)}</div></div><span class="pill info">${escapeHtml(question.answerType)}</span></div><div class="component-detail">${conditional} · ${optionSummary(question)}</div><div class="form-grid"><label class="check"><input type="checkbox" name="enabled_${escapeHtml(question.stableKey)}" value="true" ${enabled ? "checked" : ""}> ${localize(locale, "Enabled", "Включен")}</label><label class="check"><input type="checkbox" name="required_${escapeHtml(question.stableKey)}" value="true" ${required && enabled ? "checked" : ""} ${enabled ? "" : "disabled"}> ${localize(locale, "Required", "Задължителен")}</label><label>${localize(locale, "Order", "Ред")}<input name="order_${escapeHtml(question.stableKey)}" type="number" min="0" max="10000" value="${order}" required></label></div></div>`
+  }).join("")
+  const preview = active
+    ? [...administration.catalog]
+      .filter(question => activeByKey.get(question.stableKey)?.enabled)
+      .sort((left, right) => (activeByKey.get(left.stableKey)?.sortOrder ?? 0) - (activeByKey.get(right.stableKey)?.sortOrder ?? 0))
+      .map(question => `<li>${escapeHtml(locale === "bg" ? question.labelBg : question.labelEn)}${activeByKey.get(question.stableKey)?.required ? ` <strong>(${localize(locale, "required", "задължителен")})</strong>` : ""}</li>`)
+      .join("")
+    : ""
+  const previewPanel = active
+    ? `<details class="component"><summary class="component-name">${localize(locale, "Preview active assessment form", "Преглед на активната форма за оценка")}</summary><p class="component-detail">${localize(locale, "This preview is read-only and shows the profile in use now. Changes above take effect once saved.", "Този преглед е само за четене и показва профила, който се използва сега. Промените по-горе влизат в сила след запазване.")}</p><ol>${preview || `<li>${localize(locale, "No questions are enabled.", "Няма включени въпроси.")}</li>`}</ol></details>`
+    : ""
+  return `<div class="component"><h3>${localize(locale, "Preoperative profile administration", "Управление на профила за предоперативна оценка")}</h3><div class="facts">${textFact(localize(locale, "Catalog version", "Версия на каталога"), active?.catalogVersion ?? null)}${textFact(localize(locale, "Catalog questions", "Въпроси в каталога"), String(administration.catalog.length))}</div><p>${localize(locale, "The catalog is bundled and immutable. This screen can enable or disable questions, make enabled questions required or optional, and change their order. It cannot edit labels, answer options, clinical rules, or delete questions. Changes apply to every case from its next load: a case in progress starts asking a question switched on and stops asking one switched off, and answers already given are kept. Required questions are checked when a clinician continues to intraop.", "Каталогът е включен и неизменяем. Този екран може да включва или изключва въпроси, да прави включените въпроси задължителни или незадължителни и да променя реда им. Не може да променя етикети, отговори или клинични правила, нито да изтрива въпроси. Промените важат за всеки случай от следващото му зареждане: текущ случай започва да задава включен въпрос и спира да задава изключен, а вече дадените отговори се запазват. Задължителните въпроси се проверяват, когато клиницист продължи към интраоперативния етап.")}</p><form method="post" action="/status/control/preop-profile">${rows}<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save changes", "Запазване на промените")}</button></form>${previewPanel}</div>`
+}
+
 export function renderControlPlane(
   view: ControlPlaneView | null,
   locale: StatusLocale = "bg",
@@ -1183,8 +1329,9 @@ export function renderControlPlane(
     ? clinicalBaselineFacts("Adult calculation guidance", "Изчислителни насоки за възрастни", guidance.adultEnabled, guidance.baselines.adult, locale)
       + clinicalBaselineFacts("Pediatric calculation guidance", "Изчислителни насоки за деца", guidance.pediatricEnabled, guidance.baselines.pediatric, locale)
     : ""
-  const preoperativePanel = preoperative ? `<div class="component"><h3>${localize(locale, "Preoperative assessment contract", "Договор за предоперативната оценка")}</h3><div class="facts">${textFact(localize(locale, "Profile scope", "Обхват на профила"), preoperative.scope)}${textFact(localize(locale, "Bundled catalog", "Включен каталог"), preoperative.catalogVersion)}${textFact(localize(locale, "Catalog source", "Източник на каталога"), preoperative.source)}${textFact(localize(locale, "Clinical administration API", "API за клинично администриране"), preoperative.profileAdministrationPath)}</div><p>${localize(locale, "Questions are bundled and immutable. Administrators publish appliance-wide versioned profiles; cases stay pinned until a clinician explicitly adopts a newer profile. This Status view reports the contract only; it does not mutate clinical profiles.", "Въпросите са включени и неизменяеми. Администраторите публикуват версионирани профили за целия уред; случаите остават фиксирани, докато клиницист изрично не приеме по-нов профил. Този Status изглед отчита договора, без да променя клинични профили.")}</p></div>` : ""
-  const guidanceForm = guidance ? `${preoperativePanel}${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Настройката на политиката не може да направи липсваща или променена базова конфигурация готова. Изключването премахва бъдещите предложения за лекарства, инфузии и течности. То не променя вече записани данни или стари случаи.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на политиката за насоки")}</button></form></div>` : ""
+  const preoperativePanel = preoperative ? `<div class="component"><h3>${localize(locale, "Preoperative assessment contract", "Договор за предоперативната оценка")}</h3><div class="facts">${textFact(localize(locale, "Profile scope", "Обхват на профила"), preoperative.scope)}${textFact(localize(locale, "Bundled catalog", "Включен каталог"), preoperative.catalogVersion)}${textFact(localize(locale, "Catalog source", "Източник на каталога"), preoperative.source)}${textFact(localize(locale, "Clinical administration API", "API за клинично администриране"), preoperative.profileAdministrationPath)}</div><p>${localize(locale, "Questions are bundled and cannot be edited. The appliance has one profile; administrators switch questions on or off, set their order and mark them required, and every case follows it from its next load.", "Въпросите са включени и не могат да се редактират. Уредът има един профил; администраторите включват и изключват въпроси, задават реда им и ги отбелязват като задължителни, а всеки случай го следва от следващото си зареждане.")}</p></div>` : ""
+  const preopAdministration = preoperative ? renderPreopAdministration(preoperative, locale) : ""
+  const guidanceForm = guidance ? `${preoperativePanel}${preopAdministration}${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Политика за бъдещи изчислителни насоки при деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Настройката на политиката не може да направи липсваща или променена базова конфигурация готова. Изключването премахва бъдещите предложения за лекарства, инфузии и течности. То не променя вече записани данни или стари случаи.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на политиката за насоки")}</button></form></div>` : ""
 
   const externalAi = view?.externalAi
   const externalAiCapability = externalAi

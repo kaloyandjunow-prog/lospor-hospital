@@ -16,6 +16,7 @@ import {
 } from "./signals.js"
 import type { MaintenanceView, ReleaseView } from "./ui.js"
 import {
+  PREOP_ORDER_SCRIPT,
   STATUS_NAV,
   renderAccounts,
   renderApplyConfirm,
@@ -270,6 +271,9 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп за преноса на ЕЗД. Нищо не е променено."],
     EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп за преноса на ЕЗД не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете отново транспорта."],
     EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като транспорт, преди да зададете данни за достъп. Наблюдавана папка не се нуждае от такива."],
+    PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question. Nothing was changed.", "Профилът за предоперативна оценка трябва да включва всеки включен въпрос. Нищо не е променено."],
+    DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
+    DISABLED_QUESTION_CANNOT_BE_REQUIRED: ["A disabled preoperative question cannot be required. Nothing was changed.", "Изключен въпрос за предоперативна оценка не може да бъде задължителен. Нищо не е променено."],
     HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
     CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
   }
@@ -466,6 +470,11 @@ export function createStatusApp({
   })
   app.get("/status/admin-link.js", context => context.body(
     STATUS_ADMIN_FRAGMENT_SCRIPT,
+    200,
+    { "content-type": "text/javascript; charset=utf-8" },
+  ))
+  app.get("/status/preop-order.js", context => context.body(
+    PREOP_ORDER_SCRIPT,
     200,
     { "content-type": "text/javascript; charset=utf-8" },
   ))
@@ -1380,6 +1389,38 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The prospective guidance policy was saved and audited; historical records were not changed.", "Политиката за бъдещи насоки беше запазена и одитирана; старите записи не бяха променени."),
+    "clinical",
+  ))
+
+  app.post("/status/control/preop-profile", context => sensitiveControlAction(
+    context,
+    async body => {
+      const view = await controlPlane.get()
+      const catalog = view.preoperative.administration?.catalog
+      if (!catalog || catalog.length === 0) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      const orders = new Set<number>()
+      const questions = catalog.map(question => {
+        const orderText = formText(body, `order_${question.stableKey}`, 1, 6)
+        const sortOrder = Number(orderText)
+        if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 10000 || orders.has(sortOrder)) {
+          throw new ControlPlaneClientError("DUPLICATE_PREOP_QUESTION_ORDER")
+        }
+        orders.add(sortOrder)
+        return {
+          stableKey: question.stableKey,
+          enabled: body[`enabled_${question.stableKey}`] === "true",
+          // Unticking "Enabled" leaves "Required" ticked in the form; that is
+          // the operator turning the question off, not a contradiction to refuse.
+          required: body[`enabled_${question.stableKey}`] === "true" && body[`required_${question.stableKey}`] === "true",
+          sortOrder,
+        }
+      })
+      return controlPlane.updatePreopProfile({
+        questions,
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale, "The preoperative profile was saved and audited. Cases pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка беше запазен и одитиран. Случаите получават промяната при следващото си зареждане; вече дадените отговори се запазват."),
     "clinical",
   ))
 

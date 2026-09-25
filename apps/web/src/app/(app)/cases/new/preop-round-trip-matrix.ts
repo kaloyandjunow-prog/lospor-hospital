@@ -13,8 +13,6 @@ export const NEVER_PERSISTED: Record<string, string> = {
   patientFirstName: "GDPR: identity is printed by hand, never stored",
   patientLastName:  "GDPR: identity is printed by hand, never stored",
   patientId:        "GDPR: identity is printed by hand, never stored",
-  preopProfileVersion: "Transport control: the case profile pin is relational, not a wide preop column",
-  adoptPreopProfile: "Transport control: adoption is an explicit profile endpoint action, not a clinical answer",
 }
 
 export type RoundTrip = {

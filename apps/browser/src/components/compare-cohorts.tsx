@@ -10,6 +10,10 @@ import type {
 import { apiJson } from "@/lib/client-api"
 import { formatOptionalResearchCount } from "@/lib/research-disclosure"
 import { useLocale } from "./locale-provider"
+import { ClinicalMultiSelect } from "./clinical-multi-select"
+import { ClinicalSearchSelect } from "./clinical-search-select"
+
+const ASA_OPTIONS = ["I", "II", "III", "IV", "V", "VI"].map(code => ({ code, label: `ASA ${code}` }))
 
 type Side = {
   label: string
@@ -167,9 +171,35 @@ function SideEditor({
             <option value="PEDIATRIC">{clinicalDisplayLabel("clinicalMode", "PEDIATRIC", locale)}</option>
           </select>
         </Field>
-        <Field label="ASA"><input className="input" placeholder="II, III" value={side.asa} onChange={e => update("asa", e.target.value)} /></Field>
-        <Field label={message("diagnosisIcd")}> <input className="input" placeholder="I10" value={side.diagnosis} onChange={e => update("diagnosis", e.target.value)} /></Field>
-        <Field label={message("procedureCode")}> <input className="input" value={side.procedure} onChange={e => update("procedure", e.target.value)} /></Field>
+        <Field label="ASA">
+          <ClinicalMultiSelect value={side.asa} options={ASA_OPTIONS} onChange={value => update("asa", value)} emptyLabel={message("any")} searchLabel={message("searchOptions")} />
+        </Field>
+        <Field label={message("diagnosisIcd")}>
+          <ClinicalSearchSelect
+            kind="icd10"
+            endpoint="/search/icd10"
+            locale={locale}
+            value={side.diagnosis}
+            onChange={value => update("diagnosis", value)}
+            searchLabel={message("searchOptions")}
+            loadingLabel={message("loading")}
+            noResultsLabel={message("searchNoResults")}
+            minimumLabel={message("searchMinimum")}
+          />
+        </Field>
+        <Field label={message("procedureCode")}>
+          <ClinicalSearchSelect
+            kind="procedure"
+            endpoint="/search/procedures"
+            locale={locale}
+            value={side.procedure}
+            onChange={value => update("procedure", value)}
+            searchLabel={message("searchOptions")}
+            loadingLabel={message("loading")}
+            noResultsLabel={message("searchNoResults")}
+            minimumLabel={message("searchMinimum")}
+          />
+        </Field>
         <Field label={message("urgency")}> 
           <select className="select" value={side.emergency} onChange={e => update("emergency", e.target.value)}>
             <option value="">{message("any")}</option><option value="true">{message("emergency")}</option><option value="false">{message("elective")}</option>

@@ -31,6 +31,7 @@ type Card = {
   tone: string
   answered: number
   criteria: number
+  unavailable: boolean
 }
 
 function toneFor(score: number, amber: number, red: number): string {
@@ -42,6 +43,7 @@ function toneFor(score: number, amber: number, red: number): string {
 export function RiskScoreCards({
   rcriScore, apfelScore, stopBangScore,
   rcriAnswered, apfelAnswered, stopBangAnswered,
+  unavailable = {},
 }: {
   rcriScore: number
   apfelScore: number
@@ -49,6 +51,12 @@ export function RiskScoreCards({
   rcriAnswered: number
   apfelAnswered: number
   stopBangAnswered: number
+  /**
+   * Scores with an input the hospital switched off. Shown as unavailable
+   * rather than computed as if the missing answer were "no", which would
+   * understate the risk.
+   */
+  unavailable?: Partial<Record<"rcri" | "apfel" | "stopBang", boolean>>
 }) {
   const t = useTranslations()
   const bandLocale = toClinicalLocale(useLocale())
@@ -57,17 +65,17 @@ export function RiskScoreCards({
     {
       titleKey: "preop.rcriShort", score: rcriScore, max: 6,
       label: displayRcriRisk(rcriScore, bandLocale).label, tone: toneFor(rcriScore, 2, 3),
-      answered: rcriAnswered, criteria: 5,
+      answered: rcriAnswered, criteria: 5, unavailable: !!unavailable.rcri,
     },
     {
       titleKey: "preop.apfelShort", score: apfelScore, max: 4,
       label: displayApfelRisk(apfelScore, bandLocale).label, tone: toneFor(apfelScore, 2, 3),
-      answered: apfelAnswered, criteria: 3,
+      answered: apfelAnswered, criteria: 3, unavailable: !!unavailable.apfel,
     },
     {
       titleKey: "preop.stopBangShort", score: stopBangScore, max: 8,
       label: displayStopBangRisk(stopBangScore, bandLocale).label, tone: toneFor(stopBangScore, 3, 5),
-      answered: stopBangAnswered, criteria: 5,
+      answered: stopBangAnswered, criteria: 5, unavailable: !!unavailable.stopBang,
     },
   ]
 
@@ -85,12 +93,16 @@ export function RiskScoreCards({
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
               {t(card.titleKey)}
             </p>
+            {card.unavailable ? (
+              <p className="text-xs text-slate-500" role="note">{t("preop.scoreUnavailable")}</p>
+            ) : (<>
             <p className="text-3xl font-bold text-slate-700 dark:text-slate-100">
               {card.score}
               <span className="text-base font-normal text-slate-400">/{card.max}</span>
             </p>
             <p className={`text-xs font-semibold mt-1.5 ${card.tone}`}>{card.label}</p>
-            {card.answered < card.criteria && (
+            </>)}
+            {!card.unavailable && card.answered < card.criteria && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1" role="note">
                 {t("preop.criteriaAnswered", { answered: card.answered, total: card.criteria })}
               </p>

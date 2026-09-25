@@ -81,6 +81,11 @@ describe("what this app tells a clinician about a refused save", () => {
     expect(message).toBe(lookup(en, "pediatric.switchRequired"))
   })
 
+  it.each(catalogues)("says a refused preop answer is about the form, not privacy, in %s", (_name, catalogue) => {
+    expect(blockedSaveMessage(issue({ code: "PREOP_ANSWER_REFUSED", field: "smoking" }), translate(catalogue)))
+      .toBe(lookup(catalogue, "case.blockedPreopAnswer"))
+  })
+
   it("shows an unrecognised field by its wire name rather than a blank", () => {
     expect(blockedSaveMessage(issue({ field: "surgicalApproach" }), translate(en)))
       .toContain("surgicalApproach")

@@ -26,6 +26,34 @@ const VIEW: ControlPlaneView = {
     catalogVersion: "1.4.7",
     source: "BUNDLED_IMMUTABLE_CATALOG",
     profileAdministrationPath: "/v1/preop/profile",
+    administration: {
+      catalog: [{
+        stableKey: "BASE_ALLERGIES",
+        catalogVersion: "1.4.7",
+        section: "SAFETY",
+        applicability: [],
+        answerType: "CHOICE",
+        labelEn: "Drug or other allergy",
+        labelBg: "Алергия към лекарство или друго вещество",
+        requiredDefault: false,
+        allowUnknown: false,
+        allowNotApplicable: false,
+        conditionalRuleKey: null,
+        omopDomain: "observation",
+        omopConceptId: null,
+        omopVocabulary: null,
+        omopSourceCode: "LOSPOR:PREOP_BASE_ALLERGIES",
+        options: [{ key: "YES", labelEn: "Yes", labelBg: "Да", omopConceptId: 4188539, omopVocabulary: "SNOMED", omopSourceCode: null }],
+      }],
+      activeProfile: {
+        id: "profile-1",
+        version: 4,
+        catalogVersion: "1.4.7",
+        status: "PUBLISHED",
+        publishedAt: "2026-08-21T08:00:00.000Z",
+        questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
+      },
+    },
   },
   research: {
     policy: { defaultExpiryDays: 90, maximumExpiryDays: 365 },
@@ -284,6 +312,7 @@ function setup() {
     mapEhrMedicationCode: vi.fn(async () => {}),
     unmapEhrMedicationCode: vi.fn(async () => {}),
     answerEhrCodeSystem: vi.fn(async () => {}),
+    updatePreopProfile: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
     setEhrIdentifierSystems: vi.fn(async () => {}),
     discoverEhrTransport: vi.fn(async () => ({
@@ -396,6 +425,20 @@ describe("Status Hospital control plane", () => {
     expect(clinical).not.toContain("PUBLISHED")
     expect(clinical).toContain(ADULT_BASELINE_HASH)
     expect(clinical).toContain(PEDIATRIC_BASELINE_HASH)
+    expect(clinical).toContain("data-preop-order-list")
+    expect(clinical).toContain("data-preop-order-row")
+    expect(clinical).toContain('draggable="true"')
+    expect(clinical).toContain('data-move="up"')
+    expect(clinical).toContain('data-move="down"')
+    // Status sends script-src 'self': an inline <script> is blocked by the
+    // browser, which left drag and the arrow buttons doing nothing.
+    expect(clinical).toContain('<script src="/status/preop-order.js" defer></script>')
+    expect(clinical).not.toMatch(/<script>\(\(\) =>/)
+    const script = await app.request("/status/preop-order.js")
+    expect(script.status).toBe(200)
+    expect(script.headers.get("content-type")).toContain("text/javascript")
+    expect(script.headers.get("content-security-policy")).toContain("script-src 'self'")
+    expect(await script.text()).toContain("data-preop-order-list")
 
     expect(all).not.toContain("clientCertificatePem")
     expect(all).not.toContain("enrollmentToken")
@@ -403,6 +446,91 @@ describe("Status Hospital control plane", () => {
     expect(all).not.toContain("credentialCiphertext")
     expect(all).not.toContain("credentialAuthTag")
     expect(controlPlane.get).toHaveBeenCalledTimes(4)
+  })
+
+  it("saves the complete preoperative profile only after password confirmation", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const base = {
+      enabled_BASE_ALLERGIES: "true",
+      order_BASE_ALLERGIES: "0",
+      reason: "Enable the allergy question for the clinical intake",
+    }
+    const refused = await app.request("/status/control/preop-profile", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...base, password: "Wrong password" }),
+    })
+    expect(refused.status).toBe(401)
+    expect(controlPlane.updatePreopProfile).not.toHaveBeenCalled()
+
+    const accepted = await app.request("/status/control/preop-profile", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...base, password: "Initial password phrase1!" }),
+    })
+    expect(accepted.status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenCalledWith({
+      reason: base.reason,
+      questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
+    })
+    expect(await accepted.text()).not.toContain("Initial password phrase1!")
+  })
+
+  it("drops Required when the operator unticks Enabled, instead of refusing the save", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/preop-profile", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        required_BASE_ALLERGIES: "true",
+        order_BASE_ALLERGIES: "0",
+        reason: "Stop asking the allergy question for now",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenCalledWith({
+      reason: "Stop asking the allergy question for now",
+      questions: [{ stableKey: "BASE_ALLERGIES", enabled: false, required: false, sortOrder: 0 }],
+    })
+  })
+
+  it("renders every bundled question in active-profile order with drag and keyboard controls", async () => {
+    const { app, auth, controlPlane } = setup()
+    const view = structuredClone(VIEW)
+    const base = view.preoperative.administration!.catalog[0]!
+    const middle = { ...base, stableKey: "A1_RECENT_INFECTION", labelEn: "Recent infection", labelBg: "Recent infection" }
+    const last = { ...base, stableKey: "P1_PREMATURITY_NICU", labelEn: "Prematurity or NICU admission", labelBg: "Prematurity or NICU admission" }
+    view.preoperative.administration = {
+      catalog: [base, middle, last],
+      activeProfile: {
+        id: "profile-2",
+        version: 5,
+        catalogVersion: "1.4.7",
+        status: "PUBLISHED",
+        publishedAt: "2026-08-22T08:00:00.000Z",
+        questions: [
+          { stableKey: last.stableKey, enabled: true, required: false, sortOrder: 0 },
+          { stableKey: base.stableKey, enabled: true, required: true, sortOrder: 1 },
+          { stableKey: middle.stableKey, enabled: false, required: false, sortOrder: 2 },
+        ],
+      },
+    }
+    vi.spyOn(controlPlane, "get").mockResolvedValue(view)
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/clinical", { headers: { cookie } })
+    expect(response.status).toBe(200)
+    const html = await response.text()
+    expect((html.match(/<li class="preop-order-row"/g) ?? []).length).toBe(3)
+    expect(html.indexOf("data-stable-key=\"" + last.stableKey + "\"")).toBeLessThan(html.indexOf("data-stable-key=\"" + base.stableKey + "\""))
+    expect(html.indexOf("data-stable-key=\"" + base.stableKey + "\"")).toBeLessThan(html.indexOf("data-stable-key=\"" + middle.stableKey + "\""))
+    expect(html).toContain("type=\"checkbox\" name=\"required_" + middle.stableKey + "\"")
+    expect(html).toContain("type=\"checkbox\" name=\"required_" + middle.stableKey + "\" value=\"true\"  disabled")
+    expect(html).toContain("name=\"order_" + last.stableKey + "\"")
+    expect(html).toContain("data-move=\"up\"")
+    expect(html).toContain("data-move=\"down\"")
   })
 
   it("keeps recovery sessions away from every Hospital control", async () => {

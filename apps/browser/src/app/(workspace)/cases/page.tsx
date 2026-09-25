@@ -47,21 +47,17 @@ export default async function CasesPage({
         </div>
         <CasesTable cases={result.cases} />
         <div className="toolbar end" style={{ padding: 12 }}>
-          <Link
-            className="button"
-            aria-disabled={page === 1}
-            href={page === 1 ? "/cases" : `/cases?page=${page - 1}`}
-          >
-            {message.previous}
-          </Link>
+          {page === 1 ? (
+            <span className="button" aria-disabled="true">{message.previous}</span>
+          ) : (
+            <Link className="button" href={`/cases?page=${page - 1}`}>{message.previous}</Link>
+          )}
           <span className="scope-label">{message.page} {page}</span>
-          <Link
-            className="button"
-            aria-disabled={!result.pagination.hasMore}
-            href={result.pagination.hasMore ? `/cases?page=${page + 1}` : `/cases?page=${page}`}
-          >
-            {message.next}
-          </Link>
+          {result.pagination.hasMore ? (
+            <Link className="button" href={`/cases?page=${page + 1}`}>{message.next}</Link>
+          ) : (
+            <span className="button" aria-disabled="true">{message.next}</span>
+          )}
         </div>
       </section>
     </>

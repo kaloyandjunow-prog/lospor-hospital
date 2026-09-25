@@ -21,6 +21,7 @@ import {
 } from "@lospor/core/sync"
 
 import { idbKV } from "./kv-idb"
+import { readPreopAnswerRefusal } from "./preop-answer-refusal"
 
 export class AutosaveHttpError extends Error {
   constructor(
@@ -132,7 +133,7 @@ export const autosaveManager = createAutosaveManager({
         throw new AutosaveHttpError(
           response.status,
           serverVersionRevision(body) ?? undefined,
-          readBlockedSaveIssue(body) ?? undefined,
+          readBlockedSaveIssue(body) ?? readPreopAnswerRefusal(body) ?? undefined,
           message,
         )
       }

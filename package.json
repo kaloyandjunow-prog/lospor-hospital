@@ -1,6 +1,6 @@
 {
   "name": "lospor-hospital",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -46,6 +46,7 @@
     "e2e:browser-authenticated": "npm --prefix apps/browser run e2e -- authenticated.spec.ts --project=desktop",
     "e2e:web-full": "npm --prefix apps/web run e2e",
     "e2e:pwa-full": "npm --prefix apps/pwa run e2e:pwa",
+    "e2e:crossapp": "npm --prefix apps/web run e2e:crossapp",
     "e2e:browser-full": "npm --prefix apps/browser run e2e",
     "test:status-fixture": "node --test infra/status-fixture/server.test.mjs",
     "test:status-contracts": "npm run test:status-fixture && node --test scripts/status-mfa-contract.test.mjs scripts/status-mfa-test-response.test.mjs",

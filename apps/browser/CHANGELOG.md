@@ -1,5 +1,27 @@
 # Changelog - LOSPOR Database
 
+## [0.8.0] - 2026-09-24
+
+### Changed
+
+- **Coded pickers instead of free text.** ASA, procedure group, monitoring,
+  drug (ATC) and mapping status are pickers on the cohort builder and the
+  compare page; the "contains" text boxes are gone (saved cohorts keep
+  theirs). Every metric and distribution the API computes is requested.
+
+### Added
+
+- **New filters:** a preoperative answer, drugs given during the operation,
+  and, on an appliance, data accepted from the hospital system.
+- **Case page:** medications, the preoperative answers with their source and
+  OMOP concept, and the quality warnings as text.
+
+### Fixed
+
+- A curated mapping is shown as good rather than as a warning, the client
+  version comes from package.json instead of a stale 0.2.1, "of" is
+  localised, and disabled Previous/Next no longer navigate.
+
 ## [0.7.5] - 2026-09-23
 
 ### Changed

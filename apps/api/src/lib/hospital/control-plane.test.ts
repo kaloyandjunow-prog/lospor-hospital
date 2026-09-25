@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   research: vi.fn(),
   externalAi: vi.fn(),
   baselines: vi.fn(),
+  preopProfile: vi.fn(),
   hospital: vi.fn(() => true),
   patientIdentifier: vi.fn(),
   ehrTransport: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
     hospitalEhrMedicationCodeMap: { findMany: async () => [] },
     drug: { findMany: async () => [] },
     hospitalEhrCodeSystem: { findMany: async () => [] },
+    preopAssessmentProfile: { findFirst: mocks.preopProfile },
   },
 }))
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -181,6 +183,7 @@ describe("privacy-safe Central Status view", () => {
       transportChangedAt: null,
       updatedAt: null,
     })
+    mocks.preopProfile.mockResolvedValue({ id: "profile-1", version: 1, catalogVersion: "1.4.7", status: "PUBLISHED", publishedAt: new Date("2026-08-22T08:00:00Z"), questions: [] })
   })
 
   it("returns fingerprints/hashes/counts and never configuration secrets or clinical rows", async () => {

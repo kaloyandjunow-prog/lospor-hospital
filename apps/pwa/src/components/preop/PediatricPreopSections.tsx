@@ -286,7 +286,7 @@ function CalculationCard({ title, value, caseId, accepted, accepting, labels, on
   )
 }
 
-export function PediatricRiskAndCalculators({ control, setValue, language, caseId }: Props & { caseId?: string | null }) {
+export function PediatricRiskAndCalculators({ control, setValue, tc, language, caseId, isShown = () => true }: Props & { caseId?: string | null; isShown?: (field: string) => boolean }) {
   const labels = PEDIATRIC_PREOP_LABELS[language]
   const [
     mode,
@@ -429,9 +429,9 @@ export function PediatricRiskAndCalculators({ control, setValue, language, caseI
 
   return (
     <View style={{ gap: 16 }}>
-      <PovocSection control={control} labels={labels} povoc={povoc} />
+      <PovocSection control={control} labels={labels} povoc={povoc} isShown={isShown} unavailableLabel={tc("preopScoreUnavailable")} />
 
-      <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 10 }}>
+      {isShown("coldsApplicable") ? <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 10 }}>
         <Controller control={control} name="coldsApplicable" render={({ field }) => (
           <ClinicalSwitchRow label={labels.coldsApplicable} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />
         )} />
@@ -448,7 +448,7 @@ export function PediatricRiskAndCalculators({ control, setValue, language, caseI
         {coldsApplicable ? (
           <Text style={{ color: colors.warning, fontSize: 13, fontWeight: "900" }}>{labels.coldsScore}: {colds?.score ?? "-"}/25</Text>
         ) : null}
-      </View>
+      </View> : null}
 
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 10 }}>
         <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labels.fasting}</Text>

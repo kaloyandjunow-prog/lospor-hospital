@@ -30,13 +30,14 @@ function choices(
   kind: ClinicalSearchKind,
   value: unknown,
   locale: ClinicalSearchLocale,
+  storedValue?: (item: CanonicalSearchTag) => string | undefined,
 ): SearchChoice[] {
   const seen = new Set<string>()
   return parseClinicalSearchResults(kind, value, locale).flatMap(item => {
-    const canonicalValue = canonicalSearchValue(kind, item).trim()
+    const canonicalValue = (storedValue ? storedValue(item) ?? "" : canonicalSearchValue(kind, item)).trim()
     if (!canonicalValue || seen.has(canonicalValue)) return []
     seen.add(canonicalValue)
-    return [{ value: canonicalValue, label: item.label, sub: item.sub ?? item.code }]
+    return [{ value: canonicalValue, label: storedValue ? canonicalValue : item.label, sub: storedValue ? item.label : item.sub ?? item.code }]
   })
 }
 
@@ -50,6 +51,7 @@ export function ClinicalSearchSelect({
   loadingLabel,
   noResultsLabel,
   minimumLabel,
+  storedValue,
 }: {
   kind: ClinicalSearchKind
   endpoint: string
@@ -60,6 +62,11 @@ export function ClinicalSearchSelect({
   loadingLabel: string
   noResultsLabel: string
   minimumLabel: string
+  /**
+   * What a chosen result stores, when it is not the default code: a
+   * procedure's group, a drug's ATC code. Results without one are skipped.
+   */
+  storedValue?: (item: CanonicalSearchTag) => string | undefined
 }) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchChoice[]>([])
@@ -68,6 +75,10 @@ export function ClinicalSearchSelect({
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const requestRef = useRef<AbortController | null>(null)
+  // Read through a ref: callers pass an inline function, and a new identity
+  // every render must not restart the search.
+  const storedValueRef = useRef(storedValue)
+  useEffect(() => { storedValueRef.current = storedValue }, [storedValue])
   const selected = useMemo(() => splitValues(value), [value])
   const generatedId = useId()
   const selectedSet = useMemo(() => new Set(selected), [selected])
@@ -90,7 +101,7 @@ export function ClinicalSearchSelect({
           signal: controller.signal,
         })
         if (!controller.signal.aborted) {
-          setResults(choices(kind, data, locale).slice(0, 12))
+          setResults(choices(kind, data, locale, storedValueRef.current).slice(0, 12))
           setActiveIndex(0)
         }
       } catch {

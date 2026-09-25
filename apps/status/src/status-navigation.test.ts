@@ -96,6 +96,7 @@ describe("the navigation registry", () => {
       "/status/admin-activate",
       "/status/admin-recover",
       "/status/admin-link.js",
+      "/status/preop-order.js",
       "/status/maintenance/support-bundle",
       "/status/maintenance/escrow/download",
     ])

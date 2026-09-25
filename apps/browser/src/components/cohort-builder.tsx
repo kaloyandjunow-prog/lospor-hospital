@@ -9,6 +9,8 @@ import {
 } from "@lospor/core/pediatric"
 import {
   RESEARCH_CASE_STATUSES,
+  RESEARCH_DISTRIBUTION_IDS,
+  RESEARCH_METRIC_IDS,
   type ResearchCaseQueryResponse,
   type ResearchCohortDefinition,
   type ResearchMetadata,
@@ -27,6 +29,9 @@ import { ClinicalSearchSelect } from "./clinical-search-select"
 import { DistributionChart } from "./distribution-chart"
 import { MetricCard } from "./metric-card"
 import { useLocale } from "./locale-provider"
+
+const ASA_CLASSES = ["I", "II", "III", "IV", "V", "VI"] as const
+const MAPPING_STATUSES = ["MAPPED", "MANUALLY_CURATED", "REJECTED", "SOURCE_ONLY", "UNMAPPED"] as const
 
 export type FormState = {
   status: string
@@ -62,6 +67,10 @@ export type FormState = {
   monitoring: string
   medication: string
   atcCode: string
+  intraopAtcCode: string
+  preopQuestion: string
+  preopStates: string
+  ehrImported: string
   complication: string
   disposition: string
   mappingStatus: string
@@ -102,6 +111,10 @@ const EMPTY: FormState = {
   monitoring: "",
   medication: "",
   atcCode: "",
+  intraopAtcCode: "",
+  preopQuestion: "",
+  preopStates: "",
+  ehrImported: "",
   complication: "",
   disposition: "",
   mappingStatus: "",
@@ -114,7 +127,7 @@ const EDITABLE_FILTER_KEYS: ReadonlyArray<keyof ResearchCohortDefinition["filter
   "highRisk", "ponv", "diagnosisCodes", "diagnosisText", "comorbidityCodes",
   "comorbidityText", "procedureCodes", "procedureText", "procedureGroups",
   "techniques", "positions", "airwayDevices", "monitoring", "medications",
-  "atcCodes", "complications", "dispositions", "mappingStatuses",
+  "atcCodes", "intraopAtcCodes", "preopAnswers", "ehrImported", "complications", "dispositions", "mappingStatuses",
   "minimumCompleteness",
 ]
 
@@ -216,6 +229,10 @@ export function formFromCohort(definition: ResearchCohortDefinition): FormState 
     monitoring: formList(filters.monitoring),
     medication: formList(filters.medications),
     atcCode: formList(filters.atcCodes),
+    intraopAtcCode: formList(filters.intraopAtcCodes),
+    preopQuestion: filters.preopAnswers?.[0]?.stableKey ?? "",
+    preopStates: formList(filters.preopAnswers?.[0]?.states),
+    ehrImported: formBoolean(filters.ehrImported),
     complication: formList(filters.complications),
     disposition: formList(filters.dispositions),
     mappingStatus: formList(filters.mappingStatuses),
@@ -293,6 +310,11 @@ export function buildCohort(
       ...(form.monitoring ? { monitoring: list(form.monitoring) } : {}),
       ...(form.medication ? { medications: list(form.medication) } : {}),
       ...(form.atcCode ? { atcCodes: list(form.atcCode) } : {}),
+      ...(form.intraopAtcCode ? { intraopAtcCodes: list(form.intraopAtcCode) } : {}),
+      ...(form.ehrImported ? { ehrImported: form.ehrImported === "true" } : {}),
+      ...(form.preopQuestion && list(form.preopStates)
+        ? { preopAnswers: [{ stableKey: form.preopQuestion, states: list(form.preopStates)! }] }
+        : {}),
       ...(form.complication ? { complications: list(form.complication) } : {}),
       ...(form.disposition ? { dispositions: list(form.disposition) } : {}),
       ...(form.mappingStatus ? { mappingStatuses: list(form.mappingStatus) } : {}),
@@ -333,6 +355,19 @@ export function CohortBuilder({
   const airwayOptions = useMemo(() => optionChoices("AIRWAY_MANAGEMENT", locale).filter(option => option.group === "Device"), [locale])
   const complicationOptions = useMemo(() => complicationChoices(locale), [locale])
   const dispositionOptions = useMemo(() => optionChoices("DISPOSITION", locale), [locale])
+  const monitoringOptions = useMemo(() => optionChoices("MONITORING", locale), [locale])
+  const [preopQuestions, setPreopQuestions] = useState<Array<{ stableKey: string; labelEn: string; labelBg: string }>>([])
+  useEffect(() => {
+    // Every bundled question, switched on or not: a study can ask about a
+    // question that was on for part of the period.
+    apiJson<{ questions: Array<{ stableKey: string; labelEn: string; labelBg: string }> }>("/preop/profile")
+      .then(profile => setPreopQuestions(profile.questions))
+      .catch(() => setPreopQuestions([]))
+  }, [])
+  const preopStateOptions = useMemo(() => (["YES", "NO", "UNKNOWN", "NOT_APPLICABLE", "NOT_ASKED"] as const)
+    .map(code => ({ code, label: message(`preopState_${code}`) })), [message])
+  const asaOptions = useMemo(() => ASA_CLASSES.map(code => ({ code, label: `ASA ${code}` })), [])
+  const mappingStatusOptions = useMemo(() => MAPPING_STATUSES.map(code => ({ code, label: message(`mappingStatus_${code}`) })), [message])
   const statusOptions = useMemo(() => RESEARCH_CASE_STATUSES.map(code => ({
     code,
     label: clinicalDisplayLabel("caseStatus", code, locale),
@@ -364,21 +399,10 @@ export function CohortBuilder({
         body: JSON.stringify({
           cohort,
           pagination: { skip, take: 25 },
-          metrics: [
-            "caseCount",
-            "pediatricRate",
-            "meanAgeYears",
-            "meanAgeDays",
-            "meanBmi",
-            "meanDurationMinutes",
-            "emergencyRate",
-            "complicationRate",
-            "ponvRate",
-            "meanAldrete",
-            "mappingCoverage",
-            "fieldCompleteness",
-          ],
-          distributions: ["clinicalMode", "asa", "procedure", "diagnosis", "technique", "disposition"],
+          // Everything the research API can compute; it used to leave the
+          // high-risk rate, mean pain and four distributions unrequested.
+          metrics: RESEARCH_METRIC_IDS,
+          distributions: RESEARCH_DISTRIBUTION_IDS,
         }),
       }
       const [aggregate, inspected] = await Promise.all([
@@ -547,7 +571,15 @@ export function CohortBuilder({
                 searchLabel={message("searchOptions")}
               />
             </Field>
-            <Field label={message("asaComma")}> <input className="input" placeholder="II, III" value={form.asa} onChange={e => set("asa", e.target.value)} /></Field>
+            <Field label={message("asaComma")}>
+              <ClinicalMultiSelect
+                value={form.asa}
+                options={asaOptions}
+                onChange={value => set("asa", value)}
+                emptyLabel={message("any")}
+                searchLabel={message("searchOptions")}
+              />
+            </Field>
             <Field label={message("emergency")}> 
               <select className="select" value={form.emergency} onChange={e => set("emergency", e.target.value)}>
                 <option value="">{message("any")}</option><option value="true">{message("emergency")}</option><option value="false">{message("elective")}</option>
@@ -576,7 +608,6 @@ export function CohortBuilder({
                 minimumLabel={message("searchMinimum")}
               />
             </Field>
-            <Field label={message("diagnosisContains")}> <input className="input" value={form.diagnosisText} onChange={e => set("diagnosisText", e.target.value)} /></Field>
             <Field label={message("comorbidityIcd")}>
               <ClinicalSearchSelect
                 kind="icd10"
@@ -590,7 +621,6 @@ export function CohortBuilder({
                 minimumLabel={message("searchMinimum")}
               />
             </Field>
-            <Field label={message("comorbidityContains")}> <input className="input" value={form.comorbidityText} onChange={e => set("comorbidityText", e.target.value)} /></Field>
             <Field label={message("procedureCode")}>
               <ClinicalSearchSelect
                 kind="procedure"
@@ -604,8 +634,20 @@ export function CohortBuilder({
                 minimumLabel={message("searchMinimum")}
               />
             </Field>
-            <Field label={message("procedureContains")}> <input className="input" value={form.procedureText} onChange={e => set("procedureText", e.target.value)} /></Field>
-            <Field label={message("procedureGroups")}> <input className="input" value={form.procedureGroup} onChange={e => set("procedureGroup", e.target.value)} /></Field>
+            <Field label={message("procedureGroups")}>
+              <ClinicalSearchSelect
+                kind="procedure"
+                endpoint="/search/procedures"
+                locale={locale}
+                value={form.procedureGroup}
+                onChange={value => set("procedureGroup", value)}
+                searchLabel={message("searchOptions")}
+                loadingLabel={message("loading")}
+                noResultsLabel={message("searchNoResults")}
+                minimumLabel={message("searchMinimum")}
+                storedValue={item => item.group}
+              />
+            </Field>
             <Field label={message("techniqueIds")}>
               <ClinicalMultiSelect
                 value={form.technique}
@@ -633,7 +675,15 @@ export function CohortBuilder({
                 searchLabel={message("searchOptions")}
               />
             </Field>
-            <Field label={message("monitoringIds")}> <input className="input" value={form.monitoring} onChange={e => set("monitoring", e.target.value)} /></Field>
+            <Field label={message("monitoringIds")}>
+              <ClinicalMultiSelect
+                value={form.monitoring}
+                options={monitoringOptions}
+                onChange={value => set("monitoring", value)}
+                emptyLabel={message("any")}
+                searchLabel={message("searchOptions")}
+              />
+            </Field>
             <Field label={message("medicationInn")}>
               <ClinicalSearchSelect
                 kind="medication"
@@ -647,7 +697,60 @@ export function CohortBuilder({
                 minimumLabel={message("searchMinimum")}
               />
             </Field>
-            <Field label={message("atcCodes")}> <input className="input" value={form.atcCode} onChange={e => set("atcCode", e.target.value)} /></Field>
+            <Field label={message("atcCodes")}>
+              <ClinicalSearchSelect
+                kind="medication"
+                endpoint="/search/drugs"
+                locale={locale}
+                value={form.atcCode}
+                onChange={value => set("atcCode", value)}
+                searchLabel={message("searchOptions")}
+                loadingLabel={message("loading")}
+                noResultsLabel={message("searchNoResults")}
+                minimumLabel={message("searchMinimum")}
+                storedValue={item => item.atcCode}
+              />
+            </Field>
+            <Field label={message("intraopDrugAtc")}>
+              <ClinicalSearchSelect
+                kind="medication"
+                endpoint="/search/drugs"
+                locale={locale}
+                value={form.intraopAtcCode}
+                onChange={value => set("intraopAtcCode", value)}
+                searchLabel={message("searchOptions")}
+                loadingLabel={message("loading")}
+                noResultsLabel={message("searchNoResults")}
+                minimumLabel={message("searchMinimum")}
+                storedValue={item => item.atcCode}
+              />
+            </Field>
+            <Field label={message("preopQuestionFilter")}>
+              <select className="select" value={form.preopQuestion} onChange={e => set("preopQuestion", e.target.value)}>
+                <option value="">{message("any")}</option>
+                {preopQuestions.map(question => (
+                  <option key={question.stableKey} value={question.stableKey}>{locale === "bg" ? question.labelBg : question.labelEn}</option>
+                ))}
+              </select>
+            </Field>
+            {metadata.supportedFilters?.ehrImported && (
+              <Field label={message("ehrImportedFilter")}>
+                <select className="select" value={form.ehrImported} onChange={e => set("ehrImported", e.target.value)}>
+                  <option value="">{message("any")}</option>
+                  <option value="true">{message("ehrImportedYes")}</option>
+                  <option value="false">{message("ehrImportedNo")}</option>
+                </select>
+              </Field>
+            )}
+            <Field label={message("preopAnswerFilter")}>
+              <ClinicalMultiSelect
+                value={form.preopStates}
+                options={preopStateOptions}
+                onChange={value => set("preopStates", value)}
+                emptyLabel={message("any")}
+                searchLabel={message("searchOptions")}
+              />
+            </Field>
             <Field label={message("complicationContains")}>
               <ClinicalMultiSelect
                 value={form.complication}
@@ -666,7 +769,15 @@ export function CohortBuilder({
                 searchLabel={message("searchOptions")}
               />
             </Field>
-            <Field label={message("mappingStatuses")}> <input className="input" value={form.mappingStatus} onChange={e => set("mappingStatus", e.target.value)} /></Field>
+            <Field label={message("mappingStatuses")}>
+              <ClinicalMultiSelect
+                value={form.mappingStatus}
+                options={mappingStatusOptions}
+                onChange={value => set("mappingStatus", value)}
+                emptyLabel={message("any")}
+                searchLabel={message("searchOptions")}
+              />
+            </Field>
             <Field label={message("minimumCompleteness")}> <input className="input" type="number" min="0" max="100" value={form.completeness} onChange={e => set("completeness", e.target.value)} /></Field>
           </div>
           {saveOpen && !editingCohort && (
@@ -726,7 +837,7 @@ export function CohortBuilder({
                 {message("previous")}
               </button>
               <span className="scope-label">
-                {caseResult.pagination.skip + 1}–{Math.min(caseResult.pagination.total, caseResult.pagination.skip + caseResult.pagination.take)} of {caseResult.pagination.total}
+                {caseResult.pagination.skip + 1}–{Math.min(caseResult.pagination.total, caseResult.pagination.skip + caseResult.pagination.take)} {message("paginationOf")} {caseResult.pagination.total}
               </span>
               <button
                 className="button"

@@ -61,4 +61,42 @@ describe("relational preoperative OMOP answers", () => {
       condition_concept_id: 40491502,
     }))
   })
+  it("exports NO with the approved concept and unmapped YES with a stable LOSPOR source key", () => {
+    const source = completeCaseFixture() as unknown as { preop: { assessmentAnswers: Array<Record<string, unknown>> } }
+    source.preop.assessmentAnswers = [
+      {
+        state: "NO",
+        optionKey: "NO",
+        valueText: null,
+        valueNumber: null,
+        profileVersion: 1,
+        source: "clinician",
+        provenance: { source: "clinician" },
+        question: { stableKey: "A1_RECENT_INFECTION", omopSourceCode: "LOSPOR:PREOP_A1_RECENT_INFECTION", omopConceptId: null },
+      },
+      {
+        state: "YES",
+        optionKey: "YES",
+        valueText: null,
+        valueNumber: null,
+        profileVersion: 1,
+        source: "clinician",
+        provenance: { source: "clinician" },
+        question: { stableKey: "CUSTOM_UNMAPPED_QUESTION", omopSourceCode: null, omopConceptId: null },
+      },
+    ]
+    const bundle = mapCasesToOmop([source as never])
+    expect(bundle.observation).toContainEqual(expect.objectContaining({
+      observation_concept_id: 0,
+      observation_source_value: "LOSPOR:PREOP_A1_RECENT_INFECTION",
+      value_as_string: "NO",
+      value_as_concept_id: 4188540,
+    }))
+    expect(bundle.observation).toContainEqual(expect.objectContaining({
+      observation_concept_id: 0,
+      observation_source_value: "LOSPOR:PREOP_CUSTOM_UNMAPPED_QUESTION",
+      value_as_string: "YES",
+      value_as_concept_id: 4188539,
+    }))
+  })
 })
