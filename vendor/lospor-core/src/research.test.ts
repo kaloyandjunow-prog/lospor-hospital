@@ -141,3 +141,20 @@ describe("benchmark metrics", () => {
     expect(RESEARCH_METRIC_IDS).toContain("ponvRate")
   })
 })
+
+describe("the preop answer and intraop drug filters", () => {
+  it("keeps only complete preop answer filters and cleans the lists", () => {
+    const { filters } = normalizeResearchCohort({
+      version: 1,
+      filters: {
+        preopAnswers: [
+          { stableKey: " A12_PACEMAKER_ICD ", states: ["YES", " "] },
+          { stableKey: "A1_RECENT_INFECTION", states: [] },
+        ],
+        intraopAtcCodes: [" N02A ", ""],
+      },
+    })
+    expect(filters.preopAnswers).toEqual([{ stableKey: "A12_PACEMAKER_ICD", states: ["YES"] }])
+    expect(filters.intraopAtcCodes).toEqual(["N02A"])
+  })
+})

@@ -128,7 +128,22 @@ export type ResearchCohortFilters = {
   airwayDevices?: string[]
   monitoring?: string[]
   medications?: string[]
+  /** ATC codes or classes (a prefix such as N02A matches every opioid under it). */
   atcCodes?: string[]
+  /** Drugs given during the operation, by ATC code or class. */
+  intraopAtcCodes?: string[]
+  /**
+   * Cases whose answer to each preop question is one of the given states.
+   * NOT_ASKED selects cases where the question was on the form and left
+   * unanswered.
+   */
+  preopAnswers?: Array<{ stableKey: string; states: string[] }>
+  /**
+   * Cases where the clinician accepted at least one item imported from the
+   * hospital system (true), or none (false). Appliance only: elsewhere no case
+   * ever received an import.
+   */
+  ehrImported?: boolean
   complications?: string[]
   dispositions?: string[]
   mappingStatuses?: string[]
@@ -259,6 +274,11 @@ export type ResearchCaseDetail = ResearchCaseSummary & {
   timeline: ResearchTimelineEvent[]
   preoperativeAnswers?: Array<{
     stableKey: string
+    /** The question as the catalogue words it, and its OMOP mapping (0: no standard concept). */
+    labelEn?: string
+    labelBg?: string
+    omopConceptId?: number | null
+    omopSourceCode?: string | null
     state: string
     optionKey: string | null
     profileVersion: number
@@ -460,6 +480,8 @@ export type ResearchMetadata = {
   supportedBenchmarkMetrics: ResearchBenchmarkMetricId[]
   supportedDistributions: ResearchDistributionId[]
   supportedExports: ResearchExportFormat[]
+  /** Filters that only mean something on some deployments. Absent: not offered. */
+  supportedFilters?: { ehrImported: boolean }
 }
 
 function cleanStrings(values: string[] | undefined): string[] | undefined {
@@ -526,6 +548,13 @@ export function normalizeResearchCohort(
       monitoring: cleanStrings(filters.monitoring),
       medications: cleanStrings(filters.medications),
       atcCodes: cleanStrings(filters.atcCodes),
+      intraopAtcCodes: cleanStrings(filters.intraopAtcCodes),
+      ehrImported: typeof filters.ehrImported === "boolean" ? filters.ehrImported : undefined,
+      preopAnswers: filters.preopAnswers?.length
+        ? filters.preopAnswers
+          .map(item => ({ stableKey: cleanText(item.stableKey) ?? "", states: cleanStrings(item.states) ?? [] }))
+          .filter(item => item.stableKey && item.states.length)
+        : undefined,
       complications: cleanStrings(filters.complications),
       dispositions: cleanStrings(filters.dispositions),
       mappingStatuses: cleanStrings(filters.mappingStatuses),
