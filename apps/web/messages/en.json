@@ -699,8 +699,14 @@
     "hospitalPatientNumber": "Hospital patient number:",
     "correctRejectedFields": "Some clinical values were not saved. Correct the highlighted fields, then try again.",
     "preopMustReachServer": "The preoperative assessment has not reached the hospital server. Check the connection and try again before continuing.",
+    "blockedPreopAnswer": "This answer does not fit the hospital’s preoperative form. Change it to save.",
+    "saveRefused": "The server refused this save. Your entries are still on this screen — correct them and try again.",
+    "preopRequiredMissing": "Answer the required preoperative questions before continuing: {questions}",
     "submitForReviewBlocked": "This case is not complete enough to close yet. Check the preoperative, intraoperative and postoperative records, then submit again.",
-    "submitForReviewUnreachable": "The case could not be submitted for review. It is still in progress — try again when you are back online."
+    "submitForReviewUnreachable": "The case could not be submitted for review. It is still in progress — try again when you are back online.",
+    "blockedPreopAnswer": "This answer does not fit the hospital’s preoperative form. Change it to save.",
+    "saveRefused": "The server refused this save. Your entries are still on this screen — correct them and try again.",
+    "preopRequiredMissing": "Answer the required preoperative questions before continuing: {questions}"
   },
   "transfer": {
     "awaitingAcceptance": "Awaiting acceptance",
@@ -1182,7 +1188,25 @@
     "aiOptInLabel": "Enable AI pre-operative advisor for this case",
     "aiOptInHint": "Optional. The AI receives only structured clinical fields — no names, notes, or free text.",
     "aiUnavailable": "The AI advisor is not available on this installation.",
-    "criteriaAnswered": "{answered} of {total} criteria answered — unanswered ones do not count toward this score"
+    "criteriaAnswered": "{answered} of {total} criteria answered — unanswered ones do not count toward this score",
+    "questionsAnswered": "{answered} of {total} answered",
+    "notApplicable": "N/A",
+    "suggestionFromRecord": "From the record: {answer}?",
+    "suggestionAccept": "Accept",
+    "suggestionReject": "Reject",
+    "scoreUnavailable": "Not available: a question this score needs is switched off for this hospital.",
+    "questionGroup": {
+      "SAFETY": "Safety",
+      "AIRWAY": "Airway",
+      "HISTORY": "History",
+      "CARDIOVASCULAR": "Cardiovascular",
+      "RISK": "Risk scores",
+      "CASE": "Case",
+      "PEDIATRIC_RISK": "Pediatric risk",
+      "PEDIATRIC_SAFETY": "Pediatric safety",
+      "ADULT_ADDITIONS": "Adult history",
+      "PEDIATRIC_ADDITIONS": "Pediatric history"
+    }
   },
   "intraop": {
     "timingSection": "Timing",

@@ -33,7 +33,16 @@ import {
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
 import { requiresPediatricModeDecision } from "@lospor/core/pediatric"
-import { PreopContractError, savePreopAnswers } from "@/lib/preop/service"
+import {
+  activePreopProfile,
+  defaultPreopProfileShape,
+  missingRequiredPreopQuestions,
+  PREOP_ANSWER_REFUSED,
+  PreopContractError,
+  preopContractBlockedKeys,
+  savePreopAnswers,
+  serializePreopProfile,
+} from "@/lib/preop/service"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 const REVISION_HEADER = SECTION_REVISION_HEADER
@@ -100,18 +109,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           assessmentSuggestions: { orderBy: { createdAt: "desc" } },
         },
       },
-      preopProfilePin: {
-        include: {
-          profile: {
-            include: {
-              questions: {
-                include: { question: { include: { options: { orderBy: { sortOrder: "asc" } } } } },
-                orderBy: { sortOrder: "asc" },
-              },
-            },
-          },
-        },
-      },
       intraop: true,
       postop: true,
       clinicalCalculations: true,
@@ -149,10 +146,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     : { ...record, pediatricModeDecisionRequired }
   // Prisma JSON columns are intentionally broad at the persistence boundary.
   // The response contract is the shared serialised CaseDetail shape.
+  // The form is drawn from the appliance profile. A read never writes, so an
+  // appliance that has not saved any preop yet answers with the bundled
+  // defaults -- exactly what its first save will provision.
+  const activeProfile = await activePreopProfile(prisma)
+  const preopProfile = activeProfile ? serializePreopProfile(activeProfile) : defaultPreopProfileShape()
   const responseRecord = {
     ...normalizedRecord,
     capabilities: caseCapabilitiesForUser(user, record),
     patientReference: record.patientLink,
+    preopProfile,
+    preopRequiredMissing: missingRequiredPreopQuestions(activeProfile, record.preop?.assessmentAnswers, record.clinicalMode),
   } as unknown as Serialized<CaseDetail>
 
   // Extending open infusion/fluid/agent bars to "now" on read used to happen here,
@@ -373,8 +377,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           actorId: userId,
           preop: mappedPreop,
           answers: (mappedPreop as Record<string, unknown>).preopAnswers as never,
-          requestedProfileVersion: (mappedPreop as Record<string, unknown>).preopProfileVersion as number | undefined,
-          adoptProfile: (mappedPreop as Record<string, unknown>).adoptPreopProfile === true,
+          clinicalMode: pediatricDecision.clinicalMode,
         })
       }
     }
@@ -633,7 +636,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
     if (err instanceof PreopContractError) {
-      return NextResponse.json({ error: err.code, details: err.details }, { status: 400 })
+      // The contract code is a fixed enum; details (which can name a question)
+      // stay out of the log, as does every clinical value.
+      const failureKind = err.code
+      console.warn("[PATCH /api/cases/:id] PREOP_CONTRACT", failureKind)
+      const blockedKeys = preopContractBlockedKeys(err)
+      if (!blockedKeys) {
+        // Nothing the clinician edits can fix a catalogue or profile fault
+        // on the appliance, so it is not a 400: the client keeps the save
+        // queued and retries, and Status hears about it.
+        void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
+        return NextResponse.json({ error: err.code }, { status: 500 })
+      }
+      return NextResponse.json({
+        error: err.code,
+        code: PREOP_ANSWER_REFUSED,
+        reason: err.code,
+        field: blockedKeys[0],
+        blockedKeys,
+        details: err.details,
+      }, { status: 400 })
     }
     console.error("[PATCH /api/cases/:id] CASE_UPDATE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })

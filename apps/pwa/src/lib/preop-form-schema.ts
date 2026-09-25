@@ -38,8 +38,6 @@ export const preopFormSchema = z.object({
     valueNumber: z.number().nullable().optional(),
     valueDate: z.string().datetime().nullable().optional(),
   }).passthrough()).default([]),
-  preopProfileVersion: z.number().int().positive().optional(),
-  adoptPreopProfile: z.boolean().optional(),
   patientNumber: z.string().trim().max(128).optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
   // nullable, not merely optional. Switching a case out of pediatric mode has

@@ -181,3 +181,33 @@ describe("cohort builder", () => {
       .toEqual({ mode: "EXACT" })
   })
 })
+
+describe("the coded filters that replaced free text", () => {
+  it("round-trips a preop answer and an intraop drug filter", () => {
+    const cohort = buildCohort({
+      preopQuestion: "A12_PACEMAKER_ICD",
+      preopStates: "YES, NOT_ASKED",
+      intraopAtcCode: "N02AB03",
+      asa: "III, IV",
+    })
+    expect(cohort.filters.preopAnswers).toEqual([{ stableKey: "A12_PACEMAKER_ICD", states: ["YES", "NOT_ASKED"] }])
+    expect(cohort.filters.intraopAtcCodes).toEqual(["N02AB03"])
+    expect(cohort.filters.asa).toEqual(["III", "IV"])
+
+    const form = formFromCohort(cohort)
+    expect(form).toMatchObject({ preopQuestion: "A12_PACEMAKER_ICD", preopStates: "YES, NOT_ASKED", intraopAtcCode: "N02AB03" })
+  })
+
+  it("sends no preop answer filter until both the question and an answer are chosen", () => {
+    expect(buildCohort({ preopQuestion: "A12_PACEMAKER_ICD" }).filters.preopAnswers).toBeUndefined()
+  })
+})
+
+describe("the hospital-system import filter", () => {
+  it("round-trips accepted and not accepted", () => {
+    expect(buildCohort({ ehrImported: "true" }).filters.ehrImported).toBe(true)
+    expect(buildCohort({ ehrImported: "false" }).filters.ehrImported).toBe(false)
+    expect(buildCohort({}).filters.ehrImported).toBeUndefined()
+    expect(formFromCohort(buildCohort({ ehrImported: "false" })).ehrImported).toBe("false")
+  })
+})

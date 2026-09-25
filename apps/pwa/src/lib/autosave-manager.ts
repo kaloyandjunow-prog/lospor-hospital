@@ -16,6 +16,7 @@ import {
 
 import { ApiError, apiFetch } from "./api"
 import { clinicalSyncKv } from "./clinical-sync-kv"
+import { readPreopAnswerRefusal } from "./preop-answer-refusal"
 
 const kv: KVAdapter = clinicalSyncKv
 
@@ -119,13 +120,24 @@ export function classifyPatchError(error: unknown): PatchFailure {
     return {
       kind: "http",
       status: error.status,
-      blocked: readBlockedSaveIssue(error.details) ?? undefined,
+      blocked: readBlockedSaveIssue(error.details) ?? readPreopAnswerRefusal(error.details) ?? undefined,
       message: error.message,
       serverRevision: typeof version?.revision === "number" ? version.revision : undefined,
       serverUpdatedAt: typeof version?.updatedAt === "string" ? version.updatedAt : undefined,
     }
   }
   return { kind: "other" }
+}
+
+/**
+ * The server answered "no" (a 4xx other than timeout or rate limit), as opposed
+ * to the network being away. A screen must not show such a save as "Saved
+ * locally -- syncs when online": it will not sync by waiting.
+ */
+export function isServerRefusal(failure: PatchFailure | undefined): boolean {
+  return failure?.kind === "http"
+    && failure.status >= 400 && failure.status < 500
+    && failure.status !== 408 && failure.status !== 429
 }
 
 function isNetworkError(error: unknown): boolean {

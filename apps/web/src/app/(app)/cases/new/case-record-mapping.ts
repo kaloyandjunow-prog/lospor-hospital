@@ -4,6 +4,7 @@
 // component around it. Nothing here touches React or component state; the
 // wizard just calls it on load and on save.
 
+import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
 import type { PreopData } from "@/components/forms/PreopForm"
 import type { IntraopData } from "@/components/forms/IntraopForm"
 import type { PostopData } from "@/components/forms/PostopForm"
@@ -112,7 +113,9 @@ export function dbPreopToForm(
         valueDate: objectAnswer?.valueDate ? new Date(objectAnswer.valueDate).toISOString() : null,
       }
     }).filter((answer): answer is typeof answer & { state: FormPreopAnswerState } =>
-      answer.stableKey.length > 0 && answer.state !== null,
+      // Baseline questions are answered through their own fields; a copy here
+      // would be stale the moment the toggle changes (the server ignores it).
+      answer.stableKey.length > 0 && answer.state !== null && !hasDedicatedPreopControl(answer.stableKey),
     ) : [],
 
     // Medical history

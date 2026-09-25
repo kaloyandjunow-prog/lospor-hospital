@@ -63,8 +63,6 @@ export const schema = z.object({
   // API-owned definition-driven answers. Specialized controls remain the
   // presentation layer, but round-trip the shared relational rows unchanged.
   preopAnswers: z.array(preopAnswerSchema).default([]),
-  preopProfileVersion: z.number().int().positive().optional(),
-  adoptPreopProfile: z.boolean().optional(),
 
   // Medical history — ICD-10 tags
   comorbidities: z.array(tagSchema).default([]),

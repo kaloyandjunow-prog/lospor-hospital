@@ -1,5 +1,30 @@
 # Changelog - LOSPOR Web App
 
+## [9.11.0] - 2026-09-24
+
+### Added
+
+- **The preoperative form follows the hospital's profile.** Switched-on
+  bundled questions appear as compact yes/no rows in the section they belong
+  to, in the operator's order, with follow-ups only under a Yes, a required
+  marker, per-section progress, sub-headings in long sections, and
+  suggestions from the record to accept or reject (only on an unanswered
+  question). Switched-off baseline controls are hidden, and a score with a
+  switched-off input shows "not available" instead of understating the risk.
+
+### Fixed
+
+- **A refused preop save is no longer shown as "saved offline".** A 4xx is
+  read as a refusal and a refused answer is shown beside its field.
+- **Required questions are checked when continuing to intraop**, not on
+  every draft save.
+
+### Changed
+
+- The preoperative form is split into smaller components (anamnesis card,
+  pediatric COLDS card, finalize-undo banner, profile loading) to stay
+  within the component size budgets.
+
 ## [9.10.7] - 2026-09-23
 
 ### Added

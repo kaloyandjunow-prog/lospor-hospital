@@ -56,8 +56,33 @@ export default async function ResearchCasePage({
         <ListPanel title={message("diagnoses")} items={item.diagnoses} domain="diagnosis" locale={locale} emptyLabel={message("noStructuredRecords")} />
         <ListPanel title={message("procedures")} items={item.procedures} domain="procedure" locale={locale} emptyLabel={message("noStructuredRecords")} />
         <ListPanel title={message("comorbidities")} items={item.comorbidities} domain="diagnosis" locale={locale} emptyLabel={message("noStructuredRecords")} />
+        <ListPanel title={message("medicationsPanel")} items={item.medications} domain="medication" locale={locale} emptyLabel={message("noStructuredRecords")} />
         <DataPanel title={message("postoperativeOutcome")} values={item.postoperative} locale={locale} />
       </section>
+      {!!item.preoperativeAnswers?.length && (
+        <section className="panel" style={{ marginTop: 14 }}>
+          <div className="panel-header"><h3>{message("preopAnswersTitle")}</h3></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>{message("preopQuestion")}</th><th>{message("preopAnswer")}</th><th>{message("preopSource")}</th><th>{message("preopOmop")}</th></tr></thead>
+              <tbody>{item.preoperativeAnswers.map(answer => (
+                <tr key={answer.stableKey}>
+                  <td>{(locale === "bg" ? answer.labelBg : answer.labelEn) ?? answer.stableKey}</td>
+                  <td>{answer.state === "NOT_ASKED" ? message("preopNotAnswered") : answer.optionKey ?? answer.state}</td>
+                  <td>{answer.source}</td>
+                  <td className="mono">{answer.omopConceptId ? answer.omopConceptId : message("preopSourceValueOnly")}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {!!item.quality.warnings.length && (
+        <section className="panel" style={{ marginTop: 14 }}>
+          <div className="panel-header"><h3>{message("qualityWarningsTitle")}</h3></div>
+          <ul className="panel-body">{item.quality.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
+        </section>
+      )}
       <section className="panel" style={{ marginTop: 14 }}>
         <div className="panel-header"><h3>{message("relativeTimeline")}</h3></div>
         <div className="panel-body timeline">
@@ -150,7 +175,7 @@ function ListPanel({
 }: {
   title: string
   items: ResearchMappedTerm[]
-  domain: Extract<ClinicalDisplayDomain, "diagnosis" | "procedure">
+  domain: Extract<ClinicalDisplayDomain, "diagnosis" | "procedure" | "medication">
   locale: ClinicalLocale
   emptyLabel: string
 }) {
@@ -167,7 +192,7 @@ function ListPanel({
                 labelEn: item.labelEn,
                 labelBg: item.labelBg,
               }).label}</td>
-              <td><span className={`pill ${item.mappingStatus === "MAPPED" ? "good" : "warn"}`}>
+              <td><span className={`pill ${item.mappingStatus === "MAPPED" || item.mappingStatus === "MANUALLY_CURATED" ? "good" : "warn"}`}>
                 {clinicalDisplayLabel("mappingStatus", item.mappingStatus, locale)}
               </span></td>
             </tr>

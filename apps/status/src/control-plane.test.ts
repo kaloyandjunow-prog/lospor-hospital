@@ -15,6 +15,33 @@ const VIEW = {
     minimumClientVersion: "8.0.0",
     reviewedDoseProfilesRequired: true,
   },
+  preoperative: {
+    scope: "APPLIANCE_WIDE",
+    catalogVersion: "1.4.7",
+    source: "BUNDLED_IMMUTABLE_CATALOG",
+    profileAdministrationPath: "/v1/preop/profile",
+    administration: {
+      catalog: [{
+        stableKey: "BASE_ALLERGIES",
+        catalogVersion: "1.4.7",
+        section: "SAFETY",
+        applicability: [],
+        answerType: "CHOICE",
+        labelEn: "Drug or other allergy",
+        labelBg: "Алергия",
+        requiredDefault: false,
+        allowUnknown: false,
+        allowNotApplicable: false,
+        conditionalRuleKey: null,
+        omopDomain: "observation",
+        omopConceptId: null,
+        omopVocabulary: null,
+        omopSourceCode: "LOSPOR:PREOP_BASE_ALLERGIES",
+        options: [{ key: "YES", labelEn: "Yes", labelBg: "Да", omopConceptId: 4188539, omopVocabulary: "SNOMED", omopSourceCode: null }],
+      }],
+      activeProfile: null,
+    },
+  },
   research: {
     policy: { defaultExpiryDays: 90, maximumExpiryDays: 365 },
     accounts: [{
@@ -220,7 +247,34 @@ describe("Status control-plane client", () => {
   it("accepts username-only Hospital principals without inventing email addresses", async () => {
     const usernameOnly = {
       ...VIEW,
-      research: {
+      preoperative: {
+    scope: "APPLIANCE_WIDE",
+    catalogVersion: "1.4.7",
+    source: "BUNDLED_IMMUTABLE_CATALOG",
+    profileAdministrationPath: "/v1/preop/profile",
+    administration: {
+      catalog: [{
+        stableKey: "BASE_ALLERGIES",
+        catalogVersion: "1.4.7",
+        section: "SAFETY",
+        applicability: [],
+        answerType: "CHOICE",
+        labelEn: "Drug or other allergy",
+        labelBg: "Алергия",
+        requiredDefault: false,
+        allowUnknown: false,
+        allowNotApplicable: false,
+        conditionalRuleKey: null,
+        omopDomain: "observation",
+        omopConceptId: null,
+        omopVocabulary: null,
+        omopSourceCode: "LOSPOR:PREOP_BASE_ALLERGIES",
+        options: [{ key: "YES", labelEn: "Yes", labelBg: "Да", omopConceptId: 4188539, omopVocabulary: "SNOMED", omopSourceCode: null }],
+      }],
+      activeProfile: null,
+    },
+  },
+  research: {
         ...VIEW.research,
         accounts: [{ ...VIEW.research.accounts[0], email: null }],
         grants: [{
@@ -270,7 +324,34 @@ describe("Status control-plane client", () => {
     )
 
     await expect(client.get()).resolves.toMatchObject({
-      research: {
+      preoperative: {
+    scope: "APPLIANCE_WIDE",
+    catalogVersion: "1.4.7",
+    source: "BUNDLED_IMMUTABLE_CATALOG",
+    profileAdministrationPath: "/v1/preop/profile",
+    administration: {
+      catalog: [{
+        stableKey: "BASE_ALLERGIES",
+        catalogVersion: "1.4.7",
+        section: "SAFETY",
+        applicability: [],
+        answerType: "CHOICE",
+        labelEn: "Drug or other allergy",
+        labelBg: "Алергия",
+        requiredDefault: false,
+        allowUnknown: false,
+        allowNotApplicable: false,
+        conditionalRuleKey: null,
+        omopDomain: "observation",
+        omopConceptId: null,
+        omopVocabulary: null,
+        omopSourceCode: "LOSPOR:PREOP_BASE_ALLERGIES",
+        options: [{ key: "YES", labelEn: "Yes", labelBg: "Да", omopConceptId: 4188539, omopVocabulary: "SNOMED", omopSourceCode: null }],
+      }],
+      activeProfile: null,
+    },
+  },
+  research: {
         accounts: [{ email: null }],
         grants: [{ userEmail: null }],
         omopRequests: [{ requesterEmail: null }],
@@ -545,6 +626,26 @@ describe("Status control-plane client", () => {
     const [, removeInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[2]
     expect((removeInit as RequestInit).method).toBe("DELETE")
     expect(String((removeInit as RequestInit).body)).not.toContain(credential)
+  })
+
+  it("sends preoperative profile changes to the dedicated control endpoint", async () => {
+    const fetcher = vi.fn(async () => json({})) as unknown as typeof fetch
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      fetcher,
+    )
+    await client.updatePreopProfile({
+      reason: "Enable the approved additional question set",
+      questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
+    })
+    const [url, init] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(url).toBe("http://api:3002/v1/internal/hospital/control-plane/preop-profile")
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      reason: "Enable the approved additional question set",
+      questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
+    })
   })
 
   it("refuses all calls when the private URL or bearer is absent", async () => {

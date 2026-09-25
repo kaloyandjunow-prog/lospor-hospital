@@ -1,3 +1,4 @@
+import { PREOP_ANSWER_REFUSED, PreopContractError, preopContractBlockedKeys, savePreopAnswers } from "@/lib/preop/service"
 import { NextRequest, NextResponse, after } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
@@ -190,13 +191,17 @@ export async function POST(req: NextRequest) {
     let caseRecord
     for (let attempt = 0; ; attempt++) {
       try {
-        // The encrypted identifier and its case are one clinical write. A
-        // failed case create must never leave an identifiable orphan row.
+        // The encrypted identifier, the case and its preop answer rows are one
+        // clinical write. A failed case create must never leave an
+        // identifiable orphan row, and answers given before the case existed
+        // (a draft saved before its patient number) are otherwise never
+        // written: the next save sends only what changed, and would record
+        // them as unanswered.
         caseRecord = await withDirectTransaction(async tx => {
           const patientReference = patientNumber && user.institutionId
             ? await resolvePatientLink(tx, user.institutionId, patientNumber, userId)
             : null
-          return tx.case.create({
+          const created = await tx.case.create({
             data: {
               clinicalMode: pediatricDecision.clinicalMode,
               clinicalRulesVersion: pediatricDecision.clinicalRulesVersion,
@@ -214,9 +219,20 @@ export async function POST(req: NextRequest) {
             },
             include: {
               patientLink: { select: { id: true, maskedIdentifier: true } },
-              preop: { select: { updatedAt: true, syncRevision: true } },
+              preop: { select: { id: true, updatedAt: true, syncRevision: true } },
             },
           })
+          if (created.preop) {
+            await savePreopAnswers(tx, {
+              caseId: created.id,
+              preopId: created.preop.id,
+              actorId: userId,
+              preop: mappedPreop as Record<string, unknown>,
+              answers: (mappedPreop as Record<string, unknown>).preopAnswers as never,
+              clinicalMode: pediatricDecision.clinicalMode,
+            })
+          }
+          return created
         })
         break
       } catch (e: unknown) {
@@ -253,6 +269,14 @@ export async function POST(req: NextRequest) {
     }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+    if (err instanceof PreopContractError) {
+      const blockedKeys = preopContractBlockedKeys(err)
+      if (!blockedKeys) return NextResponse.json({ error: err.code }, { status: 500 })
+      return NextResponse.json({
+        error: err.code, code: PREOP_ANSWER_REFUSED, reason: err.code,
+        field: blockedKeys[0], blockedKeys, details: err.details,
+      }, { status: 400 })
+    }
     console.error("[POST /api/cases] CASE_CREATE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-create" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

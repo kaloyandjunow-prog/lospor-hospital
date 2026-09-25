@@ -1,5 +1,28 @@
 # Changelog - LOSPOR Core
 
+## [9.11.0] - 2026-09-24
+
+### Added
+
+- **Shared rendering rules for the preoperative profile.** A profile question
+  now carries its form section, catalogue sub-heading and parent. Pure helpers
+  decide what a section draws (operator order, adult or pediatric population,
+  follow-ups only under a Yes), whether a baseline control is shown, and
+  whether a risk score can be computed when one of its inputs is switched
+  off. The baseline question to form field map lives here, so API, Web and
+  PWA share one copy.
+- **Coded research filters.** `preopAnswers` (a question and the answer
+  states), `intraopAtcCodes` (drugs given during the operation) and
+  `ehrImported` (cases where the clinician accepted data imported from the
+  hospital system). ATC filters match by prefix, so a class such as N02A
+  selects every drug under it. `supportedFilters.ehrImported` is advertised
+  only on an appliance.
+
+### Changed
+
+- **One preoperative profile, changed in place.** Profile versions, case
+  pins and profile adoption are gone from the contract.
+
 ## [9.10.4] - 2026-09-23
 
 ### Added

@@ -1,3 +1,4 @@
+import packageJson from "../../package.json"
 import "server-only"
 import { cookies } from "next/headers"
 import { cache } from "react"
@@ -47,7 +48,7 @@ export async function apiServerFetch(path: string, init: RequestInit = {}) {
     headers.set("origin", DATABASE_ORIGIN)
   }
   headers.set("x-lospor-client", "database")
-  headers.set("x-lospor-client-version", "0.2.1")
+  headers.set("x-lospor-client-version", packageJson.version)
   return fetch(`${API_INTERNAL_URL}${path}`, {
     ...init,
     headers,

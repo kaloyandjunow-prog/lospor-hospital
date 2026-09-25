@@ -671,7 +671,7 @@ export default function IntraopLiveScreen() {
   // ─────────────────────────────── RENDER ───────────────────────────────
   return (
     <>
-      <View style={{ flex:1, backgroundColor: colors.background }}>
+      <View testID={caseLoaded ? "intraop-case-ready" : "intraop-case-loading"} style={{ flex: 1, backgroundColor: colors.background }}>
         <IntraopScreenChrome
           caseId={id}
           status={caseInfo?.status}

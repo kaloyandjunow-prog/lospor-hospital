@@ -10,7 +10,7 @@ import { E2E_PASSWORD } from "./credentials"
 
 export const PWA_BASE = process.env.PWA_E2E_BASE_URL ?? "http://localhost:3001"
 /**
- * A phone-sized context with `email` already signed in.
+ * A phone-sized context with the hospital `username` already signed in.
  *
  * The request context and page share one cookie jar. Signing in before the page
  * opens therefore exercises the real browser session while avoiding a login
@@ -18,11 +18,16 @@ export const PWA_BASE = process.env.PWA_E2E_BASE_URL ?? "http://localhost:3001"
  */
 export async function openPhone(
   browser: Browser,
-  email: string,
+  username: string,
 ): Promise<{ context: BrowserContext; page: Page }> {
   const context = await browser.newContext({
     baseURL: PWA_BASE,
     viewport: { width: 412, height: 915 },
+    // The PWA is served from a generated static export. A registered service
+    // worker can retain an older export across a rerun and intercept both the
+    // case load and the offline replay, so cross-app tests must exercise the
+    // bundle currently served by the test server.
+    serviceWorkers: "block",
   })
   const session = await context.request.post("/v1/auth/session", {
     headers: {
@@ -32,7 +37,7 @@ export async function openPhone(
       "X-LOSPOR-Client-Version": "9.3.0-e2e",
     },
     data: {
-      email,
+      username,
       password: E2E_PASSWORD,
       locale: "en",
       deviceLabel: "Playwright phone",
@@ -41,7 +46,7 @@ export async function openPhone(
   if (session.status() !== 200) {
     const detail = await session.text()
     await context.close()
-    throw new Error(`could not create a PWA browser session for ${email}: ${session.status()} ${detail}`)
+    throw new Error(`could not create a PWA browser session for ${username}: ${session.status()} ${detail}`)
   }
   const page = await context.newPage()
   return { context, page }
@@ -84,15 +89,10 @@ export async function openPhonePreop(
   await settle(page)
 }
 
-/** Opens the real PWA intraoperative surface and waits for server hydration. */
+/** Opens the real PWA intraoperative surface and waits for case hydration. */
 export async function openPhoneIntraop(page: Page, caseId: string): Promise<void> {
-  const hydrated = page.waitForResponse(response =>
-    response.url().includes(`/v1/cases/${encodeURIComponent(caseId)}`)
-    && response.request().method() === "GET"
-    && response.status() === 200,
-  )
   await page.goto(phoneIntraopPath(caseId))
-  await hydrated
+  await page.locator('[data-testid="intraop-case-ready"]').waitFor({ state: "visible" })
   await page.getByText("Intraoperative", { exact: true }).first().waitFor({ state: "visible" })
   await page.getByText("Timetable", { exact: true }).first().waitFor({ state: "visible" })
   await page.waitForTimeout(1_200)

@@ -1,5 +1,52 @@
 import { isRecord, safeJsonParse } from "./util.js"
 
+export type PreopCatalogAdminOption = {
+  key: string
+  labelEn: string
+  labelBg: string
+  omopConceptId: number | null
+  omopVocabulary: string | null
+  omopSourceCode: string | null
+}
+
+export type PreopCatalogAdminQuestion = {
+  stableKey: string
+  catalogVersion: string
+  section: string
+  applicability: string[]
+  answerType: string
+  labelEn: string
+  labelBg: string
+  requiredDefault: boolean
+  allowUnknown: boolean
+  allowNotApplicable: boolean
+  conditionalRuleKey: string | null
+  omopDomain: string | null
+  omopConceptId: number | null
+  omopVocabulary: string | null
+  omopSourceCode: string | null
+  options: PreopCatalogAdminOption[]
+}
+
+export type PreopActiveProfileAdmin = {
+  id: string
+  version: number
+  catalogVersion: string
+  status: string
+  publishedAt: string | null
+  questions: Array<{
+    stableKey: string
+    enabled: boolean
+    required: boolean
+    sortOrder: number
+  }>
+}
+
+export type PreopAdministrationView = {
+  catalog: PreopCatalogAdminQuestion[]
+  activeProfile: PreopActiveProfileAdmin | null
+}
+
 export type ResearchGrantInput = {
   userId: string
   institutionId: string | null
@@ -131,9 +178,10 @@ export type ControlPlaneView = {
   }
   preoperative: {
     scope: "APPLIANCE_WIDE"
-    catalogVersion: "1.4.7"
+    catalogVersion: string
     source: "BUNDLED_IMMUTABLE_CATALOG"
     profileAdministrationPath: string
+    administration?: PreopAdministrationView
   }
   externalAi: {
     externalAiEnabled: boolean
@@ -467,6 +515,7 @@ export interface ControlPlanePort {
    * null. No password, for the lab map's reason; audited.
    */
   answerEhrCodeSystem(input: { system: string; list: EhrCodeListAnswer | null }): Promise<void>
+  updatePreopProfile(input: { reason: string; questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }> }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -570,6 +619,49 @@ function clinicalBaseline(
     || !sameClinicalProfileCounts(selectedCounts, expectedCounts)
   )) return null
   return value as unknown as ClinicalBaselineReadiness
+}
+
+function preopAdministrationShape(value: unknown): value is PreopAdministrationView {
+  if (!isRecord(value) || !Array.isArray(value.catalog)) return false
+  const option = (entry: unknown): boolean => isRecord(entry)
+    && text(entry.key, 128)
+    && text(entry.labelEn, 512)
+    && text(entry.labelBg, 512)
+    && (entry.omopConceptId === null || finiteInteger(entry.omopConceptId, 10_000_000_000))
+    && nullableText(entry.omopVocabulary, 128)
+    && nullableText(entry.omopSourceCode, 512)
+  const question = (entry: unknown): boolean => isRecord(entry)
+    && text(entry.stableKey, 128)
+    && text(entry.catalogVersion, 64)
+    && text(entry.section, 128)
+    && Array.isArray(entry.applicability)
+    && entry.applicability.every(item => text(item, 32))
+    && text(entry.answerType, 32)
+    && text(entry.labelEn, 512)
+    && text(entry.labelBg, 512)
+    && typeof entry.requiredDefault === "boolean"
+    && typeof entry.allowUnknown === "boolean"
+    && typeof entry.allowNotApplicable === "boolean"
+    && nullableText(entry.conditionalRuleKey, 128)
+    && nullableText(entry.omopDomain, 64)
+    && (entry.omopConceptId === null || finiteInteger(entry.omopConceptId, 10_000_000_000))
+    && nullableText(entry.omopVocabulary, 128)
+    && nullableText(entry.omopSourceCode, 512)
+    && Array.isArray(entry.options)
+    && entry.options.every(option)
+  if (!value.catalog.every(question)) return false
+  if (value.activeProfile === null) return true
+  if (!isRecord(value.activeProfile) || !text(value.activeProfile.id, 128)
+    || !finiteInteger(value.activeProfile.version, 10_000)
+    || !text(value.activeProfile.catalogVersion, 64)
+    || !text(value.activeProfile.status, 32)
+    || !nullableIso(value.activeProfile.publishedAt)
+    || !Array.isArray(value.activeProfile.questions)) return false
+  return value.activeProfile.questions.every(entry => isRecord(entry)
+    && text(entry.stableKey, 128)
+    && typeof entry.enabled === "boolean"
+    && typeof entry.required === "boolean"
+    && finiteInteger(entry.sortOrder, 10_000))
 }
 
 function parseView(value: unknown): ControlPlaneView | null {
@@ -720,11 +812,17 @@ function parseView(value: unknown): ControlPlaneView | null {
   if (!ehrVitalCodesShape(value.ehrVitalCodes)) return null
   if (value.ehrMedicationCodes !== undefined && !ehrMedicationCodesShape(value.ehrMedicationCodes)) return null
   if (!ehrCodeSystemsShape(value.ehrCodeSystems)) return null
+  if (value.preoperative !== undefined && (!isRecord(value.preoperative)
+    || value.preoperative.scope !== "APPLIANCE_WIDE"
+    || !text(value.preoperative.catalogVersion, 64)
+    || value.preoperative.source !== "BUNDLED_IMMUTABLE_CATALOG"
+    || !text(value.preoperative.profileAdministrationPath, 256)
+    || (value.preoperative.administration !== undefined && !preopAdministrationShape(value.preoperative.administration)))) return null
   return {
     ...value,
-    preoperative: {
+    preoperative: isRecord(value.preoperative) ? value.preoperative as ControlPlaneView["preoperative"] : {
       scope: "APPLIANCE_WIDE",
-      catalogVersion: "1.4.7",
+      catalogVersion: "1.4.8",
       source: "BUNDLED_IMMUTABLE_CATALOG",
       profileAdministrationPath: "/v1/preop/profile",
     },
@@ -988,5 +1086,8 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   answerEhrCodeSystem(input: Parameters<ControlPlanePort["answerEhrCodeSystem"]>[0]): Promise<void> {
     return this.mutate("/ehr-code-systems", input)
+  }
+  updatePreopProfile(input: Parameters<ControlPlanePort["updatePreopProfile"]>[0]): Promise<void> {
+    return this.mutate("/preop-profile", input)
   }
 }

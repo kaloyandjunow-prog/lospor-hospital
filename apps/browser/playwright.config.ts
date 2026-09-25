@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test"
 
+process.env.LOSPOR_DEPLOYMENT_MODE ??= "hospital"
+const skipWebServer = process.env.E2E_SKIP_WEBSERVER === "true"
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "../web/e2e/global-setup.ts",
@@ -7,7 +10,7 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
-  webServer: [
+  webServer: skipWebServer ? undefined : [
     {
       command: "npm --prefix ../api run dev",
       url: "http://127.0.0.1:3002/health/live",

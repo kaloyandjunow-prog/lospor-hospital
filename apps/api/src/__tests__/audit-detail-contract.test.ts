@@ -77,13 +77,22 @@ describe("the audit detail privacy contract", () => {
         // recordAdministrativeReason -- which stores `reason` on purpose,
         // because storing it somewhere governed is the entire point of it.
         if (/function\s+logAudit/.test(line)) return
-        // Only the call's own argument list. A fixed line window reached past
-        // the closing `})` and matched `reason: string` in the signature of the
-        // *next* function, reporting two call sites that were already correct.
+        // Only the call's own argument list, up to the parenthesis that closes
+        // it. A fixed line window reached past the closing `})` and matched
+        // `reason: string` in the signature of the *next* function; a one-line
+        // call scanned on into an HTTP error body that is not an audit detail.
         const collected: string[] = []
-        for (let cursor = index; cursor < lines.length && cursor < index + 40; cursor += 1) {
-          collected.push(lines[cursor]!)
-          if (/^\s*\}?\)\s*$/.test(lines[cursor]!)) break
+        let depth = 0
+        scan: for (let cursor = index; cursor < lines.length && cursor < index + 40; cursor += 1) {
+          const text = cursor === index ? line.slice(line.search(/logAudit(InTransaction)?\s*\(/)) : lines[cursor]!
+          for (let at = 0; at < text.length; at += 1) {
+            if (text[at] === "(") depth += 1
+            else if (text[at] === ")" && --depth === 0) {
+              collected.push(text.slice(0, at + 1))
+              break scan
+            }
+          }
+          collected.push(text)
         }
         const keys = collected.join("\n").match(/(\w*)([Rr]eason)\s*:/g) ?? []
         for (const key of keys) {

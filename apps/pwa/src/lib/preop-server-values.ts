@@ -1,5 +1,6 @@
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import type { ClinicalMode } from "@lospor/core/pediatric"
+import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
 
 type Tag = { label: string; code?: string; sub?: string; inn?: string; atcCode?: string }
 
@@ -26,6 +27,7 @@ export type ServerPreop = ServerPreopFormBase & {
   allergyDetails?: unknown
   upperLipBiteTest?: unknown
   ulbt?: unknown
+  assessmentAnswers?: unknown
   age?: number
   weight?: number
   height?: number
@@ -78,12 +80,34 @@ function upperLipBiteClass(value: unknown) {
           : undefined
 }
 
+/**
+ * Answers to the profile's own questions, as the form holds them. Baseline
+ * questions stay in their fields; NOT_ASKED is the server's placeholder and
+ * never a form value. The form sends this list back as the complete set, so it
+ * has to start from everything the case already holds.
+ */
+function preopAnswersFromServer(rows: unknown): PreopFormInput["preopAnswers"] {
+  if (!Array.isArray(rows)) return []
+  const answers: NonNullable<PreopFormInput["preopAnswers"]> = []
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue
+    const item = row as { state?: unknown; optionKey?: unknown; question?: { stableKey?: unknown } }
+    const stableKey = typeof item.question?.stableKey === "string" ? item.question.stableKey : ""
+    const state = item.state
+    if (!stableKey || hasDedicatedPreopControl(stableKey)) continue
+    if (state !== "YES" && state !== "NO" && state !== "UNKNOWN" && state !== "NOT_APPLICABLE") continue
+    answers.push({ stableKey, state, optionKey: typeof item.optionKey === "string" ? item.optionKey : null })
+  }
+  return answers
+}
+
 export function valuesFromServerPreop(
   p: ServerPreop,
   caseClinicalMode?: ClinicalMode | null,
 ): Partial<PreopFormInput> {
   const ulbt = p.upperLipBiteTest ?? p.ulbt
   return {
+    preopAnswers: preopAnswersFromServer(p.assessmentAnswers),
     clinicalMode: caseClinicalMode ?? p.clinicalMode ?? "ADULT",
     ageYears: p.ageYears ?? undefined,
     ageValue: p.ageValue ?? undefined,

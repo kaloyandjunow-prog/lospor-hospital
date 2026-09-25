@@ -49,7 +49,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => hoisted.router,
   useSearchParams: () => hoisted.searchParams,
 }))
-vi.mock("next-intl", () => ({ useTranslations: () => hoisted.translate }))
+vi.mock("next-intl", () => ({ useTranslations: () => hoisted.translate, useLocale: () => "en" }))
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }))
@@ -248,6 +248,31 @@ describe("step parameter", () => {
   it("clamps a negative step", async () => {
     await openDraft(withPreop(), { step: "-4" })
     expect(screen.getByTestId("preop-form")).toBeTruthy()
+  })
+})
+
+describe("continuing to intraop", () => {
+  // Required preop questions are enforced here and nowhere else: a draft
+  // always saves, and the case read says what is still unanswered.
+  async function continueFromPreop(preopRequiredMissing: unknown[]) {
+    await openDraft(
+      { ...baseRecord({ preop: { id: "preop-1", caseId: "case-1" } as unknown as CaseDetail["preop"] }), preopRequiredMissing } as unknown as CaseDetail,
+      {},
+    )
+    await act(async () => {
+      await (hoisted.captured.preop as unknown as { onSubmit: (d: PreopData) => Promise<void> }).onSubmit({ clinicalMode: "ADULT" } as PreopData)
+    })
+  }
+
+  it("stays on preop while a required question is unanswered", async () => {
+    await continueFromPreop([{ stableKey: "BASE_SMOKING", labelEn: "Smoking", labelBg: "Тютюнопушене", fields: ["smoking"] }])
+    expect(screen.getByTestId("preop-form")).toBeTruthy()
+    expect(screen.queryByTestId("intraop-form")).toBeNull()
+  })
+
+  it("continues when nothing required is missing", async () => {
+    await continueFromPreop([])
+    expect(screen.getByTestId("intraop-form")).toBeTruthy()
   })
 })
 

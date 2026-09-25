@@ -28,6 +28,8 @@ import {
 import { patientIdentifierControlView } from "./patient-identifier-policy"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
+import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
+import { activePreopProfile, ensurePreopProfile, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
 import { ehrMedicationCodeMapView } from "./ehr-medication-code-map"
 import {
   approveHospitalOmopExport,
@@ -372,6 +374,18 @@ export const externalAiCredentialSchema = z.object({
 }).strict()
 
 export const externalAiCredentialRemoveSchema = z.object({
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+const preopProfileQuestionSchema = z.object({
+  stableKey: z.string().trim().min(1).max(128),
+  enabled: z.boolean(),
+  required: z.boolean(),
+  sortOrder: z.number().int().nonnegative().max(10000),
+}).strict()
+
+export const preopProfileUpdateSchema = z.object({
+  questions: z.array(preopProfileQuestionSchema).min(1).max(BUNDLED_PREOP_QUESTIONS.length),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -1258,8 +1272,66 @@ export async function centralControlView() {
   }
 }
 
+export async function preoperativeControlView() {
+  let active = await activePreopProfile(prisma)
+  if (!active) {
+    active = await prisma.$transaction(async tx => {
+      const actor = await operatorActor(tx)
+      await ensurePreopProfile(tx, actor.id)
+      return activePreopProfile(tx)
+    }, serializableTransaction)
+  }
+  return {
+    scope: "APPLIANCE_WIDE" as const,
+    catalogVersion: PREOP_CATALOG_VERSION,
+    source: "BUNDLED_IMMUTABLE_CATALOG" as const,
+    profileAdministrationPath: "/v1/preop/profile",
+    administration: {
+      catalog: BUNDLED_PREOP_QUESTIONS.map(question => ({
+        ...question,
+        conditionalRuleKey: question.conditionalRuleKey ?? null,
+        omopDomain: question.omopDomain ?? null,
+        omopConceptId: question.omopConceptId ?? null,
+        omopVocabulary: question.omopVocabulary ?? null,
+        omopSourceCode: question.omopSourceCode ?? null,
+        options: question.options.map(option => ({
+          ...option,
+          omopConceptId: option.omopConceptId ?? null,
+          omopVocabulary: option.omopVocabulary ?? null,
+          omopSourceCode: option.omopSourceCode ?? null,
+        })),
+      })),
+      activeProfile: active ? serializePreopProfile(active) : null,
+    },
+  }
+}
+
+/**
+ * An operator's change to the appliance's one preoperative profile, made in
+ * place: which bundled questions are on, their order, and which are required.
+ */
+export async function updateHospitalPreopProfile(
+  input: z.infer<typeof preopProfileUpdateSchema>,
+) {
+  const parsed = preopProfileUpdateSchema.parse(input)
+  const keys = new Set(parsed.questions.map(question => question.stableKey))
+  if (keys.size !== BUNDLED_PREOP_QUESTIONS.length
+    || parsed.questions.length !== BUNDLED_PREOP_QUESTIONS.length
+    || BUNDLED_PREOP_QUESTIONS.some(question => !keys.has(question.stableKey))) {
+    throw new HospitalControlPlaneError("PREOP_PROFILE_CATALOG_INCOMPLETE")
+  }
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const profile = await updatePreopProfile(tx, actor.id, parsed.questions as ProfileQuestionInput[], parsed.reason)
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_PREOP_PROFILE_UPDATE", profile.id, {
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return serializePreopProfile(profile)
+  }, serializableTransaction)
+}
+
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrVitalCodes, ehrMedicationCodes, ehrCodeSystems] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrVitalCodes, ehrMedicationCodes, ehrCodeSystems, preoperative] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
@@ -1271,6 +1343,7 @@ export async function hospitalControlPlaneView() {
     ehrVitalCodeMapView(),
     ehrMedicationCodeMapView(),
     ehrCodeSystemView(),
+    preoperativeControlView(),
   ])
   const pediatricMode = pediatricCapabilities()
   return {
@@ -1298,6 +1371,7 @@ export async function hospitalControlPlaneView() {
     ehrVitalCodes,
     ehrMedicationCodes,
     ehrCodeSystems,
+    preoperative,
   }
 }
 

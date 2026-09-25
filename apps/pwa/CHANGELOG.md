@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Mobile
 
+## [9.11.0] - 2026-09-24
+
+### Added
+
+- **The preoperative screen follows the hospital's profile**, cached on the
+  device so it still applies offline. Switched-on bundled questions appear as
+  yes/no rows in their own section, in the operator's order, with follow-ups
+  only under a Yes, Unknown/N/A where the question allows it, a required
+  marker, progress, sub-headings, and suggestions from the record to accept
+  or reject (only on an unanswered question). Switched-off baseline controls
+  are hidden, and a score with a switched-off input says it is not available.
+
+### Fixed
+
+- **"Saved locally - syncs when online" after a refused save.** A 4xx is now
+  labelled refused instead of queued, and a refused preop answer is shown as
+  a blocked field.
+- **Required questions are checked when continuing to intraop**, not on
+  every draft save.
+
 ## [9.10.7] - 2026-09-23
 
 ### Added

@@ -1469,13 +1469,6 @@ add("PATCH", "/v1/cases/{id}", "Save one or more case sections", {
   requestBody: body(ref("CasePatchRequest")),
   result: ref("CaseDetail"),
 })
-add("POST", "/v1/cases/{id}/preop-profile", "Pin or explicitly adopt a versioned preoperative profile for a case", {
-  parameters: [id],
-  requestBody: body(ref("JsonObject")),
-  result: ref("JsonObject"),
-  errors: [400, 401, 403, 404, 409, 500],
-  tag: "clinical",
-})
 add("GET", "/v1/cases/{id}/preop-suggestions", "List deterministic preoperative suggestions", {
   parameters: [id],
   result: arrayOf("JsonObject"),
@@ -1495,16 +1488,9 @@ add("PATCH", "/v1/cases/{id}/preop-suggestions/{suggestionId}", "Accept or rejec
   errors: [400, 401, 403, 404, 409, 500],
   tag: "clinical",
 })
-add("GET", "/v1/preop/profile", "Read the active appliance-wide preoperative profile", {
+add("GET", "/v1/preop/profile", "Read the appliance-wide preoperative profile (which bundled questions are on, their order, and which are required)", {
   result: ref("JsonObject"),
   errors: [401, 500],
-  tag: "clinical",
-})
-add("POST", "/v1/preop/profile", "Publish a new immutable appliance-wide preoperative profile", {
-  requestBody: body(ref("JsonObject")),
-  status: 201,
-  result: ref("JsonObject"),
-  errors: [400, 401, 403, 409, 500],
   tag: "clinical",
 })
 add("DELETE", "/v1/cases/{id}", "Delete a case", { parameters: [id], result: ref("Message") })
@@ -1863,6 +1849,15 @@ add("GET", "/v1/internal/hospital/control-plane", "Read the privacy-safe Hospita
   parameters: [statusControlBearer],
   result: ref("HospitalControlPlaneView"),
   errors: [401, 404, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/preop-profile", "Publish a new immutable appliance-wide preoperative profile from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 422, 500, 503],
   stability: "internal",
   tag: "internal",
 })

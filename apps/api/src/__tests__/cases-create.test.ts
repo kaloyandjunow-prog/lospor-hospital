@@ -7,6 +7,7 @@ const createMock        = vi.fn()
 const patientCreateManyMock = vi.fn()
 const patientFindUniqueMock = vi.fn()
 const logAuditMock      = vi.fn()
+const savePreopAnswersMock = vi.fn()
 
 const caseCodeSequenceUpsertMock = vi.fn()
 
@@ -34,6 +35,10 @@ vi.mock("@/lib/clinical-transaction", () => ({
     patientLink: { createMany: patientCreateManyMock, findUnique: patientFindUniqueMock },
     caseCodeSequence: { upsert: caseCodeSequenceUpsertMock },
   })),
+}))
+vi.mock("@/lib/preop/service", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/preop/service")>(),
+  savePreopAnswers: savePreopAnswersMock,
 }))
 vi.mock("@/lib/audit", () => ({ logAudit: logAuditMock, logAuditInTransaction: logAuditMock }))
 vi.mock("@/lib/relational-sync", () => ({ syncCaseRelationalSafe: vi.fn() }))
@@ -105,7 +110,7 @@ describe("POST /api/cases", () => {
       id: "new-case-1",
       caseCode: "2026-0001",
       status: "DRAFT",
-      preop: { updatedAt: new Date() },
+      preop: { id: "preop-1", updatedAt: new Date() },
     })
     patientCreateManyMock.mockResolvedValue({ count: 1 })
     // Two misses before the create: the current digest, then the version 1
@@ -117,6 +122,18 @@ describe("POST /api/cases", () => {
       .mockResolvedValue({ id: "patient-link-1", maskedIdentifier: "HO****01" })
     const mod = await import("@/app/v1/cases/route")
     POST = mod.POST
+  })
+
+  it("writes the preop answers given before the case existed, with the case", async () => {
+    const answers = [{ stableKey: "A12_PACEMAKER_ICD", state: "YES", optionKey: "YES" }]
+    const res = await POST(makeRequest({ preop: { ...MINIMAL_PREOP, smoking: true, preopAnswers: answers } }))
+    expect(res.status).toBe(201)
+    expect(savePreopAnswersMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      caseId: "new-case-1",
+      preopId: "preop-1",
+      preop: expect.objectContaining({ smoking: true }),
+      answers,
+    }))
   })
 
   it("creates a case with status DRAFT (never COMPLETE)", async () => {

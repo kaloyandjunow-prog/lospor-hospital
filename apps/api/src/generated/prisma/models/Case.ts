@@ -361,7 +361,6 @@ export type CaseWhereInput = {
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   patientLink?: Prisma.XOR<Prisma.PatientLinkNullableScalarRelationFilter, Prisma.PatientLinkWhereInput> | null
   preop?: Prisma.XOR<Prisma.PreoperativeAssessmentNullableScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput> | null
-  preopProfilePin?: Prisma.XOR<Prisma.PreopCaseProfilePinNullableScalarRelationFilter, Prisma.PreopCaseProfilePinWhereInput> | null
   intraop?: Prisma.XOR<Prisma.IntraoperativeRecordNullableScalarRelationFilter, Prisma.IntraoperativeRecordWhereInput> | null
   postop?: Prisma.XOR<Prisma.PostoperativeRecordNullableScalarRelationFilter, Prisma.PostoperativeRecordWhereInput> | null
   transfers?: Prisma.CaseTransferListRelationFilter
@@ -407,7 +406,6 @@ export type CaseOrderByWithRelationInput = {
   institution?: Prisma.InstitutionOrderByWithRelationInput
   patientLink?: Prisma.PatientLinkOrderByWithRelationInput
   preop?: Prisma.PreoperativeAssessmentOrderByWithRelationInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinOrderByWithRelationInput
   intraop?: Prisma.IntraoperativeRecordOrderByWithRelationInput
   postop?: Prisma.PostoperativeRecordOrderByWithRelationInput
   transfers?: Prisma.CaseTransferOrderByRelationAggregateInput
@@ -458,7 +456,6 @@ export type CaseWhereUniqueInput = Prisma.AtLeast<{
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   patientLink?: Prisma.XOR<Prisma.PatientLinkNullableScalarRelationFilter, Prisma.PatientLinkWhereInput> | null
   preop?: Prisma.XOR<Prisma.PreoperativeAssessmentNullableScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput> | null
-  preopProfilePin?: Prisma.XOR<Prisma.PreopCaseProfilePinNullableScalarRelationFilter, Prisma.PreopCaseProfilePinWhereInput> | null
   intraop?: Prisma.XOR<Prisma.IntraoperativeRecordNullableScalarRelationFilter, Prisma.IntraoperativeRecordWhereInput> | null
   postop?: Prisma.XOR<Prisma.PostoperativeRecordNullableScalarRelationFilter, Prisma.PostoperativeRecordWhereInput> | null
   transfers?: Prisma.CaseTransferListRelationFilter
@@ -556,7 +553,6 @@ export type CaseCreateInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -598,7 +594,6 @@ export type CaseUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -640,7 +635,6 @@ export type CaseUpdateInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -682,7 +676,6 @@ export type CaseUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -1120,20 +1113,6 @@ export type CaseUpdateOneRequiredWithoutPreopNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.CaseUpdateToOneWithWhereWithoutPreopInput, Prisma.CaseUpdateWithoutPreopInput>, Prisma.CaseUncheckedUpdateWithoutPreopInput>
 }
 
-export type CaseCreateNestedOneWithoutPreopProfilePinInput = {
-  create?: Prisma.XOR<Prisma.CaseCreateWithoutPreopProfilePinInput, Prisma.CaseUncheckedCreateWithoutPreopProfilePinInput>
-  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutPreopProfilePinInput
-  connect?: Prisma.CaseWhereUniqueInput
-}
-
-export type CaseUpdateOneRequiredWithoutPreopProfilePinNestedInput = {
-  create?: Prisma.XOR<Prisma.CaseCreateWithoutPreopProfilePinInput, Prisma.CaseUncheckedCreateWithoutPreopProfilePinInput>
-  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutPreopProfilePinInput
-  upsert?: Prisma.CaseUpsertWithoutPreopProfilePinInput
-  connect?: Prisma.CaseWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.CaseUpdateToOneWithWhereWithoutPreopProfilePinInput, Prisma.CaseUpdateWithoutPreopProfilePinInput>, Prisma.CaseUncheckedUpdateWithoutPreopProfilePinInput>
-}
-
 export type CaseCreateNestedOneWithoutIntraopInput = {
   create?: Prisma.XOR<Prisma.CaseCreateWithoutIntraopInput, Prisma.CaseUncheckedCreateWithoutIntraopInput>
   connectOrCreate?: Prisma.CaseCreateOrConnectWithoutIntraopInput
@@ -1338,7 +1317,6 @@ export type CaseCreateWithoutUserInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -1379,7 +1357,6 @@ export type CaseUncheckedCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -1430,7 +1407,6 @@ export type CaseCreateWithoutCreatedByInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -1471,7 +1447,6 @@ export type CaseUncheckedCreateWithoutCreatedByInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -1581,7 +1556,6 @@ export type CaseCreateWithoutInstitutionInput = {
   createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -1622,7 +1596,6 @@ export type CaseUncheckedCreateWithoutInstitutionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -1690,7 +1663,6 @@ export type CaseCreateWithoutLockInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -1731,7 +1703,6 @@ export type CaseUncheckedCreateWithoutLockInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -1788,7 +1759,6 @@ export type CaseUpdateWithoutLockInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -1829,7 +1799,6 @@ export type CaseUncheckedUpdateWithoutLockInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -1870,7 +1839,6 @@ export type CaseCreateWithoutTransfersInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   ehrDeliveries?: Prisma.EhrDeliveryCreateNestedManyWithoutCaseInput
@@ -1911,7 +1879,6 @@ export type CaseUncheckedCreateWithoutTransfersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   ehrDeliveries?: Prisma.EhrDeliveryUncheckedCreateNestedManyWithoutCaseInput
@@ -1968,7 +1935,6 @@ export type CaseUpdateWithoutTransfersInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   ehrDeliveries?: Prisma.EhrDeliveryUpdateManyWithoutCaseNestedInput
@@ -2009,7 +1975,6 @@ export type CaseUncheckedUpdateWithoutTransfersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   ehrDeliveries?: Prisma.EhrDeliveryUncheckedUpdateManyWithoutCaseNestedInput
@@ -2050,7 +2015,6 @@ export type CaseCreateWithoutFieldStatusesInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -2091,7 +2055,6 @@ export type CaseUncheckedCreateWithoutFieldStatusesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -2148,7 +2111,6 @@ export type CaseUpdateWithoutFieldStatusesInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -2189,7 +2151,6 @@ export type CaseUncheckedUpdateWithoutFieldStatusesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -2230,7 +2191,6 @@ export type CaseCreateWithoutFieldChangesInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -2271,7 +2231,6 @@ export type CaseUncheckedCreateWithoutFieldChangesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -2328,7 +2287,6 @@ export type CaseUpdateWithoutFieldChangesInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -2369,7 +2327,6 @@ export type CaseUncheckedUpdateWithoutFieldChangesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -2410,7 +2367,6 @@ export type CaseCreateWithoutFinalizationsInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -2451,7 +2407,6 @@ export type CaseUncheckedCreateWithoutFinalizationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -2508,7 +2463,6 @@ export type CaseUpdateWithoutFinalizationsInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -2549,7 +2503,6 @@ export type CaseUncheckedUpdateWithoutFinalizationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -2590,7 +2543,6 @@ export type CaseCreateWithoutEventsInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -2631,7 +2583,6 @@ export type CaseUncheckedCreateWithoutEventsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -2688,7 +2639,6 @@ export type CaseUpdateWithoutEventsInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -2729,7 +2679,6 @@ export type CaseUncheckedUpdateWithoutEventsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -2769,7 +2718,6 @@ export type CaseCreateWithoutPreopInput = {
   createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -2810,7 +2758,6 @@ export type CaseUncheckedCreateWithoutPreopInput = {
   relationalRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -2867,7 +2814,6 @@ export type CaseUpdateWithoutPreopInput = {
   createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -2908,187 +2854,6 @@ export type CaseUncheckedUpdateWithoutPreopInput = {
   relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
-  intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
-  postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
-  transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
-  ehrDeliveries?: Prisma.EhrDeliveryUncheckedUpdateManyWithoutCaseNestedInput
-  lock?: Prisma.CaseLockUncheckedUpdateOneWithoutCaseNestedInput
-  events?: Prisma.CaseEventUncheckedUpdateManyWithoutCaseNestedInput
-  selections?: Prisma.CaseSelectionUncheckedUpdateManyWithoutCaseNestedInput
-  complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
-  fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
-  fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
-  centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
-  centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
-  centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
-  centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-}
-
-export type CaseCreateWithoutPreopProfilePinInput = {
-  id?: string
-  researchId?: string
-  caseCode?: string | null
-  notes?: string | null
-  status?: $Enums.CaseStatus
-  clinicalMode?: $Enums.ClinicalMode
-  clinicalRulesVersion?: string | null
-  awaitingReviewAt?: Date | string | null
-  closeAttemptCount?: number
-  closeNextAttemptAt?: Date | string | null
-  finalizedAt?: Date | string | null
-  clientDraftId?: string | null
-  clinicalRevision?: number
-  eventRevision?: number
-  relationalRevision?: number
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  user: Prisma.UserCreateNestedOneWithoutCasesInput
-  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
-  institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
-  patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
-  preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
-  postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
-  transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
-  ehrDeliveries?: Prisma.EhrDeliveryCreateNestedManyWithoutCaseInput
-  lock?: Prisma.CaseLockCreateNestedOneWithoutCaseInput
-  events?: Prisma.CaseEventCreateNestedManyWithoutCaseInput
-  selections?: Prisma.CaseSelectionCreateNestedManyWithoutCaseInput
-  complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
-  fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
-  fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
-  centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
-  centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
-  centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
-  centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-}
-
-export type CaseUncheckedCreateWithoutPreopProfilePinInput = {
-  id?: string
-  researchId?: string
-  caseCode?: string | null
-  notes?: string | null
-  userId: string
-  createdById: string
-  institutionId?: string | null
-  patientLinkId?: string | null
-  status?: $Enums.CaseStatus
-  clinicalMode?: $Enums.ClinicalMode
-  clinicalRulesVersion?: string | null
-  awaitingReviewAt?: Date | string | null
-  closeAttemptCount?: number
-  closeNextAttemptAt?: Date | string | null
-  finalizedAt?: Date | string | null
-  clientDraftId?: string | null
-  clinicalRevision?: number
-  eventRevision?: number
-  relationalRevision?: number
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
-  postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
-  transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
-  ehrDeliveries?: Prisma.EhrDeliveryUncheckedCreateNestedManyWithoutCaseInput
-  lock?: Prisma.CaseLockUncheckedCreateNestedOneWithoutCaseInput
-  events?: Prisma.CaseEventUncheckedCreateNestedManyWithoutCaseInput
-  selections?: Prisma.CaseSelectionUncheckedCreateNestedManyWithoutCaseInput
-  complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
-  fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
-  fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
-  centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
-  centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
-  centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
-  centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-}
-
-export type CaseCreateOrConnectWithoutPreopProfilePinInput = {
-  where: Prisma.CaseWhereUniqueInput
-  create: Prisma.XOR<Prisma.CaseCreateWithoutPreopProfilePinInput, Prisma.CaseUncheckedCreateWithoutPreopProfilePinInput>
-}
-
-export type CaseUpsertWithoutPreopProfilePinInput = {
-  update: Prisma.XOR<Prisma.CaseUpdateWithoutPreopProfilePinInput, Prisma.CaseUncheckedUpdateWithoutPreopProfilePinInput>
-  create: Prisma.XOR<Prisma.CaseCreateWithoutPreopProfilePinInput, Prisma.CaseUncheckedCreateWithoutPreopProfilePinInput>
-  where?: Prisma.CaseWhereInput
-}
-
-export type CaseUpdateToOneWithWhereWithoutPreopProfilePinInput = {
-  where?: Prisma.CaseWhereInput
-  data: Prisma.XOR<Prisma.CaseUpdateWithoutPreopProfilePinInput, Prisma.CaseUncheckedUpdateWithoutPreopProfilePinInput>
-}
-
-export type CaseUpdateWithoutPreopProfilePinInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  researchId?: Prisma.StringFieldUpdateOperationsInput | string
-  caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
-  clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
-  clinicalRulesVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  awaitingReviewAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  closeAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  closeNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  clientDraftId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  clinicalRevision?: Prisma.IntFieldUpdateOperationsInput | number
-  eventRevision?: Prisma.IntFieldUpdateOperationsInput | number
-  relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
-  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
-  institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
-  patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
-  preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
-  postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
-  transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
-  ehrDeliveries?: Prisma.EhrDeliveryUpdateManyWithoutCaseNestedInput
-  lock?: Prisma.CaseLockUpdateOneWithoutCaseNestedInput
-  events?: Prisma.CaseEventUpdateManyWithoutCaseNestedInput
-  selections?: Prisma.CaseSelectionUpdateManyWithoutCaseNestedInput
-  complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
-  fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
-  fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
-  centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
-  centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
-  centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
-  centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-}
-
-export type CaseUncheckedUpdateWithoutPreopProfilePinInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  researchId?: Prisma.StringFieldUpdateOperationsInput | string
-  caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
-  createdById?: Prisma.StringFieldUpdateOperationsInput | string
-  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
-  clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
-  clinicalRulesVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  awaitingReviewAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  closeAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  closeNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  clientDraftId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  clinicalRevision?: Prisma.IntFieldUpdateOperationsInput | number
-  eventRevision?: Prisma.IntFieldUpdateOperationsInput | number
-  relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -3130,7 +2895,6 @@ export type CaseCreateWithoutIntraopInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
   ehrDeliveries?: Prisma.EhrDeliveryCreateNestedManyWithoutCaseInput
@@ -3171,7 +2935,6 @@ export type CaseUncheckedCreateWithoutIntraopInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
   ehrDeliveries?: Prisma.EhrDeliveryUncheckedCreateNestedManyWithoutCaseInput
@@ -3228,7 +2991,6 @@ export type CaseUpdateWithoutIntraopInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
   ehrDeliveries?: Prisma.EhrDeliveryUpdateManyWithoutCaseNestedInput
@@ -3269,7 +3031,6 @@ export type CaseUncheckedUpdateWithoutIntraopInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
   ehrDeliveries?: Prisma.EhrDeliveryUncheckedUpdateManyWithoutCaseNestedInput
@@ -3310,7 +3071,6 @@ export type CaseCreateWithoutPostopInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
   ehrDeliveries?: Prisma.EhrDeliveryCreateNestedManyWithoutCaseInput
@@ -3351,7 +3111,6 @@ export type CaseUncheckedCreateWithoutPostopInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
   ehrDeliveries?: Prisma.EhrDeliveryUncheckedCreateNestedManyWithoutCaseInput
@@ -3408,7 +3167,6 @@ export type CaseUpdateWithoutPostopInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
   ehrDeliveries?: Prisma.EhrDeliveryUpdateManyWithoutCaseNestedInput
@@ -3449,7 +3207,6 @@ export type CaseUncheckedUpdateWithoutPostopInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
   ehrDeliveries?: Prisma.EhrDeliveryUncheckedUpdateManyWithoutCaseNestedInput
@@ -3490,7 +3247,6 @@ export type CaseCreateWithoutClinicalCalculationsInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -3531,7 +3287,6 @@ export type CaseUncheckedCreateWithoutClinicalCalculationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -3588,7 +3343,6 @@ export type CaseUpdateWithoutClinicalCalculationsInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -3629,7 +3383,6 @@ export type CaseUncheckedUpdateWithoutClinicalCalculationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -3670,7 +3423,6 @@ export type CaseCreateWithoutComplicationsInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -3711,7 +3463,6 @@ export type CaseUncheckedCreateWithoutComplicationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -3768,7 +3519,6 @@ export type CaseUpdateWithoutComplicationsInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -3809,7 +3559,6 @@ export type CaseUncheckedUpdateWithoutComplicationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -3850,7 +3599,6 @@ export type CaseCreateWithoutSelectionsInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -3891,7 +3639,6 @@ export type CaseUncheckedCreateWithoutSelectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -3948,7 +3695,6 @@ export type CaseUpdateWithoutSelectionsInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -3989,7 +3735,6 @@ export type CaseUncheckedUpdateWithoutSelectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -4030,7 +3775,6 @@ export type CaseCreateWithoutEhrDeliveriesInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -4071,7 +3815,6 @@ export type CaseUncheckedCreateWithoutEhrDeliveriesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -4128,7 +3871,6 @@ export type CaseUpdateWithoutEhrDeliveriesInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -4169,7 +3911,6 @@ export type CaseUncheckedUpdateWithoutEhrDeliveriesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -4209,7 +3950,6 @@ export type CaseCreateWithoutPatientLinkInput = {
   createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -4250,7 +3990,6 @@ export type CaseUncheckedCreateWithoutPatientLinkInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -4318,7 +4057,6 @@ export type CaseCreateWithoutCentralExportControlInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -4359,7 +4097,6 @@ export type CaseUncheckedCreateWithoutCentralExportControlInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -4416,7 +4153,6 @@ export type CaseUpdateWithoutCentralExportControlInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -4457,7 +4193,6 @@ export type CaseUncheckedUpdateWithoutCentralExportControlInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -4498,7 +4233,6 @@ export type CaseCreateWithoutCentralDeliveryCasesInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -4539,7 +4273,6 @@ export type CaseUncheckedCreateWithoutCentralDeliveryCasesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -4596,7 +4329,6 @@ export type CaseUpdateWithoutCentralDeliveryCasesInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -4637,7 +4369,6 @@ export type CaseUncheckedUpdateWithoutCentralDeliveryCasesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -4678,7 +4409,6 @@ export type CaseCreateWithoutCentralExportCheckpointInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -4719,7 +4449,6 @@ export type CaseUncheckedCreateWithoutCentralExportCheckpointInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -4776,7 +4505,6 @@ export type CaseUpdateWithoutCentralExportCheckpointInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -4817,7 +4545,6 @@ export type CaseUncheckedUpdateWithoutCentralExportCheckpointInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -4858,7 +4585,6 @@ export type CaseCreateWithoutCentralExportRejectionInput = {
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
@@ -4899,7 +4625,6 @@ export type CaseUncheckedCreateWithoutCentralExportRejectionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
   transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
@@ -4956,7 +4681,6 @@ export type CaseUpdateWithoutCentralExportRejectionInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -4997,7 +4721,6 @@ export type CaseUncheckedUpdateWithoutCentralExportRejectionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -5083,7 +4806,6 @@ export type CaseUpdateWithoutUserInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -5124,7 +4846,6 @@ export type CaseUncheckedUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -5188,7 +4909,6 @@ export type CaseUpdateWithoutCreatedByInput = {
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -5229,7 +4949,6 @@ export type CaseUncheckedUpdateWithoutCreatedByInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -5316,7 +5035,6 @@ export type CaseUpdateWithoutInstitutionInput = {
   createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -5357,7 +5075,6 @@ export type CaseUncheckedUpdateWithoutInstitutionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -5444,7 +5161,6 @@ export type CaseUpdateWithoutPatientLinkInput = {
   createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
@@ -5485,7 +5201,6 @@ export type CaseUncheckedUpdateWithoutPatientLinkInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
-  preopProfilePin?: Prisma.PreopCaseProfilePinUncheckedUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
   transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
@@ -5666,7 +5381,6 @@ export type CaseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
   preop?: boolean | Prisma.Case$preopArgs<ExtArgs>
-  preopProfilePin?: boolean | Prisma.Case$preopProfilePinArgs<ExtArgs>
   intraop?: boolean | Prisma.Case$intraopArgs<ExtArgs>
   postop?: boolean | Prisma.Case$postopArgs<ExtArgs>
   transfers?: boolean | Prisma.Case$transfersArgs<ExtArgs>
@@ -5773,7 +5487,6 @@ export type CaseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
   preop?: boolean | Prisma.Case$preopArgs<ExtArgs>
-  preopProfilePin?: boolean | Prisma.Case$preopProfilePinArgs<ExtArgs>
   intraop?: boolean | Prisma.Case$intraopArgs<ExtArgs>
   postop?: boolean | Prisma.Case$postopArgs<ExtArgs>
   transfers?: boolean | Prisma.Case$transfersArgs<ExtArgs>
@@ -5813,7 +5526,6 @@ export type $CasePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     institution: Prisma.$InstitutionPayload<ExtArgs> | null
     patientLink: Prisma.$PatientLinkPayload<ExtArgs> | null
     preop: Prisma.$PreoperativeAssessmentPayload<ExtArgs> | null
-    preopProfilePin: Prisma.$PreopCaseProfilePinPayload<ExtArgs> | null
     intraop: Prisma.$IntraoperativeRecordPayload<ExtArgs> | null
     postop: Prisma.$PostoperativeRecordPayload<ExtArgs> | null
     transfers: Prisma.$CaseTransferPayload<ExtArgs>[]
@@ -6276,7 +5988,6 @@ export interface Prisma__CaseClient<T, Null = never, ExtArgs extends runtime.Typ
   institution<T extends Prisma.Case$institutionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$institutionArgs<ExtArgs>>): Prisma.Prisma__InstitutionClient<runtime.Types.Result.GetResult<Prisma.$InstitutionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   patientLink<T extends Prisma.Case$patientLinkArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$patientLinkArgs<ExtArgs>>): Prisma.Prisma__PatientLinkClient<runtime.Types.Result.GetResult<Prisma.$PatientLinkPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   preop<T extends Prisma.Case$preopArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$preopArgs<ExtArgs>>): Prisma.Prisma__PreoperativeAssessmentClient<runtime.Types.Result.GetResult<Prisma.$PreoperativeAssessmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  preopProfilePin<T extends Prisma.Case$preopProfilePinArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$preopProfilePinArgs<ExtArgs>>): Prisma.Prisma__PreopCaseProfilePinClient<runtime.Types.Result.GetResult<Prisma.$PreopCaseProfilePinPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   intraop<T extends Prisma.Case$intraopArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$intraopArgs<ExtArgs>>): Prisma.Prisma__IntraoperativeRecordClient<runtime.Types.Result.GetResult<Prisma.$IntraoperativeRecordPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   postop<T extends Prisma.Case$postopArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$postopArgs<ExtArgs>>): Prisma.Prisma__PostoperativeRecordClient<runtime.Types.Result.GetResult<Prisma.$PostoperativeRecordPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   transfers<T extends Prisma.Case$transfersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$transfersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseTransferPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -6798,25 +6509,6 @@ export type Case$preopArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
    */
   include?: Prisma.PreoperativeAssessmentInclude<ExtArgs> | null
   where?: Prisma.PreoperativeAssessmentWhereInput
-}
-
-/**
- * Case.preopProfilePin
- */
-export type Case$preopProfilePinArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the PreopCaseProfilePin
-   */
-  select?: Prisma.PreopCaseProfilePinSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the PreopCaseProfilePin
-   */
-  omit?: Prisma.PreopCaseProfilePinOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.PreopCaseProfilePinInclude<ExtArgs> | null
-  where?: Prisma.PreopCaseProfilePinWhereInput
 }
 
 /**

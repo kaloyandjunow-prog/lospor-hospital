@@ -1,4 +1,60 @@
 # Changelog - LOSPOR Hospital
+## [1.4.8] - Unreleased
+
+### Added
+
+- Status can now administer the preoperative assessment. Administrators switch
+  bundled questions on or off, mark switched-on questions required, and set
+  their order by dragging or with keyboard-accessible up and down buttons. A
+  read-only preview shows the form in use. Every change needs the
+  administrator password and a reason, and is audited.
+- The clinician forms (web and PWA, tabbed and scrolled layouts) now follow the
+  profile. A switched-on question appears as a compact yes/no row in the form
+  section it belongs to, in the administrator's order, with follow-up
+  questions only under a Yes, a required marker, per-section progress and
+  suggestions from imported records to accept or reject. A switched-off
+  baseline control is hidden, and a risk score that needs a switched-off
+  answer says it is not available instead of understating the risk.
+- LOSPOR Browser 0.8.0: coded pickers replace free-text filters, new filters
+  for a preoperative answer, drugs given during the operation and data
+  accepted from the hospital system, and the case page shows medications,
+  preoperative answers and quality warnings.
+
+### Changed
+
+- One bundled catalogue and one appliance profile, changed in place. The
+  catalogue follows the Hospital release (1.4.8). On a new installation the
+  30 baseline questions are on, the 45 additional questions are off, and none
+  is required. Profile versions, case pinning and adoption are removed
+  (migration `20260924120000_preop_single_profile_answers`).
+- Switching a question on or off applies to every case from its next load.
+  A case in progress starts asking a question switched on and stops asking one
+  switched off; answers already given are kept and exported. Required
+  questions are checked when a clinician continues to intraop, never on a
+  draft save.
+- The answer rows are the research record for every catalogue question. Each
+  question carries its OMOP concept in the catalogue (0 where no standard
+  concept says what the question asks), and OMOP export reads the answer rows
+  only, which ends the double export of baseline answers.
+- Answer and suggestion rows of a finalized case are refused by the database,
+  and suggestion writes take the case lock.
+- Upstream: Core 9.11.0, API/Web/Mobile 9.11.0, Browser 0.8.0.
+
+### Fixed
+
+- Preoperative autosave stayed on "Saved locally - syncs when online" after an
+  import from the hospital system. The appliance had no preoperative profile,
+  so every save was refused with a 400 that both clients treated as offline,
+  and each later save was merged into the refused one. The profile is now
+  provisioned with the catalogue, a refused save is shown as refused, and a
+  refused answer is shown beside its field.
+- An unanswered toggle is no longer refused, a partial autosave no longer
+  clears stored answers, and a case created with its preoperative assessment
+  already filled in now writes its answer rows.
+- A suggestion from an imported record is offered only on an unanswered
+  question, so accepting it can no longer overwrite the clinician's answer.
+- The Status reorder script is served as a file, so the page's content
+  security policy no longer blocks it.
 
 ## [1.4.7] - 2026-09-23
 

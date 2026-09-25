@@ -439,7 +439,6 @@ export const ModelName = {
   PreopQuestionDefinition: 'PreopQuestionDefinition',
   PreopAnswerOption: 'PreopAnswerOption',
   PreopAssessmentProfile: 'PreopAssessmentProfile',
-  PreopCaseProfilePin: 'PreopCaseProfilePin',
   PreopProfileQuestion: 'PreopProfileQuestion',
   PreopAssessmentAnswer: 'PreopAssessmentAnswer',
   PreopAssessmentSuggestion: 'PreopAssessmentSuggestion',
@@ -506,7 +505,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "administrativeReason" | "customTerm" | "preoperativeAssessment" | "preopQuestionDefinition" | "preopAnswerOption" | "preopAssessmentProfile" | "preopCaseProfilePin" | "preopProfileQuestion" | "preopAssessmentAnswer" | "preopAssessmentSuggestion" | "preopAssessmentAuditEvent" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "ehrDelivery" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "hospitalPatientIdentifierPolicy" | "hospitalEhrTransportPolicy" | "hospitalEhrLabCodeMap" | "hospitalEhrVitalCodeMap" | "hospitalEhrCodeSystem" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval" | "hospitalEhrMedicationCodeMap"
+    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "administrativeReason" | "customTerm" | "preoperativeAssessment" | "preopQuestionDefinition" | "preopAnswerOption" | "preopAssessmentProfile" | "preopProfileQuestion" | "preopAssessmentAnswer" | "preopAssessmentSuggestion" | "preopAssessmentAuditEvent" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "ehrDelivery" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "hospitalPatientIdentifierPolicy" | "hospitalEhrTransportPolicy" | "hospitalEhrLabCodeMap" | "hospitalEhrVitalCodeMap" | "hospitalEhrCodeSystem" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval" | "hospitalEhrMedicationCodeMap"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3615,80 +3614,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PreopAssessmentProfileCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PreopAssessmentProfileCountAggregateOutputType> | number
-        }
-      }
-    }
-    PreopCaseProfilePin: {
-      payload: Prisma.$PreopCaseProfilePinPayload<ExtArgs>
-      fields: Prisma.PreopCaseProfilePinFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.PreopCaseProfilePinFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.PreopCaseProfilePinFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>
-        }
-        findFirst: {
-          args: Prisma.PreopCaseProfilePinFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.PreopCaseProfilePinFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>
-        }
-        findMany: {
-          args: Prisma.PreopCaseProfilePinFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>[]
-        }
-        create: {
-          args: Prisma.PreopCaseProfilePinCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>
-        }
-        createMany: {
-          args: Prisma.PreopCaseProfilePinCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.PreopCaseProfilePinCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>[]
-        }
-        delete: {
-          args: Prisma.PreopCaseProfilePinDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>
-        }
-        update: {
-          args: Prisma.PreopCaseProfilePinUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>
-        }
-        deleteMany: {
-          args: Prisma.PreopCaseProfilePinDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.PreopCaseProfilePinUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.PreopCaseProfilePinUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>[]
-        }
-        upsert: {
-          args: Prisma.PreopCaseProfilePinUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PreopCaseProfilePinPayload>
-        }
-        aggregate: {
-          args: Prisma.PreopCaseProfilePinAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregatePreopCaseProfilePin>
-        }
-        groupBy: {
-          args: Prisma.PreopCaseProfilePinGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.PreopCaseProfilePinGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.PreopCaseProfilePinCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.PreopCaseProfilePinCountAggregateOutputType> | number
         }
       }
     }
@@ -8237,20 +8162,6 @@ export const PreopAssessmentProfileScalarFieldEnum = {
 export type PreopAssessmentProfileScalarFieldEnum = (typeof PreopAssessmentProfileScalarFieldEnum)[keyof typeof PreopAssessmentProfileScalarFieldEnum]
 
 
-export const PreopCaseProfilePinScalarFieldEnum = {
-  id: 'id',
-  caseId: 'caseId',
-  profileId: 'profileId',
-  profileVersion: 'profileVersion',
-  pinnedAt: 'pinnedAt',
-  pinnedById: 'pinnedById',
-  adoptedAt: 'adoptedAt',
-  adoptedById: 'adoptedById'
-} as const
-
-export type PreopCaseProfilePinScalarFieldEnum = (typeof PreopCaseProfilePinScalarFieldEnum)[keyof typeof PreopCaseProfilePinScalarFieldEnum]
-
-
 export const PreopProfileQuestionScalarFieldEnum = {
   profileId: 'profileId',
   questionId: 'questionId',
@@ -10349,7 +10260,6 @@ export type GlobalOmitConfig = {
   preopQuestionDefinition?: Prisma.PreopQuestionDefinitionOmit
   preopAnswerOption?: Prisma.PreopAnswerOptionOmit
   preopAssessmentProfile?: Prisma.PreopAssessmentProfileOmit
-  preopCaseProfilePin?: Prisma.PreopCaseProfilePinOmit
   preopProfileQuestion?: Prisma.PreopProfileQuestionOmit
   preopAssessmentAnswer?: Prisma.PreopAssessmentAnswerOmit
   preopAssessmentSuggestion?: Prisma.PreopAssessmentSuggestionOmit

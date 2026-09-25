@@ -67,6 +67,11 @@ describe("what this app tells a clinician about a refused save", () => {
       .toBe(CLINICAL_STRINGS.en.blockedPediatricModeRequired)
   })
 
+  it.each(languages)("says a refused preop answer is about the form, not privacy, in %s", (_name, language) => {
+    expect(blockedSaveMessage(issue({ code: "PREOP_ANSWER_REFUSED", field: "smoking" }), say(language)))
+      .toBe(CLINICAL_STRINGS[language].blockedPreopAnswer)
+  })
+
   it("shows an unrecognised field by its wire name rather than a blank", () => {
     expect(blockedSaveMessage(issue({ field: "surgicalApproach" }), say("en")))
       .toContain("surgicalApproach")

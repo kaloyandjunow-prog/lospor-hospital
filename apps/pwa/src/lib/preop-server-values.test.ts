@@ -121,3 +121,20 @@ describe("preop server values", () => {
     expect(values.difficultAirwayHistory).toBe(true)
   })
 })
+
+describe("preop answers loaded into the form", () => {
+  it("keeps only answers to questions without their own control, and never the NOT_ASKED placeholder", () => {
+    const values = valuesFromServerPreop({
+      assessmentAnswers: [
+        { state: "YES", optionKey: "YES", question: { stableKey: "A12_PACEMAKER_ICD" } },
+        { state: "NO", optionKey: "NO", question: { stableKey: "BASE_SMOKING" } },
+        { state: "NOT_ASKED", optionKey: null, question: { stableKey: "A5_FALLS_LAST_12_MONTHS" } },
+        { state: "NOT_APPLICABLE", optionKey: null, question: { stableKey: "A13_PREGNANCY" } },
+      ],
+    })
+    expect(values.preopAnswers).toEqual([
+      { stableKey: "A12_PACEMAKER_ICD", state: "YES", optionKey: "YES" },
+      { stableKey: "A13_PREGNANCY", state: "NOT_APPLICABLE", optionKey: null },
+    ])
+  })
+})

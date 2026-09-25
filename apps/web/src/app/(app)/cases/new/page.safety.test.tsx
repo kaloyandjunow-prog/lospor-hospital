@@ -37,6 +37,7 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("next-intl", () => ({
   useTranslations: () => hoisted.translate,
+  useLocale: () => "en",
 }))
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
@@ -117,12 +118,15 @@ describe("preop navigation save gate", () => {
 
   it("keeps PII-blocked input on its field and does not route to the partial case", async () => {
     const piiData = { ...DATA, teamNotes: "Patient Ivan Petrov" }
-    vi.stubGlobal("fetch", vi.fn()
+    const saves = vi.fn()
       .mockResolvedValueOnce(reply(400, {
         code: "PII_BLOCKED", field: "teamNotes", reason: "likely_name",
         error: "Identifying information is not allowed", retryable: false, blockedKeys: ["teamNotes"],
       }))
-      .mockResolvedValueOnce(created()))
+      .mockResolvedValueOnce(created())
+    // A new case reads the preop profile on its own; that read is not a save.
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url === "/api/preop/profile" ? reply(404, {}) : saves()))
     await submitPreop(piiData)
     expect(screen.getByTestId("preop-form")).toBeTruthy()
     expect(hoisted.captured.preop?.defaultValues?.teamNotes).toBe("Patient Ivan Petrov")
@@ -153,6 +157,17 @@ describe("preop navigation save gate", () => {
     await submitPreop()
     expect(screen.getByTestId("intraop-form")).toBeTruthy()
     expect(screen.queryByTestId("preop-form")).toBeNull()
+  })
+
+  it("stays on preop while a required profile question is unanswered", async () => {
+    // Drafts always save; required questions hold back continue-to-intraop,
+    // which the case read reports after the preop reached the server.
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => !init?.method
+      ? reply(200, { preopRequiredMissing: [{ stableKey: "BASE_SMOKING", labelEn: "Smoking", labelBg: "Тютюнопушене", fields: ["smoking"] }] })
+      : created()))
+    await submitPreop()
+    expect(screen.getByTestId("preop-form")).toBeTruthy()
+    expect(screen.queryByTestId("intraop-form")).toBeNull()
   })
 })
 

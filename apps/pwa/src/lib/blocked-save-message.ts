@@ -6,6 +6,7 @@ import {
 } from "@lospor/core/blocked-save-copy"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import type { ClinicalStringKey } from "@/i18n/clinical-strings"
+import { PREOP_ANSWER_REFUSED } from "./preop-answer-refusal"
 
 /**
  * This app's words for a save the server refused and a retry cannot fix.
@@ -50,6 +51,9 @@ export function blockedSaveMessage(
   issue: BlockedSaveIssue,
   translate: (key: ClinicalStringKey) => string,
 ): string {
+  // Checked first: core does not know this code, and its fallback is the PII
+  // wording, which would tell a clinician a yes/no answer identified someone.
+  if (issue.code === PREOP_ANSWER_REFUSED) return translate("blockedPreopAnswer")
   const copy = classifyBlockedSave(issue)
   if (copy.kind === "domain") return translate(DOMAIN_COPY[copy.code])
 

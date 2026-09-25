@@ -73,14 +73,6 @@ const labelledItem = z.object({
  * Preoperatively this is a snapshot; intraoperatively it is repeated draws
  * distinguished by `takenAt`. The validation is identical either way, so it is
  * written once -- two copies of a clinical shape is how the two drift.
- *
- * This object is closed (no .passthrough()), and the outer schema's
- * .passthrough() does not reach inside nested array items — Zod only widens
- * the object it is called on. `source`/`takenAt` were dropped silently for
- * that reason: LabResult.source and .takenAt already exist as DB columns and
- * relational-sync already reads them, but every request arrived with them
- * already stripped, so AI-scanned labs were indistinguishable from manually
- * typed ones in the data.
  */
 const labResultsSchema = z.array(z.object({
   test:  z.string(),
@@ -199,8 +191,9 @@ export const preopSchema = z.object({
     policyVersion: z.string().min(1),
   })).optional(),
 
-  // Definition-driven preoperative answers. Legacy wide fields remain accepted
-  // for compatibility, but relational answers are authoritative for 1.4.7.
+  // Answers to the catalogue questions without their own form control. When
+  // present it is the form's complete set: a question it no longer holds was
+  // cleared. Baseline questions are answered through their fields above.
   preopAnswers: z.array(z.object({
     stableKey: z.string().min(1).max(160),
     state: z.enum(["YES", "NO", "UNKNOWN", "NOT_APPLICABLE"]),
@@ -209,10 +202,16 @@ export const preopSchema = z.object({
     valueNumber: z.number().finite().nullable().optional(),
     valueDate: z.string().datetime().nullable().optional(),
   })).optional(),
-  preopProfileVersion: z.number().int().positive().optional(),
-  adoptPreopProfile: z.boolean().optional(),
 
   // Item 27: Strict lab result shape matching the lab scan extractor output
+  //
+  // This object is closed (no .passthrough()), and the outer preopSchema's
+  // .passthrough() does not reach inside nested array items — Zod only
+  // widens the object it is called on. `source`/`takenAt` were dropped
+  // silently here for that reason: LabResult.source and .takenAt already
+  // exist as DB columns and relational-sync already reads them, but every
+  // request arrived with them already stripped, so AI-scanned labs were
+  // indistinguishable from manually typed ones in the data.
   labResults: labResultsSchema,
 }).passthrough().superRefine((data, ctx) => addCoreIssues(validatePreopPatch(data), ctx))
 
