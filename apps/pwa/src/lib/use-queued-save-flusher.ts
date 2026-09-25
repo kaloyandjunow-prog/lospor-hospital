@@ -13,6 +13,7 @@ import {
 import { buildPreopPayload } from "./preop-payload"
 import { apiFetch } from "./api"
 import type { ApiRequestInit } from "./api"
+import { isPreopFormOpen } from "./preop-open-forms"
 import { useLiveRefresh } from "./use-live-refresh"
 import { postPreopServerCase } from "./preop-server-create"
 import { localDraftSyncReview } from "./local-draft-review"
@@ -118,6 +119,9 @@ export async function flushLocalCaseDrafts(owner: LocalDraftOwner): Promise<void
       if (draft.syncReview) continue
 
       if (draft.serverCaseId) {
+        // The open form saves this case and clears the draft itself; a replay
+        // racing its newer save could land last with older values.
+        if (isPreopFormOpen(draft.serverCaseId)) continue
         const preop = clinicalPreopPayload(draft.formValues)
         const outcome = await autosaveManager.saveSection(draft.serverCaseId, "preop", preop, {
           fullPayload: preop,

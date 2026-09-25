@@ -529,11 +529,10 @@ export default function NewCasePage() {
       if (saved === "blocked") return
       if (!saved || saved === "queued") throw new Error()
       setPostopData(postopData)
-      // See submit-case-for-review.ts for why this, not postop completeness
-      // alone, starts the closure countdown, and why a refusal keeps the
-      // clinician here rather than advancing to a summary for a case that
-      // never left IN_PROGRESS.
+      // Why this starts the countdown, and why a refusal keeps the clinician
+      // here (a case finalised elsewhere opens instead): submit-case-for-review.ts.
       const submitted = await submitCaseForReview(caseIdRef.current)
+      if (!submitted.ok && submitted.reason === "finalised") return void (toast.info(t(submitForReviewMessage(submitted))), router.push(`/cases/${caseIdRef.current}`))
       if (!submitted.ok) return void toast.error(t(submitForReviewMessage(submitted)))
       setAwaitingReviewAt(submitted.awaitingReviewAt)
       setStep(3); window.scrollTo(0, 0)

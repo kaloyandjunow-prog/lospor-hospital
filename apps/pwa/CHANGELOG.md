@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Mobile
 
+## [9.11.5] - 2026-09-25
+
+### Fixed
+
+- **"Non-smoker (auto)" is ticked only when smoking was answered No.** It was
+  ticked for an unanswered smoking question, while the Apfel score (correctly)
+  did not count it.
+- **A saved local draft can no longer overwrite a newer edit.** The
+  background sync replayed a case's local draft in full; picked up just as the
+  open form saved a newer value, the older draft could land last. The draft of
+  a form that is open is now left to that form, and replayed once it closes.
+- **An accepted suggestion keeps its source** after the next save
+  (API 9.11.5).
+- **Submitting a case that was finalised elsewhere says so** and opens the
+  case, instead of "try again when online".
+
 ## [9.11.4] - 2026-09-25
 
 ### Fixed

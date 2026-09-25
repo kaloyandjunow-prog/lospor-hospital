@@ -90,6 +90,31 @@ describe("the anamnesis toggles follow the profile", () => {
   })
 })
 
+// The Apfel score counts a non-smoker only for an answered "No"; the tick
+// beside it showed an unanswered question as a non-smoker.
+describe("the Non-smoker (auto) tick", () => {
+  function ticked(smoking: boolean | null) {
+    function Harness() {
+      const { control, setValue } = useForm<PreopFormInput>()
+      return (
+        <PreopAnamnesisFields control={control} setValue={setValue} tc={tc as never} allergies={null} familyAnesthesiaProblems={null}
+          pediatricMode={false} rcriSuggested={{}} stopBangBPSuggested={false} RCRI_HINT="" sex={null} smoking={smoking} bmi={null}
+          ageYears={null} blockedErrorFor={() => undefined} scrollToSection={() => {}} shownField={() => true} />
+      )
+    }
+    // A row draws its check box, then its label: the Non-smoker box is what
+    // lies between the Female label (sex unset here) and the Non-smoker label.
+    const json = JSON.stringify(render(<Harness />).toJSON())
+    return json.slice(json.indexOf("apfelFemaleSex"), json.indexOf("apfelNonSmoker")).includes("✓")
+  }
+
+  it("is ticked only when smoking was answered No", () => {
+    expect(ticked(false)).toBe(true)
+    expect(ticked(null)).toBe(false)
+    expect(ticked(true)).toBe(false)
+  })
+})
+
 describe("suggestions from the record", () => {
   const suggestion = [{ id: "s1", stableKey: "A12", proposedState: "YES" as const }]
   const render2 = (states: Record<string, PreopAnswerState>) => JSON.stringify(render(

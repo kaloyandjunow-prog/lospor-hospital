@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { submitCaseForReview } from "./submit-case-for-review"
+import { submitCaseForReview, submitForReviewMessage } from "./submit-case-for-review"
 
 /** A `Response` only so far as this helper reads one. */
 const reply = (status: number, body: unknown) => ({
@@ -59,5 +59,14 @@ describe("submitCaseForReview", () => {
     })))
 
     expect(await submitCaseForReview("case-1")).toEqual({ ok: false, reason: "unreachable" })
+  })
+
+  // Finalised on the phone while the web form was open: not the server being
+  // unreachable, and saying so sent clinicians to retry.
+  it("names a case finalised elsewhere instead of calling the server unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reply(409, { error: "Case is already finalised", code: "CASE_ALREADY_FINALISED" })))
+    const result = await submitCaseForReview("case-1")
+    expect(result).toEqual({ ok: false, reason: "finalised" })
+    expect(submitForReviewMessage(result as { ok: false; reason: "finalised" })).toBe("case.submitForReviewFinalised")
   })
 })
