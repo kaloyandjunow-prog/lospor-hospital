@@ -26,6 +26,7 @@ import {
   type KVAdapter,
   type SectionRevision,
 } from "./protocol"
+import { createCaseWriteQueue } from "./case-write-queue"
 import { createSingleFlightQueue } from "./single-flight-queue"
 
 export type CasePatchResult = "saved" | "queued" | "blocked" | "empty" | "failed" | "conflict"
@@ -200,6 +201,13 @@ export function createCaseOutbox(deps: OutboxDeps) {
   // mobile implementation let parallel flushes read-modify-write the index
   // concurrently, which could silently lose a removal (lost-update race).
   const indexQueue = createSingleFlightQueue()
+
+  // One flush per case section at a time. The live save and the background
+  // flusher used to read the same stored patch and both send it: the second
+  // copy 409'd, was retried on the newer revision, and wrote the older value
+  // over an edit saved in between. Sends still go through orderWrite; this
+  // lock only ever wraps it, never the other way round, so it cannot deadlock.
+  const flushLocks = createCaseWriteQueue()
 
   function notifyChanged(): void {
     if (!deps.onChange) return
@@ -539,7 +547,52 @@ export function createCaseOutbox(deps: OutboxDeps) {
     }
   }
 
-  async function flushOne(
+  function flushOne(
+    caseId: string,
+    section: CaseSection,
+  ): Promise<CasePatchOutcome> {
+    return flushLocks.enqueue(`${caseId}:${section}`, () => flushOneUnlocked(caseId, section))
+  }
+
+  /**
+   * After a send, the stored patch is what was read before it unless a newer
+   * edit was queued (merged in) while the request was out. That newer patch is
+   * never cleared or overwritten here: after a successful send it is rebased
+   * onto the revision the server just returned (its payload already holds the
+   * sent fields plus the newer ones), and after a failure it is left for the
+   * next flush exactly as queued.
+   */
+  async function supersededPatch(caseId: string, section: CaseSection, raw: string): Promise<StoredPatch | null | "unchanged"> {
+    const current = await kv.get(outboxPatchKey(caseId, section)).catch(() => raw)
+    if (current === raw) return "unchanged"
+    if (current == null) return null
+    try {
+      return JSON.parse(current) as StoredPatch
+    } catch {
+      return "unchanged"
+    }
+  }
+
+  async function settleSent(
+    caseId: string,
+    section: CaseSection,
+    raw: string,
+    response: CasePatchResponse,
+    whenUnchanged: () => Promise<void>,
+  ): Promise<void> {
+    const current = await supersededPatch(caseId, section, raw)
+    if (current === "unchanged") return whenUnchanged()
+    if (current === null) return
+    const revision = responseRevision(section, response)
+    await storePatch(caseId, section, { ...current, baseUpdatedAt: revision ?? current.baseUpdatedAt })
+  }
+
+  async function storeUnlessSuperseded(caseId: string, section: CaseSection, raw: string, patch: StoredPatch): Promise<void> {
+    if (await supersededPatch(caseId, section, raw) !== "unchanged") return
+    await storePatch(caseId, section, patch)
+  }
+
+  async function flushOneUnlocked(
     caseId: string,
     section: CaseSection,
   ): Promise<CasePatchOutcome> {
@@ -565,10 +618,11 @@ export function createCaseOutbox(deps: OutboxDeps) {
       try {
         const response = await sendInOrder(caseId, section, sendable, parsed.baseUpdatedAt)
         if (blocked.length === 0) {
-          await clearOne(caseId, section)
+          await settleSent(caseId, section, raw, response, () => clearOne(caseId, section))
           return { result: "saved", response }
         }
-        await storeBlockedOnly(caseId, section, blocked, responseRevision(section, response))
+        await settleSent(caseId, section, raw, response, () =>
+          storeBlockedOnly(caseId, section, blocked, responseRevision(section, response)))
         return {
           result: "blocked",
           response,
@@ -582,7 +636,9 @@ export function createCaseOutbox(deps: OutboxDeps) {
           blocked.push(quarantined.blocked)
           sendable = quarantined.remaining
           if (!hasKeys(sendable)) {
-            await storeBlockedOnly(caseId, section, blocked, parsed.baseUpdatedAt)
+            await storeUnlessSuperseded(caseId, section, raw, {
+              payload: {}, baseUpdatedAt: parsed.baseUpdatedAt, queuedAt: new Date().toISOString(), blocked,
+            })
             return { result: "blocked", blocked: blocked[0].issue }
           }
           continue
@@ -616,10 +672,11 @@ export function createCaseOutbox(deps: OutboxDeps) {
           try {
             const response = await sendInOrder(caseId, section, sendable, conflictBase)
             if (blocked.length === 0) {
-              await clearOne(caseId, section)
+              await settleSent(caseId, section, raw, response, () => clearOne(caseId, section))
               return { result: "saved", response }
             }
-            await storeBlockedOnly(caseId, section, blocked, responseRevision(section, response))
+            await settleSent(caseId, section, raw, response, () =>
+              storeBlockedOnly(caseId, section, blocked, responseRevision(section, response)))
             return {
               result: "blocked",
               response,
@@ -633,12 +690,14 @@ export function createCaseOutbox(deps: OutboxDeps) {
               blocked.push(quarantined.blocked)
               sendable = quarantined.remaining
               if (!hasKeys(sendable)) {
-                await storeBlockedOnly(caseId, section, blocked, conflictBase)
+                await storeUnlessSuperseded(caseId, section, raw, {
+                  payload: {}, baseUpdatedAt: conflictBase, queuedAt: new Date().toISOString(), blocked,
+                })
                 return { result: "blocked", blocked: blocked[0].issue }
               }
               continue
             }
-            await storePatch(caseId, section, {
+            await storeUnlessSuperseded(caseId, section, raw, {
               ...parsed,
               payload: sendable,
               baseUpdatedAt: conflictBase,
@@ -652,14 +711,14 @@ export function createCaseOutbox(deps: OutboxDeps) {
             }
           }
         }
-        await storePatch(caseId, section, { ...parsed, payload: sendable, blocked })
+        await storeUnlessSuperseded(caseId, section, raw, { ...parsed, payload: sendable, blocked })
         return {
           result: "failed",
           ...(failure.kind === "http" && failure.message ? { failure } : {}),
         }
       }
     }
-    await storePatch(caseId, section, { ...parsed, payload: sendable, blocked })
+    await storeUnlessSuperseded(caseId, section, raw, { ...parsed, payload: sendable, blocked })
     return { result: blocked.length > 0 ? "blocked" : "failed", blocked: blocked[0]?.issue }
   }
 

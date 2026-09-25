@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as Haptics from "expo-haptics"
 import { notify } from "@/lib/notify"
 import { buildAirwaySectionPatch, isAirwayDeviceComplete, syncAirwayDeviceSelection } from "@/lib/intraop-airway-section"
@@ -35,36 +35,25 @@ export function useIntraopAirwaySection(
   const [awNotApplicable, setAwNotApplicable] = useState(false)
   const [airwaySectionSaving, setAirwaySectionSaving] = useState(false)
   const airwaySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const awInitializedRef = useRef(false)
 
-  const saveAirwaySection = useCallback(async () => {
-    setAirwaySectionSaving(true)
-    try {
-      await patchIntraopSection(buildAirwaySectionPatch({
-        awTools,
-        awDevices,
-        awLmaSize,
-        awOralTubeSize,
-        awOralCuffed,
-        awNasalTubeSize,
-        awNasalCuffed,
-        awDltType,
-        awDltSide,
-        awDltSize,
-        awEbSize,
-        awClGrade,
-        awVentModes,
-        awNotes,
-        awPresentsIntubated,
-        awNotApplicable,
-      }))
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
-    } catch {
-      notify(errorLabel, tc("airwaySaveFailed"))
-    } finally {
-      setAirwaySectionSaving(false)
-    }
-  }, [
+  const airwayPatch = useMemo(() => buildAirwaySectionPatch({
+    awTools,
+    awDevices,
+    awLmaSize,
+    awOralTubeSize,
+    awOralCuffed,
+    awNasalTubeSize,
+    awNasalCuffed,
+    awDltType,
+    awDltSide,
+    awDltSize,
+    awEbSize,
+    awClGrade,
+    awVentModes,
+    awNotes,
+    awPresentsIntubated,
+    awNotApplicable,
+  }), [
     awClGrade,
     awDevices,
     awDltSide,
@@ -81,21 +70,52 @@ export function useIntraopAirwaySection(
     awOralTubeSize,
     awTools,
     awVentModes,
-    errorLabel,
-    patchIntraopSection,
-    tc,
   ])
+  const airwayKey = JSON.stringify(airwayPatch)
+  // The airway section as the server last had it (loaded or saved). The
+  // autosave compares content against this, not callback identity: it used to
+  // re-send all ~20 airway fields on every open of the intraop screen, because
+  // a new `tc` or callback looked like an edit.
+  const savedAirwayKeyRef = useRef<string | null>(null)
+
+  const saveAirwaySection = useCallback(async () => {
+    setAirwaySectionSaving(true)
+    try {
+      await patchIntraopSection(airwayPatch)
+      savedAirwayKeyRef.current = JSON.stringify(airwayPatch)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
+    } catch {
+      notify(errorLabel, tc("airwaySaveFailed"))
+    } finally {
+      setAirwaySectionSaving(false)
+    }
+  }, [airwayPatch, errorLabel, patchIntraopSection, tc])
+
+  const saveAirwayRef = useRef(saveAirwaySection)
+  useEffect(() => { saveAirwayRef.current = saveAirwaySection }, [saveAirwaySection])
 
   useEffect(() => {
     if (!caseLoaded) return
-    if (!awInitializedRef.current) {
-      awInitializedRef.current = true
+    // The first loaded state is the server's copy, not an edit.
+    if (savedAirwayKeyRef.current === null) {
+      savedAirwayKeyRef.current = airwayKey
       return
     }
+    if (airwayKey === savedAirwayKeyRef.current) return
     if (airwaySaveTimerRef.current) clearTimeout(airwaySaveTimerRef.current)
-    airwaySaveTimerRef.current = setTimeout(() => { void saveAirwaySection() }, 600)
-    return () => { if (airwaySaveTimerRef.current) clearTimeout(airwaySaveTimerRef.current) }
-  }, [caseLoaded, saveAirwaySection])
+    airwaySaveTimerRef.current = setTimeout(() => {
+      airwaySaveTimerRef.current = null
+      void saveAirwayRef.current()
+    }, 600)
+  }, [caseLoaded, airwayKey])
+
+  // Leaving the screen inside the 600 ms pause used to drop the change.
+  useEffect(() => () => {
+    if (!airwaySaveTimerRef.current) return
+    clearTimeout(airwaySaveTimerRef.current)
+    airwaySaveTimerRef.current = null
+    void saveAirwayRef.current()
+  }, [])
 
   useEffect(() => {
     if (!awExpandedDevice) return

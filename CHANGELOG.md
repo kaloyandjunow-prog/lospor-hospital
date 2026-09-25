@@ -38,10 +38,31 @@
   only, which ends the double export of baseline answers.
 - Answer and suggestion rows of a finalized case are refused by the database,
   and suggestion writes take the case lock.
-- Upstream: Core 9.11.0, API/Web/Mobile 9.11.0, Browser 0.8.0.
+- Upstream: Core/API/Web/Mobile 9.11.4, Browser 0.8.0.
 
 ### Fixed
 
+- A background save could put back a value the clinician had already
+  changed. The save after an edit and the periodic background sync could send
+  the same queued change twice; the late copy was retried on the newer
+  revision and overwrote the edit saved in between, while the screen kept
+  showing the new value. On the web the duplicate showed a conflict nobody had
+  caused. Each case section now has one sender at a time, and an edit queued
+  during a save is kept and sent after it (Core 9.11.4).
+- The PWA intraoperative form re-sent the whole airway section unchanged every
+  time it opened, and both premedication lists every time the Premedication
+  tab was left. Both now save only on a real change. Urine output and blood
+  loss saved only on leaving their tab, so a figure could be lost if the form
+  was left another way; they now save shortly after entry (Mobile 9.11.4).
+- Reopening a case on the phone could erase its preoperative diagnosis and
+  procedure: the screen autosaved its blank defaults before the case had
+  loaded. A reopened case is now never autosaved until its stored copy is in
+  the form (Mobile 9.11.3).
+- The first preoperative save on a database without a profile, or after a
+  catalogue upgrade, could outlive the save transaction on a slow or remote
+  database, and then every save failed. The profile is created and upgraded
+  in a handful of statements, in a transaction of its own before the
+  clinician's save (API 9.11.1 and 9.11.2).
 - Preoperative autosave stayed on "Saved locally - syncs when online" after an
   import from the hospital system. The appliance had no preoperative profile,
   so every save was refused with a 400 that both clients treated as offline,
@@ -55,6 +76,16 @@
   question, so accepting it can no longer overwrite the clinician's answer.
 - The Status reorder script is served as a file, so the page's content
   security policy no longer blocks it.
+
+### Tests
+
+- The institution-flow end-to-end test failed now and then: it signed the
+  moved clinician in again within the same second as the approval, and a
+  session issued in that second counts as older than the move. It now waits
+  for the next second.
+- The preoperative query-count test emptied the catalogue and profile for real
+  while other PostgreSQL suites shared the database. It now measures inside a
+  rolled-back transaction.
 
 ## [1.4.7] - 2026-09-23
 

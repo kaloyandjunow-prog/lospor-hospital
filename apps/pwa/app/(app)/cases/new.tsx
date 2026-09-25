@@ -206,6 +206,7 @@ export default function NewCaseScreen() {
   const flushAutosaveRef = useRef<() => void>(() => {})
   const submittingRef = useRef(false)
   const caseIdRef = useRef<string | null>(null)
+  const caseLoadedRef = useRef(false)
   const draftIdRef = useRef<string>(makeLocalCaseId())
   const [caseId, setCaseId] = useState<string | null>(null)
   const [patientReference, setPatientReference] = useState<PatientReference | null>(null)
@@ -411,13 +412,11 @@ export default function NewCaseScreen() {
   // Load existing case when ?continue=<id> is in the URL
   useEffect(() => {
     if (!continueId) return
+    caseLoadedRef.current = false
     caseIdRef.current = continueId
     setCaseId(continueId)
-    // Flush any queued-but-unsent preop patch for this case before fetching —
-    // otherwise a patch queued from a previous offline autosave sits unsent
-    // until the periodic background flusher's next tick (up to 15s), and the
-    // GET below would silently reset the form to that stale pre-edit
-    // snapshot in the meantime, discarding the queued edit.
+    // Flush any queued preop patch first: otherwise the GET below resets the form
+    // to the pre-edit snapshot while the patch waits for the 15 s flusher tick.
     autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
       apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string; patientReference?: unknown }>(`/api/cases/${continueId}`),
       autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
@@ -433,6 +432,7 @@ export default function NewCaseScreen() {
           p.syncRevision ?? p.updatedAt ?? null,
         )
         reset(loadedValues)
+        caseLoadedRef.current = true
         setPersistedPediatricRecord(
           (caseData.clinicalMode ?? loadedValues.clinicalMode) === "PEDIATRIC",
         )
@@ -457,7 +457,6 @@ export default function NewCaseScreen() {
         }
         notify(tc("errorLabel"), tc("caseLoadFailed"))
       })
-
   }, [blockedMessage, clearLocalDraft, continueId, reset, router, tc])
 
   // Restore local draft silently when opened from the dashboard via ?localId=
@@ -468,7 +467,6 @@ export default function NewCaseScreen() {
       reset(draft.formValues as FormInput)
       setDraftState("queued")
     })
-
   }, [continueId, draftOwner, localIdParam, reset])
 
   // useWatch triggers a React re-render on every field change — works on both native and web.
@@ -484,6 +482,8 @@ export default function NewCaseScreen() {
   // server-first, local fallback
   useEffect(() => {
     if (submittingRef.current) return
+    // Never autosave a reopened case before its server copy is in the form (blanks would overwrite it).
+    if (continueId && !caseLoadedRef.current) return
     // Marking "saving" here fired a second render on every keystroke, for a
     // save that had not started and would not start for another 2 seconds. The
     // state is set inside `runAutosave`, when a save actually begins.
@@ -576,7 +576,7 @@ export default function NewCaseScreen() {
     flushAutosaveRef.current = runAutosave
     autosaveDraftRef.current = setTimeout(runAutosave, autosaveDelayMs(discreteTap))
 
-  }, [_allFormValues, blockedMessage, clearLocalDraft, getValues, persistLocalDraft, rejectedFieldsMessage, tc, tryCreateServerCase])
+  }, [_allFormValues, blockedMessage, clearLocalDraft, continueId, getValues, persistLocalDraft, rejectedFieldsMessage, tc, tryCreateServerCase])
 
   useEffect(() => {
     activeSectionRef.current = activeSection

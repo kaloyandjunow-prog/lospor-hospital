@@ -23,6 +23,13 @@ type Input<TFormValues> = {
   clearLocalDraft: () => Promise<void> | void
   reset: (values: TFormValues) => void
   caseIdRef: { current: string | null }
+  /**
+   * Whether the form holds the case it was opened on. False from the moment a
+   * case is opened until its server copy has been applied, and stays false if
+   * the load fails: until then the form holds blank defaults, and autosaving
+   * them would write blanks over the stored assessment.
+   */
+  caseLoadedRef: { current: boolean }
   setCaseId: (id: string | null) => void
   setPersistedPediatricRecord: (value: boolean) => void
   setBlockedIssue: (issue: BlockedSaveIssue | null) => void
@@ -60,10 +67,11 @@ export function usePreopDraftLoader<TFormValues>(input: Input<TFormValues>) {
   useEffect(() => {
     if (!continueId) return
     const {
-      caseIdRef, setCaseId, valuesFromServerPreop, buildPreopPayload, blockedMessage,
+      caseIdRef, caseLoadedRef, setCaseId, valuesFromServerPreop, buildPreopPayload, blockedMessage,
       reset, setPersistedPediatricRecord, setBlockedIssue, setSaveError, setDraftState,
       setPreopFinalizedAt, setPreopCaseStatus, clearLocalDraft, tc, router,
     } = latest.current
+    caseLoadedRef.current = false
     caseIdRef.current = continueId
     setCaseId(continueId)
     autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
@@ -85,6 +93,7 @@ export function usePreopDraftLoader<TFormValues>(input: Input<TFormValues>) {
           (p.syncRevision as number | undefined) ?? (p.updatedAt as string | undefined) ?? null,
         )
         reset(loadedValues)
+        caseLoadedRef.current = true
         setPersistedPediatricRecord(
           (caseData.clinicalMode ?? (loadedValues as { clinicalMode?: string }).clinicalMode) === "PEDIATRIC",
         )

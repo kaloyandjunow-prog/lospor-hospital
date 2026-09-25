@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: mocks.auth }))
 vi.mock("@/lib/preop/service", () => ({
+  preparePreopProfile: vi.fn(async () => {}),
   ensurePreopProfile: mocks.ensure,
   serializePreopProfile: mocks.serialize,
 }))

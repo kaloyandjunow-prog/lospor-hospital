@@ -1,6 +1,6 @@
 import React from "react"
 import { act } from "react-test-renderer"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 // expo-haptics needs the RN runtime; the save path only fires it for feedback.
 vi.mock("expo-haptics", () => ({
@@ -14,7 +14,7 @@ vi.mock("@/lib/preferences-context", () => ({
 
 import { render } from "@/test/render"
 import type { IntraopTab } from "./intraop-tabs"
-import { useIntraopFluidStatus } from "./use-intraop-fluid-status"
+import { FLUID_SAVE_PAUSE_MS, useIntraopFluidStatus } from "./use-intraop-fluid-status"
 
 type FluidStatusHook = ReturnType<typeof useIntraopFluidStatus>
 
@@ -36,6 +36,9 @@ function setup(initialTab: IntraopTab = "fluids") {
     patch,
     setTab(tab: IntraopTab) {
       act(() => { tree.update(<Harness tab={tab} />) })
+    },
+    unmount() {
+      tree.unmount()
     },
   }
 }
@@ -103,5 +106,52 @@ describe("useIntraopFluidStatus", () => {
 
     await act(async () => { await harness.hook.saveFluidStatus() })
     expect(harness.patch.mock.calls[1][0].bloodLossMl).toBe(600)
+  })
+
+  // Saving only on leaving the tab lost a figure whenever the screen was left
+  // another way (End case, the app going to the background).
+  describe("saving on change", () => {
+    afterEach(() => { vi.useRealTimers() })
+
+    it("saves a changed figure after a short pause, without leaving the tab", async () => {
+      vi.useFakeTimers()
+      const harness = setup()
+      act(() => harness.hook.hydrateFluidStatus(STORED))
+      act(() => harness.hook.setBloodLossMl(300))
+      act(() => harness.hook.setBloodLossMl(350))
+      expect(harness.patch).not.toHaveBeenCalled()
+
+      await act(async () => { vi.advanceTimersByTime(FLUID_SAVE_PAUSE_MS) })
+      expect(harness.patch).toHaveBeenCalledTimes(1)
+      expect(harness.patch.mock.calls[0][0].bloodLossMl).toBe(350)
+    })
+
+    it("sends nothing for figures that were only loaded, even after the pause", async () => {
+      vi.useFakeTimers()
+      const harness = setup()
+      act(() => harness.hook.hydrateFluidStatus({ urineMl: 250, bloodLossMl: 100 }))
+      await act(async () => { vi.advanceTimersByTime(FLUID_SAVE_PAUSE_MS * 2) })
+      await act(async () => { harness.setTab("log") })
+      expect(harness.patch).not.toHaveBeenCalled()
+    })
+
+    it("does not send the same figures twice when the tab is left after the pause", async () => {
+      vi.useFakeTimers()
+      const harness = setup()
+      act(() => harness.hook.hydrateFluidStatus(STORED))
+      act(() => harness.hook.setUrineMl(200))
+      await act(async () => { vi.advanceTimersByTime(FLUID_SAVE_PAUSE_MS) })
+      await act(async () => { harness.setTab("log") })
+      expect(harness.patch).toHaveBeenCalledTimes(1)
+    })
+
+    it("saves a pending figure when the screen closes inside the pause", async () => {
+      vi.useFakeTimers()
+      const harness = setup()
+      act(() => harness.hook.hydrateFluidStatus(STORED))
+      act(() => harness.hook.setBloodLossMl(500))
+      await act(async () => { harness.unmount() })
+      expect(harness.patch.mock.calls[0][0].bloodLossMl).toBe(500)
+    })
   })
 })

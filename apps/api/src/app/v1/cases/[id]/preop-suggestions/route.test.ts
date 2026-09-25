@@ -28,6 +28,11 @@ vi.mock("@/lib/prisma", () => ({
     preopAssessmentSuggestion: { findMany: mocks.suggestionFindMany },
   },
 }))
+// The one-off profile setup runs before the lock, in its own transaction.
+vi.mock("@/lib/preop/service", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/preop/service")>(),
+  preparePreopProfile: vi.fn(async () => {}),
+}))
 // Suggestion writes take the case lock, like every other clinical write.
 vi.mock("@/lib/clinical-transaction", async importOriginal => ({
   ...await importOriginal<typeof import("@/lib/clinical-transaction")>(),

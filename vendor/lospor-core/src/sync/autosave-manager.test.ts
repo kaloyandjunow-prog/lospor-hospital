@@ -4,6 +4,8 @@ import { createAutosaveManager } from "./autosave-manager"
 import { outboxPatchKey, type PatchFailure } from "./outbox"
 import type { KVAdapter } from "./protocol"
 
+declare function setTimeout(handler: () => void, timeout?: number): unknown
+
 function memoryKV(): KVAdapter & { data: Map<string, string> } {
   const data = new Map<string, string>()
   return {
@@ -395,5 +397,120 @@ describe("createAutosaveManager", () => {
     // ahead of "queued" -- that previously showed the clinician a scary
     // "could not be saved" message for an event that would in fact replay.
     expect(autosave.getState("case-1")).toMatchObject({ status: "queued", pending: 1, error: null })
+  })
+})
+
+// The live save and the 15 s background flusher used to send the same stored
+// patch twice. The second copy 409'd, was retried on the newer revision, and
+// wrote the older value over an edit saved in between -- the screen showed the
+// new value, the server kept the old one.
+describe("one flush per case section at a time", () => {
+  class Conflict extends Error {
+    constructor(readonly serverRevision: number) { super("409") }
+  }
+  const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+
+  function server(latencyMs = 20) {
+    const state = { revision: 1, fields: { x: "a", y: "a" } as Record<string, unknown>, log: [] as string[] }
+    const sendPatch = vi.fn(async (_caseId: string, _section: string, payload: unknown, base: unknown) => {
+      await sleep(latencyMs)
+      const fields = payload as Record<string, unknown>
+      if (base !== state.revision) {
+        state.log.push(`409 base=${String(base)} ${JSON.stringify(fields)}`)
+        throw new Conflict(state.revision)
+      }
+      Object.assign(state.fields, fields)
+      state.revision += 1
+      state.log.push(`200 base=${String(base)} ${JSON.stringify(fields)}`)
+      return { preopRevision: state.revision }
+    })
+    return { state, sendPatch }
+  }
+  const classify = (error: unknown): PatchFailure => error instanceof Conflict
+    ? { kind: "http", status: 409, serverRevision: error.serverRevision }
+    : error instanceof TypeError ? { kind: "network" } : { kind: "other" }
+
+  it("does not let a background flush put back a value the user has since changed", async () => {
+    const kv = memoryKV()
+    const { state, sendPatch } = server()
+    const autosave = manager(kv, sendPatch, classify)
+    autosave.hydrateSection("case-1", "preop", { x: "a", y: "a" }, 1)
+
+    const first = autosave.saveSection("case-1", "preop", { x: "b", y: "a" })
+    while (!kv.data.has(outboxPatchKey("case-1", "preop"))) await sleep(1)
+    const tick = autosave.flushAll()
+    await first
+    await Promise.all([autosave.saveSection("case-1", "preop", { x: "c", y: "a" }), tick])
+    await autosave.flushAll()
+
+    expect(state.fields.x).toBe("c")
+    expect(state.log).toEqual([`200 base=1 {"x":"b"}`, `200 base=2 {"x":"c"}`])
+    expect(kv.data.has(outboxPatchKey("case-1", "preop"))).toBe(false)
+  })
+
+  it("sends a stored patch once when two flushes ask for it together", async () => {
+    const kv = memoryKV()
+    const { state, sendPatch } = server()
+    const autosave = manager(kv, sendPatch, classify)
+    autosave.hydrateSection("case-1", "preop", { x: "a" }, 1)
+    await autosave.outbox.queue("case-1", "preop", { x: "b" }, 1)
+
+    const results = await Promise.all([autosave.flushCase("case-1"), autosave.flushAll()])
+
+    expect(sendPatch).toHaveBeenCalledTimes(1)
+    expect(state.log).toEqual([`200 base=1 {"x":"b"}`])
+    expect(results.map(result => result.saved)).toContain(1)
+  })
+
+  it("keeps an edit queued while a send was out, and sends it on the new revision", async () => {
+    const kv = memoryKV()
+    const { state, sendPatch } = server(40)
+    const autosave = manager(kv, sendPatch, classify)
+    await autosave.outbox.queue("case-1", "preop", { x: "b" }, 1)
+
+    const flushing = autosave.outbox.flushOne("case-1", "preop")
+    await sleep(10)
+    await autosave.outbox.queue("case-1", "preop", { y: "z" }, 1)
+    await flushing
+
+    const stored = JSON.parse(kv.data.get(outboxPatchKey("case-1", "preop"))!)
+    expect(stored.baseUpdatedAt).toBe(2)
+    expect(stored.payload).toEqual({ x: "b", y: "z" })
+
+    await autosave.outbox.flushOne("case-1", "preop")
+    expect(state.log).toEqual([`200 base=1 {"x":"b"}`, `200 base=2 {"x":"b","y":"z"}`])
+    expect(state.fields).toEqual({ x: "b", y: "z" })
+  })
+
+  it("does not overwrite an edit queued during a send that then failed", async () => {
+    const kv = memoryKV()
+    let release: () => void = () => {}
+    const sendPatch = vi.fn(() => new Promise((_resolve, reject) => { release = () => reject(new TypeError("offline")) }))
+    const autosave = manager(kv, sendPatch, classify)
+    await autosave.outbox.queue("case-1", "preop", { x: "b" }, 1)
+
+    const flushing = autosave.outbox.flushOne("case-1", "preop")
+    while (sendPatch.mock.calls.length === 0) await sleep(1)
+    await autosave.outbox.queue("case-1", "preop", { x: "c" }, 1)
+    release()
+    await flushing
+
+    expect(JSON.parse(kv.data.get(outboxPatchKey("case-1", "preop"))!).payload).toEqual({ x: "c" })
+  })
+
+  it("does not hold up an intraop event behind a section flush (no deadlock)", async () => {
+    const kv = memoryKV()
+    const autosave = manager(kv, vi.fn(async () => { await sleep(20); return { intraopRevision: 2 } }), classify)
+    autosave.hydrateSection("case-1", "intraop", {}, 1)
+    await autosave.outbox.queue("case-1", "intraop", { positions: ["supine"] }, 1)
+
+    await expect(Promise.race([
+      Promise.all([
+        autosave.flushCase("case-1"),
+        autosave.appendEvent("case-1", { id: "event-1", ts: "2026-07-23T20:00:00.000Z", type: "drug" }),
+        autosave.saveSection("case-1", "intraop", { positions: ["prone"] }, { partial: true }),
+      ]).then(() => "done"),
+      sleep(2_000).then(() => "stuck"),
+    ])).resolves.toBe("done")
   })
 })

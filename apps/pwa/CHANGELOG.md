@@ -1,5 +1,54 @@
 # Changelog - LOSPOR Mobile
 
+## [9.11.4] - 2026-09-25
+
+### Fixed
+
+- **A background save could put back a value you had already changed.** The
+  save after an edit and the periodic background sync could send the same
+  change twice; the late duplicate overwrote a newer edit on the server while
+  the screen kept showing the new value. Fixed in Core 9.11.4, which this
+  release uses.
+- **Opening the intraoperative screen no longer re-saves the airway section.**
+  The whole airway block (about 20 fields) was sent again, unchanged, every
+  time the screen opened. It is now saved only when an airway value actually
+  changes, and a change made just before leaving the screen is no longer
+  dropped.
+- **Leaving the Premedication tab no longer saves.** Every premedication
+  control already saves when it is tapped; leaving the tab sent both lists
+  again, unchanged, every time.
+- **Fluid status saves as you enter it.** Urine output and blood loss were
+  saved only when you switched to another tab, so a figure could be lost if
+  the screen was left another way (End case, the app going to the
+  background). They now save shortly after each change, and at once when the
+  tab or screen is left. Nothing is sent when the figures are unchanged.
+
+## [9.11.3] - 2026-09-25
+
+### Fixed
+
+- **Reopening a case could erase its preoperative diagnosis and procedure.**
+  The preop screen renders blank defaults and autosaves every change after a
+  2-second pause. When the case read took longer than that, the autosave ran
+  first and wrote the blanks (empty diagnosis, procedures, medications) over
+  the stored assessment. A reopened case is now never autosaved until its
+  server copy is in the form, and not at all if it could not be read.
+
+## [9.11.2] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API 9.11.2,
+  which fixes preoperative saves staying at "Saved locally" on the hosted demo.
+
+## [9.11.1] - 2026-09-25
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API 9.11.1,
+  which fixes preoperative saves failing ("Saved locally") after the
+  catalogue upgrade on a hosted database.
+
 ## [9.11.0] - 2026-09-24
 
 ### Added

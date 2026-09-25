@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Core
 
+## [9.11.4] - 2026-09-25
+
+### Fixed
+
+- **A background save could put back a value the clinician had already
+  changed.** The save made after an edit and the periodic background sync
+  could both pick up the same queued change and send it twice. The second
+  copy was refused as out of date, sent again on the newer version, and
+  overwrote whatever had been saved in between: the screen showed the new
+  value while the server kept the old one. A queued change is now sent by one
+  flush at a time, and an edit queued while a save is on its way is kept and
+  sent on the version that save produced, never cleared or overwritten by it.
+  Released with API, Web and Mobile 9.11.4, whose version Core now shares.
+
 ## [9.11.0] - 2026-09-24
 
 ### Added
