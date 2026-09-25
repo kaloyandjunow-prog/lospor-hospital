@@ -133,6 +133,12 @@ export async function signInWithPassword(page: Page, identifier: string): Promis
  * suite (see playwright.config.ts), and the seeder clears the buckets anyway.
  */
 export async function reauthenticate(context: BrowserContext, role: Role): Promise<void> {
+  // The server checks a session against the account change at whole-second
+  // precision (JWT iat is in seconds): a sign-in in the same second as the
+  // approval gets an iat that rounds down to before it and is rejected as
+  // stale. That is what made institution-flow fail now and then. Start the
+  // sign-in in the next second.
+  await new Promise(resolve => setTimeout(resolve, 1_050 - (Date.now() % 1_000)))
   const page = await context.newPage()
   try {
     await signInWithPassword(page, USERNAME_FOR[role])
