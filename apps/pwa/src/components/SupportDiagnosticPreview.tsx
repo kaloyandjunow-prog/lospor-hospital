@@ -1,5 +1,5 @@
 import { Text, View } from "react-native"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 
 export function SupportDiagnosticPreview({
   title,
@@ -10,6 +10,7 @@ export function SupportDiagnosticPreview({
   notice: string
   report: string
 }) {
+  useThemeRefresh()
   return (
     <View
       accessibilityLabel={title}

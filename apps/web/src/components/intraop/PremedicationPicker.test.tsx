@@ -66,8 +66,9 @@ describe("PremedicationPicker in paediatric mode", () => {
     expect(screen.getByRole("slider")).toBeTruthy()
   })
 
-  it("recomputes the dose when the route changes", () => {
-    const doseForRoute = vi.fn((_drug: string, route: string) => route === "IV" ? 180 : 210)
+  it("replaces the dose with the route's own when the route changes", () => {
+    const view = (dose: number) => ({ dose, unit: "mg", min: 100, max: 1000, step: 50, hint: "" })
+    const doseForRoute = vi.fn((_drug: string, route: string) => view(route === "IV" ? 180 : 210))
     open({ doseForRoute })
 
     fireEvent.click(screen.getByText("Analgesics"))
@@ -79,10 +80,15 @@ describe("PremedicationPicker in paediatric mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "IV" }))
     expect(doseForRoute).toHaveBeenCalledWith("Paracetamol", "IV")
     expect(doseField).toHaveProperty("value", "180")
+
+    // A hand-typed dose is replaced too: routes differ up to tenfold.
+    fireEvent.change(doseField, { target: { value: "999" } })
+    fireEvent.click(screen.getByRole("button", { name: "PO" }))
+    expect(doseField).toHaveProperty("value", "210")
   })
 
   it("keeps identity and routes but opens empty when the governed baseline is unavailable", () => {
-    const doseForRoute = vi.fn(() => 180)
+    const doseForRoute = vi.fn(() => ({ dose: 180, unit: "mg", min: 100, max: 1000, step: 50, hint: "" }))
     open({ prospectiveGuidanceEnabled: false, doseForRoute })
 
     fireEvent.click(screen.getByText("Analgesics"))

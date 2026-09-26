@@ -1,6 +1,6 @@
 ﻿import React, { useState } from "react"
 import { View, Text, Pressable } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 
 
 
@@ -12,6 +12,7 @@ export function SummaryCard({
   defaultOpen?: boolean
   badge?: string | number
 }) {
+  useThemeRefresh()
   const [open, setOpen] = useState(defaultOpen)
   return (
     <View style={{
@@ -53,6 +54,7 @@ export function SummaryCard({
 export function InfoRow({
   label, value, valueColor,
 }: { label: string; value?: string | null; valueColor?: string }) {
+  useThemeRefresh()
   if (!value) return null
   return (
     <View style={{
@@ -91,6 +93,7 @@ export function ChipRow({ children }: { children: React.ReactNode }) {
 }
 
 export function Divider() {
+  useThemeRefresh()
   return <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
 }
 
@@ -98,6 +101,7 @@ export function Divider() {
 export function AldreteRow({
   label, value, descriptions,
 }: { label: string; value?: number; descriptions: [string, string, string] }) {
+  useThemeRefresh()
   const score = value ?? 0
   const desc = descriptions[score] ?? ""
   const scoreColor = score === 2 ? colors.success : score === 1 ? colors.warning : colors.danger

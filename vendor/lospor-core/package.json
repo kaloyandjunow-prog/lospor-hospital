@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.11.4",
+  "version": "9.12.1",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -49,6 +49,8 @@
     "./clinical-validation": "./src/clinical-validation.ts",
     "./clinical-preferences": "./src/clinical-preferences.ts",
     "./intraop-engine": "./src/intraop-engine.ts",
+    "./intraop-commands": "./src/intraop-commands.ts",
+    "./intraop-timetable-edit": "./src/intraop-timetable-edit.ts",
     "./intraop": "./src/intraop-domain.ts",
     "./intraop-entries": "./src/intraop-entries.ts",
     "./intraop-summary": "./src/intraop-summary.ts",

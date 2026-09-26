@@ -14,8 +14,8 @@ export type EventType =
 // position_change / phase_change events the same way agent segments are:
 // each change closes the previous segment and opens a new one; the last
 // segment stays open-tailed to the end of the chart.
-export type PositionSegment = { position: string; startCol: number; endCol: number }
-export type PhaseSegment    = { phase: string; startCol: number; endCol: number }
+export type PositionSegment = { position: string; startCol: number; endCol: number; startEventId?: string }
+export type PhaseSegment    = { phase: string; startCol: number; endCol: number; startEventId?: string }
 
 export type LogEvent = {
   id: string
@@ -70,6 +70,24 @@ export type LogEvent = {
   fiAir?: number
   fiN2O?: number
   syncStatus?: "pending" | "failed"
+  /**
+   * Written by vitals autofill, not by a clinician. Shown as auto-filled and
+   * never counted as manual activity (see intraop-autofill).
+   */
+  autoFilled?: boolean
+  /**
+   * A stop the end-case sheet created for an item the clinician chose to stop
+   * at the end. Resuming the case offers to remove exactly these.
+   */
+  endCaseStop?: boolean
+  /**
+   * Volatile-agent semantics. "concurrent" (1.4.9 onwards): several agents may
+   * run at once, and agent_start / agent_stop name their agent. Absent (every
+   * event saved before 1.4.9): the historical rule, where starting a different
+   * agent ended the previous one without a stop event. Finalised cases are
+   * never rewritten, so the old meaning is kept for those events.
+   */
+  agentMode?: "concurrent"
 }
 
 export type ActiveInfusion = {
@@ -131,7 +149,28 @@ export type ActiveGasSettings = {
 
 export type NumericText = number | string
 
+/**
+ * Which saved events a drawn item came from (1.4.9). An editor changes the
+ * chart by changing these events -- never by rewriting the projection -- so
+ * one edit moves exactly one thing.
+ */
+export type SegmentEventRefs = {
+  startEventId?: string
+  /** The stop event, when the item was stopped (or has a planned stop). */
+  stopEventId?: string
+  /**
+   * The stop was made by End case (the case ended with this item stopped).
+   * Set by the projection from the stop event; an editor sets it on a bar it
+   * stops at End case so the stop is written with that marker.
+   */
+  endCaseStop?: boolean
+}
+
 export type VitalsEntry = {
+  /** The vital event this reading came from. */
+  eventId?: string
+  /** Filled by vitals autofill rather than typed by a clinician. */
+  autoFilled?: boolean
   systolic?: number
   diastolic?: number
   heartRate?: number
@@ -154,7 +193,11 @@ export type VitalsEntry = {
 }
 
 export type TimetableDrug = {
+  /** The drug event this dose came from. */
+  eventId?: string
   colIdx: number
+  /** A bolus saved for a time still after "now" (or after the case end). */
+  planned?: boolean
   name: string
   dose: string
   unit: string
@@ -177,7 +220,7 @@ export type TimetableDrug = {
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
-export type TimetableFluid = {
+export type TimetableFluid = SegmentEventRefs & {
   id: string
   name: string
   category?: string
@@ -186,6 +229,10 @@ export type TimetableFluid = {
   startCol: number
   endCol: number
   stopped?: boolean
+  /** Starts after "now" or after the case end: a planned marker, left out of every total. */
+  planned?: boolean
+  /** A stop saved for a time still in the future: shown as a marker, not yet applied. */
+  plannedStopCol?: number
   fluidEntryMode?: FluidEntryMode
   startTs?: string
   endTs?: string
@@ -204,6 +251,7 @@ export type TimetableFluid = {
 }
 
 export type TimetableFluidRateChange = {
+  eventId?: string
   col: number
   ts: string
   rate: NumericText
@@ -211,13 +259,14 @@ export type TimetableFluidRateChange = {
 }
 
 export type TimetableRateChange = {
+  eventId?: string
   col: number
   rate: NumericText
   unit: string
   concentration?: string
 }
 
-export type TimetableInfusion = {
+export type TimetableInfusion = SegmentEventRefs & {
   id: string
   name: string
   rate: NumericText
@@ -226,6 +275,10 @@ export type TimetableInfusion = {
   endCol: number
   color: string
   stopped?: boolean
+  /** Starts after "now" or after the case end: a planned marker, left out of every total. */
+  planned?: boolean
+  /** A stop saved for a time still in the future: shown as a marker, not yet applied. */
+  plannedStopCol?: number
   concentration?: string
   formulation?: LocalAnaestheticFormulation
   route?: string
@@ -241,7 +294,7 @@ export type TimetableInfusion = {
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
-export type AgentSegment = {
+export type AgentSegment = SegmentEventRefs & {
   name: string
   color?: string
   startCol: number
@@ -249,15 +302,24 @@ export type AgentSegment = {
   n2o?: number
   percent?: number
   stopped?: boolean
+  /** Starts after "now" or after the case end: a planned marker, left out of every total. */
+  planned?: boolean
+  /** A stop saved for a time still in the future: shown as a marker, not yet applied. */
+  plannedStopCol?: number
 }
 
 export type ClinicalEvent = {
+  /** The clinical_event this marker came from. */
+  eventId?: string
   colIdx: number
+  /** An event saved for a time still after "now" (or after the case end). */
+  planned?: boolean
   label: string
   color: string
 }
 
 export type GasSettingsChange = {
+  eventId?: string
   col: number
   fgf: number
   carrierGas: string | null
@@ -266,11 +328,15 @@ export type GasSettingsChange = {
   fiN2O?: number
 }
 
-export type GasSettingsSegment = {
+export type GasSettingsSegment = SegmentEventRefs & {
   id: string
   startCol: number
   endCol: number
   stopped?: boolean
+  /** Starts after "now" or after the case end: a planned marker, left out of every total. */
+  planned?: boolean
+  /** A stop saved for a time still in the future: shown as a marker, not yet applied. */
+  plannedStopCol?: number
   fgf: number
   carrierGas: string | null
   fio2: number

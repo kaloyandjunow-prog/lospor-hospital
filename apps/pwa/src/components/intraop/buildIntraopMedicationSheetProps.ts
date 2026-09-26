@@ -159,7 +159,9 @@ export type IntraopMedicationSheetBuilderProps = {
   infActRate: InfusionActionProps["newRate"]
   setInfActRate: InfusionActionProps["setNewRate"]
   changeRate: InfusionActionProps["onChangeRate"]
-  stopInfusion: InfusionActionProps["onStop"]
+  stopInfusion: (target: Parameters<InfusionActionProps["onStop"]>[0], rowTs?: string | null) => void
+  /** The row the manage sheet was opened from (null = now); the stop is recorded there. */
+  infActTs: string | null
   infActConcentration: InfusionActionProps["newConcentration"]
   setInfActConcentration: (concentration: string | undefined) => void
   flOpen: FluidProps["visible"]
@@ -232,7 +234,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
     INFUSION_ROUTE_PROFILES, favouriteInfusions, infDrug, infRate, confirmInfusion,
     infRoute, infConcentration, infCustomConcentration, infFormulation, infRule,
     infActOpen, setInfActOpen, infActTgt, setInfActTgt,
-    infActRate, setInfActRate, changeRate, stopInfusion, infActConcentration,
+    infActRate, setInfActRate, changeRate, stopInfusion, infActTs, infActConcentration,
     setInfActConcentration, flOpen, setFlOpen, setFlFluid, setFlVol, setFlConcentration,
     FLUID_LIST, flFluid, flVol, flEntryMode, setFlEntryMode, flRate, setFlRate,
     resetFluidDraft, confirmFluid, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
@@ -404,7 +406,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       newRate: infActRate,
       setNewRate: setInfActRate,
       onChangeRate: changeRate,
-      onStop: target => { stopInfusion(target); setInfActOpen(false); setInfActTgt(null) },
+      onStop: target => { stopInfusion(target, infActTs); setInfActOpen(false); setInfActTgt(null) },
       laConcentrations: prospectiveGuidanceEnabled && !pediatricMode ? INFUSION_LA_CONCENTRATIONS : {},
       newConcentration: infActConcentration,
       setNewConcentration: setInfActConcentration,

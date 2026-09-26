@@ -34,13 +34,27 @@ test.afterEach(async ({ page }) => {
   }
 })
 
+/**
+ * By default the case began twenty minutes ago (1.4.9). The chart is read at
+ * "now", and a case with no entry for 60 minutes asks whether it is still
+ * running, over the chart. A fixed wall-clock start made that depend on when
+ * the suite ran.
+ */
+function recentStart() {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const startedAt = new Date(Date.now() - 20 * 60_000)
+  const startTime = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false })
+    .format(startedAt)
+  return { startTime, startedAt: startedAt.toISOString(), timezone: zone }
+}
+
 async function createStartedCase(page: Page, intraop: Record<string, unknown> = {}) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
       patientNumber: `INTRAOP-CHART-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
-      intraop: { startTime: "08:00", ...intraop },
+      intraop: { ...recentStart(), ...intraop },
     },
   })
   expect(create.ok(), `create failed: ${create.status()}`).toBeTruthy()
@@ -76,9 +90,13 @@ async function openChart(page: Page, id: string) {
  */
 async function createCaseWithInfusion(page: Page) {
   const id = await createStartedCase(page, {
-    endTime: "09:00",
+    // Ended at 08:55 (1.4.9): a running infusion now reaches the case end, and
+    // an end at 09:00 would put its lane in the next hour block as well. This
+    // keeps the whole bar in the first block, and still running, so draggable.
+    startTime: "08:00",
+    endTime: "08:55",
     startedAt: "2026-08-27T08:00:00.000Z",
-    endedAt: "2026-08-27T09:00:00.000Z",
+    endedAt: "2026-08-27T08:55:00.000Z",
     timezone: "UTC",
   })
   const infusion = await page.request.post(`/api/cases/${id}/events`, {
@@ -193,7 +211,10 @@ test("a charted infusion can be dragged to a different time", async ({ page }) =
   await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible()
 })
 
-test("an infusion's right grip extends the bar", async ({ page }) => {
+// A bar's end is its stop (1.4.9). The seeded infusion is still running at
+// the case end; dropping its right grip on an earlier column records the stop
+// there.
+test("an infusion's right grip sets where it stops", async ({ page }) => {
   const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
 
@@ -201,14 +222,22 @@ test("an infusion's right grip extends the bar", async ({ page }) => {
   await expect(lane).toHaveCount(1)
 
   // Grips appear only on the selected bar, so an unselected chart is not
-  // covered in handles. The helper selects immediately before the drag and
-  // verifies the bar actually lengthened.
+  // covered in handles.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await dragGripUntilBarLengthens(
-    lane,
-    "right",
-    { x: laneBox.width - 60, y: laneBox.height / 2 },
-  )
+  await infusionBar(lane).click()
+  const grip = lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
+  await expect(grip).toBeVisible({ timeout: 10_000 })
+  await grip.dragTo(lane, { targetPosition: { x: laneBox.width / 2, y: laneBox.height / 2 } })
+
+  // A stopped bar is no longer draggable, so the proof is the saved log: a
+  // stop for this infusion, inside the case.
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/cases/${id}`)
+    const body = await response.json() as { intraop?: { keyEvents?: { log?: { type?: string; infId?: string; ts?: string }[] } } }
+    const stop = (body.intraop?.keyEvents?.log ?? [])
+      .find(event => event.type === "infusion_stop" && event.infId === `e2e-propofol-${id}`)
+    return stop?.ts ?? null
+  }, { timeout: 10_000, message: "no stop was recorded" }).toMatch(/^2026-08-27T08:[1-4]\d:/)
 })
 
 test("an infusion's left grip extends the bar backwards in time", async ({ page }) => {
@@ -231,18 +260,13 @@ test("a rate change can be recorded, and dragging it copies it to another time",
   const lane = propofolLane(chart)
   await expect(lane).toHaveCount(1)
 
-  // A fresh infusion occupies one column, so there is nowhere for a rate
-  // change to sit. Lengthen it first, then open the menu from a later column
-  // of the rate strip so the change lands after the bar started.
+  // The seeded infusion runs 08:10 to the 08:55 end. Open the menu from its second
+  // column: a change has to sit inside the bar. y is inside the rate strip,
+  // the upper band of the bar.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await dragGripUntilBarLengthens(
-    lane,
-    "right",
-    { x: laneBox.width - 60, y: laneBox.height / 2 },
-  )
-
-  // y is inside the rate strip, which is the upper band of the bar.
-  await lane.click({ position: { x: laneBox.width - 200, y: 10 } })
+  const cells = lane.locator('[draggable="true"].cursor-grab')
+  const second = await stableBoundingBox(cells.nth(1), "the bar spans a single column")
+  await page.mouse.click(second.x + second.width / 2, laneBox.y + 10)
   await page.getByRole("button", { name: "Change rate" }).click({ timeout: 30_000 })
   await page.getByRole("button", { name: "Apply" }).click({ timeout: 30_000 })
 
@@ -256,7 +280,9 @@ test("a rate change can be recorded, and dragging it copies it to another time",
   // the original in place — the handler passes fromCol as null deliberately.
   // The same rate resuming later is a second event, not a correction of the
   // first, so both stay on the record.
-  await dividers.first().dragTo(lane, { targetPosition: { x: laneBox.width - 120, y: 10 } })
+  // It lands on the bar's last column, the case end.
+  const last = await stableBoundingBox(cells.last(), "no last bar column")
+  await dividers.first().dragTo(lane, { targetPosition: { x: last.x - laneBox.x + last.width / 2, y: 10 } })
 
   await expect(async () => {
     expect(await dividers.count(), "the rate change was not copied").toBeGreaterThan(before)
@@ -264,7 +290,14 @@ test("a rate change can be recorded, and dragging it copies it to another time",
 })
 
 test("the chart mounts with its time columns and vitals rows", async ({ page }) => {
-  const id = await createStartedCase(page)
+  // A fixed past start (and end), so the columns are known.
+  const id = await createStartedCase(page, {
+    startTime: "08:00",
+    endTime: "08:55",
+    startedAt: "2026-08-27T08:00:00.000Z",
+    endedAt: "2026-08-27T08:55:00.000Z",
+    timezone: "UTC",
+  })
   const chart = await openChart(page, id)
 
   // The grid is built from the case's start time, so the columns run forward

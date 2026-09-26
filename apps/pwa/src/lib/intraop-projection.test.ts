@@ -35,10 +35,22 @@ describe("eventsToTimetable", () => {
     expect(tt.infusions[0].rateChanges?.[0]).toMatchObject({ col: 2, rate: "8" })
   })
 
-  it("extends an open infusion one column past the now-marker", () => {
+  // 1.4.9: a running item ends in the now row, inclusive, never one past it
+  // (the extra column also overcounted infusion totals by five minutes).
+  it("ends an open infusion in the now-marker row", () => {
     const now = new Date(START.getTime() + 30 * 60_000)
     const tt = eventsToTimetable([ev({ type: "infusion_start", ts: at(0), infId: "i1", name: "X", rate: "5", unit: "u", color: "#0" })], START, now)
-    expect(tt.infusions[0].endCol).toBe(7) // nowCol 6 + 1
+    expect(tt.infusions[0].endCol).toBe(6)
+  })
+
+  it("stops continued items at the case end, however late the chart is read", () => {
+    const tt = eventsToTimetable(
+      [ev({ type: "infusion_start", ts: at(0), infId: "i1", name: "X", rate: "5", unit: "u", color: "#0" })],
+      START,
+      new Date(START.getTime() + 600 * 60_000),
+      new Date(START.getTime() + 45 * 60_000),
+    )
+    expect(tt.infusions[0].endCol).toBe(9)
   })
 })
 

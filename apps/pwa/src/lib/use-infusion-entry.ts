@@ -1,7 +1,8 @@
+import { atRow, type SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
 import { uid } from "@/lib/intraop-log-event"
-import type { DrugFormulation, LogEvent, ActiveInfusion } from "@/lib/intraop-log-event"
+import type { DrugFormulation, ActiveInfusion } from "@/lib/intraop-log-event"
 
 type InfusionOption = { name: string; unit: string; color: string }
 type CodedIdentity = { drugId?: string; atcCode?: string; inn?: string }
@@ -18,7 +19,7 @@ export type InfusionRuleSelection = {
 // elsewhere for the running-items strip and end-case sheet), so it's passed
 // in rather than owned here — same pattern as useFluidEntry/useAgentEntry.
 export function useInfusionEntry(
-  save: (partial: Omit<LogEvent, "id" | "ts">, tsOverride?: string, silent?: boolean) => Promise<LogEvent>,
+  save: SaveIntraopEvent,
   setEntryTs: (ts: string | null) => void,
   setActiveInfusions: (updater: (prev: ActiveInfusion[]) => ActiveInfusion[]) => void,
   // Coded identity by drug name — empty today, see use-drug-entry.ts.
@@ -72,9 +73,17 @@ export function useInfusionEntry(
     })
   }
 
-  async function stopInfusion(inf: ActiveInfusion) {
+  // rowTs: the row the stop was entered in (null = now). Never a stale sheet time.
+  async function stopInfusion(
+    inf: ActiveInfusion,
+    rowTs?: string | null,
+    options: { exactTs?: string; endCaseStop?: boolean } = {},
+  ) {
     setActiveInfusions(prev => prev.filter(x => x.infId !== inf.infId))
-    await save({ type: "infusion_stop", infId: inf.infId, name: inf.name, color: inf.color })
+    await save({
+      type: "infusion_stop", infId: inf.infId, name: inf.name, color: inf.color,
+      ...(options.endCaseStop ? { endCaseStop: true } : {}),
+    }, options.exactTs ?? atRow(rowTs))
   }
 
   function changeRate(inf: ActiveInfusion, rate: string, concentration?: string) {
@@ -91,7 +100,7 @@ export function useInfusionEntry(
       clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
       clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
       clinicalPresetScope: inf.clinicalPresetScope,
-    }, atTs ?? undefined)
+    }, atRow(atTs))
   }
 
   return {

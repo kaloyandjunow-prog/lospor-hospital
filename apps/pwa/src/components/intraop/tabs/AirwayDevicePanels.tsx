@@ -13,6 +13,7 @@ import {
   LMA_SIZES as CORE_LMA_SIZES,
   airwayDeviceSummary,
 } from "@lospor/core/intraop"
+import { useShade } from "@/theme/shade"
 
 type Opt = { code: string; label: string }
 
@@ -61,6 +62,7 @@ export function AirwayDevicePanels({
   awExpandedWasComplete: RefObject<boolean>
   airwayDevices: Opt[]
 }) {
+  const shade = useShade()
   const { tc, language } = usePreferences()
   // Composition is core's; the words are this app's. Cuffing now resolves
   // through the shared clinical vocabulary, as web already did -- the two used
@@ -112,7 +114,7 @@ export function AirwayDevicePanels({
 
   return (
     <>
-      <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:10 }}>{tc("awDeviceUsed")}</Text>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:12 }}>
         {airwayDevices.map(dev => {
@@ -123,9 +125,9 @@ export function AirwayDevicePanels({
               <TouchableOpacity key={dev.code} onPress={() => {
                 setAwDevices(prev => sel ? prev.filter(x => x !== dev.code) : [...prev, dev.code])
               }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-                backgroundColor: sel ? "#1e3a5f" : "#111111",
-                borderWidth:1, borderColor: sel ? "#3b82f6" : "#1e2d40" }}>
-                <Text style={{ color: sel ? "#93c5fd" : "#64748b", fontSize:12, fontWeight:"700" }}>{dev.label}</Text>
+                backgroundColor: sel ? shade("#1e3a5f") : shade("#111111"),
+                borderWidth:1, borderColor: sel ? shade("#3b82f6") : shade("#1e2d40") }}>
+                <Text style={{ color: sel ? shade("#93c5fd") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{dev.label}</Text>
               </TouchableOpacity>
             )
           }
@@ -139,10 +141,10 @@ export function AirwayDevicePanels({
               onPress={() => isExpanded ? setAwExpandedDevice(null) : expandDevice(dev.code)}
               onLongPress={() => removeDevice(dev.code)}
               style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-                backgroundColor: confirmed ? (summary && !isExpanded ? "#1a2e5a" : "#1e3a5f") : (inProgress ? "#0d1a2d" : "#111111"),
+                backgroundColor: confirmed ? (summary && !isExpanded ? shade("#1a2e5a") : shade("#1e3a5f")) : (inProgress ? shade("#0d1a2d") : shade("#111111")),
                 borderWidth:1, borderStyle: inProgress ? "dashed" : "solid",
-                borderColor: confirmed ? "#3b82f6" : (inProgress ? "#3b82f699" : "#1e2d40") }}>
-              <Text style={{ color: confirmed ? "#93c5fd" : (inProgress ? "#60a5fa" : "#64748b"), fontSize:12, fontWeight:"700" }}>{btnLabel}</Text>
+                borderColor: confirmed ? shade("#3b82f6") : (inProgress ? shade("#3b82f699") : shade("#1e2d40")) }}>
+              <Text style={{ color: confirmed ? shade("#93c5fd") : (inProgress ? shade("#60a5fa") : shade("#64748b")), fontSize:12, fontWeight:"700" }}>{btnLabel}</Text>
             </TouchableOpacity>
           )
         })}
@@ -150,19 +152,19 @@ export function AirwayDevicePanels({
 
       {/* Sub-option panel — LMA */}
       {awExpandedDevice === "LMA" && (
-        <View style={{ backgroundColor:"#0d1a2d", borderRadius:12, borderWidth:1,
-          borderColor:"#1e3a5f", padding:12, marginBottom:12 }}>
-          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("LMA")}</Text>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase",
+        <View style={{ backgroundColor:shade("#0d1a2d"), borderRadius:12, borderWidth:1,
+          borderColor:shade("#1e3a5f"), padding:12, marginBottom:12 }}>
+          <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("LMA")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awSize")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {LMA_SIZES.map(s => (
                 <TouchableOpacity key={s} onPress={() => setAwLmaSize(awLmaSize === s ? null : s)}
                   style={{ paddingHorizontal:14, paddingVertical:8, borderRadius:8,
-                    backgroundColor: awLmaSize === s ? "#3b82f6" : "#1e2d40",
-                    borderWidth:1, borderColor:"#3b82f644" }}>
-                  <Text style={{ color: awLmaSize === s ? "#fff" : "#93c5fd", fontWeight:"700", fontSize:13 }}>{s}</Text>
+                    backgroundColor: awLmaSize === s ? shade("#3b82f6") : shade("#1e2d40"),
+                    borderWidth:1, borderColor:shade("#3b82f644") }}>
+                  <Text style={{ color: awLmaSize === s ? shade("#fff") : shade("#93c5fd"), fontWeight:"700", fontSize:13 }}>{s}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -172,32 +174,32 @@ export function AirwayDevicePanels({
 
       {/* Sub-option panel — Oral ETT */}
       {awExpandedDevice === "ORAL_ETT" && (
-        <View style={{ backgroundColor:"#0d1a2d", borderRadius:12, borderWidth:1,
-          borderColor:"#1e3a5f", padding:12, marginBottom:12 }}>
-          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("ORAL_ETT")}</Text>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase",
+        <View style={{ backgroundColor:shade("#0d1a2d"), borderRadius:12, borderWidth:1,
+          borderColor:shade("#1e3a5f"), padding:12, marginBottom:12 }}>
+          <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("ORAL_ETT")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awTubeSizeMmId")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:10 }}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {TUBE_SIZES.map(s => (
                 <TouchableOpacity key={s} onPress={() => setAwOralTubeSize(awOralTubeSize === s ? null : s)}
                   style={{ paddingHorizontal:14, paddingVertical:8, borderRadius:8,
-                    backgroundColor: awOralTubeSize === s ? "#3b82f6" : "#1e2d40",
-                    borderWidth:1, borderColor:"#3b82f644" }}>
-                  <Text style={{ color: awOralTubeSize === s ? "#fff" : "#93c5fd", fontWeight:"700", fontSize:13 }}>{s}</Text>
+                    backgroundColor: awOralTubeSize === s ? shade("#3b82f6") : shade("#1e2d40"),
+                    borderWidth:1, borderColor:shade("#3b82f644") }}>
+                  <Text style={{ color: awOralTubeSize === s ? shade("#fff") : shade("#93c5fd"), fontWeight:"700", fontSize:13 }}>{s}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </ScrollView>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase",
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awCuff")}</Text>
           <View style={{ flexDirection:"row", gap:8 }}>
             {[{ v:true, label:tc("awCuffed") },{ v:false, label:tc("awUncuffed") }].map(opt => (
               <TouchableOpacity key={String(opt.v)} onPress={() => setAwOralCuffed(awOralCuffed === opt.v ? null : opt.v)}
                 style={{ flex:1, paddingVertical:9, borderRadius:8, alignItems:"center",
-                  backgroundColor: awOralCuffed === opt.v ? "#1e3a5f" : "#0a0f1a",
-                  borderWidth:1, borderColor:"#2a3a4a" }}>
-                <Text style={{ color: awOralCuffed === opt.v ? "#93c5fd" : "#64748b",
+                  backgroundColor: awOralCuffed === opt.v ? shade("#1e3a5f") : shade("#0a0f1a"),
+                  borderWidth:1, borderColor:shade("#2a3a4a") }}>
+                <Text style={{ color: awOralCuffed === opt.v ? shade("#93c5fd") : shade("#64748b"),
                   fontWeight:"700", fontSize:12 }}>{opt.label}</Text>
               </TouchableOpacity>
             ))}
@@ -207,32 +209,32 @@ export function AirwayDevicePanels({
 
       {/* Sub-option panel — Nasal ETT */}
       {awExpandedDevice === "NASAL_ETT" && (
-        <View style={{ backgroundColor:"#0d1a2d", borderRadius:12, borderWidth:1,
-          borderColor:"#1e3a5f", padding:12, marginBottom:12 }}>
-          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("NASAL_ETT")}</Text>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase",
+        <View style={{ backgroundColor:shade("#0d1a2d"), borderRadius:12, borderWidth:1,
+          borderColor:shade("#1e3a5f"), padding:12, marginBottom:12 }}>
+          <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("NASAL_ETT")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awTubeSizeMmId")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:10 }}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {TUBE_SIZES.map(s => (
                 <TouchableOpacity key={s} onPress={() => setAwNasalTubeSize(awNasalTubeSize === s ? null : s)}
                   style={{ paddingHorizontal:14, paddingVertical:8, borderRadius:8,
-                    backgroundColor: awNasalTubeSize === s ? "#3b82f6" : "#1e2d40",
-                    borderWidth:1, borderColor:"#3b82f644" }}>
-                  <Text style={{ color: awNasalTubeSize === s ? "#fff" : "#93c5fd", fontWeight:"700", fontSize:13 }}>{s}</Text>
+                    backgroundColor: awNasalTubeSize === s ? shade("#3b82f6") : shade("#1e2d40"),
+                    borderWidth:1, borderColor:shade("#3b82f644") }}>
+                  <Text style={{ color: awNasalTubeSize === s ? shade("#fff") : shade("#93c5fd"), fontWeight:"700", fontSize:13 }}>{s}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </ScrollView>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase",
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awCuff")}</Text>
           <View style={{ flexDirection:"row", gap:8 }}>
             {[{ v:true, label:tc("awCuffed") },{ v:false, label:tc("awUncuffed") }].map(opt => (
               <TouchableOpacity key={String(opt.v)} onPress={() => setAwNasalCuffed(awNasalCuffed === opt.v ? null : opt.v)}
                 style={{ flex:1, paddingVertical:9, borderRadius:8, alignItems:"center",
-                  backgroundColor: awNasalCuffed === opt.v ? "#1e3a5f" : "#0a0f1a",
-                  borderWidth:1, borderColor:"#2a3a4a" }}>
-                <Text style={{ color: awNasalCuffed === opt.v ? "#93c5fd" : "#64748b",
+                  backgroundColor: awNasalCuffed === opt.v ? shade("#1e3a5f") : shade("#0a0f1a"),
+                  borderWidth:1, borderColor:shade("#2a3a4a") }}>
+                <Text style={{ color: awNasalCuffed === opt.v ? shade("#93c5fd") : shade("#64748b"),
                   fontWeight:"700", fontSize:12 }}>{opt.label}</Text>
               </TouchableOpacity>
             ))}
@@ -242,40 +244,40 @@ export function AirwayDevicePanels({
 
       {/* Sub-option panel — Double Lumen Tube */}
       {awExpandedDevice === "DOUBLE_LUMEN_TUBE" && (
-        <View style={{ backgroundColor:"#0d1a2d", borderRadius:12, borderWidth:1,
-          borderColor:"#1e3a5f", padding:12, marginBottom:12 }}>
-          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("DOUBLE_LUMEN_TUBE")}</Text>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awDltType")}</Text>
+        <View style={{ backgroundColor:shade("#0d1a2d"), borderRadius:12, borderWidth:1,
+          borderColor:shade("#1e3a5f"), padding:12, marginBottom:12 }}>
+          <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("DOUBLE_LUMEN_TUBE")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awDltType")}</Text>
           <View style={{ flexDirection:"row", gap:8, marginBottom:10 }}>
             {DLT_TYPES.map(t => (
               <TouchableOpacity key={t} onPress={() => setAwDltType(awDltType === t ? null : t)}
                 style={{ flex:1, paddingVertical:9, borderRadius:8, alignItems:"center",
-                  backgroundColor: awDltType === t ? "#1e3a5f" : "#0a0f1a",
-                  borderWidth:1, borderColor:"#2a3a4a" }}>
-                <Text style={{ color: awDltType === t ? "#93c5fd" : "#64748b", fontWeight:"700", fontSize:12 }}>{t}</Text>
+                  backgroundColor: awDltType === t ? shade("#1e3a5f") : shade("#0a0f1a"),
+                  borderWidth:1, borderColor:shade("#2a3a4a") }}>
+                <Text style={{ color: awDltType === t ? shade("#93c5fd") : shade("#64748b"), fontWeight:"700", fontSize:12 }}>{t}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awDltSide")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awDltSide")}</Text>
           <View style={{ flexDirection:"row", gap:8, marginBottom:10 }}>
             {DLT_SIDES.map(s => (
               <TouchableOpacity key={s} onPress={() => setAwDltSide(awDltSide === s ? null : s)}
                 style={{ flex:1, paddingVertical:9, borderRadius:8, alignItems:"center",
-                  backgroundColor: awDltSide === s ? "#1e3a5f" : "#0a0f1a",
-                  borderWidth:1, borderColor:"#2a3a4a" }}>
-                <Text style={{ color: awDltSide === s ? "#93c5fd" : "#64748b", fontWeight:"700", fontSize:13 }}>{displayClinicalCode("clinicalAttribute", s.toLowerCase(), language, { label: s })}</Text>
+                  backgroundColor: awDltSide === s ? shade("#1e3a5f") : shade("#0a0f1a"),
+                  borderWidth:1, borderColor:shade("#2a3a4a") }}>
+                <Text style={{ color: awDltSide === s ? shade("#93c5fd") : shade("#64748b"), fontWeight:"700", fontSize:13 }}>{displayClinicalCode("clinicalAttribute", s.toLowerCase(), language, { label: s })}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awSizeFr")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awSizeFr")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {DLT_SIZES.map(sz => (
                 <TouchableOpacity key={sz} onPress={() => setAwDltSize(awDltSize === sz ? null : sz)}
                   style={{ paddingHorizontal:14, paddingVertical:8, borderRadius:8,
-                    backgroundColor: awDltSize === sz ? "#3b82f6" : "#1e2d40",
-                    borderWidth:1, borderColor:"#3b82f644" }}>
-                  <Text style={{ color: awDltSize === sz ? "#fff" : "#93c5fd", fontWeight:"700", fontSize:13 }}>{sz}</Text>
+                    backgroundColor: awDltSize === sz ? shade("#3b82f6") : shade("#1e2d40"),
+                    borderWidth:1, borderColor:shade("#3b82f644") }}>
+                  <Text style={{ color: awDltSize === sz ? shade("#fff") : shade("#93c5fd"), fontWeight:"700", fontSize:13 }}>{sz}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -285,18 +287,18 @@ export function AirwayDevicePanels({
 
       {/* Sub-option panel — Endobronchial Tube */}
       {awExpandedDevice === "ENDOBRONCHIAL_TUBE" && (
-        <View style={{ backgroundColor:"#0d1a2d", borderRadius:12, borderWidth:1,
-          borderColor:"#1e3a5f", padding:12, marginBottom:12 }}>
-          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("ENDOBRONCHIAL_TUBE")}</Text>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awSizeMmId")}</Text>
+        <View style={{ backgroundColor:shade("#0d1a2d"), borderRadius:12, borderWidth:1,
+          borderColor:shade("#1e3a5f"), padding:12, marginBottom:12 }}>
+          <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("ENDOBRONCHIAL_TUBE")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awSizeMmId")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {ENDOBRONCHIAL_SIZES.map(sz => (
                 <TouchableOpacity key={sz} onPress={() => setAwEbSize(awEbSize === sz ? null : sz)}
                   style={{ paddingHorizontal:14, paddingVertical:8, borderRadius:8,
-                    backgroundColor: awEbSize === sz ? "#3b82f6" : "#1e2d40",
-                    borderWidth:1, borderColor:"#3b82f644" }}>
-                  <Text style={{ color: awEbSize === sz ? "#fff" : "#93c5fd", fontWeight:"700", fontSize:13 }}>{sz}</Text>
+                    backgroundColor: awEbSize === sz ? shade("#3b82f6") : shade("#1e2d40"),
+                    borderWidth:1, borderColor:shade("#3b82f644") }}>
+                  <Text style={{ color: awEbSize === sz ? shade("#fff") : shade("#93c5fd"), fontWeight:"700", fontSize:13 }}>{sz}</Text>
                 </TouchableOpacity>
               ))}
             </View>

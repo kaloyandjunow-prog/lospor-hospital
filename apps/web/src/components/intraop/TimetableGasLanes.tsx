@@ -1,5 +1,6 @@
 "use client"
 
+import { PlannedStopMarker } from "./PlannedStopMarker"
 import { X } from "lucide-react"
 import { displayGasMix, displayGasSettings } from "@/lib/clinical-display"
 import { DiscontinuePrompt } from "./DiscontinuePrompt"
@@ -61,7 +62,7 @@ export type AgentLaneProps = LaneChrome & {
   openPickerForSeg: (col: number, seg: AgentSegment, rect: DOMRect) => void
   openPickerEmpty: (col: number, rect: DOMRect) => void
   resumeSegment: (startCol: number) => void
-  extendSegment: (startCol: number, toCol: number, stop: boolean) => void
+  extendSegment: (startCol: number, toCol: number) => void
   removeSegment: (startCol: number) => void
   continueAgent: (seg: AgentSegment, col: number) => void
 }
@@ -163,7 +164,7 @@ export function AgentLane({
                     }}
                     onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeSegment(seg.startCol) }}
                     title={seg.stopped ? copy.doubleClickResume : undefined}
-                    className={`absolute inset-y-1 border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.stopped ? "opacity-60 border-dashed" : ""}`}
+                    className={`absolute inset-y-1 border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   />
                   {agentLabel && (
                     <span
@@ -190,7 +191,7 @@ export function AgentLane({
               <DiscontinuePrompt
                 open={discConfirmId === `agent-${seg.startCol}`}
                 onOpen={() => setDiscConfirmId(`agent-${seg.startCol}`)}
-                onConfirm={() => { extendSegment(seg.startCol, nowCol ?? seg.endCol, true); setSel(null); setDiscConfirmId(null) }}
+                onConfirm={() => { extendSegment(seg.startCol, nowCol ?? seg.endCol); setSel(null); setDiscConfirmId(null) }}
                 onCancel={() => setDiscConfirmId(null)}
                 style={{ top: 2, right: 14 }}
               />
@@ -205,6 +206,7 @@ export function AgentLane({
                 <X className="h-2.5 w-2.5" />
               </button>
             )}
+            {agents.some(a => a.plannedStopCol === ci) && <PlannedStopMarker />}
             {!seg && !isDragPreview && (() => {
               // An agent turned off earlier can be picked up again here rather
               // than started afresh, which would read as a second agent.

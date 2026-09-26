@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Modal, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, shadeLive as shade } from "@/theme/colors"
 import type { ClinicalNumberChange } from "@/lib/clinical-number-entry"
 import { hapticKey, hapticTick } from "@/lib/haptic"
 import { useOptionLibrary } from "@/lib/use-option-library"
@@ -52,12 +52,12 @@ export function AsaPicker({
   return (
     <View style={{ gap: 8 }}>
       {suggestion && (
-        <View style={{ backgroundColor: withAlpha("#3b82f6", "15"), borderRadius: 12, borderWidth: 1, borderColor: withAlpha("#3b82f6", "40"), paddingHorizontal: 12, paddingVertical: 10, gap: 4 }}>
-          <Text style={{ color: "#60a5fa", fontSize: 13, fontWeight: "800" }}>
+        <View style={{ backgroundColor: withAlpha(shade("#3b82f6"), "15"), borderRadius: 12, borderWidth: 1, borderColor: withAlpha(shade("#3b82f6"), "40"), paddingHorizontal: 12, paddingVertical: 10, gap: 4 }}>
+          <Text style={{ color: shade("#60a5fa"), fontSize: 13, fontWeight: "800" }}>
             {labelSuggested} {suggestion.cls} {labelSuggestedReview}
           </Text>
           {suggestion.reasons.map((r) => (
-            <Text key={r} style={{ color: "#60a5fa", fontSize: 12, opacity: 0.85 }}>• {r}</Text>
+            <Text key={r} style={{ color: shade("#60a5fa"), fontSize: 12, opacity: 0.85 }}>• {r}</Text>
           ))}
         </View>
       )}

@@ -254,7 +254,7 @@ export function dbIntraopToForm(intraop: CaseDetailIntraop): Partial<IntraopData
   // ZodErrors: keyEvents is a TimetableData object but intraopSchema expects an array;
   // id/caseId/createdAt/updatedAt are DB metadata; timeSeriesData/durationMinutes are computed.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id, caseId, createdAt, updatedAt, keyEvents, timeSeriesData, durationMinutes, ...formFields } = intraop
+  const { id, caseId, createdAt, updatedAt, keyEvents, timeSeriesData, durationMinutes, autoEndedAt, ...formFields } = intraop
   const endTimeNextDay = !!(intraop.endTime && intraop.startTime &&
     new Date(intraop.endTime).getTime() - new Date(intraop.startTime).getTime() > 12 * 60 * 60 * 1000)
 

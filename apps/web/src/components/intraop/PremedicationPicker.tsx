@@ -25,6 +25,9 @@ import { useIntraopUiCopy } from "./ui-copy"
 export type PremDoseCfg = Omit<PremedicationDrug, "name">
 export type PremedCat = PediatricPremedCategory
 
+/** A drug as it applies to one route: that route's dose, unit, range, step and hint. */
+export type PremedRouteView = { dose: number | null; unit: string; min: number; max: number; step: number; hint: string }
+
 /**
  * Paediatric provenance per drug: how the dose was reached, or why there is
  * none. Empty outside paediatric mode, so the adult picker is unchanged.
@@ -35,8 +38,11 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
   label: string; value?: string; onChange: (v: string) => void
   categories: PremedCat[]; doses: Record<string, PremDoseCfg>
   annotations?: Record<string, PremedAnnotation>
-  /** Recomputes the dose when the route changes; null when there is no rule. */
-  doseForRoute?: (drug: string, route: string) => number | null
+  /**
+   * The drug as it applies to a route; null when there is no rule. A route
+   * change replaces the dose with this, even a dose typed by hand (1.4.9).
+   */
+  doseForRoute?: (drug: string, route: string) => PremedRouteView | null
   /** False unless the selected governed baseline passed the runtime safety gate. */
   prospectiveGuidanceEnabled: boolean
   /** Reserved for a future explicit deployment policy; off in clinical entry. */
@@ -51,6 +57,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
   const [doseVal, setDoseVal]     = useState<number | "">("")
   const [doseUnit, setDoseUnit]   = useState("mg")
   const [route, setRoute]         = useState("PO")
+  const [routeView, setRouteView] = useState<PremedRouteView | null>(null)
   const [btnRect, setBtnRect]     = useState<DOMRect | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 
@@ -64,10 +71,13 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
 
   function openDosePicker(drugName: string) {
     const cfg = doses[drugName]
+    const defaultRoute = cfg?.defaultRoute ?? "PO"
+    const view = prospectiveGuidanceEnabled ? doseForRoute?.(drugName, defaultRoute) ?? null : null
     setActiveDrug(drugName)
-    setDoseVal(prospectiveGuidanceEnabled ? cfg?.dose ?? 1 : "")
-    setDoseUnit(cfg?.unit ?? "mg")
-    setRoute(cfg?.defaultRoute ?? "PO")
+    setRouteView(view)
+    setDoseVal(!prospectiveGuidanceEnabled ? "" : view ? view.dose ?? "" : cfg?.dose ?? 1)
+    setDoseUnit(view?.unit ?? cfg?.unit ?? "mg")
+    setRoute(defaultRoute)
     setPhase("dose")
   }
 
@@ -101,7 +111,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
   }, [open])
 
   const catInfo = categories.find(c => c.category === activeCat)
-  const doseCfg = activeDrug ? doses[activeDrug] : null
+  const doseCfg = activeDrug && doses[activeDrug] ? { ...doses[activeDrug], ...(routeView ?? {}) } : null
   const annotation = activeDrug ? annotations[activeDrug] : undefined
 
   function selectRoute(next: string) {
@@ -110,11 +120,14 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
       setDoseVal("")
       return
     }
-    // Oral midazolam is 0.5 mg/kg and intravenous is 0.05. Carrying the previous
-    // number across a route change is a tenfold error waiting to be confirmed.
+    // Oral midazolam 7.5 mg is about 1 mg IV. Carrying the previous number
+    // across a route change is a tenfold error waiting to be confirmed, so the
+    // route's own dose replaces it, typed or not.
     if (!activeDrug || !doseForRoute) return
-    const recalculated = doseForRoute(activeDrug, next)
-    if (recalculated != null) setDoseVal(recalculated)
+    const view = doseForRoute(activeDrug, next)
+    setRouteView(view)
+    setDoseVal(view?.dose ?? "")
+    if (view) setDoseUnit(view.unit)
   }
 
   const dropdown = open && btnRect && createPortal(

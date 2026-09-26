@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import type { CanonicalLibraryOption } from "../option-contracts"
-import { OptionLibraryRepository } from "./option-repository"
+import { isServingFallback, OptionLibraryRepository } from "./option-repository"
 
 const option = (value: string): CanonicalLibraryOption => ({
   id: `id:${value}`,
@@ -79,5 +79,15 @@ describe("OptionLibraryRepository", () => {
       data: [{ id: "id:SUPINE", category: "POSITION", value: "SUPINE" }],
       source: "bundled",
     })
+  })
+})
+
+describe("isServingFallback", () => {
+  it("is false while loading and for live data, true only for cached or bundled", () => {
+    expect(isServingFallback(null)).toBe(false)
+    expect(isServingFallback(undefined)).toBe(false)
+    expect(isServingFallback({ data: [option("SUPINE")], source: "live" })).toBe(false)
+    expect(isServingFallback({ data: [option("SUPINE")], source: "cached" })).toBe(true)
+    expect(isServingFallback({ data: [option("SUPINE")], source: "bundled" })).toBe(true)
   })
 })

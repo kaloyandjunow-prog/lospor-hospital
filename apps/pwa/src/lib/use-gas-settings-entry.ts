@@ -1,6 +1,7 @@
+import { atRow, type SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useEffect, useState } from "react"
 import { normalizeGasSettings } from "@lospor/core/intraop-summary"
-import type { LogEvent, ActiveGasSettings } from "@/lib/intraop-log-event"
+import type { ActiveGasSettings } from "@/lib/intraop-log-event"
 
 // FGF/carrier-gas/FiO2 lifecycle: manual start → change (any number of times,
 // tracked like infusion rate-changes since FiO2 is titrated continuously) →
@@ -9,7 +10,7 @@ import type { LogEvent, ActiveGasSettings } from "@/lib/intraop-log-event"
 // shown) whenever the agent row is — same GA-technique gating — but starts
 // unstarted until manually opened.
 export function useGasSettingsEntry(
-  save: (partial: Omit<LogEvent, "id" | "ts">, tsOverride?: string, silent?: boolean) => Promise<LogEvent>,
+  save: SaveIntraopEvent,
   setEntryTs: (ts: string | null) => void,
   activeGas: ActiveGasSettings,
   setActiveGas: (g: ActiveGasSettings) => void,
@@ -41,10 +42,10 @@ export function useGasSettingsEntry(
     setGasOpen(false)
   }
 
-  async function stopGasSettings() {
+  async function stopGasSettings(rowTs?: string | null, options: { exactTs?: string; endCaseStop?: boolean } = {}) {
     if (!activeGas) return
     setActiveGas(null)
-    await save({ type: "gas_stop" })
+    await save({ type: "gas_stop", ...(options.endCaseStop ? { endCaseStop: true } : {}) }, options.exactTs ?? atRow(rowTs))
   }
 
   return { gasOpen, setGasOpen, gasFgf, setGasFgf, gasCarrierGas, setGasCarrierGas, gasFio2, setGasFio2, openGasSettings, confirmGasSettings, stopGasSettings }

@@ -116,7 +116,7 @@ function routeFor(item: CaseItem, hasQueuedIntraop: boolean): Href {
 export default function DashboardScreen() {
   const router = useRouter()
   const { identity } = useAuth()
-  const { t, tc, language } = usePreferences()
+  const { t, tc, language, shade } = usePreferences()
   const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
@@ -548,8 +548,8 @@ export default function DashboardScreen() {
         onPress={() => router.push("/(app)/cases/new")}
         activeOpacity={0.85}
       >
-        <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", lineHeight: 24 }}>＋</Text>
-        <Text style={{ color: "#fff", fontSize: 13, fontWeight: "900" }}>{t("newCase")}</Text>
+        <Text style={{ color: shade("#fff"), fontSize: 22, fontWeight: "800", lineHeight: 24 }}>＋</Text>
+        <Text style={{ color: shade("#fff"), fontSize: 13, fontWeight: "900" }}>{t("newCase")}</Text>
       </TouchableOpacity>
 
       <Modal visible={menuCase !== null} transparent animationType="fade" onRequestClose={closeMenu}>

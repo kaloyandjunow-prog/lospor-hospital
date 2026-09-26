@@ -1,5 +1,5 @@
 import { Text, TextInput, TouchableOpacity } from "react-native"
-import { colors } from "@/theme/colors"
+import { colors, useShade } from "@/theme/colors"
 import { Sheet } from "./Sheet"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
@@ -19,6 +19,7 @@ function formatStartInput(value: string): string {
 }
 
 export function StartAtSheet({ visible, value, onClose, onChange, onStart }: Props) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const canStart = value.length >= 5
   return (
@@ -29,13 +30,13 @@ export function StartAtSheet({ visible, value, onClose, onChange, onStart }: Pro
       <Text style={{ color:colors.textMuted, fontSize:10, fontWeight:"700", letterSpacing:1.1,
         textTransform:"uppercase", marginBottom:8 }}>{tc("startTimeLabel")}</Text>
       <TextInput
-        style={{ backgroundColor:"#111111", color:"#a5b4fc", borderRadius:12, padding:16,
-          fontSize:36, fontWeight:"200", borderWidth:1, borderColor:"#6366f166",
+        style={{ backgroundColor:shade("#111111"), color:shade("#a5b4fc"), borderRadius:12, padding:16,
+          fontSize:36, fontWeight:"200", borderWidth:1, borderColor:shade("#6366f166"),
           textAlign:"center", fontVariant:["tabular-nums"], marginBottom:16, letterSpacing:4 }}
         value={value}
         onChangeText={next => onChange(formatStartInput(next))}
         placeholder="HH:MM"
-        placeholderTextColor="#334155"
+        placeholderTextColor={shade("#334155")}
         keyboardType="number-pad"
         maxLength={5}
         autoFocus
@@ -43,10 +44,10 @@ export function StartAtSheet({ visible, value, onClose, onChange, onStart }: Pro
       <TouchableOpacity
         onPress={() => onStart(value)}
         disabled={!canStart}
-        style={{ backgroundColor: canStart ? "#1e1a40" : "#111111",
+        style={{ backgroundColor: canStart ? shade("#1e1a40") : shade("#111111"),
           borderRadius:14, padding:18, alignItems:"center",
-          borderWidth:1, borderColor: canStart ? "#6366f1" : "#1e2d40" }}>
-        <Text style={{ color: canStart ? "#a5b4fc" : "#334155",
+          borderWidth:1, borderColor: canStart ? shade("#6366f1") : shade("#1e2d40") }}>
+        <Text style={{ color: canStart ? shade("#a5b4fc") : shade("#334155"),
           fontWeight:"900", fontSize:16 }}>
           {formatMessage(tc("startCaseAt"), { time: value || "-" })}
         </Text>

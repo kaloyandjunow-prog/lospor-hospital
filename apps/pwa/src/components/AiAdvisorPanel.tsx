@@ -1,7 +1,7 @@
 import { View, Text, Switch, ActivityIndicator, type TextStyle } from "react-native"
 import Ionicons from "@expo/vector-icons/Ionicons"
 import { Card, PrimaryButton, SectionHeader } from "@/components/ui"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade, useThemeRefresh } from "@/theme/colors"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ function renderInline(text: string, baseStyle: TextStyle): React.ReactNode {
 }
 
 function MarkdownBody({ text }: { text: string }) {
+  useThemeRefresh()
   const baseStyle: TextStyle = { color: colors.textSecondary, fontSize: 14, lineHeight: 21 }
   const lines = text.split("\n")
 
@@ -106,6 +107,7 @@ function GdprCard({
   privacyNote: string
   enableLabel: string
 }) {
+  const shade = useShade()
   return (
     <Card className="border-l-4 border-amber-500 px-4 py-4 mb-4">
       <Text className="text-slate-300 text-sm leading-relaxed mb-4">
@@ -119,7 +121,7 @@ function GdprCard({
           value={aiOptIn}
           onValueChange={onToggle}
           trackColor={{ false: colors.borderStrong, true: colors.agent }}
-          thumbColor="#fff"
+          thumbColor={shade("#fff")}
         />
       </View>
     </Card>
@@ -127,6 +129,7 @@ function GdprCard({
 }
 
 function DisclaimerBanner({ text }: { text: string }) {
+  useThemeRefresh()
   return (
     <View
       style={{
@@ -150,6 +153,7 @@ function DisclaimerBanner({ text }: { text: string }) {
 }
 
 function AnalysingState({ label }: { label: string }) {
+  useThemeRefresh()
   return (
     <View className="flex-row items-center gap-3 py-6 justify-center">
       <ActivityIndicator color={colors.agent} />

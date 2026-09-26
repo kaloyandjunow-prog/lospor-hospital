@@ -1,5 +1,6 @@
 "use client"
 
+import { PlannedStopMarker } from "./PlannedStopMarker"
 import { DiscontinuePrompt } from "./DiscontinuePrompt"
 import { ExtendGhost, MoveGhost, ghostGripVisible } from "./InfusionGhostBars"
 import { barContinues, barLeftClass, barRightClass } from "./timetable-row-geometry"
@@ -80,7 +81,7 @@ export type InfusionLaneProps = {
   drag: TimetableDragState
   dragActions: TimetableDragActions
 
-  extendInfusion: (id: string, toCol: number, stop?: boolean) => void
+  extendInfusion: (id: string, toCol: number) => void
   extendInfusionLeft: (id: string, toCol: number) => void
   applyInfRateChange: (infId: string, fromCol: number | null, toCol: number, rate: number, unit: string) => void
   /** Commit a whole-bar move; the owner decides move versus delete-prompt. */
@@ -201,6 +202,7 @@ export function InfusionLane({
               }
             }}
           >
+            {segments.some(s => s.plannedStopCol === ci) && <PlannedStopMarker />}
             {/* Rate strip — shares the bar's geometry so the two read as one object. */}
             {seg && !seg.stopped && (() => {
               const sortedChanges = (seg.rateChanges ?? []).slice().sort((a, b) => a.col - b.col)
@@ -266,7 +268,7 @@ export function InfusionLane({
                   onDragEnd={() => dragActions.infusionMoveEnd()}
                   onClick={e => { e.stopPropagation(); setSel(s => s?.type === "infusion" && s.id === seg.id ? null : { type: "infusion", id: seg.id }) }}
                   title={!seg.stopped ? copy.infusionBarHelp : undefined}
-                  className={`absolute left-0 right-0 border-y ${!seg.stopped ? "cursor-grab active:cursor-grabbing" : ""} ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${seg.stopped ? "opacity-50 border-dashed" : hoverDiscontinue === seg.id ? "opacity-50" : ""}`}
+                  className={`absolute left-0 right-0 border-y ${!seg.stopped ? "cursor-grab active:cursor-grabbing" : ""} ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-50 border-dashed" : hoverDiscontinue === seg.id ? "opacity-50" : ""}`}
                   style={{
                     top: 22,
                     bottom: 4,
@@ -318,7 +320,7 @@ export function InfusionLane({
                   <DiscontinuePrompt
                     open={discConfirmId === seg.id}
                     onOpen={() => setDiscConfirmId(seg.id)}
-                    onConfirm={() => { extendInfusion(seg.id, nowCol ?? seg.endCol, true); clearSel(); setDiscConfirmId(null) }}
+                    onConfirm={() => { extendInfusion(seg.id, nowCol ?? seg.endCol); clearSel(); setDiscConfirmId(null) }}
                     onCancel={() => setDiscConfirmId(null)}
                     style={{ top: 24, right: 14 }}
                     cancelClassName="text-[8px] text-white/60 hover:text-white px-1 whitespace-nowrap"

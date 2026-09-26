@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context"
 import { ApiError } from "@/lib/api"
 import { notify } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 import { AuthBackdrop, AuthBrand } from "@/components/AuthBrand"
 import { AdministratorMfaStep } from "@/components/auth/AdministratorMfaStep"
 import type { AdministratorMfaChallenge, AdministratorMfaCompletion } from "@/lib/administrator-mfa"
@@ -16,6 +16,7 @@ import { useAuthenticationCapabilities } from "@/lib/deployment-capabilities"
 import { isValidHospitalUsername } from "@/lib/login-identifier"
 
 export default function LoginScreen() {
+  const shade = useShade()
   const {
     login,
     completeAdministratorMfa,
@@ -213,7 +214,7 @@ export default function LoginScreen() {
               disabled={loading || !identifier || !password}
             >
               {loading
-                ? <ActivityIndicator color="#fff" />
+                ? <ActivityIndicator color={shade("#fff")} />
                 : <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{t("signIn")}</Text>
               }
             </TouchableOpacity>

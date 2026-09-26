@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native"
-import { colors } from "@/theme/colors"
+import { colors, useShade } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 
 // Undo/dismiss bar shown after an event is added on the Timetable tab.
@@ -9,11 +9,12 @@ export function IntraopUndoBar({ text, onUndo, onDismiss }: {
   onUndo: () => void
   onDismiss: () => void
 }) {
+  const shade = useShade()
   const { tc } = usePreferences()
   return (
     <View style={{ flexDirection:"row", alignItems:"center", gap:10,
-      paddingHorizontal:12, paddingVertical:9, backgroundColor:"#17212a",
-      borderBottomWidth:1, borderBottomColor:"#2a3a46" }}>
+      paddingHorizontal:12, paddingVertical:9, backgroundColor:shade("#17212a"),
+      borderBottomWidth:1, borderBottomColor:shade("#2a3a46") }}>
       <Text style={{ color:colors.textSecondary, fontSize:12, flex:1 }} numberOfLines={1}>
         {tc("ubItemAdded").replace("{text}", text)}
       </Text>

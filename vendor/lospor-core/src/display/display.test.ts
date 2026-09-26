@@ -128,8 +128,9 @@ describe("clinical display registry", () => {
         term.domain as typeof INTERNATIONAL_MEDICATION_DISPLAY_DOMAINS[number],
       ),
     )
-    // 283 since intranasal dexmedetomidine joined the premedication catalogue.
-    expect(medicationTerms).toHaveLength(283)
+    // 282: intranasal dexmedetomidine joined the premedication catalogue (283),
+    // ranitidine was retired everywhere in 1.4.9.
+    expect(medicationTerms).toHaveLength(282)
     for (const term of medicationTerms) {
       expect(term.label.bg).toBe(term.label.en)
       expect(term.bgSource).toBe("international")
@@ -173,8 +174,9 @@ describe("clinical display registry", () => {
     // 966: 963 minus PAV/VG (removed from the ventilation-mode schema, no
     // OMOP concept exists for either) minus Blood glucose/Blood gas analysis
     // (removed from monitoring's Others group), plus the seven risk-score
-    // bands, which moved here from two per-app copy tables that had drifted.
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(966)
+    // bands, which moved here from two per-app copy tables that had drifted;
+    // 965 once ranitidine was retired (1.4.9).
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(965)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

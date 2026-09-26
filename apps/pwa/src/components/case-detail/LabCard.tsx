@@ -1,6 +1,6 @@
 ﻿import React from "react"
 import { View, Text } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { SummaryCard } from "./CaseDetailPrimitives"
 import {
@@ -8,6 +8,7 @@ import {
 } from "@/lib/case-detail-summary"
 
 export function LabCard({ labResults, tc }: { labResults?: LabResult[]; tc: (key: ClinicalStringKey) => string }) {
+  useThemeRefresh()
   if (!labResults?.length) {
     return (
       <SummaryCard title={tc("cardLabs")} defaultOpen={false}>

@@ -60,36 +60,21 @@ describe("EndCaseSheet fluid cleanup", () => {
     expect(onFinalize).toHaveBeenCalledWith([], context.endTs)
   })
 
-  it("uses one timestamp for every fluid while preserving generic stop behavior", async () => {
+  // 1.4.9: only items marked "stop" get a stop, all at one end time. Items
+  // continued postoperatively get none: the chart and every total stop at the end.
+  it("stops only the items marked stop, at one end time", async () => {
     const rateOneAtEnd = vi.fn(() => 25)
-    const rateTwoAtEnd = vi.fn(() => 35)
     const stopRateOne = vi.fn(async (_context?: EndCaseStopContext) => {})
     const stopRateTwo = vi.fn(async (_context?: EndCaseStopContext) => {})
-    const stopAgent = vi.fn(async () => {})
+    const stopAgent = vi.fn(async (_context?: EndCaseStopContext) => {})
+    const stopInfusion = vi.fn(async (_context?: EndCaseStopContext) => {})
     const items: EndCaseCleanupItem[] = [
-      {
-        key:"fluid-rate-1",
-        label:"Ringer",
-        sublabel:"50 mL/h - fluid",
-        color:"#06b6d4",
-        fluidVolume:{ mode:"RATE", atEnd:rateOneAtEnd },
-        onStop:stopRateOne,
-      },
-      {
-        key:"fluid-rate-2",
-        label:"Glucose",
-        sublabel:"70 mL/h - fluid",
-        color:"#0ea5e9",
-        fluidVolume:{ mode:"RATE", atEnd:rateTwoAtEnd },
-        onStop:stopRateTwo,
-      },
-      {
-        key:"agent-sevoflurane",
-        label:"Sevoflurane",
-        sublabel:"Volatile - inhalational",
-        color:"#a855f7",
-        onStop:stopAgent,
-      },
+      { key:"fluid-rate-1", label:"Ringer", sublabel:"50 mL/h - fluid", color:"#06b6d4",
+        fluidVolume:{ mode:"RATE", atEnd:rateOneAtEnd }, onStop:stopRateOne },
+      { key:"fluid-rate-2", label:"Glucose", sublabel:"70 mL/h - fluid", color:"#0ea5e9",
+        fluidVolume:{ mode:"RATE", atEnd:vi.fn(() => 35) }, onStop:stopRateTwo },
+      { key:"agent-sevoflurane", label:"Sevoflurane", sublabel:"Volatile - inhalational", color:"#a855f7", onStop:stopAgent },
+      { key:"inf-1", label:"Propofol", sublabel:"6 mg/kg/h - infusion", color:"#3b82f6", onStop:stopInfusion },
     ]
     const onFinalize = vi.fn()
     const tree = render(
@@ -101,35 +86,51 @@ describe("EndCaseSheet fluid cleanup", () => {
           "fluid-rate-1":"stop",
           "fluid-rate-2":"continue",
           "agent-sevoflurane":"continue",
+          "inf-1":"stop",
         }}
         continueLabel="Finalise"
         onDecision={() => {}}
         onFinalize={onFinalize}
       />,
     )
-    act(() => {
-      tree.root.findByProps({ testID:"end-case-fluid-actual-fluid-rate-2" })
-        .props.onChangeText("42")
-    })
+    // A continued fluid has no "actual volume" box: nothing is stopped for it.
+    expect(tree.root.findAllByProps({ testID:"end-case-fluid-actual-fluid-rate-2" })).toHaveLength(0)
 
     await act(async () => {
       await tree.root.findByProps({ testID:"end-case-finalize" }).props.onPress()
     })
 
-    const firstContext = stopRateOne.mock.calls[0]?.[0]
-    const secondContext = stopRateTwo.mock.calls[0]?.[0]
-    expect(firstContext).toBeDefined()
-    expect(secondContext).toBeDefined()
-    if (!firstContext || !secondContext) throw new Error("Missing fluid stop context")
-    expect(firstContext.endTs).toBe(secondContext.endTs)
-    expect(firstContext.administeredVolumeMl).toBe(25)
-    expect(secondContext.administeredVolumeMl).toBe(42)
-    expect(rateOneAtEnd).toHaveBeenCalledWith(firstContext.endTs)
-    expect(rateTwoAtEnd).toHaveBeenCalled()
+    const fluidContext = stopRateOne.mock.calls[0]?.[0]
+    const infusionContext = stopInfusion.mock.calls[0]?.[0]
+    if (!fluidContext || !infusionContext) throw new Error("Missing stop context")
+    expect(fluidContext.endTs).toBe(infusionContext.endTs)
+    expect(fluidContext.administeredVolumeMl).toBe(25)
+    expect(rateOneAtEnd).toHaveBeenCalledWith(fluidContext.endTs)
+    expect(stopRateTwo).not.toHaveBeenCalled()
     expect(stopAgent).not.toHaveBeenCalled()
     expect(onFinalize).toHaveBeenCalledWith([
       "Glucose (70 mL/h - fluid)",
       "Sevoflurane (Volatile - inhalational)",
-    ], firstContext.endTs)
+    ], fluidContext.endTs)
+  })
+
+  it("cannot finalise while an entry lies after the end", () => {
+    const onResolveAfterEnd = vi.fn()
+    const tree = render(
+      <EndCaseSheet
+        visible
+        onClose={() => {}}
+        items={[]}
+        afterEnd={[{ id:"planned-1", label:"Ondansetron 4 mg", time:"23:30", color:"#f59e0b" }]}
+        onResolveAfterEnd={onResolveAfterEnd}
+        decisions={{}}
+        continueLabel="Finalise"
+        onDecision={() => {}}
+        onFinalize={vi.fn()}
+      />,
+    )
+    expect(tree.root.findByProps({ testID:"end-case-finalize" }).props.disabled).toBe(true)
+    act(() => { tree.root.findByProps({ testID:"end-case-after-end-delete-planned-1" }).props.onPress() })
+    expect(onResolveAfterEnd).toHaveBeenCalledWith("planned-1", "delete")
   })
 })

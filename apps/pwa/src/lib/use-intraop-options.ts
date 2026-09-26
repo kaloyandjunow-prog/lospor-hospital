@@ -27,6 +27,7 @@ import {
   hiddenInfusionSearchOptions,
   type ActiveClinicalPreset,
 } from "@/lib/hidden-clinical-options"
+import { useShade } from "@/theme/shade"
 
 // Loads the intraop drug/infusion/fluid/agent/event OptionLibrary categories and
 // derives every lookup map + colour/range helper the screen needs. Extracted
@@ -43,6 +44,7 @@ export function useIntraopOptions(
   activePreset: ActiveClinicalPreset = null,
   prospectiveGuidanceEnabled = false,
 ) {
+  const shade = useShade()
   const { options: baseDrugLibOpts } = useOptionLibrary("INTRAOP_DRUG")
   const { options: baseInfusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
   const { options: baseFluidLibOpts } = useOptionLibrary("INTRAOP_FLUID")
@@ -105,8 +107,8 @@ export function useIntraopOptions(
     patientWeightKg,
     activePreset,
     fallbackUnit: "mg",
-    fallbackColor: option => MOBILE_DRUG_CAT_COLOR[option.group ?? "Other"] ?? "#64748b",
-  }), [activePreset, adultDoseProfiles, drugLibOpts, patientAge, patientWeightKg, pediatricDrugProfiles])
+    fallbackColor: option => MOBILE_DRUG_CAT_COLOR[option.group ?? "Other"] ?? shade("#64748b"),
+  }), [activePreset, adultDoseProfiles, drugLibOpts, patientAge, patientWeightKg, pediatricDrugProfiles, shade])
   const SEARCH_ONLY_INFUSIONS = useMemo(() => hiddenInfusionSearchOptions({
     options: infusionLibOpts,
     adultDoseProfiles,
@@ -115,8 +117,8 @@ export function useIntraopOptions(
     patientWeightKg,
     activePreset,
     fallbackUnit: "mcg/kg/min",
-    fallbackColor: () => "#64748b",
-  }), [activePreset, adultDoseProfiles, infusionLibOpts, patientAge, patientWeightKg, pediatricInfusionProfiles])
+    fallbackColor: () => shade("#64748b"),
+  }), [activePreset, adultDoseProfiles, infusionLibOpts, patientAge, patientWeightKg, pediatricInfusionProfiles, shade])
   const searchOnlyInfusionNames = useMemo(
     () => new Set(SEARCH_ONLY_INFUSIONS.map(option => option.name)),
     [SEARCH_ONLY_INFUSIONS],
@@ -127,15 +129,15 @@ export function useIntraopOptions(
   const DRUG_CATS = useMemo(
     () => groupDrugCategories(
       visibleClinicalOptions(drugLibOpts),
-      cat => MOBILE_DRUG_CAT_COLOR[cat] ?? "#64748b",
+      cat => MOBILE_DRUG_CAT_COLOR[cat] ?? shade("#64748b"),
     ),
-    [drugLibOpts],
+    [drugLibOpts, shade],
   )
   function drugColor(name: string): string {
     for (const cat of DRUG_CATS) {
       if (cat.drugs.some(d => d.name === name)) return cat.color
     }
-    return "#64748b"
+    return shade("#64748b")
   }
   const INF_DRUGS = useMemo(() =>
     visibleClinicalOptions(infusionLibOpts)
@@ -145,9 +147,9 @@ export function useIntraopOptions(
       unit: metadataString(o.metadata, "unit")
         ?? metadataString(o.metadata, "defaultUnit")
         ?? "mcg/kg/min",
-      color: o.color ?? "#64748b",
+      color: o.color ?? shade("#64748b"),
     })),
-  [infusionLibOpts, searchOnlyInfusionNames])
+  [infusionLibOpts, searchOnlyInfusionNames, shade])
   // Per-kg infusion totals must use the basis the institution configured, not
   // a hardcoded table. Web has always read this from the option library; the
   // phone used the static default, so an institution that changed a drug from
@@ -167,13 +169,13 @@ export function useIntraopOptions(
     visibleClinicalOptions(fluidLibOpts).map((o: LibraryOption) => ({
       name: o.label,
       cat: o.group ?? "Other",
-      color: MOBILE_FLUID_CAT_COLOR[o.group ?? "Other"] ?? "#94a3b8",
+      color: MOBILE_FLUID_CAT_COLOR[o.group ?? "Other"] ?? shade("#94a3b8"),
       profile: prospectiveGuidanceEnabled
         ? adultFluidProfileByKey.get(o.label.trim().toUpperCase())
           ?? adultFluidProfileByKey.get(o.value.trim().toUpperCase())
         : undefined,
     })),
-  [adultFluidProfileByKey, fluidLibOpts, prospectiveGuidanceEnabled])
+  [adultFluidProfileByKey, fluidLibOpts, prospectiveGuidanceEnabled, shade])
   const FLUID_QUICK_VOLUMES = useMemo(
     () => prospectiveGuidanceEnabled ? quickNumberMap(fluidLibOpts) : {},
     [fluidLibOpts, prospectiveGuidanceEnabled],
@@ -188,8 +190,8 @@ export function useIntraopOptions(
   )
   const FLUID_ROUTES = useMemo(() => routesMap(fluidLibOpts), [fluidLibOpts])
   const VOLATILE_AGENTS = useMemo(() =>
-    agentLibOpts.map((o: LibraryOption) => ({ name: o.label, color: MOBILE_AGENT_COLOR[o.label] ?? "#a855f7" })),
-  [agentLibOpts])
+    agentLibOpts.map((o: LibraryOption) => ({ name: o.label, color: MOBILE_AGENT_COLOR[o.label] ?? shade("#a855f7") })),
+  [agentLibOpts, shade])
 
   // Dose presets, routes, concentrations, per-route profiles, dose calcs, and
   // coded identity all read from OptionLibrary metadata via the unit-tested
@@ -268,7 +270,7 @@ export function useIntraopOptions(
       const ev = cat.events.find(e => label === e.label || label.startsWith(e.label + " (") || label.startsWith(e.label))
       if (ev) return ev.color
     }
-    return "#64748b"
+    return shade("#64748b")
   }
 
   return {

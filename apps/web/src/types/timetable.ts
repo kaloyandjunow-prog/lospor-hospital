@@ -25,6 +25,9 @@ export type {
   VitalsEntry,
 }
 
+/** A numeric reading of a vitals row (not its event reference or auto-fill mark). */
+export type VitalKey = Exclude<keyof VitalsEntry, "eventId" | "autoFilled">
+
 export type DrugAdministrationAudit = {
   concentration?: string
   concentrationValue?: number

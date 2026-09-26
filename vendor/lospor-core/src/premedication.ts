@@ -12,7 +12,12 @@
  * operation: the day before, or the morning before surgery.
  */
 
-import { PREMED_ATC_CODES, PREMED_DOSES } from "./catalog/premed-drugs"
+import {
+  PREMED_ATC_CODES,
+  PREMED_DOSES,
+  premedRouteHint,
+  type PremedRouteDose,
+} from "./catalog/premed-drugs"
 
 export type PremedicationPhase = "DAY_BEFORE" | "MORNING"
 
@@ -94,4 +99,61 @@ export function premedicationDate(surgeryDate: string | null | undefined, phase:
   const day = new Date(`${surgeryDate.slice(0, 10)}T00:00:00Z`)
   day.setUTCDate(day.getUTCDate() + PREMEDICATION_PHASES[phase].dayOffset)
   return day.toISOString().slice(0, 10)
+}
+
+export type AdultPremedDose = {
+  /**
+   * "suggested": prefill `dose`. "as-prescribed": a home medicine, the box
+   * starts empty. "needs-weight": weight-based and no weight is recorded, so
+   * the box starts empty. "unknown": no rule for this drug and route.
+   */
+  status: "suggested" | "as-prescribed" | "needs-weight" | "unknown"
+  /** Always in `unit`; a weight-based dose is already calculated. */
+  dose: number | null
+  unit: string
+  min: number
+  max: number
+  step: number
+  hint: string
+}
+
+function roundToStep(value: number, step: number): number {
+  const decimals = step < 1 ? 1 : 0
+  return Number((Math.round(value / step) * step).toFixed(decimals))
+}
+
+/**
+ * The adult dose for a premedication drug by a route. A route change replaces
+ * the dose with this, even a dose typed by hand: oral and intravenous doses of
+ * the same drug differ up to tenfold.
+ *
+ * Reads the per-route values from the library row when it carries them and
+ * falls back to the bundled table by name, so a library seeded before 1.4.9
+ * still gets per-route doses.
+ */
+export function adultPremedDoseForRoute(
+  drug: string | { name: string; routeDoses?: Record<string, PremedRouteDose> },
+  route: string,
+  weightKg?: number | null,
+): AdultPremedDose {
+  const name = typeof drug === "string" ? drug : drug.name
+  const routeDoses = (typeof drug === "string" ? undefined : drug.routeDoses) ?? PREMED_DOSES[name]?.routeDoses
+  const rule = routeDoses?.[route]
+  if (!rule) return { status: "unknown", dose: null, unit: "", min: 0, max: 0, step: 1, hint: "" }
+  const hint = premedRouteHint(route, rule)
+  if (rule.perKg) {
+    const weight = typeof weightKg === "number" && Number.isFinite(weightKg) && weightKg > 0 ? weightKg : null
+    if (weight === null || rule.dose == null) {
+      return { status: "needs-weight", dose: null, unit: rule.unit, min: 0, max: 0, step: 1, hint }
+    }
+    // The dose recorded is the calculated amount, never "mg/kg" text.
+    const min = Math.ceil(rule.min * weight)
+    const max = Math.floor(rule.max * weight)
+    const dose = Math.min(max, Math.max(min, roundToStep(rule.dose * weight, 1)))
+    return { status: "suggested", dose, unit: rule.unit, min, max, step: 1, hint: `${hint} = ${dose} ${rule.unit}` }
+  }
+  if (rule.dose == null) {
+    return { status: "as-prescribed", dose: null, unit: rule.unit, min: rule.min, max: rule.max, step: rule.step, hint }
+  }
+  return { status: "suggested", dose: rule.dose, unit: rule.unit, min: rule.min, max: rule.max, step: rule.step, hint }
 }

@@ -7,7 +7,7 @@ import type { ActiveInfusion } from "@/lib/intraop-log-event"
 vi.mock("@/components/VitalStepper", () => ({ VitalStepper: () => null }))
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({
+  usePreferences: () => ({ shade: (hex: string) => hex,
     language: "en",
     tc: (key: string) => key,
   }),

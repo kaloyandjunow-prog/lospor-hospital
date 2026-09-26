@@ -12,9 +12,20 @@ export type RunningItem = {
   id: string
   label: string
   color: string
+  /** A future-dated start: a marker in its own row, not given yet. */
+  planned?: boolean
+  /** The row a future-dated stop falls in, past the running bar. */
+  plannedStop?: boolean
 }
 
 function presentRunningItem(item: CoreRunningItem): RunningItem {
+  const presented = presentRunningLabel(item)
+  if (item.planned) presented.planned = true
+  if (item.plannedStop) presented.plannedStop = true
+  return presented
+}
+
+function presentRunningLabel(item: CoreRunningItem): RunningItem {
   if (item.kind === "agent") {
     return { id: item.id, label: item.name, color: item.color }
   }

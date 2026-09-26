@@ -1,6 +1,7 @@
+import type { VitalKey } from "@/types/timetable"
 import { useCallback } from "react"
 import type { RefObject } from "react"
-import type { TimetableData, VitalsEntry } from "@/components/IntraopTimetable"
+import type { TimetableData } from "@/components/IntraopTimetable"
 
 // Takes refs (not data/onChange directly) because setVital/lastVitalBefore
 // are wrapped in useCallback with empty deps in the original code — they
@@ -11,7 +12,7 @@ export function useVitalsHandlers(
   dataRef: RefObject<TimetableData>,
   rawOnChangeRef: RefObject<(d: TimetableData) => void>,
 ) {
-  const setVital = useCallback((col: number, key: keyof VitalsEntry, raw: string) => {
+  const setVital = useCallback((col: number, key: VitalKey, raw: string) => {
     const val  = raw === "" ? undefined : Number(raw)
     const next = [...dataRef.current.vitals]
     while (next.length <= col) next.push({})
@@ -20,7 +21,7 @@ export function useVitalsHandlers(
   // dataRef and rawOnChangeRef are stable refs — no deps needed
   }, [dataRef, rawOnChangeRef])
 
-  const lastVitalBefore = useCallback((col: number, key: keyof VitalsEntry): number | undefined => {
+  const lastVitalBefore = useCallback((col: number, key: VitalKey): number | undefined => {
     for (let c = col - 1; c >= 0; c--) {
       const v = dataRef.current.vitals[c]?.[key]
       if (v != null) return v

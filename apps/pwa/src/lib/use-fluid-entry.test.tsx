@@ -13,10 +13,10 @@ function setup() {
   let activeFluids: ActiveFluid[] = []
   const save = vi.fn(async (
     partial: Omit<LogEvent, "id" | "ts">,
-    tsOverride?: string,
+    tsOverride?: string | { rowTs: string | null },
   ): Promise<LogEvent> => ({
     id: "saved",
-    ts: tsOverride ?? "2026-08-02T08:00:00.000Z",
+    ts: typeof tsOverride === "string" ? tsOverride : "2026-08-02T08:00:00.000Z",
     ...partial,
   }))
   const setActiveFluids = (updater: (previous: ActiveFluid[]) => ActiveFluid[]) => {
@@ -24,7 +24,8 @@ function setup() {
   }
 
   function Harness() {
-    result = useFluidEntry(save, () => {}, setActiveFluids)
+    // The row stamp as the screen resolves it: a row time stays, no row is "now".
+    result = useFluidEntry(save, () => {}, setActiveFluids, rowTs => rowTs ?? "2026-08-02T09:00:00.000Z")
     return null
   }
 

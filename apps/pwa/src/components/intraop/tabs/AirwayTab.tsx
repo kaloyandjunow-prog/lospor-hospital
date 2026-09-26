@@ -59,7 +59,7 @@ export function AirwayTab({
   awVentExpanded: "assisted" | "controlled" | null
   setAwVentExpanded: (v: "assisted" | "controlled" | null) => void
 }) {
-  const { tc } = usePreferences()
+  const { tc, shade } = usePreferences()
 
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
@@ -87,10 +87,10 @@ export function AirwayTab({
               setAwNotApplicable(() => next.airwayNotApplicable)
             }}
             style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-              backgroundColor: option.on ? "#3f2d1a" : "#111111",
-              borderWidth:1, borderColor: option.on ? "#f59e0b" : "#1e2d40" }}
+              backgroundColor: option.on ? shade("#3f2d1a") : shade("#111111"),
+              borderWidth:1, borderColor: option.on ? shade("#f59e0b") : shade("#1e2d40") }}
           >
-            <Text style={{ color: option.on ? "#fcd34d" : "#64748b", fontSize:12, fontWeight:"700" }}>
+            <Text style={{ color: option.on ? shade("#fcd34d") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -98,7 +98,7 @@ export function AirwayTab({
       </View>
 
       {/* Tools used */}
-      <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:10 }}>{tc("awToolsUsed")}</Text>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
         {airwayTools.map(tool => {
@@ -107,9 +107,9 @@ export function AirwayTab({
             <TouchableOpacity key={tool.code} onPress={() => {
               setAwTools(prev => sel ? prev.filter(x => x !== tool.code) : [...prev, tool.code])
             }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-              backgroundColor: sel ? "#1e3a5f" : "#111111",
-              borderWidth:1, borderColor: sel ? "#3b82f6" : "#1e2d40" }}>
-              <Text style={{ color: sel ? "#93c5fd" : "#64748b", fontSize:12, fontWeight:"700" }}>{tool.label}</Text>
+              backgroundColor: sel ? shade("#1e3a5f") : shade("#111111"),
+              borderWidth:1, borderColor: sel ? shade("#3b82f6") : shade("#1e2d40") }}>
+              <Text style={{ color: sel ? shade("#93c5fd") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{tool.label}</Text>
             </TouchableOpacity>
           )
         })}
@@ -118,15 +118,15 @@ export function AirwayTab({
       {/* Cormack-Lehane grade */}
       {(awTools.includes("DIRECT_LARY") || awTools.includes("VIDEO_LARY")) && (
         <>
-          <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
+          <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
             textTransform:"uppercase", marginBottom:10 }}>{tc("awClGrade")}</Text>
           <View style={{ flexDirection:"row", gap:8, marginBottom:20 }}>
             {CL_GRADES.map(g => (
               <TouchableOpacity key={g.code} onPress={() => setAwClGrade(awClGrade === g.code ? "" : g.code)}
                 style={{ flex:1, paddingVertical:12, borderRadius:10, alignItems:"center",
-                  backgroundColor: awClGrade === g.code ? g.color + "33" : "#111111",
-                  borderWidth:2, borderColor: awClGrade === g.code ? g.color : "#1e2d40" }}>
-                <Text style={{ color: awClGrade === g.code ? g.color : "#64748b",
+                  backgroundColor: awClGrade === g.code ? g.color + "33" : shade("#111111"),
+                  borderWidth:2, borderColor: awClGrade === g.code ? g.color : shade("#1e2d40") }}>
+                <Text style={{ color: awClGrade === g.code ? g.color : shade("#64748b"),
                   fontWeight:"800", fontSize:14 }}>{g.code}</Text>
               </TouchableOpacity>
             ))}
@@ -158,13 +158,13 @@ export function AirwayTab({
       />
 
       {/* Notes */}
-      <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:8 }}>{tc("notesLabel")}</Text>
       <TextInput
-        style={{ backgroundColor:"#111111", color:"#e2e8f0", borderRadius:10, padding:12,
-          fontSize:13, borderWidth:1, borderColor:"#2a3a4a", minHeight:72, marginBottom:20 }}
+        style={{ backgroundColor:shade("#111111"), color:shade("#e2e8f0"), borderRadius:10, padding:12,
+          fontSize:13, borderWidth:1, borderColor:shade("#2a3a4a"), minHeight:72, marginBottom:20 }}
         placeholder={tc("awNotesPlaceholder")}
-        placeholderTextColor="#475569"
+        placeholderTextColor={shade("#475569")}
         multiline
         value={awNotes}
         onChangeText={setAwNotes}

@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { View, Text, TouchableOpacity } from "react-native"
 import { useMemo } from "react"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { aldreteBand, handoverGroups } from "@lospor/core/postop"
@@ -9,6 +9,7 @@ import { aldreteBand, handoverGroups } from "@lospor/core/postop"
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 export function SectionHeader({ title }: { title: string }) {
+  useThemeRefresh()
   return (
     <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
       {title}
@@ -17,6 +18,7 @@ export function SectionHeader({ title }: { title: string }) {
 }
 
 export function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  useThemeRefresh()
   return (
     <View style={{ marginBottom: 16 }}>
       <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 6 }}>{label}</Text>
@@ -38,6 +40,7 @@ export function ScoreRow({
   onChange: (v: number) => void
   descriptions: [string, string, string]
 }) {
+  useThemeRefresh()
   return (
     <View className="flex-row gap-2">
       {([0, 1, 2] as const).map((score) => {
@@ -81,6 +84,7 @@ export function NRSRow({ value, onChange, max = 10 }: {
   onChange: (v: number) => void
   max?: number
 }) {
+  useThemeRefresh()
   return (
     <View className="flex-row flex-wrap gap-1.5">
       {Array.from({ length: max + 1 }, (_, i) => i).map((n) => {

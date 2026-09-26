@@ -5,6 +5,7 @@ import { ACCOUNT_COUNTRY_LABELS } from "@/i18n/account-options"
 import type { TranslationKey } from "@/lib/preferences-context"
 import { apiUrl } from "@/lib/api"
 import { Chip, StyledInput } from "@/components/ui"
+import { useShade } from "@/theme/shade"
 
 type Translate = (key: TranslationKey) => string
 
@@ -25,6 +26,7 @@ export function CountryPicker({
   language: "bg" | "en"
   t: Translate
 }) {
+  const shade = useShade()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const normalizedQuery = query.trim().toLocaleLowerCase(language)
@@ -48,8 +50,8 @@ export function CountryPicker({
         activeOpacity={0.75}
         style={{
           minHeight: 50,
-          backgroundColor: "#1c1c1c",
-          borderColor: open ? "#3b82f6" : "#2e2e2e",
+          backgroundColor: shade("#1c1c1c"),
+          borderColor: open ? shade("#3b82f6") : shade("#2e2e2e"),
           borderWidth: 1,
           borderRadius: 14,
           paddingHorizontal: 14,
@@ -59,12 +61,12 @@ export function CountryPicker({
           justifyContent: "space-between",
         }}
       >
-        <Text style={{ color: value ? "#f8fafc" : "#64748b", fontSize: 16 }}>
+        <Text style={{ color: value ? shade("#f8fafc") : shade("#64748b"), fontSize: 16 }}>
           {value
             ? ACCOUNT_COUNTRY_LABELS[language][value as keyof typeof ACCOUNT_COUNTRY_LABELS.en]
             : t("selectCountry")}
         </Text>
-        <Text style={{ color: "#94a3b8", fontSize: 14 }}>{open ? "⌃" : "⌄"}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 14 }}>{open ? "⌃" : "⌄"}</Text>
       </TouchableOpacity>
 
       {open && (
@@ -72,14 +74,14 @@ export function CountryPicker({
           style={{
             marginTop: 6,
             maxHeight: 260,
-            backgroundColor: "#1c1c1c",
-            borderColor: "#2e2e2e",
+            backgroundColor: shade("#1c1c1c"),
+            borderColor: shade("#2e2e2e"),
             borderWidth: 1,
             borderRadius: 14,
             overflow: "hidden",
           }}
         >
-          <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: "#2e2e2e" }}>
+          <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: shade("#2e2e2e") }}>
             <StyledInput
               placeholder={t("searchCountries")}
               value={query}
@@ -97,11 +99,11 @@ export function CountryPicker({
                   paddingHorizontal: 14,
                   paddingVertical: 12,
                   borderBottomWidth: country === filtered[filtered.length - 1] ? 0 : 1,
-                  borderBottomColor: "#2e2e2e",
-                  backgroundColor: country === value ? "#172554" : "transparent",
+                  borderBottomColor: shade("#2e2e2e"),
+                  backgroundColor: country === value ? shade("#172554") : "transparent",
                 }}
               >
-                <Text style={{ color: country === value ? "#60a5fa" : "#e2e8f0", fontSize: 15 }}>
+                <Text style={{ color: country === value ? shade("#60a5fa") : shade("#e2e8f0"), fontSize: 15 }}>
                   {ACCOUNT_COUNTRY_LABELS[language][country]}
                 </Text>
               </TouchableOpacity>
@@ -124,6 +126,7 @@ export function InstitutionPicker({
   onChange: (id: string | undefined) => void
   t: Translate
 }) {
+  const shade = useShade()
   const [institutions, setInstitutions] = useState<Institution[]>([])
   const [query, setQuery] = useState("")
   const [selectedName, setSelectedName] = useState<string | null>(null)
@@ -195,22 +198,22 @@ export function InstitutionPicker({
         style={{
           minHeight: 50,
           justifyContent: "center",
-          backgroundColor: "#1c1c1c",
-          borderColor: "#2e2e2e",
+          backgroundColor: shade("#1c1c1c"),
+          borderColor: shade("#2e2e2e"),
           borderWidth: 1,
           borderRadius: 14,
           paddingHorizontal: 14,
         }}
       >
         {loading ? (
-          <Text style={{ color: "#94a3b8", fontSize: 15 }}>{t("institutionsLoading")}</Text>
+          <Text style={{ color: shade("#94a3b8"), fontSize: 15 }}>{t("institutionsLoading")}</Text>
         ) : loadFailed ? (
           <TouchableOpacity onPress={() => void loadInstitutions()}>
-            <Text style={{ color: "#fca5a5", fontSize: 13 }}>{t("institutionsLoadFailed")}</Text>
-            <Text style={{ color: "#60a5fa", fontSize: 13, marginTop: 4 }}>{t("retry")}</Text>
+            <Text style={{ color: shade("#fca5a5"), fontSize: 13 }}>{t("institutionsLoadFailed")}</Text>
+            <Text style={{ color: shade("#60a5fa"), fontSize: 13, marginTop: 4 }}>{t("retry")}</Text>
           </TouchableOpacity>
         ) : (
-          <Text style={{ color: "#94a3b8", fontSize: 15 }}>
+          <Text style={{ color: shade("#94a3b8"), fontSize: 15 }}>
             {otherInstitution?.name ?? t("otherPrivateInstitution")}
           </Text>
         )}
@@ -221,12 +224,12 @@ export function InstitutionPicker({
   return (
     <View>
       {loading ? (
-        <Text style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>{t("institutionsLoading")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 13, marginBottom: 8 }}>{t("institutionsLoading")}</Text>
       ) : null}
       {loadFailed ? (
         <TouchableOpacity onPress={() => void loadInstitutions()} style={{ marginBottom: 8 }}>
-          <Text style={{ color: "#fca5a5", fontSize: 13 }}>{t("institutionsLoadFailed")}</Text>
-          <Text style={{ color: "#60a5fa", fontSize: 13, marginTop: 4 }}>{t("retry")}</Text>
+          <Text style={{ color: shade("#fca5a5"), fontSize: 13 }}>{t("institutionsLoadFailed")}</Text>
+          <Text style={{ color: shade("#60a5fa"), fontSize: 13, marginTop: 4 }}>{t("retry")}</Text>
         </TouchableOpacity>
       ) : null}
       {selectedName ? (

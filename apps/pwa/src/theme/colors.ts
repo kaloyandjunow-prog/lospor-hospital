@@ -67,9 +67,20 @@ export const lightColors = {
 export type ColorScheme = "dark" | "light"
 export type Colors = Record<keyof typeof darkColors, string>
 export let colors: Colors = darkColors
+let currentScheme: ColorScheme = "dark"
 
 export function setColorScheme(scheme: ColorScheme) {
   colors = scheme === "light" ? lightColors : darkColors
+  currentScheme = scheme
+}
+
+/**
+ * shadeFor in the current scheme, read when called -- like `colors`. For a
+ * component its parent re-renders on a theme change; a memoised one uses the
+ * useShade hook instead.
+ */
+export function shadeLive(hex: string): string {
+  return shadeFor(currentScheme, hex)
 }
 
 export type ClinicalKind =
@@ -83,3 +94,7 @@ export function clinicalColor(kind: ClinicalKind): string {
 export function withAlpha(hex: string, alpha: string): string {
   return `${hex}${alpha}`
 }
+
+// Theme-following colours for components (1.4.9): see ./shade.
+export { useShade, useThemeRefresh, shadeFor } from "@/theme/shade"
+import { shadeFor } from "@/theme/shade"

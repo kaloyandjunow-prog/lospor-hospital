@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type RefObject } from "react"
+import type { IntraopLabDraw } from "@lospor/core/labs"
 import { FlatList, Platform, View } from "react-native"
 import type { TimetableData, VitalsEntry } from "@/components/IntraopTimetable"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
@@ -20,7 +21,10 @@ type Props = {
   eventRows: Record<number, LogEvent[]>
   activeInfusions: ActiveInfusion[]
   activeFluids: ActiveFluid[]
-  activeAgent: { name: string; color: string; percent?: number } | null
+  activeAgents: { name: string; color: string; percent?: number }[]
+  /** Lab draws placed in chart rows (Core projectLabDraws). */
+  labDraws?: IntraopLabDraw[]
+  onOpenLabs?: (takenAt: string) => void
   activeGas: ActiveGasSettings
   started: boolean
   isWatching: boolean
@@ -31,9 +35,9 @@ type Props = {
   eventText: (event: LogEvent) => string
   buildSummary: (vital: VitalsEntry | undefined, events: LogEvent[]) => RowSummary
   onManageInfusion: (infusion: ActiveInfusion, col?: number) => void
-  onEndFluid: (fluid: ActiveFluid) => void
+  onEndFluid: (fluid: ActiveFluid, col?: number) => void
   onEditGas: (col: number) => void
-  onStopAgent: () => void
+  onStopAgent: (name: string, col?: number) => void
   onQuickAdd: (col: number, action: QuickAddAction) => void
   onJumpToNow: () => void
   onEndCase: () => void
@@ -54,7 +58,9 @@ export function IntraopTimetableTab({
   eventRows,
   activeInfusions,
   activeFluids,
-  activeAgent,
+  activeAgents,
+  labDraws,
+  onOpenLabs,
   activeGas,
   started,
   isWatching,
@@ -96,6 +102,12 @@ export function IntraopTimetableTab({
     return data
   }, [buildSummary, chartRows, eventRows, timetable])
 
+  const labDrawsByCol = useMemo(() => {
+    const byCol = new Map<number, IntraopLabDraw[]>()
+    for (const draw of labDraws ?? []) byCol.set(draw.col, [...(byCol.get(draw.col) ?? []), draw])
+    return byCol
+  }, [labDraws])
+
   const collapseExpandedRow = useCallback(() => onSetExpandedRow(null), [onSetExpandedRow])
 
   const renderRow = useCallback(({ item: col }: { item: number }) => {
@@ -107,6 +119,8 @@ export function IntraopTimetableTab({
     return (
       <TimetableRow
         col={col}
+        labDraws={labDrawsByCol.get(col)}
+        onOpenLabs={onOpenLabs}
         chartStart={chartStart}
         rowHeight={rowHeight}
         isNow={col === currentCol}
@@ -120,7 +134,7 @@ export function IntraopTimetableTab({
         labelOf={eventText}
         activeInfusions={activeInfusions}
         activeFluids={activeFluids}
-        activeAgent={activeAgent}
+        activeAgents={activeAgents}
         activeGas={activeGas}
         onExpand={onSetExpandedRow}
         onCollapse={collapseExpandedRow}
@@ -132,7 +146,9 @@ export function IntraopTimetableTab({
       />
     )
   }, [
-    activeAgent,
+    activeAgents,
+    labDrawsByCol,
+    onOpenLabs,
     activeFluids,
     activeGas,
     activeInfusions,

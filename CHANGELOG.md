@@ -1,5 +1,43 @@
 # Changelog - LOSPOR Hospital
-## [1.4.8] - Unreleased
+## [1.4.9] - Unreleased
+
+Vendors lospor-core 9.12.1 and lospor-api, web and PWA 9.12.0. Browser stays 0.8.0.
+
+### Changed
+
+- The intraoperative chart has one source: the saved event log. On the web,
+  every chart edit becomes events and is checked against the same timeline
+  rules as the PWA and the API. The API refuses rule breaks with a clear
+  message, such as a stop before its start, a vital in the future, or an
+  entry outside the case. The whole-timetable save is retired: PUT on the
+  events list returns 410, and a case save carrying a timetable returns 400.
+- The chart is read at "now". Running items end in the current column.
+  Entries placed after now are planned and shown as markers, including
+  planned stops. Dropping a bar's end grip sets where it stops.
+- Several anaesthetic agents can run at once. Switching agents asks whether
+  to stop the running one.
+- Vitals autofill fills at most the last 30 minutes, never the future or past
+  the end. It pauses after 60 minutes with no entry and asks whether the case
+  is still running. Autofilled rows are tagged.
+- End case lists the entries after the end time, and each must be marked as
+  happened or not before finalising. Resume offers to remove the stops that
+  End case made.
+- Premedication doses are set per route. Every adult range starts at 0, and
+  the paediatric intranasal dexmedetomidine cap is 100 µg. Ranitidine is
+  retired.
+- The PWA has a full light theme that matches the web, including the
+  intraoperative screens.
+
+### Added
+
+- A forgotten case ends automatically. This happens when it started 48 hours
+  ago, nothing has been saved for 48 hours, and no screen is open on it. It
+  ends at its last recorded entry, and the apps show that it was ended
+  automatically. Resume takes the end back. On the appliance, the worker's
+  five-minute sweep does this (migration `20260926120000_intraop_auto_ended`).
+- Lab draws are listed with the intraoperative labs.
+
+## [1.4.8] - 2026-09-25
 
 ### Added
 

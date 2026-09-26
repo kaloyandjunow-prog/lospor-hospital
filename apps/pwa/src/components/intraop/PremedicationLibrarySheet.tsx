@@ -5,6 +5,7 @@ import { Sheet } from "./Sheet"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
+import { useShade } from "@/theme/shade"
 
 type PremedCategory = {
   category: string
@@ -56,6 +57,7 @@ export function PremedicationLibrarySheet({
   onAdd,
   prospectiveGuidanceEnabled,
 }: Props) {
+  const shade = useShade()
   const { language, tc } = usePreferences()
   const drugLabel = (name: string) => displayClinicalCode("option:PREMED_DRUG", name, language, { label: name })
   const groupLabel = (name: string) => displayClinicalCode("optionGroup", name, language, { label: name })
@@ -77,17 +79,17 @@ export function PremedicationLibrarySheet({
             const open = openCategory === cat.category
             return (
               <View key={cat.category} style={{ marginBottom:6, borderRadius:10, overflow:"hidden",
-                borderWidth:1, borderColor:"#1e2d40" }}>
+                borderWidth:1, borderColor:shade("#1e2d40") }}>
                 <TouchableOpacity
                   onPress={() => onToggleCategory(cat.category)}
                   style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center",
-                    paddingHorizontal:14, paddingVertical:12, backgroundColor:"#111820" }}>
-                  <Text style={{ color:"#cbd5e1", fontSize:13, fontWeight:"700" }}>{groupLabel(cat.category)}</Text>
-                  <Text style={{ color:"#64748b" }}>{open ? "⌃" : "⌄"}</Text>
+                    paddingHorizontal:14, paddingVertical:12, backgroundColor:shade("#111820") }}>
+                  <Text style={{ color:shade("#cbd5e1"), fontSize:13, fontWeight:"700" }}>{groupLabel(cat.category)}</Text>
+                  <Text style={{ color:shade("#64748b") }}>{open ? "⌃" : "⌄"}</Text>
                 </TouchableOpacity>
                 {open && (
                   <View style={{ paddingHorizontal:12, paddingBottom:10, paddingTop:4,
-                    backgroundColor:"#0d1520", flexDirection:"row", flexWrap:"wrap", gap:8 }}>
+                    backgroundColor:shade("#0d1520"), flexDirection:"row", flexWrap:"wrap", gap:8 }}>
                     {cat.drugs.map(item => {
                       const annotation = (item as PediatricPremedDrug).pediatric
                       const withheld = annotation?.kind === "withheld"
@@ -100,13 +102,13 @@ export function PremedicationLibrarySheet({
                           }}
                           style={{ paddingHorizontal:12, paddingVertical:8, borderRadius:9,
                             opacity: withheld ? 0.55 : 1,
-                            backgroundColor: withheld ? "#241a1a" : "#1e2d40",
-                            borderWidth:1, borderColor: withheld ? "#7c2d12" : "#2a3a50" }}>
-                          <Text style={{ color: withheld ? "#fca5a5" : "#93c5fd", fontSize:12, fontWeight:"700" }}>
+                            backgroundColor: withheld ? shade("#241a1a") : shade("#1e2d40"),
+                            borderWidth:1, borderColor: withheld ? shade("#7c2d12") : shade("#2a3a50") }}>
+                          <Text style={{ color: withheld ? shade("#fca5a5") : shade("#93c5fd"), fontSize:12, fontWeight:"700" }}>
                             {drugLabel(item.name)}
                           </Text>
                           {pediatricStatus(annotation) || prospectiveGuidanceEnabled ? (
-                            <Text style={{ color: withheld ? "#f87171" : "#64748b", fontSize:10, marginTop:2 }}>
+                            <Text style={{ color: withheld ? shade("#f87171") : shade("#64748b"), fontSize:10, marginTop:2 }}>
                               {pediatricStatus(annotation) ?? `${item.dose} ${item.unit}`}
                             </Text>
                           ) : null}
@@ -122,51 +124,51 @@ export function PremedicationLibrarySheet({
       ) : (
         <View style={{ gap:14 }}>
           <TouchableOpacity onPress={onBackToLibrary}>
-            <Text style={{ color:"#94a3b8", fontSize:13 }}>{backLabel}</Text>
+            <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{backLabel}</Text>
           </TouchableOpacity>
-          <Text style={{ color:"#f8fafc", fontSize:16, fontWeight:"700" }}>{drugLabel(drug.name)}</Text>
+          <Text style={{ color:shade("#f8fafc"), fontSize:16, fontWeight:"700" }}>{drugLabel(drug.name)}</Text>
 
           <View>
-            <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700", textTransform:"uppercase",
+            <Text style={{ color:shade("#64748b"), fontSize:11, fontWeight:"700", textTransform:"uppercase",
               letterSpacing:1, marginBottom:8 }}>{formatMessage(tc("doseLabel"), { unit: drug.unit })}</Text>
             <View style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
               {prospectiveGuidanceEnabled ? <TouchableOpacity
                 onPress={() => onDoseChange(adjustDose(drug, dose, -1))}
-                style={{ width:44, height:44, borderRadius:10, backgroundColor:"#1e2d40", alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#2a3a50" }}>
-                <Text style={{ color:"#93c5fd", fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>-</Text>
+                style={{ width:44, height:44, borderRadius:10, backgroundColor:shade("#1e2d40"), alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:shade("#2a3a50") }}>
+                <Text style={{ color:shade("#93c5fd"), fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>-</Text>
               </TouchableOpacity> : null}
               <TextInput
-                style={{ flex:1, minWidth:0, backgroundColor:"#111111", color:"#fff", borderRadius:10,
+                style={{ flex:1, minWidth:0, backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10,
                   padding: Platform.OS === "web" ? 9 : 12,
                   fontSize: Platform.OS === "web" ? 18 : 22,
-                  borderWidth:1, borderColor:"#3e3e3e", textAlign:"center" }}
+                  borderWidth:1, borderColor:shade("#3e3e3e"), textAlign:"center" }}
                 keyboardType="decimal-pad"
                 value={dose}
                 onChangeText={onDoseChange}
               />
               {prospectiveGuidanceEnabled ? <TouchableOpacity
                 onPress={() => onDoseChange(adjustDose(drug, dose, 1))}
-                style={{ width:44, height:44, borderRadius:10, backgroundColor:"#1e2d40", alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#2a3a50" }}>
-                <Text style={{ color:"#93c5fd", fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>+</Text>
+                style={{ width:44, height:44, borderRadius:10, backgroundColor:shade("#1e2d40"), alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:shade("#2a3a50") }}>
+                <Text style={{ color:shade("#93c5fd"), fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>+</Text>
               </TouchableOpacity> : null}
             </View>
             {prospectiveGuidanceEnabled && !!drug.hint && (
-              <Text style={{ color:"#475569", fontSize:11, marginTop:6 }}>{drug.hint}</Text>
+              <Text style={{ color:shade("#475569"), fontSize:11, marginTop:6 }}>{drug.hint}</Text>
             )}
             {prospectiveGuidanceEnabled && pediatricAnnotation?.kind === "calculated" && (
-              <Text style={{ color:"#38bdf8", fontSize:11, marginTop:4 }}>
+              <Text style={{ color:shade("#38bdf8"), fontSize:11, marginTop:4 }}>
                 {pediatricAnnotation.perKg} {pediatricAnnotation.unit}/kg × {pediatricAnnotation.weightUsedKg} kg
                 {pediatricAnnotation.basis === "IBW" ? ` (${tc("premedIdealWeight")})` : ""}
                 {pediatricAnnotation.capped ? ` — ${tc("premedCappedAt")} ${pediatricAnnotation.cap} ${pediatricAnnotation.unit}` : ""}
               </Text>
             )}
             {pediatricAnnotation && pediatricAnnotation.kind !== "calculated" && (
-              <Text style={{ color:"#fbbf24", fontSize:11, marginTop:4 }}>{pediatricStatus(pediatricAnnotation)}</Text>
+              <Text style={{ color:shade("#fbbf24"), fontSize:11, marginTop:4 }}>{pediatricStatus(pediatricAnnotation)}</Text>
             )}
           </View>
 
           <View>
-            <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700", textTransform:"uppercase",
+            <Text style={{ color:shade("#64748b"), fontSize:11, fontWeight:"700", textTransform:"uppercase",
               letterSpacing:1, marginBottom:8 }}>{tc("doseRoute")}</Text>
             <View style={{ flexDirection:"row", gap:8 }}>
               {drug.routes.map(item => (
@@ -175,9 +177,9 @@ export function PremedicationLibrarySheet({
                   if (!prospectiveGuidanceEnabled) onDoseChange("")
                 }}
                   style={{ flex:1, paddingVertical:10, borderRadius:8, alignItems:"center",
-                    backgroundColor: route === item ? "#1e3a5f" : "#111111",
-                    borderWidth:1, borderColor: route === item ? "#3b82f6" : "#2a3a4a" }}>
-                  <Text style={{ color: route === item ? "#93c5fd" : "#64748b",
+                    backgroundColor: route === item ? shade("#1e3a5f") : shade("#111111"),
+                    borderWidth:1, borderColor: route === item ? shade("#3b82f6") : shade("#2a3a4a") }}>
+                  <Text style={{ color: route === item ? shade("#93c5fd") : shade("#64748b"),
                     fontWeight:"700", fontSize:13 }}>{item}</Text>
                 </TouchableOpacity>
               ))}
@@ -187,9 +189,9 @@ export function PremedicationLibrarySheet({
           <TouchableOpacity
             onPress={onAdd}
             disabled={!dose}
-            style={{ backgroundColor: dose ? "#1e3a5f" : "#111111", borderRadius:12,
-              padding:16, alignItems:"center", borderWidth:1, borderColor:"#3b82f6" }}>
-            <Text style={{ color:"#93c5fd", fontWeight:"700", fontSize:15 }}>
+            style={{ backgroundColor: dose ? shade("#1e3a5f") : shade("#111111"), borderRadius:12,
+              padding:16, alignItems:"center", borderWidth:1, borderColor:shade("#3b82f6") }}>
+            <Text style={{ color:shade("#93c5fd"), fontWeight:"700", fontSize:15 }}>
               {formatMessage(tc("premedAddTo"), { phase: phaseLabel.toLocaleLowerCase(language === "bg" ? "bg-BG" : "en-GB") })}
             </Text>
           </TouchableOpacity>

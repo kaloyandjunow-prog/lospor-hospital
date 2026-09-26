@@ -16,6 +16,7 @@ import { VitalStepper } from "@/components/VitalStepper"
 import { usePreferences } from "@/lib/preferences-context"
 import type { DrugFormulation } from "@/lib/intraop-log-event"
 import { FeedbackPressable } from "./FeedbackPressable"
+import { useShade } from "@/theme/shade"
 
 // One reused dose-entry block for drugs (bolus), infusions, fluids, and agents.
 // Medication quick values and the established slider/+/- controls remain visible
@@ -87,6 +88,7 @@ export function DoseSelector({
   formulationOptions, formulation, onFormulationChange,
   confirmLabel, onConfirm, confirmDisabled,
 }: DoseSelectorProps) {
+  const shade = useShade()
   const { language, tc } = usePreferences()
   const precision = precisionProp ?? (() => {
     const s = String(step)
@@ -166,7 +168,7 @@ export function DoseSelector({
 
       {showConcentration && (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseConcentration")}</Text>
+          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseConcentration")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {visibleConcentrations.map((c, index) => (
               <TouchableOpacity
@@ -179,8 +181,8 @@ export function DoseSelector({
                   onConcentrationChange?.(concentration === c && !customConcentrationActive ? undefined : c)
                 }}
                 style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                  backgroundColor: !customConcentrationActive && concentration === c ? "#0ea5e9" : "#0ea5e91a", borderColor: "#0ea5e955" }}>
-                <Text style={{ color: !customConcentrationActive && concentration === c ? "#fff" : "#0ea5e9", fontWeight: "700", fontSize: 13 }}>{c}</Text>
+                  backgroundColor: !customConcentrationActive && concentration === c ? shade("#0ea5e9") : shade("#0ea5e91a"), borderColor: shade("#0ea5e955") }}>
+                <Text style={{ color: !customConcentrationActive && concentration === c ? shade("#fff") : shade("#0ea5e9"), fontWeight: "700", fontSize: 13 }}>{c}</Text>
               </TouchableOpacity>
             ))}
             {onCustomConcentrationChange ? (
@@ -190,9 +192,9 @@ export function DoseSelector({
                 accessibilityState={{ selected: customConcentrationActive }}
                 onPress={() => onCustomConcentrationChange(customConcentrationActive ? undefined : "")}
                 style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                  backgroundColor: customConcentrationActive ? "#0ea5e9" : "#0ea5e91a", borderColor: "#0ea5e955" }}
+                  backgroundColor: customConcentrationActive ? shade("#0ea5e9") : shade("#0ea5e91a"), borderColor: shade("#0ea5e955") }}
               >
-                <Text style={{ color: customConcentrationActive ? "#fff" : "#0ea5e9", fontWeight: "700", fontSize: 13 }}>{tc("doseOther")}</Text>
+                <Text style={{ color: customConcentrationActive ? shade("#fff") : shade("#0ea5e9"), fontWeight: "700", fontSize: 13 }}>{tc("doseOther")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -206,9 +208,9 @@ export function DoseSelector({
                 disabled={concentrationPage === 0}
                 onPress={() => setConcentrationPage(page => Math.max(0, page - 1))}
               >
-                <Text style={{ color: concentrationPage === 0 ? "#334155" : "#94a3b8", fontSize: 18 }}>{"<"}</Text>
+                <Text style={{ color: concentrationPage === 0 ? shade("#334155") : shade("#94a3b8"), fontSize: 18 }}>{"<"}</Text>
               </TouchableOpacity>
-              <Text testID="concentration-page-indicator" style={{ color: "#64748b", fontSize: 10 }}>
+              <Text testID="concentration-page-indicator" style={{ color: shade("#64748b"), fontSize: 10 }}>
                 {concentrationPage + 1}/{concentrationPageCount}
               </Text>
               <TouchableOpacity
@@ -219,7 +221,7 @@ export function DoseSelector({
                 disabled={concentrationPage >= concentrationPageCount - 1}
                 onPress={() => setConcentrationPage(page => Math.min(concentrationPageCount - 1, page + 1))}
               >
-                <Text style={{ color: concentrationPage >= concentrationPageCount - 1 ? "#334155" : "#94a3b8", fontSize: 18 }}>{">"}</Text>
+                <Text style={{ color: concentrationPage >= concentrationPageCount - 1 ? shade("#334155") : shade("#94a3b8"), fontSize: 18 }}>{">"}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -229,10 +231,10 @@ export function DoseSelector({
               value={customConcentration}
               onChangeText={onCustomConcentrationChange}
               placeholder={tc("doseCustomConcentration")}
-              placeholderTextColor="#475569"
+              placeholderTextColor={shade("#475569")}
               autoFocus
-              style={{ marginTop: 8, backgroundColor: "#111820", color: "#e2e8f0", borderRadius: 9,
-                borderWidth: 1, borderColor: "#0ea5e955", paddingHorizontal: 11, paddingVertical: 8 }}
+              style={{ marginTop: 8, backgroundColor: shade("#111820"), color: shade("#e2e8f0"), borderRadius: 9,
+                borderWidth: 1, borderColor: shade("#0ea5e955"), paddingHorizontal: 11, paddingVertical: 8 }}
             />
           ) : null}
         </View>
@@ -240,7 +242,7 @@ export function DoseSelector({
 
       {formulationOptions && formulationOptions.length > 0 ? (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseFormulation")}</Text>
+          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseFormulation")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {formulationOptions.map(option => (
               <TouchableOpacity
@@ -250,9 +252,9 @@ export function DoseSelector({
                 accessibilityState={{ selected: formulation === option }}
                 onPress={() => onFormulationChange?.(formulation === option ? undefined : option)}
                 style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, borderWidth: 1,
-                  backgroundColor: formulation === option ? "#475569" : "transparent", borderColor: "#475569" }}
+                  backgroundColor: formulation === option ? shade("#475569") : "transparent", borderColor: shade("#475569") }}
               >
-                <Text style={{ color: formulation === option ? "#fff" : "#94a3b8", fontWeight: "700", fontSize: 12 }}>
+                <Text style={{ color: formulation === option ? shade("#fff") : shade("#94a3b8"), fontWeight: "700", fontSize: 12 }}>
                   {formulationLabel(option)}
                 </Text>
               </TouchableOpacity>
@@ -274,8 +276,8 @@ export function DoseSelector({
                 accessibilityState={{ selected }}
                 onPress={() => onRouteChange?.(routeValue)}
                 style={{ maxWidth: "100%", flexShrink: 1, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18, borderWidth: 1,
-                  backgroundColor: selected ? "#475569" : "transparent", borderColor: "#475569" }}>
-                <Text numberOfLines={2} style={{ color: selected ? "#fff" : "#94a3b8", fontWeight: "700", fontSize: 12 }}>
+                  backgroundColor: selected ? shade("#475569") : "transparent", borderColor: shade("#475569") }}>
+                <Text numberOfLines={2} style={{ color: selected ? shade("#fff") : shade("#94a3b8"), fontWeight: "700", fontSize: 12 }}>
                   {canonical ? administrationRouteLabel(canonical, language) : raw}
                 </Text>
               </TouchableOpacity>
@@ -296,7 +298,7 @@ export function DoseSelector({
               onPress={() => onValueChange(String(preset))}
               style={{ paddingHorizontal: 22, paddingVertical: 16, borderRadius: 12,
                 backgroundColor: selectedPreset === preset ? color : color + "1a", borderWidth: 1, borderColor: color }}>
-              <Text style={{ color: selectedPreset === preset ? "#fff" : color, fontWeight: "700", fontSize: 18 }}>{preset}</Text>
+              <Text style={{ color: selectedPreset === preset ? shade("#fff") : color, fontWeight: "700", fontSize: 18 }}>{preset}</Text>
             </TouchableOpacity>
           ))}
           </View>
@@ -310,9 +312,9 @@ export function DoseSelector({
                 disabled={presetPage === 0}
                 onPress={() => setPresetPage(page => Math.max(0, page - 1))}
               >
-                <Text style={{ color: presetPage === 0 ? "#334155" : "#94a3b8", fontSize: 18 }}>{"<"}</Text>
+                <Text style={{ color: presetPage === 0 ? shade("#334155") : shade("#94a3b8"), fontSize: 18 }}>{"<"}</Text>
               </TouchableOpacity>
-              <Text testID={medicationPresets ? "dose-page-indicator" : "volume-preset-page-indicator"} style={{ color: "#64748b", fontSize: 10 }}>
+              <Text testID={medicationPresets ? "dose-page-indicator" : "volume-preset-page-indicator"} style={{ color: shade("#64748b"), fontSize: 10 }}>
                 {presetPage + 1}/{presetPageCount}
               </Text>
               <TouchableOpacity
@@ -323,7 +325,7 @@ export function DoseSelector({
                 disabled={presetPage >= presetPageCount - 1}
                 onPress={() => setPresetPage(page => Math.min(presetPageCount - 1, page + 1))}
               >
-                <Text style={{ color: presetPage >= presetPageCount - 1 ? "#334155" : "#94a3b8", fontSize: 18 }}>{">"}</Text>
+                <Text style={{ color: presetPage >= presetPageCount - 1 ? shade("#334155") : shade("#94a3b8"), fontSize: 18 }}>{">"}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -339,12 +341,12 @@ export function DoseSelector({
               onChangeText={onValueChange}
               keyboardType="decimal-pad"
               placeholder={valuePlaceholder}
-              placeholderTextColor="#475569"
-              style={{ flex: 1, backgroundColor: "#111820", color: "#e2e8f0", borderRadius: 9,
-                borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 11,
+              placeholderTextColor={shade("#475569")}
+              style={{ flex: 1, backgroundColor: shade("#111820"), color: shade("#e2e8f0"), borderRadius: 9,
+                borderWidth: 1, borderColor: shade("#334155"), paddingHorizontal: 12, paddingVertical: 11,
                 textAlign: "center", fontSize: 16, fontWeight: "700" }}
             />
-            {unitSuffix ? <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "700" }}>{unitSuffix}</Text> : null}
+            {unitSuffix ? <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700" }}>{unitSuffix}</Text> : null}
           </View>
         ) : (
           <VitalStepper
@@ -362,18 +364,18 @@ export function DoseSelector({
             <TouchableOpacity key={u} onPress={() => onUnitChange?.(u)}
               style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
                 backgroundColor: unit === u ? color : color + "1a", borderWidth: 1, borderColor: color + "55" }}>
-              <Text style={{ color: unit === u ? "#fff" : color, fontWeight: "700" }}>{u}</Text>
+              <Text style={{ color: unit === u ? shade("#fff") : color, fontWeight: "700" }}>{u}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      {extraHint && <Text style={{ color: "#f59e0b", fontSize: 11, marginBottom: 14 }}>{extraHint}</Text>}
+      {extraHint && <Text style={{ color: shade("#f59e0b"), fontSize: 11, marginBottom: 14 }}>{extraHint}</Text>}
 
       {confirmLabel && onConfirm && (
         <FeedbackPressable onPress={onConfirm} disabled={confirmDisabled}
-          style={{ backgroundColor: confirmDisabled ? "#1e2d40" : color, borderRadius: 14, padding: 18, alignItems: "center" }}>
-          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>{confirmLabel}</Text>
+          style={{ backgroundColor: confirmDisabled ? shade("#1e2d40") : color, borderRadius: 14, padding: 18, alignItems: "center" }}>
+          <Text style={{ color: shade("#fff"), fontSize: 16, fontWeight: "700" }}>{confirmLabel}</Text>
         </FeedbackPressable>
       )}
     </View>

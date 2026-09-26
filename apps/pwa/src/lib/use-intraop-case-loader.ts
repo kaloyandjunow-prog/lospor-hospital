@@ -8,7 +8,8 @@ import { autosaveManager } from "@/lib/autosave-manager"
 import { buildLoadedIntraopCaseState } from "@/lib/intraop-case-hydration"
 import type { MonitoringOption } from "@/lib/intraop-option-mappers"
 import type { TimetableData } from "@/components/IntraopTimetable"
-import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@/lib/intraop-log-event"
+import type { LogEvent } from "@/lib/intraop-log-event"
+import type { rebuildActiveState } from "@/lib/intraop-active-state"
 import type { VascularEntry } from "@/lib/intraop-types"
 import type { LabResult } from "@/lib/labs"
 import type { IntraopPreopSummary } from "@/lib/intraop-preop-summary"
@@ -79,10 +80,10 @@ type UseIntraopCaseLoaderArgs = {
   setSyncErrorMessage: Dispatch<SetStateAction<string | null>>
   setLog: Dispatch<SetStateAction<LogEvent[]>>
   setElapsedMs: Dispatch<SetStateAction<number>>
-  setActiveInfusions: Dispatch<SetStateAction<ActiveInfusion[]>>
-  setActiveFluids: Dispatch<SetStateAction<ActiveFluid[]>>
-  setActiveAgent: Dispatch<SetStateAction<{ name: string; color: string; percent?: number } | null>>
-  setActiveGas: Dispatch<SetStateAction<ActiveGasSettings>>
+  /** Sets every running item (infusions, fluids, agents, gas) at once. */
+  applyActiveState: (active: ReturnType<typeof rebuildActiveState>) => void
+  /** The case end once ended; the chart is read there. */
+  endedAtRef: MutableRefObject<Date | null>
   setTimetable: Dispatch<SetStateAction<TimetableData>>
   setTtColCount: Dispatch<SetStateAction<number>>
   setCaseLoaded: Dispatch<SetStateAction<boolean>>
@@ -139,10 +140,8 @@ export function useIntraopCaseLoader({
   setSyncErrorMessage,
   setLog,
   setElapsedMs,
-  setActiveInfusions,
-  setActiveFluids,
-  setActiveAgent,
-  setActiveGas,
+  applyActiveState,
+  endedAtRef,
   setTimetable,
   setTtColCount,
   setCaseLoaded,
@@ -242,11 +241,10 @@ export function useIntraopCaseLoader({
         const loadedTimetable = hydrated.loadedTimetable
         startRef.current = loadedTimetable.startDate
         if (loadedTimetable.startDate) setElapsedMs(loadedTimetable.elapsedMs)
-        const active = hydrated.active
-        setActiveInfusions(active.infusions)
-        setActiveFluids(active.fluids)
-        setActiveAgent(active.agent)
-        setActiveGas(active.gas)
+        endedAtRef.current = hydrated.endedAt
+        applyActiveState(hydrated.active)
+        // Ended automatically 48 hours after it started: say so once on open.
+        if (!silent && data.intraop?.autoEndedAt) notify(tc("tfEndCase"), tc("autoEndedNotice"))
         if (loadedTimetable.timetable) {
           setTimetable(loadedTimetable.timetable)
           setTtColCount(loadedTimetable.columnCount)
@@ -267,10 +265,8 @@ export function useIntraopCaseLoader({
     monitoringOptions,
     pendingSaveCountRef,
     runBatched,
-    setActiveAgent,
-    setActiveFluids,
-    setActiveGas,
-    setActiveInfusions,
+    applyActiveState,
+    endedAtRef,
     setAdvMonOpen,
     setAwClGrade,
     setAwDevices,

@@ -7,7 +7,7 @@ import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 import type { EhrLabValue, EhrTagValue } from "@lospor/core/ehr-import"
 import { notify } from "@/lib/notify"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 
 /**
@@ -121,6 +121,7 @@ export function EhrImportPanel({
   plan, identityUnverified, unreadSources = [], current, currentClinicalMode, labelFor,
   onAccept, onDecline, onRequestModeChange, onClose,
 }: Props) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const [selected, setSelected] = useState<Set<string>>(() => new Set(plan.preselectedKeys))
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -322,7 +323,7 @@ export function EhrImportPanel({
             paddingVertical: 14, alignItems: "center",
           }}
         >
-          <Text style={{ color: selected.size === 0 ? colors.textMuted : "#fff", fontSize: 15, fontWeight: "900" }}>
+          <Text style={{ color: selected.size === 0 ? colors.textMuted : shade("#fff"), fontSize: 15, fontWeight: "900" }}>
             {tc("ehrAccept")} ({selected.size})
           </Text>
         </Pressable>

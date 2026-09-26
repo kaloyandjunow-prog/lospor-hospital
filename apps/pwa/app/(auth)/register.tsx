@@ -35,7 +35,7 @@ type FormValues = RegistrationFormValues
 
 function RegistrationFormScreen() {
   const router = useRouter()
-  const { language, t } = usePreferences()
+  const { language, t, shade } = usePreferences()
   const schema = useMemo(() => createRegistrationSchema(t), [t])
   const legalDocuments = useRegistrationLegalDocuments(language)
   const titleOptions = useMemo(() => PROFESSIONAL_TITLES.map(title => ({
@@ -259,7 +259,7 @@ function RegistrationFormScreen() {
               )}
             />
           ) : (
-            <Text style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+            <Text style={{ color: shade("#64748b"), fontSize: 13, marginBottom: 16 }}>
               {t("selectCountryForInstitution")}
             </Text>
           )}
@@ -268,11 +268,11 @@ function RegistrationFormScreen() {
           <SectionHeader title={t("termsSection")} />
 
           {legalDocuments.loading ? (
-            <Text style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>
+            <Text style={{ color: shade("#94a3b8"), fontSize: 13, marginBottom: 12 }}>
               {t("legalDocumentsLoading")}
             </Text>
           ) : legalDocuments.failed ? (
-            <Text accessibilityRole="alert" style={{ color: "#fca5a5", fontSize: 13, marginBottom: 12 }}>
+            <Text accessibilityRole="alert" style={{ color: shade("#fca5a5"), fontSize: 13, marginBottom: 12 }}>
               {t("legalDocumentsUnavailable")}
             </Text>
           ) : null}

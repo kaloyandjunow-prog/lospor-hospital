@@ -1,4 +1,6 @@
 import { isPediatricAge, type PediatricAgeUnit } from "./pediatric"
+import { intraopEventsAfter } from "./intraop-commands"
+import { parseLogEvents } from "./intraop-types"
 
 export type ClinicalSection = "preop" | "intraop" | "postop"
 export type ClinicalIssueSeverity = "error" | "warning"
@@ -24,6 +26,7 @@ export type ClinicalIssueCode =
   | "missing_intraop"
   | "missing_start_time"
   | "missing_end_time"
+  | "entries_after_case_end"
   | "missing_technique"
   | "missing_airway_documentation"
   | "missing_position"
@@ -405,6 +408,18 @@ export function evaluatePreopReadiness(preop: Record<string, unknown> | null | u
   return { valid: issues.length === 0, issues }
 }
 
+function hasEntriesAfterEnd(intraop: Record<string, unknown>): boolean {
+  const endedAt = intraop.endedAt
+  if (!(typeof endedAt === "string" || endedAt instanceof Date)) return false
+  const keyEvents = intraop.keyEvents
+  const raw = Array.isArray(keyEvents)
+    ? keyEvents
+    : keyEvents && typeof keyEvents === "object" && Array.isArray((keyEvents as { log?: unknown }).log)
+      ? (keyEvents as { log: unknown[] }).log
+      : []
+  return intraopEventsAfter(parseLogEvents(raw), endedAt).length > 0
+}
+
 export function evaluateIntraopReadiness(
   intraop: Record<string, unknown> | null | undefined,
 ): ClinicalReadinessResult {
@@ -573,6 +588,11 @@ export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalVal
     }
   }
   issues.push(...evaluateIntraopReadiness(input.intraop).issues)
+  // Nothing may remain after the end (1.4.9): a planned entry still dated after
+  // the case end is resolved at End case (happened or not) before finalising.
+  if (input.intraop && hasEntriesAfterEnd(input.intraop)) {
+    issues.push(issue("entries_after_case_end", "intraop.keyEvents"))
+  }
   issues.push(...evaluatePostopReadiness(input.postop).issues)
   return { valid: issues.every(candidate => candidate.severity !== "error"), issues }
 }

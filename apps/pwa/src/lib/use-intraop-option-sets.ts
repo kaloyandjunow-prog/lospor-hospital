@@ -27,7 +27,7 @@ export function useIntraopOptionSets(
   activePreset: ActiveClinicalPreset = null,
   prospectiveGuidanceEnabled = false,
 ) {
-  const { language } = usePreferences()
+  const { language, tc } = usePreferences()
   const intraopOptions = useIntraopOptions(
     adultDoseProfiles,
     pediatricDrugProfiles,
@@ -62,9 +62,12 @@ export function useIntraopOptionSets(
   const { options: premedLibOpts } = useOptionLibrary("PREMED_DRUG")
   const PREMED_LIBRARY = useMemo(() => mapPremedicationCategories(premedLibOpts), [premedLibOpts])
 
-  const eventLabel = useCallback((ev: LogEvent, prevVital?: LogEvent): { text: string; color: string; sub?: string } =>
-    buildEventLabel(ev, prevVital, { drugColor, clinicalEventColor }),
-  [clinicalEventColor, drugColor])
+  // Auto-filled vitals are copies, not readings: the log says so.
+  const autoFilledTag = tc("autoFilledTag")
+  const eventLabel = useCallback((ev: LogEvent, prevVital?: LogEvent): { text: string; color: string; sub?: string } => {
+    const label = buildEventLabel(ev, prevVital, { drugColor, clinicalEventColor })
+    return ev.autoFilled ? { ...label, text: `${label.text} · ${autoFilledTag}` } : label
+  }, [autoFilledTag, clinicalEventColor, drugColor])
 
   const techniqueLabel = useCallback((value: string): string =>
     techniqueDisplayLabel(value, TECHNIQUE_TREE),

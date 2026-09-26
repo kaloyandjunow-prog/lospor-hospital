@@ -1,6 +1,6 @@
 import React from "react"
 import { ActivityIndicator, Pressable, Text, View } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 
 export function ScreenState({
@@ -16,6 +16,7 @@ export function ScreenState({
   onAction?: () => void
   loading?: boolean
 }) {
+  useThemeRefresh()
   return (
     <View style={{ alignItems: "center", paddingHorizontal: 28, paddingTop: 72, gap: 10 }}>
       {loading && <ActivityIndicator color={colors.primary} />}
@@ -59,6 +60,7 @@ export function WorkflowPill({
   onPress: () => void
   testID?: string
 }) {
+  useThemeRefresh()
   return (
     <Pressable
       onPress={onPress}
@@ -94,6 +96,7 @@ export function ActionTile({
   flex?: number
   disabled?: boolean
 }) {
+  useThemeRefresh()
   return (
     <Pressable
       onPress={onPress}

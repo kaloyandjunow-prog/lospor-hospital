@@ -6,6 +6,7 @@ import { LabScanPanel } from "@/components/LabScanPanel"
 import { ManualLabPanel } from "@/components/preop/ManualLabPanel"
 import { usePreferences } from "@/lib/preferences-context"
 import { abnormalSummary, groupLabsByDraw, type LabResult } from "@/lib/labs"
+import { useShade } from "@/theme/shade"
 
 /**
  * Laboratory results drawn during the case.
@@ -39,6 +40,7 @@ type Props = {
 export function LabsSheet({
   visible, takenAt, value, title, onClose, onChange, onEnsureCase, importPanel,
 }: Props) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const [showScan, setShowScan] = useState(false)
 
@@ -76,16 +78,16 @@ export function LabsSheet({
       <View style={{ gap: 14 }}>
         {summary.shown.length > 0 ? (
           <View style={{ gap: 6 }}>
-            <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <Text style={{ color: shade("#64748b"), fontSize: 11, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
               {tc("labsLatestDraw")}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {summary.shown.map(item => {
                 const tone = item.severity === "critical"
-                  ? { bg: "#dc262633", fg: "#fca5a5", border: "#dc2626" }
+                  ? { bg: shade("#dc262633"), fg: shade("#fca5a5"), border: shade("#dc2626") }
                   : item.severity === "normal"
-                    ? { bg: "#111827", fg: "#94a3b8", border: "#1f2937" }
-                    : { bg: "#78350f44", fg: "#fcd34d", border: "#d97706" }
+                    ? { bg: shade("#111827"), fg: shade("#94a3b8"), border: shade("#1f2937") }
+                    : { bg: shade("#78350f44"), fg: shade("#fcd34d"), border: shade("#d97706") }
                 return (
                   <View
                     key={`${item.result.test}-${item.result.takenAt ?? ""}`}
@@ -101,7 +103,7 @@ export function LabsSheet({
                 )
               })}
               {summary.hiddenCount > 0 ? (
-                <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "700", alignSelf: "center" }}>
+                <Text style={{ color: shade("#64748b"), fontSize: 11, fontWeight: "700", alignSelf: "center" }}>
                   +{summary.hiddenCount}
                 </Text>
               ) : null}
@@ -123,11 +125,11 @@ export function LabsSheet({
           <FeedbackPressable
             onPress={() => setShowScan(true)}
             style={{
-              borderRadius: 12, borderWidth: 1, borderColor: "#334155",
-              backgroundColor: "#111827", paddingVertical: 12, alignItems: "center",
+              borderRadius: 12, borderWidth: 1, borderColor: shade("#334155"),
+              backgroundColor: shade("#111827"), paddingVertical: 12, alignItems: "center",
             }}
           >
-            <Text style={{ color: "#93c5fd", fontWeight: "800", fontSize: 13 }}>
+            <Text style={{ color: shade("#93c5fd"), fontWeight: "800", fontSize: 13 }}>
               {tc("lspScanLabReport")}
             </Text>
           </FeedbackPressable>
@@ -145,18 +147,18 @@ export function LabsSheet({
 
         {priorDraws.length > 0 ? (
           <View style={{ gap: 8 }}>
-            <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <Text style={{ color: shade("#64748b"), fontSize: 11, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
               {tc("ehrEarlierResults")}
             </Text>
             {priorDraws.map(draw => (
               <View
                 key={draw.takenAt ?? "undated"}
-                style={{ backgroundColor: "#111827", borderRadius: 12, borderWidth: 1, borderColor: "#1f2937", padding: 10, gap: 4 }}
+                style={{ backgroundColor: shade("#111827"), borderRadius: 12, borderWidth: 1, borderColor: shade("#1f2937"), padding: 10, gap: 4 }}
               >
-                <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800" }}>
+                <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800" }}>
                   {draw.takenAt ? new Date(draw.takenAt).toISOString().substring(11, 16) : tc("ehrUndated")}
                 </Text>
-                <Text style={{ color: "#cbd5e1", fontSize: 12 }} numberOfLines={2}>
+                <Text style={{ color: shade("#cbd5e1"), fontSize: 12 }} numberOfLines={2}>
                   {draw.results.map(r => `${r.test} ${r.value}${r.unit ? ` ${r.unit}` : ""}`).join(" · ")}
                 </Text>
               </View>

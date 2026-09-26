@@ -4,6 +4,7 @@ import { SectionCard } from "@/components/forms/shared/SectionCard"
 import {
   PremedicationPicker,
   type PremDoseCfg,
+  type PremedRouteView,
   type PremedAnnotation,
   type PremedCat,
 } from "@/components/intraop/PremedicationPicker"
@@ -21,7 +22,7 @@ export function PremedicationSection({
   prospectiveGuidanceEnabled: boolean
   /** Paediatric provenance per drug; empty in adult mode. */
   premedAnnotations?: Record<string, PremedAnnotation>
-  premedDoseForRoute?: (drug: string, route: string) => number | null
+  premedDoseForRoute?: (drug: string, route: string) => PremedRouteView | null
 }) {
   return (
     <SectionCard title={t("intraop.premedicationSection")} collapsible defaultCollapsed

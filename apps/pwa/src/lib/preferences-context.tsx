@@ -10,6 +10,8 @@ import React, {
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
 import { setColorScheme, type ColorScheme } from "@/theme/colors"
+import { ThemeSchemeContext } from "@/theme/theme-context"
+import { shadeFor } from "@/theme/shade"
 import { CLINICAL_STRINGS, type ClinicalStringKey } from "@/i18n/clinical-strings"
 import {
   DEFAULT_APP_LANGUAGE,
@@ -57,6 +59,8 @@ type ClinicalStringsMap = Record<ClinicalStringKey, string>
 type PreferencesContextValue = {
   language: AppLanguage
   theme: ColorScheme
+  /** A colour written for dark, as the current theme shows it (see @/theme/shade). */
+  shade: (hex: string) => string
   preopLayout: "sections" | "scroll"
   heightUnit: HeightUnit
   weightUnit: WeightUnit
@@ -315,6 +319,7 @@ export function PreferencesProvider({
   const value = useMemo<PreferencesContextValue>(() => ({
     language,
     theme,
+    shade: (hex: string) => shadeFor(theme, hex),
     preopLayout,
     heightUnit: clinicalPreferences.units.height,
     weightUnit: clinicalPreferences.units.weight,
@@ -366,7 +371,9 @@ export function PreferencesProvider({
 
   return (
     <PreferencesContext.Provider value={value}>
-      {children}
+      <ThemeSchemeContext.Provider value={theme}>
+        {children}
+      </ThemeSchemeContext.Provider>
     </PreferencesContext.Provider>
   )
 }

@@ -10,7 +10,7 @@ import {
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SectionHeader } from "@/components/ui"
 import type { ClinicalStringKey } from "@/i18n/clinical-strings"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 
 export type PreopQuestionAnswer = {
   stableKey: string
@@ -51,6 +51,7 @@ export function PreopQuestionList({
   tc: (key: ClinicalStringKey) => string
   language: string
 }) {
+  useThemeRefresh()
   const rows = preopQuestionRows(profile, formSection, mode, states)
   if (rows.length === 0) return null
   const progress = preopQuestionProgress(rows, states)

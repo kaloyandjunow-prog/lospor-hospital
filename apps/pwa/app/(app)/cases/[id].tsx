@@ -26,7 +26,7 @@ import { caseIsWritable } from "@lospor/core/case-capabilities"
 export default function CaseSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
-  const { tc, t, language } = usePreferences()
+  const { tc, t, language, shade } = usePreferences()
   const [caseData, setCaseData] = useState<CaseData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -328,7 +328,7 @@ export default function CaseSummaryScreen() {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800" }}>
+                <Text style={{ color: shade("#fff"), fontSize: 13, fontWeight: "800" }}>
                   {finalizing ? tc("finalising") : tc("actionFinalise")}
                 </Text>
               </TouchableOpacity>

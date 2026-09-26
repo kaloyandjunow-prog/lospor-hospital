@@ -1,5 +1,43 @@
 # Changelog - LOSPOR Mobile
 
+## [9.12.0] - 2026-09-26
+
+### Changed
+
+- **Every entry is timed by the row it is made in.** A stop or rate change
+  entered in an earlier row records that row's time, not the moment the button
+  was pressed; in the row "now" falls in, the exact minute. Entries the
+  timeline rules refuse (a stop before its start, a vital in the future, ...)
+  are not saved and say why.
+- **Several volatile agents can run at once.** Starting one while another runs
+  asks whether to switch (stopping the other) or run both.
+- **End case.** Only items marked Stop are stopped, at the end time; items
+  continued postoperatively keep running and their totals stop at the end.
+  Entries planned after the end must be marked happened or not before
+  finalising. Resume offers to take back the stops End case made.
+- **Premedication follows the route.** Changing the route replaces the dose
+  with that route's own, even one typed by hand.
+- **A real light theme** for the whole app, matching the web, including the
+  intraoperative screen. Switching applies at once, without a reload.
+
+### Added
+
+- Planned (future-dated) entries are shown as markers until their time comes.
+- Lab draws show as a teal "Labs · n" pill in the chart and in the event log.
+- A case ended automatically 48 hours after it started says so when opened.
+
+### Fixed
+
+- **Vitals autofill after reopening a case did nothing.** It read the event
+  log before the screen had loaded it. It now offers the empty rows of the
+  last 30 minutes, never fills the future or past the end, marks auto-filled
+  vitals, and pauses after 60 minutes without a manual entry to ask whether
+  the case is still running.
+- **The offline banner flashed on almost every screen open.** A list still
+  loading counted as offline; only cached or bundled data does now.
+- **A running item was drawn one row past "now"**, and its total counted five
+  minutes too many.
+
 ## [9.11.5] - 2026-09-25
 
 ### Fixed

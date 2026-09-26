@@ -64,7 +64,7 @@ export function InfusionSheet({
   patientWeightKg?: number | null
   prospectiveGuidanceEnabled?: boolean
 }) {
-  const { tc, language } = usePreferences()
+  const { tc, language, shade } = usePreferences()
   const infusionLabel = (name: string) => displayClinicalCode("option:INTRAOP_INFUSION", name, language, { label: name })
   const scenarioLabel = (group: ScenarioGroup) => displayClinicalCode("scenarioGroup", group.key, language, { label: group.label })
   const [mode, setMode] = useState<InfusionPickerMode>("home")
@@ -301,14 +301,14 @@ export function InfusionSheet({
             setInfRule?.(undefined)
             setSearchOnlySelection(null)
           }} style={{ marginBottom:14 }}>
-            <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+            <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
           </TouchableOpacity>
           {searchOnlySelection ? (
             <>
               <Text
                 testID="infusion-search-only-manual-notice"
                 accessibilityRole="alert"
-                style={{ color:"#fbbf24", fontSize:12, lineHeight:17, marginBottom:12 }}
+                style={{ color:shade("#fbbf24"), fontSize:12, lineHeight:17, marginBottom:12 }}
               >
                 {tc("dsSearchOnlyManualNotice")}
               </Text>
@@ -332,7 +332,7 @@ export function InfusionSheet({
             <Text
               testID="infusion-profile-conflict"
               accessibilityRole="alert"
-              style={{ color:"#fca5a5", fontSize:12, lineHeight:17 }}
+              style={{ color:shade("#fca5a5"), fontSize:12, lineHeight:17 }}
             >
               {tc("pediatricInfusionConflict")}
             </Text>

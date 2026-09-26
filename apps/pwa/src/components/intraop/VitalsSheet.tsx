@@ -7,6 +7,7 @@ import { formatMessage } from "@/i18n/locale"
 import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 import type { IntraopVitalKey } from "@lospor/core/intraop-vitals"
 import type { VitalEntryFeedback } from "@/lib/intraop-vital-entry"
+import { useShade } from "@/theme/shade"
 
 type Props = {
   visible: boolean
@@ -99,6 +100,7 @@ export function VitalsSheet({
   onCvpChange,
   onConfirm,
 }: Props) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const clinicalAi = useClinicalAiCapabilities()
   function feedbackText(field: IntraopVitalKey): { text: string; error: boolean } | null {
@@ -125,7 +127,7 @@ export function VitalsSheet({
   function renderFeedback(field: IntraopVitalKey) {
     const message = feedbackText(field)
     return message ? (
-      <Text style={{ color: message.error ? "#f87171" : "#f59e0b", fontSize:10, marginTop:6, lineHeight:14 }}>
+      <Text style={{ color: message.error ? shade("#f87171") : shade("#f59e0b"), fontSize:10, marginTop:6, lineHeight:14 }}>
         {message.text}
       </Text>
     ) : null
@@ -151,34 +153,34 @@ export function VitalsSheet({
             disabled={scanBusy}
             style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:8,
               paddingVertical:10, paddingHorizontal:16, borderRadius:12, marginBottom:16,
-              backgroundColor: scanBusy ? "#1e2d40" : "#0f2a1a",
-              borderWidth:1, borderColor: scanBusy ? "#2a3a50" : "#22c55e55" }}>
-            <Text style={{ color: scanBusy ? "#64748b" : "#86efac", fontSize:13, fontWeight:"700" }}>
+              backgroundColor: scanBusy ? shade("#1e2d40") : shade("#0f2a1a"),
+              borderWidth:1, borderColor: scanBusy ? shade("#2a3a50") : shade("#22c55e55") }}>
+            <Text style={{ color: scanBusy ? shade("#64748b") : shade("#86efac"), fontSize:13, fontWeight:"700" }}>
               {scanBusy ? tc("vsReadingMonitor") : tc("vsScanMonitor")}
             </Text>
           </FeedbackPressable>
           {!scanBusy ? (
-            <Text style={{ color:"#475569", fontSize:10, marginBottom:14, lineHeight:14 }}>
+            <Text style={{ color:shade("#475569"), fontSize:10, marginBottom:14, lineHeight:14 }}>
               {tc("vsScanPrivacyNote")}
             </Text>
           ) : null}
         </>
       ) : (
-        <Text style={{ color:"#64748b", fontSize:11, marginBottom:14, lineHeight:16 }}>
+        <Text style={{ color:shade("#64748b"), fontSize:11, marginBottom:14, lineHeight:16 }}>
           {tc(capabilityMessageKey(clinicalAi.monitorOcr.reason))}
         </Text>
       )}
-      <Text style={{ color:"#ef4444", fontSize:11, fontWeight:"700", letterSpacing:1,
+      <Text style={{ color:shade("#ef4444"), fontSize:11, fontWeight:"700", letterSpacing:1,
         textTransform:"uppercase", marginBottom:8 }}>{tc("vsBloodPressure")}</Text>
       <View style={{ flexDirection:"row", gap:10, marginBottom:18, alignItems:"flex-start" }}>
         <View style={{ flex:1, minWidth:0 }}>
           <TextInput
-            style={{ backgroundColor:"#111111", color:"#ef4444", borderRadius:12,
+            style={{ backgroundColor:shade("#111111"), color:shade("#ef4444"), borderRadius:12,
               padding: Platform.OS === "web" ? 10 : 14,
               fontSize: Platform.OS === "web" ? 20 : 30,
-              fontWeight:"700", borderWidth:1, borderColor:feedback.errors.systolic ? "#f87171" : "#ef444444", textAlign:"center" }}
+              fontWeight:"700", borderWidth:1, borderColor:feedback.errors.systolic ? shade("#f87171") : shade("#ef444444"), textAlign:"center" }}
             placeholder={tc("vsSys")}
-            placeholderTextColor="#3e3e3e"
+            placeholderTextColor={shade("#3e3e3e")}
             ref={sysRef}
             keyboardType="number-pad"
             value={systolic}
@@ -186,15 +188,15 @@ export function VitalsSheet({
           />
           {renderFeedback("systolic")}
         </View>
-        <Text style={{ color:"#475569", fontSize: Platform.OS === "web" ? 20 : 28, alignSelf:"center", fontWeight:"200" }}>/</Text>
+        <Text style={{ color:shade("#475569"), fontSize: Platform.OS === "web" ? 20 : 28, alignSelf:"center", fontWeight:"200" }}>/</Text>
         <View style={{ flex:1, minWidth:0 }}>
           <TextInput
-            style={{ backgroundColor:"#111111", color:"#f87171", borderRadius:12,
+            style={{ backgroundColor:shade("#111111"), color:shade("#f87171"), borderRadius:12,
               padding: Platform.OS === "web" ? 10 : 14,
               fontSize: Platform.OS === "web" ? 20 : 30,
-              fontWeight:"700", borderWidth:1, borderColor:feedback.errors.diastolic ? "#f87171" : "#ef444433", textAlign:"center" }}
+              fontWeight:"700", borderWidth:1, borderColor:feedback.errors.diastolic ? shade("#f87171") : shade("#ef444433"), textAlign:"center" }}
             placeholder={tc("vsDia")}
-            placeholderTextColor="#3e3e3e"
+            placeholderTextColor={shade("#3e3e3e")}
             ref={diaRef}
             keyboardType="number-pad"
             value={diastolic}
@@ -208,14 +210,14 @@ export function VitalsSheet({
         <>
           <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
             <View style={{ flex:1, minWidth:0 }}>
-              <Text style={{ color:"#22c55e", fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsHeartRate")}</Text>
+              <Text style={{ color:shade("#22c55e"), fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsHeartRate")}</Text>
               <TextInput
-                style={{ backgroundColor:"#111111", color:"#22c55e", borderRadius:10,
+                style={{ backgroundColor:shade("#111111"), color:shade("#22c55e"), borderRadius:10,
                   padding: Platform.OS === "web" ? 9 : 12,
                   fontSize: Platform.OS === "web" ? 18 : 24,
-                  fontWeight:"700", borderWidth:1, borderColor:"#22c55e33", textAlign:"center" }}
+                  fontWeight:"700", borderWidth:1, borderColor:shade("#22c55e33"), textAlign:"center" }}
                 placeholder="-"
-                placeholderTextColor="#3e3e3e"
+                placeholderTextColor={shade("#3e3e3e")}
                 ref={hrRef}
                 keyboardType="number-pad"
                 value={heartRate}
@@ -224,14 +226,14 @@ export function VitalsSheet({
               {renderFeedback("heartRate")}
             </View>
             <View style={{ flex:1, minWidth:0 }}>
-              <Text style={{ color:"#06b6d4", fontSize:11, fontWeight:"700", marginBottom:6 }}>SpO₂ %</Text>
+              <Text style={{ color:shade("#06b6d4"), fontSize:11, fontWeight:"700", marginBottom:6 }}>SpO₂ %</Text>
               <TextInput
-                style={{ backgroundColor:"#111111", color:"#06b6d4", borderRadius:10,
+                style={{ backgroundColor:shade("#111111"), color:shade("#06b6d4"), borderRadius:10,
                   padding: Platform.OS === "web" ? 9 : 12,
                   fontSize: Platform.OS === "web" ? 18 : 24,
-                  fontWeight:"700", borderWidth:1, borderColor:"#06b6d433", textAlign:"center" }}
+                  fontWeight:"700", borderWidth:1, borderColor:shade("#06b6d433"), textAlign:"center" }}
                 placeholder="-"
-                placeholderTextColor="#3e3e3e"
+                placeholderTextColor={shade("#3e3e3e")}
                 ref={spo2Ref}
                 keyboardType="number-pad"
                 value={spo2}
@@ -244,20 +246,20 @@ export function VitalsSheet({
           {(showEtco2 || feedback.errors.etco2) && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#f59e0b", fontSize:11, fontWeight:"700", marginBottom:6 }}>EtCO₂</Text>
+                <Text style={{ color:shade("#f59e0b"), fontSize:11, fontWeight:"700", marginBottom:6 }}>EtCO₂</Text>
                 <TextInput
-                  style={{ backgroundColor:"#111111", color:"#f59e0b", borderRadius:10,
+                  style={{ backgroundColor:shade("#111111"), color:shade("#f59e0b"), borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
                     fontSize: Platform.OS === "web" ? 16 : 20,
-                    fontWeight:"600", borderWidth:1, borderColor:"#f59e0b33", textAlign:"center" }}
+                    fontWeight:"600", borderWidth:1, borderColor:shade("#f59e0b33"), textAlign:"center" }}
                   placeholder="-"
-                  placeholderTextColor="#3e3e3e"
+                  placeholderTextColor={shade("#3e3e3e")}
                   ref={etco2Ref}
                   keyboardType="decimal-pad"
                   value={etco2}
                   onChangeText={onEtco2Change}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>
+                <Text style={{ color:shade("#64748b"), fontSize:10, marginTop:6 }}>
                   {formatMessage(tc("vsCurrentUnit"), { unit: etco2Unit })}
                 </Text>
                 {renderFeedback("etco2")}
@@ -268,20 +270,20 @@ export function VitalsSheet({
           {(showTemperature || feedback.errors.temp) && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#a78bfa", fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsTemp")}</Text>
+                <Text style={{ color:shade("#a78bfa"), fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsTemp")}</Text>
                 <TextInput
-                  style={{ backgroundColor:"#111111", color:"#a78bfa", borderRadius:10,
+                  style={{ backgroundColor:shade("#111111"), color:shade("#a78bfa"), borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
                     fontSize: Platform.OS === "web" ? 16 : 20,
-                    fontWeight:"600", borderWidth:1, borderColor:"#a78bfa33", textAlign:"center" }}
+                    fontWeight:"600", borderWidth:1, borderColor:shade("#a78bfa33"), textAlign:"center" }}
                   placeholder="-"
-                  placeholderTextColor="#3e3e3e"
+                  placeholderTextColor={shade("#3e3e3e")}
                   ref={tempRef}
                   keyboardType="decimal-pad"
                   value={temperature}
                   onChangeText={onTemperatureChange}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>
+                <Text style={{ color:shade("#64748b"), fontSize:10, marginTop:6 }}>
                   {formatMessage(tc("vsCurrentUnit"), { unit: `°${temperatureUnit}` })}
                 </Text>
                 {renderFeedback("temp")}
@@ -292,14 +294,14 @@ export function VitalsSheet({
           {(showBis || feedback.errors.bis) && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#e879f9", fontSize:11, fontWeight:"700", marginBottom:6 }}>BIS</Text>
+                <Text style={{ color:shade("#e879f9"), fontSize:11, fontWeight:"700", marginBottom:6 }}>BIS</Text>
                 <TextInput
-                  style={{ backgroundColor:"#111111", color:"#e879f9", borderRadius:10,
+                  style={{ backgroundColor:shade("#111111"), color:shade("#e879f9"), borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
                     fontSize: Platform.OS === "web" ? 16 : 20,
-                    fontWeight:"600", borderWidth:1, borderColor:"#e879f933", textAlign:"center" }}
+                    fontWeight:"600", borderWidth:1, borderColor:shade("#e879f933"), textAlign:"center" }}
                   placeholder="-"
-                  placeholderTextColor="#3e3e3e"
+                  placeholderTextColor={shade("#3e3e3e")}
                   ref={bisRef}
                   keyboardType="decimal-pad"
                   value={bis}
@@ -313,20 +315,20 @@ export function VitalsSheet({
           {(showTofRatio || feedback.errors.tofRatio) && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#fb923c", fontSize:11, fontWeight:"700", marginBottom:6 }}>TOF</Text>
+                <Text style={{ color:shade("#fb923c"), fontSize:11, fontWeight:"700", marginBottom:6 }}>TOF</Text>
                 <TextInput
-                  style={{ backgroundColor:"#111111", color:"#fb923c", borderRadius:10,
+                  style={{ backgroundColor:shade("#111111"), color:shade("#fb923c"), borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
                     fontSize: Platform.OS === "web" ? 16 : 20,
-                    fontWeight:"600", borderWidth:1, borderColor:"#fb923c33", textAlign:"center" }}
+                    fontWeight:"600", borderWidth:1, borderColor:shade("#fb923c33"), textAlign:"center" }}
                   placeholder="-"
-                  placeholderTextColor="#3e3e3e"
+                  placeholderTextColor={shade("#3e3e3e")}
                   ref={tofRatioRef}
                   keyboardType="decimal-pad"
                   value={tofRatio}
                   onChangeText={onTofRatioChange}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>{tc("vsTofRatioHint")}</Text>
+                <Text style={{ color:shade("#64748b"), fontSize:10, marginTop:6 }}>{tc("vsTofRatioHint")}</Text>
                 {renderFeedback("tofRatio")}
               </View>
             </View>
@@ -335,20 +337,20 @@ export function VitalsSheet({
           {(showCvp || feedback.errors.cvp) && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#38bdf8", fontSize:11, fontWeight:"700", marginBottom:6 }}>CVP</Text>
+                <Text style={{ color:shade("#38bdf8"), fontSize:11, fontWeight:"700", marginBottom:6 }}>CVP</Text>
                 <TextInput
-                  style={{ backgroundColor:"#111111", color:"#38bdf8", borderRadius:10,
+                  style={{ backgroundColor:shade("#111111"), color:shade("#38bdf8"), borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
                     fontSize: Platform.OS === "web" ? 16 : 20,
-                    fontWeight:"600", borderWidth:1, borderColor:"#38bdf833", textAlign:"center" }}
+                    fontWeight:"600", borderWidth:1, borderColor:shade("#38bdf833"), textAlign:"center" }}
                   placeholder="-"
-                  placeholderTextColor="#3e3e3e"
+                  placeholderTextColor={shade("#3e3e3e")}
                   ref={cvpRef}
                   keyboardType="decimal-pad"
                   value={cvp}
                   onChangeText={onCvpChange}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>{formatMessage(tc("vsCurrentUnit"), { unit: cvpUnit })}</Text>
+                <Text style={{ color:shade("#64748b"), fontSize:10, marginTop:6 }}>{formatMessage(tc("vsCurrentUnit"), { unit: cvpUnit })}</Text>
                 {renderFeedback("cvp")}
               </View>
             </View>
@@ -360,14 +362,14 @@ export function VitalsSheet({
       {mode === "bp" && !showExtendedFields && (
         <View style={{ flexDirection:"row", gap:10, marginBottom:18 }}>
           <View style={{ flex:1 }}>
-            <Text style={{ color:"#22c55e", fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsHeartRate")}</Text>
+            <Text style={{ color:shade("#22c55e"), fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsHeartRate")}</Text>
             <TextInput
-              style={{ backgroundColor:"#111111", color:"#22c55e", borderRadius:10,
+              style={{ backgroundColor:shade("#111111"), color:shade("#22c55e"), borderRadius:10,
                 padding: Platform.OS === "web" ? 9 : 12,
                 fontSize: Platform.OS === "web" ? 18 : 24,
-                fontWeight:"700", borderWidth:1, borderColor:"#22c55e33", textAlign:"center" }}
+                fontWeight:"700", borderWidth:1, borderColor:shade("#22c55e33"), textAlign:"center" }}
               placeholder="-"
-              placeholderTextColor="#3e3e3e"
+              placeholderTextColor={shade("#3e3e3e")}
               ref={hrRef}
               keyboardType="number-pad"
               value={heartRate}
@@ -380,9 +382,9 @@ export function VitalsSheet({
 
       <FeedbackPressable onPress={onConfirm} disabled={feedback.hasHardErrors}
         accessibilityState={{ disabled: feedback.hasHardErrors }}
-        style={{ backgroundColor:feedback.hasHardErrors ? "#1e293b" : "#0f2a1a", borderRadius:14, padding:18, alignItems:"center",
-          borderWidth:1, borderColor:feedback.hasHardErrors ? "#475569" : "#22c55e" }}>
-        <Text style={{ color:feedback.hasHardErrors ? "#64748b" : "#86efac", fontSize:16, fontWeight:"700" }}>{tc("vsSaveVitals")}</Text>
+        style={{ backgroundColor:feedback.hasHardErrors ? shade("#1e293b") : shade("#0f2a1a"), borderRadius:14, padding:18, alignItems:"center",
+          borderWidth:1, borderColor:feedback.hasHardErrors ? shade("#475569") : shade("#22c55e") }}>
+        <Text style={{ color:feedback.hasHardErrors ? shade("#64748b") : shade("#86efac"), fontSize:16, fontWeight:"700" }}>{tc("vsSaveVitals")}</Text>
       </FeedbackPressable>
     </Sheet>
   )

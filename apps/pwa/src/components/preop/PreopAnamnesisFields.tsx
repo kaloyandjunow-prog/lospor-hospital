@@ -4,7 +4,7 @@ import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
 import type { ClinicalStringKey } from "@/i18n/clinical-strings"
 import type { PreopFormInput as FormInput, PreopSection } from "@/lib/preop-form-schema"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 
 /**
  * The anamnesis toggles and the score factors, each shown only while the
@@ -33,6 +33,7 @@ export function PreopAnamnesisFields({
   scrollToSection: (section: PreopSection, extraOffset?: number) => void
   shownField: (field: string) => boolean
 }) {
+  useThemeRefresh()
   return (
     <>
         {shownField("allergies") ? (

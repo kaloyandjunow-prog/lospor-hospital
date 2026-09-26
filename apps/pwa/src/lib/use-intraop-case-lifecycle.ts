@@ -1,9 +1,14 @@
+import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 import { confirmAction, notify } from "@/lib/notify"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
 import { buildFinaliseCaseState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
-import { buildEndCaseRunningItems, hasEndCaseRunningItems } from "@/lib/intraop-end-case-items"
-import type { EndCaseCleanupItem, EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
+import { buildEndCaseRunningItems, hasEndCaseRunningItems, type EndCaseStopOptions } from "@/lib/intraop-end-case-items"
+import type { EndCaseAfterEndItem, EndCaseCleanupItem, EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
+import type { RunningAgent } from "@/lib/use-intraop-running-state"
+import { formatDateHHMM } from "@/lib/intraop-projection"
+import { formatMessage } from "@/i18n/locale"
+import { intraopEndCaseStopIds, intraopEventsAfter } from "@lospor/core/intraop-commands"
 import { promoteDraftCaseToInProgress, type IntraopTimingOverrides } from "@/lib/intraop-timing"
 import {
   buildIntraopEndTiming,
@@ -18,10 +23,12 @@ import {
   type ClinicalIssueCode,
 } from "@lospor/core/clinical-validation"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 const INTRAOP_ISSUE_LABEL_KEYS: Partial<Record<ClinicalIssueCode, ClinicalStringKey>> = {
   missing_start_time: "issueAnaesthesiaStart",
   missing_end_time: "issueAnaesthesiaEnd",
+  entries_after_case_end: "endCaseFinaliseBlocked",
   missing_technique: "issueAnaesthesiaTechnique",
   invalid_intraop_times: "issueInvalidTimes",
   missing_airway_documentation: "issueAirway",
@@ -43,7 +50,7 @@ type CaseInfoState = {
   finalizedAt?: string | null
 }
 
-type SaveEvent = (partial: Omit<LogEvent, "id" | "ts">, tsOverride?: string, silent?: boolean) => Promise<LogEvent>
+type SaveEvent = SaveIntraopEvent
 type SaveTiming = (overrides?: IntraopTimingOverrides) => Promise<void>
 type PatchIntraopSection = (payload: Record<string, unknown>) => Promise<unknown>
 
@@ -59,15 +66,24 @@ type UseIntraopCaseLifecycleArgs = {
   saveTiming: SaveTiming
   patchIntraopSection: PatchIntraopSection
   cancelLabel: string
-  activeAgent: { name: string; color: string; percent?: number } | null
+  activeAgents: RunningAgent[]
   activeGas: ActiveGasSettings
   activeInfusions: ActiveInfusion[]
   activeFluids: ActiveFluid[]
-  stopAgent: () => void | Promise<void>
-  stopGasSettings: () => void | Promise<void>
-  stopInfusion: (target: ActiveInfusion) => void | Promise<void>
+  stopAgent: (name: string, rowTs: null, options: EndCaseStopOptions) => void | Promise<void>
+  stopGasSettings: (rowTs: null, options: EndCaseStopOptions) => void | Promise<void>
+  stopInfusion: (target: ActiveInfusion, rowTs: null, options: EndCaseStopOptions) => void | Promise<void>
   stopFluidDirect: (target: ActiveFluid, context?: EndCaseStopContext) => void | Promise<void>
   getReadinessInput: () => Record<string, unknown>
+  /** The saved log and its editors, for entries after the end and Resume. */
+  timeline: {
+    logRef: MutableRefObject<LogEvent[]>
+    syncLog: (next: LogEvent[]) => Promise<boolean>
+    removeEvent: (event: LogEvent) => Promise<void>
+    labelOf: (event: LogEvent) => string
+    endedAtRef: MutableRefObject<Date | null>
+    resyncActiveRef: MutableRefObject<() => void>
+  }
 }
 
 export function useIntraopCaseLifecycle({
@@ -82,7 +98,7 @@ export function useIntraopCaseLifecycle({
   saveTiming,
   patchIntraopSection,
   cancelLabel,
-  activeAgent,
+  activeAgents,
   activeGas,
   activeInfusions,
   activeFluids,
@@ -91,7 +107,9 @@ export function useIntraopCaseLifecycle({
   stopInfusion,
   stopFluidDirect,
   getReadinessInput,
+  timeline,
 }: UseIntraopCaseLifecycleArgs) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const [endCaseOpen, setEndCaseOpen] = useState(false)
   const [startAtOpen, setStartAtOpen] = useState(false)
@@ -101,6 +119,9 @@ export function useIntraopCaseLifecycle({
   const [caseEnded, setCaseEnded] = useState(false)
   const caseEndedAtRef = useRef<Date | null>(null)
   const [resumeSecsLeft, setResumeSecsLeft] = useState(0)
+  // Planned entries dated after "now": End case lists them, and the case
+  // cannot be finalised while any remain (nothing may lie after the end).
+  const [afterEndEvents, setAfterEndEvents] = useState<LogEvent[]>([])
 
   useEffect(() => {
     if (resumeSecsLeft <= 0) return
@@ -126,7 +147,7 @@ export function useIntraopCaseLifecycle({
     await saveTiming(timing)
     setCaseInfo(promoteDraftCaseToInProgress)
     await save(
-      { type: "clinical_event", label: "Anaesthesia start", color: "#22c55e" },
+      { type: "clinical_event", label: "Anaesthesia start", color: shade("#22c55e") },
       timing.startedAt,
     )
   }
@@ -142,7 +163,7 @@ export function useIntraopCaseLifecycle({
     setCaseStartTime(timing.startTime)
     await saveTiming(timing)
     setCaseInfo(promoteDraftCaseToInProgress)
-    await save({ type: "clinical_event", label: "Anaesthesia start", color: "#22c55e" }, timing.startedAt)
+    await save({ type: "clinical_event", label: "Anaesthesia start", color: shade("#22c55e") }, timing.startedAt)
     setStartAtOpen(false)
   }
 
@@ -169,6 +190,9 @@ export function useIntraopCaseLifecycle({
       timezone: timing?.timezone,
       endTimeNextDay: nextDay,
     })
+    // From here the chart is read at the end: continued items stop growing.
+    timeline.endedAtRef.current = next.endedAt
+    timeline.resyncActiveRef.current()
     setCaseEnded(true)
     caseEndedAtRef.current = next.endedAt
     setResumeSecsLeft(next.resumeSecsLeft)
@@ -199,7 +223,9 @@ export function useIntraopCaseLifecycle({
       )
       if (!proceed) return
     }
-    if (hasEndCaseRunningItems({ activeAgent, activeGas, activeInfusions, activeFluids })) {
+    const afterEnd = intraopEventsAfter(timeline.logRef.current, new Date())
+    setAfterEndEvents(afterEnd)
+    if (afterEnd.length > 0 || hasEndCaseRunningItems({ activeAgents, activeGas, activeInfusions, activeFluids })) {
       setEndCaseDecisions({})
       setEndCaseOpen(true)
     } else {
@@ -212,17 +238,50 @@ export function useIntraopCaseLifecycle({
     }
   }
 
-  function resumeCase() {
+  async function resumeCase() {
     const next = buildResumeCaseState()
     setCaseEnded(false)
     caseEndedAtRef.current = next.endedAt
+    timeline.endedAtRef.current = null
     setResumeSecsLeft(next.resumeSecsLeft)
     setCaseEndTime(next.endTime)
     patchIntraopSection(next.patch).catch(() => {})
+    // Offer to take back the stops End case made, so those items run again.
+    const stopIds = new Set(intraopEndCaseStopIds(timeline.logRef.current))
+    if (stopIds.size > 0 && await confirmAction(
+      tc("resumeRemoveStopsTitle"),
+      formatMessage(tc("resumeRemoveStopsMessage"), { count: stopIds.size }),
+      { confirmLabel: tc("resumeRemoveStops"), cancelLabel: tc("resumeKeepStops") },
+    )) {
+      await timeline.syncLog(timeline.logRef.current.filter(event => !stopIds.has(event.id)))
+    }
+    timeline.resyncActiveRef.current()
   }
 
+  // "Didn't happen" deletes the entry; "Happened" moves it to now (the end).
+  async function resolveAfterEnd(id: string, resolution: "delete" | "move") {
+    const event = timeline.logRef.current.find(item => item.id === id)
+    setAfterEndEvents(current => current.filter(item => item.id !== id))
+    if (!event) return
+    if (resolution === "delete") {
+      await timeline.removeEvent(event)
+    } else {
+      const ts = new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString()
+      const moved = await timeline.syncLog(timeline.logRef.current.map(item => item.id === id ? { ...item, ts } : item))
+      if (!moved) setAfterEndEvents(current => [...current, event])
+    }
+    timeline.resyncActiveRef.current()
+  }
+
+  const afterEndItems: EndCaseAfterEndItem[] = afterEndEvents.map(event => ({
+    id: event.id,
+    label: timeline.labelOf(event),
+    time: formatDateHHMM(new Date(event.ts)),
+    color: event.color ?? shade("#fbbf24"),
+  }))
+
   const endCaseRunningItems: EndCaseCleanupItem[] = buildEndCaseRunningItems({
-    activeAgent,
+    activeAgents,
     activeGas,
     activeInfusions,
     activeFluids,
@@ -256,5 +315,7 @@ export function useIntraopCaseLifecycle({
     finaliseCase,
     resumeCase,
     endCaseRunningItems,
+    afterEndItems,
+    resolveAfterEnd,
   }
 }

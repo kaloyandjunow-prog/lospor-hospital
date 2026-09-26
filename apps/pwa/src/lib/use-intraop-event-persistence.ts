@@ -18,6 +18,12 @@ import { planEventMutations } from "@/lib/intraop-event-mutations"
 import { notify } from "@/lib/notify"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
+import { resolveRowStamp, type RowStamp } from "@/lib/intraop-stamp"
+import { timelineRefusalMessageKey } from "@/lib/intraop-timeline-refusal"
+import {
+  intraopCascadeDeleteIds,
+  newIntraopTimelineIssues,
+} from "@lospor/core/intraop-commands"
 
 type SyncState = "saved" | "saving" | "failed" | "offline"
 
@@ -38,6 +44,10 @@ type UseIntraopEventPersistenceArgs = {
   setLastSavedAt: Dispatch<SetStateAction<string | null>>
   setPendingCount: Dispatch<SetStateAction<number>>
   noteVitalsRef: MutableRefObject<() => void>
+  /** Rebuilds running items from the saved log after an entry is refused. */
+  resyncActiveRef?: MutableRefObject<() => void>
+  /** The case end once ended: the chart is then read at the end. */
+  endedAtRef?: MutableRefObject<Date | null>
 }
 
 export function useIntraopEventPersistence({
@@ -57,6 +67,8 @@ export function useIntraopEventPersistence({
   setLastSavedAt,
   setPendingCount,
   noteVitalsRef,
+  resyncActiveRef,
+  endedAtRef,
 }: UseIntraopEventPersistenceArgs) {
   const { t, tc } = usePreferences()
   const [undoEv, setUndoEv] = useState<LogEvent | null>(null)
@@ -102,17 +114,40 @@ export function useIntraopEventPersistence({
     legacyWebLogNeedsSyncRef.current = false
   }
 
+  /**
+   * The Core timeline rules refuse an entry (a stop before its start, a vital
+   * in the future, ...). Only problems the edit introduces count, so an older
+   * record that already breaks a rule stays editable.
+   */
+  function refused(before: LogEvent[], after: LogEvent[]): boolean {
+    const messageKey = timelineRefusalMessageKey(newIntraopTimelineIssues(before, after, { now: new Date() }))
+    if (!messageKey) return false
+    notify(tc("timelineRefusedTitle"), tc(messageKey))
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+    resyncActiveRef?.current()
+    return true
+  }
+
+  // Returns null when the timeline rules refuse the entry; nothing is saved.
   async function save(
     partial: Omit<LogEvent, "id" | "ts">,
-    tsOverride?: string,
+    tsOverride?: string | RowStamp,
     silent = false,
-  ): Promise<LogEvent> {
+  ): Promise<LogEvent | null> {
     seedLegacyRevision()
+    const chartStart = startRef.current ? roundDown5Min(startRef.current) : null
+    const ts = typeof tsOverride === "string"
+      ? tsOverride
+      : resolveRowStamp(tsOverride ? tsOverride.rowTs : entryTs, chartStart)
     const event: LogEvent = {
       id: uid(),
-      ts: tsOverride ?? entryTs ?? new Date().toISOString(),
+      ts,
       syncStatus: "pending",
       ...partial,
+    }
+    if (refused(logRef.current, [event, ...logRef.current])) {
+      setEntryTs(null)
+      return null
     }
     const next = [event, ...logRef.current]
     logRef.current = next
@@ -123,7 +158,7 @@ export function useIntraopEventPersistence({
       startRef.current = new Date(event.ts)
       setElapsedMs(0)
     }
-    setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current), new Date()))
+    setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current), new Date(), endedAtRef?.current))
 
     try {
       await migrateLegacyLog(next)
@@ -148,13 +183,14 @@ export function useIntraopEventPersistence({
     return event
   }
 
-  async function syncLog(newLog: LogEvent[]) {
+  async function syncLog(newLog: LogEvent[]): Promise<boolean> {
     seedLegacyRevision()
     const previousLog = log
+    if (refused(previousLog, newLog)) return false
     logRef.current = newLog
     setLog(newLog)
     if (startRef.current) {
-      setTimetable(eventsToTimetable(newLog, roundDown5Min(startRef.current), new Date()))
+      setTimetable(eventsToTimetable(newLog, roundDown5Min(startRef.current), new Date(), endedAtRef?.current))
     }
     setSyncState("saving")
 
@@ -175,6 +211,7 @@ export function useIntraopEventPersistence({
       setSyncState("failed")
       notify(t("savedLocally"), tc("changeSavedLocalRetry"))
     }
+    return true
   }
 
   async function retryPendingEvents() {
@@ -199,17 +236,18 @@ export function useIntraopEventPersistence({
     }
   }
 
+  // Deleting a start takes its changes and its stop with it (Core rule).
   async function removeEvent(event: LogEvent, sync = true) {
-    const next = log.filter((item) => item.id !== event.id)
-    const remainingPending = removePendingIntraopEvent(
-      await loadPendingIntraopEvents<LogEvent>(caseId),
-      event.id,
-    )
+    const ids = new Set(intraopCascadeDeleteIds(log, event.id))
+    ids.add(event.id)
+    const next = log.filter((item) => !ids.has(item.id))
+    let remainingPending = await loadPendingIntraopEvents<LogEvent>(caseId)
+    for (const id of ids) remainingPending = removePendingIntraopEvent(remainingPending, id)
     await storePendingIntraopEvents(caseId, remainingPending)
     setPendingCount(remainingPending.length)
     setLog(next)
-    if (startRef.current) setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current)))
-    if (sync && !event.syncStatus) await syncLog(next)
+    if (startRef.current) setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current), new Date(), endedAtRef?.current))
+    if (sync && log.some(item => ids.has(item.id) && !item.syncStatus)) await syncLog(next)
     else setSyncState(remainingPending.length > 0 ? "failed" : "saved")
   }
 
@@ -220,8 +258,13 @@ export function useIntraopEventPersistence({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
   }
 
+  function stampFor(rowTs?: string | null): string {
+    return resolveRowStamp(rowTs, startRef.current ? roundDown5Min(startRef.current) : null)
+  }
+
   return {
     save,
+    stampFor,
     syncLog,
     retryPendingEvents,
     removeEvent,

@@ -11,6 +11,7 @@ import type { ActiveFluid } from "@/lib/intraop-log-event"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
+import { useShade } from "@/theme/shade"
 
 export function FluidEndSheet({
   visible,
@@ -33,6 +34,7 @@ export function FluidEndSheet({
   setNewRate: (rate: string) => void
   onChangeRate: () => void
 }) {
+  const shade = useShade()
   const { tc, language } = usePreferences()
   const fluidLabel = (name: string) => displayClinicalCode("option:INTRAOP_FLUID", name, language, { label: name })
   const rateMode = target ? fluidEntryModeOf(target) === "RATE" : false
@@ -44,7 +46,7 @@ export function FluidEndSheet({
         <View style={{ gap:10 }}>
           {rateMode ? (
             <View style={{ gap:10, marginBottom:6 }}>
-              <Text style={{ color:"#94a3b8", fontSize:11, fontWeight:"700", textTransform:"uppercase" }}>
+              <Text style={{ color:shade("#94a3b8"), fontSize:11, fontWeight:"700", textTransform:"uppercase" }}>
                 {tc("rateLabel")}
               </Text>
               <VitalStepper
@@ -61,9 +63,9 @@ export function FluidEndSheet({
                 testID="fluid-change-rate"
                 onPress={onChangeRate}
                 disabled={!changedRate}
-                style={{ backgroundColor:changedRate ? "#0891b2" : "#1c1c1c", borderRadius:10, padding:12, alignItems:"center" }}
+                style={{ backgroundColor:changedRate ? shade("#0891b2") : shade("#1c1c1c"), borderRadius:10, padding:12, alignItems:"center" }}
               >
-                <Text style={{ color:"#fff", fontWeight:"700" }}>{tc("changeRate")}</Text>
+                <Text style={{ color:shade("#fff"), fontWeight:"700" }}>{tc("changeRate")}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -71,10 +73,10 @@ export function FluidEndSheet({
           <TouchableOpacity
             testID="fluid-stop-default"
             onPress={() => onConfirm()}
-            style={{ backgroundColor:"#0f2a1a", borderRadius:12, padding:16, alignItems:"center",
-              borderWidth:1, borderColor:"#22c55e" }}
+            style={{ backgroundColor:shade("#0f2a1a"), borderRadius:12, padding:16, alignItems:"center",
+              borderWidth:1, borderColor:shade("#22c55e") }}
           >
-            <Text style={{ color:"#86efac", fontWeight:"700", fontSize:15 }}>
+            <Text style={{ color:shade("#86efac"), fontWeight:"700", fontSize:15 }}>
               {rateMode
                 ? formatMessage(tc("stopCalculated"), { volume: calculatedFluidVolumeMl(target) })
                 : formatMessage(tc("fullBag"), { volume: target.bagVolumeMl ?? target.volume })}
@@ -83,10 +85,10 @@ export function FluidEndSheet({
 
           <View style={{ flexDirection:"row", gap:8, alignItems:"center" }}>
             <TextInput
-              style={{ flex:1, minWidth:0, backgroundColor:"#111111", color:"#fff", borderRadius:10, padding:12,
-                fontSize:18, borderWidth:1, borderColor:"#3e3e3e", textAlign:"center" }}
+              style={{ flex:1, minWidth:0, backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10, padding:12,
+                fontSize:18, borderWidth:1, borderColor:shade("#3e3e3e"), textAlign:"center" }}
               placeholder={tc("actualMlGiven")}
-              placeholderTextColor="#475569"
+              placeholderTextColor={shade("#475569")}
               keyboardType="number-pad"
               value={customAmount}
               onChangeText={setCustomAmount}
@@ -95,10 +97,10 @@ export function FluidEndSheet({
               testID="fluid-stop-actual"
               onPress={() => onConfirm(Number(customAmount))}
               disabled={!customAmount || !Number.isFinite(Number(customAmount)) || Number(customAmount) < 0}
-              style={{ backgroundColor:customAmount ? "#22c55e" : "#1c1c1c", borderRadius:10,
-                padding:14, borderWidth:1, borderColor:"#22c55e44" }}
+              style={{ backgroundColor:customAmount ? shade("#22c55e") : shade("#1c1c1c"), borderRadius:10,
+                padding:14, borderWidth:1, borderColor:shade("#22c55e44") }}
             >
-              <Text style={{ color:"#fff", fontWeight:"700" }}>{tc("useActual")}</Text>
+              <Text style={{ color:shade("#fff"), fontWeight:"700" }}>{tc("useActual")}</Text>
             </TouchableOpacity>
           </View>
         </View>

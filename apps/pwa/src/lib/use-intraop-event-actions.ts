@@ -1,3 +1,4 @@
+import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState, type Dispatch, type SetStateAction } from "react"
 
 import { actionSheet, confirmAction } from "@/lib/notify"
@@ -10,16 +11,11 @@ import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
 
 type EventLabel = (ev: LogEvent) => { text: string }
-type SaveIntraopEvent = (
-  partial: Omit<LogEvent, "id" | "ts">,
-  tsOverride?: string,
-  silent?: boolean,
-) => Promise<LogEvent>
 
 type UseIntraopEventActionsArgs = {
   log: LogEvent[]
   save: SaveIntraopEvent
-  syncLog: (newLog: LogEvent[]) => Promise<void>
+  syncLog: (newLog: LogEvent[]) => Promise<boolean>
   removeEvent: (ev: LogEvent, sync?: boolean) => Promise<void>
   eventLabel: EventLabel
   cancelLabel: string

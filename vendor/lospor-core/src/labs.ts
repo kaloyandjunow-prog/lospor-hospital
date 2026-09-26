@@ -391,6 +391,9 @@ export function formatLabReferenceRange(test: LabTest): string | null {
  * independent facts is both unreadable and clinically wrong, because what a
  * clinician reads off a panel is the panel.
  */
+// The intraop chart's column width; kept local so labs does not depend on the engine.
+const LAB_COLUMN_MS = 5 * 60_000
+
 export type LabDraw = {
   /** ISO instant the specimen was taken, or null for results with no time. */
   takenAt: string | null
@@ -431,6 +434,43 @@ export function groupLabsByDraw(results: LabResult[]): LabDraw[] {
 
   if (undated.length > 0) draws.push({ takenAt: null, results: undated })
   return draws
+}
+
+export type IntraopLabDraw = LabDraw & {
+  takenAt: string
+  /** The five-minute chart column the specimen was taken in. */
+  col: number
+}
+
+/**
+ * Lab draws placed on the intraoperative chart: one per specimen time, in its
+ * five-minute column, oldest first. Results with no time, or taken before the
+ * chart starts or after the case ends, belong to no column and are left out.
+ * Both apps and the print sheet read labs through this so that a draw sits in
+ * the same column everywhere.
+ */
+export function projectLabDraws(
+  results: LabResult[],
+  context: { start: Date | string | number; endedAt?: Date | string | number | null },
+): IntraopLabDraw[] {
+  const startMs = new Date(context.start).getTime()
+  const endMs = context.endedAt == null ? Infinity : new Date(context.endedAt).getTime()
+  if (!Number.isFinite(startMs)) return []
+  const draws: IntraopLabDraw[] = []
+  for (const draw of groupLabsByDraw(results)) {
+    if (!draw.takenAt) continue
+    const takenMs = new Date(draw.takenAt).getTime()
+    if (!Number.isFinite(takenMs) || takenMs < startMs || takenMs > endMs) continue
+    draws.push({ ...draw, takenAt: draw.takenAt, col: Math.floor((takenMs - startMs) / LAB_COLUMN_MS) })
+  }
+  return draws.reverse()
+}
+
+/** A one-line summary of a draw for event logs: "Hb 12.1 g/dL · K 4.1 mmol/L". */
+export function labDrawSummary(draw: LabDraw): string {
+  return draw.results
+    .map(result => [result.test, result.value, result.unit].filter(Boolean).join(" "))
+    .join(" · ")
 }
 
 export function searchLabs(query: string): { category: LabCategory; test: LabTest }[] {

@@ -83,6 +83,7 @@ describe("intraop vital log helpers", () => {
       heartRate: 80,
     }), false)).toEqual({
       type: "vital",
+      autoFilled: true,
       etco2: 35,
       temp: 36.6,
       spO2: 98,
@@ -96,6 +97,7 @@ describe("intraop vital log helpers", () => {
       heartRate: 80,
     }), true)).toEqual({
       type: "vital",
+      autoFilled: true,
       etco2: 35,
       systolic: 120,
       diastolic: 70,

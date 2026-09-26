@@ -1,4 +1,4 @@
-import type { ActiveAgent } from "./intraop-active-state"
+import type { RunningAgent } from "./use-intraop-running-state"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion } from "./intraop-log-event"
 import { calculatedFluidVolumeMl, fluidEntryModeOf, fluidEntryValueLabel } from "./fluid-entry"
 import type { EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
@@ -15,14 +15,17 @@ export type EndCaseRunningItem = {
   }
 }
 
+/** A stop made at End case: at the end time, marked so Resume can offer to remove it. */
+export type EndCaseStopOptions = { exactTs?: string; endCaseStop?: boolean }
+
 type BuildEndCaseRunningItemsInput = {
-  activeAgent: ActiveAgent
+  activeAgents: RunningAgent[]
   activeGas: ActiveGasSettings
   activeInfusions: ActiveInfusion[]
   activeFluids: ActiveFluid[]
-  stopAgent: () => void | Promise<void>
-  stopGasSettings: () => void | Promise<void>
-  stopInfusion: (infusion: ActiveInfusion) => void | Promise<void>
+  stopAgent: (name: string, rowTs: null, options: EndCaseStopOptions) => void | Promise<void>
+  stopGasSettings: (rowTs: null, options: EndCaseStopOptions) => void | Promise<void>
+  stopInfusion: (infusion: ActiveInfusion, rowTs: null, options: EndCaseStopOptions) => void | Promise<void>
   stopFluid: (fluid: ActiveFluid, context?: EndCaseStopContext) => void | Promise<void>
   labels?: {
     volatileInhalational: string
@@ -33,16 +36,20 @@ type BuildEndCaseRunningItemsInput = {
 }
 
 export function hasEndCaseRunningItems({
-  activeAgent,
+  activeAgents,
   activeGas,
   activeInfusions,
   activeFluids,
-}: Pick<BuildEndCaseRunningItemsInput, "activeAgent" | "activeGas" | "activeInfusions" | "activeFluids">): boolean {
-  return activeInfusions.length > 0 || activeFluids.length > 0 || !!activeAgent || !!activeGas
+}: Pick<BuildEndCaseRunningItemsInput, "activeAgents" | "activeGas" | "activeInfusions" | "activeFluids">): boolean {
+  return activeInfusions.length > 0 || activeFluids.length > 0 || activeAgents.length > 0 || !!activeGas
+}
+
+function atEnd(context?: EndCaseStopContext): EndCaseStopOptions {
+  return context ? { exactTs: context.endTs, endCaseStop: true } : {}
 }
 
 export function buildEndCaseRunningItems({
-  activeAgent,
+  activeAgents,
   activeGas,
   activeInfusions,
   activeFluids,
@@ -58,26 +65,26 @@ export function buildEndCaseRunningItems({
   },
 }: BuildEndCaseRunningItemsInput): EndCaseRunningItem[] {
   const items: EndCaseRunningItem[] = []
-  if (activeAgent) items.push({
-    key: `agent-${activeAgent.name}`,
-    label: activeAgent.name,
+  items.push(...activeAgents.map(agent => ({
+    key: `agent-${agent.name}`,
+    label: agent.name,
     sublabel: labels.volatileInhalational,
-    color: activeAgent.color,
-    onStop: stopAgent,
-  })
+    color: agent.color,
+    onStop: (context?: EndCaseStopContext) => stopAgent(agent.name, null, atEnd(context)),
+  })))
   if (activeGas) items.push({
     key: "gas-settings",
     label: labels.gasSettings,
     sublabel: `FGF ${activeGas.fgf}L/min - FiO2 ${activeGas.fio2}%`,
     color: "#6366f1",
-    onStop: stopGasSettings,
+    onStop: (context?: EndCaseStopContext) => stopGasSettings(null, atEnd(context)),
   })
   items.push(...activeInfusions.map(infusion => ({
     key: `inf-${infusion.infId}`,
     label: infusion.name,
     sublabel: `${infusion.rate} ${infusion.unit} - ${labels.infusion}`,
     color: infusion.color,
-    onStop: () => stopInfusion(infusion),
+    onStop: (context?: EndCaseStopContext) => stopInfusion(infusion, null, atEnd(context)),
   })))
   items.push(...activeFluids.map(fluid => ({
     key: `fluid-${fluid.fluidId}`,

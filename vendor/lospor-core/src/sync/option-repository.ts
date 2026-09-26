@@ -10,6 +10,15 @@ export type OptionLibraryState = {
   source: OptionLibrarySource
 }
 
+/**
+ * True only when a library is actually serving a cached or bundled copy. A
+ * category still loading has no state yet: that is not a fallback, and
+ * treating it as one flashed the offline banner on almost every screen open.
+ */
+export function isServingFallback(state: OptionLibraryState | null | undefined): boolean {
+  return state?.source === "cached" || state?.source === "bundled"
+}
+
 export const OPTION_LIBRARY_CACHE_VERSION = 4
 export const OPTION_LIBRARY_RETRY_MS = 30_000
 

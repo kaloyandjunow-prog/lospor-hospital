@@ -6,7 +6,7 @@ import { notify, confirmAction } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 
 type Institution = { name?: string; city?: string }
 type UserRow = {
@@ -282,6 +282,7 @@ export default function AdminScreen() {
 }
 
 function AdminButton({ label, color, onPress, disabled, loading, outline }: { label: string; color: string; onPress: () => void; disabled?: boolean; loading?: boolean; outline?: boolean }) {
+  useThemeRefresh()
   return (
     <TouchableOpacity
       onPress={onPress}

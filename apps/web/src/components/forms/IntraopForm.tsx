@@ -1,6 +1,10 @@
 "use client"
 
 import { useForm, useWatch, type Resolver } from "react-hook-form"
+import { useIntraopEventTimeline } from "@/hooks/useIntraopEventTimeline"
+import { useIntraopEventAutofill } from "@/hooks/useIntraopEventAutofill"
+import { adultPremedDoseForRoute } from "@lospor/core/premedication"
+import type { IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 import { computeLiveDrugTotals } from "@/lib/intraop-drug-totals"
 import { buildIntraopSubmission, intraopTimeErrors } from "@/lib/intraop-submit"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
@@ -29,7 +33,7 @@ import { IntraopLabsDialog } from "@/components/intraop/IntraopLabsDialog"
 import { useClinicalRules } from "@/hooks/useClinicalRules"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
-import type { PremDoseCfg, PremedCat } from "@/components/intraop/PremedicationPicker"
+import type { PremDoseCfg, PremedCat, PremedRouteView } from "@/components/intraop/PremedicationPicker"
 import { PositionSection } from "@/components/forms/sections/PositionSection"
 import { MonitoringSection } from "@/components/forms/sections/MonitoringSection"
 import { VascularAccessSection } from "@/components/forms/sections/VascularAccessSection"
@@ -72,7 +76,7 @@ export type { IntraopFormFields, IntraopData } from "./intraopSchema"
 
 import type { PreopSummary } from "@/components/forms/preop-summary"
 
-export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onDeleteEvent, onLogEvent, onLogEventDelete, caseId = null, aiOptIn = false }: {
+export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, caseId = null, aiOptIn = false }: {
   /**
    * The saved case, once autosave has created one.
    *
@@ -92,9 +96,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   layoutMode?: "tabs" | "scroll"
   caseStarted?: boolean
   eventLog?: IntraopLogEvent[]
-  onDeleteEvent?: (id: string) => void
-  onLogEvent?: (event: IntraopLogEvent) => void
-  onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void
+  /** Writes timeline edits as event operations (the log is the only source). */
+  onEventOps?: (ops: IntraopEventOps) => void | Promise<void>
 }) {
   const t = useTranslations()
   const localizeIssue = (code: ClinicalIssueCode) => {
@@ -193,30 +196,28 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
 
   // Oral midazolam is 0.5 mg/kg and intravenous is 0.05; leaving the previous
   // number in place across a route change is a tenfold error waiting to happen.
-  const premedDoseForRoute = useCallback((drugName: string, route: string): number | null => {
-    if (!premedPediatric) return null
+  const premedDoseForRoute = useCallback((drugName: string, route: string): PremedRouteView | null => {
     const cfg = premedDoses[drugName]
     if (!cfg) return null
-    const next = pediatricPremedDoseForRoute({ name: drugName, ...cfg }, route, premedPatient)
-    return next.status === "calculated" ? next.dose : null
-  }, [premedDoses, premedPatient, premedPediatric])
+    if (premedPediatric) {
+      const next = pediatricPremedDoseForRoute({ name: drugName, ...cfg }, route, premedPatient)
+      return { dose: next.status === "calculated" ? next.dose : null, unit: cfg.unit, min: cfg.min, max: cfg.max, step: cfg.step, hint: cfg.hint }
+    }
+    // Adults: each route has its own dose, range and step (Core, 1.4.9).
+    const view = adultPremedDoseForRoute({ name: drugName, routeDoses: cfg.routeDoses }, route, preop?.weightKg)
+    return view.status === "unknown" ? null : { ...view, ...(view.status === "needs-weight" ? { min: 0, max: 1000 } : {}) }
+  }, [premedDoses, premedPatient, premedPediatric, preop?.weightKg])
 
   const EMPTY_TIMETABLE = useMemo<TimetableData>(() => ({ vitals: [], drugs: [], fluids: [], agents: [], infusions: [], gasSettings: [], clinicalEvents: [] }), [])
   const safeTimetable = (defaultTimetable && !Array.isArray(defaultTimetable) && "vitals" in defaultTimetable)
     ? defaultTimetable : EMPTY_TIMETABLE
-  const [timetable, setTimetable] = useState<TimetableData>(safeTimetable)
-  const [timetableDirty, setTimetableDirty] = useState(false)
   const [manualSaved, setManualSaved] = useState(false)
-
-  function handleDeleteEventWithTimetable(evId: string) {
-    const ev = eventLog?.find(e => e.id === evId)
-    if (ev?.type === "fluid_start" && ev.fluidId) {
-      setTimetable(prev => ({ ...prev, fluids: (prev.fluids ?? []).filter(f => f.id !== ev.fluidId) }))
-    } else if (ev?.type === "infusion_start" && ev.infId) {
-      setTimetable(prev => ({ ...prev, infusions: (prev.infusions ?? []).filter(i => i.id !== ev.infId) }))
-    }
-    onDeleteEvent?.(evId)
-  }
+  // The chart is the projection of the event log; edits become events (1.4.9).
+  const [timelineStartedAt, timelineEndedAt, timelineStartTime, timelineZone] = useWatch({ control, name: ["startedAt", "endedAt", "startTime", "timezone"] })
+  const { timetable, log: timelineLog, chartStartMs, startedAt: chartStartedAt, onTimetableChange, removeEvent, addEvents } = useIntraopEventTimeline({
+    eventLog, startedAt: timelineStartedAt, startTime: timelineStartTime, timezone: timelineZone, endedAt: timelineEndedAt, onEventOps, legacyTimetable: safeTimetable,
+  })
+  useIntraopEventAutofill({ log: timelineLog, chartStartMs, endedAt: timelineEndedAt, addEvents })
 
   const {
     snapshot: clinicalRulesSnapshot,
@@ -399,7 +400,6 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
 
 
   const watchedStartTime = useWatch({ control, name: "startTime" })
-  const watchedStartedAt = useWatch({ control, name: "startedAt" })
   const watchedEndTime = useWatch({ control, name: "endTime" })
   const watchedNbpMonitor = useWatch({ control, name: "nbpMonitor" })
   const watchedInvasiveBP = useWatch({ control, name: "invasiveBP" })
@@ -466,7 +466,6 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   function handleManualSave() {
     if (!onAutoSave) return
     onAutoSave({ ...getValues() })
-    setTimetableDirty(false)
     setManualSaved(true)
     setTimeout(() => setManualSaved(false), 2000)
   }
@@ -475,7 +474,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     // Columns are chart positions; the API stores wall-clock times. The
     // conversion lives in @/lib/intraop-submit, where it has a test.
     const { vitals, drugsAdministered } = buildIntraopSubmission(timetable, startTime)
-    onSubmit({ ...formData, vitals, drugsAdministered, timetableData: timetable })
+    // The chart itself is never sent: its events are already saved one by one.
+    onSubmit({ ...formData, vitals, drugsAdministered })
   }
 
   return (
@@ -667,7 +667,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           clinicalPresetVersion={clinicalRulesSnapshot?.preset?.version ?? null}
           clinicalPresetScope={clinicalRulesSnapshot?.preset?.scope ?? null}
           startTime={watchedStartTime || "08:00"}
-          startedAt={watchedStartedAt || undefined}
+          startedAt={chartStartedAt ?? undefined}
           endTime={watchedEndTime || undefined}
           caseStarted={caseStartedProp || !!watchedStartTime}
           monitoring={monitoring}
@@ -675,9 +675,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           ibw={calcIbw}
           tbw={preop?.weightKg ?? null}
           data={timetable}
-          onChange={newData => { setTimetable(newData); setTimetableDirty(true) }}
-          onLogEvent={onLogEvent}
-          onLogEventDelete={onLogEventDelete}
+          onChange={onTimetableChange}
           onEndCase={() => {
             const now = new Date()
             const savedZone = getValues("timezone")
@@ -719,7 +717,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
         const tabFinish = (<>
 
       {/* Complications */}
-      <ComplicationsSection t={t} control={control} watch={watch} eventLog={eventLog} onDeleteEvent={onDeleteEvent ? handleDeleteEventWithTimetable : undefined} />
+      <ComplicationsSection t={t} control={control} watch={watch} eventLog={eventLog} labResults={(watchedLabResults ?? []) as never} onDeleteEvent={onEventOps ? removeEvent : undefined} />
 
         </>)
         if (layoutMode === "scroll") return (
@@ -752,7 +750,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
         <div className="flex items-center gap-3">
-          {!!watchedEndTime && (formState.isDirty || timetableDirty) && (
+          {!!watchedEndTime && formState.isDirty && (
             <Button type="button" size="lg"
               className={`gap-2 transition-colors ${manualSaved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-600 hover:bg-slate-700"}`}
               onClick={handleManualSave}>

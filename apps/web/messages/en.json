@@ -1238,7 +1238,8 @@
       "missing_vitals": "Intraoperative vitals (timetable)",
       "missing_medications": "Drugs / infusions / agents",
       "missing_fluids": "Fluid balance",
-      "missing_complication_documentation": "Complications"
+      "missing_complication_documentation": "Complications",
+      "entries_after_case_end": "Planned timeline entries remain after the end time. Mark each as happened or not."
     },
     "saved": "✓ Saved",
     "saveChanges": "Save Changes",
@@ -1630,6 +1631,42 @@
       "selected": "selected",
       "manualEntry": "Manual entry only",
       "positionChange": "Position change"
+    },
+    "timelineRules": {
+      "refused": {
+        "STOP_BEFORE_START": "Not saved: a stop cannot be earlier than its start.",
+        "NOT_RUNNING": "Not saved: that is not running at this time.",
+        "STOP_BEFORE_LATER_CHANGE": "Not saved: a later change of the same item comes after this stop. Move or delete that change first.",
+        "ALREADY_RUNNING": "Not saved: this is already running.",
+        "FUTURE_VITAL": "Not saved: vitals cannot be recorded in the future.",
+        "BEFORE_CASE_START": "Not saved: this falls before the case start.",
+        "AFTER_CASE_END": "Not saved: this falls after the case end."
+      },
+      "needsStart": "Start the case first: timeline entries are timed from the case start.",
+      "plannedLabel": "Planned",
+      "plannedStopLabel": "Stop planned",
+      "autoFilledTag": "auto",
+      "autofillPausedTitle": "Is this case still running?",
+      "autofillPausedMessage": "Nothing has been entered for 60 minutes, so vitals autofill has paused.",
+      "autofillStillRunning": "Still running",
+      "autofillBackfillTitle": "Fill missed vitals?",
+      "autofillBackfillMessage": "Copy the last vitals into {count} empty rows from the last 30 minutes?",
+      "autofillFill": "Fill",
+      "autofillSkip": "Skip",
+      "agentSwitchTitle": "{name} is running",
+      "agentSwitch": "Switch: stop {name}",
+      "agentRunBoth": "Run both",
+      "endCaseAfterEndTitle": "Entries after the end time",
+      "endCaseAfterEndHint": "Say for each whether it happened. Nothing may remain after the end.",
+      "endCaseDidntHappen": "Didn't happen",
+      "endCaseHappened": "Happened",
+      "endCaseFinaliseBlocked": "Entries after the end remain. Mark each one first.",
+      "resumeRemoveStopsTitle": "Remove the stops made at End case?",
+      "resumeRemoveStopsMessage": "{count} items were stopped when the case ended. Remove those stops so they run again?",
+      "resumeRemoveStops": "Remove stops",
+      "resumeKeepStops": "Keep",
+      "labsPill": "Labs · {count}",
+      "autoEndedNotice": "This case was ended automatically 48 hours after it started. Resume it if it is still running."
     }
   },
   "postop": {

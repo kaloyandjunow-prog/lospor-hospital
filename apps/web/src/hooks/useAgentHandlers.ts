@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { RefObject } from "react"
-import type { TimetableData, AgentSegment, IntraopLogEvent } from "@/components/IntraopTimetable"
+import type { TimetableData, AgentSegment } from "@/components/IntraopTimetable"
 
 // Agents carry their own picker-popover UI state (which cell's picker is
 // open, its screen position, the pending N2O selection) alongside the same
@@ -12,8 +12,9 @@ export function useAgentHandlers(
   onChange: (d: TimetableData) => void,
   dataRef: RefObject<TimetableData>,
   onChangeRef: RefObject<(d: TimetableData) => void>,
-  emitLogEvent: (partial: Omit<IntraopLogEvent, "id" | "ts">) => void,
   nowCol: number | null,
+  /** Another agent was running where this one started: offer the switch. */
+  onStartedAlongside?: (started: string, running: AgentSegment[], col: number) => void,
 ) {
   const agents = data.agents ?? []
 
@@ -30,20 +31,13 @@ export function useAgentHandlers(
     const percent = percentParam !== undefined
       ? (percentParam !== null ? percentParam : undefined)
       : (pickerPercent !== null ? pickerPercent : undefined)
-    const terminatedNames: string[] = []
-    const updated = agents
-      .map(a => {
-        if (a.startCol < col && col <= a.endCol) {
-          terminatedNames.push(a.name)
-          return { ...a, endCol: col - 1, stopped: true as const }
-        }
-        return a
-      })
-      .filter(a => a.startCol !== col)
-    for (const n of terminatedNames) emitLogEvent({ type: "agent_stop", name: n })
+    // Several agents may run at once (1.4.9): starting one never stops another
+    // by itself. Switching is an explicit stop, offered right after.
+    const running = agents.filter(a => a.name !== name && !a.stopped && !a.planned && a.startCol <= col && col <= a.endCol)
+    const updated = agents.filter(a => !(a.startCol === col && a.name === name))
     onChange({ ...data, agents: [...updated, { name, startCol: col, endCol: col, n2o, percent }] })
-    emitLogEvent({ type: "agent_start", name, value: percent !== undefined ? String(percent) : undefined })
     closeAgentPicker(); setPickerN2o(null); setPickerPercent(null)
+    if (running.length > 0) onStartedAlongside?.(name, running, col)
   }
 
   function updateAgentExtras(startCol: number) {
@@ -76,12 +70,11 @@ export function useAgentHandlers(
     closeAgentPicker()
   }
 
-  function extendSegment(startCol: number, newEndCol: number, terminate = false) {
-    const d = dataRef.current; onChangeRef.current({ ...d, agents: d.agents.map(a => a.startCol === startCol ? { ...a, endCol: newEndCol, stopped: terminate ? true : undefined } : a) })
-    if (terminate) {
-      const seg = d.agents.find(a => a.startCol === startCol)
-      if (seg) emitLogEvent({ type: "agent_stop", name: seg.name })
-    }
+  // 1.4.9: a bar's end is its stop. Dropping the end grip stops it at that
+  // column (a planned stop if the column is still ahead); on a stopped bar it
+  // moves the stop. A running bar otherwise ends at "now" by itself.
+  function extendSegment(startCol: number, newEndCol: number) {
+    const d = dataRef.current; onChangeRef.current({ ...d, agents: d.agents.map(a => a.startCol === startCol ? { ...a, endCol: newEndCol, plannedStopCol: undefined, stopped: true } : a) })
   }
 
   function resumeSegment(startCol: number) {

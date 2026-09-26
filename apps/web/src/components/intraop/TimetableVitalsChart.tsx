@@ -1,16 +1,17 @@
 "use client"
 
+import type { VitalKey } from "@/types/timetable"
 import { memo, useEffect, useRef, useState } from "react"
 import type { VitalsEntry } from "@/types/timetable"
 
-const COL_W = 74
-const LABEL_W = 96
+import { COL_W, LABEL_W } from "./timetable-layout"
+
 const CHART_H = 220
 const Y_MAX = 220
 const GRID_VALS = [40, 80, 120, 160, 200]
 
 export const VITAL_ROW_DEFS: {
-  key:      keyof VitalsEntry
+  key:      VitalKey
   label:    string
   unit:     string
   color:    string
@@ -69,7 +70,7 @@ export const DivChart = memo(function DivChart({ vitals, colStart, rowColCount, 
   function dotY(v: number)   { return CHART_H * (1 - v / Y_MAX) }
 
   function series(
-    key: keyof VitalsEntry, color: string,
+    key: VitalKey, color: string,
     opacity = 1, dashed = false,
     toPlotValue: (v: number) => number = v => v,
   ) {

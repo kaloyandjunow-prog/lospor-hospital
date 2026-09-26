@@ -1,7 +1,7 @@
+import type { SaveIntraopEvent, StampFor } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import { uid } from "@/lib/intraop-log-event"
 import type {
-  LogEvent,
   ActiveFluid,
   FluidEntryMode,
   FluidRateChange,
@@ -16,9 +16,11 @@ type FluidOption = { name: string; cat: string; color: string }
 // screen for the running-items strip and end-case sheet), so it's passed in
 // rather than owned here — same as activeAgent in useAgentEntry.
 export function useFluidEntry(
-  save: (partial: Omit<LogEvent, "id" | "ts">, tsOverride?: string, silent?: boolean) => Promise<LogEvent>,
+  save: SaveIntraopEvent,
   setEntryTs: (ts: string | null) => void,
   setActiveFluids: (updater: (prev: ActiveFluid[]) => ActiveFluid[]) => void,
+  // Row time → instant to record (Core stamp rule). Defaults to now, to the minute.
+  stampFor: StampFor = () => new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString(),
 ) {
   const [flOpen, setFlOpen]   = useState(false)
   const [flFluid, setFlFluid] = useState<FluidOption | null>(null)
@@ -37,6 +39,8 @@ export function useFluidEntry(
   const [flEndTarget, setFlEndTarget] = useState<ActiveFluid | null>(null)
   const [flEndCustom, setFlEndCustom] = useState("")
   const [flEndRate, setFlEndRate] = useState("")
+  // The row the end/rate sheet was opened from; null = now.
+  const [flEndTs, setFlEndTs] = useState<string | null>(null)
 
   function resetFluidDraft() {
     setFlFluid(null)
@@ -52,13 +56,13 @@ export function useFluidEntry(
   function openFluid(ts?: string) {
     setEntryTs(ts ?? null)
     resetFluidDraft()
-    setFlStartedAt(ts ?? new Date().toISOString())
+    setFlStartedAt(ts ?? null)
     setFlOpen(true)
   }
 
   function confirmFluid() {
     if (!flFluid) return
-    const startedAt = flStartedAt ?? new Date().toISOString()
+    const startedAt = stampFor(flStartedAt)
     const bagVolumeMl = flEntryMode === "VOLUME" ? Number(flVol) : undefined
     const rate = flEntryMode === "RATE" ? flRate : undefined
     if (flEntryMode === "VOLUME" && (!Number.isFinite(bagVolumeMl) || bagVolumeMl! <= 0)) return
@@ -104,7 +108,8 @@ export function useFluidEntry(
     }, startedAt)
   }
 
-  function openFluidEnd(fl: ActiveFluid) {
+  function openFluidEnd(fl: ActiveFluid, rowTs?: string | null) {
+    setFlEndTs(rowTs ?? null)
     setFlEndTarget(fl)
     setFlEndCustom("")
     setFlEndRate(fl.rate ?? "")
@@ -114,7 +119,8 @@ export function useFluidEntry(
   function confirmFluidEnd(administeredVolumeMl?: number) {
     if (!flEndTarget) return
     const fl = flEndTarget
-    const endedAt = new Date().toISOString()
+    // Recorded at the row the stop was entered in, not when it was tapped.
+    const endedAt = stampFor(flEndTs)
     const resolvedVolumeMl = administeredVolumeMl ?? calculatedFluidVolumeMl(fl, endedAt)
     setActiveFluids(prev => prev.filter(x => x.fluidId !== fl.fluidId))
     setFlEndOpen(false); setFlEndTarget(null)
@@ -133,7 +139,7 @@ export function useFluidEntry(
     if (!flEndTarget || fluidEntryModeOf(flEndTarget) !== "RATE") return
     const numericRate = Number(flEndRate)
     if (!Number.isFinite(numericRate) || numericRate <= 0) return
-    const changedAt = new Date().toISOString()
+    const changedAt = stampFor(flEndTs)
     const change: FluidRateChange = { ts: changedAt, rate: flEndRate, unit: "mL/h" }
     const targetId = flEndTarget.fluidId
     setActiveFluids(prev => prev.map(fluid => fluid.fluidId === targetId
@@ -155,7 +161,7 @@ export function useFluidEntry(
 
   // Direct fluid stop used by end-case sheet (no modal, no flEndTarget state required)
   async function stopFluidDirect(fl: ActiveFluid, context?: EndCaseStopContext) {
-    const endedAt = context?.endTs ?? new Date().toISOString()
+    const endedAt = context?.endTs ?? stampFor(null)
     const administeredVolumeMl = context?.administeredVolumeMl ?? calculatedFluidVolumeMl(fl, endedAt)
     setActiveFluids(prev => prev.filter(x => x.fluidId !== fl.fluidId))
     await save({
@@ -166,6 +172,8 @@ export function useFluidEntry(
       fluidEntryMode: fluidEntryModeOf(fl),
       administeredVolumeMl,
       volume: String(administeredVolumeMl),
+      // A stop End case made: Resume offers to remove exactly these.
+      ...(context ? { endCaseStop: true } : {}),
     }, endedAt)
   }
 

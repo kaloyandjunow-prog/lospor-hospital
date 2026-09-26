@@ -3,6 +3,7 @@ import type { ScenarioGroup } from "@lospor/core"
 import { MedicationPickerPill } from "@/components/intraop/MedicationPickerPill"
 import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 export type InfusionPickerOption = { name: string; unit: string; color: string }
 export type InfusionPickerResult = InfusionPickerOption & {
@@ -52,11 +53,12 @@ export function InfusionPickerMenu({
   onOpenScenario: (group: ScenarioGroup) => void
   onOpenBrowse: () => void
 }) {
+  const shade = useShade()
   if (mode === "scenario" && scenario) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
           {scenarioItems.map(({ entry, drug }) => (
@@ -77,10 +79,10 @@ export function InfusionPickerMenu({
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         {favouriteItems.length === 0 ? (
-          <Text style={{ color:"#64748b", fontSize:13, lineHeight:18 }}>{tc("dsChooseFavourites")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:13, lineHeight:18 }}>{tc("dsChooseFavourites")}</Text>
         ) : (
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
             {favouriteItems.map(drug => (
@@ -102,16 +104,16 @@ export function InfusionPickerMenu({
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         <TextInput
           testID="infusion-search-input"
           value={query}
           onChangeText={onQueryChange}
           placeholder={tc("dsSearchInfusions")}
-          placeholderTextColor="#475569"
-          style={{ backgroundColor:"#111820", color:"#e2e8f0", borderRadius:10, paddingHorizontal:12, paddingVertical:10,
-            borderWidth:1, borderColor:"#1e2d40", marginBottom:14 }}
+          placeholderTextColor={shade("#475569")}
+          style={{ backgroundColor:shade("#111820"), color:shade("#e2e8f0"), borderRadius:10, paddingHorizontal:12, paddingVertical:10,
+            borderWidth:1, borderColor:shade("#1e2d40"), marginBottom:14 }}
         />
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
           {filtered.map(drug => (
@@ -138,7 +140,7 @@ export function InfusionPickerMenu({
         <MedicationPickerPill
           label={tc("dsFavourites")}
           sublabel={`${favouriteItems.length || 0} ${tc("dsSelected")}`}
-          color="#38bdf8"
+          color={shade("#38bdf8")}
           onPress={onOpenFavourites}
           wide
         />
@@ -158,7 +160,7 @@ export function InfusionPickerMenu({
         <MedicationPickerPill
           label={tc("dsBrowseAllInfusions")}
           sublabel={tc("dsSearchCanonicalList")}
-          color="#64748b"
+          color={shade("#64748b")}
           onPress={onOpenBrowse}
           wide
         />

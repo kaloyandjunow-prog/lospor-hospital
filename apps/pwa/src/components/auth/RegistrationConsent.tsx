@@ -2,6 +2,7 @@ import { Linking, Text, TouchableOpacity, View } from "react-native"
 import { notify } from "@/lib/notify"
 import { legalDocumentUrl } from "@/lib/legal-links"
 import type { AppLanguage, TranslationKey } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 type Translate = (key: TranslationKey) => string
 
@@ -30,6 +31,7 @@ export function RegistrationConsent({
   language: AppLanguage
   t: Translate
 }) {
+  const shade = useShade()
   const openDocument = (document: "terms" | "privacy") => {
     void Linking.openURL(legalDocumentUrl(document, language))
       .catch(() => notify(t("error"), t("legalLinkFailed")))
@@ -39,18 +41,18 @@ export function RegistrationConsent({
     <View className="mb-4">
       <View
         style={{
-          backgroundColor: "#1c1c1c",
-          borderColor: "#2e2e2e",
+          backgroundColor: shade("#1c1c1c"),
+          borderColor: shade("#2e2e2e"),
           borderWidth: 1,
           borderRadius: 12,
           padding: 12,
           marginBottom: 12,
         }}
       >
-        <Text style={{ color: "#cbd5e1", fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
+        <Text style={{ color: shade("#cbd5e1"), fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
           {t("clinicalRegistryAccount")}
         </Text>
-        <Text style={{ color: "#94a3b8", fontSize: 12, lineHeight: 17 }}>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, lineHeight: 17 }}>
           {t("registryLegalNotice")}
         </Text>
       </View>
@@ -71,11 +73,11 @@ export function RegistrationConsent({
             height: 20,
             borderRadius: 4,
             borderWidth: 2,
-            borderColor: value ? "#3b82f6" : "#4b5563",
-            backgroundColor: value ? "#3b82f6" : "transparent",
+            borderColor: value ? shade("#3b82f6") : shade("#4b5563"),
+            backgroundColor: value ? shade("#3b82f6") : "transparent",
           }}
         >
-          {value && <Text style={{ color: "#fff", fontSize: 13, lineHeight: 16 }}>✓</Text>}
+          {value && <Text style={{ color: shade("#fff"), fontSize: 13, lineHeight: 16 }}>✓</Text>}
         </View>
         <View className="flex-1">
           <Text className="text-slate-300 text-sm leading-relaxed">

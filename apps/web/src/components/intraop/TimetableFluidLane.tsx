@@ -1,5 +1,6 @@
 "use client"
 
+import { PlannedStopMarker } from "./PlannedStopMarker"
 import { X } from "lucide-react"
 import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
 import { barContinues, barLeftClass, barRightClass, showBarGrip } from "./timetable-row-geometry"
@@ -139,7 +140,7 @@ export function FluidLane({
                   onClick={e => { e.stopPropagation(); if (isActualStart || isRowCont) setSel({ type: "fluid", id: seg.id }) }}
                   onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeFluid(seg.id) }}
                   title={seg.stopped ? copy.doubleClickResume : undefined}
-                  className={`absolute inset-y-1 border-y cursor-pointer ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${isDragPreview ? "opacity-50" : ""} ${seg.stopped ? "opacity-60 border-dashed" : ""}`}
+                  className={`absolute inset-y-1 border-y cursor-pointer ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${isDragPreview ? "opacity-50" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   style={{
                     backgroundColor: isSel ? color + "88" : color + "33",
                     borderColor: isSel ? color : color + "88",
@@ -233,6 +234,7 @@ export function FluidLane({
                 <X className="h-2.5 w-2.5" />
               </button>
             )}
+            {segments.some(s => s.plannedStopCol === ci) && <PlannedStopMarker />}
             {stoppedSeg && (
               <button
                 type="button"

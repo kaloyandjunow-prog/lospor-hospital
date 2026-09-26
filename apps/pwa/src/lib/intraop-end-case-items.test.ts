@@ -3,7 +3,7 @@ import type { ActiveFluid, ActiveInfusion } from "./intraop-log-event"
 import { buildEndCaseRunningItems, hasEndCaseRunningItems } from "./intraop-end-case-items"
 
 describe("buildEndCaseRunningItems", () => {
-  it("builds cleanup rows for active agent, gas, infusions, and fluids", () => {
+  it("builds cleanup rows for every running agent, gas, infusions, and fluids", () => {
     const infusion: ActiveInfusion = { infId: "inf-1", name: "Propofol", rate: "10", unit: "mg/kg/h", color: "#111" }
     const fluid: ActiveFluid = { fluidId: "fl-1", name: "Ringer", volume: "500", color: "#222" }
     const stopAgent = vi.fn()
@@ -12,7 +12,7 @@ describe("buildEndCaseRunningItems", () => {
     const stopFluid = vi.fn()
 
     const items = buildEndCaseRunningItems({
-      activeAgent: { name: "Sevoflurane", color: "#333" },
+      activeAgents: [{ name: "Sevoflurane", color: "#333" }, { name: "Desflurane", color: "#444" }],
       activeGas: { fgf: 2, carrierGas: "air", fio2: 50 },
       activeInfusions: [infusion],
       activeFluids: [fluid],
@@ -24,26 +24,28 @@ describe("buildEndCaseRunningItems", () => {
 
     expect(items.map(item => [item.key, item.label, item.sublabel, item.color])).toEqual([
       ["agent-Sevoflurane", "Sevoflurane", "Volatile - inhalational", "#333"],
+      ["agent-Desflurane", "Desflurane", "Volatile - inhalational", "#444"],
       ["gas-settings", "Gas settings", "FGF 2L/min - FiO2 50%", "#6366f1"],
       ["inf-inf-1", "Propofol", "10 mg/kg/h - infusion", "#111"],
       ["fluid-fl-1", "Ringer", "500 mL - fluid", "#222"],
     ])
-    expect(items[3].fluidVolume?.mode).toBe("VOLUME")
-    expect(items[3].fluidVolume?.atEnd("2026-08-02T09:00:00.000Z")).toBe(500)
+    expect(items[4].fluidVolume?.mode).toBe("VOLUME")
+    expect(items[4].fluidVolume?.atEnd("2026-08-02T09:00:00.000Z")).toBe(500)
 
-    items[0].onStop()
-    items[1].onStop()
-    items[2].onStop()
-    items[3].onStop()
-    expect(stopAgent).toHaveBeenCalledOnce()
-    expect(stopGasSettings).toHaveBeenCalledOnce()
-    expect(stopInfusion).toHaveBeenCalledWith(infusion)
-    expect(stopFluid).toHaveBeenCalledWith(fluid)
+    // End case stops at its end time, marked so Resume can offer to undo them.
+    const context = { endTs: "2026-08-02T09:00:00.000Z" }
+    const atEnd = { exactTs: context.endTs, endCaseStop: true }
+    for (const item of items) item.onStop(context)
+    expect(stopAgent).toHaveBeenCalledWith("Sevoflurane", null, atEnd)
+    expect(stopAgent).toHaveBeenCalledWith("Desflurane", null, atEnd)
+    expect(stopGasSettings).toHaveBeenCalledWith(null, atEnd)
+    expect(stopInfusion).toHaveBeenCalledWith(infusion, null, atEnd)
+    expect(stopFluid).toHaveBeenCalledWith(fluid, context)
   })
 
   it("returns an empty list when nothing is running", () => {
     expect(buildEndCaseRunningItems({
-      activeAgent: null,
+      activeAgents: [],
       activeGas: null,
       activeInfusions: [],
       activeFluids: [],
@@ -68,7 +70,7 @@ describe("buildEndCaseRunningItems", () => {
       rateChanges:[],
     }
     const items = buildEndCaseRunningItems({
-      activeAgent:null,
+      activeAgents:[],
       activeGas:null,
       activeInfusions:[],
       activeFluids:[fluid],
@@ -94,7 +96,7 @@ describe("buildEndCaseRunningItems", () => {
     }
     const stopFluid = vi.fn()
     const [item] = buildEndCaseRunningItems({
-      activeAgent:null,
+      activeAgents:[],
       activeGas:null,
       activeInfusions:[],
       activeFluids:[fluid],
@@ -113,13 +115,13 @@ describe("buildEndCaseRunningItems", () => {
 
   it("detects whether the end-case cleanup sheet is needed", () => {
     const base = {
-      activeAgent: null,
+      activeAgents: [],
       activeGas: null,
       activeInfusions: [],
       activeFluids: [],
     }
     expect(hasEndCaseRunningItems(base)).toBe(false)
-    expect(hasEndCaseRunningItems({ ...base, activeAgent: { name: "Sevoflurane", color: "#333" } })).toBe(true)
+    expect(hasEndCaseRunningItems({ ...base, activeAgents: [{ name: "Sevoflurane", color: "#333" }] })).toBe(true)
     expect(hasEndCaseRunningItems({ ...base, activeGas: { fgf: 2, carrierGas: "air", fio2: 50 } })).toBe(true)
     expect(hasEndCaseRunningItems({ ...base, activeInfusions: [{ infId: "i1", name: "Propofol", rate: "10", unit: "mg/kg/h", color: "#111" }] })).toBe(true)
     expect(hasEndCaseRunningItems({ ...base, activeFluids: [{ fluidId: "f1", name: "Ringer", volume: "500", color: "#222" }] })).toBe(true)

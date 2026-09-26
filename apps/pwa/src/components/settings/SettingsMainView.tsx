@@ -3,7 +3,7 @@ import { Stack, useRouter, type Href } from "expo-router"
 import { NO_INSTITUTION_ID } from "@lospor/core/account"
 import { usePreferences } from "@/lib/preferences-context"
 import { Card, SectionHeader, SettingsRow } from "@/components/ui"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import { AppHeader } from "@/components/AppHeader"
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer"
 import { InstitutionPicker, type Institution } from "@/components/SettingsPickers"
@@ -36,6 +36,7 @@ export function SettingsMainView({
   displayName: string
   onOpenSettings: () => void
 }) {
+  useThemeRefresh()
   const router = useRouter()
 
   return (

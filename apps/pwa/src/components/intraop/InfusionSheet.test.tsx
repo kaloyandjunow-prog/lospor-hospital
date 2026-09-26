@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 vi.mock("expo-haptics", () => ({}))
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({
+  usePreferences: () => ({ shade: (hex: string) => hex,
     language: "en",
     t: (key: string) => key,
     tc: (key: string) => key,

@@ -104,7 +104,7 @@ export default function NewCaseScreen() {
   const router = useRouter()
   const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
   const insets = useSafeAreaInsets()
-  const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit } = usePreferences()
+  const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
   const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const ageRange         = useRangeSpec("AGE_RANGE")
@@ -1000,7 +1000,7 @@ export default function NewCaseScreen() {
                   opacity: saving ? 0.6 : 1,
                 }}
               >
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "900", fontSize: 16 }}>{tc("continueIntraop")}</Text>}
+                {saving ? <ActivityIndicator color={shade("#fff")} /> : <Text style={{ color: shade("#fff"), fontWeight: "900", fontSize: 16 }}>{tc("continueIntraop")}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1440,10 +1440,10 @@ export default function NewCaseScreen() {
               position: "absolute", bottom: insets.bottom + 24, right: 20,
               width: 50, height: 50, borderRadius: 25,
               backgroundColor: colors.primary, alignItems: "center", justifyContent: "center",
-              shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
+              shadowColor: shade("#000"), shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
             }}
           >
-            <Ionicons name="grid-outline" size={23} color="#fff" />
+            <Ionicons name="grid-outline" size={23} color={shade("#fff")} />
           </TouchableOpacity>
         </View>}
       </KeyboardAvoidingView>

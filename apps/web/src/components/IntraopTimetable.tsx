@@ -1,5 +1,6 @@
 "use client"
 
+import type { VitalKey } from "@/types/timetable"
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useIntraopLibraryConfig } from "@/lib/use-intraop-library-config"
 import { nowMarkerGeometry } from "@/lib/timetable-clock"
@@ -48,18 +49,14 @@ import {
 } from "@/components/intraop/timetable-types"
 import { addMinutes, floorTo5, timeToMins, toHHMM, calcDuration } from "@/lib/timetable-time"
 import { FLUID_CAT_COLOR, computeFluidRows, fluidCategory, fluidColor } from "@/lib/timetable-fluid-rows"
-import {
-  applyAutoFillVitalPlan,
-  useWebAutoFillPreferences,
-  vitalsToAutoFillLog,
-} from "@/lib/intraop-autofill-vitals"
 import { groupLabsByDraw, type LabResult } from "@lospor/core/labs"
 import { gridOriginMs } from "@/lib/intraop-clock"
 import { TimetableLabsLane } from "@/components/intraop/TimetableLabsLane"
 import type {
-  VitalsEntry, AgentSegment, GasSettingsSegment, TimetableData, TimetableFluid,
-  LogEvent as IntraopLogEvent,
+  AgentSegment, GasSettingsSegment, TimetableData, TimetableFluid,
 } from "@/types/timetable"
+import { toast } from "sonner"
+import { afterEndItems, resolveAfterEnd } from "@/components/intraop/end-case-after-end"
 import { EndCaseModal } from "@/components/intraop/EndCaseModal"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import {
@@ -85,12 +82,7 @@ import { DivChart, VITAL_ROW_DEFS } from "@/components/intraop/TimetableVitalsCh
 import { cvpDisplayRange, cvpToDisplay } from "@lospor/core/monitoring-values"
 import { mayCommitVitalDefault } from "@lospor/core/monitoring-values"
 import { useUnitPreferences } from "@/hooks/useUnitPreferences"
-import {
-  activeTimetableColumnForTimestamp,
-  latestVitalColumn,
-  planAutoFillVitalEvents,
-  type IntraopVitalKey,
-} from "@lospor/core/intraop-vitals"
+import { type IntraopVitalKey } from "@lospor/core/intraop-vitals"
 import { evaluateVitalInput } from "@/lib/intraop-vital-entry"
 import {
   groupClinicalEvents,
@@ -155,8 +147,6 @@ interface Props {
   onPostopContinued?: (items: string[]) => void
   onInfusionTotals?: (totals: { name: string; total: number; unit: string }[]) => void
   onComplicationAdded?: (labels: string[]) => void
-  onLogEvent?: (event: IntraopLogEvent) => void
-  onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void
 
   /**
    * Laboratory draws taken during the case.
@@ -225,8 +215,6 @@ export function IntraopTimetable({
   onPostopContinued,
   onInfusionTotals,
   onComplicationAdded,
-  onLogEvent,
-  onLogEventDelete,
   labResults = [],
   onOpenLabDraw,
   onOpenAllLabs,
@@ -434,7 +422,6 @@ export function IntraopTimetable({
   // Shortlist the clinician chose in settings — the same server-side list the
   // phone reads, so both devices open on the same favourites.
   const { favouriteDrugs, favouriteInfusions } = useIntraopFavourites()
-  const autoFillPreferences = useWebAutoFillPreferences()
   // In-cell fluid picker
   const [fluidPicker, setFluidPicker] = useState<{ ci: number; rect: DOMRect } | null>(null)
   const [fpSearch,    setFpSearch]    = useState("")
@@ -489,7 +476,7 @@ export function IntraopTimetable({
   const vitalsInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   // Vitals slider popup
   const [vitalsPopup, setVitalsPopup] = useState<{
-    col: number; key: keyof VitalsEntry
+    col: number; key: VitalKey
     min: number; max: number; step: number; defaultVal: number
     defaultIsPriorReading: boolean
     label: string; unit: string; color: string
@@ -572,26 +559,11 @@ export function IntraopTimetable({
     rawOnChangeRef.current(newData)
   })
 
-  // Per-action event emission alongside the existing onChange/data mutation —
-  // matches mobile's POST-one-event-per-action pattern against
-  // /api/cases/[id]/events, so web cases get real CaseEvent rows too instead
-  // of only the legacy keyEvents JSON blob. Scoped to create/start/stop/rate
-  // actions; raw bar-drag resize gestures are left on the existing local-only
-  // path since they aren't a distinct clinical event.
-  const onLogEventRef = useRef(onLogEvent)
-  useEffect(() => { onLogEventRef.current = onLogEvent }, [onLogEvent])
-  const onLogEventDeleteRef = useRef(onLogEventDelete)
-  useEffect(() => { onLogEventDeleteRef.current = onLogEventDelete }, [onLogEventDelete])
   const uid = useCallback((): string => {
     return typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
       : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, "0")).join("")
   }, [])
-  const emitLogEvent = useCallback((partial: Omit<IntraopLogEvent, "id" | "ts"> & { ts?: string }) => {
-    // Callers may pin the event to a specific column time (vitals) — the
-    // default "now" only applies when no ts is provided.
-    onLogEventRef.current?.({ id: uid(), ts: new Date().toISOString(), ...partial })
-  }, [uid])
 
   const flyoutPreset = { id: clinicalPresetId, version: clinicalPresetVersion, scope: clinicalPresetScope }
 
@@ -668,17 +640,6 @@ export function IntraopTimetable({
         ...administrationAudit,
       }],
     })
-    emitLogEvent({
-      type: "drug",
-      name: fp.name,
-      dose,
-      unit: fp.unit,
-      drugRoute: fp.route,
-      drugId: lib?.drugId ?? undefined,
-      atcCode: lib?.atcCode ?? undefined,
-      inn: lib?.inn ?? undefined,
-      ...administrationAudit,
-    })
     setFp(null)
   }
   function fluidActionTimestamp(col: number): string {
@@ -706,24 +667,6 @@ export function IntraopTimetable({
     }
   }
 
-  function emitFluidStart(fluid: TimetableFluid) {
-    emitLogEvent({
-      type: "fluid_start",
-      ts: fluid.startTs,
-      fluidId: fluid.id,
-      name: fluid.name,
-      category: fluid.category,
-      color: fluid.color,
-      volume: fluid.volume,
-      fluidEntryMode: fluid.fluidEntryMode,
-      bagVolumeMl: fluid.bagVolumeMl,
-      rate: fluid.rate == null ? undefined : String(fluid.rate),
-      unit: fluid.unit,
-      concentration: fluid.concentration,
-      ...clinicalProvenance(fluid),
-    })
-  }
-
   function addFluidDirect(
     pending: PendingFluidEntry,
     col: number,
@@ -735,7 +678,6 @@ export function IntraopTimetable({
       ...d,
       fluids: [...updateExisting(d.fluids ?? []), fluid],
     })
-    emitFluidStart(fluid)
   }
 
   function checkFluidConflict(pending: PendingFluidEntry, col: number, anchor: FConflictAnchor): boolean {
@@ -789,7 +731,6 @@ export function IntraopTimetable({
       ...clinicalProvenance(fp),
     }
     onChange({ ...data, infusions: [...(data.infusions??[]), { id, name:displayName, rate:fp.rate, unit:fp.rateUnit, startCol:fp.col, endCol:fp.col, color:cfg.color, concentration: fp.concentration, formulation: fp.formulation, route: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, ...ruleAudit }] })
-    emitLogEvent({ type: "infusion_start", infId: id, name: displayName, rate: String(fp.rate), unit: fp.rateUnit, color: cfg.color, concentration: fp.concentration, formulation: fp.formulation, drugRoute: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, ...ruleAudit })
     setFp(null)
   }
 
@@ -798,60 +739,16 @@ export function IntraopTimetable({
   const { cvpUnit } = useUnitPreferences()
   /** A stored vital as the clinician sees it. Only CVP is ever converted. */
   const vitalToDisplay = useCallback(
-    (key: keyof VitalsEntry, stored: number) =>
+    (key: VitalKey, stored: number) =>
       key === "cvp" && cvpUnit === "cmH2O" ? cvpToDisplay(stored, "cmH2O") : stored,
     [cvpUnit],
   )
   const { setVital: setVitalCell, lastVitalBefore } = useVitalsHandlers(dataRef, rawOnChangeRef)
 
-  // Vitals persist as `vital` events (one per 5-minute column; the event
-  // carries the whole column and the server projection replaces the column,
-  // so a later event for the same column wins — the mobile contract). Cell
-  // edits and auto-fill mark the column dirty; after a short settle each
-  // dirty column is emitted through the same hardened event path drugs use.
-  const dirtyVitalColsRef = useRef<Set<number>>(new Set())
-  const vitalsEmitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const flushVitalEvents = useCallback(() => {
-    vitalsEmitTimerRef.current = null
-    const cols = [...dirtyVitalColsRef.current].sort((a, b) => a - b)
-    dirtyVitalColsRef.current.clear()
-    for (const col of cols) {
-      const ts = tsForCol(col)
-      if (!ts) continue
-      const entry = dataRef.current.vitals[col] ?? {}
-      // STABLE id per column — the same scheme mobile's webTimetableToLog and
-      // the server bridge use. Re-editing a cell then SUPERSEDES the existing
-      // CaseEvent row (addEvent's content-compare + version bump) instead of
-      // stacking a second active event at the same timestamp with a random id,
-      // which made the projected value nondeterministic.
-      onLogEventRef.current?.({ id: `web-vital-${col}`, ts, type: "vital", ...entry })
-    }
-  }, [tsForCol])
-
-  const markVitalColDirty = useCallback((col: number) => {
-    if (!onLogEventRef.current) return // no event sink wired (read-only usage)
-    dirtyVitalColsRef.current.add(col)
-    if (vitalsEmitTimerRef.current) clearTimeout(vitalsEmitTimerRef.current)
-    vitalsEmitTimerRef.current = setTimeout(flushVitalEvents, 1200)
-  }, [flushVitalEvents])
-
-  // Stable ref so the clock-tick and backfill effects can mark columns dirty
-  // without adding churn to their dependency arrays.
-  const markVitalColDirtyRef = useRef(markVitalColDirty)
-  useEffect(() => { markVitalColDirtyRef.current = markVitalColDirty }, [markVitalColDirty])
-
-  // Navigating away mid-settle must not lose the pending column emissions.
-  useEffect(() => () => {
-    if (vitalsEmitTimerRef.current) {
-      clearTimeout(vitalsEmitTimerRef.current)
-      flushVitalEvents()
-    }
-  }, [flushVitalEvents])
-
+  // A vitals edit is a chart edit like any other: the form turns it into a
+  // vital event (Core timetableEditToEventOps), so nothing is debounced here.
   const { vitalDrafts, activeVitalCell, setActiveVitalCell, setVital } = useVitalDraftEntry({
     setVitalCell,
-    markVitalColDirty,
     cvpUnit,
   })
 
@@ -911,25 +808,6 @@ export function IntraopTimetable({
           const last = d.drugs[sel.idx]
           const newDrugs = [...d.drugs, {...last, colIdx:col+1}]
           oc({...d, drugs:newDrugs, infusions:(d.infusions??[]).map(i=>i.startCol<=col&&i.endCol===col?{...i,endCol:col+1}:i)})
-          emitLogEvent({
-            ts: tsForCol(col + 1) ?? undefined,
-            type: "drug",
-            name: last.name,
-            dose: last.dose,
-            unit: last.unit,
-            drugRoute: last.route,
-            drugId: last.drugId,
-            atcCode: last.atcCode,
-            inn: last.inn,
-            concentration: last.concentration,
-            concentrationValue: last.concentrationValue,
-            concentrationUnit: last.concentrationUnit,
-            formulation: last.formulation,
-            calculationBasis: last.calculationBasis,
-            calculationWeightKg: last.calculationWeightKg,
-            calculationMethod: last.calculationMethod,
-            ...clinicalProvenance(last),
-          })
           setSel({type:"drug", idx:newDrugs.length-1})
         }
         if (sel.type==="infusion") {
@@ -966,7 +844,7 @@ export function IntraopTimetable({
     }
     window.addEventListener("keydown", handle)
     return () => window.removeEventListener("keydown", handle)
-  }, [sel, colCount, emitLogEvent, tsForCol])
+  }, [sel, colCount])
 
   // Close vitals popup on Enter; arrow keys adjust slider value
   useEffect(() => {
@@ -1062,40 +940,6 @@ export function IntraopTimetable({
     }
   }, [caseStarted, data, endTime, startTime])
 
-  // ── Mount-time backfill: fill any gap from last vitals col to current col ──
-  useEffect(() => {
-    if (!caseStarted) return
-    if (!autoFillPreferences.enabled || !autoFillPreferences.backfillOnReopen) return
-
-    const d = dataRef.current
-
-    // Case hasn't started (start time is in the future) — nothing to backfill.
-    // Without this guard a future start time read as ~23 h elapsed would fill
-    // hours of fabricated observations forward and persist them as events.
-    if (gridStartMs === null) return
-    const now = new Date()
-    // Column 0's own start, so back-filled vitals align with the visible grid.
-    const chartStart = new Date(gridStartMs)
-    const log = vitalsToAutoFillLog(d.vitals, chartStart)
-    const lastDataCol = latestVitalColumn(log, chartStart)
-    if (lastDataCol === null) return
-    const currentCol = activeTimetableColumnForTimestamp(chartStart, now.getTime())
-    if (currentCol === null) return
-    if (currentCol <= lastDataCol) return
-
-    const planned = planAutoFillVitalEvents({
-      log,
-      chartStart,
-      fromCol: lastDataCol + 1,
-      toCol: currentCol,
-      preferences: autoFillPreferences,
-    })
-    const { vitals: newVitals, filledCols } = applyAutoFillVitalPlan(d.vitals, planned)
-    if (!filledCols.length) return
-    filledCols.forEach(col => markVitalColDirtyRef.current(col))
-    rawOnChangeRef.current({ ...d, vitals: newVitals })
-  }, [caseStarted, rawOnChangeRef, gridStartMs, autoFillPreferences])
-
   // ── Live clock: advance selectedCol + pixel offset every 10 s ──────────────
   useEffect(() => {
     if (!caseStarted) return          // case not started — don't run clock
@@ -1123,56 +967,16 @@ export function IntraopTimetable({
         setNowOffsetPx(geometry.offsetPx)
         setSelectedCol(col)
 
-        // Auto-extend live bars to current column (any bar behind current that isn't stopped)
-        const d   = dataRef.current
-        const oc  = rawOnChangeRef.current   // bypass history — auto-extend is not undoable
-        const prevCol = prevColRef.current
-
-        const needsExtend =
-          (d.infusions ?? []).some(i => i.endCol < col && !i.stopped) ||
-          (d.fluids    ?? []).some(f => f.endCol < col && !f.stopped) ||
-          (d.agents    ?? []).some(a => a.endCol < col && !a.stopped) ||
-          (d.gasSettings ?? []).some(g => g.endCol < col && !g.stopped)
-
-        let newVitals = d.vitals
-        if (prevCol !== null && trueCol > prevCol && autoFillPreferences.enabled) {
-          // Must be the same origin trueCol was derived from, or back-filled
-          // vitals land in a different column than the one on screen.
-          const chartStartMs = gridStartMs
-          if (chartStartMs !== null) {
-            const chartStart = new Date(chartStartMs)
-            const planned = planAutoFillVitalEvents({
-              log: vitalsToAutoFillLog(d.vitals, chartStart),
-              chartStart,
-              fromCol: prevCol + 1,
-              toCol: trueCol,
-              preferences: autoFillPreferences,
-            })
-            const applied = applyAutoFillVitalPlan(d.vitals, planned)
-            if (applied.filledCols.length) {
-              newVitals = applied.vitals
-              applied.filledCols.forEach(filledCol => markVitalColDirtyRef.current(filledCol))
-            }
-          }
-        }
-
-        if (needsExtend || newVitals !== d.vitals) {
-          oc({
-            ...d,
-            vitals:    newVitals,
-            infusions: (d.infusions ?? []).map(i => i.endCol < col && !i.stopped ? { ...i, endCol: col } : i),
-            fluids:    (d.fluids    ?? []).map(f => f.endCol < col && !f.stopped ? { ...f, endCol: col } : f),
-            agents:    (d.agents   ?? []).map(a => a.endCol < col && !a.stopped ? { ...a, endCol: col } : a),
-            gasSettings: (d.gasSettings ?? []).map(g => g.endCol < col && !g.stopped ? { ...g, endCol: col } : g),
-          })
-        }
+        // Running bars need no extending and vitals autofill is not done here:
+        // the chart is the projection of the event log, read at now, and
+        // autofill writes vital events (useIntraopEventAutofill).
         prevColRef.current = trueCol
       }
     }
     tick()
     const id = setInterval(tick, 10_000)
     return () => clearInterval(id)
-  }, [gridStartMs, caseStarted, autoFillPreferences])
+  }, [gridStartMs, caseStarted])
 
   const nowCol    = nowOffsetPx !== null ? Math.min(Math.floor(nowOffsetPx / COL_W), colCount - 1) : null
 
@@ -1213,23 +1017,19 @@ export function IntraopTimetable({
              defaultVal: cvpToDisplay(8, "cmH2O") }
   })
 
-  // Find segment that covers column ci (strict range check)
-  function segmentAt(ci: number): AgentSegment | null {
-    return agents.find(a => ci >= a.startCol && ci <= a.endCol) ?? null
-  }
   function gasSegmentAt(ci: number): GasSettingsSegment | null {
     return (data.gasSettings ?? []).find(g => ci >= g.startCol && ci <= g.endCol) ?? null
   }
 
   // ── Clinical Events ───────────────────────────────────────────────────────────
-  const { addClinicalEvent, removeClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, emitLogEvent, onComplicationAdded)
+  const { addClinicalEvent, removeClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, onComplicationAdded)
 
   // ── Drugs ───────────────────────────────────────────────────────────────────
   const { removeDrug } = useDrugHandlers(data, onChange)
 
   // ── Infusions ────────────────────────────────────────────────────────────────
   const { removeInfusion, extendInfusion, extendInfusionLeft, restoreInfusion, applyInfRateChange } =
-    useInfusionHandlers(data, onChange, dataRef, onChangeRef, onLogEventDeleteRef, emitLogEvent, nowCol)
+    useInfusionHandlers(data, onChange, dataRef, onChangeRef, nowCol)
 
   /**
    * Land a whole-bar drag. Rate changes travel with the bar, since they are
@@ -1260,7 +1060,7 @@ export function IntraopTimetable({
 
   // ── Fluids ──────────────────────────────────────────────────────────────────
   const { removeFluid, extendFluid, resumeFluid, continueFluid } =
-    useFluidHandlers(data, onChange, dataRef, onChangeRef, onLogEventDeleteRef, emitLogEvent, nowCol)
+    useFluidHandlers(data, onChange, dataRef, onChangeRef, nowCol)
 
   function applyFluidRateChange(id: string, rate: number) {
     if (!Number.isFinite(rate) || rate <= 0) return
@@ -1276,16 +1076,6 @@ export function IntraopTimetable({
         endCol: Math.max(item.endCol, col),
         rateChanges: [...(item.rateChanges ?? []), { col, ts, rate, unit: "mL/h" }],
       } : item),
-    })
-    emitLogEvent({
-      type: "fluid_rate",
-      ts,
-      fluidId: fluid.id,
-      name: fluid.name,
-      rate: String(rate),
-      unit: "mL/h",
-      color: fluid.color,
-      ...clinicalProvenance(fluid),
     })
   }
 
@@ -1304,22 +1094,6 @@ export function IntraopTimetable({
       administeredVolumeMl: actualVolumeMl,
       volume: String(actualVolumeMl),
     }
-  }
-
-  function emitFluidEnd(fluid: TimetableFluid, administeredVolumeMl: number, endTs: string) {
-    const actualVolumeMl = Math.max(0, Math.round(administeredVolumeMl))
-    emitLogEvent({
-      type: "fluid_end",
-      ts: endTs,
-      fluidId: fluid.id,
-      name: fluid.name,
-      category: fluid.category,
-      color: fluid.color,
-      fluidEntryMode: fluid.fluidEntryMode,
-      administeredVolumeMl: actualVolumeMl,
-      volume: String(actualVolumeMl),
-      ...clinicalProvenance(fluid),
-    })
   }
 
   // ── Fluid conflict resolution ────────────────────────────────────────────────
@@ -1366,8 +1140,6 @@ export function IntraopTimetable({
         nextFluid,
       ],
     })
-    emitFluidEnd(existing, actualVolumeMl, endTs)
-    emitFluidStart(nextFluid)
     setFluidConflict(null)
   }
 
@@ -1399,7 +1171,6 @@ export function IntraopTimetable({
         ? finalizedFluid(item, administeredVolumeMl, endTs, endCol)
         : item),
     })
-    emitFluidEnd(fluid, administeredVolumeMl, endTs)
   }
 
   // ── Agents ──────────────────────────────────────────────────────────────────
@@ -1408,14 +1179,46 @@ export function IntraopTimetable({
     pendingAgentName, setPendingAgentName,
     startAgent, updateAgentExtras, openPickerForSeg, openPickerEmpty, closeAgentPicker,
     removeSegment, extendSegment, resumeSegment, continueAgent,
-  } = useAgentHandlers(data, onChange, dataRef, onChangeRef, emitLogEvent, nowCol)
+  } = useAgentHandlers(data, onChange, dataRef, onChangeRef, nowCol, (started, running, col) => {
+    const names = running.map(agent => agent.name).join(", ")
+    toast(t("intraop.timelineRules.agentSwitchTitle", { name: names }), {
+      duration: 15_000,
+      action: {
+        label: t("intraop.timelineRules.agentSwitch", { name: names }),
+        onClick: () => {
+          const current = dataRef.current
+          const stop = new Set(running.map(agent => agent.startEventId ?? `${agent.name}@${agent.startCol}`))
+          onChangeRef.current({
+            ...current,
+            agents: current.agents.map(agent => stop.has(agent.startEventId ?? `${agent.name}@${agent.startCol}`) && !agent.stopped
+              ? { ...agent, stopped: true, endCol: Math.max(agent.startCol, col) }
+              : agent),
+          })
+        },
+      },
+    })
+    void started
+  })
+
+
+  // One lane per volatile agent: several may run at once (1.4.9). A last,
+  // empty lane is always there to start another.
+  const agentTracks = useMemo(() => {
+    const base = t("intraop.timetable.inhAgent")
+    const names = [...new Set(agents.map(agent => agent.name))]
+    const empty = { key: "agent-new", label: names.length > 0 ? `+ ${base}` : base, agents: [] as AgentSegment[] }
+    return [
+      ...names.map(name => ({ key: `agent-${name}`, label: displayAgentName(name), agents: agents.filter(agent => agent.name === name) })),
+      empty,
+    ]
+  }, [agents, displayAgentName, t])
 
   // ── Gas settings (FGF / carrier gas / FiO2) ──────────────────────────────────
   const {
     gasSettings, gasPicker, gasPickerRect, pickerFgf, setPickerFgf, pickerCarrierGas, setPickerCarrierGas, pickerFio2, setPickerFio2,
     openPickerForSeg: openGasPickerForSeg, openPickerEmpty: openGasPickerEmpty, closeGasPicker,
     startGas, applyGasChange, stopGas,
-  } = useGasSettingsHandlers(data, onChange, dataRef, onChangeRef, emitLogEvent, tsForCol)
+  } = useGasSettingsHandlers(data, onChange, dataRef, onChangeRef)
 
   function handleEndCaseConfirm(result: {
     continuedItems: string[]
@@ -1439,31 +1242,27 @@ export function IntraopTimetable({
       ...d,
       agents: d.agents.map(a =>
         discontinuedAgentSet.has(a.startCol)
-          ? { ...a, endCol: col, stopped: true as const }
+          ? { ...a, endCol: col, stopped: true as const, endCaseStop: true }
           : a
       ),
       infusions: (d.infusions ?? []).map(i =>
         discontinuedInfSet.has(i.id)
-          ? { ...i, endCol: col, stopped: true as const }
+          ? { ...i, endCol: col, stopped: true as const, endCaseStop: true }
           : i
       ),
       // Stamp actual volume infused so the summary reads the correct amount (not bag size).
       fluids: (d.fluids ?? []).map(fluid => {
         const ended = endedFluidById.get(fluid.id)
         return ended
-          ? finalizedFluid(fluid, ended.amount, ended.endTs, col)
+          ? { ...finalizedFluid(fluid, ended.amount, ended.endTs, col), endCaseStop: true }
           : fluid
       }),
       gasSettings: (d.gasSettings ?? []).map(g =>
         discontinuedGasSet.has(g.id)
-          ? { ...g, endCol: col, stopped: true as const }
+          ? { ...g, endCol: col, stopped: true as const, endCaseStop: true }
           : g
       ),
     })
-    for (const ended of result.finalizedFluidWithAmounts) {
-      const fluid = (d.fluids ?? []).find(item => item.id === ended.id)
-      if (fluid) emitFluidEnd(fluid, ended.amount, ended.endTs)
-    }
     const endedAt = new Date()
     endedAtRef.current = endedAt
     const resumeUntil = new Date(endedAt.getTime() + INTRAOP_RESUME_WINDOW_MS)
@@ -1473,6 +1272,32 @@ export function IntraopTimetable({
     if (result.continuedItems.length > 0) onPostopContinued?.(result.continuedItems)
     if (result.infusionTotals.length > 0) onInfusionTotals?.(result.infusionTotals)
     setShowEndModal(false)
+  }
+
+  /** After Resume, offer to take back the stops End case made (1.4.9). */
+  function offerRemoveEndCaseStops() {
+    const d = dataRef.current
+    const count = [...d.infusions, ...d.fluids, ...d.agents, ...(d.gasSettings ?? [])].filter(item => item.endCaseStop).length
+    if (count === 0) return
+    toast(t("intraop.timelineRules.resumeRemoveStopsTitle"), {
+      description: t("intraop.timelineRules.resumeRemoveStopsMessage", { count }),
+      duration: 30_000,
+      action: {
+        label: t("intraop.timelineRules.resumeRemoveStops"),
+        onClick: () => {
+          const current = dataRef.current
+          const unstop = <S extends { endCaseStop?: boolean; stopped?: boolean }>(item: S): S =>
+            item.endCaseStop ? { ...item, stopped: false, endCaseStop: undefined } : item
+          onChangeRef.current({
+            ...current,
+            infusions: current.infusions.map(unstop),
+            fluids: current.fluids.map(unstop),
+            agents: current.agents.map(unstop),
+            gasSettings: (current.gasSettings ?? []).map(unstop),
+          })
+        },
+      },
+    })
   }
 
   // ── Extend drag-and-drop ─────────────────────────────────────────────────────
@@ -1655,9 +1480,10 @@ export function IntraopTimetable({
             caseEnded={!!endTime}
           />
 
-          {showAgentRow && (
+          {showAgentRow && agentTracks.map(track => (
             <AgentLane
-              label={t("intraop.timetable.inhAgent")}
+              key={track.key}
+              label={track.label}
               labelWidth={LABEL_W}
               rowLabelClass={rowLabelCls}
               rowCols={rowCols}
@@ -1669,8 +1495,8 @@ export function IntraopTimetable({
               setSel={setSel}
               discConfirmId={discConfirmId}
               setDiscConfirmId={setDiscConfirmId}
-              agents={agents}
-              segmentAt={segmentAt}
+              agents={track.agents}
+              segmentAt={ci => track.agents.find(a => ci >= a.startCol && ci <= a.endCol) ?? null}
               agentStyle={AGENT_STYLE}
               displayAgentName={displayAgentName}
               drag={drag}
@@ -1685,7 +1511,7 @@ export function IntraopTimetable({
               removeSegment={removeSegment}
               continueAgent={continueAgent}
             />
-          )}
+          ))}
 
           {/* Gas settings shares the agent row's gating (GA technique selected)
               but starts empty until it is tapped. */}
@@ -1938,7 +1764,7 @@ export function IntraopTimetable({
                       <span className="text-[10px] text-amber-600 dark:text-amber-400 whitespace-nowrap">
                         {uiCopy.timetable.resumableUntil} {resumeUntilLabel}
                       </span>
-                      <button type="button" onClick={onResumeCase}
+                      <button type="button" onClick={() => { onResumeCase(); offerRemoveEndCaseStops() }}
                         className="text-xs font-semibold px-3 py-1.5 rounded-full border-2 border-amber-500 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 transition-colors">
                         {uiCopy.timetable.resumeCase}
                       </button>
@@ -2192,7 +2018,7 @@ export function IntraopTimetable({
         }}
         onDiscontinue={() => {
           setHoverDiscontinue(null)
-          extendInfusion(infMenu.segId, nowCol ?? 0, true)
+          extendInfusion(infMenu.segId, nowCol ?? 0)
           setInfMenu(null)
         }}
         onRestore={() => { restoreInfusion(infMenu.segId); setInfMenu(null) }}
@@ -2290,11 +2116,13 @@ export function IntraopTimetable({
     )}
     {showEndModal && (
       <EndCaseModal
-        agents={agents.filter(a => !a.stopped)}
-        infusions={(data.infusions ?? []).filter(i => !i.stopped && true)}
-        fluids={(data.fluids ?? []).filter(f => !f.stopped)}
-        gasSettings={gasSettings.filter(g => !g.stopped)}
+        agents={agents.filter(a => !a.stopped && !a.planned)}
+        infusions={(data.infusions ?? []).filter(i => !i.stopped && !i.planned)}
+        fluids={(data.fluids ?? []).filter(f => !f.stopped && !f.planned)}
+        gasSettings={gasSettings.filter(g => !g.stopped && !g.planned)}
         weightBasis={INFUSION_WEIGHT_BASIS}
+        afterEnd={afterEndItems(data).map(item => ({ ...item, time: times[item.col] ?? "" }))}
+        onResolveAfterEnd={(key, resolution) => onChangeRef.current(resolveAfterEnd(dataRef.current, key, resolution, nowCol ?? 0))}
         onDismiss={() => setShowEndModal(false)}
         onConfirm={handleEndCaseConfirm}
       />
