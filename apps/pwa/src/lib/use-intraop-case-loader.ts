@@ -152,6 +152,8 @@ export function useIntraopCaseLoader({
   // Held in a ref: loadCase must keep its identity, or its effect reloads the case.
   const onEndedLoadedRef = useRef(onEndedLoaded)
   useEffect(() => { onEndedLoadedRef.current = onEndedLoaded }, [onEndedLoaded])
+  // The screen starts several loads at once; the notice is said once (9.12.2).
+  const autoEndNoticeShownRef = useRef(false)
   const { tc } = usePreferences()
   const loadCase = useCallback(async (silent = false) => {
     try {
@@ -252,7 +254,10 @@ export function useIntraopCaseLoader({
         if (!silent && hydrated.endedAt) onEndedLoadedRef.current?.(hydrated.endedAt, !!data.intraop?.autoEndedAt)
         applyActiveState(hydrated.active)
         // Ended automatically 48 hours after it started: say so once on open.
-        if (!silent && data.intraop?.autoEndedAt) notify(tc("tfEndCase"), tc("autoEndedNotice"))
+        if (!silent && data.intraop?.autoEndedAt && !autoEndNoticeShownRef.current) {
+          autoEndNoticeShownRef.current = true
+          notify(tc("tfEndCase"), tc("autoEndedNotice"))
+        }
         if (loadedTimetable.timetable) {
           setTimetable(loadedTimetable.timetable)
           setTtColCount(loadedTimetable.columnCount)

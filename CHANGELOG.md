@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Hospital
-## [1.4.10] - Unreleased
+## [1.4.11] - Unreleased
+
+Vendors lospor-api and PWA 9.12.2. Web and Core stay 9.12.1; Browser stays 0.8.0.
+
+### Fixed
+
+- **A hospital-system import is offered once, and adds each item once.**
+  Accepting an import on a new case creates the case, and the new case asked
+  again straight away. The appliance still offered the items just accepted
+  (it only skipped values the saved case already held, and the phone saves
+  them a moment later), so the same review opened a second time and accepting
+  it added every diagnosis, medication and lab again. Accepted items are no
+  longer offered, and the web and PWA do not reopen an import accepted on the
+  same screen.
+- **The automatic end records the end time and the duration.** An
+  automatically ended case had no end time or anaesthesia duration in the
+  case list, the research copy or the OMOP export.
+- **"This case was ended automatically" is said once** on the PWA, not once
+  for each of the loads the screen starts together.
+
+## [1.4.10] - 2026-09-26
 
 Vendors lospor-api, web and PWA 9.12.1. Core stays 9.12.1; Browser stays 0.8.0.
 
