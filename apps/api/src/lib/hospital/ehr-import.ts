@@ -475,6 +475,12 @@ export async function ehrReviewPlanFor(
   const grouped = new Map<string, unknown[]>()
   const scalars = new Map<string, unknown>()
   for (const row of record.fields as Record<string, unknown>[]) {
+    // An accepted item is done (1.4.11). The import stays pending while any
+    // item is undecided, and the case may not hold the accepted values yet --
+    // a phone saves them a moment after accepting -- so without this the same
+    // items came straight back as a second offer, and accepting that one
+    // added every list item twice.
+    if (String(row.status) === "ACCEPTED") continue
     const fieldKey = String(row.fieldKey)
     const value = row.proposedValue
     if (String(row.itemKey) === fieldKey) {

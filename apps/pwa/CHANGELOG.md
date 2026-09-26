@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Mobile
 
+## [9.12.2] - 2026-09-26
+
+### Fixed
+
+- **"This case was ended automatically" is said once** when the case is
+  opened, not once for each of the loads the screen starts together (five on
+  the appliance, each a dialog to dismiss).
+
 ## [9.12.1] - 2026-09-26
 
 ### Fixed

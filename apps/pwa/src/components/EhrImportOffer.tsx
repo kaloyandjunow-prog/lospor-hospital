@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Text, View } from "react-native"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 
@@ -108,6 +108,10 @@ export function EhrImportOffer({
   const strings = STRINGS[language as "en" | "bg"]
   const [state, setState] = useState<State>({ kind: "idle" })
   const [open, setOpen] = useState(false)
+  // Imports accepted on this screen (1.4.11). Accepting creates the case, and
+  // the new case asks again at once -- before the values are saved -- which
+  // reopened the same offer; accepting it again duplicated every list item.
+  const acceptedImportsRef = useRef(new Set<string>())
 
   const ask = useCallback(async (id: string | null) => {
     if (!identifier) return
@@ -115,6 +119,10 @@ export function EhrImportOffer({
     const result = id
       ? await lookupEhrImport(id, identifier, identifierType)
       : await lookupEhrImportWithoutCase(identifier, identifierType)
+    if (result.status === "offer" && acceptedImportsRef.current.has(result.offer.importId)) {
+      setState({ kind: "none" })
+      return
+    }
     if (result.status === "offer") {
       setState({ kind: "offer", offer: result.offer })
       setOpen(true)
@@ -235,6 +243,7 @@ export function EhrImportOffer({
             if (caseId) void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey])
           }}
           onAccept={async (patch, appliedKeys) => {
+            acceptedImportsRef.current.add(state.offer.importId)
             // The write goes first, deliberately. A failure between the two
             // leaves the import pending and self-corrects, because a value
             // already in the case comes back unchanged; recording first would
