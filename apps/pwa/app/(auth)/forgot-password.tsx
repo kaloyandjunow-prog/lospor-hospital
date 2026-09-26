@@ -14,9 +14,10 @@ import { requestPasswordReset } from "@/lib/api"
 import { notify } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
 import { useAuthenticationCapabilities } from "@/lib/deployment-capabilities"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 
 function EmailPasswordRecoveryScreen() {
+  const shade = useShade()
   const router = useRouter()
   const { t } = usePreferences()
   const [email, setEmail] = useState("")
@@ -82,7 +83,7 @@ function EmailPasswordRecoveryScreen() {
               disabled={loading || !email.trim()}
             >
               {loading
-                ? <ActivityIndicator color="#fff" />
+                ? <ActivityIndicator color={shade("#fff")} />
                 : <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{t("sendResetLink")}</Text>
               }
             </TouchableOpacity>

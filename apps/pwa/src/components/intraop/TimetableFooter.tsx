@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native"
 import { usePreferences } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 // Sticky footer under the vertical timetable: chart + jump-to-now + end-case.
 // Presentational — markup moved verbatim from cases/intraop/[id].tsx.
@@ -10,12 +11,13 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
   onEndCase: () => void
   onViewChart?: () => void
 }) {
+  const shade = useShade()
   const { tc } = usePreferences()
   return (
     <View style={{
       flexDirection: "row", gap: 10,
       paddingHorizontal: 12, paddingVertical: 10, paddingBottom: 16,
-      backgroundColor: "#070c14", borderTopWidth: 1, borderTopColor: "#0f172a",
+      backgroundColor: shade("#070c14"), borderTopWidth: 1, borderTopColor: shade("#0f172a"),
     }}>
       {/* Read-only chart view. Sized to its content rather than flex:1, and
           placed first, so End case stays the rightmost button it has always
@@ -25,10 +27,10 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
           onPress={onViewChart}
           style={{
             borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, alignItems: "center",
-            backgroundColor: "#0f1828", borderWidth: 1, borderColor: "#38bdf855",
+            backgroundColor: shade("#0f1828"), borderWidth: 1, borderColor: shade("#38bdf855"),
           }}
         >
-          <Text style={{ color: "#7dd3fc", fontSize: 13, fontWeight: "800" }}>{tc("tfViewChart")}</Text>
+          <Text style={{ color: shade("#7dd3fc"), fontSize: 13, fontWeight: "800" }}>{tc("tfViewChart")}</Text>
         </TouchableOpacity>
       ) : null}
       <TouchableOpacity
@@ -36,23 +38,23 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
         disabled={!started}
         style={{
           flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center",
-          backgroundColor: "#0f1828",
-          borderWidth: 1, borderColor: "#f9731655",
+          backgroundColor: shade("#0f1828"),
+          borderWidth: 1, borderColor: shade("#f9731655"),
           opacity: started ? 1 : 0.35,
         }}
       >
-        <Text style={{ color: "#fb923c", fontSize: 13, fontWeight: "800" }}>{tc("tfJumpToNow")}</Text>
+        <Text style={{ color: shade("#fb923c"), fontSize: 13, fontWeight: "800" }}>{tc("tfJumpToNow")}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => { if (!isWatching) onEndCase() }}
         disabled={isWatching}
         style={{
           flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center",
-          backgroundColor: "#1a1005", borderWidth: 1, borderColor: "#f9731644",
+          backgroundColor: shade("#1a1005"), borderWidth: 1, borderColor: shade("#f9731644"),
           opacity: isWatching ? 0.4 : 1,
         }}
       >
-        <Text style={{ color: "#fb923c", fontSize: 13, fontWeight: "800" }}>{tc("tfEndCase")}</Text>
+        <Text style={{ color: shade("#fb923c"), fontSize: 13, fontWeight: "800" }}>{tc("tfEndCase")}</Text>
       </TouchableOpacity>
     </View>
   )

@@ -72,7 +72,9 @@ export function buildLoadedIntraopCaseState(
       if (event) rawLog = [event, ...rawLog.filter((item) => item.id !== operation.eventId)]
     }
   }
-  const loadedFromLog = loadedTimetableStateFromLog(rawLog, now, trustedStart)
+  const endedAtMs = typeof data.intraop?.endedAt === "string" ? Date.parse(data.intraop.endedAt) : NaN
+  const endedAt = Number.isFinite(endedAtMs) ? new Date(endedAtMs) : null
+  const loadedFromLog = loadedTimetableStateFromLog(rawLog, now, trustedStart, endedAt)
   const loadedTimetable = loadedFromLog.timetable
     ? loadedFromLog
     : loadedTimetableStateFromLegacySnapshot(keyEvents) ?? loadedFromLog
@@ -146,6 +148,7 @@ export function buildLoadedIntraopCaseState(
     },
     labResults: Array.isArray(data.intraop?.labResults) ? data.intraop.labResults as LabResult[] : undefined,
     loadedTimetable,
-    active: rebuildActiveState([...rawLog].reverse()),
+    endedAt,
+    active: rebuildActiveState([...rawLog].reverse(), endedAt ?? now),
   }
 }

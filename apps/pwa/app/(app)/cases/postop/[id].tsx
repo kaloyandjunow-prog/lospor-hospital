@@ -43,7 +43,7 @@ type AutosaveState = "idle" | "saving" | "saved" | "queued" | "blocked" | "error
 export default function PostopFormScreen() {
   const { id, continuedItems } = useLocalSearchParams<{ id: string; continuedItems?: string }>()
   const router    = useRouter()
-  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit } = usePreferences()
+  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const recoveryBpSystolicRange  = useRangeSpec("BP_SYSTOLIC_RANGE")
   const recoveryBpDiastolicRange = useRangeSpec("BP_DIASTOLIC_RANGE")
@@ -463,7 +463,7 @@ export default function PostopFormScreen() {
                       if (!value) setCanUseNumbers(false)
                     }}
                     trackColor={{ false: colors.borderStrong, true: withAlpha(colors.primary, "66") }}
-                    thumbColor="#fff"
+                    thumbColor={shade("#fff")}
                   />
                   <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800" }}>
                     {canSelfReportPain ? t("yesLabel") : t("noLabel")}
@@ -477,7 +477,7 @@ export default function PostopFormScreen() {
                       value={canUseNumbers}
                       onValueChange={setCanUseNumbers}
                       trackColor={{ false: colors.borderStrong, true: withAlpha(colors.primary, "66") }}
-                      thumbColor="#fff"
+                      thumbColor={shade("#fff")}
                     />
                     <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800" }}>
                       {canUseNumbers ? t("yesLabel") : t("noLabel")}
@@ -526,7 +526,7 @@ export default function PostopFormScreen() {
                     onValueChange={onChange}
                     trackColor={{ false: colors.borderStrong, true: withAlpha(colors.warning, "66") }}
                     ios_backgroundColor={colors.borderStrong}
-                    thumbColor="#fff"
+                    thumbColor={shade("#fff")}
                   />
                   <Text style={{ color: value ? colors.warning : colors.textSecondary, fontSize: 14, fontWeight: "800" }}>{value ? tc("ponvPresent") : tc("ponvAbsent")}</Text>
                 </View>
@@ -626,7 +626,7 @@ export default function PostopFormScreen() {
             disabled={isWatching || saving}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={shade("#fff")} />
             ) : (
               <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{tc("continueToSummary")}</Text>
             )}

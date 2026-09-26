@@ -1,5 +1,5 @@
 import { Text, View } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 
 export function ScoreBadge({ label, score, max, riskLabel, unavailable }: {
   label: string
@@ -9,6 +9,7 @@ export function ScoreBadge({ label, score, max, riskLabel, unavailable }: {
   /** A score with an input the hospital switched off: said instead of a number that understates the risk. */
   unavailable?: string
 }) {
+  useThemeRefresh()
   if (unavailable) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 15, paddingVertical: 12, paddingHorizontal: 6, alignItems: "center" }}>

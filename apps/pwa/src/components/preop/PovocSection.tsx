@@ -1,7 +1,7 @@
 import { Text, View } from "react-native"
 import { Controller, type Control } from "react-hook-form"
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 
 /**
@@ -25,6 +25,7 @@ export function PovocSection({ control, labels, povoc, isShown = () => true, una
   /** Shown instead of the score when an input is switched off. */
   unavailableLabel?: string
 }) {
+  useThemeRefresh()
   const available = POVOC_QUESTIONS.every(([name]) => isShown(name))
   return (
     <View style={{ gap: 8 }}>

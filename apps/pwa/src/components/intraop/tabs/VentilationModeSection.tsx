@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from "react-native"
 import { VENT_ASSISTED, VENT_CONTROLLED } from "@/lib/airway-ventilation"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { useShade } from "@/theme/shade"
 
 /** Split out of AirwayTab: the hierarchical ventilation-mode picker (spontaneous / assisted / controlled / jet, with expandable sub-modes) touches none of the airway-device state around it. */
 export function VentilationModeSection({
@@ -12,11 +13,12 @@ export function VentilationModeSection({
   awVentExpanded: "assisted" | "controlled" | null
   setAwVentExpanded: (v: "assisted" | "controlled" | null) => void
 }) {
+  const shade = useShade()
   const { tc, language } = usePreferences()
 
   return (
     <>
-      <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:10 }}>{tc("ventilationMode")}</Text>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:8 }}>
         {/* Spontaneous */}
@@ -25,9 +27,9 @@ export function VentilationModeSection({
           return (
             <TouchableOpacity onPress={() => setAwVentModes(prev => prev.includes("Spontaneous") ? prev.filter(m => m !== "Spontaneous") : [...prev, "Spontaneous"])}
               style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-                backgroundColor: on ? "#0f2a1a" : "#111111",
-                borderWidth:1, borderColor: on ? "#22c55e" : "#1e2d40" }}>
-              <Text style={{ color: on ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>{tc("ventSpontaneous")}</Text>
+                backgroundColor: on ? shade("#0f2a1a") : shade("#111111"),
+                borderWidth:1, borderColor: on ? shade("#22c55e") : shade("#1e2d40") }}>
+              <Text style={{ color: on ? shade("#86efac") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{tc("ventSpontaneous")}</Text>
             </TouchableOpacity>
           )
         })()}
@@ -38,11 +40,11 @@ export function VentilationModeSection({
           return (
             <TouchableOpacity onPress={() => setAwVentExpanded(open ? null : "assisted")}
               style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-                backgroundColor: hasAny || open ? "#0f2a1a" : "#111111",
-                borderWidth:1, borderColor: hasAny || open ? "#22c55e" : "#1e2d40",
+                backgroundColor: hasAny || open ? shade("#0f2a1a") : shade("#111111"),
+                borderWidth:1, borderColor: hasAny || open ? shade("#22c55e") : shade("#1e2d40"),
                 flexDirection:"row", alignItems:"center", gap:4 }}>
-              <Text style={{ color: hasAny || open ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>{tc("ventAssisted")}</Text>
-              <Text style={{ color:"#475569", fontSize:10 }}>{open ? "▲" : "▼"}</Text>
+              <Text style={{ color: hasAny || open ? shade("#86efac") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{tc("ventAssisted")}</Text>
+              <Text style={{ color:shade("#475569"), fontSize:10 }}>{open ? "▲" : "▼"}</Text>
             </TouchableOpacity>
           )
         })()}
@@ -53,11 +55,11 @@ export function VentilationModeSection({
           return (
             <TouchableOpacity onPress={() => setAwVentExpanded(open ? null : "controlled")}
               style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-                backgroundColor: hasAny || open ? "#0f2a1a" : "#111111",
-                borderWidth:1, borderColor: hasAny || open ? "#22c55e" : "#1e2d40",
+                backgroundColor: hasAny || open ? shade("#0f2a1a") : shade("#111111"),
+                borderWidth:1, borderColor: hasAny || open ? shade("#22c55e") : shade("#1e2d40"),
                 flexDirection:"row", alignItems:"center", gap:4 }}>
-              <Text style={{ color: hasAny || open ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>{tc("ventControlled")}</Text>
-              <Text style={{ color:"#475569", fontSize:10 }}>{open ? "▲" : "▼"}</Text>
+              <Text style={{ color: hasAny || open ? shade("#86efac") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{tc("ventControlled")}</Text>
+              <Text style={{ color:shade("#475569"), fontSize:10 }}>{open ? "▲" : "▼"}</Text>
             </TouchableOpacity>
           )
         })()}
@@ -67,9 +69,9 @@ export function VentilationModeSection({
           return (
             <TouchableOpacity onPress={() => setAwVentModes(prev => prev.includes("Jet") ? prev.filter(m => m !== "Jet") : [...prev, "Jet"])}
               style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-                backgroundColor: on ? "#0f2a1a" : "#111111",
-                borderWidth:1, borderColor: on ? "#22c55e" : "#1e2d40" }}>
-              <Text style={{ color: on ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>{tc("ventJet")}</Text>
+                backgroundColor: on ? shade("#0f2a1a") : shade("#111111"),
+                borderWidth:1, borderColor: on ? shade("#22c55e") : shade("#1e2d40") }}>
+              <Text style={{ color: on ? shade("#86efac") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{tc("ventJet")}</Text>
             </TouchableOpacity>
           )
         })()}
@@ -77,7 +79,7 @@ export function VentilationModeSection({
       {/* Assisted sub-modes */}
       {awVentExpanded === "assisted" && (
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:6, marginBottom:8,
-          paddingLeft:10, borderLeftWidth:2, borderLeftColor:"#1e3a5f" }}>
+          paddingLeft:10, borderLeftWidth:2, borderLeftColor:shade("#1e3a5f") }}>
           {VENT_ASSISTED.map(({ v, label }) => {
             const on = awVentModes.includes(v)
             return (
@@ -87,9 +89,9 @@ export function VentilationModeSection({
                 return [...prev.filter(m => !controlled.has(m)), v]
               })}
                 style={{ paddingHorizontal:12, paddingVertical:7, borderRadius:10,
-                  backgroundColor: on ? "#0f2a1a" : "#111111",
-                  borderWidth:1, borderColor: on ? "#22c55e" : "#1e2d40" }}>
-                <Text style={{ color: on ? "#86efac" : "#64748b", fontSize:11, fontWeight:"700" }}>{displayClinicalCode("ventilationMode", v, language, { label })}</Text>
+                  backgroundColor: on ? shade("#0f2a1a") : shade("#111111"),
+                  borderWidth:1, borderColor: on ? shade("#22c55e") : shade("#1e2d40") }}>
+                <Text style={{ color: on ? shade("#86efac") : shade("#64748b"), fontSize:11, fontWeight:"700" }}>{displayClinicalCode("ventilationMode", v, language, { label })}</Text>
               </TouchableOpacity>
             )
           })}
@@ -98,7 +100,7 @@ export function VentilationModeSection({
       {/* Controlled sub-modes */}
       {awVentExpanded === "controlled" && (
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:6, marginBottom:8,
-          paddingLeft:10, borderLeftWidth:2, borderLeftColor:"#1e3a5f" }}>
+          paddingLeft:10, borderLeftWidth:2, borderLeftColor:shade("#1e3a5f") }}>
           {VENT_CONTROLLED.map(({ v, label }) => {
             const on = awVentModes.includes(v)
             return (
@@ -108,9 +110,9 @@ export function VentilationModeSection({
                 return [...prev.filter(m => !assisted.has(m)), v]
               })}
                 style={{ paddingHorizontal:12, paddingVertical:7, borderRadius:10,
-                  backgroundColor: on ? "#0f2a1a" : "#111111",
-                  borderWidth:1, borderColor: on ? "#22c55e" : "#1e2d40" }}>
-                <Text style={{ color: on ? "#86efac" : "#64748b", fontSize:11, fontWeight:"700" }}>{displayClinicalCode("ventilationMode", v, language, { label })}</Text>
+                  backgroundColor: on ? shade("#0f2a1a") : shade("#111111"),
+                  borderWidth:1, borderColor: on ? shade("#22c55e") : shade("#1e2d40") }}>
+                <Text style={{ color: on ? shade("#86efac") : shade("#64748b"), fontSize:11, fontWeight:"700" }}>{displayClinicalCode("ventilationMode", v, language, { label })}</Text>
               </TouchableOpacity>
             )
           })}

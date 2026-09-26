@@ -1,8 +1,8 @@
+import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
 import type {
   DrugFormulation,
-  LogEvent,
 } from "@/lib/intraop-log-event"
 
 type DrugCat = { cat: string; color: string; drugs: { name: string; unit: string }[] }
@@ -39,7 +39,7 @@ function emptyDrugDraft(): DrugEntryDraft {
 // infusion hook's setters as parameters rather than mobile duplicating that
 // transition logic, or the infusion hook reaching back into this one.
 export function useDrugEntry(
-  save: (partial: Omit<LogEvent, "id" | "ts">, tsOverride?: string, silent?: boolean) => Promise<LogEvent>,
+  save: SaveIntraopEvent,
   setEntryTs: (ts: string | null) => void,
   drugCats: DrugCat[],
   infDrugs: InfusionOption[],

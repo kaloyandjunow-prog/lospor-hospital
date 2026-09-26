@@ -2,6 +2,7 @@ import { Text, TouchableOpacity, View } from "react-native"
 import { useRouter } from "expo-router"
 import { passwordPolicyIssues } from "@lospor/core/account"
 import { usePreferences, type TranslationKey } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 type Translate = (key: TranslationKey) => string
 
@@ -17,6 +18,7 @@ export function getPasswordStrength(
 }
 
 export function PasswordStrengthBar({ password, t }: { password: string; t: Translate }) {
+  const shade = useShade()
   const { score, color, label } = getPasswordStrength(password, t)
   if (!password) return null
   const segments = [1, 2, 3, 4]
@@ -30,7 +32,7 @@ export function PasswordStrengthBar({ password, t }: { password: string; t: Tran
               flex: 1,
               height: 4,
               borderRadius: 2,
-              backgroundColor: score >= seg ? color : "#2e2e2e",
+              backgroundColor: score >= seg ? color : shade("#2e2e2e"),
             }}
           />
         ))}
@@ -47,11 +49,12 @@ export function PasswordStrengthBar({ password, t }: { password: string; t: Tran
 // Telling somebody to check an inbox in that state leaves them waiting on a
 // message that is never coming, with a sign-in they cannot complete.
 export function SuccessView({ emailSent }: { emailSent: boolean }) {
+  const shade = useShade()
   const router = useRouter()
   const { t } = usePreferences()
   return (
     <View className="flex-1 bg-[#111111] justify-center items-center px-8">
-      <Text style={{ fontSize: 72, color: emailSent ? "#22c55e" : "#f59e0b", marginBottom: 16 }}>
+      <Text style={{ fontSize: 72, color: emailSent ? shade("#22c55e") : shade("#f59e0b"), marginBottom: 16 }}>
         {emailSent ? "✓" : "!"}
       </Text>
       <Text className="text-white text-2xl font-bold text-center mb-3">{t("accountCreated")}</Text>

@@ -4,6 +4,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest"
 
 import { render } from "@/test/render"
 import { useIntraopRuntimeEffects } from "./use-intraop-runtime-effects"
+import { eventsToTimetable } from "./intraop-projection"
 import type { LogEvent } from "./intraop-log-event"
 
 /**
@@ -29,6 +30,7 @@ function Harness({
 }) {
   const logRef = React.useRef(log)
   const startRef = React.useRef<Date | null>(start)
+  const resyncActiveRef = React.useRef(() => {})
   logRef.current = log
 
   useIntraopRuntimeEffects({
@@ -37,6 +39,8 @@ function Harness({
     startRef,
     setElapsedMs: onElapsed as never,
     setTimetable: onTimetable as never,
+    projectTimetable: (events, startTs, now) => eventsToTimetable(events, startTs, now),
+    resyncActiveRef,
   })
   return null
 }

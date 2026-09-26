@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, TextIn
 import type * as ImagePickerModule from "expo-image-picker"
 import { apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
@@ -41,6 +41,7 @@ type Props = {
 }
 
 export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Props) {
+  const shade = useShade()
   const { tc } = usePreferences()
   // Gated here rather than at the call site. Scanning sends a photograph of a
   // report -- patient name and EGN in its header -- to an external provider,
@@ -220,7 +221,7 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Pro
           </ScrollView>
 
           <Pressable onPress={addSelected} style={{ position: "absolute", left: 16, right: 16, bottom: 22, borderRadius: 14, borderCurve: "continuous", backgroundColor: colors.primary, paddingVertical: 14, alignItems: "center" }}>
-            <Text style={{ color: "#fff", fontSize: 15, fontWeight: "900" }}>{tc("lspAddSelected")}</Text>
+            <Text style={{ color: shade("#fff"), fontSize: 15, fontWeight: "900" }}>{tc("lspAddSelected")}</Text>
           </Pressable>
         </View>
       </Modal>

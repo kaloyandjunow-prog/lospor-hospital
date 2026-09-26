@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity } from "react-native"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 type MonitoringOpt = { label: string; field: string; section: string }
 
@@ -15,12 +16,13 @@ export function MonitoringTab({
   advMonOpen: boolean
   setAdvMonOpen: (updater: (v: boolean) => boolean) => void
 }) {
+  const shade = useShade()
   const { language, tc } = usePreferences()
 
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
       {/* Standard monitoring — always visible */}
-      <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:8 }}>
         {displayClinicalCode("optionGroup", "standard", language)} {fieldSaving === "monitoring" ? `(${tc("draftSaving")})` : ""}
       </Text>
@@ -33,9 +35,9 @@ export function MonitoringTab({
               setMonitoring(next)
               saveMonitoring(next)
             }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-              backgroundColor: sel ? "#0f2a1a" : "#111111",
-              borderWidth:1, borderColor: sel ? "#22c55e" : "#1e2d40" }}>
-              <Text style={{ color: sel ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>
+              backgroundColor: sel ? shade("#0f2a1a") : shade("#111111"),
+              borderWidth:1, borderColor: sel ? shade("#22c55e") : shade("#1e2d40") }}>
+              <Text style={{ color: sel ? shade("#86efac") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>
                 {displayClinicalCode("option:MONITORING", opt.field, language, { label: opt.label })}
               </Text>
             </TouchableOpacity>
@@ -52,10 +54,10 @@ export function MonitoringTab({
             <TouchableOpacity onPress={() => setAdvMonOpen(v => !v)}
               style={{ flexDirection:"row", alignItems:"center", justifyContent:"space-between",
                 marginBottom: advMonOpen ? 12 : 0 }}>
-              <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }}>
+              <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }}>
                 {displayClinicalCode("optionGroup", "advanced", language)} {advCount > 0 ? `(${advCount})` : ""}
               </Text>
-              <Text style={{ color:"#475569", fontSize:11, fontWeight:"700" }}>{advMonOpen ? "▲" : "▼"}</Text>
+              <Text style={{ color:shade("#475569"), fontSize:11, fontWeight:"700" }}>{advMonOpen ? "▲" : "▼"}</Text>
             </TouchableOpacity>
             {advMonOpen && [
               { key:"respiratory",  label:tc("monitorRespiratory") },
@@ -67,8 +69,8 @@ export function MonitoringTab({
               if (!opts.length) return null
               return (
                 <View key={sec.key} style={{ marginBottom:16 }}>
-                  <Text style={{ color:"#475569", fontSize:9, fontWeight:"700", letterSpacing:1, textTransform:"uppercase",
-                    marginBottom:8, paddingLeft:4, borderLeftWidth:2, borderLeftColor:"#1e3a5f" }}>
+                  <Text style={{ color:shade("#475569"), fontSize:9, fontWeight:"700", letterSpacing:1, textTransform:"uppercase",
+                    marginBottom:8, paddingLeft:4, borderLeftWidth:2, borderLeftColor:shade("#1e3a5f") }}>
                     {displayClinicalCode("optionGroup", sec.key, language, { label: sec.label })}
                   </Text>
                   <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
@@ -80,9 +82,9 @@ export function MonitoringTab({
                           setMonitoring(next)
                           saveMonitoring(next)
                         }} style={{ paddingHorizontal:12, paddingVertical:8, borderRadius:10,
-                          backgroundColor: sel ? "#0f2a1a" : "#111111",
-                          borderWidth:1, borderColor: sel ? "#22c55e" : "#1e2d40" }}>
-                          <Text style={{ color: sel ? "#86efac" : "#64748b", fontSize:11, fontWeight:"700" }}>
+                          backgroundColor: sel ? shade("#0f2a1a") : shade("#111111"),
+                          borderWidth:1, borderColor: sel ? shade("#22c55e") : shade("#1e2d40") }}>
+                          <Text style={{ color: sel ? shade("#86efac") : shade("#64748b"), fontSize:11, fontWeight:"700" }}>
                             {displayClinicalCode("option:MONITORING", opt.field, language, { label: opt.label })}
                           </Text>
                         </TouchableOpacity>

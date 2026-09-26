@@ -1,6 +1,7 @@
 import React from "react"
 import { View, Text, ScrollView, TouchableOpacity, TextInput } from "react-native"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 type TechniqueNode = { v: string; label: string; isOther?: boolean; children?: TechniqueNode[] }
 
@@ -20,6 +21,7 @@ export function TechniqueTab({
   setOtherTechText: (v: string) => void
   tc: (key: ClinicalStringKey) => string
 }) {
+  const shade = useShade()
   // Current nodes to display — drill down through techPath
   let currentNodes: TechniqueNode[] = techniqueTree
   const breadcrumbs: TechniqueNode[] = []
@@ -36,8 +38,8 @@ export function TechniqueTab({
       {/* Selected chips */}
       {techniques.length > 0 && (
         <View style={{ paddingHorizontal:14, paddingTop:12, paddingBottom:10,
-          borderBottomWidth:1, borderBottomColor:"#1e2d40" }}>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700",
+          borderBottomWidth:1, borderBottomColor:shade("#1e2d40") }}>
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700",
             letterSpacing:1.1, textTransform:"uppercase", marginBottom:8 }}>{tc("techniqueInUse")}</Text>
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:7 }}>
             {techniques.map(t => {
@@ -65,15 +67,15 @@ export function TechniqueTab({
       {/* Breadcrumb */}
       {breadcrumbs.length > 0 && (
         <View style={{ flexDirection:"row", alignItems:"center", gap:0,
-          paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1, borderBottomColor:"#1a2030" }}>
+          paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1, borderBottomColor:shade("#1a2030") }}>
           <TouchableOpacity onPress={() => setTechPath(() => [])} style={{ paddingRight:6 }}>
-            <Text style={{ color:"#475569", fontSize:12 }}>{tc("techniqueAll")}</Text>
+            <Text style={{ color:shade("#475569"), fontSize:12 }}>{tc("techniqueAll")}</Text>
           </TouchableOpacity>
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={b.v}>
-              <Text style={{ color:"#2a3a4a", fontSize:12 }}> › </Text>
+              <Text style={{ color:shade("#2a3a4a"), fontSize:12 }}> › </Text>
               <TouchableOpacity onPress={() => setTechPath(p => p.slice(0, i + 1))}>
-                <Text style={{ color: i === breadcrumbs.length - 1 ? "#94a3b8" : "#475569", fontSize:12 }}>{b.label}</Text>
+                <Text style={{ color: i === breadcrumbs.length - 1 ? shade("#94a3b8") : shade("#475569"), fontSize:12 }}>{b.label}</Text>
               </TouchableOpacity>
             </React.Fragment>
           ))}
@@ -86,22 +88,22 @@ export function TechniqueTab({
           <TouchableOpacity onPress={() => setTechPath(p => p.slice(0, -1))}
             style={{ flexDirection:"row", alignItems:"center", gap:6, marginBottom:14,
               paddingVertical:8 }}>
-            <Text style={{ color:"#3b82f6", fontSize:14 }}>←</Text>
-            <Text style={{ color:"#3b82f6", fontSize:13, fontWeight:"600" }}>{tc("back")}</Text>
+            <Text style={{ color:shade("#3b82f6"), fontSize:14 }}>←</Text>
+            <Text style={{ color:shade("#3b82f6"), fontSize:13, fontWeight:"600" }}>{tc("back")}</Text>
           </TouchableOpacity>
         )}
 
         {/* Other free-text input */}
         {showOtherInput ? (
           <View>
-            <Text style={{ color:"#94a3b8", fontSize:11, marginBottom:10 }}>
+            <Text style={{ color:shade("#94a3b8"), fontSize:11, marginBottom:10 }}>
               {tc("describeTechnique")}
             </Text>
             <TextInput
-              style={{ backgroundColor:"#111111", color:"#f8fafc", borderRadius:10,
-                padding:12, fontSize:14, borderWidth:1, borderColor:"#2a3a4a" }}
+              style={{ backgroundColor:shade("#111111"), color:shade("#f8fafc"), borderRadius:10,
+                padding:12, fontSize:14, borderWidth:1, borderColor:shade("#2a3a4a") }}
               placeholder={tc("techniqueExample")}
-              placeholderTextColor="#475569"
+              placeholderTextColor={shade("#475569")}
               value={otherTechText}
               onChangeText={setOtherTechText}
               autoFocus
@@ -117,12 +119,12 @@ export function TechniqueTab({
                 setOtherTechText(""); setTechPath(() => [])
               }}
               style={{ marginTop:12, borderRadius:10, paddingVertical:13, alignItems:"center",
-                backgroundColor:"#1e2d40", borderWidth:1, borderColor:"#64748b44" }}>
-              <Text style={{ color:"#94a3b8", fontWeight:"700", fontSize:14 }}>{tc("addTechnique")}</Text>
+                backgroundColor:shade("#1e2d40"), borderWidth:1, borderColor:shade("#64748b44") }}>
+              <Text style={{ color:shade("#94a3b8"), fontWeight:"700", fontSize:14 }}>{tc("addTechnique")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setOtherTechText(""); setTechPath(() => []) }}
               style={{ marginTop:8, paddingVertical:10, alignItems:"center" }}>
-              <Text style={{ color:"#475569", fontSize:13 }}>{tc("cancelLabel")}</Text>
+              <Text style={{ color:shade("#475569"), fontSize:13 }}>{tc("cancelLabel")}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -148,12 +150,12 @@ export function TechniqueTab({
                   style={{
                     flexDirection:"row", alignItems:"center",
                     paddingHorizontal:14, paddingVertical:13, borderRadius:12,
-                    backgroundColor: isSelected ? col + "20" : "#111111",
-                    borderWidth:1, borderColor: isSelected ? col + "66" : "#1e2d40",
+                    backgroundColor: isSelected ? col + "20" : shade("#111111"),
+                    borderWidth:1, borderColor: isSelected ? col + "66" : shade("#1e2d40"),
                   }}
                 >
                   <View style={{ flex:1 }}>
-                    <Text style={{ color: isSelected ? col : "#e2e8f0",
+                    <Text style={{ color: isSelected ? col : shade("#e2e8f0"),
                       fontSize:14, fontWeight: isSelected ? "700" : "500" }}>
                       {node.label}
                     </Text>
@@ -162,7 +164,7 @@ export function TechniqueTab({
                     <Text style={{ color: col, fontSize:16, marginRight:4 }}>✓</Text>
                   )}
                   {!isLeaf && (
-                    <Text style={{ color:"#475569", fontSize:16 }}>›</Text>
+                    <Text style={{ color:shade("#475569"), fontSize:16 }}>›</Text>
                   )}
                 </TouchableOpacity>
               )

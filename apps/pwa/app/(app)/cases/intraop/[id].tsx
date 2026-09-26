@@ -8,9 +8,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router"
 import type { VascularEntry } from "@/lib/intraop-types"
 import { formatHHMM } from "@/lib/intraop-format"
-import {
-  eventsToTimetable, roundDown5Min,
-} from "@/lib/intraop-projection"
+import { roundDown5Min } from "@/lib/intraop-projection"
 import { useCaseReminders } from "@/lib/use-case-reminders"
 import { usePreferences } from "@/lib/preferences-context"
 import { emptyTimetable, type TimetableData } from "@/components/IntraopTimetable"
@@ -54,7 +52,8 @@ import { enqueueIntraopCaseWrite } from "@/lib/intraop-write-queue"
 import { recordIntraopTabTiming, takeRenderPhases } from "@/lib/diagnostics"
 import { IntraopScreenChrome } from "@/components/intraop/IntraopScreenChrome"
 import { IntraopRenderSurface } from "@/components/intraop/IntraopRenderSurface"
-import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@/lib/intraop-log-event"
+import type { LogEvent } from "@/lib/intraop-log-event"
+import { useIntraopRunningState } from "@/lib/use-intraop-running-state"
 
 // react-native-web does NOT export `unstable_batchedUpdates` (it's undefined there),
 // so calling it directly throws "is not a function" and aborts the whole case load
@@ -133,10 +132,8 @@ export default function IntraopLiveScreen() {
   const logRef = useRef<LogEvent[]>([])
   const legacyWebLogNeedsSyncRef = useRef(false)
   const baseIntraopUpdatedAtRef = useRef<string | null>(null)
-  const [activeInfusions, setActiveInfusions] = useState<ActiveInfusion[]>([])
-  const [activeFluids,    setActiveFluids]    = useState<ActiveFluid[]>([])
-  const [activeAgent,     setActiveAgent]     = useState<{ name: string; color: string; percent?: number } | null>(null)
-  const [activeGas,       setActiveGas]       = useState<ActiveGasSettings>(null)
+  const { activeInfusions, setActiveInfusions, activeFluids, setActiveFluids, activeAgents, setActiveAgents, activeAgent,
+    activeGas, setActiveGas, applyActiveState, resyncActiveRef, endedAtRef, projectTimetable } = useIntraopRunningState(logRef)
 
   const { width: screenWidth } = useWindowDimensions()
   const tabRailRef  = useRef<ScrollView>(null)
@@ -218,7 +215,7 @@ export default function IntraopLiveScreen() {
   const [chartPage,  setChartPage]  = useState(0)
   const noteVitalsRef = useRef<() => void>(() => {})
   const {
-    save,
+    save, stampFor,
     syncLog,
     retryPendingEvents,
     removeEvent,
@@ -241,7 +238,7 @@ export default function IntraopLiveScreen() {
     setSyncState,
     setLastSavedAt,
     setPendingCount,
-    noteVitalsRef,
+    noteVitalsRef, resyncActiveRef, endedAtRef,
   })
 
   // Pediatric cases remain manually chartable but must not inherit unreviewed
@@ -253,7 +250,7 @@ export default function IntraopLiveScreen() {
     infCustomConcentration, setInfCustomConcentration, infFormulation, setInfFormulation,
     infRule, setInfRule,
     infActOpen, setInfActOpen, infActTgt, setInfActTgt, infActRate, setInfActRate,
-    infActConcentration, setInfActConcentration, setInfActTs,
+    infActConcentration, setInfActConcentration, infActTs, setInfActTs,
     openInfusion, confirmInfusion, stopInfusion, changeRate,
   } = useInfusionEntry(save, setEntryTs, setActiveInfusions, INFUSION_CODES)
 
@@ -285,11 +282,11 @@ export default function IntraopLiveScreen() {
     flEndOpen, setFlEndOpen, flEndTarget, flEndCustom, setFlEndCustom,
     flEndRate, setFlEndRate, changeFluidRate,
     openFluid, confirmFluid, openFluidEnd, confirmFluidEnd, stopFluidDirect,
-  } = useFluidEntry(save, setEntryTs, setActiveFluids)
+  } = useFluidEntry(save, setEntryTs, setActiveFluids, stampFor)
 
   // Agent sheet
   const { agOpen, setAgOpen, agPick, setAgPick, agPercent, setAgPercent, openAgent, confirmAgent, stopAgent } =
-    useAgentEntry(save, setEntryTs, activeAgent, setActiveAgent)
+    useAgentEntry(save, setEntryTs, activeAgents, setActiveAgents)
   // Gas settings sheet (FGF/carrier gas/FiO2) - event-based gas_start/gas_change/gas_stop.
   const { gasOpen, setGasOpen, gasFgf, setGasFgf, gasCarrierGas, setGasCarrierGas, gasFio2, setGasFio2, openGasSettings, confirmGasSettings, stopGasSettings } =
     useGasSettingsEntry(save, setEntryTs, activeGas, setActiveGas)
@@ -398,7 +395,7 @@ export default function IntraopLiveScreen() {
     openEndCase,
     finaliseCase,
     resumeCase,
-    endCaseRunningItems,
+    endCaseRunningItems, afterEndItems, resolveAfterEnd,
   } = useIntraopCaseLifecycle({
     startRef,
     setElapsedMs,
@@ -411,10 +408,11 @@ export default function IntraopLiveScreen() {
     saveTiming,
     patchIntraopSection,
     cancelLabel: tc("cancelLabel"),
-    activeAgent,
+    activeAgents,
     activeGas,
     activeInfusions,
     activeFluids,
+    timeline: { logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef },
     stopAgent,
     stopGasSettings,
     stopInfusion,
@@ -450,10 +448,7 @@ export default function IntraopLiveScreen() {
   const { autoFillVitals, autoFillBP, autoFillBg } = useIntraopAutofillPreferences()
 
   // Carry vitals forward as the timetable advances, when enabled in Settings.
-  // This hook was imported but never called — so the feature silently did
-  // nothing regardless of the toggle. (An unused import is only a lint warning,
-  // and mobile lints with --quiet, so it went unnoticed.)
-  useIntraopAutofillVitals(caseLoaded, autoFillVitals, autoFillBP, autoFillBg, logRef, startRef, save)
+  useIntraopAutofillVitals(caseLoaded, autoFillVitals, autoFillBP, autoFillBg, log, logRef, startRef, save, { endedAtRef, onEndCase: openEndCase })
 
   const {
     awTools,
@@ -508,9 +503,8 @@ export default function IntraopLiveScreen() {
     vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp,
     vBis, setVBis, vTof, setVTof, vCvp, setVCvp,
     vitalFeedback, openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
-  } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, eventsToTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit, cvpUnit)
+  } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, projectTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit, cvpUnit)
 
-  // ── Load auto-fill settings from SecureStore (once) ──────────────────
   useIntraopCaseLoader({
     caseId: id,
     monitoringOptions: MONITORING_OPTS,
@@ -562,10 +556,8 @@ export default function IntraopLiveScreen() {
     setSyncErrorMessage,
     setLog,
     setElapsedMs,
-    setActiveInfusions,
-    setActiveFluids,
-    setActiveAgent,
-    setActiveGas,
+    applyActiveState,
+    endedAtRef,
     setTimetable,
     setTtColCount,
     setCaseLoaded,
@@ -576,6 +568,8 @@ export default function IntraopLiveScreen() {
     startRef,
     setElapsedMs,
     setTimetable,
+    projectTimetable,
+    resyncActiveRef,
   })
   // ── Computed ──────────────────────────────────────────────────────────
 
@@ -701,10 +695,10 @@ export default function IntraopLiveScreen() {
         <IntraopRenderSurface {...{
           screenWidth, tabSwipeResponder, tab, undoEv, chartRows, chartStart, currentCol,
           expandedRow, nowSlotPercent, timetable, eventRows, activeInfusions, activeFluids,
-          activeAgent, activeGas, startRef, isWatching, verticalTimetableRef, undoLastEvent,
+          activeAgent, activeAgents, activeGas, startRef, isWatching, verticalTimetableRef, undoLastEvent,
           setUndoEv, setExpandedRow, eventLabel, setInfActTgt, setInfActRate, setInfActTs,
           openFluidEnd, openGasSettings, tc, stopAgent, openRowQuickAdd, jumpVerticalTimetableToNow,
-          openEndCase, openChartView, preop,
+          openEndCase, openChartView, preop, labResults, openLabs,
           pediatricDrugProfiles: PEDIATRIC_DRUG_PROFILES,
           pediatricDoseProfiles: prospectiveGuidanceEnabled ? clinicalRulesSnapshot?.doseProfiles ?? [] : [],
           prospectiveGuidanceEnabled,
@@ -756,7 +750,7 @@ export default function IntraopLiveScreen() {
           INFUSION_SUGGESTED_RATES, INFUSION_BASE_PROFILES, INFUSION_ROUTE_PROFILES,
           favouriteInfusions, infDrug, infRate, confirmInfusion, infRoute, infConcentration,
           infCustomConcentration, infFormulation, infRule,
-          infActOpen, setInfActOpen, infActTgt, infActRate, changeRate, stopInfusion,
+          infActOpen, setInfActOpen, infActTgt, infActRate, changeRate, stopInfusion, infActTs,
           infActConcentration, setInfActConcentration, flOpen, setFlOpen, setFlFluid, setFlVol,
           flEntryMode, setFlEntryMode, flRate, setFlRate, resetFluidDraft,
           setFlConcentration, flRoute, setFlRoute, setFlRule,
@@ -771,7 +765,7 @@ export default function IntraopLiveScreen() {
           setEditDose, setEditTime, confirmEdit, compOpen, COMPLICATION_TC_TITLES,
           compGroupExpanded, compSaving, toggleComplicationGroup, toggleComplication,
           setSelectedComplications, startAtOpen, startAtInput, setStartAtOpen, setStartAtInput,
-          startCaseAt, endCaseOpen, setEndCaseOpen, endCaseRunningItems, endCaseDecisions,
+          startCaseAt, endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, endCaseDecisions,
           setEndCaseDecisions, finaliseCase, premedPickOpen, premedPickPhase, PREMED_LIBRARY,
           premedPickCat, premedPickDrug, premedPickDose, premedPickRoute, setPremedPickOpen,
           setPremedPickCat, setPremedPickDrug, setPremedPickDose, setPremedPickRoute,

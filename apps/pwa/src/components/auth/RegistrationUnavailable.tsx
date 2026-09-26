@@ -2,6 +2,7 @@ import { KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from "re
 import { Stack, useRouter } from "expo-router"
 import { AuthBackdrop, AuthBrand } from "@/components/AuthBrand"
 import { usePreferences } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 /**
  * What a clinician sees instead of the registration form when this deployment
@@ -14,6 +15,7 @@ import { usePreferences } from "@/lib/preferences-context"
  * presentation.
  */
 export function RegistrationUnavailableScreen({ instructions }: { instructions: string }) {
+  const shade = useShade()
   const router = useRouter()
   const { t } = usePreferences()
 
@@ -31,11 +33,11 @@ export function RegistrationUnavailableScreen({ instructions }: { instructions: 
           </View>
           <Text
             accessibilityRole="header"
-            style={{ color: "#f8fafc", fontSize: 24, fontWeight: "900", marginBottom: 8 }}
+            style={{ color: shade("#f8fafc"), fontSize: 24, fontWeight: "900", marginBottom: 8 }}
           >
             {t("registrationUnavailable")}
           </Text>
-          <Text style={{ color: "#94a3b8", fontSize: 14, lineHeight: 21 }}>
+          <Text style={{ color: shade("#94a3b8"), fontSize: 14, lineHeight: 21 }}>
             {instructions}
           </Text>
           <TouchableOpacity

@@ -135,10 +135,11 @@ async function stableBoundingBox(locator: Locator, message: string) {
   return latest!
 }
 
-async function dragGripUntilBarLengthens(
+async function dragGripUntilBarChanges(
   lane: Locator,
   side: "left" | "right",
   targetPosition: { x: number; y: number },
+  change: "lengthen" | "shorten" = "lengthen",
 ) {
   const cells = lane.locator('[draggable="true"].cursor-grab')
   const before = await cells.count()
@@ -150,13 +151,14 @@ async function dragGripUntilBarLengthens(
   // stays. Re-select immediately before each bounded attempt and stop retrying
   // only after the clinical state proves that the bar grew.
   await expect(async () => {
-    if (await cells.count() > before) return
+    const changed = (count: number) => change === "lengthen" ? count > before : count < before
+    if (changed(await cells.count())) return
     if (!(await grip.isVisible())) {
       await infusionBar(lane).click({ timeout: 5_000 })
     }
     await expect(grip).toBeVisible({ timeout: 5_000 })
     await grip.dragTo(lane, { targetPosition, timeout: 10_000 })
-    expect(await cells.count(), "the bar did not lengthen").toBeGreaterThan(before)
+    expect(changed(await cells.count()), `the bar did not ${change}`).toBe(true)
   }).toPass({ timeout: 30_000, intervals: [250, 500, 1_000] })
 }
 
@@ -193,7 +195,10 @@ test("a charted infusion can be dragged to a different time", async ({ page }) =
   await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible()
 })
 
-test("an infusion's right grip extends the bar", async ({ page }) => {
+// A bar's end is its stop (1.4.9). The seeded case has ended with the
+// infusion still running, so the bar already reaches the end; dropping its
+// right grip on an earlier column writes the stop there and shortens it.
+test("an infusion's right grip sets where it stops", async ({ page }) => {
   const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
 
@@ -202,12 +207,13 @@ test("an infusion's right grip extends the bar", async ({ page }) => {
 
   // Grips appear only on the selected bar, so an unselected chart is not
   // covered in handles. The helper selects immediately before the drag and
-  // verifies the bar actually lengthened.
+  // verifies the bar actually shortened.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await dragGripUntilBarLengthens(
+  await dragGripUntilBarChanges(
     lane,
     "right",
-    { x: laneBox.width - 60, y: laneBox.height / 2 },
+    { x: laneBox.width / 2, y: laneBox.height / 2 },
+    "shorten",
   )
 })
 
@@ -221,7 +227,7 @@ test("an infusion's left grip extends the bar backwards in time", async ({ page 
   // The left grip is the one that moves a bar's start earlier — for an
   // infusion that was running before anyone got round to charting it.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await dragGripUntilBarLengthens(lane, "left", { x: 120, y: laneBox.height / 2 })
+  await dragGripUntilBarChanges(lane, "left", { x: 120, y: laneBox.height / 2 })
 })
 
 test("a rate change can be recorded, and dragging it copies it to another time", async ({ page }) => {
@@ -231,15 +237,10 @@ test("a rate change can be recorded, and dragging it copies it to another time",
   const lane = propofolLane(chart)
   await expect(lane).toHaveCount(1)
 
-  // A fresh infusion occupies one column, so there is nowhere for a rate
-  // change to sit. Lengthen it first, then open the menu from a later column
-  // of the rate strip so the change lands after the bar started.
+  // The infusion runs to the case end, so the bar already spans the hour.
+  // Open the menu from a later column of the rate strip so the change lands
+  // after the bar started.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await dragGripUntilBarLengthens(
-    lane,
-    "right",
-    { x: laneBox.width - 60, y: laneBox.height / 2 },
-  )
 
   // y is inside the rate strip, which is the upper band of the bar.
   await lane.click({ position: { x: laneBox.width - 200, y: 10 } })

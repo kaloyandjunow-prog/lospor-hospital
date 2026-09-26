@@ -143,7 +143,7 @@ export default function NewCasePage() {
   // Refs for synchronous access inside async callbacks
   const caseIdRef  = useRef<string | null>(null)
   const savingRef  = useRef(false)
-  const { eventLog, setEventLog, handleDeleteEvent, handleLogEvent, handleLogEventDelete } =
+  const { eventLog, setEventLog, applyEventOps } =
     useCaseEventLog(caseIdRef, t)
   // One idempotency key per form session: a create retried after a network
   // blip (autosave re-fires while caseIdRef is still null) can't double-create.
@@ -215,7 +215,7 @@ export default function NewCasePage() {
             sectionPayload("intraop", serverForm),
             record.intraop.syncRevision ?? record.intraop.updatedAt,
           )
-          setIntraopData(dbIntraopToForm({ ...record.intraop, ...queuedIntraop } as CaseDetailIntraop) as IntraopData)
+          setIntraopData(dbIntraopToForm({ ...record.intraop, ...queuedIntraop } as CaseDetailIntraop) as IntraopData); if (record.intraop.autoEndedAt) toast.info(t("intraop.timelineRules.autoEndedNotice"), { duration: 15_000 })
           // keyEvents must be a non-array object with a "vitals" key - the old
           // Prisma default was "[]" which is an array; skip that gracefully.
           const ke = record.intraop.keyEvents
@@ -707,9 +707,7 @@ export default function NewCasePage() {
             onPostopContinued={items => setContinuedPostopItems(items)}
             layoutMode={layoutMode}
             eventLog={eventLog}
-            onDeleteEvent={handleDeleteEvent}
-            onLogEvent={handleLogEvent}
-            onLogEventDelete={handleLogEventDelete}
+            onEventOps={applyEventOps}
           />
         )}
         {!loading && step === 2 && (

@@ -1,5 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, type TextInputProps } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade, useThemeRefresh } from "@/theme/colors"
 import { usePreferences, type AppLanguage } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 
@@ -15,6 +15,7 @@ import { displayClinicalCode } from "@/lib/clinical-display"
 export function Field({
   label, error, required = false, children,
 }: { label: string; error?: string; required?: boolean; children: React.ReactNode }) {
+  useThemeRefresh()
   return (
     <View style={{ marginBottom: 16 }}>
       <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 6 }}>
@@ -28,6 +29,7 @@ export function Field({
 
 // ─── Styled text input ────────────────────────────────────────────────────────
 export function StyledInput({ value, onChangeText, placeholder, keyboardType, multiline, numberOfLines, style, ...rest }: TextInputProps) {
+  useThemeRefresh()
   return (
     <TextInput
       placeholderTextColor={colors.textMuted}
@@ -55,6 +57,7 @@ export function StyledInput({ value, onChangeText, placeholder, keyboardType, mu
 
 // ─── Section header ───────────────────────────────────────────────────────────
 export function SectionHeader({ title }: { title: string }) {
+  useThemeRefresh()
   return (
     <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
       {title}
@@ -64,6 +67,7 @@ export function SectionHeader({ title }: { title: string }) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  useThemeRefresh()
   return (
     <View
       className={className}
@@ -81,6 +85,7 @@ export function SettingsRow({
   label: string; subtitle?: string; onPress?: () => void
   rightElement?: React.ReactNode; danger?: boolean; last?: boolean
 }) {
+  useThemeRefresh()
   const Inner = (
     <View style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.border }}>
       <View className="flex-1 mr-3">
@@ -98,11 +103,12 @@ export function SettingsRow({
 export function PrimaryButton({
   label, onPress, loading = false, disabled = false, color = "blue",
 }: { label: string; onPress: () => void; loading?: boolean; disabled?: boolean; color?: "blue" | "emerald" | "violet" | "indigo" | "red" | "amber" }) {
+  const shade = useShade()
   const bg = {
     blue:    colors.primary,
     emerald: colors.success,
     violet:  colors.agent,
-    indigo:  "#6366f1",
+    indigo:  shade("#6366f1"),
     red:     colors.danger,
     amber:   colors.warning,
   }[color]
@@ -114,7 +120,7 @@ export function PrimaryButton({
       onPress={onPress}
       disabled={disabled || loading}
     >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{label}</Text>}
+      {loading ? <ActivityIndicator color={shade("#fff")} /> : <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{label}</Text>}
     </TouchableOpacity>
   )
 }
@@ -123,6 +129,7 @@ export function PrimaryButton({
 export function MultiToggle({
   options, value, onChange,
 }: { options: readonly { v: string; label: string }[] | { v: string; label: string }[]; value: string[]; onChange: (v: string[]) => void }) {
+  useThemeRefresh()
   function toggle(v: string) {
     onChange(value.includes(v) ? value.filter(x => x !== v) : [...value, v])
   }
@@ -153,6 +160,7 @@ export function SingleToggle({
   onChange: (v: string | undefined) => void
   deselectable?: boolean
 }) {
+  useThemeRefresh()
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
       {options.map(opt => {
@@ -211,6 +219,7 @@ const ASA_COLOR: Record<string, string> = {
 }
 
 export function ASABadge({ asa }: { asa?: string | null }) {
+  useThemeRefresh()
   if (!asa) return null
   const color = ASA_COLOR[asa] ?? colors.textMuted
   return (
@@ -240,6 +249,7 @@ export function DispositionBadge({ disposition }: { disposition?: string | null 
 
 // ─── Chip ─────────────────────────────────────────────────────────────────────
 export function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
+  useThemeRefresh()
   return (
     <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: withAlpha(colors.primary, "55"), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, marginBottom: 6, maxWidth: "100%" }}>
       <Text style={{ color: colors.primary, fontSize: 12, marginRight: 4, fontWeight: "700" }} numberOfLines={1}>{label}</Text>
@@ -253,6 +263,7 @@ export function Chip({ label, onRemove }: { label: string; onRemove?: () => void
 }
 
 export function ChecklistTitle({ children }: { children: React.ReactNode }) {
+  useThemeRefresh()
   return (
     <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
       {children}
@@ -261,6 +272,7 @@ export function ChecklistTitle({ children }: { children: React.ReactNode }) {
 }
 
 export function ChecklistGroup({ children }: { children: React.ReactNode }) {
+  useThemeRefresh()
   return (
     <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 14, borderCurve: "continuous", borderWidth: 1, borderColor: colors.border, marginBottom: 16, overflow: "hidden" }}>
       {children}
@@ -283,6 +295,7 @@ export function ChecklistRow({
   last?: boolean
   hint?: string
 }) {
+  useThemeRefresh()
   const content = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.border, opacity: muted ? 0.78 : 1 }}>
       <View style={{ width: 24, height: 24, borderRadius: 8, borderCurve: "continuous", borderWidth: 2, borderColor: checked ? colors.primary : colors.borderStrong, backgroundColor: checked ? colors.primary : "transparent", alignItems: "center", justifyContent: "center" }}>
@@ -333,6 +346,7 @@ export function ClinicalSwitchRow({
   label: string
   activeColor?: string
 }) {
+  const shade = useShade()
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: value ? activeColor : colors.border, borderRadius: 14, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 10 }}>
       <Switch
@@ -340,7 +354,7 @@ export function ClinicalSwitchRow({
         onValueChange={onValueChange}
         trackColor={{ false: colors.borderStrong, true: withAlpha(activeColor, "66") }}
         ios_backgroundColor={colors.borderStrong}
-        thumbColor="#fff"
+        thumbColor={shade("#fff")}
       />
       <Text style={{ color: value ? activeColor : colors.textSecondary, fontSize: 14, fontWeight: "800" }}>{label}</Text>
     </View>

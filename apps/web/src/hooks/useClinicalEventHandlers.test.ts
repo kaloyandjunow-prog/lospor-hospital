@@ -3,21 +3,20 @@ import { useClinicalEventHandlers } from "./useClinicalEventHandlers"
 import type { TimetableData } from "@/components/IntraopTimetable"
 
 describe("useClinicalEventHandlers", () => {
-  it("adds a plain clinical event to the timeline and emits it", () => {
+  // The chart edit is what becomes the clinical_event (the form translates it).
+  it("adds a plain clinical event to the timeline", () => {
     const data: TimetableData = { clinicalEvents: [] } as never
     const dataRef = { current: data }
     const onChange = vi.fn()
     const onChangeRef = { current: onChange }
-    const emitLogEvent = vi.fn()
     const onComplicationAdded = vi.fn()
 
-    const { addClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, emitLogEvent, onComplicationAdded)
+    const { addClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, onComplicationAdded)
     addClinicalEvent(3, "Incision", "#ef4444", false)
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       clinicalEvents: [{ colIdx: 3, label: "Incision", color: "#ef4444" }],
     }))
-    expect(emitLogEvent).toHaveBeenCalledWith({ type: "clinical_event", label: "Incision", color: "#ef4444" })
     expect(onComplicationAdded).not.toHaveBeenCalled()
   })
 
@@ -30,14 +29,12 @@ describe("useClinicalEventHandlers", () => {
     const dataRef = { current: data }
     const onChange = vi.fn()
     const onChangeRef = { current: onChange }
-    const emitLogEvent = vi.fn()
     const onComplicationAdded = vi.fn()
 
-    const { addClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, emitLogEvent, onComplicationAdded)
+    const { addClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, onComplicationAdded)
     addClinicalEvent(5, "Hypotension", "#ef4444", true)
 
     expect(onComplicationAdded).toHaveBeenCalledWith(["Hypotension"])
-    expect(emitLogEvent).not.toHaveBeenCalled()
     expect(onChange).not.toHaveBeenCalled()
   })
 

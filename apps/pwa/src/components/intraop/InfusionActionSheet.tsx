@@ -5,6 +5,7 @@ import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
+import { useShade } from "@/theme/shade"
 
 type Range = { min: number; max: number; step: number }
 type RouteProfileLite = {
@@ -36,6 +37,7 @@ export function InfusionActionSheet({
   routeProfiles?: Record<string, Record<string, RouteProfileLite>>
   pediatricMode?: boolean
 }) {
+  const shade = useShade()
   const { tc, language } = usePreferences()
   const infusionLabel = (name: string) => displayClinicalCode("option:INTRAOP_INFUSION", name, language, { label: name })
 
@@ -53,15 +55,15 @@ export function InfusionActionSheet({
       {target && (
         <View style={{ gap:12 }}>
           {pediatricMode ? (
-            <Text style={{ color:"#fbbf24", fontSize:12, lineHeight:17 }}>
+            <Text style={{ color:shade("#fbbf24"), fontSize:12, lineHeight:17 }}>
               {tc("pediatricInfusionManual")}
             </Text>
           ) : null}
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>
             {tc("currentLabel")}: {target.rate} {target.unit}{target.concentration ? ` · ${target.concentration}` : ""}
           </Text>
           <DoseSelector
-            color="#3b82f6"
+            color={shade("#3b82f6")}
             quickValues={quickValues}
             value={newRate} onValueChange={setNewRate}
             {...range}
@@ -76,9 +78,9 @@ export function InfusionActionSheet({
           />
           <TouchableOpacity
             onPress={() => onStop(target)}
-            style={{ backgroundColor:"#1e1414", borderRadius:10, padding:14, alignItems:"center",
-              borderWidth:1, borderColor:"#ef444444" }}>
-            <Text style={{ color:"#ef4444", fontWeight:"700" }}>{tc("trStop")} {tc("trRowInfusion").toLowerCase()}</Text>
+            style={{ backgroundColor:shade("#1e1414"), borderRadius:10, padding:14, alignItems:"center",
+              borderWidth:1, borderColor:shade("#ef444444") }}>
+            <Text style={{ color:shade("#ef4444"), fontWeight:"700" }}>{tc("trStop")} {tc("trRowInfusion").toLowerCase()}</Text>
           </TouchableOpacity>
         </View>
       )}

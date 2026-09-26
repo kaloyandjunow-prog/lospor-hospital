@@ -1,6 +1,7 @@
 import { View, Text, ScrollView } from "react-native"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
+import { useShade } from "@/theme/shade"
 
 export type FluidStatusTotalRow = {
   name: string
@@ -49,10 +50,11 @@ export function FluidStatusTab({
   setBloodLossMl: (value: number | null) => void
   tc: (key: ClinicalStringKey) => string
 }) {
+  const shade = useShade()
   const given: { label: string; value: number | null; color: string }[] = [
-    { label: tc("crystalloidsLabel"), value: crystalloidsMl, color: "#22d3ee" },
-    { label: tc("colloidsLabel"),     value: colloidsMl,     color: "#a78bfa" },
-    { label: tc("bloodProductsLabel"), value: bloodMl,       color: "#fb7185" },
+    { label: tc("crystalloidsLabel"), value: crystalloidsMl, color: shade("#22d3ee") },
+    { label: tc("colloidsLabel"),     value: colloidsMl,     color: shade("#a78bfa") },
+    { label: tc("bloodProductsLabel"), value: bloodMl,       color: shade("#fb7185") },
   ]
 
   return (
@@ -64,7 +66,7 @@ export function FluidStatusTab({
             <TotalRow key={`${row.name}-${row.unit}`} row={row} />
           ))}
           {weightNote && (
-            <Text style={{ color:"#475569", fontSize:10, fontStyle:"italic", marginTop:6 }}>{weightNote}</Text>
+            <Text style={{ color:shade("#475569"), fontSize:10, fontStyle:"italic", marginTop:6 }}>{weightNote}</Text>
           )}
         </View>
       )}
@@ -84,12 +86,12 @@ export function FluidStatusTab({
           {given.map(({ label, value, color }) => (
             <View key={label} style={{
               flexGrow:1, flexBasis:"30%", paddingVertical:10, paddingHorizontal:12, borderRadius:10,
-              backgroundColor:"#0f1621", borderWidth:1, borderColor:"#1e2d40",
+              backgroundColor:shade("#0f1621"), borderWidth:1, borderColor:shade("#1e2d40"),
             }}>
               {/* A projected total that is genuinely zero reads as 0; one that
                   was never recorded reads as a dash. */}
               <Text style={{ color, fontSize:20, fontWeight:"800" }}>{value ?? "—"}</Text>
-              <Text style={{ color:"#64748b", fontSize:10, fontWeight:"600", marginTop:2 }}>{label}</Text>
+              <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"600", marginTop:2 }}>{label}</Text>
             </View>
           ))}
         </View>
@@ -120,7 +122,7 @@ export function FluidStatusTab({
           unit="mL" min={0} max={20000} step={50}
           quickValues={[100, 250, 500, 1000]}
         />
-        <Text style={{ color:"#475569", fontSize:10, fontStyle:"italic", marginTop:8 }}>
+        <Text style={{ color:shade("#475569"), fontSize:10, fontStyle:"italic", marginTop:8 }}>
           {tc("bloodLossOptionalHint")}
         </Text>
       </View>
@@ -130,30 +132,32 @@ export function FluidStatusTab({
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
+  const shade = useShade()
   return (
     <Text style={{
-      color:"#64748b", fontSize:11, fontWeight:"700", textTransform:"uppercase",
+      color:shade("#64748b"), fontSize:11, fontWeight:"700", textTransform:"uppercase",
       letterSpacing:0.8, marginBottom:10,
     }}>{children}</Text>
   )
 }
 
 function TotalRow({ row }: { row: FluidStatusTotalRow }) {
+  const shade = useShade()
   return (
     <View style={{
       flexDirection:"row", alignItems:"center", justifyContent:"space-between",
-      paddingVertical:8, borderBottomWidth:1, borderBottomColor:"#16202e",
+      paddingVertical:8, borderBottomWidth:1, borderBottomColor:shade("#16202e"),
     }}>
-      <Text style={{ color:"#cbd5e1", fontSize:13, fontWeight:"600", flex:1 }} numberOfLines={1}>
+      <Text style={{ color:shade("#cbd5e1"), fontSize:13, fontWeight:"600", flex:1 }} numberOfLines={1}>
         {row.name}
         {row.count != null && row.count > 1 && (
-          <Text style={{ color:"#475569", fontSize:11, fontWeight:"500" }}>{`  ×${row.count}`}</Text>
+          <Text style={{ color:shade("#475569"), fontSize:11, fontWeight:"500" }}>{`  ×${row.count}`}</Text>
         )}
       </Text>
-      <Text style={{ color:"#93c5fd", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+      <Text style={{ color:shade("#93c5fd"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
         {row.total} {row.unit}{row.weightUsed != null ? " †" : ""}
         {row.mgTotal != null && (
-          <Text style={{ color:"#64748b", fontSize:11, fontWeight:"500" }}>{`  (${row.mgTotal} mg)`}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:11, fontWeight:"500" }}>{`  (${row.mgTotal} mg)`}</Text>
         )}
       </Text>
     </View>

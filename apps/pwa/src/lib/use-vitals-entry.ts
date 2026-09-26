@@ -1,3 +1,4 @@
+import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import type { RefObject } from "react"
 import { Platform } from "react-native"
@@ -31,8 +32,8 @@ import { usePreferences } from "@/lib/preferences-context"
 // lower-level log/sync primitives (syncLog, log, logRef, setLog, startRef,
 // setTimetable, eventsToTimetable, roundDown5Min) instead of just `save`.
 export function useVitalsEntry(
-  save: (partial: Omit<LogEvent, "id" | "ts">, tsOverride?: string, silent?: boolean) => Promise<LogEvent>,
-  syncLog: (newLog: LogEvent[]) => Promise<void>,
+  save: SaveIntraopEvent,
+  syncLog: (newLog: LogEvent[]) => Promise<boolean>,
   setEntryTs: (ts: string | null) => void,
   entryTs: string | null,
   log: LogEvent[],

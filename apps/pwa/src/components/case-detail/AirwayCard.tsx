@@ -1,6 +1,6 @@
 ﻿import React from "react"
 import { View, Text } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { SummaryCard, InfoRow, Chip, ChipRow } from "./CaseDetailPrimitives"
 import {
@@ -8,10 +8,11 @@ import {
 } from "@/lib/case-detail-summary"
 
 export function AirwayCard({ preop, tc }: { preop: CaseData["preop"]; tc: (key: ClinicalStringKey) => string }) {
+  const shade = useShade()
   const mallampatiColor = (v?: string): string => {
     if (!v) return colors.textMuted
     if (v === "I") return colors.success
-    if (v === "II") return "#fbbf24"
+    if (v === "II") return shade("#fbbf24")
     if (v === "III") return colors.warning
     if (v === "IV") return colors.danger
     return colors.textPrimary

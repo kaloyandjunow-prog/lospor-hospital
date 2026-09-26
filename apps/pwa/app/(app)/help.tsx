@@ -13,9 +13,10 @@ import {
 } from "@/lib/deployment-support"
 import { notify } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 
 function HelpSection({ title, body }: { title: string; body: string }) {
+  useThemeRefresh()
   return (
     <View style={{ padding: 16, borderBottomColor: colors.border, borderBottomWidth: 1 }}>
       <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "800", marginBottom: 5 }}>

@@ -4,6 +4,7 @@ import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
+import { useShade } from "@/theme/shade"
 
 type Agent = { name: string; color: string }
 
@@ -25,6 +26,7 @@ export function AgentSheet({
   pediatricMode?: boolean
   prospectiveGuidanceEnabled?: boolean
 }) {
+  const shade = useShade()
   const { tc, language } = usePreferences()
   const agentLabel = (name: string) => displayClinicalCode("option:INHALATIONAL_AGENT", name, language, { label: name })
 
@@ -40,7 +42,7 @@ export function AgentSheet({
               style={{ flex:1, paddingVertical:18, borderRadius:14, alignItems:"center",
                 backgroundColor: agPick?.name===a.name ? a.color : a.color+"1a",
                 borderWidth:2, borderColor:a.color }}>
-              <Text style={{ color: agPick?.name===a.name ? "#fff" : a.color,
+              <Text style={{ color: agPick?.name===a.name ? shade("#fff") : a.color,
                 fontWeight:"700", fontSize:14 }}>{agentLabel(a.name)}</Text>
             </TouchableOpacity>
           )
@@ -49,7 +51,7 @@ export function AgentSheet({
       {agPick && (
         <>
           {pediatricMode ? (
-            <Text style={{ color:"#fbbf24", fontSize:12, lineHeight:17, marginBottom:10 }}>
+            <Text style={{ color:shade("#fbbf24"), fontSize:12, lineHeight:17, marginBottom:10 }}>
               {tc("pediatricAgentManual")}
             </Text>
           ) : null}

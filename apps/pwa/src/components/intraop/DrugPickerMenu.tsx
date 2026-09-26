@@ -3,6 +3,7 @@ import type { ScenarioGroup } from "@lospor/core"
 import { MedicationPickerPill } from "@/components/intraop/MedicationPickerPill"
 import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 export type DrugPickerOption = { name: string; unit: string }
 export type DrugPickerCategory = {
@@ -71,11 +72,12 @@ export function DrugPickerMenu({
   onOpenScenario: (group: ScenarioGroup) => void
   onOpenBrowse: () => void
 }) {
+  const shade = useShade()
   if (drugCat) {
     return (
       <View>
         <TouchableOpacity onPress={onClearCategory} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
           {drugCat.drugs.map(drug => (
@@ -96,7 +98,7 @@ export function DrugPickerMenu({
     return (
       <View>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
           {scenarioItems.map(({ entry, drug }) => (
@@ -117,10 +119,10 @@ export function DrugPickerMenu({
     return (
       <View>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         {favouriteItems.length === 0 ? (
-          <Text style={{ color:"#64748b", fontSize:13, lineHeight:18 }}>{tc("dsNoFavourites")}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:13, lineHeight:18 }}>{tc("dsNoFavourites")}</Text>
         ) : (
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
             {favouriteItems.map(drug => (
@@ -142,16 +144,16 @@ export function DrugPickerMenu({
     return (
       <View>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         <TextInput
           testID="drug-search-input"
           value={query}
           onChangeText={onQueryChange}
           placeholder={tc("dsSearchDrugs")}
-          placeholderTextColor="#475569"
-          style={{ backgroundColor:"#111820", color:"#e2e8f0", borderRadius:10, paddingHorizontal:12, paddingVertical:10,
-            borderWidth:1, borderColor:"#1e2d40", marginBottom:14 }}
+          placeholderTextColor={shade("#475569")}
+          style={{ backgroundColor:shade("#111820"), color:shade("#e2e8f0"), borderRadius:10, paddingHorizontal:12, paddingVertical:10,
+            borderWidth:1, borderColor:shade("#1e2d40"), marginBottom:14 }}
         />
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
           {query.trim() ? filtered.map(item => (
@@ -186,7 +188,7 @@ export function DrugPickerMenu({
         <MedicationPickerPill
           label={tc("dsFavourites")}
           sublabel={`${favouriteItems.length || 0} ${tc("dsSelected")}`}
-          color="#38bdf8"
+          color={shade("#38bdf8")}
           onPress={onOpenFavourites}
           wide
         />
@@ -206,7 +208,7 @@ export function DrugPickerMenu({
         <MedicationPickerPill
           label={tc("dsBrowseAllDrugs")}
           sublabel={tc("dsSearchCanonical")}
-          color="#64748b"
+          color={shade("#64748b")}
           onPress={onOpenBrowse}
           wide
         />

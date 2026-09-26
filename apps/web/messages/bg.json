@@ -1238,7 +1238,8 @@
       "missing_vitals": "Интраоперативни жизнени показатели (таблица)",
       "missing_medications": "Медикаменти / инфузии / агенти",
       "missing_fluids": "Баланс на течностите",
-      "missing_complication_documentation": "Усложнения"
+      "missing_complication_documentation": "Усложнения",
+      "entries_after_case_end": "След края остават планирани записи. Отбележете за всеки дали се е случил."
     },
     "saved": "✓ Запазено",
     "saveChanges": "Запази промените",
@@ -1630,6 +1631,42 @@
       "selected": "избрани",
       "manualEntry": "Само ръчно въвеждане",
       "positionChange": "Смяна на позиция"
+    },
+    "timelineRules": {
+      "refused": {
+        "STOP_BEFORE_START": "Не е записано: спирането не може да е преди началото.",
+        "NOT_RUNNING": "Не е записано: това не тече в този момент.",
+        "STOP_BEFORE_LATER_CHANGE": "Не е записано: след това спиране има по-късна промяна на същото. Първо преместете или изтрийте промяната.",
+        "ALREADY_RUNNING": "Не е записано: това вече тече.",
+        "FUTURE_VITAL": "Не е записано: виталните показатели не могат да се записват в бъдещето.",
+        "BEFORE_CASE_START": "Не е записано: това е преди началото на случая.",
+        "AFTER_CASE_END": "Не е записано: това е след края на случая."
+      },
+      "needsStart": "Първо започнете случая: записите във времевата линия се отчитат от началото му.",
+      "plannedLabel": "Планирано",
+      "plannedStopLabel": "Планирано спиране",
+      "autoFilledTag": "авт.",
+      "autofillPausedTitle": "Случаят още ли тече?",
+      "autofillPausedMessage": "Нищо не е въвеждано 60 минути, затова автоматичното попълване на виталните е на пауза.",
+      "autofillStillRunning": "Още тече",
+      "autofillBackfillTitle": "Попълване на пропуснатите витални?",
+      "autofillBackfillMessage": "Да се копират последните витални в {count} празни реда от последните 30 минути?",
+      "autofillFill": "Попълни",
+      "autofillSkip": "Пропусни",
+      "agentSwitchTitle": "{name} тече",
+      "agentSwitch": "Смяна: спрете {name}",
+      "agentRunBoth": "И двата",
+      "endCaseAfterEndTitle": "Записи след края",
+      "endCaseAfterEndHint": "Посочете за всеки дали се е случил. След края не може да остава нищо.",
+      "endCaseDidntHappen": "Не се случи",
+      "endCaseHappened": "Случи се",
+      "endCaseFinaliseBlocked": "Остават записи след края. Първо отбележете всеки.",
+      "resumeRemoveStopsTitle": "Премахване на спиранията от приключването?",
+      "resumeRemoveStopsMessage": "{count} елемента бяха спрени при приключването. Да се премахнат ли тези спирания, за да текат отново?",
+      "resumeRemoveStops": "Премахни спиранията",
+      "resumeKeepStops": "Запази",
+      "labsPill": "Изследвания · {count}",
+      "autoEndedNotice": "Случаят беше приключен автоматично 48 часа след началото. Продължете го, ако още тече."
     }
   },
   "postop": {

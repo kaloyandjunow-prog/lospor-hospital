@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.4.8",
+  "release": "1.4.9",
   "policy": "backup-required",
-  "justification": "Assessed, not merely conservative. Migration 20260924120000_preop_single_profile_answers drops the PreopCaseProfilePin table and replaces the preoperative answer unique key (preopId, questionId, profileVersion) with (preopId, questionId). Hospital 1.4.7 reads and writes that pin table on every preoperative save, so 1.4.7 services started against a 1.4.8 database would fail preoperative writes. A rollback to 1.4.7 is therefore only safe by restoring the verified pre-update backup, which is what backup-required enforces.",
+  "justification": "Conservative rather than assessed. Migration 20260926120000_intraop_auto_ended only adds the nullable column IntraoperativeRecord.autoEndedAt, which 1.4.8 services never read, so the schema change itself is additive. But 1.4.9 changes how the intraoperative chart is written: the whole-timetable save is retired and every edit is an event checked against the shared timeline rules, and a case can now end automatically. No release-specific rollback proof shows 1.4.8 services behaving correctly on charts written that way, so declaring service-compatible would be an unverified claim. Rolling back to 1.4.8 stays tied to the verified pre-update backup.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-09-25"
+  "assessedAt": "2026-09-26"
 }

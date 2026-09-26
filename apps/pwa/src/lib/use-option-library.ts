@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { isServingFallback } from "@lospor/core/sync"
 import * as SecureStore from "expo-secure-store"
 import {
   CLINICAL_CATALOG_GENERATED_AT,
@@ -95,8 +96,10 @@ export function useAnyLibraryFallback(): {
     }
   }, [])
   return {
+    // Only a cached or bundled copy is a fallback. A category still loading
+    // has no state yet, which used to flash the offline banner on every open.
     active: [...loadedCategories].some(category =>
-      repository.state(category)?.source !== "live",
+      isServingFallback(repository.state(category)),
     ),
     snapshotDate: CLINICAL_CATALOG_GENERATED_AT,
   }

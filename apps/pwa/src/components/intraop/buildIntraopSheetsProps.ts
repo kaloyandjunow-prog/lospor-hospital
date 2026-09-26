@@ -14,6 +14,7 @@ import {
   type PediatricPremedDrug,
 } from "@/lib/pediatric-premedication-library"
 import { buildPostopRoute } from "@/lib/postop-route"
+import { adultPremedForRoute } from "@/lib/premed-route-dose"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
 type SlotProps = IntraopSheetsHostProps["slot"]
@@ -39,8 +40,9 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   openSlotEvent: SlotProps["onSelectEvent"]
   openDrug: (timestamp?: string) => void
   openAgent: (timestamp?: string) => void
-  stopAgent: () => void
-  stopGasSettings: () => void
+  activeAgents: SlotProps["activeAgents"]
+  stopAgent: (name?: string, rowTs?: string | null) => void
+  stopGasSettings: (rowTs?: string | null) => void
   openGasSettings: (timestamp?: string) => void
   editOpen: EditEventProps["visible"]
   editEv: EditEventProps["event"]
@@ -68,6 +70,8 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   endCaseOpen: EndCaseProps["visible"]
   setEndCaseOpen: (open: boolean) => void
   endCaseRunningItems: EndCaseProps["items"]
+  afterEndItems: NonNullable<EndCaseProps["afterEnd"]>
+  resolveAfterEnd: NonNullable<EndCaseProps["onResolveAfterEnd"]>
   endCaseDecisions: EndCaseProps["decisions"]
   setEndCaseDecisions: (
     value: EndCaseProps["decisions"] | ((previous: EndCaseProps["decisions"]) => EndCaseProps["decisions"])
@@ -95,7 +99,7 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
 
 export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): IntraopSheetsHostProps {
   const {
-    activeAgent, activeGas, slotOpen, slotTs, timeStr, slotEventSearch, slotCompExpanded,
+    activeAgents, activeGas, slotOpen, slotTs, timeStr, slotEventSearch, slotCompExpanded,
     CLINICAL_EVENT_CATS, COMPLICATION_GROUPS, COMPLICATION_ITEMS, isGACase, setSlotOpen, setSlotEventSearch,
     setSlotCompExpanded, openSlotEvent, openDrug, openAgent, stopAgent, stopGasSettings,
     openGasSettings,
@@ -103,7 +107,7 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
     compOpen, setCompOpen, COMPLICATION_TC_TITLES, selectedComplications, compGroupExpanded,
     compSaving, toggleComplicationGroup, toggleComplication, setSelectedComplications,
     saveComplications, startAtOpen, startAtInput, setStartAtOpen, setStartAtInput, startCaseAt,
-    endCaseOpen, setEndCaseOpen, endCaseRunningItems, endCaseDecisions, setEndCaseDecisions,
+    endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, endCaseDecisions, setEndCaseDecisions,
     finaliseCase, premedPickOpen, premedPickPhase, PREMED_LIBRARY, premedPickCat,
     premedPickDrug, premedPickDose, premedPickRoute, setPremedPickOpen, setPremedPickCat,
     setPremedPickDrug, setPremedPickDose, setPremedPickRoute, addSelectedPremedication,
@@ -120,16 +124,17 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       eventCategories: CLINICAL_EVENT_CATS,
       extraComplicationLabels: COMPLICATION_ITEMS,
       isGACase,
-      activeAgent,
+      activeAgents,
       activeGas,
       onClose: () => { setSlotOpen(false); setSlotEventSearch(""); setSlotCompExpanded(false) },
       onEventSearchChange: setSlotEventSearch,
       onToggleComplications: () => setSlotCompExpanded((value) => !value),
       onSelectEvent: openSlotEvent,
       onBrowseDrugs: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openDrug(ts) },
-      onStopAgent: () => { setSlotOpen(false); stopAgent() },
+      // Stops are recorded at the row the sheet was opened from.
+      onStopAgent: name => { setSlotOpen(false); stopAgent(name, slotIsoTimestamp(slotTs)) },
       onOpenAgent: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openAgent(ts) },
-      onStopGas: () => { setSlotOpen(false); stopGasSettings() },
+      onStopGas: () => { setSlotOpen(false); stopGasSettings(slotIsoTimestamp(slotTs)) },
       onOpenGas: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openGasSettings(ts) },
     },
     ...buildIntraopMedicationSheetProps(props),
@@ -167,6 +172,8 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       visible: endCaseOpen,
       onClose: () => setEndCaseOpen(false),
       items: endCaseRunningItems,
+      afterEnd: afterEndItems,
+      onResolveAfterEnd: resolveAfterEnd,
       decisions: endCaseDecisions,
       continueLabel: tc("continuePostop"),
       onDecision: (key, decision) => setEndCaseDecisions((previous) => ({ ...previous, [key]: decision })),
@@ -195,10 +202,13 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
         // — withheld, no rule, no weight — still starts blank and has to be
         // entered by hand.
         const annotation = (drug as PediatricPremedDrug).pediatric
+        // An adult drug is shown as it applies to its default route.
+        const adult = pediatricMode ? null : adultPremedForRoute(drug, drug.defaultRoute, props.preop?.weight)
+        if (adult) setPremedPickDrug(adult.drug)
         setPremedPickDose(
           !props.prospectiveGuidanceEnabled || (pediatricMode && annotation?.kind !== "calculated")
             ? ""
-            : String(drug.dose),
+            : adult ? adult.dose : String(drug.dose),
         )
         setPremedPickRoute(drug.defaultRoute)
       },
@@ -213,7 +223,14 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
         // Changing route changes the dose: oral midazolam is 0.5 mg/kg, IV is
         // 0.05. Leaving the previous number in place would be a tenfold error
         // waiting to be pressed.
-        if (!pediatricMode || !premedPickDrug) return
+        if (!premedPickDrug) return
+        if (!pediatricMode) {
+          // Adults too: the route's own dose replaces the old one, typed or not.
+          const adult = adultPremedForRoute(premedPickDrug, route, props.preop?.weight)
+          setPremedPickDrug(adult.drug)
+          setPremedPickDose(adult.dose)
+          return
+        }
         const next = pediatricPremedDoseForRoute(
           premedPickDrug, route, premedPatientFromPreop(props.preop),
         )

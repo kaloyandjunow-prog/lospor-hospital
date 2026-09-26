@@ -1,5 +1,5 @@
 import type { RefObject } from "react"
-import type { TimetableData, TimetableFluid, IntraopLogEvent } from "@/components/IntraopTimetable"
+import type { TimetableData, TimetableFluid } from "@/components/IntraopTimetable"
 import { calculateFluidVolumeMl, normalizeFluidEntryMode } from "@lospor/core/intraop-fluids"
 
 // Same start/extend/resume/continue lifecycle as infusions. Exact fluid-rate
@@ -9,15 +9,15 @@ export function useFluidHandlers(
   onChange: (d: TimetableData) => void,
   dataRef: RefObject<TimetableData>,
   onChangeRef: RefObject<(d: TimetableData) => void>,
-  onLogEventDeleteRef: RefObject<((match: { infId?: string; fluidId?: string }) => void) | undefined>,
-  emitLogEvent: (partial: Omit<IntraopLogEvent, "id" | "ts"> & { ts?: string }) => void,
   nowCol: number | null,
 ) {
   function removeFluid(id: string) {
     onChange({ ...data, fluids: (data.fluids ?? []).filter(f => f.id !== id) })
-    onLogEventDeleteRef.current?.({ fluidId: id })
   }
 
+  // 1.4.9: a bar's end is its stop. Dropping the end grip stops it at that
+  // column (a planned stop if the column is still ahead); on a stopped bar it
+  // moves the stop. A running bar otherwise ends at "now" by itself.
   function extendFluid(id: string, newEnd: number, terminate = false) {
     const d = dataRef.current
     const segment = d.fluids?.find(fluid => fluid.id === id)
@@ -39,32 +39,14 @@ export function useFluidHandlers(
       fluids: (d.fluids ?? []).map(fluid => fluid.id === id ? {
         ...fluid,
         endCol: newEnd,
-        stopped: terminate ? true : undefined,
+        plannedStopCol: undefined,
+        stopped: true,
         ...(endTs ? { endTs } : {}),
         ...(actualVolumeMl != null
           ? { administeredVolumeMl: actualVolumeMl, volume: String(actualVolumeMl) }
           : {}),
       } : fluid),
     })
-    if (terminate && segment && endTs && actualVolumeMl != null) {
-      emitLogEvent({
-        type: "fluid_end",
-        ts: endTs,
-        fluidId: id,
-        name: segment.name,
-        category: segment.category,
-        fluidEntryMode: normalizeFluidEntryMode(segment.fluidEntryMode),
-        administeredVolumeMl: actualVolumeMl,
-        volume: String(actualVolumeMl),
-        color: segment.color,
-        clinicalRuleKey: segment.clinicalRuleKey,
-        clinicalRuleVersion: segment.clinicalRuleVersion,
-        clinicalRuleSourceIds: segment.clinicalRuleSourceIds,
-        clinicalPresetId: segment.clinicalPresetId,
-        clinicalPresetVersion: segment.clinicalPresetVersion,
-        clinicalPresetScope: segment.clinicalPresetScope,
-      })
-    }
   }
 
   function resumeFluid(id: string) {
@@ -108,26 +90,6 @@ export function useFluidHandlers(
       rate: fluidEntryMode === "RATE" ? latestRateChange?.rate ?? source.rate : source.rate,
     }
     onChangeRef.current({ ...d, fluids: [...(d.fluids ?? []), next] })
-    emitLogEvent({
-      type: "fluid_start",
-      ts: startTs,
-      fluidId: next.id,
-      name: next.name,
-      category: next.category,
-      color: next.color,
-      fluidEntryMode,
-      volume: next.volume,
-      bagVolumeMl: next.bagVolumeMl,
-      rate: next.rate == null ? undefined : String(next.rate),
-      unit: next.unit,
-      concentration: next.concentration,
-      clinicalRuleKey: next.clinicalRuleKey,
-      clinicalRuleVersion: next.clinicalRuleVersion,
-      clinicalRuleSourceIds: next.clinicalRuleSourceIds,
-      clinicalPresetId: next.clinicalPresetId,
-      clinicalPresetVersion: next.clinicalPresetVersion,
-      clinicalPresetScope: next.clinicalPresetScope,
-    })
   }
 
   return { removeFluid, extendFluid, resumeFluid, continueFluid }

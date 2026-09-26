@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import type { LogEvent } from "@/types/timetable"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { randomId } from "@/lib/random-id"
+import { applyIntraopEventOps, type IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 
 /**
  * The intraoperative event journal: the timeline's own append/replace/delete
@@ -89,5 +90,37 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
     }
   }
 
-  return { eventLog, setEventLog, handleDeleteEvent, handleLogEvent, handleLogEventDelete }
+  /**
+   * Applies one timeline edit (1.4.9): the adds, updates and removals the
+   * Core edit translation produced, in one state change, each staged in the
+   * outbox. The chart is the projection of this log; nothing else is saved.
+   */
+  async function applyEventOps(ops: IntraopEventOps) {
+    const caseId = caseIdRef.current
+    if (!caseId) return
+    setEventLog(prev => applyIntraopEventOps(prev as Parameters<typeof applyIntraopEventOps>[0], ops) as LogEvent[])
+    const base = () => autosaveManager.getRevision(caseId, "intraop")
+    try {
+      for (const eventId of ops.remove) {
+        await autosaveManager.stageEventMutation({
+          operationId: `web-delete-${randomId()}`, caseId, kind: "event.delete", eventId,
+          baseRevision: base(), queuedAt: new Date().toISOString(),
+        })
+      }
+      for (const event of ops.update) {
+        await autosaveManager.stageEventMutation({
+          operationId: `web-upsert-${randomId()}`, caseId, kind: "event.upsert", eventId: event.id,
+          event: event as Record<string, unknown>, baseRevision: base(), queuedAt: new Date().toISOString(),
+        })
+      }
+      for (const event of ops.add) {
+        await autosaveManager.appendEvent(caseId, event as Record<string, unknown> & { id: string })
+      }
+    } catch (error) {
+      console.error("[intraop event] journal failed", error)
+      toast.error(t("case.timelineEditFailed"))
+    }
+  }
+
+  return { eventLog, setEventLog, handleDeleteEvent, handleLogEvent, handleLogEventDelete, applyEventOps }
 }

@@ -13,7 +13,7 @@ import { calcInfusionTotals } from "@lospor/core/intraop-totals"
 import type {
   LegacyKeyEvents, TimetableInfusion, VitalsEntry,
   AgentSegment, TimetableFluid, GasSettingsSegment, ClinicalEvent, PositionSegment,
-  TimetableData,
+  TimetableData, VitalKey,
 } from "@/types/timetable"
 import { CHART_STR, type ChartStr } from "./print-timetable-copy"
 
@@ -261,7 +261,7 @@ function buildSVG(
 
   // ── vitals traces — FULL resolution (every recorded point plots; only the
   // numeric text rows sample) and connected across unrecorded columns. ──
-  function segs(key: keyof VitalsEntry): string[][] {
+  function segs(key: VitalKey): string[][] {
     const cur: string[] = []
     vitals.forEach((v, idx) => {
       if (!inRange(idx)) return

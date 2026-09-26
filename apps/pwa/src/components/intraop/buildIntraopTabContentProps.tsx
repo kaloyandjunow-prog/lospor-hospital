@@ -18,6 +18,7 @@ import { techniqueColor } from "@/lib/intraop-technique"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { formatMessage } from "@/i18n/locale"
+import { projectLabDraws, type LabResult } from "@lospor/core/labs"
 
 type Host = IntraopTabContentHostProps
 
@@ -48,7 +49,7 @@ export type IntraopTabContentBuilderProps = {
   eventRows: LogProps["eventRows"]
   activeInfusions: LogProps["activeInfusions"]
   activeFluids: LogProps["activeFluids"]
-  activeAgent: LogProps["activeAgent"]
+  activeAgents: LogProps["activeAgents"]
   activeGas: LogProps["activeGas"]
   startRef: MutableRefObject<Date | null>
   isWatching: LogProps["isWatching"]
@@ -61,10 +62,10 @@ export type IntraopTabContentBuilderProps = {
   setInfActRate: (rate: string) => void
   setInfActOpen: (open: boolean) => void
   setInfActTs: (timestamp: string | null) => void
-  openFluidEnd: LogProps["onEndFluid"]
+  openFluidEnd: (fluid: Parameters<LogProps["onEndFluid"]>[0], rowTs?: string | null) => void
   openGasSettings: (timestamp: string, gas: NonNullable<LogProps["activeGas"]>, mode: "change") => void
   tc: TechniqueProps["tc"]
-  stopAgent: () => void
+  stopAgent: (name?: string, rowTs?: string | null) => void
   openRowQuickAdd: LogProps["onQuickAdd"]
   jumpVerticalTimetableToNow: LogProps["onJumpToNow"]
   openEndCase: LogProps["onEndCase"]
@@ -168,6 +169,9 @@ export type IntraopTabContentBuilderProps = {
   caseIbw: number | null
   caseTbw: number | null
   infusionWeightBasis: WeightBasisMap
+  /** Lab results of the case; drawn on the chart and in the event log by time. */
+  labResults: LabResult[]
+  openLabs: (takenAt: string) => void
   urineMl: FluidsProps["urineMl"]
   setUrineMl: FluidsProps["setUrineMl"]
   bloodLossMl: FluidsProps["bloodLossMl"]
@@ -176,8 +180,8 @@ export type IntraopTabContentBuilderProps = {
 
 export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps): IntraopTabContentHostProps {
   const {
-    screenWidth, tab, undoEv, chartRows, chartStart, currentCol, expandedRow, nowSlotPercent,
-    timetable, eventRows, activeInfusions, activeFluids, activeAgent, activeGas, startRef,
+    labResults, openLabs, screenWidth, tab, undoEv, chartRows, chartStart, currentCol, expandedRow, nowSlotPercent,
+    timetable, eventRows, activeInfusions, activeFluids, activeAgents, activeGas, startRef,
     isWatching, verticalTimetableRef, undoLastEvent, setUndoEv, setExpandedRow, eventLabel,
     setInfActTgt, setInfActRate, setInfActOpen, setInfActTs, openFluidEnd, openGasSettings, tc, stopAgent,
     openRowQuickAdd, jumpVerticalTimetableToNow, openEndCase, openChartView, preop,
@@ -207,8 +211,12 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
   // One case per tab, and only the active one runs. Building all eleven groups
   // meant constructing hundreds of keys and closures per render — including the
   // timetable's — for content that was never mounted.
+  const labDraws = () => startRef.current ? projectLabDraws(labResults, { start: chartStart }) : []
+
   switch (tab) {
     case "log": return { tab, content: {
+      labDraws: labDraws(),
+      onOpenLabs: openLabs,
       screenWidth,
       undoEvent: undoEv,
       chartRows,
@@ -221,7 +229,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       eventRows,
       activeInfusions,
       activeFluids,
-      activeAgent,
+      activeAgents,
       activeGas,
       started: !!startRef.current,
       isWatching,
@@ -232,15 +240,16 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       eventText: logEventText ?? ((ev: LogEvent) => eventLabel(ev).text),
       buildSummary: logBuildSummary ?? ((vital: VitalsEntry | undefined, rowEvents: LogEvent[]) => buildRowSummary(vital, rowEvents, ev => eventLabel(ev).text)),
       onManageInfusion: (inf, col) => { setInfActTs(col != null ? timeAtCol(chartStart, col).toISOString() : null); setInfActTgt(inf); setInfActRate(inf.rate); setInfActOpen(true) },
-      onEndFluid: openFluidEnd,
+      // Stops and changes are recorded at the row they were entered in.
+      onEndFluid: (fluid, col) => openFluidEnd(fluid, col != null ? timeAtCol(chartStart, col).toISOString() : null),
       onEditGas: c => { if (activeGas) openGasSettings(timeAtCol(chartStart, c).toISOString(), activeGas, "change") },
-      onStopAgent: () => {
-        if (activeAgent) void confirmAction(
-          formatMessage(tc("stopAgentQuestion"), { name: activeAgent.name }),
+      onStopAgent: (name, col) => {
+        void confirmAction(
+          formatMessage(tc("stopAgentQuestion"), { name }),
           undefined,
           { destructive: true, confirmLabel: tc("stopLabel"), cancelLabel: tc("cancelLabel") },
         )
-          .then(ok => { if (ok) stopAgent() })
+          .then(ok => { if (ok) stopAgent(name, col != null ? timeAtCol(chartStart, col).toISOString() : null) })
       },
       onQuickAdd: openRowQuickAdd,
       onJumpToNow: jumpVerticalTimetableToNow,
@@ -364,6 +373,8 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
 
     case "events": return { tab, content: {
       log,
+      labDraws: labDraws(),
+      onOpenLabs: openLabs,
       selectedComplications,
       complicationsNotes,
       onComplicationsNotesChange: setComplicationsNotes,

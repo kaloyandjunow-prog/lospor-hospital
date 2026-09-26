@@ -2,7 +2,7 @@ import { Text, TouchableOpacity, View } from "react-native"
 import { STRINGS } from "@/i18n/strings"
 import type { LocalCaseDraft } from "@/lib/local-case-store"
 import { localDraftReviewSummary } from "@/lib/local-draft-review"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
   draft: LocalCaseDraft
@@ -27,6 +27,7 @@ export function LocalCaseDraftCard({
   unsyncedTitle,
   onPress,
 }: Props) {
+  const shade = useShade()
   const needsReview = Boolean(draft.serverCaseId && draft.syncReview)
   const review = draft.syncReview
     ? localDraftReviewSummary(draft.syncReview, language)
@@ -65,7 +66,7 @@ export function LocalCaseDraftCard({
             paddingHorizontal: 6,
             paddingVertical: 2,
           }}>
-            <Text style={{ color: "#000", fontSize: 9, fontWeight: "900" }}>
+            <Text style={{ color: shade("#000"), fontSize: 9, fontWeight: "900" }}>
               {needsReview ? STRINGS[language as "en" | "bg"].reviewBadge : localBadge}
             </Text>
           </View>

@@ -16,10 +16,14 @@ export function eventsToTimetable(
   log: LogEvent[],
   startTs: Date,
   now?: Date,
+  endedAt?: Date | string | null,
 ): TimetableData {
+  // Read at now, or at the case end once ended (Core): running items end in
+  // that row, and items continued postoperatively stop there.
   const projected = projectIntraopEvents(log, {
     start: startTs,
     openThrough: now,
+    endedAt: endedAt ?? null,
   })
   return {
     ...projected,
@@ -75,6 +79,9 @@ export function computeVerticalTimetableWindow(
     ...timetable.infusions.map(infusion => infusion.endCol + 1),
     ...timetable.fluids.map(fluid => fluid.endCol + 1),
     ...timetable.agents.map(agent => agent.endCol + 1),
+    // A planned stop lies past its bar; its row must exist to be seen.
+    ...[...timetable.infusions, ...timetable.fluids, ...timetable.agents]
+      .map(item => (item.plannedStopCol ?? 0) + 1),
   )
   const chartRows = Array.from(
     { length: Math.max(12, maxProjectedCol + 1) },
@@ -93,6 +100,7 @@ export function loadedTimetableStateFromLog(
   log: LogEvent[],
   now = new Date(),
   trustedStart: Date | null = null,
+  endedAt: Date | null = null,
 ): {
   startDate: Date | null
   elapsedMs: number
@@ -116,7 +124,7 @@ export function loadedTimetableStateFromLog(
   return {
     startDate,
     elapsedMs,
-    timetable: log.length > 0 ? eventsToTimetable(log, roundedStart, now) : null,
+    timetable: log.length > 0 ? eventsToTimetable(log, roundedStart, now, endedAt) : null,
     columnCount: Math.max(
       12,
       Math.ceil(Math.max(0, now.getTime() - roundedStart.getTime()) / INTRAOP_COLUMN_MS) + 12,

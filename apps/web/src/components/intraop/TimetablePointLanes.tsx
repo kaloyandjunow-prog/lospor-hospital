@@ -77,8 +77,8 @@ export function ClinicalEventsLane({
                   key={event.label}
                   title={displayEventName(event.label)}
                   onClick={e => { e.stopPropagation(); onRemove(ci, event.label) }}
-                  className="flex items-center rounded-full px-1 py-px cursor-pointer hover:opacity-60 transition-opacity select-none w-full min-w-0"
-                  style={{ backgroundColor: event.color + "20", color: event.color, border: `1px solid ${event.color}40` }}
+                  className={`flex items-center rounded-full px-1 py-px cursor-pointer hover:opacity-60 transition-opacity select-none w-full min-w-0 ${event.planned ? "opacity-50" : ""}`}
+                  style={{ backgroundColor: event.color + "20", color: event.color, border: `1px ${event.planned ? "dashed" : "solid"} ${event.color}40` }}
                 >
                   <span className="text-[8px] font-bold truncate leading-tight">{displayEventName(event.label)}</span>
                 </div>
@@ -160,7 +160,7 @@ export function DrugLane({
                   }}
                   onClick={e => { e.stopPropagation(); onOpenPicker(ci, (e.currentTarget as HTMLElement).getBoundingClientRect()) }}
                   onDoubleClick={e => { e.stopPropagation(); onEditDose(gi, drug.dose, drug.unit, e.currentTarget.getBoundingClientRect()) }}
-                  className={`flex items-start gap-1 rounded px-2 py-1 group cursor-grab active:cursor-grabbing transition-colors ${sel?.type === "drug" && sel.idx === gi ? "bg-violet-400 dark:bg-violet-600 ring-2 ring-violet-500 dark:ring-violet-400" : "bg-violet-100 dark:bg-violet-900/40 hover:bg-violet-200 dark:hover:bg-violet-800/40"}`}
+                  className={`flex items-start gap-1 rounded px-2 py-1 group cursor-grab active:cursor-grabbing transition-colors ${drug.planned ? "opacity-50 border border-dashed border-violet-400" : ""} ${sel?.type === "drug" && sel.idx === gi ? "bg-violet-400 dark:bg-violet-600 ring-2 ring-violet-500 dark:ring-violet-400" : "bg-violet-100 dark:bg-violet-900/40 hover:bg-violet-200 dark:hover:bg-violet-800/40"}`}
                 >
                   <span className="text-[10px] font-semibold text-violet-800 dark:text-violet-300 leading-tight truncate flex-1">
                     {displayDrugName(drug.name)}

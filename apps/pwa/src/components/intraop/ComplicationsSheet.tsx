@@ -2,6 +2,7 @@ import { Text, TouchableOpacity, View } from "react-native"
 import { Sheet } from "./Sheet"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 export type ComplicationGroup = {
   id: string
@@ -36,6 +37,7 @@ export function ComplicationsSheet({
   onClear,
   onSave,
 }: Props) {
+  const shade = useShade()
   const { language, tc } = usePreferences()
   return (
     <Sheet visible={visible} onClose={onClose} title={tc("complicationsTitle")} full>
@@ -45,32 +47,32 @@ export function ComplicationsSheet({
           const groupSelected = group.items.filter(i => selected.includes(i))
           return (
             <View key={group.id} style={{ borderRadius:12, overflow:"hidden",
-              borderWidth:1, borderColor: groupSelected.length > 0 ? "#ef444455" : "#1e2d40",
+              borderWidth:1, borderColor: groupSelected.length > 0 ? shade("#ef444455") : shade("#1e2d40"),
               marginBottom:6 }}>
               <TouchableOpacity
                 onPress={() => onToggleGroup(group.id)}
                 style={{ flexDirection:"row", alignItems:"center", justifyContent:"space-between",
                   paddingHorizontal:14, paddingVertical:12,
-                  backgroundColor: groupSelected.length > 0 ? "#ef444412" : "#111820" }}>
+                  backgroundColor: groupSelected.length > 0 ? shade("#ef444412") : shade("#111820") }}>
                 <View style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
-                  <Text style={{ color: groupSelected.length > 0 ? "#f87171" : "#cbd5e1",
+                  <Text style={{ color: groupSelected.length > 0 ? shade("#f87171") : shade("#cbd5e1"),
                     fontSize:13, fontWeight:"700" }}>
                     {displayClinicalCode("complication", group.id, language, { label: titleForGroup(group) })}
                   </Text>
                   {groupSelected.length > 0 && (
                     <View style={{ paddingHorizontal:6, paddingVertical:2, borderRadius:6,
-                      backgroundColor:"#ef444433" }}>
-                      <Text style={{ color:"#fca5a5", fontSize:10, fontWeight:"700" }}>
+                      backgroundColor:shade("#ef444433") }}>
+                      <Text style={{ color:shade("#fca5a5"), fontSize:10, fontWeight:"700" }}>
                         {groupSelected.length}
                       </Text>
                     </View>
                   )}
                 </View>
-                <Text style={{ color:"#64748b", fontSize:12 }}>{isExpanded ? "⌃" : "⌄"}</Text>
+                <Text style={{ color:shade("#64748b"), fontSize:12 }}>{isExpanded ? "⌃" : "⌄"}</Text>
               </TouchableOpacity>
               {isExpanded && (
                 <View style={{ paddingHorizontal:12, paddingBottom:10, paddingTop:4,
-                  backgroundColor:"#0d1520", flexDirection:"row", flexWrap:"wrap", gap:8 }}>
+                  backgroundColor:shade("#0d1520"), flexDirection:"row", flexWrap:"wrap", gap:8 }}>
                   {group.items.map(item => {
                     const checked = selected.includes(item)
                     return (
@@ -78,15 +80,15 @@ export function ComplicationsSheet({
                         onPress={() => onToggleItem(item)}
                         style={{ flexDirection:"row", alignItems:"center", gap:6,
                           paddingHorizontal:10, paddingVertical:8, borderRadius:9,
-                          backgroundColor: checked ? "#ef444420" : "#151c28",
-                          borderWidth:1, borderColor: checked ? "#ef4444" : "#263246" }}>
+                          backgroundColor: checked ? shade("#ef444420") : shade("#151c28"),
+                          borderWidth:1, borderColor: checked ? shade("#ef4444") : shade("#263246") }}>
                         <View style={{ width:14, height:14, borderRadius:3,
-                          backgroundColor: checked ? "#ef4444" : "transparent",
-                          borderWidth: checked ? 0 : 1.5, borderColor:"#475569",
+                          backgroundColor: checked ? shade("#ef4444") : "transparent",
+                          borderWidth: checked ? 0 : 1.5, borderColor:shade("#475569"),
                           alignItems:"center", justifyContent:"center" }}>
-                          {checked && <Text style={{ color:"#fff", fontSize:9, fontWeight:"900" }}>✓</Text>}
+                          {checked && <Text style={{ color:shade("#fff"), fontSize:9, fontWeight:"900" }}>✓</Text>}
                         </View>
-                        <Text style={{ color: checked ? "#fca5a5" : "#94a3b8",
+                        <Text style={{ color: checked ? shade("#fca5a5") : shade("#94a3b8"),
                           fontSize:12, fontWeight: checked ? "700" : "500" }}>{displayClinicalCode("complication", item, language, { label: item })}</Text>
                       </TouchableOpacity>
                     )
@@ -102,17 +104,17 @@ export function ComplicationsSheet({
           <TouchableOpacity
             onPress={onClear}
             style={{ paddingVertical:10, borderRadius:10, alignItems:"center",
-              backgroundColor:"#1c1414", borderWidth:1, borderColor:"#ef444433" }}>
-            <Text style={{ color:"#ef4444", fontSize:12, fontWeight:"700" }}>{tc("clearAll")}</Text>
+              backgroundColor:shade("#1c1414"), borderWidth:1, borderColor:shade("#ef444433") }}>
+            <Text style={{ color:shade("#ef4444"), fontSize:12, fontWeight:"700" }}>{tc("clearAll")}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
           onPress={onSave}
           disabled={saving}
           style={{ paddingVertical:16, borderRadius:12, alignItems:"center",
-            backgroundColor: saving ? "#1a1a1a" : "#7f1d1d",
-            borderWidth:1, borderColor: saving ? "#3e3e3e" : "#ef4444" }}>
-          <Text style={{ color: saving ? "#64748b" : "#fca5a5", fontSize:15, fontWeight:"700" }}>
+            backgroundColor: saving ? shade("#1a1a1a") : shade("#7f1d1d"),
+            borderWidth:1, borderColor: saving ? shade("#3e3e3e") : shade("#ef4444") }}>
+          <Text style={{ color: saving ? shade("#64748b") : shade("#fca5a5"), fontSize:15, fontWeight:"700" }}>
             {saving
               ? tc("draftSaving")
               : `${tc("saveLabel")}${selected.length > 0

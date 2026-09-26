@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity } from "react-native"
+import { useShade } from "@/theme/shade"
 
 export function MedicationPickerPill({
   label,
@@ -15,6 +16,7 @@ export function MedicationPickerPill({
   onPress: () => void
   wide?: boolean
 }) {
+  const shade = useShade()
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -32,11 +34,11 @@ export function MedicationPickerPill({
         borderColor: selected ? color : color + "66",
       }}
     >
-      <Text style={{ color: selected ? "#fff" : color, fontWeight: "800", fontSize: 13 }} numberOfLines={1}>
+      <Text style={{ color: selected ? shade("#fff") : color, fontWeight: "800", fontSize: 13 }} numberOfLines={1}>
         {label}
       </Text>
       {sublabel ? (
-        <Text style={{ color: selected ? "#e2e8f0" : "#94a3b8", fontSize: 10, marginTop: 2 }} numberOfLines={1}>
+        <Text style={{ color: selected ? shade("#e2e8f0") : shade("#94a3b8"), fontSize: 10, marginTop: 2 }} numberOfLines={1}>
           {sublabel}
         </Text>
       ) : null}

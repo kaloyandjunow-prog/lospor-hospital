@@ -19,6 +19,7 @@ import { resolveDrugSelectionSurface } from "@lospor/core/drug-selection"
 import { canonicalizeDoseProfile } from "@lospor/core/clinical-rule-vocabulary"
 import type { PediatricAgeInput } from "@lospor/core/pediatric"
 import type { DoseProfile } from "@lospor/core/catalog"
+import { useShade } from "@/theme/shade"
 
 type FluidOption = { name: string; cat: string; color: string; profile?: DoseProfile }
 
@@ -67,6 +68,7 @@ export function FluidSheet({
   setFlRule?: (rule: Pick<PediatricFluidProfileRule, "ruleKey" | "ruleVersion" | "sourceIds"> | null) => void
   prospectiveGuidanceEnabled?: boolean
 }) {
+  const shade = useShade()
   const { tc, language } = usePreferences()
   const fluidLabel = (name: string) => displayClinicalCode("option:INTRAOP_FLUID", name, language, { label: name })
   const groupLabel = (name: string) => displayClinicalCode("optionGroup", name, language, { label: name })
@@ -231,7 +233,7 @@ export function FluidSheet({
             <Text
               testID="fluid-profile-conflict"
               accessibilityRole="alert"
-              style={{ color:"#fca5a5", fontSize:12, lineHeight:17, marginBottom:10 }}
+              style={{ color:shade("#fca5a5"), fontSize:12, lineHeight:17, marginBottom:10 }}
             >
               {tc("pediatricFluidConflict")}
             </Text>
@@ -253,7 +255,7 @@ export function FluidSheet({
                   backgroundColor: flEntryMode === mode ? flFluid.color : flFluid.color + "1a",
                   borderWidth:1, borderColor:flFluid.color + "66" }}
               >
-                <Text style={{ color: flEntryMode === mode ? "#fff" : flFluid.color, fontSize:13, fontWeight:"700" }}>
+                <Text style={{ color: flEntryMode === mode ? shade("#fff") : flFluid.color, fontSize:13, fontWeight:"700" }}>
                   {mode === "VOLUME" ? tc("fluidBagMode") : tc("rateLabel")}
                 </Text>
               </TouchableOpacity>
@@ -292,7 +294,7 @@ export function FluidSheet({
       )}
       {(["Crystalloids","Colloids","Blood products","Other"] as const).map(cat => (
         <View key={cat} style={{ marginBottom:14 }}>
-          <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase",
+          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:8 }}>{groupLabel(cat)}</Text>
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
             {fluidList.filter(f => f.cat === cat).map(f => (
@@ -300,7 +302,7 @@ export function FluidSheet({
                 style={{ paddingHorizontal:12, paddingVertical:8, borderRadius:10,
                   backgroundColor: flFluid?.name===f.name ? f.color : f.color+"1a",
                   borderWidth:1, borderColor:f.color+"55" }}>
-                <Text style={{ color: flFluid?.name===f.name ? "#fff" : f.color, fontSize:12, fontWeight:"600" }}>
+                <Text style={{ color: flFluid?.name===f.name ? shade("#fff") : f.color, fontSize:12, fontWeight:"600" }}>
                   {fluidLabel(f.name)}
                 </Text>
               </TouchableOpacity>

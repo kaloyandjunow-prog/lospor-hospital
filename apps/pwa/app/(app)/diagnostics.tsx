@@ -12,7 +12,7 @@ import {
   type ClinicalStringKey,
   type TranslationKey,
 } from "@/lib/preferences-context"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 
 /**
  * What the app is doing right now, in numbers.
@@ -163,6 +163,7 @@ export default function DiagnosticsScreen() {
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  useThemeRefresh()
   return (
     <View style={{
       backgroundColor: colors.surface, borderRadius: 14,
@@ -180,6 +181,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" }) {
+  useThemeRefresh()
   const color = tone === "warn" ? colors.warning : tone === "ok" ? colors.success : colors.textPrimary
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 3 }}>

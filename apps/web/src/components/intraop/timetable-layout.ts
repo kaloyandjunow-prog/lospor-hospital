@@ -2,7 +2,9 @@ import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
 import type { FConflictAnchor } from "./timetable-types"
 
 export const COL_W = 74
-export const LABEL_W = 96
+// Wide enough for the longest uppercase Bulgarian lane label ("МЕДИКАМЕНТИ",
+// "КРИСТАЛОИДИ"), which were clipped on the left at 96 px.
+export const LABEL_W = 112
 export const INTERVAL = INTRAOP_COLUMN_MINUTES
 export const ROW_COLS = 60 / INTRAOP_COLUMN_MINUTES
 

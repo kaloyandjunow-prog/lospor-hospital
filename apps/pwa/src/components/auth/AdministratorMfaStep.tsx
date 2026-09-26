@@ -16,7 +16,7 @@ import {
   type AdministratorMfaCompletion,
 } from "@/lib/administrator-mfa"
 import { usePreferences } from "@/lib/preferences-context"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 
 function secondsRemaining(expiresAt: number): number {
   return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
@@ -40,6 +40,7 @@ export function AdministratorMfaStep({
   onAuthenticated: (completion: AdministratorMfaCompletion) => Promise<void>
   onStartOver: () => void
 }) {
+  const shade = useShade()
   const { t } = usePreferences()
   const [remaining, setRemaining] = useState(() => secondsRemaining(challenge.expiresAt))
   const [entryKind, setEntryKind] = useState<"authenticator" | "recovery">("authenticator")
@@ -249,7 +250,7 @@ export function AdministratorMfaStep({
         style={{ backgroundColor: expired ? withAlpha(colors.primary, "55") : colors.primary, borderRadius: 12, paddingVertical: 15, alignItems: "center" }}
       >
         {loading
-          ? <ActivityIndicator color="#fff" />
+          ? <ActivityIndicator color={shade("#fff")} />
           : <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{t("mfaVerify")}</Text>}
       </TouchableOpacity>
       <TouchableOpacity accessibilityRole="button" onPress={onStartOver} style={{ alignItems: "center", paddingVertical: 8 }}>

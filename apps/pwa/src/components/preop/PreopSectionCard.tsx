@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Text, View } from "react-native"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 
 export function PreopSectionCard({ title, subtitle, children, onLayout, visible = true }: {
   title: string
@@ -9,6 +9,7 @@ export function PreopSectionCard({ title, subtitle, children, onLayout, visible 
   onLayout?: (y: number) => void
   visible?: boolean
 }) {
+  useThemeRefresh()
   if (!visible) return null
   return (
     <View

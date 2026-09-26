@@ -1,5 +1,5 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, withAlpha, useShade } from "@/theme/colors"
 
 // Cases a colleague has offered you, waiting for an answer.
 //
@@ -33,6 +33,7 @@ type Props = {
 }
 
 export function PendingHandovers({ transfers, actioning, onAction, t }: Props) {
+  const shade = useShade()
   if (transfers.length === 0) return null
 
   return (
@@ -60,8 +61,8 @@ export function PendingHandovers({ transfers, actioning, onAction, t }: Props) {
               disabled={actioning === transfer.id}
             >
               {actioning === transfer.id
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{t("accept")}</Text>}
+                ? <ActivityIndicator size="small" color={shade("#fff")} />
+                : <Text style={{ color: shade("#fff"), fontSize: 12, fontWeight: "800" }}>{t("accept")}</Text>}
             </TouchableOpacity>
             <TouchableOpacity
               style={{ flex: 1, backgroundColor: colors.surfacePressed, borderRadius: 10, paddingVertical: 10, alignItems: "center" }}

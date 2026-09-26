@@ -1,7 +1,7 @@
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 
 import type { TimetableData } from "@/components/IntraopTimetable"
-import { eventsToTimetable, roundDown5Min } from "@/lib/intraop-projection"
+import { roundDown5Min } from "@/lib/intraop-projection"
 import type { LogEvent } from "@/lib/intraop-log-event"
 
 type UseIntraopRuntimeEffectsArgs = {
@@ -10,6 +10,10 @@ type UseIntraopRuntimeEffectsArgs = {
   startRef: MutableRefObject<Date | null>
   setElapsedMs: Dispatch<SetStateAction<number>>
   setTimetable: Dispatch<SetStateAction<TimetableData>>
+  /** Projects the log read at now, or at the case end once ended. */
+  projectTimetable: (log: LogEvent[], startTs: Date, now?: Date) => TimetableData
+  /** Rebuilds running items from the log: a planned start or stop takes effect when its row arrives. */
+  resyncActiveRef: MutableRefObject<() => void>
 }
 
 export function useIntraopRuntimeEffects({
@@ -18,6 +22,8 @@ export function useIntraopRuntimeEffects({
   startRef,
   setElapsedMs,
   setTimetable,
+  projectTimetable,
+  resyncActiveRef,
 }: UseIntraopRuntimeEffectsArgs) {
   // Fluid totals used to be recomputed here and PATCHed to the server on every
   // fluid change — a second write on top of the fluid event itself, which
@@ -56,10 +62,11 @@ export function useIntraopRuntimeEffects({
       const column = Math.floor((now.getTime() - startOfGrid.getTime()) / 300_000)
       const published = publishedProjectionRef.current
       if (!published || published.log !== logRef.current || published.column !== column) {
+        if (published && published.column !== column) resyncActiveRef.current()
         publishedProjectionRef.current = { log: logRef.current, column }
-        setTimetable(eventsToTimetable(logRef.current, startOfGrid, now))
+        setTimetable(projectTimetable(logRef.current, startOfGrid, now))
       }
     }, 10_000)
     return () => clearInterval(timer)
-  }, [logRef, setElapsedMs, setTimetable, startRef])
+  }, [logRef, projectTimetable, resyncActiveRef, setElapsedMs, setTimetable, startRef])
 }

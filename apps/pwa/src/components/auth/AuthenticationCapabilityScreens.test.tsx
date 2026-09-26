@@ -58,7 +58,7 @@ vi.mock("@/lib/deployment-capabilities", () => ({
 }))
 
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({
+  usePreferences: () => ({ shade: (hex: string) => hex,
     completeLoginLocaleSync: state.completeLocaleSync,
     language: state.language,
     selectLoginLanguage: vi.fn(async (language: "bg" | "en") => {

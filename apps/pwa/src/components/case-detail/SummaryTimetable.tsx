@@ -7,6 +7,7 @@ import {
 } from "@/lib/summary-timetable-model"
 import { usePreferences } from "@/lib/preferences-context"
 import { localizeSummaryTimetableModel } from "@/lib/clinical-display"
+import { useShade } from "@/theme/shade"
 
 // Read-only timetable card for the case summary — the mobile twin of the
 // printed record's intraop timetable (same projected keyEvents blob the web
@@ -40,6 +41,7 @@ export function SummaryTimetable({ keyEvents, startISO, onPress, actionLabel }: 
   /** Override the tap hint (default "Open intraop ›") — e.g. "View timetable ›" for finished cases. */
   actionLabel?: string
 }) {
+  const shade = useShade()
   const { theme, tc, language } = usePreferences()
   const P = theme === "dark" ? PALETTES.dark : PALETTES.light
   const model = useMemo(
@@ -105,7 +107,7 @@ export function SummaryTimetable({ keyEvents, startISO, onPress, actionLabel }: 
       const x1 = xL(seg.startCol), w = Math.max((seg.endCol - seg.startCol + 1) * cW, cW)
       els.push(<Rect key={key()} x={x1} y={y + 3} width={w} height={laneH - 6} rx={(laneH - 6) / 2} fill={lane.color} />)
       const fits = seg.text.length * 6.2 + 14 < w
-      if (fits) els.push(<SvgText key={key()} x={x1 + 8} y={y + laneH / 2 + 4} fontSize={10.5} fontWeight="700" fill="#ffffff">{seg.text}</SvgText>)
+      if (fits) els.push(<SvgText key={key()} x={x1 + 8} y={y + laneH / 2 + 4} fontSize={10.5} fontWeight="700" fill={shade("#ffffff")}>{seg.text}</SvgText>)
     })
     els.push(<Line key={key()} x1={0} y1={y + laneH} x2={VB_W} y2={y + laneH} stroke={P.gridMin} strokeWidth={0.5} />)
   })

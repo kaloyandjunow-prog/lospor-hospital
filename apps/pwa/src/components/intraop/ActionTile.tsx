@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native"
+import { useShade } from "@/theme/shade"
 
 export function ActionTile({
   label, sub, color, onPress, flex = 1, compact = false, outline = false,
@@ -11,6 +12,7 @@ export function ActionTile({
   compact?: boolean
   outline?: boolean
 }) {
+  const shade = useShade()
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -23,7 +25,7 @@ export function ActionTile({
         paddingVertical: compact ? 11 : 14,
         paddingHorizontal: compact ? 10 : 12,
         justifyContent: "center",
-        backgroundColor: outline ? "#151515" : color + "24",
+        backgroundColor: outline ? shade("#151515") : color + "24",
         borderWidth: 1,
         borderColor: color + "88",
         boxShadow: outline ? "0 0 0 rgba(0,0,0,0)" : `0 10px 24px ${color}22`,
@@ -37,7 +39,7 @@ export function ActionTile({
           backgroundColor: color,
         }} />
         <View style={{ flex:1 }}>
-          <Text style={{ color:"#f8fafc", fontWeight:"800", fontSize:compact ? 13 : 16 }} numberOfLines={1}>
+          <Text style={{ color:shade("#f8fafc"), fontWeight:"800", fontSize:compact ? 13 : 16 }} numberOfLines={1}>
             {label}
           </Text>
           {!!sub && (

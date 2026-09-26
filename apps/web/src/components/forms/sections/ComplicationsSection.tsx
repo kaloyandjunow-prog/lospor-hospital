@@ -6,14 +6,23 @@ import { ComplicationsPicker, ALL_COMPLICATIONS } from "@/components/intraop/Com
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 import type { IntraopLogEvent } from "@/components/IntraopTimetable"
 import { describeIntraopEvent } from "@lospor/core/intraop-summary"
+import { groupLabsByDraw, labDrawSummary, type LabResult } from "@lospor/core/labs"
 
-export function ComplicationsSection({ t, control, watch, eventLog, onDeleteEvent }: {
+export function ComplicationsSection({ t, control, watch, eventLog, labResults = [], onDeleteEvent }: {
   t: (key: string) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
   eventLog?: IntraopLogEvent[]
+  /** Lab draws are listed with the events by time, though they are not events. */
+  labResults?: LabResult[]
   onDeleteEvent?: (id: string) => void
 }) {
+  const draws = groupLabsByDraw(labResults).filter(draw => draw.takenAt)
+  const entries = [
+    ...(eventLog ?? []).map(ev => ({ kind: "event" as const, ts: ev.ts ?? "", ev })),
+    ...draws.map(draw => ({ kind: "lab" as const, ts: draw.takenAt!, draw })),
+  ].sort((a, b) => new Date(a.ts || 0).getTime() - new Date(b.ts || 0).getTime())
+  const hhmmOf = (ts: string) => { const d = new Date(ts || 0); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` }
   return (
     <SectionCard title={t("intraop.complicationsSection")} collapsible defaultCollapsed
       badge={watch("complications") ? t("intraop.documented") : undefined}>
@@ -42,14 +51,29 @@ export function ComplicationsSection({ t, control, watch, eventLog, onDeleteEven
       )} />
 
       {/* Mobile event log (read-only timeline) */}
-      {eventLog && eventLog.length > 0 && (
+      {entries.length > 0 && (
         <div className="mt-5 border-t border-slate-100 dark:border-[#2a2a2a] pt-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-[#666] mb-3">{t("intraop.eventLog")}</p>
           <div className="space-y-0">
-            {[...eventLog].sort((a, b) => new Date(a.ts ?? 0).getTime() - new Date(b.ts ?? 0).getTime()).map((ev) => {
-              const hhmm = (() => { const d = new Date(ev.ts ?? 0); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` })()
+            {entries.map((entry) => {
+              if (entry.kind === "lab") {
+                return (
+                  <div key={`lab-${entry.ts}`} data-testid="event-log-lab-draw" className="flex items-center gap-2.5 py-1.5 border-b border-slate-50 dark:border-[#1e1e1e] last:border-0">
+                    <span className="text-[11px] text-slate-400 dark:text-[#666] tabular-nums pt-0.5 w-10 shrink-0">{hhmmOf(entry.ts)}</span>
+                    <div className="w-0.5 h-5 rounded-full shrink-0 bg-teal-500" />
+                    <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium leading-snug flex-1">
+                      {t("intraop.timetable.labs")} · {entry.draw.results.length}
+                      <span className="block text-[11px] font-normal text-slate-400">{labDrawSummary(entry.draw)}</span>
+                    </span>
+                  </div>
+                )
+              }
+              const ev = entry.ev
+              const hhmm = hhmmOf(entry.ts)
               const descriptor = describeIntraopEvent(ev)
-              const { text, color } = descriptor
+              // Auto-filled vitals are copies, not readings: the log says so.
+              const text = ev.autoFilled ? `${descriptor.text} · ${t("intraop.timelineRules.autoFilledTag")}` : descriptor.text
+              const { color } = descriptor
               return (
                 <div key={ev.id} className="flex items-center gap-2.5 py-1.5 border-b border-slate-50 dark:border-[#1e1e1e] last:border-0 group">
                   <span className="text-[11px] text-slate-400 dark:text-[#666] tabular-nums pt-0.5 w-10 shrink-0">{hhmm}</span>

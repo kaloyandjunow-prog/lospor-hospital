@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("@/components/VitalStepper", () => ({ VitalStepper: () => null }))
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({ language: "en", tc: (key: string) => key }),
+  usePreferences: () => ({ shade: (hex: string) => hex, language: "en", tc: (key: string) => key }),
 }))
 vi.mock("@/lib/clinical-display", () => ({
   displayClinicalCode: (

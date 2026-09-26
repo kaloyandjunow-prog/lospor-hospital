@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native"
-import { colors } from "@/theme/colors"
+import { colors, useShade } from "@/theme/colors"
 import { SyncBadge } from "@/components/clinical-ui"
 import { fmtElapsed } from "@/lib/intraop-format"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
@@ -23,6 +23,7 @@ function IntraopSyncRow({
   store: IntraopSyncStatusStore
   onRetrySync: () => void
 }) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const { syncState, pendingCount, lastSavedAt } = useIntraopSyncStatus(store)
   return (
@@ -50,7 +51,7 @@ function IntraopSyncRow({
         // pointerEvents prop, and a hidden control must not be pressable.
         disabled={pendingCount === 0}
         style={{ paddingHorizontal:10, paddingVertical:6, borderRadius:10,
-          borderWidth:1, borderColor:colors.warning, backgroundColor:"#2a210f",
+          borderWidth:1, borderColor:colors.warning, backgroundColor:shade("#2a210f"),
           opacity: pendingCount > 0 ? 1 : 0 }}>
         <Text style={{ color:colors.warning, fontSize:11, fontWeight:"800" }}>{tc("mhRetrySync")}</Text>
       </TouchableOpacity>
@@ -77,6 +78,7 @@ export function IntraopMonitorHeader({
   onRetrySync: () => void
   lastVitals?: VitalsEntry | null
 }) {
+  const shade = useShade()
   const { tc, cvpUnit } = usePreferences()
   return (
     <View style={{ backgroundColor: colors.surface, paddingTop:10, paddingBottom:10,
@@ -103,16 +105,16 @@ export function IntraopMonitorHeader({
               <TouchableOpacity
                 onPress={onStartNow}
                 style={{ borderRadius:10, paddingHorizontal:12, paddingVertical:5,
-                  backgroundColor:"#1a1005", borderWidth:1, borderColor:"#f97316aa" }}
+                  backgroundColor:shade("#1a1005"), borderWidth:1, borderColor:shade("#f97316aa") }}
               >
-                <Text style={{ color:"#fb923c", fontSize:11, fontWeight:"900" }}>{tc("mhStartNow")}</Text>
+                <Text style={{ color:shade("#fb923c"), fontSize:11, fontWeight:"900" }}>{tc("mhStartNow")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onStartAt}
                 style={{ borderRadius:10, paddingHorizontal:12, paddingVertical:5,
-                  backgroundColor:"#0f172a", borderWidth:1, borderColor:"#6366f1aa" }}
+                  backgroundColor:shade("#0f172a"), borderWidth:1, borderColor:shade("#6366f1aa") }}
               >
-                <Text style={{ color:"#a5b4fc", fontSize:11, fontWeight:"900" }}>{tc("mhStartAt")}</Text>
+                <Text style={{ color:shade("#a5b4fc"), fontSize:11, fontWeight:"900" }}>{tc("mhStartAt")}</Text>
               </TouchableOpacity>
             </View>
           ) : elapsedMs > 60_000 ? (
@@ -124,37 +126,37 @@ export function IntraopMonitorHeader({
       {lastVitals && (
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:18, marginTop:10 }}>
           {lastVitals.systolic != null && lastVitals.diastolic != null && (
-            <Text style={{ color:"#ef4444", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#ef4444"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               {lastVitals.systolic}/{lastVitals.diastolic}
             </Text>
           )}
           {lastVitals.heartRate != null && (
-            <Text style={{ color:"#22c55e", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#22c55e"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               ♥ {lastVitals.heartRate}
             </Text>
           )}
           {lastVitals.spO2 != null && (
-            <Text style={{ color:"#06b6d4", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#06b6d4"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               SpO₂ {lastVitals.spO2}%
             </Text>
           )}
           {lastVitals.etco2 != null && (
-            <Text style={{ color:"#f59e0b", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#f59e0b"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               CO₂ {lastVitals.etco2}
             </Text>
           )}
           {lastVitals.bis != null && (
-            <Text style={{ color:"#e879f9", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#e879f9"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               BIS {lastVitals.bis}
             </Text>
           )}
           {lastVitals.tofRatio != null && (
-            <Text style={{ color:"#fb923c", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#fb923c"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               TOF {lastVitals.tofRatio}
             </Text>
           )}
           {lastVitals.cvp != null && (
-            <Text style={{ color:"#38bdf8", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+            <Text style={{ color:shade("#38bdf8"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               CVP {cvpToDisplay(lastVitals.cvp, cvpUnit)} {cvpUnit === "cmH2O" ? "cmH₂O" : "mmHg"}
             </Text>
           )}

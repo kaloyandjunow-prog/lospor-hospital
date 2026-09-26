@@ -7,6 +7,8 @@ import { calcInfusionTotal, type WeightBasisMap } from "@/lib/infusion-calc"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
 import { useIntraopUiCopy } from "./ui-copy"
+import { useTranslations } from "next-intl"
+import type { AfterEndItem } from "./end-case-after-end"
 
 type EndCaseDecision = "discontinue" | "continue" | null
 
@@ -16,6 +18,9 @@ export interface EndCaseModalProps {
   fluids: TimetableFluid[]
   gasSettings?: GasSettingsSegment[]
   weightBasis: WeightBasisMap
+  /** Planned entries after the end; each must be resolved before confirming. */
+  afterEnd?: (AfterEndItem & { time: string })[]
+  onResolveAfterEnd?: (key: string, resolution: "delete" | "move") => void
   onDismiss: () => void
   onConfirm: (result: {
     continuedItems: string[]
@@ -27,7 +32,7 @@ export interface EndCaseModalProps {
   }) => void
 }
 
-export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weightBasis, onDismiss, onConfirm }: EndCaseModalProps) {
+export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weightBasis, afterEnd = [], onResolveAfterEnd, onDismiss, onConfirm }: EndCaseModalProps) {
   const locale = useLocale()
   const copy = useIntraopUiCopy()
   const [decisions, setDecisions] = useState<Record<string, EndCaseDecision>>({})
@@ -42,7 +47,10 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
     && infusions.every(infusion => decisions[`inf-${infusion.id}`] != null)
     && fluids.every(fluid => decisions[`fluid-${fluid.id}`] != null)
     && gasSettings.every(gas => decisions[`gas-${gas.id}`] != null)
+  // Only a fluid being stopped needs its amount; a continued one keeps running
+  // and its total stops at the end (1.4.9).
   const allFluidAmountsComplete = fluids.every(fluid => {
+    if (decisions[`fluid-${fluid.id}`] !== "discontinue") return true
     const enteredAmount = fluidAmounts[fluid.id]
     if (fluid.fluidEntryMode === "RATE") {
       if (enteredAmount == null || enteredAmount.trim() === "") return true
@@ -56,7 +64,8 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
     const amount = Number(enteredAmount)
     return Number.isFinite(amount) && amount >= 0
   })
-  const canConfirm = allDecisionsMade && allFluidAmountsComplete
+  // Nothing may remain after the end.
+  const canConfirm = allDecisionsMade && allFluidAmountsComplete && afterEnd.length === 0
 
   function handleConfirm() {
     if (!canConfirm) return
@@ -90,6 +99,7 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
           ? `${f.name} (fluid at ${currentFluidRate(f) ?? f.rate ?? ""} mL/h)`
           : `${f.name} (fluid)`,
       )
+      if (d !== "discontinue") continue
       const enteredAmount = fluidAmounts[f.id]
       const amt = enteredAmount == null || enteredAmount === ""
         ? f.fluidEntryMode === "RATE"
@@ -197,7 +207,7 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                   </button>
                 </div>
               </div>
-              {d !== null && d !== undefined && (() => {
+              {d === "discontinue" && (() => {
                 const bagVol = Number(f.bagVolumeMl ?? f.volume) || 500
                 const estimatedRateVolume = isRate ? fluidDeliveredVolumeMl(f, new Date()) : 0
                 const displayedAmount = fluidAmounts[f.id] ?? (isRate ? String(estimatedRateVolume) : "0")
@@ -286,6 +296,7 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
           )
         })}
 
+        {afterEnd.length > 0 && <AfterEndList items={afterEnd} onResolve={onResolveAfterEnd} />}
         {!canConfirm && (agents.length > 0 || infusions.length > 0 || fluids.length > 0 || gasSettings.length > 0) && (
           <p className="pt-3 text-right text-[11px] text-amber-600 dark:text-amber-400">
             {copy.endCase.incomplete}
@@ -304,5 +315,29 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
       </div>
     </div>,
     document.body
+  )
+}
+
+/** Planned entries after the end: each is marked happened or not before the case can end. */
+function AfterEndList({ items, onResolve }: {
+  items: (AfterEndItem & { time: string })[]
+  onResolve?: (key: string, resolution: "delete" | "move") => void
+}) {
+  const tr = useTranslations("intraop.timelineRules")
+  return (
+    <div className="mt-3 rounded-lg border border-dashed border-amber-400 p-3 space-y-2" data-testid="end-case-after-end">
+      <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{tr("endCaseAfterEndTitle")}</p>
+      <p className="text-[11px] text-slate-500">{tr("endCaseAfterEndHint")}</p>
+      {items.map(item => (
+        <div key={item.key} className="flex items-center gap-2 text-sm">
+          <span className="flex-1 truncate">{item.time} · {item.label}</span>
+          <button type="button" onClick={() => onResolve?.(item.key, "delete")}
+            className="text-xs px-2.5 py-1 rounded-full border border-red-300 text-red-500">{tr("endCaseDidntHappen")}</button>
+          <button type="button" onClick={() => onResolve?.(item.key, "move")}
+            className="text-xs px-2.5 py-1 rounded-full border border-emerald-400 text-emerald-600">{tr("endCaseHappened")}</button>
+        </div>
+      ))}
+      <p className="text-[11px] text-amber-600">{tr("endCaseFinaliseBlocked")}</p>
+    </div>
   )
 }

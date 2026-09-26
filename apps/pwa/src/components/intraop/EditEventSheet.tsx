@@ -3,6 +3,7 @@ import type { LogEvent } from "@/lib/intraop-log-event"
 import { Sheet } from "./Sheet"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
+import { useShade } from "@/theme/shade"
 
 type Props = {
   visible: boolean
@@ -25,6 +26,7 @@ export function EditEventSheet({
   onTimeChange,
   onConfirm,
 }: Props) {
+  const shade = useShade()
   const { tc } = usePreferences()
   const eventName = event?.name ?? tc("eventFallback")
   return (
@@ -34,11 +36,11 @@ export function EditEventSheet({
           <View>
             {event.type === "drug" && (
               <>
-                <Text style={{ color:"#94a3b8", fontSize:11, fontWeight:"700", letterSpacing:1,
+                <Text style={{ color:shade("#94a3b8"), fontSize:11, fontWeight:"700", letterSpacing:1,
                   textTransform:"uppercase", marginBottom:8 }}>{formatMessage(tc("doseLabel"), { unit: event.unit ?? "" })}</Text>
                 <TextInput
-                  style={{ backgroundColor:"#111111", color:"#fff", borderRadius:10, padding:12,
-                    fontSize:22, borderWidth:1, borderColor:"#3e3e3e", textAlign:"center" }}
+                  style={{ backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10, padding:12,
+                    fontSize:22, borderWidth:1, borderColor:shade("#3e3e3e"), textAlign:"center" }}
                   keyboardType="decimal-pad"
                   value={dose}
                   onChangeText={onDoseChange}
@@ -47,20 +49,20 @@ export function EditEventSheet({
             )}
           </View>
           <View>
-            <Text style={{ color:"#94a3b8", fontSize:11, fontWeight:"700", letterSpacing:1,
+            <Text style={{ color:shade("#94a3b8"), fontSize:11, fontWeight:"700", letterSpacing:1,
               textTransform:"uppercase", marginBottom:8 }}>{tc("timeLabel")}</Text>
             <TextInput
-              style={{ backgroundColor:"#111111", color:"#fff", borderRadius:10, padding:12,
-                fontSize:22, borderWidth:1, borderColor:"#3e3e3e", textAlign:"center" }}
+              style={{ backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10, padding:12,
+                fontSize:22, borderWidth:1, borderColor:shade("#3e3e3e"), textAlign:"center" }}
               placeholder={tc("timeExample")}
-              placeholderTextColor="#475569"
+              placeholderTextColor={shade("#475569")}
               value={time}
               onChangeText={onTimeChange}
             />
           </View>
           <TouchableOpacity onPress={onConfirm}
-            style={{ backgroundColor:"#2563eb", borderRadius:12, padding:16, alignItems:"center" }}>
-            <Text style={{ color:"#fff", fontWeight:"700", fontSize:15 }}>{tc("saveChanges")}</Text>
+            style={{ backgroundColor:shade("#2563eb"), borderRadius:12, padding:16, alignItems:"center" }}>
+            <Text style={{ color:shade("#fff"), fontWeight:"700", fontSize:15 }}>{tc("saveChanges")}</Text>
           </TouchableOpacity>
         </View>
       )}

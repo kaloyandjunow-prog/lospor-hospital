@@ -1,6 +1,6 @@
 ﻿import React from "react"
 import { View, Text } from "react-native"
-import { colors } from "@/theme/colors"
+import { colors, useThemeRefresh } from "@/theme/colors"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { SummaryCard, Chip, ChipRow, Divider } from "./CaseDetailPrimitives"
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/lib/case-detail-summary"
 
 export function MedicalHistoryCard({ preop, tc }: { preop: CaseData["preop"]; tc: (key: ClinicalStringKey) => string }) {
+  useThemeRefresh()
   const comorbidities = preop?.comorbidities ?? []
   const currentMedicationsText = (() => {
     const raw = preop?.currentMedications

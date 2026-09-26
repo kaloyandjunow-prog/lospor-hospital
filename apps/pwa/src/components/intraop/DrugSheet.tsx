@@ -93,7 +93,7 @@ export function DrugSheet({
   pediatricRulesError?: string | null
   prospectiveGuidanceEnabled?: boolean
 }) {
-  const { tc, language } = usePreferences()
+  const { tc, language, shade } = usePreferences()
   const drugLabel = (name: string) => displayClinicalCode("option:INTRAOP_DRUG", name, language, { label: name })
   const groupLabel = (name: string) => displayClinicalCode("optionGroup", name, language, { label: name })
   const scenarioLabel = (group: ScenarioGroup) => displayClinicalCode("scenarioGroup", group.key, language, { label: group.label })
@@ -395,13 +395,13 @@ export function DrugSheet({
       onPress={onConfirm}
       disabled={confirmDisabled}
       style={{
-        backgroundColor: confirmDisabled ? "#1e2d40" : drugCat?.color ?? "#3b82f6",
+        backgroundColor: confirmDisabled ? shade("#1e2d40") : drugCat?.color ?? shade("#3b82f6"),
         borderRadius: 14,
         padding: 18,
         alignItems: "center",
       }}
     >
-      <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+      <Text style={{ color: shade("#fff"), fontSize: 16, fontWeight: "700" }}>
         {tc("dsAdd")} {drugLabel(drugPick.name)} {drugDose} {activeUnit}
       </Text>
     </FeedbackPressable>
@@ -421,14 +421,14 @@ export function DrugSheet({
             }
             if (pickedViaShortcut) { setDrugCat(null); setPickedViaShortcut(false) }
           }} style={{ marginBottom:14 }}>
-            <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
+            <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
           </TouchableOpacity>
           <View style={{ marginBottom: canStartAsInfusion ? 10 : 0 }}>
             {searchOnlySelection ? (
               <Text
                 testID="drug-search-only-manual-notice"
                 accessibilityRole="alert"
-                style={{ color:"#fbbf24", fontSize:12, lineHeight:17, marginBottom:12 }}
+                style={{ color:shade("#fbbf24"), fontSize:12, lineHeight:17, marginBottom:12 }}
               >
                 {tc("dsSearchOnlyManualNotice")}
               </Text>
@@ -447,7 +447,7 @@ export function DrugSheet({
               />
             ) : null}
             <DoseSelector
-              color={drugCat?.color ?? "#3b82f6"}
+              color={drugCat?.color ?? shade("#3b82f6")}
               quickValues={activeQuickValues}
               manualEntryOnly={!prospectiveGuidanceEnabled || !!searchOnlySelection || (pediatricMode && (
                 structuredPediatricSurface?.manualEntryOnly
@@ -496,9 +496,9 @@ export function DrugSheet({
           </View>
           {canStartAsInfusion && !searchOnlySelection && (
             <TouchableOpacity onPress={onStartAsInfusion}
-              style={{ backgroundColor:"#111820", borderRadius:14, padding:16, alignItems:"center",
-                borderWidth:1, borderColor: (drugCat?.color ?? "#3b82f6") + "66" }}>
-              <Text style={{ color: drugCat?.color ?? "#93c5fd", fontSize:14, fontWeight:"700" }}>
+              style={{ backgroundColor:shade("#111820"), borderRadius:14, padding:16, alignItems:"center",
+                borderWidth:1, borderColor: (drugCat?.color ?? shade("#3b82f6")) + "66" }}>
+              <Text style={{ color: drugCat?.color ?? shade("#93c5fd"), fontSize:14, fontWeight:"700" }}>
                 {tc("dsStartAsInfusion").replace("{name}", drugLabel(drugPick.name))}
               </Text>
             </TouchableOpacity>

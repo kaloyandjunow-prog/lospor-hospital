@@ -1,10 +1,9 @@
 import type { RefObject } from "react"
-import type { TimetableData, IntraopLogEvent } from "@/components/IntraopTimetable"
+import type { TimetableData } from "@/components/IntraopTimetable"
 
 export function useClinicalEventHandlers(
   dataRef: RefObject<TimetableData>,
   onChangeRef: RefObject<(d: TimetableData) => void>,
-  emitLogEvent: (partial: Omit<IntraopLogEvent, "id" | "ts">) => void,
   onComplicationAdded?: (labels: string[]) => void,
 ) {
   function addClinicalEvent(colIdx: number, label: string, color: string, isComplication: boolean) {
@@ -18,7 +17,6 @@ export function useClinicalEventHandlers(
     }
     const d = dataRef.current
     onChangeRef.current({ ...d, clinicalEvents: [...(d.clinicalEvents ?? []), { colIdx, label, color }] })
-    emitLogEvent({ type: "clinical_event", label, color })
   }
   function removeClinicalEvent(colIdx: number, label: string) {
     const d = dataRef.current

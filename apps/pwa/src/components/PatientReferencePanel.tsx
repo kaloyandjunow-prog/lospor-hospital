@@ -2,7 +2,7 @@ import { useState } from "react"
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { STRINGS } from "@/i18n/strings"
 import type { PatientReference } from "@/lib/patient-reference"
-import { colors, withAlpha } from "@/theme/colors"
+import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
   reference: PatientReference | null
@@ -13,6 +13,7 @@ type Props = {
 
 /** Shows the linked patient marker and requires an explicit confirmation to change it. */
 export function PatientReferencePanel({ reference, language, onRelink, allowCorrection = true }: Props) {
+  const shade = useShade()
   const s = STRINGS[language as "en" | "bg"]
   const [editing, setEditing] = useState(false)
   const [patientNumber, setPatientNumber] = useState("")
@@ -165,8 +166,8 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
               }}
             >
               {saving
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={{ color: "#fff", fontWeight: "900" }}>
+                ? <ActivityIndicator size="small" color={shade("#fff")} />
+                : <Text style={{ color: shade("#fff"), fontWeight: "900" }}>
                     {s.confirmChange}
                   </Text>}
             </TouchableOpacity>

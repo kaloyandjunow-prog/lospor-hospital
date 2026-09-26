@@ -10,7 +10,7 @@ import { apiJson } from "@/lib/api"
 import { displayClinicalCode, displayOption } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import type { LibraryOption } from "@/lib/use-option-library"
-import { colors } from "@/theme/colors"
+import { colors, useShade, useThemeRefresh } from "@/theme/colors"
 
 export type Institution = { id: string; name: string; city: string }
 
@@ -27,6 +27,7 @@ export function InstitutionPicker({
   onSelect: (inst: Institution | null) => void
   searchLabel: string
 }) {
+  useThemeRefresh()
   const [query, setQuery] = useState("")
   const [all, setAll] = useState<Institution[]>([])
   const [loading, setLoading] = useState(false)
@@ -126,6 +127,7 @@ export function FavouritePicker({
   onClose: () => void
   onSave: (next: string[]) => void
 }) {
+  const shade = useShade()
   const { t, tc, language } = usePreferences()
   const [query, setQuery] = useState("")
   const [draft, setDraft] = useState<string[]>(selected)
@@ -221,7 +223,7 @@ export function FavouritePicker({
             onPress={() => onSave(draft)}
             style={{ marginTop: 14, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: colors.primary }}
           >
-            <Text style={{ color: "#fff", fontWeight: "800" }}>{t("saveFavourites")}</Text>
+            <Text style={{ color: shade("#fff"), fontWeight: "800" }}>{t("saveFavourites")}</Text>
           </TouchableOpacity>
         </View>
       </View>

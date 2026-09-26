@@ -3,6 +3,7 @@ import Svg, { Line, Polyline, Polygon, Circle, Rect, Text as SvgText } from "rea
 import type { SummaryTimetableModel, DrugLogEntry, ProjectedVital } from "@/lib/summary-timetable-model"
 import { colToHHMM } from "@/lib/summary-timetable-model"
 import { PALETTES } from "@/components/case-detail/SummaryTimetable"
+import { useShade } from "@/theme/shade"
 
 // One read-only chart panel for the finished-case timetable viewer — a
 // larger, richer sibling of the SummaryTimetable card: same projected data,
@@ -40,6 +41,7 @@ export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW
   theme: "light" | "dark"
   lang?: "en" | "bg"
 }) {
+  const shade = useShade()
   const VL = VITAL_LABELS[lang] ?? VITAL_LABELS.en
   const P = theme === "dark" ? PALETTES.dark : PALETTES.light
   const { vitals, events, lanes } = model
@@ -80,7 +82,7 @@ export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW
 
   // background bands
   els.push(<Rect key={key()} x={0} y={0} width={W} height={H} fill={P.card} />)
-  els.push(<Rect key={key()} x={0} y={gTop} width={LBL} height={GRAPH_H} fill={theme === "dark" ? "#181818" : "#f8fafc"} />)
+  els.push(<Rect key={key()} x={0} y={gTop} width={LBL} height={GRAPH_H} fill={theme === "dark" ? shade("#181818") : shade("#f8fafc")} />)
 
   // graph gridlines
   ;[40, 80, 120, 160, 200].forEach(y => {
@@ -130,7 +132,7 @@ export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW
   })
 
   // numbered drug pins (same numbering as the drug log below the chart)
-  els.push(<Rect key={key()} x={0} y={pinY} width={W} height={PIN_H} fill={theme === "dark" ? "#1a1c1e" : "#fbfcfe"} />)
+  els.push(<Rect key={key()} x={0} y={pinY} width={W} height={PIN_H} fill={theme === "dark" ? shade("#1a1c1e") : shade("#fbfcfe")} />)
   els.push(<SvgText key={key()} x={LBL - 8} y={pinY + PIN_H / 2 + 4} fontSize={11} fontWeight="700" fill={P.lbl} textAnchor="end">{VL.drugs}</SvgText>)
   {
     const lastX = [-Infinity, -Infinity]
@@ -183,7 +185,7 @@ export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW
       const x1 = xL(seg.startCol), w = Math.max((seg.endCol - seg.startCol + 1) * COL_W, COL_W)
       els.push(<Rect key={key()} x={x1} y={y + 3} width={w} height={LANE_H - 6} rx={(LANE_H - 6) / 2} fill={lane.color} />)
       const fits = seg.text.length * 6.4 + 16 < w
-      if (fits) els.push(<SvgText key={key()} x={x1 + 9} y={y + LANE_H / 2 + 4} fontSize={11} fontWeight="700" fill="#ffffff">{seg.text}</SvgText>)
+      if (fits) els.push(<SvgText key={key()} x={x1 + 9} y={y + LANE_H / 2 + 4} fontSize={11} fontWeight="700" fill={shade("#ffffff")}>{seg.text}</SvgText>)
     })
     els.push(<Line key={key()} x1={0} y1={y + LANE_H} x2={W} y2={y + LANE_H} stroke={P.gridMin} strokeWidth={0.5} />)
   })

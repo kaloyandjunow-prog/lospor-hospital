@@ -1,5 +1,41 @@
 # Changelog - LOSPOR Web App
 
+## [9.12.0] - 2026-09-26
+
+### Changed
+
+- **The intraoperative chart is the saved event log.** Every edit of the chart
+  (a dose, a vital, a drag, a stop) is written as exactly the events it
+  changes, checked against the timeline rules; the whole chart is never
+  saved. Entries are timed by the row they are made in.
+- **Several volatile agents can run at once**, each on its own lane; starting
+  one offers to switch from the one already running.
+- **End case.** Only items marked Discontinue are stopped; a continued fluid
+  needs no volume and its total stops at the end. Entries planned after the
+  end must be marked happened or not. Resume offers to take back the stops End
+  case made.
+- **Premedication follows the route.** Changing the route replaces the dose
+  with that route's own, even one typed by hand.
+- **A bar's end is its stop.** A running infusion, fluid or agent ends at the
+  "now" line by itself; dropping its end grip on a column stops it there (a
+  planned stop if the column is still ahead), and on a stopped bar moves the
+  stop.
+
+### Added
+
+- Planned (future-dated) entries are drawn dashed; a planned stop is marked.
+- Lab draws and auto-filled vitals are shown in the event log.
+- A case ended automatically 48 hours after it started says so when opened.
+
+### Fixed
+
+- **Vitals autofill** follows the same limits as the phone: at most 30
+  minutes back, never the future or past the end, marked, and paused after 60
+  minutes without a manual entry.
+- **The offline banner flashed while lists were loading.**
+- **Lane labels were clipped on the left in Bulgarian.**
+- **A running bar was drawn one column past the "now" line.**
+
 ## [9.11.5] - 2026-09-25
 
 ### Fixed
