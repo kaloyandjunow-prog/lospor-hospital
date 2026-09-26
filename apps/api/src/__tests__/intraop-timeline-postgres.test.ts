@@ -55,7 +55,15 @@ describe.skipIf(!runPostgres)("intraop timeline PostgreSQL", () => {
       firstName: null, lastName: null, title: null, jti: null,
     })
     await prisma.user.create({
-      data: { id: userId, email: `${userId}@example.test`, name: "Timeline test", passwordHash: "not-a-real-password" },
+      data: {
+        id: userId,
+        email: `${userId}@example.test`,
+        // The appliance requires a login identity on every user.
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
+        name: "Timeline test",
+        passwordHash: "not-a-real-password",
+      },
     })
     for (const [id, start] of [[caseId, startedAt], [staleCaseId, new Date(Date.now() - 50 * 60 * 60_000)]] as const) {
       await prisma.case.create({ data: { id, userId, createdById: userId, status: "IN_PROGRESS" } })
