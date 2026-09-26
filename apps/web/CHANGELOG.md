@@ -1,5 +1,12 @@
 # Changelog - LOSPOR Web App
 
+## [9.12.2] - 2026-09-26
+
+### Changed
+
+- **Version alignment only, no behaviour change.** Released with API and
+  Mobile 9.12.2, which the appliance ships as one set.
+
 ## [9.12.1] - 2026-09-26
 
 ### Fixed
