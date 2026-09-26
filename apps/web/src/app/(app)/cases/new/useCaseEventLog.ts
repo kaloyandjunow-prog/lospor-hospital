@@ -116,8 +116,8 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
       for (const event of ops.add) {
         await autosaveManager.appendEvent(caseId, event as Record<string, unknown> & { id: string })
       }
-    } catch (error) {
-      console.error("[intraop event] journal failed", error)
+    } catch {
+      console.error("[intraop event] EVENT_JOURNAL_FAILED")
       toast.error(t("case.timelineEditFailed"))
     }
   }
