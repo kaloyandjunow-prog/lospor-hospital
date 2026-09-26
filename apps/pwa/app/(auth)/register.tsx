@@ -326,8 +326,8 @@ export default function RegisterScreen() {
   const authentication = useAuthenticationCapabilities()
   const { t } = usePreferences()
 
-  if (authentication.status === "INVALID_CONTRACT") {
-    return <RegistrationUnavailableScreen instructions={t("authConfigurationUnavailable")} />
+  if (authentication.status === "INVALID_CONTRACT") { // also the defaults, until the appliance answers
+    return authentication.loaded ? <RegistrationUnavailableScreen instructions={t("authConfigurationUnavailable")} /> : null
   }
   if (!authentication.selfRegistration) {
     return <RegistrationUnavailableScreen instructions={t("registrationAdministratorOnly")} />

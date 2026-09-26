@@ -2,7 +2,7 @@ import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 import { confirmAction, notify } from "@/lib/notify"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
-import { buildFinaliseCaseState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
+import { buildFinaliseCaseState, buildReopenedEndedState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
 import { buildEndCaseRunningItems, hasEndCaseRunningItems, type EndCaseStopOptions } from "@/lib/intraop-end-case-items"
 import type { EndCaseAfterEndItem, EndCaseCleanupItem, EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
 import type { RunningAgent } from "@/lib/use-intraop-running-state"
@@ -119,6 +119,7 @@ export function useIntraopCaseLifecycle({
   const [caseEnded, setCaseEnded] = useState(false)
   const caseEndedAtRef = useRef<Date | null>(null)
   const [resumeSecsLeft, setResumeSecsLeft] = useState(0)
+  const [resumeUnlimited, setResumeUnlimited] = useState(false)
   // Planned entries dated after "now": End case lists them, and the case
   // cannot be finalised while any remain (nothing may lie after the end).
   const [afterEndEvents, setAfterEndEvents] = useState<LogEvent[]>([])
@@ -167,7 +168,19 @@ export function useIntraopCaseLifecycle({
     setStartAtOpen(false)
   }
 
+  /** Opened after it ended: shown as ended, with Resume where allowed (9.12.1). */
+  function restoreEndedCase(endedAt: Date, autoEnded: boolean) {
+    const next = buildReopenedEndedState(endedAt, autoEnded)
+    caseEndedAtRef.current = endedAt
+    timeline.endedAtRef.current = endedAt
+    setCaseEnded(true)
+    setResumeUnlimited(next.resumeUnlimited)
+    setResumeSecsLeft(next.resumeSecsLeft)
+  }
+
   async function finaliseCase(continuedItems: string[], endTs = new Date().toISOString()) {
+    // Ending an ended case again would move its saved end to now.
+    if (caseEndedAtRef.current) return
     setEndCaseOpen(false)
     const parsedEnd = new Date(endTs)
     const next = buildFinaliseCaseState(
@@ -199,6 +212,10 @@ export function useIntraopCaseLifecycle({
   }
 
   async function openEndCase() {
+    if (caseEndedAtRef.current) {
+      notify(tc("tfEndCase"), tc("caseEnded"))
+      return
+    }
     const readiness = evaluateIntraopReadiness({
       ...getReadinessInput(),
       endedAt: new Date().toISOString(),
@@ -241,6 +258,7 @@ export function useIntraopCaseLifecycle({
   async function resumeCase() {
     const next = buildResumeCaseState()
     setCaseEnded(false)
+    setResumeUnlimited(false)
     caseEndedAtRef.current = next.endedAt
     timeline.endedAtRef.current = null
     setResumeSecsLeft(next.resumeSecsLeft)
@@ -309,6 +327,8 @@ export function useIntraopCaseLifecycle({
     continuedPostopItems,
     caseEnded,
     resumeSecsLeft,
+    resumeUnlimited,
+    restoreEndedCase,
     startCaseNow,
     startCaseAt,
     openEndCase,

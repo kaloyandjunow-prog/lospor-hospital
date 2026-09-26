@@ -149,6 +149,7 @@ export default function ForgotPasswordScreen() {
   const authentication = useAuthenticationCapabilities()
   const { t } = usePreferences()
 
+  if (!authentication.loaded) return null
   if (authentication.status === "INVALID_CONTRACT") {
     return (
       <RecoveryPolicyScreen

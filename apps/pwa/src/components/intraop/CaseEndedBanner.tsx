@@ -2,11 +2,13 @@ import { View, Text, TouchableOpacity } from "react-native"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
 
-// Banner shown after a case is ended, offering a time-limited Resume.
+// Banner shown after a case is ended, offering a time-limited Resume, or an
+// unlimited one for a case ended automatically after 48 hours (9.12.1).
 // Presentational — markup moved verbatim from cases/intraop/[id].tsx.
-export function CaseEndedBanner({ tc, resumeSecsLeft, onResume }: {
+export function CaseEndedBanner({ tc, resumeSecsLeft, unlimited = false, onResume }: {
   tc: (key: ClinicalStringKey) => string
   resumeSecsLeft: number
+  unlimited?: boolean
   onResume: () => void
 }) {
   const shade = useShade()
@@ -16,12 +18,12 @@ export function CaseEndedBanner({ tc, resumeSecsLeft, onResume }: {
       paddingHorizontal:16, paddingVertical:10 }}>
       <Text style={{ color:shade("#22c55e"), fontWeight:"800", fontSize:13 }}>{tc("caseEnded")}</Text>
       <View style={{ flexDirection:"row", alignItems:"center", gap:10 }}>
-        {resumeSecsLeft > 0 && (
+        {(resumeSecsLeft > 0 || unlimited) && (
           <TouchableOpacity onPress={onResume}
             style={{ paddingHorizontal:12, paddingVertical:6, borderRadius:999,
               borderWidth:1.5, borderColor:shade("#f59e0b"), backgroundColor:shade("#1a140a") }}>
             <Text style={{ color:shade("#f59e0b"), fontWeight:"700", fontSize:12 }}>
-              {tc("resumeCase")} ({Math.floor(resumeSecsLeft/60)}:{String(resumeSecsLeft%60).padStart(2,"0")})
+              {tc("resumeCase")}{unlimited ? "" : ` (${Math.floor(resumeSecsLeft/60)}:${String(resumeSecsLeft%60).padStart(2,"0")})`}
             </Text>
           </TouchableOpacity>
         )}

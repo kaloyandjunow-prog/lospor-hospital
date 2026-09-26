@@ -10,6 +10,7 @@ import RegisterScreen from "../../../app/(auth)/register"
 
 const state = vi.hoisted(() => ({
   language: "en" as "bg" | "en",
+  loaded: true,
   authentication: {
     status: "EXPLICIT",
     loginIdentifier: "EMAIL",
@@ -54,7 +55,7 @@ vi.mock("@/lib/auth-context", () => ({
 }))
 
 vi.mock("@/lib/deployment-capabilities", () => ({
-  useAuthenticationCapabilities: () => state.authentication,
+  useAuthenticationCapabilities: () => ({ loaded: state.loaded, ...state.authentication }),
 }))
 
 vi.mock("@/lib/preferences-context", () => ({
@@ -215,6 +216,29 @@ describe("authentication capability screens", () => {
     expect(getByText(recovery, STRINGS.bg.administratorRecoveryInstructions)).toBeTruthy()
     expect(recovery.root.findAll(node => (node.type as unknown) === "TextInput")).toHaveLength(0)
     recovery.unmount()
+  })
+
+  // 9.12.1: before the first answer the safe defaults read as an invalid
+  // contract, so every sign-in briefly said the configuration could not be
+  // verified.
+  it("says nothing about the sign-in configuration before the appliance has answered", () => {
+    state.loaded = false
+    state.authentication = {
+      status: "INVALID_CONTRACT",
+      loginIdentifier: null,
+      selfRegistration: false,
+      passwordRecovery: "UNAVAILABLE",
+    }
+    try {
+      const login = render(<LoginScreen />)
+      expect(queryByText(login, STRINGS.en.authConfigurationUnavailable)).toBeNull()
+      login.unmount()
+      const recovery = render(<ForgotPasswordScreen />)
+      expect(queryByText(recovery, STRINGS.en.authConfigurationUnavailable)).toBeNull()
+      recovery.unmount()
+    } finally {
+      state.loaded = true
+    }
   })
 
   it("fails closed on malformed authentication capability data", () => {

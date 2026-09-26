@@ -6,7 +6,7 @@ import { useIntraopEventAutofill } from "@/hooks/useIntraopEventAutofill"
 import { adultPremedDoseForRoute } from "@lospor/core/premedication"
 import type { IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 import { computeLiveDrugTotals } from "@/lib/intraop-drug-totals"
-import { buildIntraopSubmission, intraopTimeErrors } from "@/lib/intraop-submit"
+import { buildIntraopSubmission, intraopEndCaseValues, intraopTimeErrors } from "@/lib/intraop-submit"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -54,11 +54,6 @@ import {
   type PediatricPremedPatient,
 } from "@lospor/core/pediatric-premedication-library"
 import {
-  buildIntraopEndTiming,
-  isValidTimeZone,
-  resolvedTimeZone,
-} from "@/lib/intraop-time"
-import {
   evaluateIntraopReadiness,
   type ClinicalIssueCode,
 } from "@lospor/core/clinical-validation"
@@ -76,7 +71,7 @@ export type { IntraopFormFields, IntraopData } from "./intraopSchema"
 
 import type { PreopSummary } from "@/components/forms/preop-summary"
 
-export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, caseId = null, aiOptIn = false }: {
+export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, readOnly = false, autoEnded: autoEndedProp = false, caseId = null, aiOptIn = false }: {
   /**
    * The saved case, once autosave has created one.
    *
@@ -98,6 +93,10 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   eventLog?: IntraopLogEvent[]
   /** Writes timeline edits as event operations (the log is the only source). */
   onEventOps?: (ops: IntraopEventOps) => void | Promise<void>
+  /** Another screen holds the case: nothing here may write (9.12.1). */
+  readOnly?: boolean
+  /** Ended automatically after 48 hours; applies while that saved end stands (9.12.1). */
+  autoEnded?: boolean
 }) {
   const t = useTranslations()
   const localizeIssue = (code: ClinicalIssueCode) => {
@@ -215,9 +214,9 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   // The chart is the projection of the event log; edits become events (1.4.9).
   const [timelineStartedAt, timelineEndedAt, timelineStartTime, timelineZone] = useWatch({ control, name: ["startedAt", "endedAt", "startTime", "timezone"] })
   const { timetable, log: timelineLog, chartStartMs, startedAt: chartStartedAt, onTimetableChange, removeEvent, addEvents } = useIntraopEventTimeline({
-    eventLog, startedAt: timelineStartedAt, startTime: timelineStartTime, timezone: timelineZone, endedAt: timelineEndedAt, onEventOps, legacyTimetable: safeTimetable,
+    eventLog, startedAt: timelineStartedAt, startTime: timelineStartTime, timezone: timelineZone, endedAt: timelineEndedAt, onEventOps, readOnly, legacyTimetable: safeTimetable,
   })
-  useIntraopEventAutofill({ log: timelineLog, chartStartMs, endedAt: timelineEndedAt, addEvents })
+  useIntraopEventAutofill({ log: timelineLog, chartStartMs, endedAt: timelineEndedAt, addEvents, disabled: readOnly })
 
   const {
     snapshot: clinicalRulesSnapshot,
@@ -669,6 +668,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           startTime={watchedStartTime || "08:00"}
           startedAt={chartStartedAt ?? undefined}
           endTime={watchedEndTime || undefined}
+          endedAt={timelineEndedAt ?? null}
+          autoEnded={autoEndedProp && !!timelineEndedAt && timelineEndedAt === defaultValues?.endedAt}
           caseStarted={caseStartedProp || !!watchedStartTime}
           monitoring={monitoring}
           showAgentRow={showGases}
@@ -677,21 +678,10 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           data={timetable}
           onChange={onTimetableChange}
           onEndCase={() => {
-            const now = new Date()
-            const savedZone = getValues("timezone")
-            const zone = isValidTimeZone(savedZone) ? savedZone : resolvedTimeZone()
-            const timing = zone ? buildIntraopEndTiming(now, zone) : null
-            const hh = String(now.getHours()).padStart(2, "0")
-            const mm = String(now.getMinutes()).padStart(2, "0")
-            setValue("endTime", timing?.endTime ?? `${hh}:${mm}`)
-            if (timing) {
-              setValue("endedAt", timing.endedAt)
-              setValue("timezone", timing.timezone)
-            }
-            // Auto-advance end date if case crossed midnight
-            const st = getValues("startTime") || "00:00"
-            const [sh, sm] = st.split(":").map(Number)
-            if (now.getHours() * 60 + now.getMinutes() < sh * 60 + sm) setValue("endTimeNextDay", true)
+            const end = intraopEndCaseValues(new Date(), getValues("timezone"), getValues("startTime"))
+            setValue("endTime", end.endTime)
+            if (end.endedAt && end.timezone) { setValue("endedAt", end.endedAt); setValue("timezone", end.timezone) }
+            if (end.endTimeNextDay) setValue("endTimeNextDay", true)
           }}
           onResumeCase={() => {
             setValue("endTime", "")

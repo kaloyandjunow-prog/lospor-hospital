@@ -20,6 +20,21 @@ export function buildFinaliseCaseState(
   }
 }
 
+/**
+ * A case reopened after it ended (9.12.1). Resume stays open for what is left
+ * of the window after the saved end; a case ended automatically after 48 hours
+ * can always be resumed, since nobody chose to end it.
+ */
+export function buildReopenedEndedState(
+  endedAt: Date,
+  autoEnded: boolean,
+  nowMs = Date.now(),
+): { resumeSecsLeft: number; resumeUnlimited: boolean } {
+  if (autoEnded) return { resumeSecsLeft: 0, resumeUnlimited: true }
+  const elapsed = Math.floor((nowMs - endedAt.getTime()) / 1000)
+  return { resumeSecsLeft: Math.max(0, CASE_RESUME_WINDOW_SECONDS - elapsed), resumeUnlimited: false }
+}
+
 export function buildResumeCaseState(): {
   endTime: string
   endedAt: Date | null

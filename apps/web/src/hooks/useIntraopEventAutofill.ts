@@ -20,6 +20,8 @@ type Args = {
   endedAt: string | null | undefined
   /** Writes ready-made events through the timeline rules. */
   addEvents: (events: LogEvent[]) => boolean
+  /** Another screen holds the case (9.12.1): only that screen fills. */
+  disabled?: boolean
 }
 
 /**
@@ -29,7 +31,7 @@ type Args = {
  * until the clinician says the case is still running. The preferences are the
  * account's (synced through /api/user by the settings menu).
  */
-export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents }: Args) {
+export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents, disabled = false }: Args) {
   const t = useTranslations("intraop.timelineRules")
   const preferences = useWebAutoFillPreferences()
   const logRef = useRef(log)
@@ -67,7 +69,7 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents 
 
   // Live: fill each new row as the clock reaches it, until paused.
   useEffect(() => {
-    if (!preferences.enabled || chartStartMs === null || endedAt) return
+    if (disabled || !preferences.enabled || chartStartMs === null || endedAt) return
     let previous: number | null = activeTimetableColumnForTimestamp(new Date(chartStartMs), Date.now())
     const timer = setInterval(() => {
       const chartStart = new Date(chartStartMs)
@@ -93,11 +95,11 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents 
       previous = column
     }, 10_000)
     return () => clearInterval(timer)
-  }, [preferences.enabled, preferences.includeBloodPressure, chartStartMs, endedAt, t])
+  }, [disabled, preferences.enabled, preferences.includeBloodPressure, chartStartMs, endedAt, t])
 
   // Reopen: offer the empty rows of the last 30 minutes, once.
   useEffect(() => {
-    if (backfillOfferedRef.current || !preferences.enabled || !preferences.backfillOnReopen) return
+    if (disabled || backfillOfferedRef.current || !preferences.enabled || !preferences.backfillOnReopen) return
     if (chartStartMs === null || endedAt || log.length === 0) return
     backfillOfferedRef.current = true
     const chartStart = new Date(chartStartMs)
@@ -111,5 +113,5 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents 
       duration: 30_000,
       action: { label: t("autofillFill"), onClick: () => writeRef.current(planRef.current(lastDataCol + 1, currentCol)) },
     })
-  }, [chartStartMs, endedAt, log, preferences.backfillOnReopen, preferences.enabled, t])
+  }, [chartStartMs, disabled, endedAt, log, preferences.backfillOnReopen, preferences.enabled, t])
 }

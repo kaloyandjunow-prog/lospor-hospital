@@ -53,7 +53,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => hoisted.translate, useLocal
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }))
-vi.mock("@/lib/autosave-manager", () => ({ autosaveManager: hoisted.autosave }))
+vi.mock("@/lib/autosave-manager", () => ({ autosaveManager: hoisted.autosave, onEventRefused: () => () => {} }))
 vi.mock("@/lib/case-outbox", () => ({ onOutboxChange: () => () => {} }))
 vi.mock("@/context/TourContext", () => ({ useTour: () => ({ setCurrentFormStep: () => {} }) }))
 vi.mock("@/hooks/useCaseLock", () => ({

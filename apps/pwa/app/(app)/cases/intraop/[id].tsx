@@ -394,7 +394,7 @@ export default function IntraopLiveScreen() {
     startCaseAt,
     openEndCase,
     finaliseCase,
-    resumeCase,
+    resumeCase, resumeUnlimited, restoreEndedCase,
     endCaseRunningItems, afterEndItems, resolveAfterEnd,
   } = useIntraopCaseLifecycle({
     startRef,
@@ -506,7 +506,7 @@ export default function IntraopLiveScreen() {
   } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, projectTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit, cvpUnit)
 
   useIntraopCaseLoader({
-    caseId: id,
+    caseId: id, onEndedLoaded: restoreEndedCase,
     monitoringOptions: MONITORING_OPTS,
     complicationItems: COMPLICATION_ITEMS,
     errorLabel: tc("errorLabel"),
@@ -689,7 +689,7 @@ export default function IntraopLiveScreen() {
             onRetrySync: retryPendingEvents,
             lastVitals,
           }}
-          ended={caseEnded ? { tc, resumeSecsLeft, onResume: resumeCase } : undefined}
+          ended={caseEnded ? { tc, resumeSecsLeft, unlimited: resumeUnlimited, onResume: resumeCase } : undefined}
           tabBar={{ tab, onSelect: selectTab, tc, screenWidth, railRef: tabRailRef, layouts: tabLayouts }}
         >
         <IntraopRenderSurface {...{

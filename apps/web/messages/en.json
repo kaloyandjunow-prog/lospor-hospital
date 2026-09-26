@@ -1643,6 +1643,7 @@
         "AFTER_CASE_END": "Not saved: this falls after the case end."
       },
       "needsStart": "Start the case first: timeline entries are timed from the case start.",
+      "watching": "Not saved: this case is being edited on another screen. Take over editing to change it here.",
       "plannedLabel": "Planned",
       "plannedStopLabel": "Stop planned",
       "autoFilledTag": "auto",
