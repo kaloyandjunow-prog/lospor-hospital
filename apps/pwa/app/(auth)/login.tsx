@@ -141,7 +141,7 @@ export default function LoginScreen() {
             onAuthenticated={finishMfaLogin}
             onStartOver={() => setMfaChallenge(null)}
           />
-        ) : !authenticationReady ? (
+        ) : !authenticationReady ? (!authentication.loaded ? null : (
           <View
             accessibilityRole="alert"
             style={{
@@ -156,7 +156,7 @@ export default function LoginScreen() {
               {t("authConfigurationUnavailable")}
             </Text>
           </View>
-        ) : (
+        )) : (
           <>
             <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 6 }}>
               {usernameMode ? `${t("username")} *` : t("email")}

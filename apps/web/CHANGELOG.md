@@ -1,5 +1,35 @@
 # Changelog - LOSPOR Web App
 
+## [9.12.1] - 2026-09-26
+
+### Fixed
+
+- **The intraoperative page stopped saving over and over.** With a case open,
+  the page could flip between the preoperative and intraoperative steps about
+  every 80 ms: the step in the address was written while the case was still
+  loading, and each change reloaded it. Every flip reloaded the case and sent
+  a save, so the revision and the audit log grew by several entries a second.
+  The address now waits for the load. Autosave also no longer sends the
+  vitals and drugs list, which are read off the chart (saved as events) and
+  made every loaded case look changed.
+- **A screen watching another screen's edit writes nothing.** The banner said
+  changes would not be saved, but autosave, chart edits and vitals autofill
+  still wrote. Chart edits there now say so and are not saved.
+- **An ended case can be resumed after it is reopened.** Resume was offered
+  only on the page that pressed End case. It now shows for what is left of
+  the 30 minutes after the saved end, and always for a case ended
+  automatically after 48 hours, which says to resume it if it is still
+  running.
+- **A case with only a typed start time can be charted.** The start-time
+  pattern had lost its backslashes, so such a case (charted before the time
+  model, or not yet resolved by the server) said "Start the case first" on
+  every edit.
+- **The case duration counts from the real start**, not the five-minute row
+  it falls in, matching the stored duration.
+- **An entry the server refuses is said so and taken off the chart**, instead
+  of staying on screen unsaved until the case was reloaded.
+- Runtime logs of the chart journal carry a fixed code only.
+
 ## [9.12.0] - 2026-09-26
 
 ### Changed

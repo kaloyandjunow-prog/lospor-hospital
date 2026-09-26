@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.4.9",
+  "release": "1.4.10",
   "policy": "backup-required",
-  "justification": "Conservative rather than assessed. Migration 20260926120000_intraop_auto_ended only adds the nullable column IntraoperativeRecord.autoEndedAt, which 1.4.8 services never read, so the schema change itself is additive. But 1.4.9 changes how the intraoperative chart is written: the whole-timetable save is retired and every edit is an event checked against the shared timeline rules, and a case can now end automatically. No release-specific rollback proof shows 1.4.8 services behaving correctly on charts written that way, so declaring service-compatible would be an unverified claim. Rolling back to 1.4.8 stays tied to the verified pre-update backup.",
+  "justification": "Conservative rather than assessed. 1.4.10 adds no migration, so its schema is 1.4.9's; but 1.4.9 introduced migration 20260926120000_intraop_auto_ended and the event-only chart, and no release-specific rollback proof shows 1.4.9 services behaving correctly on charts written by 1.4.10. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
   "assessedBy": "maintainer",
   "assessedAt": "2026-09-26"
 }

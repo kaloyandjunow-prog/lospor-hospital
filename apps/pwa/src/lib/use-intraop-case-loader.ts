@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
+import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 
 import { apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -84,6 +84,8 @@ type UseIntraopCaseLoaderArgs = {
   applyActiveState: (active: ReturnType<typeof rebuildActiveState>) => void
   /** The case end once ended; the chart is read there. */
   endedAtRef: MutableRefObject<Date | null>
+  /** An ended case was opened: show it as ended (first load only, 9.12.1). */
+  onEndedLoaded?: (endedAt: Date, autoEnded: boolean) => void
   setTimetable: Dispatch<SetStateAction<TimetableData>>
   setTtColCount: Dispatch<SetStateAction<number>>
   setCaseLoaded: Dispatch<SetStateAction<boolean>>
@@ -142,10 +144,14 @@ export function useIntraopCaseLoader({
   setElapsedMs,
   applyActiveState,
   endedAtRef,
+  onEndedLoaded,
   setTimetable,
   setTtColCount,
   setCaseLoaded,
 }: UseIntraopCaseLoaderArgs) {
+  // Held in a ref: loadCase must keep its identity, or its effect reloads the case.
+  const onEndedLoadedRef = useRef(onEndedLoaded)
+  useEffect(() => { onEndedLoadedRef.current = onEndedLoaded }, [onEndedLoaded])
   const { tc } = usePreferences()
   const loadCase = useCallback(async (silent = false) => {
     try {
@@ -242,6 +248,8 @@ export function useIntraopCaseLoader({
         startRef.current = loadedTimetable.startDate
         if (loadedTimetable.startDate) setElapsedMs(loadedTimetable.elapsedMs)
         endedAtRef.current = hydrated.endedAt
+        // Not on a silent refresh: it could arrive before a Resume has saved.
+        if (!silent && hydrated.endedAt) onEndedLoadedRef.current?.(hydrated.endedAt, !!data.intraop?.autoEndedAt)
         applyActiveState(hydrated.active)
         // Ended automatically 48 hours after it started: say so once on open.
         if (!silent && data.intraop?.autoEndedAt) notify(tc("tfEndCase"), tc("autoEndedNotice"))

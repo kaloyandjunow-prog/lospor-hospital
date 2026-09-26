@@ -66,10 +66,7 @@ import {
 import { HotkeysModal } from "@/components/intraop/HotkeysModal"
 import { useIntraopUiCopy } from "@/components/intraop/ui-copy"
 import { useIntraopFavourites } from "@/hooks/useIntraopFavourites"
-import {
-  INTRAOP_RESUME_WINDOW_MS,
-  INTRAOP_RESUME_WINDOW_SECONDS,
-} from "@lospor/core/intraop-engine"
+import { offerRemoveEndCaseStops, useIntraopResumeWindow } from "@/hooks/useIntraopResumeWindow"
 import { useDrugHandlers } from "@/hooks/useDrugHandlers"
 import { useVitalsHandlers } from "@/hooks/useVitalsHandlers"
 import { useClinicalEventHandlers } from "@/hooks/useClinicalEventHandlers"
@@ -144,6 +141,10 @@ interface Props {
   onChange: (d: TimetableData) => void
   onEndCase?: () => void
   onResumeCase?: () => void
+  /** The saved end instant: a reopened ended case can still be resumed (9.12.1). */
+  endedAt?: string | null
+  /** Ended automatically after 48 hours: Resume is offered with no time limit. */
+  autoEnded?: boolean
   onPostopContinued?: (items: string[]) => void
   onInfusionTotals?: (totals: { name: string; total: number; unit: string }[]) => void
   onComplicationAdded?: (labels: string[]) => void
@@ -212,6 +213,8 @@ export function IntraopTimetable({
   onChange,
   onEndCase,
   onResumeCase,
+  endedAt,
+  autoEnded = false,
   onPostopContinued,
   onInfusionTotals,
   onComplicationAdded,
@@ -414,9 +417,7 @@ export function IntraopTimetable({
   const [colW, setColW] = useState(COL_W)
   const rowsContainerRef = useRef<HTMLDivElement>(null)
   const prevColRef                    = useRef<number | null>(null)
-  const endedAtRef                    = useRef<Date | null>(null)
-  const [resumeSecsLeft, setResumeSecsLeft] = useState(0)
-  const [resumeUntilLabel, setResumeUntilLabel] = useState("")
+  const { resumeSecsLeft, resumeUntilLabel, startWindow, clearWindow } = useIntraopResumeWindow(endedAt)
   // In-cell drug picker
   const [drugPicker, setDrugPicker]   = useState<{ ci: number; rect: DOMRect } | null>(null)
   // Shortlist the clinician chose in settings — the same server-side list the
@@ -511,18 +512,6 @@ export function IntraopTimetable({
     return () => window.removeEventListener("storage", h)
   }, [])
 
-  // Resume countdown — tick every second while active
-  const resumeActive = resumeSecsLeft > 0
-  useEffect(() => {
-    if (!resumeActive) return
-    const id = setInterval(() => {
-      if (!endedAtRef.current) return
-      const elapsed = Math.floor((Date.now() - endedAtRef.current.getTime()) / 1000)
-      const left    = Math.max(0, INTRAOP_RESUME_WINDOW_SECONDS - elapsed)
-      setResumeSecsLeft(left)
-    }, 1000)
-    return () => clearInterval(id)
-  }, [resumeActive])
   // Reset inline-discontinue state when selection changes
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setDiscConfirmId(null); setDiscFluidState(null) }, [sel])
@@ -1263,41 +1252,11 @@ export function IntraopTimetable({
           : g
       ),
     })
-    const endedAt = new Date()
-    endedAtRef.current = endedAt
-    const resumeUntil = new Date(endedAt.getTime() + INTRAOP_RESUME_WINDOW_MS)
-    setResumeUntilLabel(`${String(resumeUntil.getHours()).padStart(2,"0")}:${String(resumeUntil.getMinutes()).padStart(2,"0")}`)
-    setResumeSecsLeft(INTRAOP_RESUME_WINDOW_SECONDS)
+    startWindow(new Date())
     onEndCase?.()
     if (result.continuedItems.length > 0) onPostopContinued?.(result.continuedItems)
     if (result.infusionTotals.length > 0) onInfusionTotals?.(result.infusionTotals)
     setShowEndModal(false)
-  }
-
-  /** After Resume, offer to take back the stops End case made (1.4.9). */
-  function offerRemoveEndCaseStops() {
-    const d = dataRef.current
-    const count = [...d.infusions, ...d.fluids, ...d.agents, ...(d.gasSettings ?? [])].filter(item => item.endCaseStop).length
-    if (count === 0) return
-    toast(t("intraop.timelineRules.resumeRemoveStopsTitle"), {
-      description: t("intraop.timelineRules.resumeRemoveStopsMessage", { count }),
-      duration: 30_000,
-      action: {
-        label: t("intraop.timelineRules.resumeRemoveStops"),
-        onClick: () => {
-          const current = dataRef.current
-          const unstop = <S extends { endCaseStop?: boolean; stopped?: boolean }>(item: S): S =>
-            item.endCaseStop ? { ...item, stopped: false, endCaseStop: undefined } : item
-          onChangeRef.current({
-            ...current,
-            infusions: current.infusions.map(unstop),
-            fluids: current.fluids.map(unstop),
-            agents: current.agents.map(unstop),
-            gasSettings: (current.gasSettings ?? []).map(unstop),
-          })
-        },
-      },
-    })
   }
 
   // ── Extend drag-and-drop ─────────────────────────────────────────────────────
@@ -1752,19 +1711,22 @@ export function IntraopTimetable({
             </button>
             <span className="text-xs text-slate-400 dark:text-[#666]">
               {uiCopy.timetable.total} <span className={`font-semibold ${endTime ? "text-slate-600 dark:text-[#aaa]" : "text-amber-500 dark:text-amber-400"}`}>
-                {endTime ? calcDuration(roundedStart, endTime, colCount) : uiCopy.timetable.ongoing}
+                {/* From the real start, as the stored duration is: the grid's rounded origin overstated it (9.12.1). */}
+                {endTime ? calcDuration(startTime || roundedStart, endTime, colCount) : uiCopy.timetable.ongoing}
               </span>
-              {endTime && <span className="ml-1 text-[10px] text-slate-300 dark:text-[#555]">({roundedStart} {"->"} {toHHMM(endTime)})</span>}
+              {endTime && <span className="ml-1 text-[10px] text-slate-300 dark:text-[#555]">({startTime || roundedStart} {"->"} {toHHMM(endTime)})</span>}
             </span>
             <div className="ml-auto relative">
               {endTime ? (
                 <div className="flex items-center gap-2">
-                  {resumeSecsLeft > 0 && onResumeCase && (
+                  {(resumeSecsLeft > 0 || autoEnded) && onResumeCase && (
                     <>
-                      <span className="text-[10px] text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                        {uiCopy.timetable.resumableUntil} {resumeUntilLabel}
-                      </span>
-                      <button type="button" onClick={() => { onResumeCase(); offerRemoveEndCaseStops() }}
+                      {!autoEnded && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                          {uiCopy.timetable.resumableUntil} {resumeUntilLabel}
+                        </span>
+                      )}
+                      <button type="button" onClick={() => { clearWindow(); onResumeCase(); offerRemoveEndCaseStops(dataRef, onChangeRef, t) }}
                         className="text-xs font-semibold px-3 py-1.5 rounded-full border-2 border-amber-500 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 transition-colors">
                         {uiCopy.timetable.resumeCase}
                       </button>

@@ -36,6 +36,8 @@ type Args = {
   endedAt: string | null | undefined
   /** Writes the operations (outbox). Absent in read-only use. */
   onEventOps?: (ops: IntraopEventOps) => void | Promise<void>
+  /** Another screen holds the case (9.12.1): every edit is refused. */
+  readOnly?: boolean
   /** Shown when there is no start instant to position events against. */
   legacyTimetable: TimetableData
 }
@@ -49,22 +51,38 @@ type Args = {
  * The chart shown is always re-projected from the log, so an edit the log
  * cannot express simply does not stick, and the whole chart is never saved.
  */
-export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezone, endedAt, onEventOps, legacyTimetable }: Args) {
+/**
+ * The instant the chart counts from. Without a saved start instant (a start
+ * time typed rather than stamped, or a case saved before the time model) it
+ * is the typed "HH:MM" in the case's zone on the most recent such day not
+ * after the first entry (or now): the day the case happened, even when it is
+ * reopened days later.
+ */
+export function timelineStartInstant({ startedAt, startTime, timezone, log, now = new Date() }: {
+  startedAt: string | null | undefined
+  startTime?: string | null
+  timezone?: string | null
+  log: readonly { ts: string }[]
+  now?: Date
+}): string | null {
+  if (startedAt && Number.isFinite(Date.parse(startedAt))) return startedAt
+  if (!startTime || !/^\d{2}:\d{2}$/.test(startTime)) return null
+  const zone = isValidTimeZone(timezone) ? timezone : resolvedTimeZone()
+  if (!zone) return null
+  const first = log.reduce<number | null>((min, event) => {
+    const ms = Date.parse(event.ts)
+    return Number.isFinite(ms) && (min === null || ms < min) ? ms : min
+  }, null)
+  return startInstantForWallClock(first === null ? now : new Date(first), startTime, zone)?.toISOString() ?? null
+}
+
+export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezone, endedAt, onEventOps, readOnly = false, legacyTimetable }: Args) {
   const t = useTranslations("intraop.timelineRules")
   const log = useMemo(() => parseLogEvents(eventLog ?? []), [eventLog])
-  const effectiveStartedAt = useMemo(() => {
-    if (startedAt && Number.isFinite(Date.parse(startedAt))) return startedAt
-    if (!startTime || !/^d{2}:d{2}$/.test(startTime)) return null
-    const zone = isValidTimeZone(timezone) ? timezone : resolvedTimeZone()
-    if (!zone) return null
-    // The most recent such time not after the first entry (or now): the day
-    // the case happened, even when it is reopened days later.
-    const first = log.reduce<number | null>((min, event) => {
-      const ms = Date.parse(event.ts)
-      return Number.isFinite(ms) && (min === null || ms < min) ? ms : min
-    }, null)
-    return startInstantForWallClock(first === null ? new Date() : new Date(first), startTime, zone)?.toISOString() ?? null
-  }, [log, startTime, startedAt, timezone])
+  const effectiveStartedAt = useMemo(
+    () => timelineStartInstant({ startedAt, startTime, timezone, log }),
+    [log, startTime, startedAt, timezone],
+  )
   const startMs = effectiveStartedAt ? Date.parse(effectiveStartedAt) : NaN
   const chartStartMs = Number.isFinite(startMs) ? gridOriginMs(startMs) : null
 
@@ -94,6 +112,10 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
   /** Validates operations against the Core timeline rules, then writes them. */
   const commit = useCallback((ops: IntraopEventOps): boolean => {
     if (isEmptyIntraopEventOps(ops)) return true
+    if (readOnly) {
+      toast.error(t("watching"))
+      return false
+    }
     const next = applyIntraopEventOps(logRef.current, ops)
     const [issue] = newIntraopTimelineIssues(logRef.current, next, { now: new Date() })
     if (issue) {
@@ -102,7 +124,7 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
     }
     void onEventOps?.(ops)
     return true
-  }, [onEventOps, t])
+  }, [onEventOps, readOnly, t])
 
   const onTimetableChange = useCallback((after: TimetableData) => {
     if (chartStartMs === null) {

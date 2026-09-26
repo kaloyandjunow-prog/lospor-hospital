@@ -1,5 +1,34 @@
 # Changelog - LOSPOR Hospital
-## [1.4.9] - Unreleased
+## [1.4.10] - Unreleased
+
+Vendors lospor-api, web and PWA 9.12.1. Core stays 9.12.1; Browser stays 0.8.0.
+
+### Fixed
+
+- **The web intraoperative page no longer saves over and over.** On the
+  appliance an open case could flip between the preoperative and
+  intraoperative steps about every 80 ms: the step in the address was written
+  while the case was still loading, and each change reloaded it, so the
+  revision and the audit log grew by several entries a second. The address
+  now waits for the load, and autosave no longer sends the vitals and drugs
+  list read off the chart.
+- **A screen watching another screen's edit writes nothing.** The web page
+  said changes would not be saved but still autosaved, and could write chart
+  entries and autofilled vitals. It is now read-only until editing is taken
+  over.
+- **An ended case can be resumed after it is reopened**, on the web and the
+  PWA: for what is left of the 30 minutes after the saved end, and at any time
+  after the automatic end at 48 hours, which says to resume the case if it is
+  still running. On the PWA a reopened ended case looked still running and
+  End case moved the saved end; it now shows as ended.
+- A case with only a typed start time can be charted on the web again; the
+  web duration counts from the real start; a chart entry the server refuses
+  is said so and taken off the chart.
+- The PWA sign-in no longer flashes "The sign-in configuration could not be
+  verified" before the appliance has answered.
+- The chart journal and automatic-end logs use the upstream fixed codes.
+
+## [1.4.9] - 2026-09-26
 
 Vendors lospor-core 9.12.1 and lospor-api, web and PWA 9.12.0. Browser stays 0.8.0.
 

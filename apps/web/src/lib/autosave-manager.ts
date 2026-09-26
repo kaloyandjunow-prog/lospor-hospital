@@ -66,6 +66,30 @@ export function classifyError(error: unknown): PatchFailure {
 const patchListeners = new Set<(summary: OutboxSummary) => void>()
 const eventListeners = new Set<(count: number) => void>()
 const conflictListeners = new Set<(info: ConflictInfo) => void>()
+
+/** A chart write the server refused for good (400), which the journal then drops. */
+export type EventRefusal = { caseId: string; eventId: string; code: string | null }
+const refusalListeners = new Set<(refusal: EventRefusal) => void>()
+
+function noteRefusal(caseId: string, eventId: string, status: number, body: unknown): void {
+  if (status !== 400) return
+  const code = body && typeof body === "object" && typeof (body as { code?: unknown }).code === "string"
+    ? (body as { code: string }).code
+    : null
+  for (const listener of refusalListeners) {
+    try { listener({ caseId, eventId, code }) } catch { /* status UI cannot break saving */ }
+  }
+}
+
+/**
+ * Tells the chart when the server refused an entry (9.12.1). The client checks
+ * the same timeline rules first, so this is rare; without it the entry stayed
+ * on screen, unsaved and unexplained, until the case was reloaded.
+ */
+export function onEventRefused(listener: (refusal: EventRefusal) => void): () => void {
+  refusalListeners.add(listener)
+  return () => { refusalListeners.delete(listener) }
+}
 let pendingEventCount = 0
 let pendingMutationCount = 0
 
@@ -94,6 +118,7 @@ async function sendMutation(operation: EventMutation, revision: SectionRevision)
     intraopRevision?: unknown
     intraopUpdatedAt?: unknown
   }
+  noteRefusal(operation.caseId, operation.eventId, response.status, body)
   return {
     ok: response.ok,
     status: response.status,
@@ -169,6 +194,7 @@ export const autosaveManager = createAutosaveManager({
         intraopUpdatedAt?: unknown
         serverVersion?: { revision?: unknown; updatedAt?: unknown }
       }
+      noteRefusal(caseId, String(event.id ?? ""), response.status, body)
       return {
         ok: response.ok,
         status: response.status,

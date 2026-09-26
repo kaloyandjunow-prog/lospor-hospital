@@ -222,17 +222,23 @@ export function refreshPediatricModeCapability(): Promise<PediatricModeCapabilit
   return request
 }
 
-export function useDeploymentCapabilities(): ApplianceCapabilities {
+export function useDeploymentCapabilities(): ApplianceCapabilities & { loaded: boolean } {
   const [capabilities, setCapabilities] = useState(
     () => cached ?? safeApplianceCapabilities(),
   )
+  // Until the first answer the safe defaults stand in, and they read as an
+  // unverifiable contract: screens wait for this before saying so (9.12.1).
+  const [loaded, setLoaded] = useState(() => cached !== null)
   useEffect(() => {
     let active = true
     let requestSequence = 0
     const apply = (request: Promise<ApplianceCapabilities>) => {
       const sequence = ++requestSequence
       void request.then(value => {
-        if (active && sequence === requestSequence) setCapabilities(value)
+        if (active && sequence === requestSequence) {
+          setCapabilities(value)
+          setLoaded(true)
+        }
       })
     }
     const refresh = () => apply(refreshDeploymentCapabilities())
@@ -249,15 +255,16 @@ export function useDeploymentCapabilities(): ApplianceCapabilities {
       subscription.remove()
     }
   }, [])
-  return capabilities
+  return { ...capabilities, loaded }
 }
 
 export function useClinicalAiCapabilities(): ClinicalAiCapabilities {
   return useDeploymentCapabilities().clinicalAi
 }
 
-export function useAuthenticationCapabilities(): AuthenticationCapabilities {
-  return useDeploymentCapabilities().authentication
+export function useAuthenticationCapabilities(): AuthenticationCapabilities & { loaded: boolean } {
+  const { authentication, loaded } = useDeploymentCapabilities()
+  return { ...authentication, loaded }
 }
 
 export function usePediatricModeCapability(): PediatricModeCapability {

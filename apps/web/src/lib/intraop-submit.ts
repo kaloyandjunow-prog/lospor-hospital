@@ -1,4 +1,5 @@
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
+import { buildIntraopEndTiming, isValidTimeZone, resolvedTimeZone } from "@/lib/intraop-time"
 
 /**
  * Turning the intraoperative timetable into the payload the API stores.
@@ -92,5 +93,44 @@ export function intraopTimeErrors(blockerCodes: Iterable<string>): {
   return {
     startTime: codes.has("missing_start_time") || invalidRange,
     endTime: codes.has("missing_end_time") || invalidRange,
+  }
+}
+
+/**
+ * The form values an intraoperative autosave sends (9.12.1). `vitals` and
+ * `drugsAdministered` are read off the chart, which is saved as events; the
+ * form never edits them. The server does not return them either, so an
+ * autosave that included them always differed from what was loaded: each save
+ * refreshed the case, and the refresh saved again, several times a second.
+ * Continue still sends the chart's values once, through the submission.
+ */
+export function intraopAutosaveValues<T extends { vitals?: unknown; drugsAdministered?: unknown }>(
+  values: T,
+): Omit<T, "vitals" | "drugsAdministered"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { vitals, drugsAdministered, ...rest } = values
+  return rest
+}
+
+/**
+ * The form values End case sets: the end in the case's zone (the browser's
+ * when none is saved) and whether it falls on the next day. Moved out of the
+ * form unchanged in 9.12.1.
+ */
+export function intraopEndCaseValues(now: Date, savedZone: string | null | undefined, startTime: string | null | undefined): {
+  endTime: string
+  endedAt: string | null
+  timezone: string | null
+  endTimeNextDay: boolean
+} {
+  const zone = isValidTimeZone(savedZone) ? savedZone : resolvedTimeZone()
+  const timing = zone ? buildIntraopEndTiming(now, zone) : null
+  const [sh, sm] = (startTime || "00:00").split(":").map(Number)
+  return {
+    endTime: timing?.endTime ?? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+    endedAt: timing?.endedAt ?? null,
+    timezone: timing?.timezone ?? null,
+    // The case crossed midnight.
+    endTimeNextDay: now.getHours() * 60 + now.getMinutes() < sh * 60 + sm,
   }
 }

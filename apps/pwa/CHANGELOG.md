@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Mobile
 
+## [9.12.1] - 2026-09-26
+
+### Fixed
+
+- **An ended case opened again shows as ended.** It looked still running (a
+  counting clock, the "now" line) and offered End case again, which moved the
+  saved end to the moment it was pressed. It now shows Case ended, with
+  Resume for what is left of the 30 minutes after the saved end, and always
+  for a case ended automatically after 48 hours. End case on an ended case
+  does nothing.
+- **Sign-in no longer flashes "The sign-in configuration could not be
+  verified"** for the few seconds before the appliance has answered; the
+  sign-in, password-recovery and registration screens wait for the answer.
+
 ## [9.12.0] - 2026-09-26
 
 ### Changed

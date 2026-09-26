@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { LogEvent } from "@/types/timetable"
-import { autosaveManager } from "@/lib/autosave-manager"
+import { autosaveManager, onEventRefused } from "@/lib/autosave-manager"
 import { randomId } from "@/lib/random-id"
 import { applyIntraopEventOps, type IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 
@@ -11,8 +11,29 @@ import { applyIntraopEventOps, type IntraopEventOps } from "@lospor/core/intraop
  * Every write goes through the outbox rather than straight to the server, so an
  * event recorded in theatre survives losing the network on the way out of it.
  */
+/** The timeline rules with a message of their own (intraop.timelineRules.refused). */
+const TIMELINE_RULE_CODES = new Set([
+  "STOP_BEFORE_START", "NOT_RUNNING", "STOP_BEFORE_LATER_CHANGE", "ALREADY_RUNNING",
+  "FUTURE_VITAL", "BEFORE_CASE_START", "AFTER_CASE_END",
+])
+
 export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: string) => string) {
   const [eventLog, setEventLog] = useState<LogEvent[]>([])
+
+  // A refused entry is said so and taken off the chart; an edit or removal the
+  // server refused is undone by reading the saved log back (9.12.1).
+  useEffect(() => onEventRefused(({ caseId, eventId, code }) => {
+    if (caseId !== caseIdRef.current) return
+    toast.error(code && TIMELINE_RULE_CODES.has(code) ? t(`intraop.timelineRules.refused.${code}`) : t("case.timelineEditFailed"))
+    fetch(`/api/cases/${caseId}`)
+      .then(response => response.ok ? response.json() : null)
+      .then(record => {
+        const log = record?.intraop?.keyEvents?.log
+        if (Array.isArray(log)) setEventLog(log as LogEvent[])
+        else setEventLog(prev => prev.filter(event => event.id !== eventId))
+      })
+      .catch(() => setEventLog(prev => prev.filter(event => event.id !== eventId)))
+  }), [caseIdRef, t])
 
   async function handleDeleteEvent(evId: string) {
     const caseId = caseIdRef.current
@@ -55,10 +76,7 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
         await autosaveManager.appendEvent(caseId, durableEvent as Record<string, unknown> & { id: string })
       }
     } catch {
-      // A fixed code and nothing else. The error carries the case id and the
-      // event's own contents, and on an appliance that lands in logs the
-      // operator can read and the backups keep.
-      console.error("[intraop-event] JOURNAL_FAILED")
+      console.error("[intraop event] EVENT_JOURNAL_FAILED")
       toast.error(t("case.timelineEditFailed"))
     }
   }
@@ -117,6 +135,7 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
         await autosaveManager.appendEvent(caseId, event as Record<string, unknown> & { id: string })
       }
     } catch {
+      // A fixed code only: runtime logs never carry case data (9.12.1).
       console.error("[intraop event] EVENT_JOURNAL_FAILED")
       toast.error(t("case.timelineEditFailed"))
     }
