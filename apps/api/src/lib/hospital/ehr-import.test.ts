@@ -349,20 +349,24 @@ describe("the plan is rebuilt against the case as it stands", () => {
     expect(result?.plan.preselectedKeys).toEqual([])
   })
 
-  // 1.4.11: accepting creates the case and the new case asks again before the
-  // values are saved, so an empty case must not bring accepted items back --
-  // accepting the second offer added every list item twice.
-  it("does not re-offer an accepted item while the case does not hold it yet", async () => {
+  // 1.4.12: an import belongs to the patient, not to one case. An item
+  // accepted into one case is still offered to another case of the same
+  // patient that does not hold it (1.4.11 hid it from every later case).
+  it("still offers an item accepted in another case to a case that does not hold it", async () => {
     const { db, id } = await staged({ weightKg: 80, heightCm: 180 })
     await recordEhrDecisions(db, {
       importId: id, institutionId: "inst-1", acceptedKeys: ["weightKg"], declinedKeys: [], userId: "user-1", now: NOW,
     })
 
-    const result = await ehrReviewPlanFor(db, {
+    const secondCase = await ehrReviewPlanFor(db, {
       importId: id, institutionId: "inst-1", current: {}, now: NOW,
     })
+    expect(secondCase?.plan.preselectedKeys.sort()).toEqual(["heightCm", "weightKg"])
 
-    expect(result?.plan.items.map(item => item.itemKey)).toEqual(["heightCm"])
+    const firstCase = await ehrReviewPlanFor(db, {
+      importId: id, institutionId: "inst-1", current: { weightKg: 80 }, now: NOW,
+    })
+    expect(firstCase?.plan.items.find(item => item.itemKey === "weightKg")?.state).toBe("unchanged")
   })
 
   it("offers it when the case is empty", async () => {

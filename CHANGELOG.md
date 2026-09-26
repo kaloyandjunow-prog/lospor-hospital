@@ -1,5 +1,9 @@
 # Changelog - LOSPOR Hospital
-## [1.4.11] - Unreleased
+## [1.4.12] - Unreleased
+
+1.4.11 was built but never published: its publication was cancelled because
+it hid imported items from a patient's later cases. 1.4.12 replaces it and
+carries everything below.
 
 Vendors lospor-api and PWA 9.12.2. Web and Core stay 9.12.1; Browser stays 0.8.0.
 
@@ -10,9 +14,11 @@ Vendors lospor-api and PWA 9.12.2. Web and Core stay 9.12.1; Browser stays 0.8.0
   again straight away. The appliance still offered the items just accepted
   (it only skipped values the saved case already held, and the phone saves
   them a moment later), so the same review opened a second time and accepting
-  it added every diagnosis, medication and lab again. Accepted items are no
-  longer offered, and the web and PWA do not reopen an import accepted on the
-  same screen.
+  it added every diagnosis, medication and lab again. The web and PWA no
+  longer reopen an import accepted on the same screen. Items stay on offer
+  to the patient's other cases: an import belongs to the patient, and a
+  later case (a return to theatre) is offered the same allergies,
+  medications and diagnoses.
 - **The automatic end records the end time and the duration.** An
   automatically ended case had no end time or anaesthesia duration in the
   case list, the research copy or the OMOP export.
