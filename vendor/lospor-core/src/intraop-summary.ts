@@ -25,7 +25,14 @@ export type DrugLogEntry = {
   unit: string
 }
 
-export type RunningItem =
+/**
+ * How an item shows in a row (1.4.9). `planned`: a future-dated start, drawn
+ * as a marker in its own row and not yet given. `plannedStop`: the row a
+ * future-dated stop falls in, past the running bar. Neither is running.
+ */
+export type RunningItemMarks = { planned?: true; plannedStop?: true }
+
+export type RunningItem = RunningItemMarks & (
   | { kind: "agent"; id: string; name: string; color: string }
   | { kind: "gas"; id: string; fgf: number; fio2: number; color: string }
   | { kind: "infusion"; id: string; name: string; rate: NumericText; unit: string; color: string }
@@ -39,6 +46,19 @@ export type RunningItem =
       rate?: NumericText
       unit?: string
     }
+)
+
+type MarkableSegment = { startCol: number; endCol: number; planned?: boolean; plannedStopCol?: number }
+
+/** How a segment shows in a column, or null when it does not show there. */
+function rowMarks(segment: MarkableSegment, column: number): RunningItemMarks | null {
+  if (segment.planned) return column === segment.startCol ? { planned: true } : null
+  if (column >= segment.startCol && column <= segment.endCol) return {}
+  if (segment.plannedStopCol != null && column === segment.plannedStopCol && column > segment.endCol) {
+    return { plannedStop: true }
+  }
+  return null
+}
 
 export type RowSummary = {
   criticalParts: string[]
@@ -350,56 +370,7 @@ export function runningItemsAt(
   timetable: TimetableData,
   column: number,
 ): RunningItem[] {
-  const items: RunningItem[] = []
-  for (const agent of timetable.agents) {
-    if (column >= agent.startCol && column <= agent.endCol) {
-      items.push({
-        kind: "agent",
-        id: `agent-${agent.name}`,
-        name: agent.name,
-        color: agent.color ?? "#a78bfa",
-      })
-    }
-  }
-  for (const gas of timetable.gasSettings ?? []) {
-    const settings = gasSettingsAtColumn(gas, column)
-    if (!settings) continue
-    items.push({
-      kind: "gas",
-      id: gas.id || "gas-settings",
-      fgf: settings.fgf,
-      fio2: settings.fio2,
-      color: "#818cf8",
-    })
-  }
-  for (const infusion of timetable.infusions) {
-    if (column < infusion.startCol || column > infusion.endCol) continue
-    const activeRate = rateAtColumn(infusion, column)
-    items.push({
-      kind: "infusion",
-      id: `inf-${infusion.id}`,
-      name: infusion.name,
-      rate: activeRate.rate,
-      unit: activeRate.unit,
-      color: infusion.color ?? "#3b82f6",
-    })
-  }
-  for (const fluid of timetable.fluids) {
-    if (column >= fluid.startCol && column <= fluid.endCol) {
-      const activeRate = fluidRateAtColumn(fluid, column)
-      items.push({
-        kind: "fluid",
-        id: `fluid-${fluid.id}`,
-        name: fluid.name,
-        volume: fluid.volume,
-        color: fluid.color ?? "#38bdf8",
-        fluidEntryMode: fluid.fluidEntryMode,
-        rate: activeRate.rate,
-        unit: activeRate.unit,
-      })
-    }
-  }
-  return items
+  return runningItemsByColumn(timetable, [column]).get(column) ?? []
 }
 
 export function runningItemsByColumn(
@@ -413,20 +384,23 @@ export function runningItemsByColumn(
 
   for (const agent of timetable.agents) {
     for (const column of columns) {
-      if (column >= agent.startCol && column <= agent.endCol) {
-        push(column, {
-          kind: "agent",
-          id: `agent-${agent.name}`,
-          name: agent.name,
-          color: agent.color ?? "#a78bfa",
-        })
-      }
+      const marks = rowMarks(agent, column)
+      if (!marks) continue
+      push(column, {
+        kind: "agent",
+        id: `agent-${agent.name}`,
+        name: agent.name,
+        color: agent.color ?? "#a78bfa",
+        ...marks,
+      })
     }
   }
 
   for (const gas of timetable.gasSettings ?? []) {
     for (const column of columns) {
-      const settings = gasSettingsAtColumn(gas, column)
+      const marks = rowMarks(gas, column)
+      if (!marks) continue
+      const settings = gasSettingsAtColumn(gas, Math.min(column, gas.endCol))
       if (!settings) continue
       push(column, {
         kind: "gas",
@@ -434,6 +408,7 @@ export function runningItemsByColumn(
         fgf: settings.fgf,
         fio2: settings.fio2,
         color: "#818cf8",
+        ...marks,
       })
     }
   }
@@ -442,7 +417,8 @@ export function runningItemsByColumn(
     const changes = [...(infusion.rateChanges ?? [])]
       .sort((a, b) => a.col - b.col)
     for (const column of columns) {
-      if (column < infusion.startCol || column > infusion.endCol) continue
+      const marks = rowMarks(infusion, column)
+      if (!marks) continue
       let latest = changes[0]?.col <= column ? changes[0] : undefined
       for (let index = 1; index < changes.length; index += 1) {
         if (changes[index].col > column) break
@@ -455,25 +431,27 @@ export function runningItemsByColumn(
         rate: latest?.rate ?? infusion.rate,
         unit: latest?.unit ?? infusion.unit,
         color: infusion.color ?? "#3b82f6",
+        ...marks,
       })
     }
   }
 
   for (const fluid of timetable.fluids) {
     for (const column of columns) {
-      if (column >= fluid.startCol && column <= fluid.endCol) {
-        const activeRate = fluidRateAtColumn(fluid, column)
-        push(column, {
-          kind: "fluid",
-          id: `fluid-${fluid.id}`,
-          name: fluid.name,
-          volume: fluid.volume,
-          color: fluid.color ?? "#38bdf8",
-          fluidEntryMode: fluid.fluidEntryMode,
-          rate: activeRate.rate,
-          unit: activeRate.unit,
-        })
-      }
+      const marks = rowMarks(fluid, column)
+      if (!marks) continue
+      const activeRate = fluidRateAtColumn(fluid, column)
+      push(column, {
+        kind: "fluid",
+        id: `fluid-${fluid.id}`,
+        name: fluid.name,
+        volume: fluid.volume,
+        color: fluid.color ?? "#38bdf8",
+        fluidEntryMode: fluid.fluidEntryMode,
+        rate: activeRate.rate,
+        unit: activeRate.unit,
+        ...marks,
+      })
     }
   }
 

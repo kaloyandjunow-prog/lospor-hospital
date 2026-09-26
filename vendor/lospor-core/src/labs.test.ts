@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import * as labs from "./labs"
 import {
   LAB_LIBRARY,
   formatLabReferenceRange,
@@ -280,5 +281,25 @@ describe("a laboratory value is a number only if the whole of it is", () => {
       { test: "Sodium (Na⁺)", value: "haemolysed", unit: "mmol/L", takenAt: "2026-06-01T09:00:00Z" },
     ])
     expect(shown).toHaveLength(0)
+  })
+})
+
+describe("projectLabDraws", () => {
+  const start = "2026-09-26T10:00:00.000Z"
+  const r = (test: string, takenAt?: string) => ({ test, value: "1", unit: "u", takenAt })
+  it("places each draw in its five-minute column, oldest first, inside the case only", () => {
+    const draws = labs.projectLabDraws([
+      r("Hb", "2026-09-26T10:32:00.000Z"),
+      r("K", "2026-09-26T10:32:00.000Z"),
+      r("Na", "2026-09-26T10:07:00.000Z"),
+      r("Preop", "2026-09-26T09:00:00.000Z"),
+      r("Late", "2026-09-26T12:00:00.000Z"),
+      r("Undated"),
+    ], { start, endedAt: "2026-09-26T11:00:00.000Z" })
+    expect(draws.map(draw => [draw.col, draw.results.map(result => result.test)])).toEqual([
+      [1, ["Na"]],
+      [6, ["Hb", "K"]],
+    ])
+    expect(labs.labDrawSummary(draws[1])).toBe("Hb 1 u · K 1 u")
   })
 })

@@ -172,10 +172,6 @@ export const PEDIATRIC_PREMEDICATION: Readonly<Record<string, PediatricPremedica
   "Omeprazole": { minimumAgeDays: YEAR_DAYS, routes: {
     PO: { perKg: 0.7, unit: "mg", cap: 20, roundTo: 1, basis: "TBW", hint: "0.7 mg/kg PO" },
   } },
-  "Ranitidine": { minimumAgeDays: MONTH_DAYS, routes: {
-    PO: { perKg: 2, unit: "mg", cap: 150, roundTo: 5, basis: "TBW", hint: "2 mg/kg PO" },
-    IV: { perKg: 1, unit: "mg", cap: 50, roundTo: 1, basis: "TBW", hint: "1 mg/kg IV" },
-  } },
 
   // ── Anticholinergics ───────────────────────────────────────────────────────
   "Atropine": {
@@ -209,7 +205,8 @@ export const PEDIATRIC_PREMEDICATION: Readonly<Record<string, PediatricPremedica
       // Dosed on actual body weight, in micrograms, so the number on screen is
       // the number drawn up — 4 mcg/kg of a 100 mcg/mL preparation is a volume
       // small enough that a milligram figure would round away the difference.
-      Intranasal: { perKg: 4, unit: "mcg", cap: 200, roundTo: 5, basis: "TBW", hint: "4 mcg/kg intranasal, 30–45 min before induction" },
+      // Capped at the adult intranasal maximum (100 mcg, 1.4.9).
+      Intranasal: { perKg: 4, unit: "mcg", cap: 100, roundTo: 5, basis: "TBW", hint: "4 mcg/kg intranasal, max 100 mcg, 30–45 min before induction" },
     },
   },
   "Ketamine": {

@@ -65,13 +65,13 @@ describe("intranasal dexmedetomidine", () => {
     expect(result.perKg).toBe(4)
   })
 
-  it("caps at 200 mcg for a larger child", () => {
+  it("caps at the adult 100 mcg for a larger child", () => {
     const result = resolvePediatricPremedication({
       drug: "Dexmedetomidine", route: "Intranasal", weightKg: 60, age: YEARS(15),
     })
     expect(result.status).toBe("calculated")
     if (result.status !== "calculated") return
-    expect(result.dose).toBe(200)         // 4 x 60 = 240, capped
+    expect(result.dose).toBe(100)         // 4 x 60 = 240, capped at the adult maximum
     expect(result.capped).toBe(true)
   })
 

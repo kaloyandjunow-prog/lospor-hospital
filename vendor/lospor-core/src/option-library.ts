@@ -1,3 +1,4 @@
+import type { PremedRouteDose } from "./catalog/premed-drugs"
 import type { JsonObject } from "./option-contracts"
 import {
   metadataBoolean,
@@ -423,6 +424,8 @@ export type MonitoringOption = { label: string; field: string; section: string }
 export type AirwayOption = { code: string; label: string }
 export type PremedicationDrug = {
   name: string
+  /** Per-route dose, range and step (1.4.9). Absent on a library row seeded before it. */
+  routeDoses?: Record<string, PremedRouteDose>
   dose: number
   unit: string
   min: number
@@ -477,9 +480,31 @@ export function mapPremedicationCategories(options: LibraryOption[]): Premedicat
       routes: routes.length ? routes : ["PO"],
       defaultRoute: metadataString(metadata, "defaultRoute") ?? "PO",
       hint: metadataString(metadata, "hint") ?? "",
+      ...premedRouteDoses(metadataObject(metadata, "routeDoses")),
     })
   }
   return [...byGroup.values()]
+}
+
+function premedRouteDoses(value: JsonObject | null): { routeDoses?: Record<string, PremedRouteDose> } {
+  if (!value) return {}
+  const routeDoses: Record<string, PremedRouteDose> = {}
+  for (const route of Object.keys(value)) {
+    const rule = metadataObject(value, route)
+    const min = metadataNumber(rule, "min")
+    const max = metadataNumber(rule, "max")
+    const step = metadataNumber(rule, "step")
+    if (min === undefined || max === undefined || (step !== 0.1 && step !== 1 && step !== 10 && step !== 50)) continue
+    routeDoses[route] = {
+      dose: metadataNumber(rule, "dose") ?? null,
+      unit: metadataString(rule, "unit") ?? "mg",
+      min,
+      max,
+      step,
+      ...(metadataBoolean(rule, "perKg") ? { perKg: true } : {}),
+    }
+  }
+  return Object.keys(routeDoses).length ? { routeDoses } : {}
 }
 
 export function premedicationDoseMap(options: LibraryOption[]): Record<string, Omit<PremedicationDrug, "name">> {

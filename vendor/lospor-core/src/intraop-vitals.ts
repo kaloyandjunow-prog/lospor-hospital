@@ -16,6 +16,18 @@ export type PlannedAutoFilledVitalEvent = {
 
 const COLUMN_INTERVAL_MS = INTRAOP_COLUMN_MS
 
+/**
+ * Autofill never reaches further back than this. A reopened chart offers at
+ * most the last 30 minutes, not the whole gap since it was closed.
+ */
+export const INTRAOP_AUTOFILL_MAX_BACKFILL_MS = 30 * 60_000
+export const INTRAOP_AUTOFILL_MAX_BACKFILL_COLUMNS = INTRAOP_AUTOFILL_MAX_BACKFILL_MS / COLUMN_INTERVAL_MS
+/**
+ * Autofill pauses after this long without a manual entry and asks whether the
+ * case is still running, so a forgotten chart cannot grow on its own.
+ */
+export const INTRAOP_AUTOFILL_PAUSE_MS = 60 * 60_000
+
 export function latestVitalEvent(log: LogEvent[]): LogEvent | undefined {
   return log.find(event => event.type === "vital")
 }
@@ -104,7 +116,7 @@ export function buildAutoFilledVitalEvent(
   source: LogEvent,
   includeBloodPressure: boolean,
 ): Omit<LogEvent, "id" | "ts"> | null {
-  const copied: Omit<LogEvent, "id" | "ts"> = { type: "vital" }
+  const copied: Omit<LogEvent, "id" | "ts"> = { type: "vital", autoFilled: true }
   const keys = autoFillVitalKeys(includeBloodPressure)
   for (const key of keys) {
     const value = source[key]
@@ -138,18 +150,73 @@ function latestVitalBeforeColumn(log: LogEvent[], chartStartMs: number, colStart
   return source
 }
 
+/**
+ * The newest entry a clinician made by hand: anything that is not an
+ * auto-filled vital. Null when there is none.
+ */
+export function lastManualEntryMs(log: LogEvent[]): number | null {
+  let latest: number | null = null
+  for (const event of log) {
+    if (event.autoFilled) continue
+    const ms = new Date(event.ts).getTime()
+    if (!Number.isFinite(ms)) continue
+    latest = latest === null ? ms : Math.max(latest, ms)
+  }
+  return latest
+}
+
+/**
+ * The instant autofill pauses: 60 minutes after the last manual entry, the
+ * case start, or the clinician's last "still running" answer, whichever is
+ * newest. Planned (future-dated) entries do not count as activity.
+ */
+export function autoFillPauseAtMs({
+  log,
+  chartStart,
+  now,
+  acknowledgedAt,
+}: {
+  log: LogEvent[]
+  chartStart: Date
+  now: Date | number
+  acknowledgedAt?: Date | number | null
+}): number {
+  const nowMs = typeof now === "number" ? now : now.getTime()
+  const past = log.filter(event => new Date(event.ts).getTime() <= nowMs)
+  const candidates = [chartStart.getTime(), lastManualEntryMs(past) ?? -Infinity]
+  if (acknowledgedAt != null) {
+    candidates.push(typeof acknowledgedAt === "number" ? acknowledgedAt : acknowledgedAt.getTime())
+  }
+  return Math.max(...candidates.filter(Number.isFinite)) + INTRAOP_AUTOFILL_PAUSE_MS
+}
+
+/** True when autofill has paused and the chart should ask "Is this case still running?". */
+export function isAutoFillPaused(input: Parameters<typeof autoFillPauseAtMs>[0]): boolean {
+  const nowMs = typeof input.now === "number" ? input.now : input.now.getTime()
+  return nowMs >= autoFillPauseAtMs(input)
+}
+
 export function planAutoFillVitalEvents({
   log,
   chartStart,
   fromCol,
   toCol,
   preferences,
+  now,
+  endedAt,
+  pauseAt,
 }: {
   log: LogEvent[]
   chartStart: Date
   fromCol: number
   toCol: number
   preferences: AutoFillVitalsPreferenceInput
+  /** Never fill a column that starts after now, and never more than 30 minutes back. */
+  now?: Date | number
+  /** Never fill past the case end. */
+  endedAt?: Date | string | number | null
+  /** Never fill at or after this instant (see autoFillPauseAtMs). */
+  pauseAt?: number | null
 }): PlannedAutoFilledVitalEvent[] {
   const effective = normalizeAutoFillVitalsPreferences(preferences)
   const chartStartMs = chartStart.getTime()
@@ -157,8 +224,21 @@ export function planAutoFillVitalEvents({
     return []
   }
 
-  const firstCol = Math.max(0, Math.floor(fromCol))
-  const lastCol = Math.floor(toCol)
+  let firstCol = Math.max(0, Math.floor(fromCol))
+  let lastCol = Math.floor(toCol)
+  const limitMs = Math.min(
+    now == null ? Infinity : typeof now === "number" ? now : now.getTime(),
+    endedAt == null ? Infinity : new Date(endedAt).getTime(),
+    pauseAt == null ? Infinity : pauseAt - 1,
+  )
+  if (Number.isFinite(limitMs)) {
+    if (limitMs < chartStartMs) return []
+    lastCol = Math.min(lastCol, Math.floor((limitMs - chartStartMs) / COLUMN_INTERVAL_MS))
+  }
+  if (now != null) {
+    const nowCol = Math.floor(((typeof now === "number" ? now : now.getTime()) - chartStartMs) / COLUMN_INTERVAL_MS)
+    firstCol = Math.max(firstCol, nowCol - INTRAOP_AUTOFILL_MAX_BACKFILL_COLUMNS + 1)
+  }
   if (lastCol < firstCol) return []
 
   const workingLog = [...log]

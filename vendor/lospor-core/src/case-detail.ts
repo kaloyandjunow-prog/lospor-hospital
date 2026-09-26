@@ -201,6 +201,8 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   endTime: string | null
   startedAt?: string | null
   endedAt?: string | null
+  /** Set when the case was ended automatically 48 hours after it started (1.4.9). */
+  autoEndedAt?: string | null
   timezone?: string | null
   positions: string[] | null
   techniques: string[] | null

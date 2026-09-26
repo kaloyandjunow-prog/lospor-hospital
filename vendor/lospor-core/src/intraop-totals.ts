@@ -10,6 +10,8 @@ export type TimedFluid = {
   volume: string
   category?: string
   startCol: number
+  /** Drafted for a future time: counts for nothing until its time passes. */
+  planned?: boolean
 }
 
 export type TimetableLike = {
@@ -25,6 +27,7 @@ export type FluidTotals = {
 /** The fields a delivered-volume total needs; TimetableFluid satisfies it. */
 export type DeliveredFluidLike = {
   category?: string
+  planned?: boolean
   volume?: string
   fluidEntryMode?: FluidEntryMode
   startTs?: string
@@ -59,6 +62,7 @@ export function newChartFluidsWithTimestamps<TData extends TimetableLike>(
 export function calculateFluidTotals(fluids: TimedFluid[] | undefined): FluidTotals {
   const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0 }
   for (const fluid of fluids ?? []) {
+    if (fluid.planned) continue
     const parsed = Number(fluid.volume)
     const volume = Number.isFinite(parsed) && parsed > 0
       ? Math.min(Number.MAX_SAFE_INTEGER, Math.round(parsed))
@@ -93,6 +97,7 @@ export function calculateDeliveredFluidTotals(
 ): FluidTotals {
   const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0 }
   for (const fluid of fluids ?? []) {
+    if (fluid.planned) continue
     const delivered = calculateFluidVolumeMl({
       fluidEntryMode: fluid.fluidEntryMode,
       bagVolumeMl: fluid.bagVolumeMl,
@@ -188,6 +193,8 @@ export type TimetableInfusionLike = {
   startCol: number
   endCol: number
   rateChanges?: { col: number; rate: number | string; unit: string }[]
+  /** Drafted for a future time: nothing has been given yet. */
+  planned?: boolean
 }
 
 export type InfusionTotal = {
@@ -217,7 +224,12 @@ export function calcInfusionTotal(
     return rate * weight * minutes
   }
 
-  const sorted = (infusion.rateChanges ?? []).slice().sort((a, b) => a.col - b.col)
+  // Only rate changes inside the drawn bar count: a change after the end (a
+  // drafted future change, or one past the case end) delivered nothing.
+  const sorted = (infusion.rateChanges ?? [])
+    .filter(change => change.col <= infusion.endCol)
+    .slice()
+    .sort((a, b) => a.col - b.col)
   let total = 0
   let previousColumn = infusion.startCol
   let previousRate = numericRate(infusion.rate)
@@ -231,6 +243,7 @@ export function calcInfusionTotal(
   }
 
   total += segmentTotal(previousRate, previousUnit, infusion.endCol - previousColumn + 1)
+  if (infusion.planned) total = 0
 
   const baseUnit = previousUnit
     .replace(/\/kg\/min$/, "")

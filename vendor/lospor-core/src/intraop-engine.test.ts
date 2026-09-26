@@ -87,6 +87,8 @@ describe("canonical intraoperative engine", () => {
     const timetable = projectIntraopEvents([...completeLog].reverse(), {
       start: at(0),
       openThrough: at(30),
+    // Running items end in the column of "now" (30 min = column 6), inclusive:
+    // never one column beyond it (1.4.9; it used to be 7).
     })
 
     expect(timetable.vitals[1]).toMatchObject({ systolic: 120, heartRate: 60 })
@@ -123,14 +125,18 @@ describe("canonical intraoperative engine", () => {
         clinicalPresetId: "pediatric-platform",
         clinicalPresetVersion: 1,
         clinicalPresetScope: "PLATFORM",
-        rateChanges: [{ col: 2, rate: 4, unit: "ml/hr" }],
+        // Each drawn part names the event it came from, so an editor changes
+        // that one event and nothing else.
+        startEventId: "inf-start",
+        stopEventId: "inf-stop",
+        rateChanges: [{ eventId: "inf-rate", col: 2, rate: 4, unit: "ml/hr" }],
       }),
     ])
     expect(timetable.fluids).toEqual([
       expect.objectContaining({
         id: "fluid-1",
         startCol: 1,
-        endCol: 7,
+        endCol: 6,
         stopped: false,
         clinicalRuleKey: "PEDIATRIC_FLUID_PROFILE:PLASMA_LYTE:0-6574.365",
         clinicalRuleVersion: "pediatric-fluid.v1",
@@ -146,7 +152,7 @@ describe("canonical intraoperative engine", () => {
     expect(timetable.gasSettings).toEqual([
       expect.objectContaining({
         startCol: 0,
-        endCol: 7,
+        endCol: 6,
         fio2: 50,
         fiAir: 50,
         settingsChanges: [expect.objectContaining({ col: 2, fio2: 60, fiAir: 40 })],
@@ -183,12 +189,12 @@ describe("canonical intraoperative engine", () => {
       expect.objectContaining({ colIdx: 3, label: "Incision" }),
     ])
     expect(timetable.positions).toEqual([
-      { position: "Supine", startCol: 0, endCol: 3 },
-      { position: "Trendelenburg", startCol: 3, endCol: 7 },
+      { position: "Supine", startCol: 0, endCol: 3, startEventId: "position-1" },
+      { position: "Trendelenburg", startCol: 3, endCol: 6, startEventId: "position-2" },
     ])
     expect(timetable.phases).toEqual([
-      { phase: "Induction", startCol: 0, endCol: 3 },
-      { phase: "Maintenance", startCol: 3, endCol: 7 },
+      { phase: "Induction", startCol: 0, endCol: 3, startEventId: "phase-1" },
+      { phase: "Maintenance", startCol: 3, endCol: 6, startEventId: "phase-2" },
     ])
   })
 
@@ -347,7 +353,9 @@ describe("canonical intraoperative engine", () => {
         rate: 60,
         unit: "mL/h",
         volume: "38",
-        rateChanges: [{ col: 1, ts: exact(450), rate: 120, unit: "mL/h" }],
+        startEventId: "fluid-start-rate",
+        stopEventId: "fluid-stop-rate",
+        rateChanges: [{ eventId: "fluid-change-rate", col: 1, ts: exact(450), rate: 120, unit: "mL/h" }],
       }),
     ])
     expect(runningItemsAt(timetable, 0)).toContainEqual(expect.objectContaining({

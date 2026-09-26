@@ -1,5 +1,62 @@
 # Changelog - LOSPOR Core
 
+## [9.12.1] - 2026-09-26
+
+### Fixed
+
+- **A case charted retrospectively could end itself as it was opened.** The
+  48-hour automatic end counted from the case start only, so a case entered
+  days later, with a start typed days back, ended the moment it was read. It
+  now also needs 48 hours without anything saved to the record: only an
+  abandoned case ends.
+
+## [9.12.0] - 2026-09-26
+
+### Changed
+
+- **One timeline, read the same way everywhere.** The intraoperative chart is
+  the saved event log read at "now", or at the case end once the case has
+  ended. A running item ends in the row "now" falls in, never one row beyond
+  it (which also counted five minutes too many into infusion totals). Items
+  continued postoperatively stop growing at the case end, and every total is
+  capped there, however late the chart is read.
+- **Entries are timed by the row they are made in.** In the row "now" falls in,
+  the exact minute; in any other row, the start of that row. A stop entered in
+  the 21:30 row records 21:30, not the moment the button was pressed.
+- **Several volatile agents may run at once.** Events carry an explicit
+  marker; a case saved before 9.12.0 keeps its old one-agent meaning.
+- **Premedication doses follow the route.** Every drug has its own dose,
+  range and step for each route (steps only 0.1, 1, 10 or 50; every range
+  starts at 0). Adult ketamine
+  is recorded as the calculated mg; home medicines start empty. Buprenorphine
+  SC, promethazine IV and the fentanyl and buprenorphine patches are removed;
+  ranitidine is retired everywhere.
+- **Children's intranasal dexmedetomidine is capped at 100 µg**, the new adult
+  maximum, keeping the rule that a child's cap never exceeds the adult dose.
+
+### Added
+
+- **Timeline rules shared by every app and the server** (`intraop-commands`):
+  a stop before its start, a change or stop of something not running, a stop
+  placed before a later change, and a vital in the future are refused;
+  restarting is allowed and other entries may be planned for a future time.
+  Only problems an edit introduces count, so older records stay editable.
+  Deleting a start deletes its changes and its stop.
+- **Planned entries.** An entry dated after now is drawn as a marker and
+  counts for nothing until its time comes; a planned stop marks the running
+  bar. Nothing may remain after the case end: finalisation refuses it.
+- **Chart edits as events** (`intraop-timetable-edit`): every drawn item names
+  the events it came from, and an edit of a chart becomes exactly the event
+  additions, updates and removals it means.
+- **End case and Resume support**: the running items at the end, the entries
+  after it, stops marked as made at End case, and the 48-hour automatic end
+  (at the last recorded entry, only for a case no screen has open).
+- **Autofill limits**: never the future or past the end, at most 30 minutes
+  back, auto-filled vitals marked, and a pause after 60 minutes without a
+  manual entry.
+- `projectLabDraws` places lab draws in chart rows; `isServingFallback` tells
+  a loading option library apart from one serving cached or bundled data.
+
 ## [9.11.4] - 2026-09-25
 
 ### Fixed

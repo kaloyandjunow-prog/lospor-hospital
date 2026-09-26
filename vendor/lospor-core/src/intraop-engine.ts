@@ -56,7 +56,14 @@ export function roundDownToIntraopColumn(instant: Date): Date {
 
 export type IntraopProjectionContext = {
   start: Date | string | number
+  /** "Now" for a live chart: running items end in this column. */
   openThrough?: Date | string | number
+  /**
+   * The case end, once the case has ended. It takes precedence over
+   * openThrough: items continued postoperatively end here, and every total is
+   * capped here.
+   */
+  endedAt?: Date | string | number | null
   intervalMinutes?: number
   maxColumns?: number
 }
@@ -70,6 +77,9 @@ export type ActiveAgent = {
 export type IntraopActiveState = {
   infusions: ActiveInfusion[]
   fluids: ActiveFluid[]
+  /** Every volatile agent running (several may run at once from 1.4.9). */
+  agents: NonNullable<ActiveAgent>[]
+  /** The most recently started running agent; kept for callers not yet on `agents`. */
   agent: ActiveAgent
   gas: ActiveGasSettings
 }
@@ -111,10 +121,30 @@ export function sortIntraopEvents(events: LogEvent[]): LogEvent[] {
       }
       const sequenceDifference = (a.event.sequence ?? 0) - (b.event.sequence ?? 0)
       if (sequenceDifference !== 0) return sequenceDifference
+      // Within one minute an item starts before it changes and changes before
+      // it stops: stamps share the minute, so the clock alone cannot tell.
+      const lifecycle = sameItemLifecycleDifference(a.event, b.event)
+      if (lifecycle !== 0) return lifecycle
       if (a.event.id !== b.event.id) return a.event.id < b.event.id ? -1 : 1
       return a.inputIndex - b.inputIndex
     })
     .map(({ event }) => event)
+}
+
+const LIFECYCLE_ORDER: Partial<Record<LogEvent["type"], [string, number]>> = {
+  infusion_start: ["infusion", 0], infusion_rate: ["infusion", 1], infusion_stop: ["infusion", 2],
+  agent_start: ["agent", 0], agent_stop: ["agent", 2],
+  gas_start: ["gas", 0], gas_change: ["gas", 1], gas_stop: ["gas", 2],
+}
+
+function sameItemLifecycleDifference(a: LogEvent, b: LogEvent): number {
+  const left = LIFECYCLE_ORDER[a.type]
+  const right = LIFECYCLE_ORDER[b.type]
+  if (!left || !right || left[0] !== right[0]) return 0
+  const sameItem = left[0] === "gas"
+    || (left[0] === "infusion" && a.infId != null && a.infId === b.infId)
+    || (left[0] === "agent" && (a.name == null || b.name == null || a.name === b.name))
+  return sameItem ? left[1] - right[1] : 0
 }
 
 export function intraopEventColumn(
@@ -141,40 +171,34 @@ export function projectIntraopEvents(
   const positions: PositionSegment[] = []
   const phases: PhaseSegment[] = []
 
-  const activeInfusions = new Map<string, {
-    startCol: number
-    event: LogEvent
-    initialRate: string
-    rateChanges: NonNullable<TimetableInfusion["rateChanges"]>
-  }>()
-  const activeFluids = new Map<string, {
-    startCol: number
-    startTs: string
-    event: LogEvent
-    initialRate: string
-    rateChanges: NonNullable<TimetableFluid["rateChanges"]>
-  }>()
-  let activeAgent: { name: string; color: string; startCol: number; percent?: number } | null = null
-  let activeGas: {
-    id: string
-    startCol: number
-    fgf: number
-    carrierGas: string | null
-    fio2: number
-    fiAir: number
-    fiN2O: number
-    settingsChanges: NonNullable<GasSettingsSegment["settingsChanges"]>
-  } | null = null
-  let activePosition: { position: string; startCol: number } | undefined
-  let activePhase: { phase: string; startCol: number } | undefined
+  const activeInfusions = new Map<string, ActiveInfusionEntry>()
+  const activeFluids = new Map<string, ActiveFluidEntry>()
+  // Several volatile agents may run at once (1.4.9). Keyed by agent name.
+  const activeAgents = new Map<string, ActiveAgentEntry>()
+  let activeGas: ActiveGasEntry | null = null
+  let activePosition: { position: string; startCol: number; startEventId?: string } | undefined
+  let activePhase: { phase: string; startCol: number; startEventId?: string } | undefined
   let maxEventColumn = 0
+
+  // The instant the chart is read at: the case end once the case has ended,
+  // otherwise now. Events after it are planned (future-dated drafts): a start
+  // is drawn as a marker in its own column, a stop marks the running bar
+  // instead of ending it, and neither counts in any total until reached.
+  const asOfMs = asOfInstant(context)
+  const asOfCol = asOfMs == null
+    ? null
+    : intraopEventColumn({ ts: new Date(asOfMs).toISOString() }, context)
+  const isFuture = (event: LogEvent) => asOfMs != null && timestamp(event.ts) > asOfMs
 
   const orderedEvents = sortIntraopEvents(events)
   let maxEventTimestamp = timestamp(context.start)
   for (const event of orderedEvents) {
     const col = intraopEventColumn(event, context)
-    maxEventColumn = Math.max(maxEventColumn, col)
-    maxEventTimestamp = Math.max(maxEventTimestamp, timestamp(event.ts))
+    const future = isFuture(event)
+    if (!future) {
+      maxEventColumn = Math.max(maxEventColumn, col)
+      maxEventTimestamp = Math.max(maxEventTimestamp, timestamp(event.ts))
+    }
 
     if (event.type === "vital") {
       while (vitals.length <= col) vitals.push({})
@@ -191,12 +215,15 @@ export function projectIntraopEvents(
         bis: event.bis,
         tofRatio: event.tofRatio,
         cvp: event.cvp,
+        eventId: event.id,
+        ...(event.autoFilled ? { autoFilled: true } : {}),
       }
       continue
     }
 
     if (event.type === "drug") {
       drugs.push({
+        eventId: event.id,
         colIdx: col,
         name: event.name ?? "",
         // metadataJson stores whatever the writer sent, verbatim, and every
@@ -226,24 +253,31 @@ export function projectIntraopEvents(
         clinicalPresetId: event.clinicalPresetId,
         clinicalPresetVersion: event.clinicalPresetVersion,
         clinicalPresetScope: event.clinicalPresetScope,
+        ...(future ? { planned: true } : {}),
       })
       continue
     }
 
     if (event.type === "infusion_start" && event.infId) {
-      activeInfusions.set(event.infId, {
+      const entry: ActiveInfusionEntry = {
         startCol: col,
         event,
         initialRate: event.rate ?? "0",
         rateChanges: [],
-      })
+      }
+      if (future) {
+        infusions.push({ ...infusionSegment(event.infId, entry, col, false), planned: true })
+        continue
+      }
+      activeInfusions.set(event.infId, entry)
       continue
     }
 
     if (event.type === "infusion_rate" && event.infId) {
       const active = activeInfusions.get(event.infId)
-      if (active) {
+      if (active && !future) {
         active.rateChanges.push({
+          eventId: event.id,
           col,
           rate: finiteNumber(event.rate ?? active.event.rate),
           unit: event.unit ?? active.event.unit ?? "",
@@ -263,8 +297,13 @@ export function projectIntraopEvents(
     if (event.type === "infusion_stop" && event.infId) {
       const active = activeInfusions.get(event.infId)
       if (active) {
-        infusions.push(infusionSegment(event.infId, active, col, true))
-        activeInfusions.delete(event.infId)
+        if (future) {
+          active.plannedStopCol ??= col
+          active.stopEventId ??= event.id
+        } else {
+          infusions.push({ ...infusionSegment(event.infId, active, col, true), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+          activeInfusions.delete(event.infId)
+        }
       }
       continue
     }
@@ -277,20 +316,26 @@ export function projectIntraopEvents(
       })
         ? "VOLUME"
         : normalizeFluidEntryMode(event.fluidEntryMode)
-      activeFluids.set(event.fluidId, {
+      const entry: ActiveFluidEntry = {
         startCol: col,
         startTs: event.ts,
         event: { ...event, fluidEntryMode },
         initialRate: event.rate ?? "0",
         rateChanges: [],
-      })
+      }
+      if (future) {
+        fluids.push({ ...fluidSegment(event.fluidId, entry, col, event.ts, false), planned: true, volume: "0" })
+        continue
+      }
+      activeFluids.set(event.fluidId, entry)
       continue
     }
 
     if (event.type === "fluid_rate" && event.fluidId) {
       const active = activeFluids.get(event.fluidId)
-      if (active && active.event.fluidEntryMode === "RATE") {
+      if (active && !future && active.event.fluidEntryMode === "RATE") {
         active.rateChanges.push({
+          eventId: event.id,
           col,
           ts: event.ts,
           rate: finiteNumber(event.rate),
@@ -303,40 +348,79 @@ export function projectIntraopEvents(
     if (event.type === "fluid_end" && event.fluidId) {
       const active = activeFluids.get(event.fluidId)
       if (active) {
-        fluids.push(fluidSegment(event.fluidId, active, col, event.ts, true, event))
-        activeFluids.delete(event.fluidId)
+        if (future) {
+          active.plannedStopCol ??= col
+          active.stopEventId ??= event.id
+        } else {
+          fluids.push({ ...fluidSegment(event.fluidId, active, col, event.ts, true, event), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+          activeFluids.delete(event.fluidId)
+        }
       }
       continue
     }
 
     if (event.type === "agent_start" && event.name) {
-      if (activeAgent && activeAgent.name !== event.name) {
-        agents.push({ ...activeAgent, endCol: col, stopped: true })
+      if (future) {
+        agents.push({
+          ...agentSegment({
+            name: event.name,
+            color: event.color ?? "#a855f7",
+            startEventId: event.id,
+            startCol: col,
+            percent: event.value == null ? undefined : finiteNumber(event.value),
+          }, col, false),
+          planned: true,
+        })
+        continue
       }
-      if (!activeAgent || activeAgent.name !== event.name) {
-        activeAgent = {
+      // Events saved before 1.4.9 keep their meaning: one agent at a time,
+      // and starting a different one ended the previous without a stop event.
+      if (event.agentMode !== "concurrent") {
+        for (const [name, running] of activeAgents) {
+          if (name === event.name) continue
+          agents.push(agentSegment(running, col, true))
+          activeAgents.delete(name)
+        }
+      }
+      const running = activeAgents.get(event.name)
+      if (!running) {
+        activeAgents.set(event.name, {
           name: event.name,
           color: event.color ?? "#a855f7",
+          startEventId: event.id,
           startCol: col,
           percent: event.value == null ? undefined : finiteNumber(event.value),
-        }
+        })
       } else if (event.value != null) {
-        activeAgent.percent = finiteNumber(event.value)
+        running.percent = finiteNumber(event.value)
       }
       continue
     }
 
-    if (event.type === "agent_stop" && activeAgent) {
-      agents.push({ ...activeAgent, endCol: col, stopped: true })
-      activeAgent = null
+    if (event.type === "agent_stop") {
+      // A 1.4.9 stop names its agent. An older stop may not; under the old
+      // one-agent rule there was only ever one running to stop.
+      const targets = event.name && activeAgents.has(event.name)
+        ? [event.name]
+        : event.agentMode === "concurrent" ? [] : [...activeAgents.keys()]
+      for (const name of targets) {
+        const running = activeAgents.get(name)!
+        if (future) {
+          running.plannedStopCol ??= col
+          running.stopEventId ??= event.id
+        } else {
+          agents.push({ ...agentSegment(running, col, true), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+          activeAgents.delete(name)
+        }
+      }
       continue
     }
 
     if (event.type === "gas_start") {
-      if (activeGas) gasSettings.push(gasSegment(activeGas, col, true))
       const fractions = gasFractions(event.carrierGas, event.fio2)
-      activeGas = {
+      const next: ActiveGasEntry = {
         id: `gas-${event.id}`,
+        startEventId: event.id,
         startCol: col,
         fgf: finiteNumber(event.fgf),
         carrierGas: event.carrierGas ?? null,
@@ -345,13 +429,20 @@ export function projectIntraopEvents(
         fiN2O: event.fiN2O ?? fractions.fiN2O,
         settingsChanges: [],
       }
+      if (future) {
+        gasSettings.push({ ...gasSegment(next, col, false), planned: true })
+        continue
+      }
+      if (activeGas) gasSettings.push(gasSegment(activeGas, col, true))
+      activeGas = next
       continue
     }
 
-    if (event.type === "gas_change" && activeGas) {
+    if (event.type === "gas_change" && activeGas && !future) {
       const carrierGas = event.carrierGas ?? activeGas.carrierGas
       const fractions = gasFractions(carrierGas, event.fio2 ?? activeGas.fio2)
       activeGas.settingsChanges.push({
+        eventId: event.id,
         col,
         fgf: event.fgf ?? activeGas.fgf,
         carrierGas,
@@ -363,54 +454,62 @@ export function projectIntraopEvents(
     }
 
     if (event.type === "gas_stop" && activeGas) {
-      gasSettings.push(gasSegment(activeGas, col, true))
-      activeGas = null
+      if (future) {
+        activeGas.plannedStopCol ??= col
+        activeGas.stopEventId ??= event.id
+      } else {
+        gasSettings.push({ ...gasSegment(activeGas, col, true), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+        activeGas = null
+      }
       continue
     }
 
     if (event.type === "clinical_event" && event.label) {
       clinicalEvents.push({
+        eventId: event.id,
         colIdx: col,
         label: event.label,
         color: event.color ?? "#64748b",
+        ...(future ? { planned: true } : {}),
       })
       continue
     }
 
-    if (event.type === "position_change" && event.name) {
+    if (event.type === "position_change" && event.name && !future) {
       if (!activePosition || activePosition.position !== event.name) {
         if (activePosition) positions.push({ ...activePosition, endCol: col })
-        activePosition = { position: event.name, startCol: col }
+        activePosition = { position: event.name, startCol: col, startEventId: event.id }
       }
       continue
     }
 
-    if (event.type === "phase_change" && event.name) {
+    if (event.type === "phase_change" && event.name && !future) {
       if (!activePhase || activePhase.phase !== event.name) {
         if (activePhase) phases.push({ ...activePhase, endCol: col })
-        activePhase = { phase: event.name, startCol: col }
+        activePhase = { phase: event.name, startCol: col, startEventId: event.id }
       }
     }
   }
 
-  const openThroughColumn = context.openThrough == null
-    ? maxEventColumn
-    : intraopEventColumn({ ts: new Date(timestamp(context.openThrough)).toISOString() }, context)
-  const openEnd = Math.max(maxEventColumn, openThroughColumn) + 1
-  const openThroughTs = new Date(
-    context.openThrough == null ? maxEventTimestamp : timestamp(context.openThrough),
-  ).toISOString()
+  // A running item ends in the column of "now" -- or of the case end once the
+  // case has ended -- inclusive, never one column beyond it, and never
+  // stretched by a future-dated event. Without a reading time (a caller
+  // projecting a stored record) it ends at the last event.
+  const openEnd = Math.max(asOfCol ?? maxEventColumn, 0)
+  const openThroughTs = new Date(asOfMs ?? maxEventTimestamp).toISOString()
 
   for (const [id, active] of activeInfusions) {
-    infusions.push(infusionSegment(id, active, openEnd, false))
+    infusions.push(withPlannedStop(infusionSegment(id, active, Math.max(openEnd, active.startCol), false), active.plannedStopCol, active.stopEventId))
   }
   for (const [id, active] of activeFluids) {
-    fluids.push(fluidSegment(id, active, openEnd, openThroughTs, false))
+    fluids.push(withPlannedStop(fluidSegment(id, active, Math.max(openEnd, active.startCol), openThroughTs, false), active.plannedStopCol, active.stopEventId))
   }
-  if (activeAgent) agents.push({ ...activeAgent, endCol: openEnd })
-  if (activeGas) gasSettings.push(gasSegment(activeGas, openEnd, false))
-  if (activePosition) positions.push({ ...activePosition, endCol: openEnd })
-  if (activePhase) phases.push({ ...activePhase, endCol: openEnd })
+  for (const running of activeAgents.values()) {
+    agents.push(withPlannedStop(agentSegment(running, Math.max(openEnd, running.startCol), false), running.plannedStopCol, running.stopEventId))
+  }
+  if (activeGas) gasSettings.push(withPlannedStop(gasSegment(activeGas, Math.max(openEnd, activeGas.startCol), false), activeGas.plannedStopCol, activeGas.stopEventId))
+  if (activePosition) positions.push({ ...activePosition, endCol: Math.max(openEnd, activePosition.startCol) })
+  if (activePhase) phases.push({ ...activePhase, endCol: Math.max(openEnd, activePhase.startCol) })
 
   return {
     vitals,
@@ -423,6 +522,76 @@ export function projectIntraopEvents(
     positions,
     phases,
   }
+}
+
+/** The instant a chart is read at: the case end if ended, otherwise now, otherwise none. */
+export function asOfInstant(context: Pick<IntraopProjectionContext, "endedAt" | "openThrough">): number | null {
+  if (context.endedAt != null) return timestamp(context.endedAt)
+  if (context.openThrough != null) return timestamp(context.openThrough)
+  return null
+}
+
+type ActiveInfusionEntry = {
+  startCol: number
+  event: LogEvent
+  initialRate: string
+  rateChanges: NonNullable<TimetableInfusion["rateChanges"]>
+  plannedStopCol?: number
+  stopEventId?: string
+}
+
+type ActiveFluidEntry = {
+  startCol: number
+  startTs: string
+  event: LogEvent
+  initialRate: string
+  rateChanges: NonNullable<TimetableFluid["rateChanges"]>
+  plannedStopCol?: number
+  stopEventId?: string
+}
+
+type ActiveAgentEntry = {
+  name: string
+  color: string
+  startEventId?: string
+  startCol: number
+  percent?: number
+  plannedStopCol?: number
+  stopEventId?: string
+}
+
+type ActiveGasEntry = {
+  id: string
+  startCol: number
+  fgf: number
+  carrierGas: string | null
+  fio2: number
+  fiAir: number
+  fiN2O: number
+  settingsChanges: NonNullable<GasSettingsSegment["settingsChanges"]>
+  plannedStopCol?: number
+  startEventId?: string
+  stopEventId?: string
+}
+
+function agentSegment(running: ActiveAgentEntry, endCol: number, stopped: boolean): AgentSegment {
+  return {
+    name: running.name,
+    color: running.color,
+    ...(running.startEventId ? { startEventId: running.startEventId } : {}),
+    startCol: running.startCol,
+    endCol,
+    ...(running.percent !== undefined ? { percent: running.percent } : {}),
+    ...(stopped ? { stopped: true } : {}),
+  }
+}
+
+function withPlannedStop<T extends { plannedStopCol?: number; stopEventId?: string }>(
+  segment: T,
+  plannedStopCol: number | undefined,
+  stopEventId?: string,
+): T {
+  return plannedStopCol == null ? segment : { ...segment, plannedStopCol, ...(stopEventId ? { stopEventId } : {}) }
 }
 
 function infusionSegment(
@@ -438,6 +607,7 @@ function infusionSegment(
 ): TimetableInfusion {
   return {
     id,
+    startEventId: active.event.id,
     name: active.event.name ?? "",
     rate: finiteNumber(active.initialRate),
     unit: active.event.unit ?? "",
@@ -497,6 +667,7 @@ function fluidSegment(
   })
   return {
     id,
+    startEventId: active.event.id,
     name: active.event.name ?? "",
     category: active.event.category ?? "",
     volume: String(volumeMl),
@@ -529,6 +700,7 @@ function fluidSegment(
 function gasSegment(
   active: {
     id: string
+    startEventId?: string
     startCol: number
     fgf: number
     carrierGas: string | null
@@ -542,6 +714,7 @@ function gasSegment(
 ): GasSettingsSegment {
   return {
     id: active.id,
+    ...(active.startEventId ? { startEventId: active.startEventId } : {}),
     startCol: active.startCol,
     endCol,
     stopped,
@@ -758,13 +931,23 @@ export function reverseProjectIntraop(
   return sortIntraopEvents(events)
 }
 
-export function rebuildIntraopActiveState(events: LogEvent[]): IntraopActiveState {
+/**
+ * What is running at an instant. With `asOf`, events after it (planned,
+ * future-dated) are not applied: a planned start is not running yet and a
+ * planned stop has not stopped anything yet.
+ */
+export function rebuildIntraopActiveState(
+  events: LogEvent[],
+  asOf?: Date | string | number | null,
+): IntraopActiveState {
   const infusions = new Map<string, ActiveInfusion>()
   const fluids = new Map<string, ActiveFluid>()
-  let agent: ActiveAgent = null
+  const agents = new Map<string, NonNullable<ActiveAgent>>()
   let gas: ActiveGasSettings = null
+  const asOfMs = asOf == null ? null : timestamp(asOf)
 
   for (const event of sortIntraopEvents(events)) {
+    if (asOfMs != null && timestamp(event.ts) > asOfMs) continue
     if (event.type === "infusion_start" && event.infId) {
       infusions.set(event.infId, {
         infId: event.infId,
@@ -853,13 +1036,21 @@ export function rebuildIntraopActiveState(events: LogEvent[]): IntraopActiveStat
     } else if (event.type === "fluid_end" && event.fluidId) {
       fluids.delete(event.fluidId)
     } else if (event.type === "agent_start" && event.name) {
-      agent = {
-        name: event.name,
-        color: event.color ?? "#a855f7",
-        percent: event.value == null ? undefined : finiteNumber(event.value),
+      // Events saved before 1.4.9: one agent at a time (see projectIntraopEvents).
+      if (event.agentMode !== "concurrent") {
+        for (const name of [...agents.keys()]) if (name !== event.name) agents.delete(name)
       }
+      const running = agents.get(event.name)
+      const percent = event.value == null ? running?.percent : finiteNumber(event.value)
+      agents.delete(event.name)
+      agents.set(event.name, {
+        name: event.name,
+        color: event.color ?? running?.color ?? "#a855f7",
+        ...(percent !== undefined ? { percent } : {}),
+      })
     } else if (event.type === "agent_stop") {
-      agent = null
+      if (event.name && agents.has(event.name)) agents.delete(event.name)
+      else if (event.agentMode !== "concurrent") agents.clear()
     } else if (event.type === "gas_start" || event.type === "gas_change") {
       const fractions = gasFractions(event.carrierGas, event.fio2)
       gas = {
@@ -874,10 +1065,12 @@ export function rebuildIntraopActiveState(events: LogEvent[]): IntraopActiveStat
     }
   }
 
+  const runningAgents = [...agents.values()]
   return {
     infusions: [...infusions.values()],
     fluids: [...fluids.values()],
-    agent,
+    agents: runningAgents,
+    agent: runningAgents[runningAgents.length - 1] ?? null,
     gas,
   }
 }
