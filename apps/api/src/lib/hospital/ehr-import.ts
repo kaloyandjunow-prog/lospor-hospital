@@ -475,12 +475,12 @@ export async function ehrReviewPlanFor(
   const grouped = new Map<string, unknown[]>()
   const scalars = new Map<string, unknown>()
   for (const row of record.fields as Record<string, unknown>[]) {
-    // An accepted item is done (1.4.11). The import stays pending while any
-    // item is undecided, and the case may not hold the accepted values yet --
-    // a phone saves them a moment after accepting -- so without this the same
-    // items came straight back as a second offer, and accepting that one
-    // added every list item twice.
-    if (String(row.status) === "ACCEPTED") continue
+    // Accepted items stay in the plan (1.4.12). An import belongs to the
+    // patient, not to one case, so leaving them out (as 1.4.11 did) hid them
+    // from every later case of the same patient -- a return to theatre would
+    // not have been offered the allergies. A case that already holds a value
+    // gets it back as `unchanged`; the double offer on the case that accepted
+    // it is stopped by the web and PWA offers themselves.
     const fieldKey = String(row.fieldKey)
     const value = row.proposedValue
     if (String(row.itemKey) === fieldKey) {
