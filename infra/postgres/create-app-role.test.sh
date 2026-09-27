@@ -20,6 +20,16 @@ pass() { printf 'PASS  %s\n' "$1"; }
 fail() { failures=$((failures + 1)); printf 'FAIL  %s\n' "$1" >&2; }
 
 bin="${PG_BIN:-}"
+# The appliance's own PostgreSQL where Docker can run it: the base image the
+# release builds on, read from its Dockerfile so the two never drift apart.
+if [ -z "$bin" ] && [ -z "${LOSPOR_ROLE_TEST_IN_IMAGE:-}" ] && command -v docker >/dev/null 2>&1 \
+  && docker info >/dev/null 2>&1; then
+  image="$(sed -n 's/^ARG POSTGRES_BASE_IMAGE=//p' "$root/infra/docker/postgres.Dockerfile" | head -n 1)"
+  [ -n "$image" ] || { echo "FAIL  no POSTGRES_BASE_IMAGE in infra/docker/postgres.Dockerfile" >&2; exit 1; }
+  exec docker run --rm -u postgres -e LOSPOR_ROLE_TEST_IN_IMAGE="$image" -v "$root":/w:ro -w /w "$image" \
+    sh infra/postgres/create-app-role.test.sh
+fi
+[ -z "${LOSPOR_ROLE_TEST_IN_IMAGE:-}" ] || echo "Running in $LOSPOR_ROLE_TEST_IN_IMAGE"
 if [ -z "$bin" ] && command -v initdb >/dev/null 2>&1; then bin="$(dirname "$(command -v initdb)")"; fi
 if [ -z "$bin" ]; then
   for candidate in /usr/lib/postgresql/*/bin; do [ -x "$candidate/initdb" ] && bin="$candidate"; done

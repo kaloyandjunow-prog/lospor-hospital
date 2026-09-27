@@ -42,6 +42,8 @@ STUB
 }
 
 # Runs one pass; the loop's stderr is kept for the checks.
+# (dash adds its own "Terminated" when the stub sleep ends the loop; that line
+# is the harness, not the worker, and the quiet checks leave it out.)
 run_loop() {
   (
     PATH="$work/bin:$PATH" \
@@ -83,7 +85,7 @@ make_work 200 204
 run_loop
 if [ "$(cut -d' ' -f1 "$calls" | tr '\n' ' ')" = "delivery scan " ] \
   && ! grep -v "Bearer worker-token" "$calls" | grep -q . \
-  && [ ! -s "$work/stderr" ]; then
+  && ! grep -v "^Terminated$" "$work/stderr" | grep -q .; then
   pass "both routes are called with the worker token, quietly on success"
 else
   fail "the pass did not call both routes with the worker token"

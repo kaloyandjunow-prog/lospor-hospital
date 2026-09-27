@@ -126,6 +126,7 @@ function withFakeSsh(root) {
   writeFileSync(join(bin, "ssh"), `#!/bin/sh
 last=""; for a in "$@"; do last="$a"; done
 printf '%s\\n' "$last" >> "${log}"
+[ -n "\${FAKE_SSH_DOWN:-}" ] && exit 255
 case "$last" in "echo ok") echo ok ;; *"command -v"*) : ;; "tar -xzf"*) cat > /dev/null ;; esac
 exit 0
 `)
@@ -154,4 +155,15 @@ test("a mirror path outside the home directory is never recreated", { skip: !pos
   assert.equal(code, 1)
   assert.match(out, /refusing to recreate mirror path outside ~\//)
   assert.doesNotMatch(calls, /rm -rf/)
+})
+
+test("an unreachable host is named, and nothing is attempted on it", { skip: !posix && "needs a POSIX shell for the ssh stand-in" }, () => {
+  const root = tree()
+  const { env, log } = withFakeSsh(root)
+  const { code, out } = mirror(root, [], { ...env, FAKE_SSH_DOWN: "1" })
+  const calls = readFileSync(log, "utf8")
+  rmSync(root, { recursive: true, force: true })
+  assert.equal(code, 0, out)
+  assert.match(out, /test:shell\s+not mirrored: cannot reach ci@mirror\.invalid over SSH/)
+  assert.doesNotMatch(calls, /rm -rf|npm run/)
 })
