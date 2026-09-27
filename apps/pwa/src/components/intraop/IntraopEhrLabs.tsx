@@ -4,6 +4,7 @@ import { Text, View } from "react-native"
 import { lookupIntraopEhrLabs, recordEhrDecisions, type EhrImportOffer as Offer } from "@/lib/ehr-import"
 import { useDeploymentCapabilities } from "@/lib/deployment-capabilities"
 import type { LabResult } from "@/lib/labs"
+import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { usePreferences } from "@/lib/preferences-context"
 import { STRINGS } from "@/i18n/strings"
 import { colors, withAlpha } from "@/theme/colors"
@@ -64,7 +65,7 @@ export function IntraopEhrLabs({ caseId, value, onChange }: {
         identityUnverified={offer.identityUnverified}
         unreadSources={offer.unreadSources}
         current={{ labResults: value }}
-        labelFor={field => field}
+        labelFor={field => ehrFieldLabel(field, language)}
         onClose={() => setState({ kind: "idle" })}
         onDecline={itemKey => { void recordEhrDecisions(caseId, offer.importId, [], [itemKey]) }}
         onAccept={async (patch, appliedKeys) => {

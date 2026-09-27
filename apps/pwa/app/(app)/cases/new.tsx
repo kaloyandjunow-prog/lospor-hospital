@@ -45,6 +45,7 @@ import { patientReferenceFromResponse, type PatientReference } from "@/lib/patie
 import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { recordEhrDecisions } from "@/lib/ehr-import"
+import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
@@ -1124,7 +1125,7 @@ export default function NewCaseScreen() {
                 language={language}
                 current={getValues() as unknown as Record<string, unknown>}
                 currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}
-                labelFor={field => tc(field as never) ?? field}
+                labelFor={field => ehrFieldLabel(field, language)}
                 onApply={async patch => {
                   // Applied as an ordinary edit by this clinician: same form,
                   // same validation, same audit. That is what keeps an import

@@ -1,11 +1,12 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 import { lookupIntraopEhrLabs, recordEhrDecisions, type EhrImportOffer as Offer } from "@/lib/ehr-import"
 import { useEhrImportCapability } from "@/lib/deployment-capabilities"
 import { EhrImportReview } from "@/components/EhrImportReview"
+import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 
 type State =
   | { kind: "idle" }
@@ -30,6 +31,7 @@ export function IntraopEhrLabs<Row>({ caseId, value, onChange }: {
   onChange: (next: Row[]) => void
 }) {
   const t = useTranslations("ehr")
+  const locale = useLocale()
   const capability = useEhrImportCapability()
   const [state, setState] = useState<State>({ kind: "idle" })
   // An import accepted here is not reopened by a second press before the
@@ -73,7 +75,7 @@ export function IntraopEhrLabs<Row>({ caseId, value, onChange }: {
           identityUnverified={state.offer.identityUnverified}
           unreadSources={state.offer.unreadSources}
           current={{ labResults: value }}
-          labelFor={field => field}
+          labelFor={field => ehrFieldLabel(field, locale)}
           onClose={() => setState({ kind: "idle" })}
           onDecline={itemKey => { void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey]) }}
           onAccept={async (patch, appliedKeys) => {

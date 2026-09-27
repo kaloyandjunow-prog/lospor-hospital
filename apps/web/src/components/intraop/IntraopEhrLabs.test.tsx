@@ -8,7 +8,7 @@ const { lookupMock, recordMock, capability } = vi.hoisted(() => ({
   capability: { enabled: true },
 }))
 
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }))
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => "en" }))
 vi.mock("@/lib/deployment-capabilities", () => ({ useEhrImportCapability: () => capability }))
 vi.mock("@/lib/ehr-import", () => ({
   lookupIntraopEhrLabs: (...args: unknown[]) => lookupMock(...args),
