@@ -37,6 +37,8 @@ const COPY = {
     flatAmount: "Flat amount",
     calculationAmount: "Calculation amount",
     weightBasis: "Weight basis",
+    // Doses and infusions record the basis they were given on (9.12.3).
+    basisAppliesFromNow: "Applies to doses and infusions given from now on; earlier ones keep the basis they were given with.",
     autofillRoundTo: "Autofill round to",
     autofillCap: "Autofill cap",
     capAtActualWeight: "Apply cap at actual weight",
@@ -89,6 +91,7 @@ const COPY = {
     flatAmount: "Фиксирана доза",
     calculationAmount: "Стойност за изчисление",
     weightBasis: "Основа за теглото",
+    basisAppliesFromNow: "Важи за дози и инфузии, започнати отсега нататък; по-ранните запазват основата, с която са дадени.",
     autofillRoundTo: "Закръгляне на автоматичната доза",
     autofillCap: "Горна граница на автоматичната доза",
     capAtActualWeight: "Прилагай границата спрямо действителното тегло",

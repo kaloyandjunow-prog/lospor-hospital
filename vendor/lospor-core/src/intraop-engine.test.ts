@@ -129,7 +129,10 @@ describe("canonical intraoperative engine", () => {
         // that one event and nothing else.
         startEventId: "inf-start",
         stopEventId: "inf-stop",
-        rateChanges: [{ eventId: "inf-rate", col: 2, rate: 4, unit: "ml/hr" }],
+        // The real instants travel with the bar, so totals use the time run.
+        startTs: at(0),
+        endTs: at(20),
+        rateChanges: [{ eventId: "inf-rate", col: 2, ts: at(10), rate: 4, unit: "ml/hr" }],
       }),
     ])
     expect(timetable.fluids).toEqual([

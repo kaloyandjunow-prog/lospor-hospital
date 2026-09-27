@@ -32,7 +32,7 @@ import { useTimetableDrag } from "@/components/intraop/use-timetable-drag"
 import { DosingFlyout } from "@/components/intraop/DosingFlyout"
 import { createDoseSurfaces } from "@/components/intraop/dose-surfaces"
 import {
-  DEFAULT_INF,
+  DEFAULT_INF, infusionCalculationBasis,
   buildDrugFlyoutState,
   buildFluidFlyoutState,
 } from "@/components/intraop/flyout-state"
@@ -50,13 +50,12 @@ import {
 import { addMinutes, floorTo5, timeToMins, toHHMM, calcDuration } from "@/lib/timetable-time"
 import { FLUID_CAT_COLOR, computeFluidRows, fluidCategory, fluidColor } from "@/lib/timetable-fluid-rows"
 import { groupLabsByDraw, type LabResult } from "@lospor/core/labs"
-import { gridOriginMs } from "@/lib/intraop-clock"
+import { gridOriginMs, serverNow } from "@/lib/intraop-clock"
 import { TimetableLabsLane } from "@/components/intraop/TimetableLabsLane"
 import type {
   AgentSegment, GasSettingsSegment, TimetableData, TimetableFluid,
 } from "@/types/timetable"
 import { toast } from "sonner"
-import { afterEndItems, resolveAfterEnd } from "@/components/intraop/end-case-after-end"
 import { EndCaseModal } from "@/components/intraop/EndCaseModal"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import {
@@ -143,6 +142,7 @@ interface Props {
   onResumeCase?: () => void
   /** The saved end instant: a reopened ended case can still be resumed (9.12.1). */
   endedAt?: string | null
+  attention?: import("@/lib/use-intraop-attention").WebIntraopAttention // Core intraop-attention (9.13.0)
   /** Ended automatically after 48 hours: Resume is offered with no time limit. */
   autoEnded?: boolean
   onPostopContinued?: (items: string[]) => void
@@ -213,7 +213,7 @@ export function IntraopTimetable({
   onChange,
   onEndCase,
   onResumeCase,
-  endedAt,
+  endedAt, attention,
   autoEnded = false,
   onPostopContinued,
   onInfusionTotals,
@@ -417,7 +417,7 @@ export function IntraopTimetable({
   const [colW, setColW] = useState(COL_W)
   const rowsContainerRef = useRef<HTMLDivElement>(null)
   const prevColRef                    = useRef<number | null>(null)
-  const { resumeSecsLeft, resumeUntilLabel, startWindow, clearWindow } = useIntraopResumeWindow(endedAt)
+  const { resumeSecsLeft, resumeUntilLabel, startWindow, clearWindow } = useIntraopResumeWindow(endedAt, attention?.timeZone)
   // In-cell drug picker
   const [drugPicker, setDrugPicker]   = useState<{ ci: number; rect: DOMRect } | null>(null)
   // Shortlist the clinician chose in settings — the same server-side list the
@@ -632,7 +632,7 @@ export function IntraopTimetable({
     setFp(null)
   }
   function fluidActionTimestamp(col: number): string {
-    const currentTimestamp = new Date().toISOString()
+    const currentTimestamp = serverNow().toISOString()
     return nowCol != null && col === nowCol
       ? currentTimestamp
       : tsForCol(col) ?? currentTimestamp
@@ -717,7 +717,7 @@ export function IntraopTimetable({
     const id   = `${fp.name}-${fp.col}-${uid()}`
     const lib = infusionLibOpts.find(o => o.label === fp.name)
     const ruleAudit = {
-      ...clinicalProvenance(fp),
+      ...clinicalProvenance(fp), calculationBasis: infusionCalculationBasis(fp.name, INFUSION_WEIGHT_BASIS),
     }
     onChange({ ...data, infusions: [...(data.infusions??[]), { id, name:displayName, rate:fp.rate, unit:fp.rateUnit, startCol:fp.col, endCol:fp.col, color:cfg.color, concentration: fp.concentration, formulation: fp.formulation, route: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, ...ruleAudit }] })
     setFp(null)
@@ -934,7 +934,7 @@ export function IntraopTimetable({
     if (!caseStarted) return          // case not started — don't run clock
     function tick() {
       if (endTimeRef.current) return  // case ended — stop the clock
-      const now = new Date()
+      const now = serverNow()
       // Measured from the grid origin (column 0's own start), so the marker lands
       // on the wall clock instead of sitting up to 4:59 to the left of it.
       // Where the marker goes and how wide the table needs to be is arithmetic,
@@ -1006,9 +1006,8 @@ export function IntraopTimetable({
              defaultVal: cvpToDisplay(8, "cmH2O") }
   })
 
-  function gasSegmentAt(ci: number): GasSettingsSegment | null {
-    return (data.gasSettings ?? []).find(g => ci >= g.startCol && ci <= g.endCol) ?? null
-  }
+  const gasSegmentAt = (ci: number): GasSettingsSegment | null => (data.gasSettings ?? []).find(g => ci >= g.startCol && ci <= g.endCol) ?? null
+  const plannedGasChangeAt = (ci: number) => (data.gasSettings ?? []).flatMap(g => g.settingsChanges ?? []).find(c => c.planned && c.col === ci) ?? null
 
   // ── Clinical Events ───────────────────────────────────────────────────────────
   const { addClinicalEvent, removeClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, onComplicationAdded)
@@ -1056,7 +1055,7 @@ export function IntraopTimetable({
     const d = dataRef.current
     const fluid = (d.fluids ?? []).find(item => item.id === id)
     if (!fluid || fluid.fluidEntryMode !== "RATE") return
-    const ts = new Date().toISOString()
+    const ts = serverNow().toISOString()
     const col = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
     onChangeRef.current({
       ...d,
@@ -1152,7 +1151,7 @@ export function IntraopTimetable({
     const d = dataRef.current
     const fluid = (d.fluids ?? []).find(item => item.id === id)
     if (!fluid) return
-    const endTs = new Date().toISOString()
+    const endTs = serverNow().toISOString()
     const endCol = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
     onChangeRef.current({
       ...d,
@@ -1252,7 +1251,7 @@ export function IntraopTimetable({
           : g
       ),
     })
-    startWindow(new Date())
+    startWindow(serverNow())
     onEndCase?.()
     if (result.continuedItems.length > 0) onPostopContinued?.(result.continuedItems)
     if (result.infusionTotals.length > 0) onInfusionTotals?.(result.infusionTotals)
@@ -1489,6 +1488,7 @@ export function IntraopTimetable({
               setDiscConfirmId={setDiscConfirmId}
               locale={locale}
               gasSegmentAt={gasSegmentAt}
+              plannedGasChangeAt={plannedGasChangeAt}
               openPickerForSeg={openGasPickerForSeg}
               openPickerEmpty={openGasPickerEmpty}
               stopGas={stopGas}
@@ -2082,9 +2082,9 @@ export function IntraopTimetable({
         infusions={(data.infusions ?? []).filter(i => !i.stopped && !i.planned)}
         fluids={(data.fluids ?? []).filter(f => !f.stopped && !f.planned)}
         gasSettings={gasSettings.filter(g => !g.stopped && !g.planned)}
-        weightBasis={INFUSION_WEIGHT_BASIS}
-        afterEnd={afterEndItems(data).map(item => ({ ...item, time: times[item.col] ?? "" }))}
-        onResolveAfterEnd={(key, resolution) => onChangeRef.current(resolveAfterEnd(dataRef.current, key, resolution, nowCol ?? 0))}
+        weightBasis={INFUSION_WEIGHT_BASIS} ibw={ibw} tbw={tbw}
+        afterEnd={attention?.endCaseEntries ?? []}
+        onResolveAfterEnd={(key, action) => attention?.answer(key, action, true)}
         onDismiss={() => setShowEndModal(false)}
         onConfirm={handleEndCaseConfirm}
       />

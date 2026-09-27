@@ -1,4 +1,5 @@
 import type { TimetableData } from "@/components/IntraopTimetable"
+import { serverNow } from "@/lib/server-clock"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import {
   INTRAOP_COLUMN_MS,
@@ -46,7 +47,7 @@ export function computeVerticalTimetableWindow(
   log: LogEvent[],
   timetable: TimetableData,
   chartStart: Date,
-  now = new Date(),
+  now = serverNow(),
 ): {
   currentCol: number
   nowSlotPercent: number
@@ -98,7 +99,7 @@ export function computeVerticalTimetableWindow(
 
 export function loadedTimetableStateFromLog(
   log: LogEvent[],
-  now = new Date(),
+  now = serverNow(),
   trustedStart: Date | null = null,
   endedAt: Date | null = null,
 ): {

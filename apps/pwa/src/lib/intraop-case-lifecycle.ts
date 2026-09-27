@@ -1,5 +1,6 @@
 import { formatHHMM } from "./intraop-format"
 import { INTRAOP_RESUME_WINDOW_SECONDS } from "@lospor/core/intraop-engine"
+import { intraopResumeWindow } from "@lospor/core/intraop-commands"
 
 export const CASE_RESUME_WINDOW_SECONDS = INTRAOP_RESUME_WINDOW_SECONDS
 
@@ -23,16 +24,16 @@ export function buildFinaliseCaseState(
 /**
  * A case reopened after it ended (9.12.1). Resume stays open for what is left
  * of the window after the saved end; a case ended automatically after 48 hours
- * can always be resumed, since nobody chose to end it.
+ * can always be resumed, since nobody chose to end it. The rule is Core's, the
+ * same as the web's; `nowMs` is the server-corrected clock (9.13.0).
  */
 export function buildReopenedEndedState(
   endedAt: Date,
   autoEnded: boolean,
-  nowMs = Date.now(),
+  nowMs: number,
 ): { resumeSecsLeft: number; resumeUnlimited: boolean } {
-  if (autoEnded) return { resumeSecsLeft: 0, resumeUnlimited: true }
-  const elapsed = Math.floor((nowMs - endedAt.getTime()) / 1000)
-  return { resumeSecsLeft: Math.max(0, CASE_RESUME_WINDOW_SECONDS - elapsed), resumeUnlimited: false }
+  const window = intraopResumeWindow(endedAt, nowMs, { autoEnded })
+  return { resumeSecsLeft: window.secondsLeft, resumeUnlimited: window.unlimited }
 }
 
 export function buildResumeCaseState(): {

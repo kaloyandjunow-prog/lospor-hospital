@@ -1,6 +1,7 @@
 import { atRow, type SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
+import { DEFAULT_INFUSION_WEIGHT_BASIS, infusionCalculationBasis, type WeightBasisMap } from "@lospor/core/intraop-totals"
 import { uid } from "@/lib/intraop-log-event"
 import type { DrugFormulation, ActiveInfusion } from "@/lib/intraop-log-event"
 
@@ -24,6 +25,9 @@ export function useInfusionEntry(
   setActiveInfusions: (updater: (prev: ActiveInfusion[]) => ActiveInfusion[]) => void,
   // Coded identity by drug name — empty today, see use-drug-entry.ts.
   infusionCodes: Record<string, CodedIdentity> = {},
+  // The institution's weight basis per drug; recorded on the start event so
+  // a later library edit cannot change what this infusion was given on.
+  weightBasis: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
 ) {
   const [infOpen, setInfOpen] = useState(false)
   const [infDrug, setInfDrug] = useState<InfusionOption | null>(null)
@@ -70,6 +74,7 @@ export function useInfusionEntry(
       clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
       clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
       clinicalPresetScope: inf.clinicalPresetScope,
+      calculationBasis: infusionCalculationBasis(inf.name, weightBasis),
     })
   }
 

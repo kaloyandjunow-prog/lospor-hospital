@@ -15,10 +15,13 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
 // the sheet that needs real geometry. `naturalMaxCols` is mocked per-test so a
 // case can be made long enough to spill onto a continuation sheet.
 const naturalMaxCols = vi.fn(() => 12)
+vi.mock("@/components/case-summary/print-infusion-totals", () => ({
+  calcInfTotals: () => [],
+  useInfusionWeightBasis: () => ({}),
+}))
 vi.mock("@/components/case-summary/PrintTimetable", () => ({
   PrintTimetable: () => <div data-testid="print-timetable" />,
   calcDrugTotals: () => [],
-  calcInfTotals: () => [],
   buildDrugLog: () => [],
   naturalMaxCols: (...args: unknown[]) => naturalMaxCols(...(args as [])),
 }))

@@ -1,5 +1,5 @@
 import { isPediatricAge, type PediatricAgeUnit } from "./pediatric"
-import { intraopEventsAfter } from "./intraop-commands"
+import { intraopEventsAfter, intraopUnconfirmedStops } from "./intraop-commands"
 import { parseLogEvents } from "./intraop-types"
 
 export type ClinicalSection = "preop" | "intraop" | "postop"
@@ -27,6 +27,7 @@ export type ClinicalIssueCode =
   | "missing_start_time"
   | "missing_end_time"
   | "entries_after_case_end"
+  | "unconfirmed_stops"
   | "missing_technique"
   | "missing_airway_documentation"
   | "missing_position"
@@ -408,16 +409,26 @@ export function evaluatePreopReadiness(preop: Record<string, unknown> | null | u
   return { valid: issues.length === 0, issues }
 }
 
-function hasEntriesAfterEnd(intraop: Record<string, unknown>): boolean {
+function endedLog(intraop: Record<string, unknown>): { endedAt: string | Date; log: ReturnType<typeof parseLogEvents> } | null {
   const endedAt = intraop.endedAt
-  if (!(typeof endedAt === "string" || endedAt instanceof Date)) return false
+  if (!(typeof endedAt === "string" || endedAt instanceof Date)) return null
   const keyEvents = intraop.keyEvents
   const raw = Array.isArray(keyEvents)
     ? keyEvents
     : keyEvents && typeof keyEvents === "object" && Array.isArray((keyEvents as { log?: unknown }).log)
       ? (keyEvents as { log: unknown[] }).log
       : []
-  return intraopEventsAfter(parseLogEvents(raw), endedAt).length > 0
+  return { endedAt, log: parseLogEvents(raw) }
+}
+
+function hasEntriesAfterEnd(intraop: Record<string, unknown>): boolean {
+  const ended = endedLog(intraop)
+  return ended != null && intraopEventsAfter(ended.log, ended.endedAt).length > 0
+}
+
+function hasUnconfirmedStops(intraop: Record<string, unknown>): boolean {
+  const ended = endedLog(intraop)
+  return ended != null && intraopUnconfirmedStops(ended.log, ended.endedAt).length > 0
 }
 
 export function evaluateIntraopReadiness(
@@ -592,6 +603,10 @@ export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalVal
   // the case end is resolved at End case (happened or not) before finalising.
   if (input.intraop && hasEntriesAfterEnd(input.intraop)) {
     issues.push(issue("entries_after_case_end", "intraop.keyEvents"))
+  }
+  // A stop entered ahead of its time is confirmed or withdrawn first (9.13.0).
+  if (input.intraop && hasUnconfirmedStops(input.intraop)) {
+    issues.push(issue("unconfirmed_stops", "intraop.keyEvents"))
   }
   issues.push(...evaluatePostopReadiness(input.postop).issues)
   return { valid: issues.every(candidate => candidate.severity !== "error"), issues }

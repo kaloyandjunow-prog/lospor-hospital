@@ -1,8 +1,10 @@
 import { useMemo } from "react"
+import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
 import { calcCaseIBW } from "@/lib/case-detail-summary"
 
 /**
- * The two weights a per-kg infusion total can be expressed against.
+ * The two weights a per-kg infusion total can be expressed against, and the
+ * body surface area a per-m² one is (Mosteller, from the same height and weight).
  *
  * Derived here rather than in the intraop screen so the timetable and the case
  * summary cannot report different totals for one case — they now read the same
@@ -16,7 +18,7 @@ export function useCaseWeights(input: {
   weightKg: number | null | undefined
   ageValue: number | null | undefined
   ageUnit: string | null | undefined
-}): { caseIbw: number | null; caseTbw: number | null } {
+}): { caseIbw: number | null; caseTbw: number | null; caseBsa: number | null } {
   const { clinicalMode, sex, heightCm, weightKg, ageValue, ageUnit } = input
   const caseIbw = useMemo(
     () => calcCaseIBW({
@@ -28,5 +30,10 @@ export function useCaseWeights(input: {
     } as Parameters<typeof calcCaseIBW>[0]),
     [clinicalMode, sex, heightCm, ageValue, ageUnit],
   )
-  return { caseIbw, caseTbw: weightKg ?? null }
+  const caseBsa = useMemo(() => {
+    if (!heightCm || !weightKg) return null
+    const bsa = calculateMostellerBsa({ heightCm, weightKg })
+    return bsa.available ? bsa.value.squareMetres : null
+  }, [heightCm, weightKg])
+  return { caseIbw, caseTbw: weightKg ?? null, caseBsa }
 }

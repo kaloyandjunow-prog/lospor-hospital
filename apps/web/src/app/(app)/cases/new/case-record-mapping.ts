@@ -12,6 +12,8 @@ import type { PreopSummary } from "@/components/forms/preop-summary"
 import type { CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop } from "@/types/case-detail"
 import { calcBMI } from "@/lib/scores"
 import { localTimeOf } from "@/lib/intraop-time"
+import { observedFetch } from "@/lib/intraop-clock"
+import type { CaseDetail } from "@/types/case-detail"
 import { plannedProcedureText } from "@lospor/core/procedure-codes"
 
 type FormPreopAnswerState = "YES" | "NO" | "UNKNOWN" | "NOT_APPLICABLE"
@@ -46,6 +48,20 @@ function isoToHHMM(iso: unknown): string | undefined {
 // DB-only columns stay stripped: id, caseId, bmi, gutaScore, povocScore,
 // coldsScore, ageApproxDays, createdAt, updatedAt, syncRevision — all of them
 // computed or metadata, none of them typed by the clinician.
+/**
+ * The case as saved, for the case page. Observed, so opening a case sets the
+ * chart's "now" from the server's clock at once rather than after the first
+ * save (9.13.0). A refusal is thrown with its status.
+ */
+export async function fetchCaseRecord(id: string): Promise<CaseDetail> {
+  const response = await observedFetch(`/api/cases/${id}`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw Object.assign(new Error(body.error ?? `Request failed (${response.status})`), { status: response.status })
+  }
+  return response.json() as Promise<CaseDetail>
+}
+
 export function dbPreopToForm(
   p: CaseDetailPreop,
   caseClinicalMode: PreopData["clinicalMode"] = "ADULT",

@@ -133,8 +133,9 @@ describe("end case", () => {
     const chart = projectIntraopEvents(events.slice(0, 2), { start, endedAt, openThrough: at(600) })
     const infusion = chart.infusions[0]
     expect(infusion.endCol).toBe(12)
-    // 13 columns of 12 mg/hr, identical however late the chart is read.
-    expect(calcInfusionTotal(infusion).amount).toBe(13)
+    // One hour at 12 mg/hr, identical however late the chart is read. Whole
+    // columns counted this as 13 columns, 65 minutes, before 9.12.3.
+    expect(calcInfusionTotal(infusion).amount).toBe(12)
   })
 
   it("stopped at the end: marked stops that Resume can remove", () => {

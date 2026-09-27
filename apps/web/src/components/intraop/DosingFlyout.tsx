@@ -48,7 +48,7 @@ export type DosingFlyoutProps = {
   /** Local-anaesthetic strengths offered per drug. */
   laConcentrations: Record<string, string[]>
   /** Whether an infusion's rate is per-kilogram, and on which weight. */
-  infusionWeightBasis: Record<string, "IBW" | "TBW" | "none">
+  infusionWeightBasis: Record<string, "IBW" | "TBW" | "BSA_M2" | "none">
   /** Provenance of the paediatric ruleset, shown as a badge in the panel. */
   pediatricRulesSource: "server" | "cache" | null
   pediatricRulesCachedAt: string | null

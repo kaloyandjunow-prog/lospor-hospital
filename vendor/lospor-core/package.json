@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.12.1",
+  "version": "9.13.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -94,13 +94,17 @@
     "./selector-pagination": "./src/selector-pagination.ts",
     "./case-capabilities": "./src/case-capabilities.ts",
     "./strict-number": "./src/strict-number.ts",
-    "./dashboard-date-scope": "./src/dashboard-date-scope.ts"
+    "./dashboard-date-scope": "./src/dashboard-date-scope.ts",
+    "./intraop-attention": "./src/intraop-attention.ts",
+    "./intraop-attention-scenarios": "./src/intraop-attention-scenarios.ts",
+    "./intraop-save-state": "./src/intraop-save-state.ts"
   },
   "scripts": {
     "verify:boundaries": "node scripts/check-boundaries.mjs",
     "typecheck": "tsc --noEmit --pretty false",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:timezones": "node scripts/test-timezones.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

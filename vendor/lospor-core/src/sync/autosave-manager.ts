@@ -19,6 +19,7 @@ import {
   type EventMutationJournalDeps,
 } from "./event-mutation-journal"
 import { createCaseWriteQueue } from "./case-write-queue"
+import { createSendOrder, sameSendOrderEntry, type SendOrderEntry } from "./send-order"
 import { createSectionSnapshotStore } from "./field-diff"
 import {
   responseRevision,
@@ -36,10 +37,29 @@ export type ConflictInfo = {
   serverRevision: SectionRevision
 }
 
+/** Something the server refused for good; kept in view until dismissed (9.13.0). */
+export type RefusedChange = {
+  eventId: string
+  status: number
+  at: string
+  /** What was refused: a new entry, an edit to one, or its deletion. */
+  change?: "add" | "edit" | "delete"
+  /** The event as it was sent: a new entry, or an entry as edited. */
+  event?: Record<string, unknown>
+}
+
 export type AutosaveManagerState = {
   caseId: string
   status: SyncStatus
   pending: number
+  /** Events with a change not yet on the server: new, edited or deleted (9.13.0). */
+  queuedEventIds: string[]
+  /** The event being sent right now, if any. */
+  sendingEventId: string | null
+  /** Case sections with field changes not yet on the server. */
+  queuedSections: CaseSection[]
+  /** Changes the server refused for good, until dismissed. */
+  refused: RefusedChange[]
   lastSavedAt: string | null
   error: string | null
   blocked: BlockedSaveIssue | null
@@ -73,6 +93,10 @@ const EMPTY_STATE = (caseId: string): AutosaveManagerState => ({
   caseId,
   status: "idle",
   pending: 0,
+  queuedEventIds: [],
+  sendingEventId: null,
+  queuedSections: [],
+  refused: [],
   lastSavedAt: null,
   error: null,
   blocked: null,
@@ -131,6 +155,47 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
     orderWrite: (caseId, run) => queue.enqueue(caseId, run),
     onAcknowledged: acknowledgeEvent,
   })
+  const sendOrder = createSendOrder(deps.pendingEvents.kv)
+
+  /**
+   * Sends a case's queued events and changes in the one order they were made
+   * (9.13.0), under the case's write lock. Anything queued before the send
+   * order existed goes first: it is the oldest. A pass stops at the first
+   * change that cannot go now (offline, a server error, expired sign-in), so
+   * nothing is ever sent ahead of something made before it.
+   */
+  function flushEventsInOrder(caseId: string): Promise<{ saved: number; failed: number }> {
+    return queue.enqueue(caseId, async () => {
+      const pending = (await pendingEvents.loadPending(caseId)).slice().reverse()
+      const mutations = await eventMutations.load(caseId)
+      const order = await sendOrder.load(caseId)
+      const listed = (entry: SendOrderEntry) => order.some((item) => sameSendOrderEntry(item, entry))
+      const sequence: SendOrderEntry[] = [
+        ...pending.map((event): SendOrderEntry => ({ kind: "event", id: event.id })).filter((entry) => !listed(entry)),
+        ...mutations.map((item): SendOrderEntry => ({ kind: "mutation", id: item.operationId })).filter((entry) => !listed(entry)),
+        ...order,
+      ]
+      let saved = 0
+      let failed = 0
+      for (const entry of sequence) {
+        const eventId = entry.kind === "event" ? entry.id : mutations.find((item) => item.operationId === entry.id)?.eventId ?? null
+        emit(caseId, { sendingEventId: eventId })
+        const outcome = entry.kind === "event"
+          ? await pendingEvents.sendOne(caseId, entry.id)
+          : await eventMutations.sendOne(caseId, entry.id)
+        emit(caseId, { sendingEventId: null })
+        if (outcome === "saved" || outcome === "dropped" || outcome === "missing") {
+          if (outcome === "saved") saved += 1
+          if (outcome === "dropped") failed += 1
+          await sendOrder.remove(caseId, (item) => sameSendOrderEntry(item, entry))
+          continue
+        }
+        if (outcome !== "offline") failed += 1
+        break
+      }
+      return { saved, failed }
+    })
+  }
 
   function hydrateSection(
     caseId: string,
@@ -142,13 +207,53 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
     setRevision(caseId, section, revision)
   }
 
+  const refusedSeenKey = (caseId: string) => `lospor_refused_seen_v1_${caseId}`
+
+  /** Refused changes for a case since the clinician last dismissed them. */
+  async function refusedFor(caseId: string): Promise<RefusedChange[]> {
+    const seen = await deps.pendingEvents.kv.get(refusedSeenKey(caseId)).catch(() => null)
+    const after = seen ? Date.parse(seen) : -Infinity
+    const events = (await pendingEvents.droppedEvents().catch(() => []))
+      .filter((item) => item.caseId === caseId)
+      .map((item): RefusedChange => ({
+        eventId: String(item.event.id), status: item.status, at: item.droppedAt, change: "add", event: item.event as Record<string, unknown>,
+      }))
+    const raw = await deps.eventMutations.kv.get("lospor_autosave_event_mutation_dropped_v1").catch(() => null)
+    let changes: RefusedChange[] = []
+    try {
+      const parsed = raw ? JSON.parse(raw) : []
+      changes = (Array.isArray(parsed) ? parsed : [])
+        .filter((item: { caseId?: string }) => item.caseId === caseId)
+        .map((item: { eventId: string; status: number; droppedAt: string; kind?: string; event?: Record<string, unknown> }): RefusedChange => ({
+          eventId: item.eventId,
+          status: item.status,
+          at: item.droppedAt,
+          // The journal keeps the edited event, so the list can say what it was.
+          change: item.kind === "event.delete" ? "delete" : "edit",
+          ...(item.kind !== "event.delete" && item.event ? { event: item.event } : {}),
+        }))
+    } catch { /* a broken diagnostics log never blocks charting */ }
+    return [...events, ...changes].filter((item) => Date.parse(item.at) > after).sort((a, b) => a.at.localeCompare(b.at))
+  }
+
   async function refreshPending(caseId: string): Promise<number> {
-    const patchCount = (await outbox.summary()).entries.filter((entry) => entry.caseId === caseId).length
-    const eventCount = (await pendingEvents.loadPending(caseId)).length
-    const mutationCount = (await eventMutations.load(caseId)).length
-    const pending = patchCount + eventCount + mutationCount
-    emit(caseId, { pending })
+    const patches = (await outbox.summary()).entries.filter((entry) => entry.caseId === caseId)
+    const events = await pendingEvents.loadPending(caseId)
+    const mutations = await eventMutations.load(caseId)
+    const pending = patches.length + events.length + mutations.length
+    emit(caseId, {
+      pending,
+      queuedEventIds: [...new Set([...events.map((event) => event.id), ...mutations.map((item) => item.eventId)])],
+      queuedSections: [...new Set(patches.map((entry) => entry.section))],
+      refused: await refusedFor(caseId),
+    })
     return pending
+  }
+
+  /** The clinician has seen the refusals listed for this case. */
+  async function dismissRefused(caseId: string): Promise<void> {
+    await deps.pendingEvents.kv.set(refusedSeenKey(caseId), now().toISOString())
+    await refreshPending(caseId)
   }
 
   async function saveSection(
@@ -243,8 +348,8 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
   }
 
   async function appendEvent<T extends PendingEvent>(caseId: string, event: T): Promise<void> {
-    const current = await pendingEvents.loadPending<T>(caseId)
-    await pendingEvents.storePending(caseId, prependPendingEvent(current, event))
+    await pendingEvents.updatePending<T>(caseId, (current) => prependPendingEvent(current, event))
+    await sendOrder.record(caseId, { kind: "event", id: event.id })
     emit(caseId, { status: "queued", pending: await refreshPending(caseId), error: null })
     if (!await flushIntraopBeforeEvents(caseId)) {
       emit(caseId, {
@@ -254,7 +359,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       })
       return
     }
-    const result = await pendingEvents.flushCase(caseId)
+    const result = await flushEventsInOrder(caseId)
     const pending = await refreshPending(caseId)
     const existingBlock = await outbox.blockedIssue(caseId)
     emit(caseId, {
@@ -265,11 +370,37 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
     })
   }
 
-  async function stageEventMutation(operation: EventMutation): Promise<void> {
-    await eventMutations.stage({
-      ...operation,
-      baseRevision: revisionFor(operation.caseId, "intraop") ?? operation.baseRevision,
+  /**
+   * A change to an event that has not left the device yet is made to the
+   * queued event itself (9.13.0): a deletion cancels it and nothing is ever
+   * sent; an edit becomes its content. Decided under the case's write lock,
+   * so it cannot race a send already on its way -- once sent, the change goes
+   * through the queue like any other.
+   */
+  function applyToUnsentEvent(operation: EventMutation): Promise<boolean> {
+    return queue.enqueue(operation.caseId, async () => {
+      const unsent = (await pendingEvents.loadPending(operation.caseId)).some((event) => event.id === operation.eventId)
+      if (!unsent) return false
+      if (operation.kind === "event.delete") {
+        await pendingEvents.updatePending(operation.caseId, (events) => events.filter((event) => event.id !== operation.eventId))
+        await eventMutations.removeForEvent(operation.caseId, operation.eventId)
+        await sendOrder.remove(operation.caseId, (entry) => entry.kind === "event" && entry.id === operation.eventId)
+      } else {
+        await pendingEvents.updatePending(operation.caseId, (events) => events.map((event) =>
+          event.id === operation.eventId ? { ...event, ...operation.event, id: event.id } : event))
+      }
+      return true
     })
+  }
+
+  async function stageEventMutation(operation: EventMutation): Promise<void> {
+    if (!await applyToUnsentEvent(operation)) {
+      await eventMutations.stage({
+        ...operation,
+        baseRevision: revisionFor(operation.caseId, "intraop") ?? operation.baseRevision,
+      })
+      await sendOrder.record(operation.caseId, { kind: "mutation", id: operation.operationId })
+    }
     emit(operation.caseId, { status: "queued", pending: await refreshPending(operation.caseId), error: null })
     if (!await flushIntraopBeforeEvents(operation.caseId)) {
       emit(operation.caseId, {
@@ -279,7 +410,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       })
       return
     }
-    const result = await eventMutations.flushCase(operation.caseId)
+    const result = await flushEventsInOrder(operation.caseId)
     const pending = await refreshPending(operation.caseId)
     const existingBlock = await outbox.blockedIssue(operation.caseId)
     emit(operation.caseId, {
@@ -333,11 +464,9 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       }
     }
     const events = eventsReady
-      ? await pendingEvents.flushCase(caseId)
+      ? await flushEventsInOrder(caseId)
       : { saved: 0, failed: 0 }
-    const mutations = eventsReady
-      ? await eventMutations.flushCase(caseId)
-      : { saved: 0, failed: 0 }
+    const mutations = { saved: 0, failed: 0 }
     const pending = await refreshPending(caseId)
     const failed = sectionFailed + events.failed + mutations.failed
     emit(caseId, {
@@ -388,6 +517,8 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
     saveSection,
     appendEvent,
     stageEventMutation,
+    dismissRefused,
+    refreshPending,
     flushCase,
     flushAll,
     waitForCase: (caseId: string) => queue.idle(caseId),
@@ -406,6 +537,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
         outbox.clearAllForCase(caseId),
         pendingEvents.storePending(caseId, []),
         eventMutations.clearCase(caseId),
+        sendOrder.clearCase(caseId),
       ])
     },
     outbox,

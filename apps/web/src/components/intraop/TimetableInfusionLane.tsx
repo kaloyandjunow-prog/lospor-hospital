@@ -1,9 +1,11 @@
 "use client"
 
-import { PlannedStopMarker } from "./PlannedStopMarker"
+import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
+import { SaveMark } from "./SaveMark"
+import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { DiscontinuePrompt } from "./DiscontinuePrompt"
 import { ExtendGhost, MoveGhost, ghostGripVisible } from "./InfusionGhostBars"
-import { barContinues, barLeftClass, barRightClass } from "./timetable-row-geometry"
+import { barContinues, barLeftClass, barRightClass, barTimeInsets } from "./timetable-row-geometry"
 import type { TimetableDragActions, TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
 import type { TimetableInfusion } from "@/types/timetable"
@@ -158,6 +160,10 @@ export function InfusionLane({
         const isRowCont = !isActualStart && seg != null && ci === colStart
         const isRowExit = seg != null && barContinues(effectiveEnd, colEnd) && ci === colEnd - 1 && !isActualEnd
         const isSelected = seg != null && sel?.type === "infusion" && sel.id === seg.id
+        // The real start and stop inside the cell; the column rule while a grip is dragged.
+        const timed = seg && effectiveEnd === seg.endCol ? barTimeInsets(seg, colW) : { left: null, right: null }
+        const timedLeft = isActualStart && timed.left != null ? { left: timed.left } : {}
+        const timedRight = isActualEnd && !isRowExit && timed.right != null ? { right: timed.right } : {}
 
         return (
           <div
@@ -203,9 +209,12 @@ export function InfusionLane({
             }}
           >
             {segments.some(s => s.plannedStopCol === ci) && <PlannedStopMarker />}
+            {segments.flatMap(s => (s.rateChanges ?? []).filter(rc => rc.planned && rc.col === ci))
+              .map(rc => <PlannedChangeMarker key={rc.eventId ?? rc.col} value={`${rc.rate} ${rc.unit}`} />)}
             {/* Rate strip — shares the bar's geometry so the two read as one object. */}
             {seg && !seg.stopped && (() => {
-              const sortedChanges = (seg.rateChanges ?? []).slice().sort((a, b) => a.col - b.col)
+              // A planned change is a marker (above), not yet the running rate.
+              const sortedChanges = (seg.rateChanges ?? []).filter(rc => !rc.planned).sort((a, b) => a.col - b.col)
               const prevChange = sortedChanges.filter(rc => rc.col <= ci).pop()
               const curRate = prevChange?.rate ?? seg.rate
               const curUnit = prevChange?.unit ?? seg.unit
@@ -218,7 +227,7 @@ export function InfusionLane({
               return (
                 <div
                   className={`absolute top-0 z-20 flex items-center cursor-pointer select-none hover:opacity-90 transition-opacity overflow-hidden ${leftStyle} ${rightStyle} ${tlRadius} ${trRadius}`}
-                  style={{ height: 21, backgroundColor: color + (isSelected ? "50" : "2e") }}
+                  style={{ height: 21, backgroundColor: color + (isSelected ? "50" : "2e"), ...timedLeft, ...timedRight }}
                   onClick={e => {
                     e.stopPropagation()
                     onOpenMenu({
@@ -260,6 +269,7 @@ export function InfusionLane({
 
             {seg && (
               <>
+                {isActualEnd && !isRowExit && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-5 right-0" />}
                 <div
                   draggable={!seg.stopped}
                   onDragStart={!seg.stopped
@@ -272,6 +282,8 @@ export function InfusionLane({
                   style={{
                     top: 22,
                     bottom: 4,
+                    ...timedLeft,
+                    ...timedRight,
                     backgroundColor: isSelected ? color + "99" : color + "44",
                     borderColor: isSelected ? color : color + "88",
                     borderStyle: seg.stopped || hoverDiscontinue === seg.id ? "dashed" : "solid",
@@ -300,7 +312,7 @@ export function InfusionLane({
                     onDragStart={e => { e.stopPropagation(); dragActions.infusionExtendStart(seg.id, "left") }}
                     onDragEnd={() => dragActions.infusionExtendEnd("left")}
                     className="absolute left-0 z-20 flex items-center justify-center cursor-col-resize rounded-l-sm"
-                    style={{ top: 22, bottom: 4, width: 10, backgroundColor: color }}
+                    style={{ top: 22, bottom: 4, width: 10, backgroundColor: color, ...timedLeft }}
                   >
                     <span className="text-white text-[8px] font-bold select-none">|</span>
                   </div>
@@ -311,7 +323,7 @@ export function InfusionLane({
                     onDragStart={e => { e.stopPropagation(); dragActions.infusionExtendStart(seg.id, "right") }}
                     onDragEnd={() => dragActions.infusionExtendEnd("right")}
                     className="absolute right-0 z-20 flex items-center justify-center cursor-col-resize rounded-r-sm"
-                    style={{ top: 22, bottom: 4, width: 10, backgroundColor: color }}
+                    style={{ top: 22, bottom: 4, width: 10, backgroundColor: color, ...timedRight }}
                   >
                     <span className="text-white text-[8px] font-bold select-none">|</span>
                   </div>

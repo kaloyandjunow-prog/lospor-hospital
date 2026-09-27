@@ -16,12 +16,23 @@ export type RunningItem = {
   planned?: boolean
   /** The row a future-dated stop falls in, past the running bar. */
   plannedStop?: boolean
+  /** A rate or setting change dated after now, shown with its new value (9.13.0). */
+  plannedChange?: boolean
+  /** The row a stop entered ahead reached, not yet confirmed; the stop to answer about. */
+  stopUnconfirmed?: boolean
+  stopEventId?: string
+  /** The events the item came from, for its save state. */
+  eventIds?: string[]
 }
 
 function presentRunningItem(item: CoreRunningItem): RunningItem {
   const presented = presentRunningLabel(item)
   if (item.planned) presented.planned = true
   if (item.plannedStop) presented.plannedStop = true
+  if (item.plannedChange) presented.plannedChange = true
+  if (item.stopUnconfirmed) presented.stopUnconfirmed = true
+  if (item.stopEventId) presented.stopEventId = item.stopEventId
+  if (item.eventIds?.length) presented.eventIds = item.eventIds
   return presented
 }
 

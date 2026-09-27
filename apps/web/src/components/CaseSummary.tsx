@@ -10,7 +10,8 @@ import { displayClinicalCode, displayOptionEntry, toClinicalLocale } from "@/lib
 import type { Tag } from "@/components/TagInput"
 import type { CaseDetail, CaseDetailIntraop } from "@/types/case-detail"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
-import { PrintTimetable, calcDrugTotals, calcInfTotals, naturalMaxCols, buildDrugLog } from "@/components/case-summary/PrintTimetable"
+import { PrintTimetable, calcDrugTotals, naturalMaxCols, buildDrugLog } from "@/components/case-summary/PrintTimetable"
+import { calcInfTotals, useInfusionWeightBasis } from "@/components/case-summary/print-infusion-totals"
 import { DrugLogContinuationSheet } from "@/components/case-summary/DrugLogContinuationSheet"
 import { InvestigationsBox } from "@/components/case-summary/InvestigationsBox"
 import { HistoryAndAllergiesBox } from "@/components/case-summary/HistoryAndAllergiesBox"
@@ -41,6 +42,8 @@ function formatBmi(bmi: number): string {
 }
 import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
+import { formatInfusionTotal } from "@lospor/core/intraop-totals"
+import { printGeneratedDate, printMonthYear, printTimeSpan } from "@/components/case-summary/print-format"
 
 // ── Enum label maps ───────────────────────────────────────────────────────────
 function deviceLabel(i: CaseDetailIntraop | null | undefined, locale: string): string {
@@ -113,6 +116,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   initialData?: CaseDetail
 }) {
   const locale = useLocale()
+  const infusionWeightBasis = useInfusionWeightBasis()
   const isPrint = mode === "print"
   const L = locale === "bg" ? LABELS.bg : LABELS.en, bandLocale = toClinicalLocale(locale)
   const handoverLookup = (() => {
@@ -265,15 +269,11 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const colHHMM = (col: number) => sharedColToHHMM(col, i?.startTime)
 
   const activeMonitors = MON.filter(m => i?.[m.f]).map(m => displayClinicalCode("option:MONITORING", m.f, locale))
-  const dateStr = (() => {
-    if (!i?.monthYear) return ""
-    const [y, m] = i.monthYear.split("-")
-    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
-    return `${months[parseInt(m, 10) - 1] ?? ""} ${y}`
-  })()
+  const dateStr = printMonthYear(i?.monthYear, locale)
   const drugTotals     = calcDrugTotals(timetable)
-  const infTotals      = calcInfTotals(timetable)
-  const drugLog        = buildDrugLog(timetable, i?.startTime)
+  // Per-kg infusions on the patient's own weight; the sheet used none (9.12.3).
+  const infTotals      = calcInfTotals(timetable, { ibw: ibwResolution.available ? ibwResolution.roundedKg : null, tbw: p?.weightKg, heightCm: p?.heightCm, endedAt: i?.endedAt, weightBasis: infusionWeightBasis })
+  const drugLog        = buildDrugLog(timetable, i?.startTime, i?.timezone)
 
   // Continues onto its own sheets rather than capping: a result not shown can
   // be looked up, a dose nobody recorded on paper cannot.
@@ -289,15 +289,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   // the continuation sheet was dropping it.
   const patientLine = [p?.ageYears != null ? `${p.ageYears}${ageSuffix}` : "", p?.sex ? sexLabel(p.sex) : ""].filter(Boolean).join(" · ")
 
-  function duration() {
-    if (!i?.startTime || !i?.endTime) return null
-    const s = new Date(i.startTime), e = new Date(i.endTime)
-    const mins = Math.round((e.getTime() - s.getTime()) / 60000)
-    // Stored times are UTC-encoded wall-clock; UTC getters recover the entered
-    // time (same convention as the timetable's colToHHMM).
-    const hhmm = (d: Date) => `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`
-    return `${hhmm(s)} → ${hhmm(e)} · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`
-  }
+  const timeSpan = printTimeSpan(i?.startTime, i?.endTime, locale)
 
   // A recovery nobody has scored yet is not a zero. Defaulting the missing
   // total to 0 banded every un-assessed patient "not ready" in alarm red — the
@@ -399,7 +391,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             <div className="text-right text-[9.5px] text-slate-500 leading-relaxed shrink-0">
               <div>{inst?.name}{inst?.city ? ` · ${inst.city}` : ""}</div>
               <div>{dateStr}</div>
-              <div><span className="font-bold text-slate-800">{data.caseCode ? `Case ${data.caseCode}` : ""}</span>{isPrint ? `${data.caseCode ? " · " : ""}Page 1 of ${pageTotal}` : ""}</div>
+              <div><span className="font-bold text-slate-800">{data.caseCode ? `${L.caseLbl} ${data.caseCode}` : ""}</span>{isPrint ? `${data.caseCode ? " · " : ""}${L.pageLbl} 1 ${L.ofLbl} ${pageTotal}` : ""}</div>
             </div>
           </div>
 
@@ -438,7 +430,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             if (vent.length) kf.push(vent.join(" · "))
             if (i?.volatileAgent) kf.push(displayClinicalCode("option:INHALATIONAL_AGENT", i.volatileAgent, locale, { label: i.volatileAgent }))
             if (positions.length) kf.push(positions.map((position: string) => displayClinicalCode("option:POSITION", position, locale)).join(" → "))
-            if (duration()) kf.push(duration() as string)
+            if (timeSpan) kf.push(timeSpan)
             const access = vascular.map(a => `${displayClinicalCode("option:VASCULAR_ACCESS", a.site, locale, { label: a.siteLabel })} ${a.size ?? ""}${a.sizeUnit ?? ""}`.trim()).filter(Boolean).join(" · ")
             const pill = "text-[8.8px] text-slate-700 border border-slate-300 rounded-full px-2.5 py-[2px] whitespace-nowrap"
             return (
@@ -483,14 +475,14 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
           {/* Bottom band: fluid balance · drug administration log · intraop notes */}
           <div className="grid grid-cols-[0.85fr_1.35fr_1fr] gap-2">
             <div className="border border-slate-200 rounded-lg p-2 bg-white">
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1.5">{L.fluidBal.toUpperCase()} (ML)</p>
+              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1.5">{L.fluidBal.toUpperCase()} (mL)</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  { label: "Crystalloid", value: i?.crystalloidsMl },
-                  { label: "Colloid",     value: i?.colloidsMl },
-                  { label: "Blood",       value: i?.bloodMl },
-                  { label: "Urine",       value: i?.urineMl },
-                  { label: "Blood loss",  value: i?.bloodLossMl },
+                  { label: L.fluidCrystalloid, value: i?.crystalloidsMl },
+                  { label: L.fluidColloid, value: i?.colloidsMl },
+                  { label: L.fluidBlood, value: i?.bloodMl },
+                  { label: L.fluidUrine,  value: i?.urineMl },
+                  { label: L.fluidBloodLoss, value: i?.bloodLossMl },
                 ].map(({ label, value }) => (
                   <div key={label} className="border border-slate-200 rounded-md text-center py-1">
                     <p className="text-[13px] font-extrabold text-slate-900 leading-tight">{value ?? "—"}</p>
@@ -519,7 +511,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   <span className="font-bold">{L.totalsLbl}:</span>{" "}
                   {[
                     ...drugTotals.map(d => `${displayClinicalCode("option:INTRAOP_DRUG", d.name, locale, { label: d.name })} ${d.total} ${d.unit}`),
-                    ...infTotals.map(d => `${displayClinicalCode("option:INTRAOP_INFUSION", d.name, locale, { label: d.name })} ${d.total} ${d.unit}`),
+                    ...infTotals.map(d => `${displayClinicalCode("option:INTRAOP_INFUSION", d.name, locale, { label: d.name })} ${formatInfusionTotal(d)}${d.stopUnconfirmed ? L.stopUnconfirmedNote : ""}`),
                   ].join(" · ")}
                 </p>
               )}
@@ -547,7 +539,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
           {/* Footer */}
           <div className="flex justify-between text-[7.5px] text-slate-400 border-t border-slate-200 pt-1">
             <span>{L.footerLine}</span>
-            <span>{L.generatedLbl} {format(new Date(), "dd MMM yyyy")}</span>
+            <span>{L.generatedLbl} {printGeneratedDate(new Date(), locale, i?.timezone)}</span>
           </div>
         </div>
 
@@ -569,7 +561,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
               </div>
               <div className="text-right text-[9px] text-slate-500 shrink-0">
                 <span className="font-bold text-slate-800">{colHHMM(sheetPanels[0].startCol)} – {colHHMM(sheetPanels[sheetPanels.length - 1].endCol + 1)}</span>
-                {" · "}{locale === "bg" ? "жизнени показатели" : "vitals"} q{sheetPanels[0].intervalMin}min · {data.caseCode ? `Case ${data.caseCode} · ` : ""}{locale === "bg" ? `Стр. ${k + 2} от ${pageTotal}` : `Page ${k + 2} of ${pageTotal}`}
+                {" · "}{locale === "bg" ? "жизнени показатели" : "vitals"} q{sheetPanels[0].intervalMin}min · {data.caseCode ? `${L.caseLbl} ${data.caseCode} · ` : ""}{locale === "bg" ? `Стр. ${k + 2} от ${pageTotal}` : `Page ${k + 2} of ${pageTotal}`}
               </div>
             </div>
 
@@ -592,7 +584,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             )}
             <div className="flex justify-between text-[7.5px] text-slate-400 border-t border-slate-200 pt-1">
               <span>{L.footerLine}</span>
-              <span>{k < contSheets.length - 1 ? (locale === "bg" ? `Продължава на лист ${k + 3} · ` : `Continues on Sheet ${k + 3} · `) : ""}{L.generatedLbl} {format(new Date(), "dd MMM yyyy")}</span>
+              <span>{k < contSheets.length - 1 ? (locale === "bg" ? `Продължава на лист ${k + 3} · ` : `Continues on Sheet ${k + 3} · `) : ""}{L.generatedLbl} {printGeneratedDate(new Date(), locale, i?.timezone)}</span>
             </div>
           </div>
         ))}
@@ -637,7 +629,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             <div className="text-right text-[9.5px] text-slate-500 leading-relaxed shrink-0">
               <div>{inst?.name}{inst?.city ? ` · ${inst.city}` : ""}</div>
               <div>{dateStr}</div>
-              <div><span className="font-bold text-slate-800">{data.caseCode ? `Case ${data.caseCode}` : ""}</span>{isPrint ? `${data.caseCode ? " · " : ""}Page ${pageTotal} of ${pageTotal}` : ""}</div>
+              <div><span className="font-bold text-slate-800">{data.caseCode ? `${L.caseLbl} ${data.caseCode}` : ""}</span>{isPrint ? `${data.caseCode ? " · " : ""}${L.pageLbl} ${pageTotal} ${L.ofLbl} ${pageTotal}` : ""}</div>
             </div>
           </div>
 
@@ -736,7 +728,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
           </div>
           <div className="flex justify-between text-[7.5px] text-slate-400 border-t border-slate-200 pt-1">
             <span>{L.footerLine}</span>
-            <span>{L.generatedLbl} {format(new Date(), "dd MMM yyyy")}</span>
+            <span>{L.generatedLbl} {printGeneratedDate(new Date(), locale, i?.timezone)}</span>
           </div>
         </div>
 

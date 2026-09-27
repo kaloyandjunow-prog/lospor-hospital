@@ -13,7 +13,7 @@ import {
   type IntraopEventOps,
 } from "@lospor/core/intraop-timetable-edit"
 import { parseLogEvents, type LogEvent as CoreLogEvent } from "@lospor/core/intraop-types"
-import { gridOriginMs } from "@/lib/intraop-clock"
+import { gridOriginMs, serverNow } from "@/lib/intraop-clock"
 import { isValidTimeZone, resolvedTimeZone, startInstantForWallClock } from "@lospor/core/intraop-time"
 import { randomId } from "@/lib/random-id"
 import type { LogEvent, TimetableData } from "@/types/timetable"
@@ -58,7 +58,7 @@ type Args = {
  * after the first entry (or now): the day the case happened, even when it is
  * reopened days later.
  */
-export function timelineStartInstant({ startedAt, startTime, timezone, log, now = new Date() }: {
+export function timelineStartInstant({ startedAt, startTime, timezone, log, now = serverNow() }: {
   startedAt: string | null | undefined
   startTime?: string | null
   timezone?: string | null
@@ -87,11 +87,11 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
   const chartStartMs = Number.isFinite(startMs) ? gridOriginMs(startMs) : null
 
   // "Now", advanced when the five-minute row changes: running bars end there.
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => serverNow().getTime())
   useEffect(() => {
     if (endedAt) return
     const timer = setInterval(() => {
-      setNowMs(previous => Math.floor(Date.now() / COLUMN_MS) === Math.floor(previous / COLUMN_MS) ? previous : Date.now())
+      setNowMs(previous => { const now = serverNow().getTime(); return Math.floor(now / COLUMN_MS) === Math.floor(previous / COLUMN_MS) ? previous : now })
     }, 10_000)
     return () => clearInterval(timer)
   }, [endedAt])
@@ -117,7 +117,7 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
       return false
     }
     const next = applyIntraopEventOps(logRef.current, ops)
-    const [issue] = newIntraopTimelineIssues(logRef.current, next, { now: new Date() })
+    const [issue] = newIntraopTimelineIssues(logRef.current, next, { now: serverNow() })
     if (issue) {
       toast.error(t(`refused.${issue.code}`))
       return false
@@ -136,7 +136,7 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
       before: timetableRef.current as Parameters<typeof timetableEditToEventOps>[0]["before"],
       after: after as Parameters<typeof timetableEditToEventOps>[0]["after"],
       chartStart: chartStartMs,
-      now: new Date(),
+      now: serverNow(),
       newId: randomId,
     }))
   }, [chartStartMs, commit, t])

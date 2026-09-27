@@ -6,6 +6,9 @@ import {
   visiblePediatricInfusionRoutes,
 } from "@lospor/core/clinical-rules"
 
+// The body-size basis a new infusion is recorded with, from the library in force (9.12.3).
+export { infusionCalculationBasis } from "@lospor/core/intraop-totals"
+
 /**
  * What the quick-entry flyout opens with.
  *

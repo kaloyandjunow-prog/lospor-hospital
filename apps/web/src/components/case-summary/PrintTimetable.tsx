@@ -2,14 +2,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import {
-  buildDrugLogEntries,
+  buildDrugLogEntries, eventClockTimes,
   calculateDrugTotals,
   naturalTimetableColumnCount,
 } from "@lospor/core/intraop-summary"
 import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
 import { clinicalDisplayLabel, formatClinicalGasMixLabel, type ClinicalLocale } from "@lospor/core/display"
 import { resolveIntraopEventLabel, summaryLaneDomain } from "@lospor/core/clinical-display"
-import { calcInfusionTotals } from "@lospor/core/intraop-totals"
 import type {
   LegacyKeyEvents, TimetableInfusion, VitalsEntry,
   AgentSegment, TimetableFluid, GasSettingsSegment, ClinicalEvent, PositionSegment,
@@ -26,10 +25,6 @@ export function calcDrugTotals(timetable: LegacyKeyEvents) {
   return calculateDrugTotals({ drugs: timetable.drugs ?? [] })
 }
 
-export function calcInfTotals(timetable: LegacyKeyEvents) {
-  const infs: TimetableInfusion[] = Array.isArray(timetable?.infusions) ? timetable.infusions : []
-  return calcInfusionTotals(infs, null, null, {})
-}
 
 // ── Palettes — light "paper" (print + light theme) and dark (summary only;
 // the print page strips the theme class so the record always prints white) ───
@@ -81,10 +76,10 @@ export type DrugLogEntry = {
   color: string
   colIdx: number
 }
-export function buildDrugLog(timetable: LegacyKeyEvents, startISO?: string | null): DrugLogEntry[] {
+export function buildDrugLog(timetable: LegacyKeyEvents, startISO?: string | null, timeZone?: string | null): DrugLogEntry[] {
   return buildDrugLogEntries({
     drugs: Array.isArray(timetable?.drugs) ? timetable.drugs : [],
-  }, startISO, "utc")
+  }, startISO, "utc", eventClockTimes(Array.isArray(timetable?.log) ? timetable.log : [], timeZone))
     .map((entry, i) => ({
       n: i + 1,
       time: entry.time,

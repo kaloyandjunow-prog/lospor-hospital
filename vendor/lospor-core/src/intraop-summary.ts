@@ -8,6 +8,8 @@ import type {
   VitalsEntry,
 } from "./intraop-types"
 import { INTRAOP_COLUMN_MINUTES } from "./intraop-engine"
+import { localTimeOf } from "./intraop-time"
+import { segmentEventIds } from "./intraop-save-state"
 
 export type DrugTotal = {
   name: string
@@ -29,8 +31,21 @@ export type DrugLogEntry = {
  * How an item shows in a row (1.4.9). `planned`: a future-dated start, drawn
  * as a marker in its own row and not yet given. `plannedStop`: the row a
  * future-dated stop falls in, past the running bar. Neither is running.
+ * `plannedChange` (9.13.0): a rate or setting change dated after now, shown
+ * with its new value in its own row and applied to nothing yet.
+ * `stopUnconfirmed` (9.13.0): the row a stop entered ahead of its time
+ * reached, asked about until someone confirms it or says it is still running.
  */
-export type RunningItemMarks = { planned?: true; plannedStop?: true }
+export type RunningItemMarks = {
+  planned?: true
+  plannedStop?: true
+  plannedChange?: true
+  stopUnconfirmed?: true
+  /** With `stopUnconfirmed`: the stop to confirm or withdraw. */
+  stopEventId?: string
+  /** The events the drawn item came from, so a row can say which are not yet saved (9.13.0). */
+  eventIds?: string[]
+}
 
 export type RunningItem = RunningItemMarks & (
   | { kind: "agent"; id: string; name: string; color: string }
@@ -48,12 +63,16 @@ export type RunningItem = RunningItemMarks & (
     }
 )
 
-type MarkableSegment = { startCol: number; endCol: number; planned?: boolean; plannedStopCol?: number }
+type MarkableSegment = { startCol: number; endCol: number; planned?: boolean; plannedStopCol?: number; stopUnconfirmed?: boolean; stopEventId?: string }
 
 /** How a segment shows in a column, or null when it does not show there. */
 function rowMarks(segment: MarkableSegment, column: number): RunningItemMarks | null {
   if (segment.planned) return column === segment.startCol ? { planned: true } : null
-  if (column >= segment.startCol && column <= segment.endCol) return {}
+  if (column >= segment.startCol && column <= segment.endCol) {
+    return segment.stopUnconfirmed && column === segment.endCol
+      ? { stopUnconfirmed: true, ...(segment.stopEventId ? { stopEventId: segment.stopEventId } : {}) }
+      : {}
+  }
   if (segment.plannedStopCol != null && column === segment.plannedStopCol && column > segment.endCol) {
     return { plannedStop: true }
   }
@@ -299,7 +318,8 @@ export function gasSettingsAtColumn(
 ): EffectiveGasSettings | null {
   if (column < segment.startCol || column > segment.endCol) return null
   let latest: NonNullable<GasSettingsSegment["settingsChanges"]>[number] | undefined
-  for (const change of segment.settingsChanges ?? []) {
+  // A planned change is drawn but not yet in force (9.13.0).
+  for (const change of (segment.settingsChanges ?? []).filter(item => !item.planned)) {
     if (change.col <= column && (!latest || change.col >= latest.col)) latest = change
   }
   const carrierGas = latest?.carrierGas ?? segment.carrierGas
@@ -343,7 +363,7 @@ export function rateAtColumn(
   column: number,
 ): { rate: NumericText; unit: string } {
   const latest = (infusion.rateChanges ?? [])
-    .filter(change => change.col <= column)
+    .filter(change => !change.planned && change.col <= column)
     .sort((a, b) => b.col - a.col)[0]
   return {
     rate: latest?.rate ?? infusion.rate,
@@ -358,7 +378,7 @@ export function fluidRateAtColumn(
   if (fluid.fluidEntryMode !== "RATE") return { rate: undefined, unit: undefined }
   let rate = fluid.rate
   let unit = fluid.unit ?? "mL/h"
-  for (const change of [...(fluid.rateChanges ?? [])].sort((a, b) => a.col - b.col)) {
+  for (const change of [...(fluid.rateChanges ?? [])].filter(item => !item.planned).sort((a, b) => a.col - b.col)) {
     if (change.col > column) break
     rate = change.rate
     unit = change.unit
@@ -391,6 +411,7 @@ export function runningItemsByColumn(
         id: `agent-${agent.name}`,
         name: agent.name,
         color: agent.color ?? "#a78bfa",
+        eventIds: segmentEventIds(agent),
         ...marks,
       })
     }
@@ -408,13 +429,26 @@ export function runningItemsByColumn(
         fgf: settings.fgf,
         fio2: settings.fio2,
         color: "#818cf8",
+        eventIds: segmentEventIds(gas),
         ...marks,
+      })
+    }
+    for (const change of gas.settingsChanges ?? []) {
+      if (!change.planned || !rows.has(change.col)) continue
+      push(change.col, {
+        kind: "gas",
+        id: `${gas.id || "gas-settings"}-change-${change.eventId ?? change.col}`,
+        fgf: change.fgf,
+        fio2: change.fio2,
+        color: "#818cf8",
+        plannedChange: true,
       })
     }
   }
 
   for (const infusion of timetable.infusions) {
     const changes = [...(infusion.rateChanges ?? [])]
+      .filter(change => !change.planned)
       .sort((a, b) => a.col - b.col)
     for (const column of columns) {
       const marks = rowMarks(infusion, column)
@@ -431,7 +465,20 @@ export function runningItemsByColumn(
         rate: latest?.rate ?? infusion.rate,
         unit: latest?.unit ?? infusion.unit,
         color: infusion.color ?? "#3b82f6",
+        eventIds: segmentEventIds(infusion),
         ...marks,
+      })
+    }
+    for (const change of infusion.rateChanges ?? []) {
+      if (!change.planned || !rows.has(change.col)) continue
+      push(change.col, {
+        kind: "infusion",
+        id: `inf-${infusion.id}-change-${change.eventId ?? change.col}`,
+        name: infusion.name,
+        rate: change.rate,
+        unit: change.unit,
+        color: infusion.color ?? "#3b82f6",
+        plannedChange: true,
       })
     }
   }
@@ -450,7 +497,22 @@ export function runningItemsByColumn(
         fluidEntryMode: fluid.fluidEntryMode,
         rate: activeRate.rate,
         unit: activeRate.unit,
+        eventIds: segmentEventIds(fluid),
         ...marks,
+      })
+    }
+    for (const change of fluid.rateChanges ?? []) {
+      if (!change.planned || !rows.has(change.col)) continue
+      push(change.col, {
+        kind: "fluid",
+        id: `fluid-${fluid.id}-change-${change.eventId ?? change.col}`,
+        name: fluid.name,
+        volume: fluid.volume,
+        color: fluid.color ?? "#38bdf8",
+        fluidEntryMode: fluid.fluidEntryMode,
+        rate: change.rate,
+        unit: change.unit,
+        plannedChange: true,
       })
     }
   }
@@ -465,24 +527,45 @@ export function formatColumnTime(
   clock: "local" | "utc" = "local",
 ): string {
   if (start == null) return `+${column * intervalMinutes}m`
-  const startMs = start instanceof Date ? start.getTime() : new Date(start).getTime()
-  if (!Number.isFinite(startMs)) return `+${column * intervalMinutes}m`
+  const rawMs = start instanceof Date ? start.getTime() : new Date(start).getTime()
+  if (!Number.isFinite(rawMs)) return `+${column * intervalMinutes}m`
+  // From the five-minute row the start falls in, as the grid is (9.13.0).
+  const columnMs = INTRAOP_COLUMN_MINUTES * 60_000
+  const startMs = Math.floor(rawMs / columnMs) * columnMs
   const date = new Date(startMs + column * intervalMinutes * 60_000)
   const hours = clock === "utc" ? date.getUTCHours() : date.getHours()
   const minutes = clock === "utc" ? date.getUTCMinutes() : date.getMinutes()
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
 }
 
+/**
+ * Each event's own time of day in the case's time zone, by event id -- never
+ * the machine's zone, which on a hosted server is not the hospital's.
+ */
+export function eventClockTimes(log: readonly unknown[], timeZone?: string | null): Map<string, string> {
+  const times = new Map<string, string>()
+  if (!timeZone) return times
+  for (const item of log) {
+    const event = item as { id?: unknown; ts?: unknown }
+    if (typeof event?.id !== "string" || typeof event.ts !== "string") continue
+    const time = localTimeOf(new Date(event.ts), timeZone)
+    if (time) times.set(event.id, time)
+  }
+  return times
+}
+
 export function buildDrugLogEntries(
   timetable: Pick<TimetableData, "drugs">,
   start?: Date | string | number | null,
   clock: "local" | "utc" = "local",
+  exactTimes?: Map<string, string>,
 ): DrugLogEntry[] {
   return [...timetable.drugs]
     .sort((a, b) => a.colIdx - b.colIdx)
     .map(drug => ({
       column: drug.colIdx,
-      time: formatColumnTime(drug.colIdx, start, INTRAOP_COLUMN_MINUTES, clock),
+      time: (drug.eventId ? exactTimes?.get(drug.eventId) : undefined)
+        ?? formatColumnTime(drug.colIdx, start, INTRAOP_COLUMN_MINUTES, clock),
       name: drug.name,
       dose: drug.dose,
       unit: drug.unit,

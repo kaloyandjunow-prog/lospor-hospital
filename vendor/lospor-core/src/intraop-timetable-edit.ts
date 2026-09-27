@@ -90,6 +90,16 @@ export function timetableEditToEventOps(context: TimetableEditContext): IntraopE
   const removed = new Set(ops.remove)
   ops.remove = [...removed]
   ops.update = [...updated.values()].filter(event => !removed.has(event.id) && !sameJson(event, byId.get(event.id)))
+  // When each change was entered (9.13.0), so a stop dragged to a time still to
+  // come is known to be a guess and asked about when that time arrives. A
+  // stop moved to a new time is a new guess: an earlier confirmation lapses.
+  const recordedAt = new Date(context.now).toISOString()
+  ops.add = ops.add.map(event => ({ ...event, recordedAt }))
+  ops.update = ops.update.map(event => {
+    const before = byId.get(event.id)
+    const { stopConfirmed: _confirmed, ...rest } = event
+    return before && before.ts !== event.ts ? { ...rest, recordedAt } : { ...event, recordedAt }
+  })
   return ops
 }
 
@@ -238,7 +248,7 @@ function infusionStart(item: TimetableInfusion): Partial<LogEvent> {
   return {
     infId: item.id, name: item.name, rate: String(item.rate), unit: item.unit, color: item.color,
     concentration: item.concentration, formulation: item.formulation, drugRoute: item.route,
-    drugId: item.drugId, atcCode: item.atcCode, inn: item.inn,
+    drugId: item.drugId, atcCode: item.atcCode, inn: item.inn, calculationBasis: item.calculationBasis,
     clinicalRuleKey: item.clinicalRuleKey, clinicalRuleVersion: item.clinicalRuleVersion,
     clinicalRuleSourceIds: item.clinicalRuleSourceIds, clinicalPresetId: item.clinicalPresetId,
     clinicalPresetVersion: item.clinicalPresetVersion, clinicalPresetScope: item.clinicalPresetScope,

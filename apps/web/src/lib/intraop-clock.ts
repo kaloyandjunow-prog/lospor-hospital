@@ -1,4 +1,27 @@
 import { roundDownToIntraopColumn } from "@lospor/core/intraop-engine"
+import { createServerClock, readServerTime } from "@lospor/core/sync"
+
+/**
+ * The web's one server-corrected clock (9.13.0). Every save to the API tells
+ * it how far this machine is from the server; everything on the
+ * intraoperative timeline that asks "what time is it" -- planned or given,
+ * the now column, when an entry was made, start and end case -- asks this. A
+ * time the clinician picked is never passed through it.
+ */
+export const serverClock = createServerClock()
+
+export function serverNow(): Date {
+  return serverClock.now()
+}
+
+/** fetch, and let the response's server time correct the clock. */
+export async function observedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const sentAt = Date.now()
+  const response = await fetch(input, init)
+  const serverTime = response.headers ? readServerTime(response.headers) : null
+  if (serverTime != null) serverClock.observe(serverTime, sentAt, Date.now())
+  return response
+}
 import { floorTo5, timeToMins } from "@/lib/timetable-time"
 
 // How long after its start time a case may still be running and still be read

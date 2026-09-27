@@ -1,3 +1,4 @@
+import { INFUSION_CATALOG } from "./catalog/intraop-infusions"
 import { INTRAOP_COLUMN_MINUTES } from "./intraop-engine"
 import {
   calculateFluidVolumeMl,
@@ -106,7 +107,7 @@ export function calculateDeliveredFluidTotals(
       startTs: fluid.startTs,
       endTs: fluid.endTs ?? asOf,
       rate: fluid.rate,
-      rateChanges: fluid.rateChanges,
+      rateChanges: fluid.rateChanges?.filter(change => !("planned" in change && change.planned)),
     })
     if (!Number.isFinite(delivered) || delivered <= 0) continue
     const volume = Math.min(Number.MAX_SAFE_INTEGER, Math.round(delivered))
@@ -163,27 +164,33 @@ export function infusionLocalAnaestheticMg(name: string, total: number, unit: st
   return percent === null ? null : localAnaestheticMg(total, percent)
 }
 
-export type WeightBasis = "IBW" | "TBW" | "none"
+export type WeightBasis = "IBW" | "TBW" | "BSA_M2" | "none"
 export type WeightBasisMap = Record<string, WeightBasis>
 
-export const DEFAULT_INFUSION_WEIGHT_BASIS: Readonly<WeightBasisMap> = {
-  Propofol: "IBW",
-  Remifentanil: "IBW",
-  Ketamine: "IBW",
-  Midazolam: "IBW",
-  Dexmedetomidine: "TBW",
-  Fentanyl: "IBW",
-  Sufentanil: "IBW",
-  Morphine: "IBW",
-  Alfentanil: "IBW",
-  Norepinephrine: "IBW",
-  Epinephrine: "IBW",
-  Phenylephrine: "TBW",
-  Dopamine: "TBW",
-  Dobutamine: "TBW",
-  Rocuronium: "IBW",
-  Cisatracurium: "IBW",
-  Nitroglycerin: "TBW",
+/**
+ * The weight each catalogue infusion is dosed on, taken from the catalogue
+ * itself (9.12.3). A hand-kept copy lived here before and disagreed with the
+ * catalogue for eight per-kg drugs, so the web form (catalogue) and the PWA
+ * and print (this copy) totalled the same infusion on different weights.
+ */
+export const DEFAULT_INFUSION_WEIGHT_BASIS: Readonly<WeightBasisMap> = Object.freeze(
+  Object.fromEntries(
+    INFUSION_CATALOG.flatMap(entry => {
+      const basis = entry.profile.weightBasis
+      return basis === "IBW" || basis === "TBW" || basis === "BSA_M2" || basis === "none"
+        ? [[entry.name, basis]]
+        : []
+    }),
+  ) as WeightBasisMap,
+)
+
+/** The basis to record on a new infusion's start event, from the library in force. */
+export function infusionCalculationBasis(
+  name: string,
+  weightBasisMap: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
+): "FLAT" | "TBW" | "IBW" | "BSA_M2" {
+  const basis = weightBasisMap[name] ?? DEFAULT_INFUSION_WEIGHT_BASIS[name] ?? "IBW"
+  return basis === "none" ? "FLAT" : basis
 }
 
 export type TimetableInfusionLike = {
@@ -192,7 +199,12 @@ export type TimetableInfusionLike = {
   unit: string
   startCol: number
   endCol: number
-  rateChanges?: { col: number; rate: number | string; unit: string }[]
+  /** Real instants; with them a total is the time actually run, not whole columns. */
+  startTs?: string
+  endTs?: string
+  rateChanges?: { col: number; rate: number | string; unit: string; ts?: string; eventId?: string; planned?: boolean }[]
+  /** The basis recorded when the infusion was started; wins over any map. */
+  calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
   /** Drafted for a future time: nothing has been given yet. */
   planned?: boolean
 }
@@ -200,84 +212,232 @@ export type TimetableInfusionLike = {
 export type InfusionTotal = {
   amount: number
   unit: string
+  /** The weight a per-kg rate was multiplied by. */
   weightUsed: number | null
-  weightBasis: WeightBasis | null
+  /** Which weight that was. Differs from the drug's basis when `basisFallback`. */
+  weightBasis: "IBW" | "TBW" | null
+  /**
+   * The drug is dosed on one weight and the other had to be used: an ideal
+   * weight needs a height, and a case without one was totalled on actual
+   * weight. Said, rather than labelled as the weight it was not.
+   */
+  basisFallback: boolean
+  /** The body surface area a per-m² rate was multiplied by. */
+  bsaUsed: number | null
+  /**
+   * A per-kg or per-m² rate with no weight or surface area recorded. The
+   * amount is then per kilogram or per m² ("2.5 mcg/kg") rather than
+   * multiplied by a size nobody entered.
+   */
+  weightMissing: boolean
+  /**
+   * Amounts that cannot be added to `amount`: a custom infusion switched
+   * from mg/hr to mL/hr has two totals, and adding them would be wrong.
+   */
+  others: { amount: number; unit: string }[]
 }
 
 function numericRate(rate: number | string): number {
   return typeof rate === "number" ? rate : parseFloat(rate) || 0
 }
 
+// Mass units convert; everything else (mL, IU, mmol) totals only with itself.
+const MICROGRAMS: Record<string, number> = { ng: 0.001, mcg: 1, "µg": 1, ug: 1, mg: 1000, g: 1_000_000 }
+
+type RateUnit = { amountUnit: string; per: "kg" | "m2" | null; perMinute: boolean }
+
+function parseRateUnit(unit: string): RateUnit {
+  const match = unit.trim().match(/^(.*?)(\/kg|\/m²|\/m2)?\/(min|hr|h)$/i)
+  if (!match) return { amountUnit: unit.trim(), per: null, perMinute: false }
+  const per = !match[2] ? null : match[2].toLowerCase() === "/kg" ? "kg" : "m2"
+  return { amountUnit: match[1].trim(), per, perMinute: match[3].toLowerCase() === "min" }
+}
+
+function instantMs(value: string | undefined): number | null {
+  if (!value) return null
+  const ms = Date.parse(value)
+  return Number.isFinite(ms) ? ms : null
+}
+
+const COLUMN_MS = INTRAOP_COLUMN_MINUTES * 60_000
+
+function columnIndex(ms: number): number {
+  return Math.floor(ms / COLUMN_MS)
+}
+
+function positive(value: number | null | undefined): number | null {
+  return value != null && Number.isFinite(value) && value > 0 ? value : null
+}
+
 export function calcInfusionTotal(
   infusion: TimetableInfusionLike,
   ibw: number | null = null,
   tbw: number | null = null,
-  weightBasisMap: WeightBasisMap = {},
+  weightBasisMap: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
+  bodySurfaceAreaM2: number | null = null,
 ): InfusionTotal {
-  const basis = weightBasisMap[infusion.name] ?? "IBW"
-  const bodyWeight = basis === "TBW" ? (tbw ?? ibw) : (ibw ?? tbw)
-
-  function segmentTotal(rate: number, unit: string, columns: number): number {
-    const isPerKg = unit.includes("/kg/")
-    const weight = isPerKg && bodyWeight ? bodyWeight : 1
-    const minutes = unit.includes("/min") ? columns * 5 : columns * 5 / 60
-    return rate * weight * minutes
-  }
+  // The basis recorded on the start event wins: a library edited after the
+  // infusion was given does not change what it was given on (9.12.3).
+  const recorded = infusion.calculationBasis
+  const basis: WeightBasis = recorded === "FLAT" ? "none"
+    : recorded ?? weightBasisMap[infusion.name] ?? DEFAULT_INFUSION_WEIGHT_BASIS[infusion.name] ?? "IBW"
+  const ideal = positive(ibw)
+  const actual = positive(tbw)
+  const bsa = positive(bodySurfaceAreaM2)
+  // A per-kg rate needs a weight whatever the drug's basis says; IBW unless
+  // the drug is dosed on actual weight.
+  const wantsActual = basis === "TBW"
+  const weight = wantsActual ? (actual ?? ideal) : (ideal ?? actual)
+  const weightBasisUsed: "IBW" | "TBW" | null = weight == null ? null
+    : wantsActual ? (actual != null ? "TBW" : "IBW")
+      : (ideal != null ? "IBW" : "TBW")
+  const intended = wantsActual ? "TBW" : "IBW"
 
   // Only rate changes inside the drawn bar count: a change after the end (a
   // drafted future change, or one past the case end) delivered nothing.
-  const sorted = (infusion.rateChanges ?? [])
-    .filter(change => change.col <= infusion.endCol)
+  const changes = (infusion.rateChanges ?? [])
+    .filter(change => !change.planned && change.col <= infusion.endCol)
     .slice()
     .sort((a, b) => a.col - b.col)
-  let total = 0
-  let previousColumn = infusion.startCol
-  let previousRate = numericRate(infusion.rate)
-  let previousUnit = infusion.unit
 
-  for (const rateChange of sorted) {
-    total += segmentTotal(previousRate, previousUnit, rateChange.col - previousColumn)
-    previousColumn = rateChange.col
-    previousRate = numericRate(rateChange.rate)
-    previousUnit = rateChange.unit
-  }
+  // How long each segment ran. The real instants are used when the bar has
+  // them and they still sit in the bar's columns; a bar just dragged in the
+  // web chart, or one saved before 9.12.3, is counted in whole columns as it
+  // always was. Whole columns round both ends up, which overstated a
+  // 22-minute infusion by eight minutes.
+  const startMs = instantMs(infusion.startTs)
+  const endMs = instantMs(infusion.endTs)
+  const changeMs = changes.map(change => instantMs(change.ts))
+  const timed = startMs != null && endMs != null && endMs >= startMs
+    && columnIndex(endMs) - columnIndex(startMs) === infusion.endCol - infusion.startCol
+    && changes.every((change, index) => {
+      const ms = changeMs[index]
+      return ms != null && ms >= startMs && ms <= endMs
+        && columnIndex(ms) - columnIndex(startMs) === change.col - infusion.startCol
+    })
+  const boundaries = timed
+    ? [startMs, ...changeMs.map(ms => ms!), endMs]
+    : [
+        infusion.startCol * COLUMN_MS,
+        ...changes.map(change => change.col * COLUMN_MS),
+        (infusion.endCol + 1) * COLUMN_MS,
+      ]
 
-  total += segmentTotal(previousRate, previousUnit, infusion.endCol - previousColumn + 1)
-  if (infusion.planned) total = 0
+  const segments = [
+    { rate: numericRate(infusion.rate), unit: parseRateUnit(infusion.unit) },
+    ...changes.map(change => ({ rate: numericRate(change.rate), unit: parseRateUnit(change.unit) })),
+  ]
 
-  const baseUnit = previousUnit
-    .replace(/\/kg\/min$/, "")
-    .replace(/\/kg\/hr$/, "")
-    .replace(/\/min$/, "")
-    .replace(/\/hr$/, "")
-    .trim()
+  // Per kilogram or per m² stays in the unit when that size is unknown.
+  const sizeFor = (unit: RateUnit) => unit.per === "kg" ? weight : unit.per === "m2" ? bsa : 1
+  const suffixFor = (unit: RateUnit) =>
+    unit.per === "kg" && weight == null ? "/kg" : unit.per === "m2" && bsa == null ? "/m²" : ""
+  const familyOf = (unit: RateUnit) =>
+    `${MICROGRAMS[unit.amountUnit.toLowerCase()] != null ? "mass" : unit.amountUnit.toLowerCase()}${suffixFor(unit)}`
 
-  const anyPerKg = infusion.unit.includes("/kg/") || (infusion.rateChanges ?? []).some(change => change.unit.includes("/kg/"))
-  const weightUsed = anyPerKg && bodyWeight ? Math.round(bodyWeight * 10) / 10 : null
+  // Summed by what can be added together: mass in micrograms, anything else
+  // by its own unit. The unit shown for each is the last one used, as before.
+  const sums = new Map<string, { micrograms: boolean; value: number; unit: string }>()
+  segments.forEach((segment, index) => {
+    const minutes = Math.max(0, boundaries[index + 1] - boundaries[index]) / 60_000
+    const amount = segment.rate * (segment.unit.perMinute ? minutes : minutes / 60) * (sizeFor(segment.unit) ?? 1)
+    const factor = MICROGRAMS[segment.unit.amountUnit.toLowerCase()]
+    const family = familyOf(segment.unit)
+    const previous = sums.get(family)
+    sums.set(family, {
+      micrograms: factor != null,
+      value: (previous?.value ?? 0) + (factor != null ? amount * factor : amount),
+      unit: `${segment.unit.amountUnit}${suffixFor(segment.unit)}`,
+    })
+  })
+
+  const shown = new Map([...sums].map(([family, sum]) => {
+    const factor = sum.micrograms ? MICROGRAMS[sum.unit.replace(/\/(kg|m²)$/, "").toLowerCase()] : 1
+    const amount = infusion.planned ? 0 : sum.value / factor
+    return [family, { amount: Math.round(amount * 100) / 100, unit: sum.unit }]
+  }))
+  const primaryFamily = familyOf(segments[segments.length - 1].unit)
+  const primary = shown.get(primaryFamily)!
+  const anyPerKg = segments.some(segment => segment.unit.per === "kg")
+  const anyPerM2 = segments.some(segment => segment.unit.per === "m2")
 
   return {
-    amount: Math.round(total * 100) / 100,
-    unit: baseUnit,
-    weightUsed,
-    weightBasis: anyPerKg ? basis : null,
+    amount: primary.amount,
+    unit: primary.unit,
+    weightUsed: anyPerKg && weight != null ? Math.round(weight * 10) / 10 : null,
+    weightBasis: anyPerKg ? weightBasisUsed : null,
+    basisFallback: anyPerKg && weightBasisUsed != null && weightBasisUsed !== intended,
+    bsaUsed: anyPerM2 && bsa != null ? Math.round(bsa * 100) / 100 : null,
+    weightMissing: (anyPerKg && weight == null) || (anyPerM2 && bsa == null),
+    others: [...shown].filter(([family]) => family !== primaryFamily).map(([, item]) => item),
   }
+}
+
+/**
+ * "250 mcg", or "250 mcg + 12 mL" when a unit switch left two totals, and
+ * "540 mg (TBW)" when a drug dosed on ideal weight had to be counted on actual
+ * weight. The abbreviations are the ones the record already prints beside the
+ * weights, in both languages.
+ */
+export function formatInfusionTotal(
+  total: Pick<InfusionTotal, "amount" | "unit" | "others"> & Partial<Pick<InfusionTotal, "basisFallback" | "weightBasis">>,
+): string {
+  const text = [total, ...total.others].map(item => `${item.amount} ${item.unit}`).join(" + ")
+  return total.basisFallback && total.weightBasis ? `${text} (${total.weightBasis})` : text
 }
 
 export function calcInfusionTotals<TInfusion extends TimetableInfusionLike>(
   infusions: TInfusion[],
   ibw: number | null,
   tbw: number | null,
-  weightBasisMap: WeightBasisMap,
+  weightBasisMap: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
+  bodySurfaceAreaM2: number | null = null,
 ): (InfusionTotal & { name: string; total: number })[] {
   return infusions.map(infusion => {
-    const total = calcInfusionTotal(infusion, ibw, tbw, weightBasisMap)
+    const total = calcInfusionTotal(infusion, ibw, tbw, weightBasisMap, bodySurfaceAreaM2)
+    return { ...total, name: infusion.name, total: total.amount }
+  })
+}
+
+type InfusionWithEvents = TimetableInfusionLike & {
+  startEventId?: string
+  stopEventId?: string
+  plannedStopCol?: number
+  rateChanges?: { col: number; rate: number | string; unit: string; ts?: string; eventId?: string }[]
+}
+
+/**
+ * A saved chart's infusions with their real instants filled in from the saved
+ * event log, for charts projected before 9.12.3 carried them. Display only:
+ * the stored record is not rewritten. An infusion still running at the case
+ * end runs to the end; without an end time it keeps whole columns.
+ */
+export function withInfusionInstants<T extends InfusionWithEvents>(
+  infusions: T[],
+  log: { id?: string; ts?: string }[] | undefined,
+  endedAt?: Date | string | null,
+): T[] {
+  if (!log?.length) return infusions
+  const instants = new Map(log.flatMap(event => event.id && event.ts ? [[event.id, event.ts] as const] : []))
+  const end = endedAt == null ? undefined : new Date(endedAt).toISOString()
+  return infusions.map(infusion => {
+    if (infusion.startTs) return infusion
+    const startTs = infusion.startEventId ? instants.get(infusion.startEventId) : undefined
+    const endTs = infusion.stopEventId && infusion.plannedStopCol == null
+      ? instants.get(infusion.stopEventId)
+      : end
     return {
-      name: infusion.name,
-      total: total.amount,
-      unit: total.unit,
-      weightUsed: total.weightUsed,
-      weightBasis: total.weightBasis,
-      amount: total.amount,
+      ...infusion,
+      ...(startTs ? { startTs } : {}),
+      ...(endTs ? { endTs } : {}),
+      ...(infusion.rateChanges
+        ? {
+            rateChanges: infusion.rateChanges.map(change => ({
+              ...change,
+              ts: change.ts ?? (change.eventId ? instants.get(change.eventId) : undefined),
+            })),
+          }
+        : {}),
     }
   })
 }

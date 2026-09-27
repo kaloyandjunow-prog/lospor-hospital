@@ -1,4 +1,5 @@
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
+import { serverNow } from "@/lib/intraop-clock"
 import { buildIntraopEndTiming, isValidTimeZone, resolvedTimeZone } from "@/lib/intraop-time"
 
 /**
@@ -117,6 +118,11 @@ export function intraopAutosaveValues<T extends { vitals?: unknown; drugsAdminis
  * when none is saved) and whether it falls on the next day. Moved out of the
  * form unchanged in 9.12.1.
  */
+/** End case at the server-corrected now (9.13.0). */
+export function intraopEndCaseValuesNow(savedZone: string | null | undefined, startTime: string | null | undefined) {
+  return intraopEndCaseValues(serverNow(), savedZone, startTime)
+}
+
 export function intraopEndCaseValues(now: Date, savedZone: string | null | undefined, startTime: string | null | undefined): {
   endTime: string
   endedAt: string | null

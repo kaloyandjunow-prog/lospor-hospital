@@ -22,6 +22,14 @@ export type PendingEvent = {
   [key: string]: unknown
 }
 
+/**
+ * One attempt for one queued change (9.13.0). `offline` and `stop` (auth
+ * expired, or still stale after a retry) end the case's pass without
+ * counting as failures of the change; `retry` (a server error) ends it and
+ * does. `missing`: the change is no longer queued (answered or cancelled).
+ */
+export type SendOneOutcome = "saved" | "dropped" | "missing" | "retry" | "offline" | "stop"
+
 export type DroppedEvent = {
   caseId: string
   event: Omit<PendingEvent, "syncStatus">
@@ -129,6 +137,10 @@ export function createPendingEventStore(deps: PendingEventStoreDeps) {
   // Index mutations are serialized (same lost-update defense as the outbox:
   // the capture screen and the global flusher can both touch the index).
   const indexQueue = createSingleFlightQueue()
+  // Every change to a case's queued events goes through this one queue
+  // (9.13.0). A send used to rewrite the whole list from what it read before
+  // the network call, so an event queued during a slow send was overwritten.
+  const listQueue = createSingleFlightQueue()
 
   async function loadIndex(): Promise<string[]> {
     const raw = await kv.get(PENDING_EVENTS_INDEX_KEY)
@@ -185,7 +197,7 @@ export function createPendingEventStore(deps: PendingEventStoreDeps) {
       .catch(() => {})
   }
 
-  async function storePending<T extends PendingEvent>(caseId: string, events: T[]): Promise<void> {
+  async function writePending<T extends PendingEvent>(caseId: string, events: T[]): Promise<void> {
     if (events.length === 0) {
       await kv.delete(pendingEventsKey(caseId))
     } else {
@@ -193,6 +205,45 @@ export function createPendingEventStore(deps: PendingEventStoreDeps) {
     }
     await markPendingCase(caseId, events.length > 0)
     notifyChanged()
+  }
+
+  function storePending<T extends PendingEvent>(caseId: string, events: T[]): Promise<void> {
+    return listQueue.enqueue(() => writePending(caseId, events))
+  }
+
+  /** Reads, changes and writes a case's queued events as one step. */
+  function updatePending<T extends PendingEvent>(caseId: string, change: (events: T[]) => T[]): Promise<void> {
+    return listQueue.enqueue(async () => writePending(caseId, change(await loadPending<T>(caseId))))
+  }
+
+  /**
+   * One attempt for one queued event, for the autosave manager's single send
+   * order (9.13.0). The caller holds the case's write lock.
+   */
+  async function sendOne(caseId: string, eventId: string): Promise<SendOneOutcome> {
+    const ev = (await loadPending(caseId)).find((item) => item.id === eventId)
+    if (!ev) return "missing"
+    const remove = () => updatePending(caseId, (events) => events.filter((item) => item.id !== eventId))
+    try {
+      let res = await postEvent(caseId, serializeEventForServer(ev), deps.getRevision?.(caseId))
+      if (!res.ok && res.status === 409 && res.serverRevision != null) {
+        deps.onAcknowledged?.(caseId, res.serverRevision)
+        res = await postEvent(caseId, serializeEventForServer(ev), res.serverRevision)
+      }
+      if (res.ok) {
+        deps.onAcknowledged?.(caseId, res.revision ?? null)
+        await remove()
+        return "saved"
+      }
+      if (res.status === 401 || res.status === 409) return "stop"
+      if (res.status >= 500) return "retry"
+      // Permanent 4xx: can never succeed. Kept in the dropped log, never lost silently.
+      await recordDropped(caseId, ev, res.status)
+      await remove()
+      return "dropped"
+    } catch (err) {
+      return isNetworkError(err) ? "offline" : "retry"
+    }
   }
 
   async function recordDropped(caseId: string, ev: PendingEvent, status: number): Promise<void> {
@@ -324,6 +375,8 @@ export function createPendingEventStore(deps: PendingEventStoreDeps) {
     loadPending,
     totalPending,
     storePending,
+    updatePending,
+    sendOne,
     markPendingCase,
     droppedEvents,
     clearDropped,

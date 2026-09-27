@@ -1,5 +1,7 @@
 import { useState } from "react"
 import { Text, TextInput, TouchableOpacity, View } from "react-native"
+import type { IntraopAttentionAction, IntraopAttentionKind } from "@lospor/core/intraop-attention"
+import { AttentionAnswers } from "./AttentionAnswers"
 import { Sheet } from "./Sheet"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
@@ -23,7 +25,14 @@ export type EndCaseCleanupItem = {
 }
 
 /** An entry dated after the end (a planned item): it must be resolved before finalising. */
-export type EndCaseAfterEndItem = { id: string; label: string; time: string; color: string }
+export type EndCaseAfterEndItem = {
+  id: string
+  /** From Core's intraop-attention: which question, and so which two answers. */
+  kind: IntraopAttentionKind
+  label: string
+  time: string
+  color: string
+}
 
 type Props = {
   visible: boolean
@@ -31,7 +40,7 @@ type Props = {
   items: EndCaseCleanupItem[]
   afterEnd?: EndCaseAfterEndItem[]
   /** "delete": it did not happen. "move": it happened, by the end time. */
-  onResolveAfterEnd?: (id: string, resolution: "delete" | "move") => void
+  onResolveAfterEnd?: (id: string, action: IntraopAttentionAction) => void
   decisions: Record<string, "stop" | "continue">
   continueLabel: string
   onDecision: (key: string, decision: "stop" | "continue") => void
@@ -129,16 +138,7 @@ export function EndCaseSheet({
             <View key={entry.id} style={{ marginBottom:8, backgroundColor:entry.color+"14", borderRadius:10, padding:10,
               borderWidth:1, borderStyle:"dashed", borderColor:entry.color+"66" }}>
               <Text style={{ color:entry.color, fontWeight:"700", marginBottom:6 }}>{entry.time} · {entry.label}</Text>
-              <View style={{ flexDirection:"row", gap:8 }}>
-                <TouchableOpacity testID={`end-case-after-end-delete-${entry.id}`} onPress={() => onResolveAfterEnd?.(entry.id, "delete")}
-                  style={{ flex:1, paddingVertical:8, borderRadius:8, alignItems:"center", backgroundColor:shade("#1c1c1c"), borderWidth:1, borderColor:shade("#ef444455") }}>
-                  <Text style={{ color:shade("#f87171"), fontWeight:"700", fontSize:13 }}>{tc("endCaseDidntHappen")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity testID={`end-case-after-end-move-${entry.id}`} onPress={() => onResolveAfterEnd?.(entry.id, "move")}
-                  style={{ flex:1, paddingVertical:8, borderRadius:8, alignItems:"center", backgroundColor:shade("#1c1c1c"), borderWidth:1, borderColor:shade("#22c55e55") }}>
-                  <Text style={{ color:shade("#86efac"), fontWeight:"700", fontSize:13 }}>{tc("endCaseHappened")}</Text>
-                </TouchableOpacity>
-              </View>
+              <AttentionAnswers id={entry.id} kind={entry.kind} onAnswer={(id, action) => onResolveAfterEnd?.(id, action)} />
             </View>
           ))}
           <Text style={{ color:shade("#fbbf24"), fontSize:11 }}>{tc("endCaseFinaliseBlocked")}</Text>

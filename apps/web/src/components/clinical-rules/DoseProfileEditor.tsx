@@ -516,7 +516,7 @@ export function DoseProfileEditor({
             </select>
           </label>
           <label className={labelClass}>
-            {copy.bodyUnit}
+            {copy.bodyUnit} <span className="block text-[11px] font-normal text-slate-500 dark:text-slate-400">{copy.basisAppliesFromNow}</span>
             <select value={parts.bodyBasis} onChange={event => {
               const basis = event.target.value as DoseBodyBasis
               updateRoute({ unit: displayUnit(parts.amount, basis, parts.timeBasis), weightBasis: weightBasis(basis) })

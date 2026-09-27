@@ -1,4 +1,5 @@
 import type { LogEvent } from "@/lib/intraop-log-event"
+import { serverNow } from "@/lib/server-clock"
 import { intraopStampForColumn } from "@lospor/core/intraop-commands"
 import { intraopColumnForInstant } from "@lospor/core/intraop-engine"
 
@@ -22,7 +23,7 @@ export type StampFor = (rowTs?: string | null) => string
 export function resolveRowStamp(
   rowTs: string | null | undefined,
   chartStart: Date | null,
-  now: Date = new Date(),
+  now: Date = serverNow(),
 ): string {
   if (!rowTs || !chartStart) return new Date(Math.floor(now.getTime() / 60_000) * 60_000).toISOString()
   return intraopStampForColumn({

@@ -153,3 +153,29 @@ describe("bar edges", () => {
     expect(showBarGrip(5, true, true, 12)).toBe(false)
   })
 })
+
+describe("a bar at its real minutes (9.13.0)", () => {
+  it("ends where it really stopped inside its last cell", async () => {
+    const { barTimeInsets } = await import("./timetable-row-geometry")
+    // 14:48 to 15:14 on 50 px cells: starts 3 minutes into 14:45, ends 4 minutes into 15:10.
+    const bar = { startTs: "2026-09-27T11:48:00.000Z", endTs: "2026-09-27T12:14:00.000Z", startCol: 1, endCol: 6 }
+    expect(barTimeInsets(bar, 50)).toEqual({ left: 30, right: 10 })
+    // A stop on the column boundary fills the cell.
+    expect(barTimeInsets({ ...bar, endTs: "2026-09-27T12:15:00.000Z" }, 50).right).toBe(0)
+  })
+
+  it("keeps the column rule where the times cannot place it", async () => {
+    const { barTimeInsets } = await import("./timetable-row-geometry")
+    expect(barTimeInsets({ startCol: 1, endCol: 6 }, 50)).toEqual({ left: null, right: null })
+    // Dragged one column longer, before the edit has come back: the times no longer fit.
+    const dragged = { startTs: "2026-09-27T11:48:00.000Z", endTs: "2026-09-27T12:14:00.000Z", startCol: 1, endCol: 8 }
+    expect(barTimeInsets(dragged, 50).right).toBeNull()
+  })
+
+  it("stays visible inside a single cell", async () => {
+    const { barTimeInsets } = await import("./timetable-row-geometry")
+    const brief = { startTs: "2026-09-27T11:48:00.000Z", endTs: "2026-09-27T11:48:30.000Z", startCol: 1, endCol: 1 }
+    const { left, right } = barTimeInsets(brief, 50)
+    expect(50 - left! - right!).toBeGreaterThanOrEqual(4)
+  })
+})

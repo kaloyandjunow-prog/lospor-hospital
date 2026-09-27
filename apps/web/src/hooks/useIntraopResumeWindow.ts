@@ -1,21 +1,21 @@
 "use client"
 
 import { useEffect, useRef, useState, type MutableRefObject } from "react"
+import { serverNow } from "@/lib/intraop-clock"
 import { toast } from "sonner"
-import { INTRAOP_RESUME_WINDOW_MS, INTRAOP_RESUME_WINDOW_SECONDS } from "@lospor/core/intraop-engine"
+import { INTRAOP_RESUME_WINDOW_SECONDS } from "@lospor/core/intraop-engine"
+import { intraopResumeWindow } from "@lospor/core/intraop-commands"
 import type { TimetableData } from "@/types/timetable"
-
-function clockLabel(date: Date): string {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
-}
 
 /**
  * The time after End case during which the case can be resumed. It counts from
  * the saved end, so a case reopened after it ended still offers Resume for
  * what is left of the window (9.12.1); before, only the page that pressed End
- * case ever did.
+ * case ever did. The window and its closing time are Core's, the same as the
+ * PWA's, and the closing time is in the case's zone -- it read the computer's
+ * own clock zone before 9.13.0.
  */
-export function useIntraopResumeWindow(endedAt: string | null | undefined) {
+export function useIntraopResumeWindow(endedAt: string | null | undefined, timeZone?: string | null) {
   const endedAtRef = useRef<Date | null>(null)
   const [resumeSecsLeft, setResumeSecsLeft] = useState(0)
   const [resumeUntilLabel, setResumeUntilLabel] = useState("")
@@ -23,10 +23,10 @@ export function useIntraopResumeWindow(endedAt: string | null | undefined) {
   /** Opens the window at `ended` (End case pressed here, or the saved end). */
   const startWindow = (ended: Date) => {
     endedAtRef.current = ended
-    const left = Math.floor((ended.getTime() + INTRAOP_RESUME_WINDOW_MS - Date.now()) / 1000)
-    if (left <= 0) return
-    setResumeUntilLabel(clockLabel(new Date(ended.getTime() + INTRAOP_RESUME_WINDOW_MS)))
-    setResumeSecsLeft(Math.min(left, INTRAOP_RESUME_WINDOW_SECONDS))
+    const window = intraopResumeWindow(ended, serverNow(), { timeZone })
+    if (window.secondsLeft <= 0) return
+    setResumeUntilLabel(window.until ?? "")
+    setResumeSecsLeft(window.secondsLeft)
   }
 
   /** Resumed: the next End case opens a fresh window. */
@@ -40,12 +40,12 @@ export function useIntraopResumeWindow(endedAt: string | null | undefined) {
     const ended = new Date(endedAt)
     if (Number.isNaN(ended.getTime())) return
     endedAtRef.current = ended
-    const left = Math.floor((ended.getTime() + INTRAOP_RESUME_WINDOW_MS - Date.now()) / 1000)
-    if (left <= 0) return
+    const window = intraopResumeWindow(ended, serverNow(), { timeZone })
+    if (window.secondsLeft <= 0) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setResumeUntilLabel(clockLabel(new Date(ended.getTime() + INTRAOP_RESUME_WINDOW_MS)))
-    setResumeSecsLeft(left)
-  }, [endedAt])
+    setResumeUntilLabel(window.until ?? "")
+    setResumeSecsLeft(window.secondsLeft)
+  }, [endedAt, timeZone])
 
   // Countdown: every second while the window is open.
   const active = resumeSecsLeft > 0
@@ -53,7 +53,7 @@ export function useIntraopResumeWindow(endedAt: string | null | undefined) {
     if (!active) return
     const id = setInterval(() => {
       if (!endedAtRef.current) return
-      const elapsed = Math.floor((Date.now() - endedAtRef.current.getTime()) / 1000)
+      const elapsed = Math.floor((serverNow().getTime() - endedAtRef.current.getTime()) / 1000)
       setResumeSecsLeft(Math.max(0, INTRAOP_RESUME_WINDOW_SECONDS - elapsed))
     }, 1000)
     return () => clearInterval(id)

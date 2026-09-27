@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef } from "react"
+import { serverNow } from "@/lib/intraop-clock"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 
@@ -47,7 +48,7 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents,
   const plan = useCallback((fromCol: number, toCol: number) => {
     if (chartStartMs === null) return []
     const chartStart = new Date(chartStartMs)
-    const now = new Date()
+    const now = serverNow()
     return planAutoFillVitalEvents({
       log: logRef.current,
       chartStart,
@@ -70,13 +71,13 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents,
   // Live: fill each new row as the clock reaches it, until paused.
   useEffect(() => {
     if (disabled || !preferences.enabled || chartStartMs === null || endedAt) return
-    let previous: number | null = activeTimetableColumnForTimestamp(new Date(chartStartMs), Date.now())
+    let previous: number | null = activeTimetableColumnForTimestamp(new Date(chartStartMs), serverNow().getTime())
     const timer = setInterval(() => {
       const chartStart = new Date(chartStartMs)
-      const column = activeTimetableColumnForTimestamp(chartStart, Date.now())
+      const column = activeTimetableColumnForTimestamp(chartStart, serverNow().getTime())
       if (column === null || previous === null || column <= previous) { previous = column; return }
-      const pauseAt = autoFillPauseAtMs({ log: logRef.current, chartStart, now: Date.now(), acknowledgedAt: acknowledgedAtRef.current })
-      if (Date.now() >= pauseAt) {
+      const pauseAt = autoFillPauseAtMs({ log: logRef.current, chartStart, now: serverNow().getTime(), acknowledgedAt: acknowledgedAtRef.current })
+      if (serverNow().getTime() >= pauseAt) {
         if (!pausePromptRef.current) {
           pausePromptRef.current = true
           toast(t("autofillPausedTitle"), {
@@ -84,7 +85,7 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents,
             duration: Infinity,
             action: {
               label: t("autofillStillRunning"),
-              onClick: () => { acknowledgedAtRef.current = Date.now(); pausePromptRef.current = false },
+              onClick: () => { acknowledgedAtRef.current = serverNow().getTime(); pausePromptRef.current = false },
             },
             onDismiss: () => { pausePromptRef.current = false },
           })
@@ -104,7 +105,7 @@ export function useIntraopEventAutofill({ log, chartStartMs, endedAt, addEvents,
     backfillOfferedRef.current = true
     const chartStart = new Date(chartStartMs)
     const lastDataCol = latestVitalColumn(log, chartStart)
-    const currentCol = activeTimetableColumnForTimestamp(chartStart, Date.now())
+    const currentCol = activeTimetableColumnForTimestamp(chartStart, serverNow().getTime())
     if (lastDataCol === null || currentCol === null || currentCol <= lastDataCol) return
     const planned = planRef.current(lastDataCol + 1, currentCol)
     if (planned.length === 0) return

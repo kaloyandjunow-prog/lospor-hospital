@@ -3,10 +3,15 @@
 import { useForm, useWatch, type Resolver } from "react-hook-form"
 import { useIntraopEventTimeline } from "@/hooks/useIntraopEventTimeline"
 import { useIntraopEventAutofill } from "@/hooks/useIntraopEventAutofill"
+import { useIntraopAttention } from "@/lib/use-intraop-attention"
+import { IntraopAttentionPanel } from "@/components/intraop/IntraopAttentionPanel"
+import { CaseSaveStateContext } from "@/lib/use-case-save-state"
+import { appendComplications } from "@/lib/append-complications"
+import { totalsProvisional } from "@lospor/core/intraop-save-state"
 import { adultPremedDoseForRoute } from "@lospor/core/premedication"
 import type { IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 import { computeLiveDrugTotals } from "@/lib/intraop-drug-totals"
-import { buildIntraopSubmission, intraopEndCaseValues, intraopTimeErrors } from "@/lib/intraop-submit"
+import { buildIntraopSubmission, intraopEndCaseValuesNow, intraopTimeErrors } from "@/lib/intraop-submit"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -129,12 +134,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   const { options: premedOptions } = useOptionLibrary("PREMED_DRUG")
   const { options: infusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
   const infusionWeightBasis = useMemo<WeightBasisMap>(
-    () => Object.fromEntries(
-      Object.entries(weightBasisMap(infusionLibOpts)).map(([name, basis]) => [
-        name,
-        basis === "IBW" || basis === "TBW" ? basis : "none",
-      ]),
-    ),
+    () => weightBasisMap(infusionLibOpts),
     [infusionLibOpts],
   )
   const airwayDeviceOptions = useMemo(() => airwayOptions.filter(o => o.group === "Device"), [airwayOptions])
@@ -218,6 +218,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     eventLog, startedAt: timelineStartedAt, startTime: timelineStartTime, timezone: timelineZone, endedAt: timelineEndedAt, onEventOps, readOnly, legacyTimetable: safeTimetable,
   })
   useIntraopEventAutofill({ log: timelineLog, chartStartMs, endedAt: timelineEndedAt, addEvents, disabled: readOnly })
+  const attention = useIntraopAttention({ caseId, log: timelineLog, endedAt: timelineEndedAt, timeZone: timelineZone, locale, onEventOps, readOnly })
 
   const {
     snapshot: clinicalRulesSnapshot,
@@ -233,13 +234,15 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       ? { value: preop.ageValue, unit: preop.ageUnit }
       : null,
   })
-  const calcIbw = ibwResolution.available ? ibwResolution.kilograms : null
+  // Rounded to 0.1 kg as the PWA and the printed record use it, so the three
+  // cannot total the same infusion a few decimals apart (9.12.3).
+  const calcIbw = ibwResolution.available ? ibwResolution.roundedKg : null
   const calcTbw = preop?.weightKg ?? null
 
   // Arithmetic, not interface — see @/lib/intraop-drug-totals.
   const liveDrugTotals = useMemo(
-    () => computeLiveDrugTotals(timetable, calcIbw, calcTbw, infusionWeightBasis),
-    [calcIbw, calcTbw, infusionWeightBasis, timetable])
+    () => computeLiveDrugTotals(timetable, calcIbw, calcTbw, infusionWeightBasis, preop?.heightCm ?? null),
+    [calcIbw, calcTbw, infusionWeightBasis, preop?.heightCm, timetable])
 
   // Auto-calculate fluid totals from the one canonical delivered-volume path.
   // Running rate entries advance against the real clock; bag entries retain
@@ -646,6 +649,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           aiOptIn={aiOptIn}
           importPanel={<IntraopEhrLabs caseId={caseId ?? null} value={watchedLabResults ?? []} onChange={rows => setValue("labResults", rows as never, { shouldDirty: true })} />}
         />
+        <CaseSaveStateContext.Provider value={attention.saveState}>
+        <IntraopAttentionPanel entries={attention.entries} onAnswer={attention.canAnswer ? attention.answer : undefined} refused={attention.refused} onDismissRefused={attention.saveState.dismissRefused} />
         <IntraopTimetable
           labResults={(watchedLabResults ?? []) as never}
           onOpenLabDraw={takenAt => setLabsDialog({ open: true, takenAt })}
@@ -670,7 +675,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           startTime={watchedStartTime || "08:00"}
           startedAt={chartStartedAt ?? undefined}
           endTime={watchedEndTime || undefined}
-          endedAt={timelineEndedAt ?? null}
+          endedAt={timelineEndedAt ?? null} attention={attention}
           autoEnded={autoEndedProp && !!timelineEndedAt && timelineEndedAt === defaultValues?.endedAt}
           caseStarted={caseStartedProp || !!watchedStartTime}
           monitoring={monitoring}
@@ -680,29 +685,20 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           data={timetable}
           onChange={onTimetableChange}
           onEndCase={() => {
-            const end = intraopEndCaseValues(new Date(), getValues("timezone"), getValues("startTime"))
+            const end = intraopEndCaseValuesNow(getValues("timezone"), getValues("startTime"))
             setValue("endTime", end.endTime)
             if (end.endedAt && end.timezone) { setValue("endedAt", end.endedAt); setValue("timezone", end.timezone) }
             if (end.endTimeNextDay) setValue("endTimeNextDay", true)
           }}
-          onResumeCase={() => {
-            setValue("endTime", "")
-            setValue("endTimeNextDay", false)
-            setValue("endedAt", null)
-          }}
+          onResumeCase={() => { setValue("endTime", ""); setValue("endTimeNextDay", false); setValue("endedAt", null) }}
           onPostopContinued={items => onPostopContinued?.(items)}
-          onComplicationAdded={labels => {
-            const cur = getValues("complications") || ""
-            const existing = cur.split(";").map((s: string) => s.trim()).filter(Boolean)
-            const newItems = labels.filter((l: string) => !existing.includes(l))
-            if (newItems.length === 0) return
-            setValue("complications", [...existing, ...newItems].join("; "))
-          }}
+          onComplicationAdded={labels => { const next = appendComplications(getValues("complications"), labels); if (next) setValue("complications", next) }}
         />
+        </CaseSaveStateContext.Provider>
       </SectionCard>
 
       {/* Drugs and Fluid Balance Totals */}
-      <DrugsFluidTotalsSection t={t} control={control} watch={watch} liveDrugTotals={liveDrugTotals} />
+      <DrugsFluidTotalsSection t={t} control={control} watch={watch} liveDrugTotals={liveDrugTotals} provisional={totalsProvisional(timetable, attention.saveState)} />
       </div>{/* /intraop-timetable */}
 
         </>)

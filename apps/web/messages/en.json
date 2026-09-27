@@ -1577,6 +1577,8 @@
       "removeResult": "Remove laboratory result"
     },
     "timetable": {
+      "vitalBpSys": "BP Sys",
+      "vitalBpDia": "BP Dia",
       "caseFinished": "Case finished",
       "selectMonitoringToPopulate": "Select monitoring above to populate this chart",
       "vitalErrorBis": "BIS must be a whole number from 0 to 100.",
@@ -1634,6 +1636,7 @@
     },
     "timelineRules": {
       "refused": {
+        "SUPERSEDED": "A later change to this entry was made on another screen; that one stands.",
         "STOP_BEFORE_START": "Not saved: a stop cannot be earlier than its start.",
         "NOT_RUNNING": "Not saved: that is not running at this time.",
         "STOP_BEFORE_LATER_CHANGE": "Not saved: a later change of the same item comes after this stop. Move or delete that change first.",
@@ -1661,6 +1664,16 @@
       "endCaseAfterEndHint": "Say for each whether it happened. Nothing may remain after the end.",
       "endCaseDidntHappen": "Didn't happen",
       "endCaseHappened": "Happened",
+      "attentionTitle": "Waiting for your answer",
+      "queuedShort": "not yet saved",
+      "sendingShort": "saving…",
+      "refusedShort": "refused",
+      "refusedTitle": "Not saved — refused by the server",
+      "refusedDismiss": "Seen",
+      "stopUnconfirmed": "planned stop reached — did it stop?",
+      "stopStillRunning": "Still running",
+      "stopConfirmedStopped": "Stopped",
+      "plannedChange": "Change planned",
       "endCaseFinaliseBlocked": "Entries after the end remain. Mark each one first.",
       "resumeRemoveStopsTitle": "Remove the stops made at End case?",
       "resumeRemoveStopsMessage": "{count} items were stopped when the case ended. Remove those stops so they run again?",

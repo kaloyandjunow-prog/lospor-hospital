@@ -22,6 +22,11 @@ type Props = {
   children: ReactNode
 }
 
+// One object for the life of the app: expo-router re-applies options whenever
+// the object changes, and a new one on every render of this busy screen set
+// the navigator's state on every render -- a loop that stopped the app.
+const SCREEN_OPTIONS = { headerShown: false } as const
+
 export function IntraopScreenChrome({
   caseId,
   status,
@@ -36,7 +41,7 @@ export function IntraopScreenChrome({
   const { t } = usePreferences()
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={SCREEN_OPTIONS} />
       <AppHeader title={t("intraoperative")} showNewCase={false} />
       {status === "COMPLETE" && finalizedAt ? (
         <EditWindowBanner finalizedAt={finalizedAt} caseId={caseId} showBackButton />

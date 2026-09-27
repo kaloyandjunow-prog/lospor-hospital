@@ -275,16 +275,22 @@ export function projectIntraopEvents(
 
     if (event.type === "infusion_rate" && event.infId) {
       const active = activeInfusions.get(event.infId)
-      if (active && !future) {
+      if (active) {
+        // A change dated after the reading time is drawn as planned and
+        // applied to nothing: before 9.13.0 it was dropped, so it could not be
+        // seen, and ending the case earlier left it hidden after the end.
         active.rateChanges.push({
           eventId: event.id,
           col,
+          ts: event.ts,
           rate: finiteNumber(event.rate ?? active.event.rate),
           unit: event.unit ?? active.event.unit ?? "",
           ...(event.concentration !== undefined
             ? { concentration: event.concentration }
             : {}),
+          ...(future ? { planned: true } : {}),
         })
+        if (future) continue
         active.event = {
           ...active.event,
           rate: event.rate ?? active.event.rate,
@@ -301,7 +307,7 @@ export function projectIntraopEvents(
           active.plannedStopCol ??= col
           active.stopEventId ??= event.id
         } else {
-          infusions.push({ ...infusionSegment(event.infId, active, col, true), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+          infusions.push({ ...infusionSegment(event.infId, active, col, true, event.ts), ...appliedStopRefs(event) })
           activeInfusions.delete(event.infId)
         }
       }
@@ -333,13 +339,14 @@ export function projectIntraopEvents(
 
     if (event.type === "fluid_rate" && event.fluidId) {
       const active = activeFluids.get(event.fluidId)
-      if (active && !future && active.event.fluidEntryMode === "RATE") {
+      if (active && active.event.fluidEntryMode === "RATE") {
         active.rateChanges.push({
           eventId: event.id,
           col,
           ts: event.ts,
           rate: finiteNumber(event.rate),
           unit: event.unit ?? active.event.unit ?? "mL/h",
+          ...(future ? { planned: true } : {}),
         })
       }
       continue
@@ -352,7 +359,7 @@ export function projectIntraopEvents(
           active.plannedStopCol ??= col
           active.stopEventId ??= event.id
         } else {
-          fluids.push({ ...fluidSegment(event.fluidId, active, col, event.ts, true, event), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+          fluids.push({ ...fluidSegment(event.fluidId, active, col, event.ts, true, event), ...appliedStopRefs(event) })
           activeFluids.delete(event.fluidId)
         }
       }
@@ -409,7 +416,7 @@ export function projectIntraopEvents(
           running.plannedStopCol ??= col
           running.stopEventId ??= event.id
         } else {
-          agents.push({ ...agentSegment(running, col, true), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+          agents.push({ ...agentSegment(running, col, true), ...appliedStopRefs(event) })
           activeAgents.delete(name)
         }
       }
@@ -438,7 +445,7 @@ export function projectIntraopEvents(
       continue
     }
 
-    if (event.type === "gas_change" && activeGas && !future) {
+    if (event.type === "gas_change" && activeGas) {
       const carrierGas = event.carrierGas ?? activeGas.carrierGas
       const fractions = gasFractions(carrierGas, event.fio2 ?? activeGas.fio2)
       activeGas.settingsChanges.push({
@@ -449,6 +456,7 @@ export function projectIntraopEvents(
         fio2: fractions.fio2,
         fiAir: event.fiAir ?? fractions.fiAir,
         fiN2O: event.fiN2O ?? fractions.fiN2O,
+        ...(future ? { planned: true } : {}),
       })
       continue
     }
@@ -458,7 +466,7 @@ export function projectIntraopEvents(
         activeGas.plannedStopCol ??= col
         activeGas.stopEventId ??= event.id
       } else {
-        gasSettings.push({ ...gasSegment(activeGas, col, true), stopEventId: event.id, ...(event.endCaseStop ? { endCaseStop: true } : {}) })
+        gasSettings.push({ ...gasSegment(activeGas, col, true), ...appliedStopRefs(event) })
         activeGas = null
       }
       continue
@@ -499,7 +507,7 @@ export function projectIntraopEvents(
   const openThroughTs = new Date(asOfMs ?? maxEventTimestamp).toISOString()
 
   for (const [id, active] of activeInfusions) {
-    infusions.push(withPlannedStop(infusionSegment(id, active, Math.max(openEnd, active.startCol), false), active.plannedStopCol, active.stopEventId))
+    infusions.push(withPlannedStop(infusionSegment(id, active, Math.max(openEnd, active.startCol), false, openThroughTs), active.plannedStopCol, active.stopEventId))
   }
   for (const [id, active] of activeFluids) {
     fluids.push(withPlannedStop(fluidSegment(id, active, Math.max(openEnd, active.startCol), openThroughTs, false), active.plannedStopCol, active.stopEventId))
@@ -521,6 +529,35 @@ export function projectIntraopEvents(
     clinicalEvents,
     positions,
     phases,
+  }
+}
+
+/**
+ * How far ahead of its entry a stop must be dated to count as entered ahead.
+ * A stop tapped in the current row is stamped to the minute and may land a
+ * few seconds either side of the tap; a minute is well clear of that.
+ */
+export const STOP_AHEAD_TOLERANCE_MS = 60_000
+
+/**
+ * A stop dated after the moment it was entered (9.13.0): a guess at when an
+ * infusion will end rather than a record that it has. When its time comes it
+ * applies, and is asked about until someone confirms it or says the item is
+ * still running. Events saved before 9.13.0 carry no entry time and are taken
+ * as recorded.
+ */
+export function stopEnteredAhead(event: Pick<LogEvent, "ts" | "recordedAt">): boolean {
+  if (!event.recordedAt) return false
+  const entered = Date.parse(event.recordedAt)
+  const dated = Date.parse(event.ts)
+  return Number.isFinite(entered) && Number.isFinite(dated) && dated - entered > STOP_AHEAD_TOLERANCE_MS
+}
+
+function appliedStopRefs(event: LogEvent) {
+  return {
+    stopEventId: event.id,
+    ...(event.endCaseStop ? { endCaseStop: true } : {}),
+    ...(stopEnteredAhead(event) && !event.stopConfirmed ? { stopUnconfirmed: true } : {}),
   }
 }
 
@@ -604,10 +641,16 @@ function infusionSegment(
   },
   endCol: number,
   stopped: boolean,
+  endTs?: string,
 ): TimetableInfusion {
   return {
     id,
     startEventId: active.event.id,
+    // The real instants, so a total is the time actually run rather than
+    // whole five-minute columns (calcInfusionTotal).
+    startTs: active.event.ts,
+    ...(endTs ? { endTs } : {}),
+    ...(active.event.calculationBasis ? { calculationBasis: active.event.calculationBasis } : {}),
     name: active.event.name ?? "",
     rate: finiteNumber(active.initialRate),
     unit: active.event.unit ?? "",
@@ -663,7 +706,8 @@ function fluidSegment(
     startTs: active.startTs,
     endTs: asOfTs,
     rate: active.initialRate,
-    rateChanges: active.rateChanges,
+    // Planned changes are drawn, never delivered (9.13.0).
+    rateChanges: active.rateChanges.filter(change => !change.planned),
   })
   return {
     id,

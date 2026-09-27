@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, Plus } from "lucide-react"
 import { abnormalSummary, type LabResult } from "@lospor/core/labs"
+import { SaveMark } from "./SaveMark"
 
 /**
  * Laboratory draws on the timetable.
@@ -144,12 +145,15 @@ export function TimetableLabsLane({
                 {colDraws.length === 0 ? (
                   <Plus className="h-2.5 w-2.5 opacity-0 group-hover:opacity-30 transition-opacity text-slate-400 dark:text-[#666]" />
                 ) : (
+                  <>
+                  <SaveMark section="intraop" className="absolute top-0 right-0" />
                   <span
                     className="text-[8px] font-bold rounded-full px-1 py-px w-full text-center truncate"
                     style={{ backgroundColor: "#14b8a622", color: "#0d9488", border: "1px solid #14b8a655" }}
                   >
                     {colDraws.reduce((total, draw) => total + draw.results.length, 0)}
                   </span>
+                  </>
                 )}
               </div>
             )
