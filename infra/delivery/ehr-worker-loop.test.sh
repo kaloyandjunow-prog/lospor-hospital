@@ -31,6 +31,9 @@ for arg in "\$@"; do
   esac
 done
 [ "\$code" = down ] && exit 7
+# Like curl: the body goes to stdout unless it is sent elsewhere. It stands
+# for clinical content, which must never reach the log.
+case " \$* " in *" --output /dev/null "*) ;; *) printf 'PATIENT-BODY' ;; esac
 printf '%s' "\$code"
 exit 0
 STUB
@@ -96,13 +99,22 @@ else
 fi
 
 # 4. An API that is not answering is named as such, not as a failed call.
-make_work 200 down
+#    The first call is the unreachable one, so carrying on means the second is made.
+make_work down 200
 run_loop
-if grep -qx "EHR_API_UNAVAILABLE /v1/internal/ehr-import/scan" "$work/stderr" && [ "$(exit_code)" != 2 ]; then
+if grep -qx "EHR_API_UNAVAILABLE /v1/internal/ehr-delivery/process" "$work/stderr" && grep -q "^scan " "$calls"; then
   pass "an unreachable API is reported and the loop carries on"
 else
   fail "an unreachable API stopped the loop or was misreported"
 fi
+
+# 5. No response body ever reaches the log, whatever the call returned.
+for codes in "200 204" "500 200"; do
+  set -- $codes
+  make_work "$1" "$2"
+  run_loop
+  if grep -q PATIENT-BODY "$work/stderr"; then fail "a response body reached the log ($codes)"; else pass "no response body in the log ($codes)"; fi
+done
 
 rm -rf -- "$work"
 if [ "$failures" -gt 0 ]; then
