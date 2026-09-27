@@ -30,6 +30,7 @@ import {
 } from "@lospor/core/intraop"
 import { EquipmentSuggestions } from "@/components/EquipmentSuggestions"
 import { IntraopLabsDialog } from "@/components/intraop/IntraopLabsDialog"
+import { IntraopEhrLabs } from "@/components/intraop/IntraopEhrLabs"
 import { useClinicalRules } from "@/hooks/useClinicalRules"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
@@ -643,6 +644,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           onClose={() => setLabsDialog({ open: false, takenAt: null })}
           caseId={caseId ?? null}
           aiOptIn={aiOptIn}
+          importPanel={<IntraopEhrLabs caseId={caseId ?? null} value={watchedLabResults ?? []} onChange={rows => setValue("labResults", rows as never, { shouldDirty: true })} />}
         />
         <IntraopTimetable
           labResults={(watchedLabResults ?? []) as never}

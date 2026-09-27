@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Hospital
-## [1.4.12] - Unreleased
+## [1.4.13] - Unreleased
+
+Hospital-only; the vendored API, web and PWA stay 9.12.2.
+
+### Added
+
+- **Intraoperative labs from the hospital system.** The labs view on the web
+  and the PWA has a "Labs from the hospital system" button. It asks the
+  hospital system again, using the case's own patient number (the screen
+  never has it), and offers only results drawn since the case started: the
+  preoperative review already offered the earlier ones. The usual review
+  applies: the newest draw of each test is ticked, up to three earlier ones
+  are kept collapsed, and a result without a draw time is not offered.
+  Accepted results are added to the intraoperative labs at the times they
+  were drawn. New route: `GET /v1/cases/{id}/ehr-import/intraop-labs`.
+
+## [1.4.12] - 2026-09-27
 
 1.4.11 was built but never published: its publication was cancelled because
 it hid imported items from a patient's later cases. 1.4.12 replaces it and

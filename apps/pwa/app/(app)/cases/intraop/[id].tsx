@@ -43,6 +43,7 @@ import { useIntraopEventPersistence } from "@/lib/use-intraop-event-persistence"
 import { useIntraopEventActions } from "@/lib/use-intraop-event-actions"
 import { useIntraopLabs } from "@/lib/use-intraop-labs"
 import { LabsSheet } from "@/components/intraop/LabsSheet"
+import { IntraopEhrLabs } from "@/components/intraop/IntraopEhrLabs"
 import { useIntraopRuntimeEffects } from "@/lib/use-intraop-runtime-effects"
 import { useIntraopCaseLoader } from "@/lib/use-intraop-case-loader"
 import { useIntraopAutofillPreferences } from "@/lib/use-intraop-autofill-preferences"
@@ -786,6 +787,7 @@ export default function IntraopLiveScreen() {
           onClose={() => setLabsOpen(false)}
           onChange={next => { void saveLabs(next) }}
           onEnsureCase={async () => id ?? null}
+          importPanel={<IntraopEhrLabs caseId={id ?? null} value={labResults} onChange={next => { void saveLabs(next) }} />}
         />
       ) : null}
     </>

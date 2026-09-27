@@ -1826,7 +1826,10 @@
     "reviewWaiting": "Review what the hospital sent",
     "fetchPatient": "Fetch patient data",
     "fetchPatientAgain": "Look again",
-    "lookupFailed": "The draft could not be saved, so the hospital system was not asked. Try again."
+    "lookupFailed": "The draft could not be saved, so the hospital system was not asked. Try again.",
+    "intraopLabsFetch": "Labs from the hospital system",
+    "intraopLabsNone": "Nothing drawn since the case started.",
+    "intraopLabsFailed": "The hospital system could not be asked. Enter the results by hand."
   },
   "centralExport": {
     "title": "LOSPOR Central",

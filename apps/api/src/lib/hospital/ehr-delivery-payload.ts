@@ -52,7 +52,7 @@ type SnapshotDocument = {
  * without an identifier is useless to a hospital, so the caller refuses to
  * send it — but a decryption failure on one case must not stop the queue.
  */
-function patientReference(
+export function patientReference(
   link: {
     identifierType: string
     identifierCiphertext: string

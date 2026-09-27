@@ -335,7 +335,7 @@ export async function findPendingEhrImport(
 const SOURCE_GROUPS: readonly EhrSourceGroup[] =
   ["labs", "diagnoses", "allergies", "medications", "procedures"]
 
-function readUnreadSources(stored: unknown): EhrUnreadSource[] {
+export function readUnreadSources(stored: unknown): EhrUnreadSource[] {
   if (!Array.isArray(stored)) return []
   const seen = new Set<string>()
   const out: EhrUnreadSource[] = []
