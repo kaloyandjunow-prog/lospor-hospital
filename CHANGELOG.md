@@ -1,13 +1,23 @@
 # Changelog - LOSPOR Hospital
 ## [1.4.16] - 2026-09-28
 
+1.4.15 was built but never published: 1.4.16 replaces it and carries
+everything in its entry below.
+
 Vendors Core, API, web and PWA 9.13.3. One additive database migration
-(20260928120000_medication_concept_ids); a pre-update backup is required. CVE-2026-16742 (libsystemd0/libudev1, Debian
-bookworm, no fixed version) carried forward and accepted again; its expiry is
-not extended.
+(20260928120000_medication_concept_ids); a pre-update backup is required.
+CVE-2026-16742 (libsystemd0/libudev1, Debian bookworm, no fixed version)
+carried forward and accepted again; its expiry is not extended.
 
 ### Changed
 
+- **Status reads as Bulgarian.** About 800 of its Bulgarian strings were
+  reworded so they read as Bulgarian rather than as a translation, with one
+  set of terms throughout (актуализация, резервно копие, импорт от БИС,
+  лекар, ИТ отдел). The go-live page is „Пускане в работа“ and Site settings
+  „Настройки на инсталацията“, in the operator docs too. Fixed: „Забране“ for
+  Forbidden, three update-check messages cut off mid-sentence, and a resolved
+  incident shown as „Разрешено“ (permitted).
 - **One medication list, from the national register** (9.13.3). Home
   medications and allergies search NHIS CL009 (6,901 products) plus the 787
   products of LOSPOR's earlier BDA list that CL009 lacks: 7,688 in all, up
