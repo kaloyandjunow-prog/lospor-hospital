@@ -15343,11 +15343,112 @@
           "drugId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "An existing Drug row (a Status older than 1.4.16). Exactly one of drugId and catalogId when mapping."
+          },
+          "catalogId": {
+            "type": "string",
+            "pattern": "^(cl009|bda):[A-Za-z0-9_-]{1,64}$",
+            "description": "A product from the medication list; its Drug row is created if missing."
           }
         },
         "required": [
           "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalMedicationCandidate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Drug row this product maps to (drug-<catalogId>)."
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "atcCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "strength": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nhisCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "catalogId",
+          "name",
+          "inn",
+          "atcCode",
+          "form",
+          "strength",
+          "nhisCode"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalMedicationSearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HospitalMedicationCandidate"
+            }
+          }
+        },
+        "required": [
+          "query",
+          "results"
         ],
         "additionalProperties": false
       },

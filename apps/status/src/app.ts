@@ -14,7 +14,7 @@ import {
   readTerminologyPackagesSignal,
   readUpdateSignal,
 } from "./signals.js"
-import type { MaintenanceView, ReleaseView } from "./ui.js"
+import type { MaintenanceView, MedicationSearch, ReleaseView } from "./ui.js"
 import {
   PREOP_ORDER_SCRIPT,
   STATUS_NAV,
@@ -84,6 +84,7 @@ import {
   ControlPlaneClient,
   ControlPlaneClientError,
   EHR_CODE_LIST_ANSWERS,
+  MEDICATION_CATALOG_ID,
   type ControlPlanePort,
   type EhrCodeListAnswer,
   type ResearchGrantInput,
@@ -99,7 +100,7 @@ function windowDescription(locale: StatusLocale): string {
   return localize(
     locale,
     "Unless you choose to apply it immediately, this will be applied during the overnight maintenance window, when no list is running.",
-    "Ако не изберете незабавно прилагане, обновяването ще бъде приложено през нощния прозорец за поддръжка, когато не се извършва оперативна дейност.",
+    "Ако не изберете незабавно прилагане, актуализацията ще бъде приложена през нощния прозорец за поддръжка, когато не тече оперативна програма.",
   )
 }
 
@@ -137,11 +138,11 @@ function accountControlMessage(code: string, locale: StatusLocale): string {
   const messages: Record<string, [string, string]> = {
     ACCOUNT_CONTROL_NOT_CONFIGURED: [
       "Account controls have not been configured on this appliance.",
-      "Управлението на профили не е настроено в тази система.",
+      "Управлението на профили не е настроено на тази система.",
     ],
     ACCOUNT_CONTROL_UNAVAILABLE: [
       "The clinical API cannot currently perform account controls.",
-      "Клиничният API в момента не може да управлява профили.",
+      "Клиничното приложение в момента не може да управлява профили.",
     ],
     ACCOUNT_CONTROL_INVALID_RESPONSE: [
       "The account service returned an invalid response. Nothing was changed.",
@@ -166,18 +167,18 @@ function accountControlMessage(code: string, locale: StatusLocale): string {
     ],
     ACCOUNT_AUTHORITY_PROTECTED: [
       "This account's authority cannot be managed from Status.",
-      "Правомощията на този профил не могат да се управляват от страницата за състояние.",
+      "Правомощията на този профил не могат да се управляват от Status.",
     ],
     APPLIANCE_OPERATOR_MANAGED: [
       "The appliance operator password must be changed through the server credential workflow.",
-      "Паролата на системния администратор трябва да се промени чрез сървърния процес за данни за вход.",
+      "Паролата на системния администратор се сменя само от конзолата на сървъра.",
     ],
     LAST_CLINICAL_ADMIN: [
       "The last active clinical administrator cannot be demoted.",
-      "Последният активен клиничен администратор не може да бъде понижен.",
+      "Последният активен клиничен администратор не може да получи по-ниска роля.",
     ],
-    UNAUTHORIZED: ["The private account service refused this request.", "Частната услуга за профили отхвърли заявката."],
-    ACCOUNT_CONTROL_FAILED: ["The account operation failed. Nothing was changed.", "Операцията с профила беше неуспешна. Нищо не е променено."],
+    UNAUTHORIZED: ["The private account service refused this request.", "Вътрешната услуга за профили отказа заявката."],
+    ACCOUNT_CONTROL_FAILED: ["The account operation failed. Nothing was changed.", "Операцията с профила не успя. Нищо не е променено."],
   }
   const message = messages[code] ?? messages.ACCOUNT_CONTROL_FAILED!
   return localize(locale, message[0], message[1])
@@ -211,11 +212,11 @@ function statusAdminMessage(code: string, locale: StatusLocale): string {
     ],
     PROTECTED_ADMIN: [
       "The protected initial chief IT administrator cannot be suspended or reactivated here.",
-      "Защитеният първоначален главен ИТ администратор не може да бъде спрян или активиран повторно тук.",
+      "Защитеният първоначален главен ИТ администратор не може да бъде блокиран или отблокиран оттук.",
     ],
     LAST_ADMIN: [
       "The last enabled Status administrator cannot be suspended.",
-      "Последният активен администратор на Status не може да бъде спрян.",
+      "Последният активен администратор на Status не може да бъде блокиран.",
     ],
     TOKEN_INVALID: [
       "This one-time link is invalid, expired, replaced, or already used.",
@@ -230,11 +231,11 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
   const messages: Record<string, [string, string]> = {
     CONTROL_NOT_CONFIGURED: [
       "Hospital controls have not been configured on this appliance.",
-      "Управлението на болничната система не е настроено.",
+      "Управлението на болничната система не е настроено на този сървър.",
     ],
     CONTROL_UNAVAILABLE: [
       "The private hospital control service is currently unavailable.",
-      "Частната услуга за управление на болничната система в момента не е достъпна.",
+      "Вътрешната услуга за управление в момента не е достъпна.",
     ],
     CONTROL_INVALID_RESPONSE: [
       "The hospital control service returned an invalid response. Nothing was changed.",
@@ -245,37 +246,37 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
       "Проверете въведените стойности. Нищо не е променено.",
     ],
     RESEARCH_ACCOUNT_NOT_FOUND: ["The research account no longer exists.", "Изследователският профил вече не съществува."],
-    RESEARCH_PRINCIPAL_NOT_ELIGIBLE: ["Select an active clinician, head of department, administrator, or research-only account.", "Изберете активен клиницист, началник на отделение, администратор или профил само за изследвания."],
+    RESEARCH_PRINCIPAL_NOT_ELIGIBLE: ["Select an active clinician, head of department, administrator, or research-only account.", "Изберете активен лекар, началник на отделение, администратор или профил само за изследвания."],
     RESEARCH_ACCOUNT_NOT_ACTIVE: ["Activate the research account first.", "Първо активирайте изследователския профил."],
     RESEARCH_GRANT_NOT_FOUND: ["The research grant no longer exists.", "Разрешението за изследвания вече не съществува."],
     GRANT_TO_SUPERSEDE_NOT_FOUND: ["The grant selected for replacement is no longer active.", "Разрешението, избрано за замяна, вече не е действащо."],
-    GRANT_ALREADY_TERMINAL: ["That grant is already revoked, replaced, or expired.", "Разрешението вече е отменено, заменено или изтекло."],
+    GRANT_ALREADY_TERMINAL: ["That grant is already revoked, replaced, or expired.", "Разрешението вече е оттеглено, заменено или изтекло."],
     OMOP_REQUEST_NOT_FOUND: ["The OMOP request no longer exists.", "Заявката за OMOP вече не съществува."],
-    OMOP_REQUEST_ALREADY_APPROVED: ["That exact OMOP dataset is already approved.", "Точно този OMOP набор вече е одобрен."],
-    OMOP_REQUEST_NOT_APPROVABLE: ["The OMOP request no longer matches a frozen pending dataset.", "Заявката за OMOP вече не съответства на замразен чакащ набор."],
+    OMOP_REQUEST_ALREADY_APPROVED: ["That exact OMOP dataset is already approved.", "Този OMOP набор вече е одобрен."],
+    OMOP_REQUEST_NOT_APPROVABLE: ["The OMOP request no longer matches a frozen pending dataset.", "Заявката за OMOP вече не съответства на замразен набор, който чака одобрение."],
     OMOP_GRANT_NOT_ACTIVE: ["The grant bound to this OMOP dataset is no longer active.", "Разрешението, свързано с този OMOP набор, вече не е действащо."],
     CENTRAL_ENDPOINT_INVALID: ["Use a valid HTTPS Central endpoint.", "Използвайте валиден HTTPS адрес на Central."],
     CENTRAL_CERTIFICATES_NOT_READY: ["Install the Central client and CA certificates first.", "Първо инсталирайте клиентския сертификат и CA сертификата за Central."],
-    CENTRAL_TRANSPORT_NOT_LOCKED: ["Configure and lock Central transport before approving clinical export.", "Настройте и заключете преноса към Central, преди да одобрите клиничния износ."],
-    CENTRAL_CLINICAL_EXPORT_NOT_ENABLED: ["Enable and approve Central clinical export before retrying a batch.", "Включете и одобрете клиничния износ към Central, преди да повторите изпращането на пакет."],
+    CENTRAL_TRANSPORT_NOT_LOCKED: ["Configure and lock Central transport before approving clinical export.", "Настройте и заключете изпращането към Central, преди да разрешите изпращане на клинични данни."],
+    CENTRAL_CLINICAL_EXPORT_NOT_ENABLED: ["Enable and approve Central clinical export before retrying a batch.", "Включете и разрешете изпращането на клинични данни към Central, преди да изпратите пакет отново."],
     CENTRAL_BATCH_NOT_FOUND: ["The Central batch no longer exists.", "Пакетът за Central вече не съществува."],
-    CENTRAL_BATCH_NOT_RETRYABLE: ["Only a rejected or retryable Central batch can be queued again.", "Само отхвърлен пакет или пакет за нов опит може да бъде поставен отново в опашката."],
-    EXTERNAL_AI_SEAL_KEY_UNAVAILABLE: ["The appliance key needed to protect the Mistral credential is unavailable. Nothing was changed.", "Ключът на системата, необходим за защита на данните за достъп до Mistral, не е достъпен. Нищо не е променено."],
+    CENTRAL_BATCH_NOT_RETRYABLE: ["Only a rejected or retryable Central batch can be queued again.", "Само отхвърлен пакет или пакет, който може да се опита отново, може да се постави пак в опашката."],
+    EXTERNAL_AI_SEAL_KEY_UNAVAILABLE: ["The appliance key needed to protect the Mistral credential is unavailable. Nothing was changed.", "Ключът на системата, нужен за защита на данните за достъп до Mistral, не е достъпен. Нищо не е променено."],
     EXTERNAL_AI_PROVIDER_NOT_CONFIGURED: ["Store a valid Mistral credential before using external AI.", "Запазете валидни данни за достъп до Mistral, преди да използвате външен ИИ."],
     EXTERNAL_AI_SEAL_KEY_INVALID: ["The appliance key used to protect the Mistral credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп до Mistral е невалиден. Нищо не е променено."],
     EXTERNAL_AI_CREDENTIAL_REQUIRED: ["Enter the new Mistral credential. Nothing was changed.", "Въведете новите данни за достъп до Mistral. Нищо не е променено."],
     EXTERNAL_AI_CREDENTIAL_UNREADABLE: ["The stored Mistral credential cannot be opened with this appliance key. Replace or remove it before enabling external AI.", "Запазените данни за достъп до Mistral не могат да бъдат отворени с ключа на тази система. Заменете ги или ги премахнете, преди да включите външен ИИ."],
     APPLIANCE_OPERATOR_UNAVAILABLE: ["The designated appliance administrator is unavailable.", "Определеният системен администратор не е достъпен."],
-    EHR_TRANSPORT_SEAL_KEY_UNAVAILABLE: ["The appliance key needed to protect the EHR transport credential is unavailable. Nothing was changed.", "Ключът на системата, необходим за защита на данните за достъп за преноса на ЕЗД, не е достъпен. Нищо не е променено."],
-    EHR_TRANSPORT_SEAL_KEY_INVALID: ["The appliance key used to protect the EHR transport credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп за преноса на ЕЗД е невалиден. Нищо не е променено."],
-    EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп за преноса на ЕЗД. Нищо не е променено."],
-    EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп за преноса на ЕЗД не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете отново транспорта."],
-    EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като транспорт, преди да зададете данни за достъп. Наблюдавана папка не се нуждае от такива."],
-    PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question. Nothing was changed.", "Профилът за предоперативна оценка трябва да включва всеки включен въпрос. Нищо не е променено."],
+    EHR_TRANSPORT_SEAL_KEY_UNAVAILABLE: ["The appliance key needed to protect the EHR transport credential is unavailable. Nothing was changed.", "Ключът на системата, нужен за защита на данните за достъп до БИС, не е достъпен. Нищо не е променено."],
+    EHR_TRANSPORT_SEAL_KEY_INVALID: ["The appliance key used to protect the EHR transport credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп до БИС е невалиден. Нищо не е променено."],
+    EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп до БИС. Нищо не е променено."],
+    EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп до БИС не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете канала отново."],
+    EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като канал, преди да зададете данни за достъп. Наблюдаваната папка не изисква такива."],
+    PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question. Nothing was changed.", "Профилът за предоперативна оценка трябва да съдържа всички вградени въпроси. Нищо не е променено."],
     DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
     DISABLED_QUESTION_CANNOT_BE_REQUIRED: ["A disabled preoperative question cannot be required. Nothing was changed.", "Изключен въпрос за предоперативна оценка не може да бъде задължителен. Нищо не е променено."],
-    HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
-    CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
+    HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
+    CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
   }
   const message = messages[code] ?? messages.HOSPITAL_CONTROL_FAILED!
   return localize(locale, message[0], message[1])
@@ -625,7 +626,7 @@ export function createStatusApp({
       const message = error instanceof AuthError && error.code === "RATE_LIMITED"
         ? localize(locale, "Too many attempts. Wait 15 minutes before trying again.", "Твърде много опити. Изчакайте 15 минути, преди да опитате отново.")
         : error instanceof AuthError && error.code === "NOT_INITIALIZED"
-          ? localize(locale, "The appliance operator has not been initialized.", "Системният администратор още не е инициализиран.")
+          ? localize(locale, "The appliance operator has not been initialized.", "Системният администратор още не е създаден.")
           : localize(locale, "The credentials were not accepted.", "Данните за вход не бяха приети.")
       return context.html(renderLogin(message, Boolean(db.getAuth()), locale), status)
     }
@@ -644,7 +645,7 @@ export function createStatusApp({
       body = isRecord(parsed) ? parsed : {}
     } catch {
       return context.html(renderLogin(
-        localize(locale, "The verification request was not accepted. Start sign-in again.", "Заявката за потвърждение не беше приета. Започнете входа отначало."),
+        localize(locale, "The verification request was not accepted. Start sign-in again.", "Заявката за потвърждаване не беше приета. Опитайте да влезете отново."),
         Boolean(db.getAuth()),
         locale,
       ), 400)
@@ -667,7 +668,7 @@ export function createStatusApp({
         return context.html(renderMfaLogin(null, challenge, qrSvg, selectedLocale))
       } catch {
         return context.html(renderLogin(
-          localize(selectedLocale, "This sign-in request expired. Start again.", "Тази заявка за вход изтече. Започнете отново."),
+          localize(selectedLocale, "This sign-in request expired. Start again.", "Заявката за вход изтече. Опитайте отново."),
           Boolean(db.getAuth()),
           selectedLocale,
         ), 401)
@@ -696,7 +697,7 @@ export function createStatusApp({
       const invalidChallenge = error instanceof AuthError && error.code === "MFA_CHALLENGE_INVALID"
       if (invalidChallenge) {
         return context.html(renderLogin(
-          localize(locale, "This sign-in request expired. Start again.", "Тази заявка за вход изтече. Започнете отново."),
+          localize(locale, "This sign-in request expired. Start again.", "Заявката за вход изтече. Опитайте отново."),
           Boolean(db.getAuth()),
           locale,
         ), 401)
@@ -712,7 +713,7 @@ export function createStatusApp({
         return context.html(renderMfaLogin(message, challenge, qrSvg, locale), rateLimited ? 429 : 401)
       } catch {
         return context.html(renderLogin(
-          localize(locale, "This sign-in request expired. Start again.", "Тази заявка за вход изтече. Започнете отново."),
+          localize(locale, "This sign-in request expired. Start again.", "Заявката за вход изтече. Опитайте отново."),
           Boolean(db.getAuth()),
           locale,
         ), 401)
@@ -775,7 +776,7 @@ export function createStatusApp({
         localize(
           locale,
           "Sign in with the administrator password to manage accounts. Console recovery sessions cannot create credentials or links.",
-          "Влезте с администраторската парола, за да управлявате профили. Аварийните сесии от конзолата не могат да създават данни за вход или връзки.",
+          "Влезте с администраторската парола, за да управлявате профили. Сесия с токен за възстановяване не може да създава данни за вход или връзки.",
         ),
       ), 403)
     }
@@ -1115,6 +1116,7 @@ export function createStatusApp({
     error?: string,
     notice?: string,
     section?: string,
+    medicationSearch?: MedicationSearch,
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1124,7 +1126,19 @@ export function createStatusApp({
       notice,
       "password",
       section,
+      medicationSearch,
     )
+  }
+
+  // One unmapped medication code's search of the medication list, asked for
+  // with a plain GET form so the page keeps working without JavaScript.
+  const medicationSearchFor = async (context: Context): Promise<MedicationSearch | undefined> => {
+    const query = (context.req.query("medicationSearch") ?? "").trim().slice(0, 100)
+    const code = (context.req.query("medicationCode") ?? "").trim()
+    if (!code || code.length > 512) return undefined
+    const system = (context.req.query("medicationSystem") ?? "").trim().slice(0, 512)
+    const results = query.length >= 2 ? await controlPlane.searchMedications(query).catch(() => null) : []
+    return { system, code, query, results }
   }
 
   type ControlStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503
@@ -1173,7 +1187,7 @@ export function createStatusApp({
       return context.html(await controlHtml(locale, localize(
         locale,
         "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
-        "Влезте с администраторската парола, за да използвате управлението. Аварийните сесии от конзолата не могат да разрешават тези промени.",
+        "Влезте с администраторската парола, за да използвате управлението. Сесия с токен за възстановяване не може да разрешава тези промени.",
       ), undefined, section), 403)
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
@@ -1219,7 +1233,7 @@ export function createStatusApp({
       return context.html(await controlHtml(locale, localize(
         locale,
         "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
-        "Влезте с администраторската парола, за да използвате управлението. Аварийните сесии от конзолата не могат да разрешават тези промени.",
+        "Влезте с администраторската парола, за да използвате управлението. Сесия с токен за възстановяване не може да разрешава тези промени.",
       ), undefined, section), 403)
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
@@ -1274,6 +1288,11 @@ export function createStatusApp({
     return value
   }
 
+  const formCatalogId = (value: string): string => {
+    if (!MEDICATION_CATALOG_ID.test(value)) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+    return value
+  }
+
   const controlGet = async (context: Context, section?: string) => {
     const locale = currentLocale(context)
     const session = passwordAccountSession(context)
@@ -1285,7 +1304,8 @@ export function createStatusApp({
         "Влезте с администраторската парола, за да използвате управлението на болничната система.",
       ), undefined, "recovery", section), 403)
     }
-    return context.html(await controlHtml(locale, undefined, undefined, section))
+    const medicationSearch = section === "ehr" ? await medicationSearchFor(context) : undefined
+    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch))
   }
   app.get("/status/control", context => controlGet(context))
   // One address per section, written as literals rather than a loop so the
@@ -1325,21 +1345,21 @@ export function createStatusApp({
       }
       await controlPlane.issueGrant(input)
     },
-    locale => localize(locale, "The immutable research grant was issued and audited.", "Непроменимото разрешение за изследвания беше издадено и одитирано."),
+    locale => localize(locale, "The immutable research grant was issued and audited.", "Разрешението за изследвания е издадено и записано в одитния журнал."),
     "research",
   ))
 
   app.post("/status/control/research/grants/:id/revoke", context => sensitiveControlAction(
     context,
     body => controlPlane.revokeGrant(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
-    locale => localize(locale, "The research grant was revoked and audited.", "Разрешението за изследвания беше отменено и одитирано."),
+    locale => localize(locale, "The research grant was revoked and audited.", "Разрешението за изследвания е оттеглено и записано в одитния журнал."),
     "research",
   ))
 
   app.post("/status/control/research/omop/:id/approve", context => sensitiveControlAction(
     context,
     body => controlPlane.approveOmop(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
-    locale => localize(locale, "The exact frozen OMOP dataset was approved and audited.", "Точно този замразен OMOP набор беше одобрен и одитиран."),
+    locale => localize(locale, "The exact frozen OMOP dataset was approved and audited.", "Замразеният OMOP набор е одобрен и записан в одитния журнал."),
     "research",
   ))
 
@@ -1353,7 +1373,7 @@ export function createStatusApp({
       institutionId: formId(formText(body, "institutionId", 1, 128)),
       reason: formText(body, "reason", 10, 1000),
     }),
-    locale => localize(locale, "Central transport was configured, locked, and audited.", "Преносът към Central беше настроен, заключен и одитиран."),
+    locale => localize(locale, "Central transport was configured, locked, and audited.", "Изпращането към Central е настроено, заключено и записано в одитния журнал."),
     "research",
   ))
 
@@ -1370,14 +1390,14 @@ export function createStatusApp({
         reason: formText(body, "reason", 10, 1000),
       })
     },
-    locale => localize(locale, "The separate Central clinical-export policy was saved and audited.", "Отделната политика за клиничен износ към Central беше запазена и одитирана."),
+    locale => localize(locale, "The separate Central clinical-export policy was saved and audited.", "Правилата за изпращане на клинични данни към Central са запазени и записани в одитния журнал."),
     "research",
   ))
 
   app.post("/status/control/central/batches/:id/retry", context => sensitiveControlAction(
     context,
     body => controlPlane.retryCentralBatch(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
-    locale => localize(locale, "The Central batch was queued for a controlled retry.", "Пакетът за Central беше поставен в опашката за контролиран нов опит."),
+    locale => localize(locale, "The Central batch was queued for a controlled retry.", "Пакетът за Central е поставен в опашката за нов опит."),
     "research",
   ))
 
@@ -1388,7 +1408,7 @@ export function createStatusApp({
       pediatricEnabled: formBoolean(body, "pediatricEnabled"),
       reason: formText(body, "reason", 10, 1000),
     }),
-    locale => localize(locale, "The prospective guidance policy was saved and audited; historical records were not changed.", "Политиката за бъдещи насоки беше запазена и одитирана; старите записи не бяха променени."),
+    locale => localize(locale, "The prospective guidance policy was saved and audited; historical records were not changed.", "Настройката за насоки занапред е запазена и записана в одитния журнал; старите записи не са променени."),
     "clinical",
   ))
 
@@ -1420,7 +1440,7 @@ export function createStatusApp({
         reason: formText(body, "reason", 10, 1000),
       })
     },
-    locale => localize(locale, "The preoperative profile was saved and audited. Cases pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка беше запазен и одитиран. Случаите получават промяната при следващото си зареждане; вече дадените отговори се запазват."),
+    locale => localize(locale, "The preoperative profile was saved and audited. Cases pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
     "clinical",
   ))
 
@@ -1430,7 +1450,7 @@ export function createStatusApp({
       externalAiEnabled: formBoolean(body, "externalAiEnabled"),
       reason: formText(body, "reason", 10, 1000),
     }),
-    locale => localize(locale, "The external-AI policy was saved and audited.", "Политиката за външен ИИ беше запазена и одитирана."),
+    locale => localize(locale, "The external-AI policy was saved and audited.", "Настройката за външен ИИ е запазена и записана в одитния журнал."),
     "ai",
   ))
 
@@ -1440,7 +1460,7 @@ export function createStatusApp({
       credential: formText(body, "credential", 1, 4096),
       reason: formText(body, "reason", 10, 1000),
     }),
-    locale => localize(locale, "The Mistral credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп до Mistral бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+    locale => localize(locale, "The Mistral credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп до Mistral са заменени и записани в одитния журнал. Status не показва и не пази стойността им."),
     "ai",
   ))
 
@@ -1452,7 +1472,7 @@ export function createStatusApp({
       }
       return controlPlane.removeExternalAiCredential(formText(body, "reason", 10, 1000))
     },
-    locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral бяха премахнати и промяната беше одитирана."),
+    locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral са премахнати и промяната е записана в одитния журнал."),
     "ai",
   ))
 
@@ -1468,7 +1488,7 @@ export function createStatusApp({
       }
       return controlPlane.setExternalAiModels({ advisorModel, visionModel, reason: formText(body, "reason", 10, 1000) })
     },
-    locale => localize(locale, "The external-AI models were saved and audited. The next AI request uses them.", "Моделите за външен ИИ бяха запазени и одитирани. Следващата заявка към ИИ ги използва."),
+    locale => localize(locale, "The external-AI models were saved and audited. The next AI request uses them.", "ИИ моделите са запазени и записани в одитния журнал. Следващата заявка към ИИ ще ги използва."),
     "ai",
   ))
 
@@ -1478,7 +1498,7 @@ export function createStatusApp({
       egnPermitted: formBoolean(body, "egnPermitted"),
       reason: formText(body, "reason", 10, 1000),
     }),
-    locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Политиката за национален идентификатор (ЕГН) беше запазена и одитирана."),
+    locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Настройката за ЕГН е запазена и записана в одитния журнал."),
     "ehr",
   ))
 
@@ -1501,7 +1521,7 @@ export function createStatusApp({
         reason: formText(body, "reason", 10, 1000),
       })
     },
-    locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
+    locale => localize(locale, "The EHR import transport policy was saved and audited.", "Каналът за импорт от БИС е запазен и записан в одитния журнал."),
     "ehr",
   ))
 
@@ -1514,7 +1534,7 @@ export function createStatusApp({
       }
       return controlPlane.setEhrStagingRetention({ days: Number(raw), reason: formText(body, "reason", 10, 1000) })
     },
-    locale => localize(locale, "The EHR staging retention was saved and audited. The next daily retention run applies it.", "Срокът за пазене на данните от ЕЗД беше запазен и одитиран. Следващото ежедневно почистване го прилага."),
+    locale => localize(locale, "The EHR staging retention was saved and audited. The next daily retention run applies it.", "Срокът за пазене на импортираните данни е запазен и записан в одитния журнал. Прилага се при следващото ежедневно почистване."),
     "ehr",
   ))
 
@@ -1529,17 +1549,16 @@ export function createStatusApp({
       // operator: which of three is the admission number is theirs to say.
       if (result.identifierSystems.length > 0) {
         return localize(locale,
-          `This server returned: ${result.identifierSystems.join(", ")}. Copy the one your record numbers use into the field below.`,`
-          Сървърът върна: ${result.identifierSystems.join(", ")}. Копирайте тази, която използват вашите номера на ИЗ, в полето по-долу.`)
+          `This server returned: ${result.identifierSystems.join(", ")}. Copy the one your record numbers use into the field below.`,`Сървърът върна: ${result.identifierSystems.join(", ")}. Копирайте в полето по-долу тази, която използват вашите номера на ИЗ.`)
       }
       if (result.patientFound === false) {
         return localize(locale,
           "The server answered, but found no patient with that number. Try one you know exists — the numberings can only be read off a real record.",
-          "Сървърът отговори, но не намери пациент с този номер. Опитайте с номер, за който сте сигурни — номеровите системи могат да бъдат прочетени само от реален запис.")
+          "Сървърът отговори, но не намери пациент с този номер. Опитайте с номер, за който знаете, че съществува — номерациите се виждат само от реален запис.")
       }
       return localize(locale,
         "The server answered. Enter a real record number above to see which numberings it uses.",
-        "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите какви номерови системи използва.")
+        "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите кои номерации използва.")
     },
     "ehr",
   ))
@@ -1569,7 +1588,7 @@ export function createStatusApp({
     },
     locale => localize(locale,
       "The EHR endpoint was saved and audited. Any stored credential was cleared, because a secret belongs to the arrangement it was issued for.",
-      "Адресът на ЕЗД беше запазен и одитиран. Съхранените данни за достъп бяха изчистени, защото тайната принадлежи на настройката, за която е издадена."),
+      "Адресът на БИС е запазен и записан в одитния журнал. Запазените данни за достъп бяха изтрити, защото тайната важи само за настройката, за която е издадена."),
     "ehr",
   ))
 
@@ -1598,7 +1617,7 @@ export function createStatusApp({
     },
     locale => localize(locale,
       "The identifier numbering was saved and audited. Patient matches are now verified against it.",
-      "Номеровата система беше запазена и одитирана. Съвпаденията по пациент вече се проверяват спрямо нея."),
+      "Номерацията е запазена и записана в одитния журнал. Пациентите вече се проверяват спрямо нея."),
     "ehr",
   ))
 
@@ -1608,7 +1627,7 @@ export function createStatusApp({
       credential: formText(body, "credential", 1, 4096),
       reason: formText(body, "reason", 10, 1000),
     }),
-    locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп за преноса на ЕЗД бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+    locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп до БИС са заменени и записани в одитния журнал. Status не показва и не пази стойността им."),
     "ehr",
   ))
 
@@ -1622,7 +1641,7 @@ export function createStatusApp({
       // case. Only a feed that sends no units at all needs this filled in.
       assumedUnit: formText(body, "assumedUnit", 0, 64) || null,
     }),
-    locale => localize(locale, "The laboratory code was mapped and audited.", "Лабораторният код беше съпоставен и одитиран."),
+    locale => localize(locale, "The laboratory code was mapped and audited.", "Лабораторният код е съпоставен и записан в одитния журнал."),
     "ehr",
   ))
 
@@ -1632,7 +1651,7 @@ export function createStatusApp({
       system: formText(body, "system", 0, 512),
       code: formText(body, "code", 1, 512),
     }),
-    locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
+    locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставянето е премахнато и записано в одитния журнал. Кодът се връща в списъка, който чака съпоставяне."),
     "ehr",
   ))
 
@@ -1643,7 +1662,7 @@ export function createStatusApp({
       code: formText(body, "code", 1, 512),
       field: formText(body, "field", 1, 64),
     }),
-    locale => localize(locale, "The vital code was mapped and audited.", "Кодът за жизнен показател беше съпоставен и одитиран."),
+    locale => localize(locale, "The vital code was mapped and audited.", "Кодът за жизнен показател е свързан и записан в одитния журнал."),
     "ehr",
   ))
 
@@ -1653,7 +1672,7 @@ export function createStatusApp({
       system: formText(body, "system", 0, 512),
       code: formText(body, "code", 1, 512),
     }),
-    locale => localize(locale, "The vital mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката на жизнения показател беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
+    locale => localize(locale, "The vital mapping was removed and audited. The code returns to the list waiting for an answer.", "Свързването на жизнения показател е премахнато и записано в одитния журнал. Кодът се връща в списъка, който чака съпоставяне."),
     "ehr",
   ))
 
@@ -1662,9 +1681,9 @@ export function createStatusApp({
     body => controlPlane.mapEhrMedicationCode({
       system: formText(body, "system", 0, 512),
       code: formText(body, "code", 1, 512),
-      drugId: formId(formText(body, "drugId", 1, 128)),
+      catalogId: formCatalogId(formText(body, "catalogId", 1, 80)),
     }),
-    locale => localize(locale, "The medication code was mapped and audited. Future imports will show the selected LOSPOR drug as the proposal.", "Лекарственият код беше съпоставен и одитиран. При бъдещи вносове избраното лекарство от LOSPOR ще се показва като предложение."),
+    locale => localize(locale, "The medication code was mapped and audited. Future imports will show the selected LOSPOR drug as the proposal.", "Лекарственият код е съпоставен и записан в одитния журнал. При бъдещи импорти избраното лекарство от LOSPOR ще се предлага автоматично."),
     "ehr",
   ))
 
@@ -1674,7 +1693,7 @@ export function createStatusApp({
       system: formText(body, "system", 0, 512),
       code: formText(body, "code", 1, 512),
     }),
-    locale => localize(locale, "The medication mapping was removed and audited. Existing cases are unchanged.", "Съпоставката на лекарството беше премахната и одитирана. Съществуващите случаи не са променени."),
+    locale => localize(locale, "The medication mapping was removed and audited. Existing cases are unchanged.", "Съпоставянето на лекарството е премахнато и записано в одитния журнал. Съществуващите случаи не са променени."),
     "ehr",
   ))
   app.post("/status/control/ehr-code-systems/answer", context => bulkControlAction(
@@ -1690,7 +1709,7 @@ export function createStatusApp({
         list: raw === "" ? null : raw as EhrCodeListAnswer,
       })
     },
-    locale => localize(locale, "The address was answered and audited. Codes from it are read that way from the next import.", "Адресът беше посочен и одитиран. Кодовете от него се четат така от следващия внос."),
+    locale => localize(locale, "The address was answered and audited. Codes from it are read that way from the next import.", "Адресът е посочен и записан в одитния журнал. Кодовете от него ще се четат така от следващия импорт."),
     "ehr",
   ))
 
@@ -1702,7 +1721,7 @@ export function createStatusApp({
       }
       return controlPlane.removeEhrTransportCredential(formText(body, "reason", 10, 1000))
     },
-    locale => localize(locale, "The EHR transport credential was removed and the change was audited.", "Данните за достъп за преноса на ЕЗД бяха премахнати и промяната беше одитирана."),
+    locale => localize(locale, "The EHR transport credential was removed and the change was audited.", "Данните за достъп до БИС са премахнати и промяната е записана в одитния журнал."),
     "ehr",
   ))
 
@@ -1761,7 +1780,7 @@ export function createStatusApp({
         error: localize(
           locale,
           "Console-recovery sessions cannot change terminology. Nothing was requested.",
-          "Аварийните сесии от конзолата не могат да променят терминологията. Не е подадена заявка.",
+          "Сесия с токен за възстановяване не може да променя терминологията. Не е подадена заявка.",
         ),
       }), 403)
     }
@@ -1798,7 +1817,7 @@ export function createStatusApp({
         error: localize(
           locale,
           "The required confirmation or package directory is invalid. Nothing was requested.",
-          "Задължителното потвърждение или името на папката е невалидно. Не е подадена заявка.",
+          "Задължителното потвърждение или името на папката са невалидни. Не е подадена заявка.",
         ),
       }), 400)
     }
@@ -1821,7 +1840,7 @@ export function createStatusApp({
         error: localize(
           locale,
           "The host is not currently offering that terminology operation. The page has been refreshed and nothing was requested.",
-          "Сървърът в момента не предлага тази операция с терминология. Страницата е обновена и не е подадена заявка.",
+          "Сървърът в момента не предлага тази операция с терминологията. Страницата е презаредена и не е подадена заявка.",
         ),
       }), 409)
     }
@@ -1838,7 +1857,7 @@ export function createStatusApp({
     const administrator = auth.statusSessionPrincipal(sessionToken)
     if (!administrator || administrator.kind !== "password") {
       return context.html(await terminologyPage(locale, kind, {
-        error: localize(locale, "The administrator identity is unavailable. Nothing was requested.", "Самоличността на администратора не е достъпна. Не е подадена заявка."),
+        error: localize(locale, "The administrator identity is unavailable. Nothing was requested.", "Администраторът не може да бъде определен. Не е подадена заявка."),
       }), 409)
     }
     const requestId = newRequestId()
@@ -1850,7 +1869,7 @@ export function createStatusApp({
     }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
       const message = outcome === "already-pending"
-        ? localize(locale, "A terminology operation is already waiting on the host. Nothing replaced it.", "Операция с терминология вече чака на сървъра. Тя не е заменена.")
+        ? localize(locale, "A terminology operation is already waiting on the host. Nothing replaced it.", "На сървъра вече чака операция с терминологията. Тя не е заменена.")
         : localize(locale, "The terminology request could not be recorded. Nothing was changed.", "Заявката за терминология не можа да бъде записана. Нищо не е променено.")
       return context.html(await terminologyPage(locale, kind, { error: message }), outcome === "already-pending" ? 409 : 500)
     }
@@ -1958,7 +1977,7 @@ export function createStatusApp({
   ): Promise<{ refusal: string; status: 400 | 403 } | { body: Record<string, unknown> }> => {
     if (kind !== "password") {
       return { refusal: await maintenancePage(locale, kind, {
-        error: localize(locale, "Console-recovery sessions cannot request maintenance. Nothing was requested.", "Аварийните сесии от конзолата не могат да заявяват поддръжка. Не е подадена заявка."),
+        error: localize(locale, "Console-recovery sessions cannot request maintenance. Nothing was requested.", "Сесия с токен за възстановяване не може да заявява поддръжка. Не е подадена заявка."),
       }), status: 403 as const }
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
@@ -1995,14 +2014,14 @@ export function createStatusApp({
     const administrator = auth.statusSessionPrincipal(sessionToken)
     if (!administrator || administrator.kind !== "password") {
       return { refusal: await maintenancePage(locale, "password", {
-        error: localize(locale, "The administrator identity is unavailable. Nothing was requested.", "Самоличността на администратора не е достъпна. Не е подадена заявка."),
+        error: localize(locale, "The administrator identity is unavailable. Nothing was requested.", "Администраторът не може да бъде определен. Не е подадена заявка."),
       }), status: 409 }
     }
     return { operatorRef: `status-operator-${sha256(administrator.email).slice(0, 16)}` }
   }
 
   const notOffered = (locale: StatusLocale) => maintenancePage(locale, "password", {
-    error: localize(locale, "The host is not offering maintenance right now. The page has been refreshed and nothing was requested.", "Сървърът в момента не предлага поддръжка. Страницата е обновена и не е подадена заявка."),
+    error: localize(locale, "The host is not offering maintenance right now. The page has been refreshed and nothing was requested.", "Сървърът в момента не предлага поддръжка. Страницата е презаредена и не е подадена заявка."),
   })
 
   const submitted = (body: Record<string, unknown>) => {
@@ -2033,7 +2052,7 @@ export function createStatusApp({
     // Nobody locks themselves out of this page from this page.
     const statusList = proposal.changes.find(change => change.key === "HOSPITAL_STATUS_ALLOWED_CIDRS")
     if (statusList && !cidrListContains(statusList.after, clientAddress(context.req.raw))) {
-      return { error: localize(locale, "The new Status network list does not include the computer you are using, so saving it would lock you out. Nothing was requested.", "Новият мрежов списък за Status не включва компютъра, който използвате, и запазването му би ви заключило отвън. Не е подадена заявка.") }
+      return { error: localize(locale, "The new Status network list does not include the computer you are using, so saving it would lock you out. Nothing was requested.", "Новият списък с мрежи за Status не включва компютъра, който използвате, и запазването му би ви оставило без достъп. Не е подадена заявка.") }
     }
     return { proposal }
   }
@@ -2076,7 +2095,7 @@ export function createStatusApp({
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
-          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
           : localize(locale, "The maintenance request could not be recorded. Nothing was changed.", "Заявката за поддръжка не можа да бъде записана. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
@@ -2121,13 +2140,13 @@ export function createStatusApp({
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     if (kind !== "password") {
       return context.html(await maintenancePage(locale, kind, {
-        error: localize(locale, "Console-recovery sessions cannot download the support bundle.", "Аварийните сесии от конзолата не могат да изтеглят файла за поддръжка."),
+        error: localize(locale, "Console-recovery sessions cannot download the support bundle.", "Сесия с токен за възстановяване не може да изтегля пакета за поддръжка."),
       }), 403)
     }
     const bundle = await readSupportBundle(config.updateStateDir)
     if (!bundle) {
       return context.html(await maintenancePage(locale, kind, {
-        error: localize(locale, "There is no support bundle to download. Write one first.", "Няма файл за поддръжка за изтегляне. Първо запишете такъв."),
+        error: localize(locale, "There is no support bundle to download. Write one first.", "Няма пакет за поддръжка за изтегляне. Първо създайте такъв."),
       }), 404)
     }
     return context.body(bundle.content, 200, {
@@ -2157,7 +2176,7 @@ export function createStatusApp({
     if (offered.secretsEscrow?.statusOpenToAllPrivate !== false) {
       return context.html(await maintenancePage(locale, kind, {
         sessionToken,
-        error: localize(locale, "Status still opens from every private network. Set its network list first. Nothing was requested.", "Status все още се отваря от всички частни мрежи. Първо задайте мрежите му. Не е подадена заявка."),
+        error: localize(locale, "Status still opens from every private network. Set its network list first. Nothing was requested.", "Status все още се отваря от всички вътрешни мрежи. Първо задайте мрежите му. Не е подадена заявка."),
       }), 409)
     }
     const { password, code } = parsed.body
@@ -2165,14 +2184,14 @@ export function createStatusApp({
       sessionToken, error: localize(locale, message[0], message[1]),
     }).then(html => context.html(html, status))
     if (typeof password !== "string" || typeof code !== "string") {
-      return refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът за удостоверяване не бяха приети. Не е подадена заявка."], 401)
+      return refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът от приложението за удостоверяване не бяха приети. Не е подадена заявка."], 401)
     }
     try {
       await auth.reauthenticateWithMfa(sessionToken, password, code)
     } catch (error) {
       return error instanceof AuthError && error.code === "RATE_LIMITED"
         ? refused(["Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново."], 429)
-        : refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът за удостоверяване не бяха приети. Не е подадена заявка."], 401)
+        : refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът от приложението за удостоверяване не бяха приети. Не е подадена заявка."], 401)
     }
     const operatorRef = operatorRefOf(sessionToken)
     if (!operatorRef) return context.html(await notOffered(locale), 409)
@@ -2186,8 +2205,8 @@ export function createStatusApp({
       return context.html(await maintenancePage(locale, kind, {
         sessionToken,
         error: outcome === "already-pending"
-          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
-          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за съхранение не можа да бъде записана. Нищо не е променено."),
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
+          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за копие на тайните не можа да бъде записана. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
     db.insertEvent({
@@ -2213,26 +2232,26 @@ export function createStatusApp({
     const unavailable = async (message: [string, string], status: 403 | 404 | 409) =>
       context.html(await maintenancePage(locale, kind, { sessionToken, error: localize(locale, message[0], message[1]) }), status)
     if (kind !== "password") {
-      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Аварийните сесии от конзолата не могат да изтеглят копието за съхранение."], 403)
+      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Сесия с токен за възстановяване не може да изтегля копието на тайните."], 403)
     }
     const offer = await readSecretsEscrowOffer(config.updateStateDir, now())
     const operatorRef = operatorRefOf(sessionToken)
     if (!offer) {
-      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие за съхранение за изтегляне. Първо създайте такова; копието се предлага 30 минути."], 404)
+      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие на тайните за изтегляне. Първо създайте такова; копието е достъпно 30 минути."], 404)
     }
     if (offer.operatorRef !== operatorRef) {
-      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие за съхранение е направено от друг администратор. Само той видя паролата му, затова само той може да го изтегли."], 403)
+      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие на тайните е направено от друг администратор. Само той е видял паролата му, затова само той може да го изтегли."], 403)
     }
     const bytes = await readSecretsEscrowBundle(config.updateStateDir, offer)
     if (!bytes) {
-      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието за съхранение на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
+      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието на тайните на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
     }
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action: "secrets-escrow-delivered", operatorRef, delivered: offer.sha256,
     }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
-      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "Друга заявка за поддръжка чака на сървъра. Изтеглете копието за съхранение отново след минута."], 409)
+      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "На сървъра чака друга заявка за поддръжка. Изтеглете копието на тайните отново след минута."], 409)
     }
     db.insertEvent({
       id: requestId,
@@ -2265,7 +2284,7 @@ export function createStatusApp({
     const destination = offhostDestinationFromForm(parsed.body)
     if (!destination) {
       return context.html(await maintenancePage(locale, kind, {
-        error: localize(locale, "The destination is not valid: a share needs an absolute mount path outside the appliance; SFTP needs a server, port, user and directory. Nothing was requested.", "Мястото е невалидно: споделената папка изисква абсолютен път извън системата; SFTP изисква сървър, порт, потребител и директория. Не е подадена заявка."),
+        error: localize(locale, "The destination is not valid: a share needs an absolute mount path outside the appliance; SFTP needs a server, port, user and directory. Nothing was requested.", "Мястото е невалидно: за споделена папка е нужен абсолютен път на монтиране извън системата, а за SFTP — сървър, порт, потребител и директория. Не е подадена заявка."),
       }), 400)
     }
     if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
@@ -2278,8 +2297,8 @@ export function createStatusApp({
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
-          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
-          : localize(locale, "The destination could not be recorded. Nothing was changed.", "Мястото не можа да бъде записано. Нищо не е променено."),
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
+          : localize(locale, "The destination could not be recorded. Nothing was changed.", "Мястото за копиране не можа да бъде записано. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
     db.insertEvent({
@@ -2350,7 +2369,7 @@ export function createStatusApp({
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
-          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
           : localize(locale, "The settings request could not be recorded. Nothing was changed.", "Заявката за настройките не можа да бъде записана. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
@@ -2456,7 +2475,7 @@ export function createStatusApp({
     if (outcome !== "submitted") {
       return context.html(await maintenancePage(locale, kind, {
         error: outcome === "already-pending"
-          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
           : localize(locale, "The advanced settings request could not be recorded. Nothing was changed.", "Заявката за разширените настройки не можа да бъде записана. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
@@ -2531,7 +2550,7 @@ export function createStatusApp({
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     if (kind !== "password") {
       return context.html(await goLivePage(locale, kind, {
-        error: localize(locale, "Console-recovery sessions cannot record sign-offs. Nothing was changed.", "Аварийните сесии от конзолата не могат да записват потвърждения. Нищо не е променено."),
+        error: localize(locale, "Console-recovery sessions cannot record sign-offs. Nothing was changed.", "Сесия с токен за възстановяване не може да записва потвърждения. Нищо не е променено."),
       }), 403)
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
@@ -2561,7 +2580,7 @@ export function createStatusApp({
     const administrator = auth.statusSessionPrincipal(sessionToken)
     if (!administrator || administrator.kind !== "password") {
       return context.html(await goLivePage(locale, kind, {
-        error: localize(locale, "The administrator identity is unavailable. Nothing was changed.", "Самоличността на администратора не е достъпна. Нищо не е променено."),
+        error: localize(locale, "The administrator identity is unavailable. Nothing was changed.", "Администраторът не може да бъде определен. Нищо не е променено."),
       }), 409)
     }
     const operatorRef = `status-operator-${sha256(administrator.email).slice(0, 16)}`
@@ -2654,7 +2673,7 @@ export function createStatusApp({
     const view = await releaseView(locale)
     if (!view.mayPrepare || !view.latestVersion || view.latestVersion === view.installedVersion) {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "No healthy update agent can prepare that release.", "Няма работещ агент за обновяване, който да подготви тази версия."),
+        error: localize(locale, "No healthy update agent can prepare that release.", "Няма работещ агент за актуализации, който да подготви тази версия."),
       }), locale))
     }
     const outcome = await requestFetch(config.updateRequestsDir, view.latestVersion, now())
@@ -2674,14 +2693,14 @@ export function createStatusApp({
 
   app.post("/status/actions/check", async context => {
     const locale = currentLocale(context)
-    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "\u0417\u0430\u0431\u0440\u0430\u043d\u0435"), 403)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
     const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     const view = await releaseView(locale)
-    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "\u041d\u044f\u043c\u0430 \u0440\u0430\u0431\u043e\u0442\u0435\u0449 \u0430\u0433\u0435\u043d\u0442") }), locale, kind))
+    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "Няма работещ агент за актуализации, който да провери за нови версии.") }), locale, kind))
     const outcome = await requestCheck(config.updateRequestsDir, now()).catch(error => maintenanceRequestFailed(newRequestId(), error))
-    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\u0442\u0430 \u0432\u0435\u0447\u0435 \u0447\u0430\u043a\u0430.") }), locale, kind))
-    if (outcome === "failed") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "The update check request could not be recorded.", "\u0417\u0430\u044f\u0432\u043a\u0430\u0442\u0430 \u043d\u0435 \u043c\u043e\u0436\u0430 \u0434\u0430 \u0431\u044a\u0434\u0435 \u0437\u0430\u043f\u0438\u0441\u0430\u043d\u0430.") }), locale, kind))
+    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "Проверка за актуализации вече чака. Не е подадена нова заявка.") }), locale, kind))
+    if (outcome === "failed") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "The update check request could not be recorded.", "Заявката за проверка не можа да бъде записана.") }), locale, kind))
     return context.redirect("/status/release", 303)
   })
   // Acts on nothing. A POST rather than a GET so the confirmation cannot be
@@ -2704,7 +2723,7 @@ export function createStatusApp({
     // find out rather than approving something they never saw.
     if (!/^[a-f0-9]{64}$/.test(target) || target !== view.fetchedLockSha256 || !fetchedReleaseIsCurrentTarget(view)) {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "That release is no longer the one ready to apply. This page has been refreshed.", "Тази версия вече не е готовата за прилагане. Страницата е обновена."),
+        error: localize(locale, "That release is no longer the one ready to apply. This page has been refreshed.", "Тази версия вече не е готова за прилагане. Страницата е презаредена."),
       }), locale))
     }
 
@@ -2739,7 +2758,7 @@ export function createStatusApp({
     const view = await releaseView(locale)
     if (target !== view.fetchedLockSha256 || !fetchedReleaseIsCurrentTarget(view)) {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "That release is no longer the one ready to apply. This page has been refreshed.", "Тази версия вече не е готовата за прилагане. Страницата е обновена."),
+        error: localize(locale, "That release is no longer the one ready to apply. This page has been refreshed.", "Тази версия вече не е готова за прилагане. Страницата е презаредена."),
       }), locale))
     }
 
@@ -2752,7 +2771,7 @@ export function createStatusApp({
 
     if (outcome === "already-pending") {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "An update is already waiting to be applied. Nothing further was requested.", "Обновяване вече чака да бъде приложено. Не е подадена нова заявка."),
+        error: localize(locale, "An update is already waiting to be applied. Nothing further was requested.", "Вече има актуализация, която чака да бъде приложена. Не е подадена нова заявка."),
       }), locale))
     }
     if (outcome === "failed") {

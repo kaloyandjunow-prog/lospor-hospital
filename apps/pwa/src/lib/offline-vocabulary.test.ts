@@ -15,13 +15,24 @@ beforeAll(async () => {
 }, 30_000)
 
 describe("offline clinical vocabulary", () => {
-  it("covers diagnoses and procedures but not medications", async () => {
+  it("covers diagnoses, procedures and home medications", () => {
     expect(hasOfflineVocabulary("icd10")).toBe(true)
     expect(hasOfflineVocabulary("procedure")).toBe(true)
-    // The intraop option library already ships a drug fallback; a second one
-    // here would be a second drug list that can disagree with it.
-    expect(hasOfflineVocabulary("medication")).toBe(false)
-    expect(await searchOfflineVocabulary("medication", "propofol", "en")).toBeNull()
+    expect(hasOfflineVocabulary("medication")).toBe(true)
+  })
+
+  it("finds a home medication with no network, as the server would (9.13.3)", async () => {
+    // The server and the phone search Core's one medication list with Core's
+    // one search: the same query gives the same products in the same order.
+    const outcome = await searchOfflineVocabulary("medication", "ramipril", "en")
+    expect(outcome?.source).toBe("offline")
+    expect(outcome?.version).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    const { searchMedications } = await import("@lospor/core/medications")
+    const { medicationRows } = await import("@lospor/core/vocabulary/medications")
+    const server = searchMedications(medicationRows(), "ramipril")
+    expect(outcome?.results.map(tag => tag.sub ?? tag.label)).toEqual(server.map(row => row.name))
+    expect(outcome?.results.every(tag => tag.atcCode === "C09AA05" || tag.atcCode?.startsWith("C09"))).toBe(true)
+    expect(outcome?.results[0]).toMatchObject({ inn: expect.stringMatching(/ramipril/i), vocabularyVersion: outcome?.version })
   })
 
   it("finds a diagnosis with no network, in both languages", async () => {

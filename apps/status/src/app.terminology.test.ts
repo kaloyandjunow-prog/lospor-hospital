@@ -144,7 +144,7 @@ describe("the terminology page", () => {
     })).text()
     expect(body).toContain("Управление на терминологията")
     expect(body).toContain("SHA-256 на манифеста")
-    expect(body).toContain("подготвеното поколение е валидирано")
+    expect(body).toContain("подготвената версия е проверена")
     expect(body).not.toContain("manifest-а")
     expect(body).not.toContain("manifest-ът")
     expect(body).not.toContain(">validated<")

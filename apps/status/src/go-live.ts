@@ -26,28 +26,28 @@ export const GO_LIVE_SIGNOFF_ITEMS: readonly {
   {
     id: "restore-drill",
     en: "A test restore was completed and checked: a restore drill, a drill from the off-host copy, or a restore of the VM backup",
-    bg: "Извършено и проверено е пробно възстановяване: проверка от Status, проверка от външното копие или възстановяване на архива на виртуалната машина",
+    bg: "Извършено и проверено е пробно възстановяване: от Status, от копието извън сървъра или от резервното копие на виртуалната машина",
     validForMs: 92 * 24 * 60 * 60_000,
   },
   {
     id: "network-verified",
     en: "The research and IT-management network allowlists were verified from representative computers",
-    bg: "Мрежовите ограничения за изследователи и ИТ управление са проверени от представителни компютри",
+    bg: "Списъците с разрешени мрежи за изследвания и ИТ управление са проверени от реални компютри",
   },
   {
     id: "mfa-recovery-stored",
     en: "Administrator MFA recovery codes are stored in the Hospital IT password vault",
-    bg: "Кодовете за възстановяване на MFA на администраторите са съхранени в хранилището за пароли на ИТ",
+    bg: "Кодовете за възстановяване на администраторите са съхранени в хранилището за пароли на ИТ отдела",
   },
   {
     id: "host-patch-policy",
     en: "The host security-update policy, maintenance window and monitoring owner are recorded",
-    bg: "Политиката за обновяване на сървъра, прозорецът за поддръжка и отговорникът за наблюдение са записани",
+    bg: "Правилата за актуализации на сървъра, прозорецът за поддръжка и отговорникът за наблюдението са записани",
   },
   {
     id: "clinical-acceptance",
     en: "Clinicians accepted the web app, phone app, printed record and offline use",
-    bg: "Клиницистите приеха уеб приложението, мобилното приложение, печатния запис и работата без мрежа",
+    bg: "Лекарите приеха уеб приложението, мобилното приложение, печатния запис и работата без мрежа",
   },
 ]
 
@@ -121,16 +121,16 @@ export type GoLiveStep = {
 }
 
 export const GO_LIVE_STAGES: readonly { id: GoLiveStage; en: string; bg: string }[] = [
-  { id: "reach", en: "1. Reach the appliance safely", bg: "1. Безопасен достъп до системата" },
+  { id: "reach", en: "1. Reach the appliance safely", bg: "1. Сигурен достъп до системата" },
   { id: "protect", en: "2. Protect the data", bg: "2. Защита на данните" },
-  { id: "maintain", en: "3. Keep it maintained", bg: "3. Поддръжка" },
+  { id: "maintain", en: "3. Keep it maintained", bg: "3. Редовна поддръжка" },
   { id: "content", en: "4. Clinical content", bg: "4. Клинично съдържание" },
-  { id: "people", en: "5. Accepted by people", bg: "5. Приемане от хората" },
+  { id: "people", en: "5. Accepted by people", bg: "5. Приемане от потребителите" },
 ]
 
 export const GO_LIVE_OWNERS: Record<GoLiveOwner, { en: string; bg: string }> = {
   "appliance": { en: "Checked automatically", bg: "Проверява се автоматично" },
-  "hospital-it": { en: "Hospital IT", bg: "Болничен ИТ екип" },
+  "hospital-it": { en: "Hospital IT", bg: "ИТ отдел" },
   "clinical-lead": { en: "Clinical lead", bg: "Клиничен ръководител" },
 }
 
@@ -142,91 +142,91 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   {
     id: "services", stage: "reach", owner: "appliance",
     whyEn: "Every clinical screen, every backup and this page depend on these services.",
-    whyBg: "Всеки клиничен екран, всеки архив и тази страница зависят от тези услуги.",
+    whyBg: "Всеки клиничен екран, всяко резервно копие и тази страница зависят от тези услуги.",
     action: STATUS_COMMAND,
   },
   {
     id: "clock", stage: "reach", owner: "appliance",
     whyEn: "Record times, certificates and backups are only as right as the server clock.",
-    whyBg: "Времената в записите, сертификатите и архивите са верни само колкото часовника на сървъра.",
+    whyBg: "Часовете в записите, сертификатите и резервните копия са толкова точни, колкото е часовникът на сървъра.",
     action: STATUS_COMMAND,
   },
   {
     id: "certificate", stage: "reach", owner: "hospital-it",
     whyEn: "Browsers and phones refuse the site without a valid certificate. With the hospital's own authority, place the certificate, key and CA files on the server first.",
-    whyBg: "Браузърите и телефоните отказват сайта без валиден сертификат. При сертификат от собствения удостоверителен орган на болницата първо поставете файловете със сертификата, ключа и CA на сървъра.",
+    whyBg: "Браузърите и телефоните не отварят сайта без валиден сертификат. Ако сертификатът е от собствения удостоверителен орган на болницата, първо поставете на сървъра файловете със сертификата, ключа и CA.",
     action: { kind: "command", command: "sudo losporctl config certificate operator FULLCHAIN KEY CA", en: "Or: sudo losporctl config certificate acme EMAIL", bg: "Или: sudo losporctl config certificate acme ИМЕЙЛ" },
   },
   {
     id: "network-lists", stage: "reach", owner: "hospital-it",
     whyEn: "Status should open only from the IT management networks, and the Research website only from research computers.",
-    whyBg: "Status трябва да се отваря само от мрежите за ИТ управление, а сайтът за изследвания само от компютрите за изследвания.",
+    whyBg: "Status трябва да се отваря само от мрежите за ИТ управление, а сайтът за изследвания — само от компютрите за изследвания.",
     action: { kind: "link", href: SITE_SETTINGS, en: "Set the networks", bg: "Задайте мрежите" },
   },
   {
     id: "network-verified", stage: "reach", owner: "hospital-it",
     whyEn: "A list that reads right can still let the wrong computer in. Try it from real ones, then sign off here.",
-    whyBg: "Списък, който изглежда правилен, пак може да пусне грешен компютър. Проверете от истински компютри и потвърдете тук.",
+    whyBg: "Списък, който изглежда правилен, пак може да пусне неподходящ компютър. Проверете от реални компютри и потвърдете тук.",
     action: { kind: "link", href: SITE_SETTINGS, en: "See the networks", bg: "Вижте мрежите" },
   },
   {
     id: "backup", stage: "protect", owner: "appliance",
     whyEn: "Without a current, verified backup a failed disk loses every case.",
-    whyBg: "Без актуален проверен архив повреден диск губи всички случаи.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Резервно копие сега" },
+    whyBg: "Без актуално проверено резервно копие повреда на диска унищожава всички случаи.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Направи резервно копие сега" },
   },
   {
     id: "offhost-backup", stage: "protect", owner: "hospital-it",
     whyEn: "Optional. A backup kept only on this server is lost together with it, so it must leave the server one way or another: here, or by the hospital backing up the whole VM (for example Hyper-V or Veeam backup), which carries LOSPOR's verified backups with it.",
-    whyBg: "По избор. Архив, който е само на този сървър, се губи заедно с него, затова трябва да излезе от сървъра по един или друг начин: оттук или чрез архивиране на цялата виртуална машина от болницата (например архив на Hyper-V или Veeam), който носи и проверените архиви на LOSPOR.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Set up copies kept elsewhere", bg: "Настройте копия извън сървъра" },
+    whyBg: "По избор. Резервно копие, което е само на този сървър, се губи заедно с него, затова трябва да излезе от сървъра по един или друг начин: оттук или чрез резервно копие на цялата виртуална машина от болницата (например с Hyper-V или Veeam), което включва и проверените резервни копия на LOSPOR.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Set up copies kept elsewhere", bg: "Настройте копиране извън сървъра" },
   },
   {
     id: "key-escrow", stage: "protect", owner: "hospital-it",
     whyEn: "Backups hold only fingerprints of the secrets. If the server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good, even from a good backup. Status writes them into one locked file you download to a USB stick on your own computer; at the console instead: sudo losporctl secrets escrow /media/usb.",
-    whyBg: "Архивите съдържат само отпечатъци на тайните. Ако сървърът се загуби и тайните му не съществуват другаде, всяка запазена самоличност на пациент става нечетима завинаги, дори от добър архив. Status ги записва в един заключен файл, който изтегляте на USB памет на своя компютър; или в конзолата: sudo losporctl secrets escrow /media/usb.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създайте копие за съхранение" },
+    whyBg: "Резервните копия съдържат само отпечатъци на тайните. Ако сървърът бъде загубен и тайните му не съществуват другаде, всички запазени данни за самоличност на пациентите стават нечетими завинаги, дори от изправно резервно копие. Status ги записва в един заключен файл, който изтегляте на USB памет от своя компютър; или от конзолата: sudo losporctl secrets escrow /media/usb.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създаване на копие на тайните" },
   },
   {
     id: "restore-drill", stage: "protect", owner: "hospital-it",
     whyEn: "Only a restore that was actually tried proves the copies can be used. Run a restore drill in Status, a drill from the off-host copy, or restore the VM backup onto a spare VM. It is due again every 92 days.",
-    whyBg: "Само реално опитано възстановяване доказва, че копията могат да се използват. Пуснете пробно възстановяване в Status, проверка от външното копие или възстановете архива на виртуалната машина в резервна машина. Повтаря се на всеки 92 дни.",
+    whyBg: "Само реално изпробвано възстановяване доказва, че копията са използваеми. Пуснете пробно възстановяване в Status, проверка от копието извън сървъра или възстановете резервното копие на виртуалната машина в резервна машина. Повтаря се на всеки 92 дни.",
     action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Run a restore drill", bg: "Пуснете пробно възстановяване" },
   },
   {
     id: "update-route", stage: "maintain", owner: "appliance",
     whyEn: "Security fixes reach the appliance only through a working update route.",
-    whyBg: "Поправките за сигурност достигат системата само по работещ маршрут за обновявания.",
-    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверява маршрута до нови версии" },
+    whyBg: "Поправките за сигурност достигат до системата само по работещ канал за актуализации.",
+    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверява канала за нови версии" },
   },
   {
     id: "host-os", stage: "maintain", owner: "appliance",
     whyEn: "Ubuntu's own security updates protect everything that runs on it.",
-    whyBg: "Обновленията за сигурност на Ubuntu пазят всичко, което работи върху него.",
+    whyBg: "Актуализациите за сигурност на Ubuntu пазят всичко, което работи на сървъра.",
     action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
   },
   {
     id: "host-patch-policy", stage: "maintain", owner: "hospital-it",
     whyEn: "Someone has to own the server: its maintenance window, its monitoring and who is called.",
-    whyBg: "Някой трябва да отговаря за сървъра: прозореца за поддръжка, наблюдението и кого да търсят.",
+    whyBg: "Някой трябва да отговаря за сървъра: прозореца за поддръжка, наблюдението и кого да търсят при проблем.",
     action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
   },
   {
     id: "terminology", stage: "content", owner: "hospital-it",
     whyEn: "Optional. This release already carries ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and the research numbers for all of them. Import an Athena package only when research needs a newer vocabulary release; place the package folder on the server first.",
-    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, списъка с лекарства, английски синоними на диагнозите и изследователските кодове за всички тях. Импортирайте пакет от Athena само ако изследванията изискват по-нова версия на речниците; първо поставете папката на пакета на сървъра.",
+    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, списъка с лекарства, английски синоними на диагнозите и кодовете им за изследвания. Импортирайте пакет от Athena само ако изследванията изискват по-нова версия на речниците; първо поставете папката на пакета на сървъра.",
     action: { kind: "link", href: "/status/terminology#term-actions", en: "Import a package", bg: "Импортирайте пакет" },
   },
   {
     id: "mfa-recovery-stored", stage: "people", owner: "hospital-it",
     whyEn: "Without its recovery codes, a lost phone locks an administrator out.",
-    whyBg: "Без кодовете за възстановяване загубен телефон заключва администратора навън.",
+    whyBg: "Без кодовете за възстановяване администратор, загубил телефона си, остава без достъп.",
     action: { kind: "link", href: "/status/accounts", en: "See accounts", bg: "Вижте профилите" },
   },
   {
     id: "clinical-acceptance", stage: "people", owner: "clinical-lead",
     whyEn: "The people who will chart on it confirm that the web app, phone app, printed record and offline use work for them.",
-    whyBg: "Хората, които ще документират в нея, потвърждават, че уеб приложението, мобилното приложение, печатният запис и работата без мрежа им вършат работа.",
+    whyBg: "Хората, които ще документират в системата, потвърждават, че уеб приложението, мобилното приложение, печатният запис и работата без мрежа им вършат работа.",
   },
 ]
 
@@ -287,13 +287,13 @@ export function evaluateGoLive(input: {
     {
       id: "backup",
       en: "Local backups are current and verified",
-      bg: "Локалните архиви са актуални и проверени",
+      bg: "Локалните резервни копия са актуални и проверени",
       satisfied: operational("host-backup"),
     },
     {
       id: "offhost-backup",
       en: "Optional: backups are copied off this server by LOSPOR",
-      bg: "По избор: LOSPOR копира архивите извън сървъра",
+      bg: "По избор: LOSPOR копира резервните копия извън сървъра",
       satisfied: code("offhost-backup") === "OFFHOST_BACKUP_ACKNOWLEDGED",
       // Hospitals often back up the whole VM instead, which LOSPOR cannot see.
       optional: true,
@@ -301,31 +301,31 @@ export function evaluateGoLive(input: {
     {
       id: "key-escrow",
       en: "Installation secrets are escrowed off the appliance",
-      bg: "Инсталационните тайни са съхранени извън системата",
+      bg: "Инсталационните тайни са копирани извън системата",
       satisfied: code("key-escrow") === "KEY_ESCROW_ACKNOWLEDGED",
     },
     {
       id: "update-route",
       en: "The update route and host update agent are working",
-      bg: "Маршрутът за обновявания и агентът за обновяване работят",
+      bg: "Каналът за актуализации и агентът за актуализации работят",
       satisfied: operational("update-supply") && operational("host-update-agent"),
     },
     {
       id: "host-os",
       en: "Ubuntu security updates are automatic and current",
-      bg: "Обновленията за сигурност на Ubuntu са автоматични и актуални",
+      bg: "Актуализациите за сигурност на Ubuntu се инсталират автоматично и навреме",
       satisfied: ["HOST_OS_CURRENT", "HOST_OS_REBOOT_SCHEDULED", "HOST_OS_SUPPORT_ENDING"].includes(code("host-os") ?? ""),
     },
     {
       id: "network-lists",
       en: "Hospital IT has set which networks may open Status and the Research website",
-      bg: "Болничният ИТ екип е задал кои мрежи имат достъп до Status и до сайта за изследвания",
+      bg: "ИТ отделът е задал кои мрежи имат достъп до Status и до сайта за изследвания",
       satisfied: Boolean(input.networkLists && !input.networkLists.statusOpenToAllPrivate && !input.networkLists.researchClosed),
     },
     {
       id: "terminology",
       en: "Optional: an Athena terminology package is imported",
-      bg: "По избор: импортиран е пакет терминология от Athena",
+      bg: "По избор: импортиран е пакет с терминология от Athena",
       satisfied: Boolean(input.terminology?.packageId && input.terminology.activatedAt)
         && input.terminology?.phase !== "needs-operator",
       // The release bundles the codes clinical use needs. A package that was

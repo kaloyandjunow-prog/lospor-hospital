@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.3] - 2026-09-28
+
+### Added
+
+- **Home medications and allergies search offline.** With no connection the
+  medication search answers from Core's medication list with Core's search --
+  the list and the search the server uses, so the same query gives the same
+  products -- and says it is the offline copy. Loaded on first offline search
+  only, in its own chunk.
+
 ## [9.13.2] - 2026-09-28
 
 ### Fixed

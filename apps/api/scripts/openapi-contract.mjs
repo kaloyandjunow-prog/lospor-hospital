@@ -460,8 +460,23 @@ export const schemas = {
     action: { type: "string", enum: ["map", "unmap"] },
     system: { type: "string", maxLength: 512 },
     code: { type: "string", minLength: 1, maxLength: 512 },
-    drugId: { type: "string", minLength: 1, maxLength: 128 },
+    drugId: { type: "string", minLength: 1, maxLength: 128, description: "An existing Drug row (a Status older than 1.4.16). Exactly one of drugId and catalogId when mapping." },
+    catalogId: { type: "string", pattern: "^(cl009|bda):[A-Za-z0-9_-]{1,64}$", description: "A product from the medication list; its Drug row is created if missing." },
   }, ["code"]),
+  HospitalMedicationCandidate: object({
+    id: { type: "string", description: "The Drug row this product maps to (drug-<catalogId>)." },
+    catalogId: { type: "string" },
+    name: { type: "string" },
+    inn: nullable({ type: "string" }),
+    atcCode: nullable({ type: "string" }),
+    form: nullable({ type: "string" }),
+    strength: nullable({ type: "string" }),
+    nhisCode: nullable({ type: "string" }),
+  }, ["id", "catalogId", "name", "inn", "atcCode", "form", "strength", "nhisCode"]),
+  HospitalMedicationSearchResponse: object({
+    query: { type: "string" },
+    results: { type: "array", items: ref("HospitalMedicationCandidate") },
+  }, ["query", "results"]),
   HospitalEhrMedicationCodeMapResponse: object({
     system: { type: "string" },
     code: { type: "string" },
@@ -2006,6 +2021,13 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-vital-codes", "Map one of t
   requestBody: body(ref("HospitalEhrVitalCodeMapRequest")),
   result: ref("HospitalEhrVitalCodeMapResponse"),
   errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/hospital/control-plane/ehr-medication-codes", "Search the medication list by name, INN or ATC code, for mapping a hospital code", {
+  parameters: [statusControlBearer, query("q", { type: "string", maxLength: 100, description: "Two characters or more; shorter answers no results." }, true)],
+  result: ref("HospitalMedicationSearchResponse"),
+  errors: [401, 404, 500, 503],
   stability: "internal",
   tag: "internal",
 })

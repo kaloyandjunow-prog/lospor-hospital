@@ -69,7 +69,7 @@ describe("Status screen localization", () => {
     }
     const body = renderDashboard(dashboard, "bg")
     expect(body).toContain("Автоматично приключване на случаи")
-    expect(body).toContain("Съхранение на инсталационните тайни")
+    expect(body).toContain("Копие на инсталационните тайни")
     expect(body).not.toContain("Automatic case closure")
     expect(body).not.toContain("Installation secrets escrow")
   })
@@ -83,8 +83,8 @@ describe("Status screen localization", () => {
       otpauthUri: "otpauth://totp/LOSPOR",
     }
     const bulgarian = renderMfaLogin(null, challenge, "<svg></svg>", "bg")
-    expect(bulgarian).toContain("Настройване на потвърждение в две стъпки")
-    expect(bulgarian).toContain("QR кодът се създава в самата система")
+    expect(bulgarian).toContain("Включване на потвърждаването в две стъпки")
+    expect(bulgarian).toContain("QR кодът се създава на самия сървър")
     expect(bulgarian).not.toContain("Set up two-step verification")
     expect(renderMfaLogin(null, { ...challenge, enrollmentRequired: false }, null, "en"))
       .toContain("Verification or recovery code")
@@ -118,7 +118,7 @@ describe("Status screen localization", () => {
       mayApply: false,
     }
     expect(renderRelease(base, "en")).toContain("Update mode has not been selected")
-    expect(renderRelease(base, "bg")).toContain("Не е избран режим за обновяване")
+    expect(renderRelease(base, "bg")).toContain("Не е избран начин на актуализиране")
     expect(renderRelease({ ...base, agentMode: "console-only" }, "en"))
       .toContain("intentionally console-only")
   })

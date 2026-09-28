@@ -16,7 +16,6 @@ const nextConfig: NextConfig = {
     // The EHR import reads ICD-10-PCS operations from the same table.
     "/v1/cases/[id]/ehr-import": ["./src/data/pcs.json"],
     "/v1/internal/ehr-import/scan": ["./src/data/pcs.json"],
-    "/v1/search/drugs": ["./src/data/drugs.json"],
   },
   poweredByHeader: false,
 }
