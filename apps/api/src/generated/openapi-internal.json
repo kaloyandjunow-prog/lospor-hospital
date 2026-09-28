@@ -16471,6 +16471,88 @@
       }
     },
     "/v1/internal/hospital/control-plane/ehr-medication-codes": {
+      "get": {
+        "operationId": "get_v1_internal_hospital_control_plane_ehr_medication_codes",
+        "summary": "Search the medication list by name, INN or ATC code, for mapping a hospital code",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Two characters or more; shorter answers no results."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalMedicationSearchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "post_v1_internal_hospital_control_plane_ehr_medication_codes",
         "summary": "Map one of this hospital's medication codes to a local drug, or unmap it",
@@ -19389,11 +19471,112 @@
           "drugId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "An existing Drug row (a Status older than 1.4.16). Exactly one of drugId and catalogId when mapping."
+          },
+          "catalogId": {
+            "type": "string",
+            "pattern": "^(cl009|bda):[A-Za-z0-9_-]{1,64}$",
+            "description": "A product from the medication list; its Drug row is created if missing."
           }
         },
         "required": [
           "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalMedicationCandidate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Drug row this product maps to (drug-<catalogId>)."
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "inn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "atcCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "strength": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nhisCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "catalogId",
+          "name",
+          "inn",
+          "atcCode",
+          "form",
+          "strength",
+          "nhisCode"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalMedicationSearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HospitalMedicationCandidate"
+            }
+          }
+        },
+        "required": [
+          "query",
+          "results"
         ],
         "additionalProperties": false
       },
