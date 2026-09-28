@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 
 import { lookupIntraopEhrLabs, recordEhrDecisions, type EhrImportOffer as Offer } from "@/lib/ehr-import"
+export { ehrLabsWriter } from "./ehr-labs-save"
 import { useEhrImportCapability } from "@/lib/deployment-capabilities"
 import { EhrImportReview } from "@/components/EhrImportReview"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"

@@ -17,6 +17,7 @@ test("a phone watching a case another device holds writes nothing", async ({ pag
   const created = await request.post(`${API_BASE}/v1/cases`, {
     headers: authed,
     data: {
+      patientNumber: `WATCHING-MODE-E2E-${Date.now()}`,
       preop: { age: 41, weight: 82, height: 178, sex: "MALE", urgency: "ELECTIVE" },
       intraop: { startedAt: startedAt.toISOString(), timezone: "UTC" },
     },

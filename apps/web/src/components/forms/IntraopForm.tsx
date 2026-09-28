@@ -35,8 +35,7 @@ import {
 } from "@lospor/core/intraop"
 import { EquipmentSuggestions } from "@/components/EquipmentSuggestions"
 import { IntraopLabsDialog } from "@/components/intraop/IntraopLabsDialog"
-import { IntraopEhrLabs } from "@/components/intraop/IntraopEhrLabs"
-import { ehrLabsWriter } from "@/components/intraop/ehr-labs-save"
+import { IntraopEhrLabs, ehrLabsWriter } from "@/components/intraop/IntraopEhrLabs"
 import { useClinicalRules } from "@/hooks/useClinicalRules"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
@@ -93,9 +92,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   preop?: PreopSummary | null
   onSubmit: (data: IntraopData) => void
   onBack: () => void
-  onAutoSave?: (data: IntraopData) => void
-  /** Saves the section now; true once saved or queued (hospital: labs accepted from the hospital system). */
-  onSaveNow?: (data: IntraopData) => Promise<boolean>
+  onAutoSave?: (data: IntraopData) => void; onSaveNow?: (data: IntraopData) => Promise<unknown> // hospital: saves at once (labs from the hospital system)
   onPostopContinued?: (items: string[]) => void
   layoutMode?: "tabs" | "scroll"
   caseStarted?: boolean
