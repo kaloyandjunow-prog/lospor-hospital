@@ -69,7 +69,7 @@ describe("auth API helpers", () => {
     // default (the appliance's) turned a Bulgarian account English.
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({ access_token: "jwt-token" }),
+      json: async () => ({ access_token: token({ id: "ivan-1", institutionId: "inst-1" }) }),
     } as Response)
 
     const { login } = await import("./api")
