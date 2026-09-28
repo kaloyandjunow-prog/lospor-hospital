@@ -62,6 +62,10 @@ async function createKit(fixture, version, {
   // operator-locale.sh from beside itself.
   await cp(join(repository, "scripts", "operator-locale.sh"), join(root, "scripts", "operator-locale.sh"))
   await cp(join(repository, "scripts", "verify-loaded-release-images.sh"), join(root, "scripts", "verify-loaded-release-images.sh"))
+  // Run after a successful activation to correct the recorded update answer.
+  for (const script of ["check-for-update.sh", "update-pipeline-lib.sh"]) {
+    await cp(join(repository, "scripts", script), join(root, "scripts", script))
+  }
   await cp(join(repository, "scripts", "release-compatibility.sh"), join(root, "scripts", "release-compatibility.sh"))
   await cp(join(repository, "scripts", "verify-rollback-compatibility.sh"), join(root, "scripts", "verify-rollback-compatibility.sh"))
   await cp(join(repository, "scripts", "rollback-compatibility-evidence.py"), join(root, "scripts", "rollback-compatibility-evidence.py"))
@@ -312,6 +316,23 @@ test("verified activation stages an integrity-checked kit and promotes only afte
   const state = await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8")
   assert.match(state, /^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1\.0\.0\t/)
   assert.equal(await readlink(join(f.home, "current")), join(f.home, ".data", "releases", "1.0.0", "lospor-hospital-1.0.0"))
+})
+
+test("a successful activation stops offering the release it installed", { skip: process.platform === "win32" }, async () => {
+  // 1.4.13 appliance test: after 1.4.12 -> 1.4.13 the Status page still said
+  // "1.4.13 downloaded and ready to apply", with 1.4.13 running.
+  const f = await fixture()
+  const release = await createVerifiedRelease(f.directory, "1.0.0")
+  const fetchedSha = "8".repeat(64)
+  await mkdir(join(f.home, ".data"), { recursive: true })
+  await writeFile(join(f.home, ".data", "update-status.tsv"),
+    `LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t2026-09-28T04:08:49Z\t0.9.0\t1.0.0\tupdate-available\t1.0.0\t${fetchedSha}\n`)
+  const result = activate(f, release, "true")
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(
+    await readFile(join(f.home, ".data", "update-status.tsv"), "utf8"),
+    "LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t2026-09-28T04:08:49Z\t1.0.0\t1.0.0\tcurrent\t-\t-\n",
+  )
 })
 
 test("failed candidate restores a changed release tag and starts the prior service", { skip: process.platform === "win32" }, async () => {

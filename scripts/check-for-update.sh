@@ -7,6 +7,9 @@ set +x
 #
 #   ./scripts/check-for-update.sh            check, record, publish a status signal
 #   ./scripts/check-for-update.sh --quiet    same, without the human summary
+#   ./scripts/check-for-update.sh --after-install
+#                                            no registry query: re-read the recorded
+#                                            answer against what is installed now
 #
 # This only ever reads. It pulls no image, touches no container, and changes
 # nothing about what is installed. Applying an update stays a separate,
@@ -31,7 +34,11 @@ cd "$root"
 . "$root/scripts/update-pipeline-lib.sh"
 
 quiet=0
-[ "${1:-}" != --quiet ] || quiet=1
+after_install=0
+case "${1:-}" in
+  --quiet) quiet=1 ;;
+  --after-install) quiet=1; after_install=1 ;;
+esac
 
 registry_origin="${HOSPITAL_REGISTRY_ORIGIN:-https://ghcr.io}"
 registry_package="${HOSPITAL_UPDATE_PACKAGE:-kaloyandjunow-prog/lospor-hospital-api}"
@@ -158,6 +165,36 @@ else
   say_pair "No release is installed yet; nothing to compare against." "Все още няма инсталирана версия; няма с какво да се сравни."
   write_status "-" "-" unknown
   exit 1
+fi
+
+# Run by the activation that has just installed a release.
+#
+# The recorded answer still named the release it replaced: after 1.4.12 -> 1.4.13
+# it said "running 1.4.12, 1.4.13 downloaded and ready to apply" until the next
+# daily check (1.4.13 appliance test), so the Status page offered to apply the
+# release that was already running. Nothing is asked of the registry here -- an
+# install may be offline -- the last answer is compared with what now runs, and
+# a download that is now installed or older is no longer "ready".
+#
+# When the registry was asked stays when it was asked: this is not a check, and
+# must not make an old answer look fresh. With no recorded answer there is
+# nothing to correct, and writing "current" would be a claim nobody made.
+if [ "$after_install" -eq 1 ]; then
+  recorded_at="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $2 }' "$status_path" 2>/dev/null || true)"
+  recorded_latest="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $4 }' "$status_path" 2>/dev/null || true)"
+  printf '%s\n' "$recorded_at" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' || exit 0
+  printf '%s\n' "$recorded_latest" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || exit 0
+  observed_at="$recorded_at"
+  if [ "$(release_version_compare "$fetched" "$installed")" -le 0 ]; then
+    fetched="-"
+    fetched_lock_sha="-"
+  fi
+  if [ "$(release_version_compare "$recorded_latest" "$installed")" -eq 1 ]; then
+    write_status "$installed" "$recorded_latest" update-available
+  else
+    write_status "$installed" "$recorded_latest" current
+  fi
+  exit 0
 fi
 
 fail_unknown() {

@@ -546,4 +546,8 @@ if [ "$old_available" -eq 1 ]; then
     || fail_after_candidate "Could not record the exact rollback release identity." 1
 fi
 journal_write VERIFIED
+# The recorded update answer still names the release just replaced, and the
+# Status page would offer to apply the one now running. Brought up to date
+# without asking the registry; best effort, as it changes nothing installed.
+LOSPOR_APPLIANCE_HOME="$appliance_home" sh "$target/scripts/check-for-update.sh" --after-install >/dev/null 2>&1 || true
 echo "Hospital $version is now the active integrity-verified deployment at $appliance_home/current"
