@@ -75,6 +75,9 @@ function TimetableRowComponent({
 }: TimetableRowProps) {
   const shade = useShade()
   const { tc } = usePreferences()
+  const plannedItems = running.filter(item => item.planned || item.plannedStop || item.plannedChange)
+  const plannedPrefix = (item: RunningItem) =>
+    `${tc(item.planned ? "plannedLabel" : item.plannedStop ? "plannedStopLabel" : "plannedChangeLabel")} · `
   const t = timeAtCol(chartStart, col)
   const { criticalParts, normalParts, drugParts, hasCritical } = summary
   // From the queue itself (9.13.0): every entry in the row, every running
@@ -307,6 +310,15 @@ function TimetableRowComponent({
         {drugParts.length > 0 && (
           <Text style={{ color: shade("#4a5c6e"), fontSize: 10, lineHeight: 13 }} numberOfLines={1}>
             {drugParts.join("  ·  ")}
+          </Text>
+        )}
+        {/* What is planned for this row, readable without opening it: a stripe
+            in the lane was the only sign (1.4.14 appliance test). */}
+        {plannedItems.length > 0 && (
+          <Text testID="row-planned" style={{ fontSize: 10, lineHeight: 13 }} numberOfLines={1}>
+            {plannedItems.map((item, index) => (
+              <Text key={item.id} style={{ color: item.color }}>{index > 0 ? "  ·  " : ""}{plannedPrefix(item)}{item.label}</Text>
+            ))}
           </Text>
         )}
         <LabDrawPill count={mergeRowLabDraws(labDraws).count} />

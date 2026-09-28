@@ -182,6 +182,16 @@ export function formatDateHHMM(d: Date): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
 }
 
+/**
+ * The row time a sheet or note names, when the row is after now: what is
+ * entered there is planned for then. Null for now and the past.
+ */
+export function plannedRowTime(ts: string | null | undefined, now = serverNow()): string | null {
+  if (!ts) return null
+  const at = new Date(ts)
+  return at.getTime() > now.getTime() ? formatDateHHMM(at) : null
+}
+
 export function hhmmFromStoredTime(value: unknown): string | null {
   if (typeof value !== "string" || !value) return null
   if (/^\d{2}:\d{2}$/.test(value)) return value

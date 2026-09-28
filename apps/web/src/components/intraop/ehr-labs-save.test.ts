@@ -18,6 +18,9 @@ describe("what the intraoperative lab import writes", () => {
   it("reports what the save reports, and nothing landed with nothing to save through", async () => {
     expect(await ehrLabsWriter(vi.fn(), () => ({}), async () => false)([lab])).toBe(false)
     expect(await ehrLabsWriter(vi.fn(), () => ({}), undefined)([lab])).toBe(false)
+    // The page hands over the section save as it is; the writer reads its outcome.
+    expect(await ehrLabsWriter(vi.fn(), () => ({}), async () => "queued")([lab])).toBe(true)
+    expect(await ehrLabsWriter(vi.fn(), () => ({}), async () => "blocked")([lab])).toBe(false)
   })
 
   it("counts a save as kept when it reached the server or is queued, not when refused or failed", () => {

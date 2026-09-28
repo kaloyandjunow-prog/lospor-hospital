@@ -24,6 +24,7 @@ export default function LoginScreen() {
   } = useAuth()
   const {
     completeLoginLocaleSync,
+    explicitLoginLanguage,
     language,
     selectLoginLanguage,
     t,
@@ -55,7 +56,9 @@ export default function LoginScreen() {
       const credential = loginIdentifier === "USERNAME"
         ? { loginIdentifier: "USERNAME" as const, value: identifier }
         : { loginIdentifier: "EMAIL" as const, value: identifier }
-      const result = await login(credential, password, language)
+      // Only a language pressed here: the screen's default is the appliance's,
+      // not the clinician's, and the server saves what is sent to the account.
+      const result = await login(credential, password, explicitLoginLanguage() ?? undefined)
       if (result.kind === "mfa") {
         setPassword("")
         setMfaChallenge(result.challenge)

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 
 import { autosaveManager } from "@/lib/autosave-manager"
+import { notify } from "@/lib/notify"
+import { usePreferences } from "@/lib/preferences-context"
 import type { CasePatchResponse, CasePatchResult } from "@/lib/offline-case-patches"
 import { createCoalescingBatcher, type CoalescingBatcher } from "@lospor/core/sync"
 
@@ -14,6 +16,8 @@ type UseIntraopSectionPatchArgs = {
   setSyncState: Dispatch<SetStateAction<SyncState>>
   setSyncErrorMessage: Dispatch<SetStateAction<string | null>>
   setLastSavedAt: Dispatch<SetStateAction<string | null>>
+  /** Another device holds the case: nothing is written until this one takes over. */
+  watchingRef?: MutableRefObject<boolean>
 }
 
 export function useIntraopSectionPatch({
@@ -22,7 +26,9 @@ export function useIntraopSectionPatch({
   setSyncState,
   setSyncErrorMessage,
   setLastSavedAt,
+  watchingRef,
 }: UseIntraopSectionPatchArgs) {
+  const { t } = usePreferences()
   // Rapid taps (positions, monitoring, techniques, complication toggles) used
   // to fire one PATCH each; the later ones executed with a base timestamp
   // captured at tap time and 409'd against their own predecessor. Two fixes:
@@ -63,6 +69,11 @@ export function useIntraopSectionPatch({
   }, [])
 
   return useCallback((payload: Record<string, unknown>): Promise<PatchOutcome> => {
+    // Watching mode is read-only, as on the web; no outcome means not saved.
+    if (watchingRef?.current) {
+      notify(t("watchingMode"), t("watchingNoEdits"))
+      return Promise.resolve(undefined)
+    }
     // The badge shows "saving" and live-refresh clobber protection engages
     // from the FIRST tap, even though the request goes out after the settle.
     pendingSaveCountRef.current += 1
@@ -86,5 +97,5 @@ export function useIntraopSectionPatch({
       .finally(() => {
         pendingSaveCountRef.current -= 1
       })
-  }, [caseId, pendingSaveCountRef, setSyncErrorMessage, setSyncState])
+  }, [caseId, pendingSaveCountRef, setSyncErrorMessage, setSyncState, t, watchingRef])
 }

@@ -1,6 +1,7 @@
 import type { IntraopSheetsHostProps } from "@/components/intraop/IntraopSheetsHost"
 import { canStartDrugAsInfusion } from "@/lib/intraop-library"
 import type { ActiveGasSettings } from "@/lib/intraop-log-event"
+import { plannedRowTime } from "@/lib/intraop-projection"
 import { pediatricAgeFromPreop, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
@@ -407,6 +408,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       setNewRate: setInfActRate,
       onChangeRate: changeRate,
       onStop: target => { stopInfusion(target, infActTs); setInfActOpen(false); setInfActTgt(null) },
+      plannedAt: plannedRowTime(infActTs),
       laConcentrations: prospectiveGuidanceEnabled && !pediatricMode ? INFUSION_LA_CONCENTRATIONS : {},
       newConcentration: infActConcentration,
       setNewConcentration: setInfActConcentration,

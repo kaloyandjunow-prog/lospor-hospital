@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react"
 import { AppState, type AppStateStatus } from "react-native"
 import * as SecureStore from "expo-secure-store"
 import {
@@ -64,9 +64,15 @@ function mobileLockTransport(): CaseLockTransport {
 export function useCaseLock(caseId: string, enabled = true): {
   lockState: LockState
   isWatching: boolean
+  /**
+   * The same, for the write paths: they run outside render and must see a
+   * takeover or a loss of the lock at once, not at the next render.
+   */
+  isWatchingRef: MutableRefObject<boolean>
   takeover: () => Promise<void>
 } {
   const [lockState, setLockState] = useState<LockState>("idle")
+  const isWatchingRef = useRef(false)
   const leaseRef = useRef<CaseLockLease | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const appStateRef = useRef<AppStateStatus>(AppState.currentState)
@@ -87,7 +93,7 @@ export function useCaseLock(caseId: string, enabled = true): {
   }, [stopHeartbeat])
 
   useEffect(() => {
-    if (!enabled) { setLockState("idle"); return }
+    if (!enabled) { isWatchingRef.current = false; setLockState("idle"); return }
 
     let disposed = false
     let unsubscribe = () => {}
@@ -97,7 +103,9 @@ export function useCaseLock(caseId: string, enabled = true): {
       const lease = new CaseLockLease(caseId, deviceId, mobileLockTransport())
       leaseRef.current = lease
       unsubscribe = lease.subscribe(state => {
-        if (!disposed) setLockState(legacyState(state))
+        if (disposed) return
+        isWatchingRef.current = legacyState(state) === "watching"
+        setLockState(legacyState(state))
       })
       void lease.acquire().then(state => {
         if (!disposed && state.status !== "locked") startHeartbeat()
@@ -138,5 +146,5 @@ export function useCaseLock(caseId: string, enabled = true): {
     if (state.status !== "locked") startHeartbeat()
   }, [startHeartbeat, stopHeartbeat])
 
-  return { lockState, isWatching: lockState === "watching", takeover }
+  return { lockState, isWatching: lockState === "watching", isWatchingRef, takeover }
 }

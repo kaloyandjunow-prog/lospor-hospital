@@ -11,12 +11,13 @@ import type { IntraopData } from "@/components/forms/intraopSchema"
 export function ehrLabsWriter<Row>(
   setRows: (rows: Row[]) => void,
   snapshot: () => Record<string, unknown>,
-  onSaveNow: ((data: IntraopData) => Promise<boolean>) | undefined,
+  /** The page's section save; its outcome decides whether the labs landed. */
+  onSaveNow: ((data: IntraopData) => Promise<unknown>) | undefined,
 ): (rows: Row[]) => Promise<boolean> {
   return async rows => {
     setRows(rows)
     // With nothing to save through, nothing can be said to have landed.
-    return onSaveNow ? onSaveNow({ ...snapshot(), labResults: rows } as unknown as IntraopData) : false
+    return onSaveNow ? sectionSaveKept(await onSaveNow({ ...snapshot(), labResults: rows } as unknown as IntraopData)) : false
   }
 }
 

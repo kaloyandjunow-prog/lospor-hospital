@@ -1604,6 +1604,7 @@
       "labs": "Labs",
       "labsMore": "more",
       "labsViewAll": "View all results",
+      "plannedAt": "at {time}",
       "logClinicalEvent": "Log clinical event",
       "searchEvents": "Search events…",
       "searchDrug": "Search drug…",

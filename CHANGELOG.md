@@ -1,4 +1,30 @@
 # Changelog - LOSPOR Hospital
+## [1.4.15] - 2026-09-28
+
+Vendors API, web and PWA 9.13.2 (Core stays 9.13.1). No database migration; a
+pre-update backup is still required. CVE-2026-16742 (libsystemd0/libudev1,
+Debian bookworm, no fixed version) carried forward and accepted again; its
+expiry is not extended. Found on the 1.4.14 appliance test.
+
+### Fixed
+
+- **A planned change says when it is for** (9.13.2). On the phone the rate
+  sheet reads "Propofol · в 14:35", the note after it "… — планирано за
+  14:35", and the closed row "Планирана промяна · Propofol 10"; on the web
+  the infusion menu and the rate dialog name the time.
+- **A phone watching a case writes nothing** (9.13.2). Watching mode only
+  blocked End case and the attention answers, so a phone that had not taken
+  over still planned rate changes and added entries over the device holding
+  the case. Every intraop write is refused until it takes over, as on the web.
+- **Signing in on the phone keeps the account's language** (9.13.2). Every
+  sign-in sent the language the login screen showed, which the server saves
+  to the account, so the appliance's default language overwrote the
+  clinician's. Only a language pressed on the login screen is sent now.
+- **The hospital web stays within its component budgets, and CI checks
+  them.** The 1.4.14 lab-import fix grew two files past their budgets because
+  no CI step ran the app budget checks; `verify:provenance` now includes
+  `verify:component-budgets` for the API, web and PWA.
+
 ## [1.4.14] - 2026-09-28
 
 Vendors Core, API, web and PWA 9.13.1. No database migration; a pre-update

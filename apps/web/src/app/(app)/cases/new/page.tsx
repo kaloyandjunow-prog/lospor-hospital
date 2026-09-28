@@ -24,7 +24,6 @@ import {
 } from "./case-record-mapping"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { recordEhrDecisions } from "@/lib/ehr-import"
-import { sectionSaveKept } from "@/components/intraop/ehr-labs-save"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { CaseSummary } from "@/components/CaseSummary"
@@ -479,11 +478,6 @@ export default function NewCasePage() {
   const onIntraopAutoSave = useCallback((data: IntraopData) =>
     handleAutoSave("intraop", intraopAutosaveValues(data) as IntraopData),
   [handleAutoSave])
-  // Labs accepted from the hospital system are recorded as accepted only once
-  // the case has them, so this save reports whether it landed or is queued.
-  const onIntraopSaveNow = useCallback(async (data: IntraopData) => {
-    return sectionSaveKept(await saveSection("intraop", intraopAutosaveValues(data) as IntraopData))
-  }, [saveSection])
   const onPostopAutoSave = useCallback((data: PostopData) =>
     handleAutoSave("postop", data),
   [handleAutoSave])
@@ -714,8 +708,7 @@ export default function NewCasePage() {
             layoutMode={layoutMode}
             eventLog={eventLog}
             onEventOps={applyEventOps}
-            readOnly={isWatching} autoEnded={autoEnded} caseId={caseId} aiOptIn={!!preopData?.aiOptIn}
-            onSaveNow={onIntraopSaveNow}
+            readOnly={isWatching} autoEnded={autoEnded} caseId={caseId} aiOptIn={!!preopData?.aiOptIn} onSaveNow={data => saveSection("intraop", intraopAutosaveValues(data) as IntraopData)}
           />
         )}
         {!loading && step === 2 && (

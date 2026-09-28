@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.2] - 2026-09-28
+
+### Fixed
+
+- **A planned change says when it is for.** From a cell after now, the
+  infusion menu and the rate dialog read "Propofol · at 14:35" (1.4.14
+  appliance test).
+
 ## [9.13.1] - 2026-09-28
 
 ### Added

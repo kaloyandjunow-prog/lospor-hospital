@@ -497,7 +497,10 @@ test("a change planned from a cell after now is on the same infusion, dated to t
   await expect(runsOn.first()).toBeVisible({ timeout: 30_000 })
   const clickedAt = Date.now()
   await runsOn.nth(2).click()
+  // The menu and the dialog say the change is for that cell's time (1.4.14).
+  await expect(page.getByText(/Propofol · at \d{2}:\d{2}/).first()).toBeVisible({ timeout: 30_000 })
   await page.getByRole("button", { name: "Change rate" }).click({ timeout: 30_000 })
+  await expect(page.getByText(/Propofol · at \d{2}:\d{2}/).first()).toBeVisible({ timeout: 30_000 })
   await page.getByRole("button", { name: "Apply" }).click({ timeout: 30_000 })
 
   await expect.poll(async () => {
