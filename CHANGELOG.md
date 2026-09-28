@@ -1,4 +1,46 @@
 # Changelog - LOSPOR Hospital
+## [1.4.14] - 2026-09-28
+
+Vendors Core, API, web and PWA 9.13.1. No database migration; a pre-update
+backup is still required, as for every release that changes how the chart is
+written. CVE-2026-16742 (libsystemd0/libudev1, Debian bookworm, no fixed
+version) carried forward and accepted again; its expiry is not extended.
+
+### Added
+
+- **Plan a change on what is already running** (9.13.1). A later row of a
+  live case shows, dashed, what will still be running there; choosing it
+  opens that item's usual sheet or menu dated to that row, so a rate change
+  for 15:55 is a planned change of the same infusion, not a second one. Web:
+  infusions; PWA: infusions, fluids, agents and the gas.
+
+### Fixed
+
+- **Intraoperative labs from the hospital system are recorded only once the
+  case has them.** The PWA started the save without waiting and counted a
+  queued, refused or failed write as saved; the web only marked the form
+  changed. The import was recorded as accepted at once either way, so a
+  refused or lost save left it read as accepted and the next press said
+  there was nothing new. Both now save at once and record the decision only
+  when the save landed or is queued.
+- **The web's "Labs from the hospital system" button never showed** in 1.4.13:
+  the page did not pass the case to the intraop form. It does now, with the
+  case's AI consent for the lab scan (9.13.1 fixes the same wiring upstream).
+- **The import review in the clinician's language** (9.13.1). Codes the
+  hospital sends read as words ("Мъж", "Години", "Да", "Локално"), and a
+  result is dated by its local day as dd.MM.yyyy, not by its UTC day.
+- **An ended case reopened later** (9.13.1, PWA). The header shows how long
+  the case lasted; the chart stops at the case end instead of opening among
+  hundreds of empty rows.
+- **Resume and autofilled vitals on the server's clock** (9.13.1, PWA).
+- **A delete that changes nothing leaves the intraop revision alone** (9.13.1,
+  API), so other screens no longer meet a needless conflict.
+- **After an install, the Status page stops offering the release now
+  running.** A successful activation re-reads the recorded update answer
+  against what is installed (`check-for-update.sh --after-install`, no
+  registry query): a download that is now installed or older is dropped,
+  and the time the registry was last asked is kept.
+
 ## [1.4.13] - 2026-09-28
 
 Vendors Core, API, web and PWA 9.13.0 (9.12.3 folded in). One database
