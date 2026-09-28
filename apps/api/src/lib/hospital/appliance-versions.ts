@@ -23,7 +23,7 @@
  */
 export const APPLIANCE_MANIFEST_VERSIONS = {
   /** This appliance's own release, independent of the upstream it vendors. */
-  hospital: "1.4.16",
+  hospital: "1.4.17",
   /** The vendored lospor-api. Must equal UPSTREAM_VERSIONS.sources.api.version. */
   api: "9.13.3",
   /** The vendored lospor-core. Must equal UPSTREAM_VERSIONS.sources.core.version. */
