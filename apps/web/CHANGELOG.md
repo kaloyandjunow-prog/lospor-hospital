@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.3] - 2026-09-28
+
+### Changed
+
+- Released with API and PWA 9.13.3 as one set. The home medication and
+  allergy search now answers from the API's new medication list (NHIS CL009
+  plus the BDA products it lacks); nothing in the web app changed.
+
 ## [9.13.2] - 2026-09-28
 
 ### Fixed
