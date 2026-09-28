@@ -36,6 +36,7 @@ import {
 import { EquipmentSuggestions } from "@/components/EquipmentSuggestions"
 import { IntraopLabsDialog } from "@/components/intraop/IntraopLabsDialog"
 import { IntraopEhrLabs } from "@/components/intraop/IntraopEhrLabs"
+import { ehrLabsWriter } from "@/components/intraop/ehr-labs-save"
 import { useClinicalRules } from "@/hooks/useClinicalRules"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
@@ -77,7 +78,7 @@ export type { IntraopFormFields, IntraopData } from "./intraopSchema"
 
 import type { PreopSummary } from "@/components/forms/preop-summary"
 
-export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, readOnly = false, autoEnded: autoEndedProp = false, caseId = null, aiOptIn = false }: {
+export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onSaveNow, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, readOnly = false, autoEnded: autoEndedProp = false, caseId = null, aiOptIn = false }: {
   /**
    * The saved case, once autosave has created one.
    *
@@ -93,6 +94,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   onSubmit: (data: IntraopData) => void
   onBack: () => void
   onAutoSave?: (data: IntraopData) => void
+  /** Saves the section now; true once saved or queued (hospital: labs accepted from the hospital system). */
+  onSaveNow?: (data: IntraopData) => Promise<boolean>
   onPostopContinued?: (items: string[]) => void
   layoutMode?: "tabs" | "scroll"
   caseStarted?: boolean
@@ -647,7 +650,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           onClose={() => setLabsDialog({ open: false, takenAt: null })}
           caseId={caseId ?? null}
           aiOptIn={aiOptIn}
-          importPanel={<IntraopEhrLabs caseId={caseId ?? null} value={watchedLabResults ?? []} onChange={rows => setValue("labResults", rows as never, { shouldDirty: true })} />}
+          importPanel={<IntraopEhrLabs caseId={caseId ?? null} value={watchedLabResults ?? []} onChange={ehrLabsWriter(rows => setValue("labResults", rows as never, { shouldDirty: true }), getValues, onSaveNow)} />}
         />
         <CaseSaveStateContext.Provider value={attention.saveState}>
         <IntraopAttentionPanel entries={attention.entries} onAnswer={attention.canAnswer ? attention.answer : undefined} refused={attention.refused} onDismissRefused={attention.saveState.dismissRefused} />

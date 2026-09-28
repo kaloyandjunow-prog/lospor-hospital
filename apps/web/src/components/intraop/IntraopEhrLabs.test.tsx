@@ -44,7 +44,7 @@ describe("intraoperative labs from the hospital system", () => {
 
   it("asks when pressed and adds the accepted results to the case's labs", async () => {
     lookupMock.mockResolvedValue({ status: "offer", offer: offer() })
-    const onChange = vi.fn()
+    const onChange = vi.fn(async (_rows: unknown[]) => true)
     const existing = [{ test: "Potassium (K⁺)", value: "4.1", unit: "mmol/L", takenAt: "2026-09-27T09:10:00.000Z" }]
     render(<IntraopEhrLabs caseId="case-1" value={existing} onChange={onChange} />)
 
@@ -59,8 +59,38 @@ describe("intraoperative labs from the hospital system", () => {
     expect(recordMock).toHaveBeenCalledWith("case-1", "imp-1", expect.arrayContaining([expect.stringContaining("labResults")]), [])
   })
 
+  it("records nothing when the results did not reach the case, and offers them again", async () => {
+    // Recorded before the save, a refused or lost save left the import read
+    // as accepted, and the next press said there was nothing new.
+    lookupMock.mockResolvedValue({ status: "offer", offer: offer() })
+    const onChange = vi.fn(async () => false)
+    render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={onChange} />)
+
+    await click(screen.getByRole("button", { name: "intraopLabsFetch" }))
+    await click(screen.getByRole("button", { name: /^accept/ }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(recordMock).not.toHaveBeenCalled()
+
+    await click(screen.getByRole("button", { name: "intraopLabsFetch" }))
+    expect(screen.queryByText("intraopLabsNone")).toBeNull()
+    expect(screen.getByRole("button", { name: /^accept/ })).toBeTruthy()
+  })
+
+  it("does not record before the save has finished", async () => {
+    lookupMock.mockResolvedValue({ status: "offer", offer: offer() })
+    let finish!: (kept: boolean) => void
+    const onChange = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve }))
+    render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={onChange} />)
+    await click(screen.getByRole("button", { name: "intraopLabsFetch" }))
+    await click(screen.getByRole("button", { name: /^accept/ }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(recordMock).not.toHaveBeenCalled()
+    await act(async () => { finish(true) })
+    expect(recordMock).toHaveBeenCalledTimes(1)
+  })
+
   it("says so when nothing was drawn, and when the hospital system could not be asked", async () => {
-    render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn()} />)
+    render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn(async () => true)} />)
     lookupMock.mockResolvedValueOnce({ status: "none" })
     await click(screen.getByRole("button", { name: "intraopLabsFetch" }))
     expect(screen.getByText("intraopLabsNone")).toBeTruthy()
@@ -72,7 +102,7 @@ describe("intraoperative labs from the hospital system", () => {
 
   it("is not shown where the deployment has no hospital-system feed", () => {
     capability.enabled = false
-    const { container } = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn()} />)
+    const { container } = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn(async () => true)} />)
     expect(container.textContent).toBe("")
   })
 })

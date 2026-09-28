@@ -149,7 +149,10 @@ function TimetableRowComponent({
                 const runningAgent = activeAgents.find(agent => item.id === `agent-${agent.name}`)
                 const isGasItem = item.id === "gas-settings"
                 // A planned item, or the row of a planned stop, is a marker, not a control.
+                // A running item in a row after now is dashed like them, but it is a
+                // control: a change made here is dated to this row (9.13.1).
                 const marker = !!(item.planned || item.plannedStop || item.plannedChange)
+                const dashed = marker || !!item.projected
                 const canManage = !marker && !!(activeInf || activeFl || runningAgent || (isGasItem && activeGas))
                 return (
                   <View key={item.id}>
@@ -165,9 +168,9 @@ function TimetableRowComponent({
                     }}
                     style={{
                       flexDirection: "row", alignItems: "center",
-                      backgroundColor: item.color + (marker ? "08" : "14"),
+                      backgroundColor: item.color + (dashed ? "08" : "14"),
                       borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
-                      borderWidth: 1, borderColor: item.color + "44", borderStyle: marker ? "dashed" : "solid",
+                      borderWidth: 1, borderColor: item.color + "44", borderStyle: dashed ? "dashed" : "solid",
                       borderLeftWidth: 4, borderLeftColor: item.color,
                     }}
                   >
@@ -313,7 +316,7 @@ function TimetableRowComponent({
       {/* Running strips — full height, stacked from right edge inward (5px each) */}
       <View style={{ flexDirection: "row", alignSelf: "stretch" }}>
         {running.slice().reverse().map(item => (
-          <View key={item.id} style={{ width: 5, backgroundColor: item.color + (item.planned || item.plannedStop ? "33" : "88") }} />
+          <View key={item.id} style={{ width: 5, backgroundColor: item.color + (item.planned || item.plannedStop || item.projected ? "33" : "88") }} />
         ))}
       </View>
     </TouchableOpacity>

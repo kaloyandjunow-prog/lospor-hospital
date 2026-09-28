@@ -32,6 +32,8 @@ type Props = {
   onOpenLabs?: (takenAt: string) => void
   activeGas: ActiveGasSettings
   started: boolean
+  /** Show running items in the rows after now (a live case not yet ended). */
+  projectRunning?: boolean
   isWatching: boolean
   listRef: RefObject<FlatList<number> | null>
   onUndo: () => void
@@ -71,6 +73,7 @@ export function IntraopTimetableTab({
   onOpenLabs,
   activeGas,
   started,
+  projectRunning = false,
   isWatching,
   listRef,
   onUndo,
@@ -88,7 +91,7 @@ export function IntraopTimetableTab({
   onViewChart,
 }: Props) {
   const rowDataByCol = useMemo(() => {
-    const runningByCol = runningItemsByCol(timetable, chartRows)
+    const runningByCol = runningItemsByCol(timetable, chartRows, { projectRunning })
     const data = new Map<number, {
       vital: VitalsEntry | undefined
       rowEvents: LogEvent[]
@@ -108,7 +111,7 @@ export function IntraopTimetableTab({
       })
     }
     return data
-  }, [buildSummary, chartRows, eventRows, timetable])
+  }, [buildSummary, chartRows, eventRows, projectRunning, timetable])
 
   const labDrawsByCol = useMemo(() => {
     const byCol = new Map<number, IntraopLabDraw[]>()

@@ -63,7 +63,7 @@ describe("intraoperative labs from the hospital system", () => {
 
   it("asks when pressed and adds the accepted results to the case's labs", async () => {
     lookupMock.mockResolvedValue({ status: "offer", offer: offer() })
-    const onChange = vi.fn()
+    const onChange = vi.fn(async (_rows: unknown[]) => true)
     const existing = [{ test: "Potassium (K⁺)", value: "4.1", unit: "mmol/L", takenAt: "2026-09-27T09:10:00.000Z" }]
     const tree = render(<IntraopEhrLabs caseId="case-1" value={existing} onChange={onChange} />)
 
@@ -78,9 +78,40 @@ describe("intraoperative labs from the hospital system", () => {
     expect(recordMock).toHaveBeenCalledWith("case-1", "imp-1", expect.arrayContaining([expect.stringContaining("labResults")]), [])
   })
 
+  it("records nothing when the results did not reach the case, and offers them again", async () => {
+    // A refused or dropped write used to be recorded as accepted, and the
+    // next press then said there was nothing new.
+    lookupMock.mockResolvedValue({ status: "offer", offer: offer() })
+    const onChange = vi.fn(async () => false)
+    const tree = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={onChange} />)
+
+    await press(pressable(tree.root, t => t === STRINGS.en.ehrIntraopLabsFetch))
+    await press(pressable(tree.root, t => t.startsWith("ehrAccept")))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(recordMock).not.toHaveBeenCalled()
+
+    await press(pressable(tree.root, t => t === STRINGS.en.ehrIntraopLabsFetch))
+    expect(texts(tree.root)).not.toContain(STRINGS.en.ehrIntraopLabsNone)
+    expect(tree.root.findAll(n => typeof n.props?.onPress === "function" && texts(n).some(t => t.startsWith("ehrAccept"))).length).toBeGreaterThan(0)
+  })
+
+  it("does not record before the write has finished", async () => {
+    lookupMock.mockResolvedValue({ status: "offer", offer: offer() })
+    let finish!: (kept: boolean) => void
+    const onChange = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve }))
+    const tree = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={onChange} />)
+    await press(pressable(tree.root, t => t === STRINGS.en.ehrIntraopLabsFetch))
+    const accept = pressable(tree.root, t => t.startsWith("ehrAccept"))
+    let accepted!: Promise<void>
+    await act(async () => { accepted = accept.props.onPress() })
+    expect(recordMock).not.toHaveBeenCalled()
+    await act(async () => { finish(true); await accepted })
+    expect(recordMock).toHaveBeenCalledTimes(1)
+  })
+
   it("says so when nothing was drawn, and when the hospital system could not be asked", async () => {
     lookupMock.mockResolvedValueOnce({ status: "none" })
-    const tree = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn()} />)
+    const tree = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn(async () => true)} />)
     await press(pressable(tree.root, t => t === STRINGS.en.ehrIntraopLabsFetch))
     expect(texts(tree.root)).toContain(STRINGS.en.ehrIntraopLabsNone)
 
@@ -91,7 +122,7 @@ describe("intraoperative labs from the hospital system", () => {
 
   it("is not shown where the deployment has no hospital-system feed", () => {
     capability.enabled = false
-    const tree = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn()} />)
+    const tree = render(<IntraopEhrLabs caseId="case-1" value={[]} onChange={vi.fn(async () => true)} />)
     expect(texts(tree.root)).toEqual([])
   })
 })

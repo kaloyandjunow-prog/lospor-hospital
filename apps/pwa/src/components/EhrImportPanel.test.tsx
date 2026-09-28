@@ -2,11 +2,11 @@ import React from "react"
 import { act, type ReactTestInstance } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 
-const { notifyMock } = vi.hoisted(() => ({ notifyMock: vi.fn() }))
+const { notifyMock, prefs } = vi.hoisted(() => ({ notifyMock: vi.fn(), prefs: { language: "en" } }))
 
 vi.mock("@/lib/notify", () => ({ notify: notifyMock }))
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({ tc: (key: string) => key }),
+  usePreferences: () => ({ tc: (key: string) => key, language: prefs.language }),
 }))
 
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
@@ -201,7 +201,8 @@ describe("an undated result says so", () => {
       labResults: [{ test: HB, value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" }],
     })
 
-    expect(texts(tree).join(" ")).toContain("2026-09-01")
+    // 08:00 UTC is 1 September in every zone a hospital runs in.
+    expect(texts(tree).join(" ")).toContain("ehrTakenAt 01 Sep 2026")
     expect(rowFor(tree, `${HB} 89 g/L`).props.accessibilityState.checked).toBe(true)
   })
 
@@ -335,5 +336,18 @@ describe("groups the hospital system could not be read for", () => {
   it("says nothing when everything was read", () => {
     const tree = panel({ allergies: ["Penicillin"] })
     expect(texts(tree).join(" ")).not.toContain("ehrUnreadSources")
+  })
+})
+
+describe("values in the clinician's language (1.4.13 appliance test)", () => {
+  it("shows the hospital's codes as words, in the screen's language", () => {
+    prefs.language = "bg"
+    try {
+      const shown = texts(panel({ sex: "MALE", ageUnit: "YEARS", allergies: true }))
+      expect(shown).toEqual(expect.arrayContaining(["Мъж", "Години", "Да"]))
+      expect(shown).not.toContain("MALE")
+    } finally {
+      prefs.language = "en"
+    }
   })
 })

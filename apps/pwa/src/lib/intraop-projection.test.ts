@@ -5,6 +5,7 @@ import {
   loadedTimetableStateFromLog,
   safeTimetableScrollIndex,
   timetableTabInitialScrollTarget,
+  timetableTabOpeningScroll,
   pickVitalsForColumn,
 } from "./intraop-projection"
 import type { LogEvent } from "@/lib/intraop-log-event"
@@ -146,6 +147,28 @@ describe("loadedTimetableStateFromLog", () => {
     expect(state.elapsedMs).toBe(30 * 60_000)
     expect(state.columnCount).toBe(18)
     expect(state.timetable?.drugs[0]).toMatchObject({ name: "Fentanyl", colIdx: 2 })
+  })
+
+  it("measures an ended case to its end, however long ago that was", () => {
+    // A 31-minute case reopened two days later showed "+ 40h 42m" (1.4.13 appliance test).
+    const log = [ev({ id: "start", type: "clinical_event", ts: at(0), label: "Start" })]
+    const twoDaysLater = new Date(START.getTime() + 48 * 60 * 60_000)
+    const state = loadedTimetableStateFromLog(log, twoDaysLater, null, new Date(START.getTime() + 31 * 60_000))
+
+    expect(state.elapsedMs).toBe(31 * 60_000)
+    expect(state.columnCount).toBe(19)
+  })
+})
+
+describe("timetableTabOpeningScroll", () => {
+  it("opens a live case at now, a third of the way down", () => {
+    expect(timetableTabOpeningScroll(8, 12, 20, false)).toEqual({ index: 12, viewPosition: 0.35 })
+    expect(timetableTabOpeningScroll(2, 12, 20, false)).toEqual({ index: 5, viewPosition: 0.35 })
+  })
+
+  it("opens an ended case with its end row at the bottom", () => {
+    expect(timetableTabOpeningScroll(6, 6, 13, true)).toEqual({ index: 6, viewPosition: 1 })
+    expect(timetableTabOpeningScroll(6, 30, 13, true)).toEqual({ index: 12, viewPosition: 1 })
   })
 })
 

@@ -22,14 +22,17 @@ function Harness({
   log,
   onElapsed,
   onTimetable,
+  endedAt = null,
 }: {
   start: Date
   log: LogEvent[]
+  endedAt?: Date | null
   onElapsed: () => void
   onTimetable: () => void
 }) {
   const logRef = React.useRef(log)
   const startRef = React.useRef<Date | null>(start)
+  const endedAtRef = React.useRef<Date | null>(endedAt)
   const resyncActiveRef = React.useRef(() => {})
   logRef.current = log
 
@@ -37,6 +40,7 @@ function Harness({
     log,
     logRef,
     startRef,
+    endedAtRef,
     setElapsedMs: onElapsed as never,
     setTimetable: onTimetable as never,
     projectTimetable: (events, startTs, now) => eventsToTimetable(events, startTs, now),
@@ -125,5 +129,16 @@ describe("intraop runtime tick", () => {
     act(() => { vi.advanceTimersByTime(10_000) })
 
     expect(onTimetable).toHaveBeenCalled()
+  })
+
+  it("publishes an ended case's length, not the time since it started", () => {
+    const start = new Date("2026-09-26T11:43:42Z")
+    vi.setSystemTime(new Date("2026-09-28T04:26:00Z"))
+    const onElapsed = vi.fn()
+    render(<Harness start={start} log={[]} onElapsed={onElapsed} onTimetable={vi.fn()} endedAt={new Date("2026-09-26T12:14:34Z")} />)
+
+    act(() => { vi.advanceTimersByTime(10_000) })
+
+    expect(onElapsed).toHaveBeenLastCalledWith(30 * 60_000 + 52_000)
   })
 })

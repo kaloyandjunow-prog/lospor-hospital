@@ -40,6 +40,12 @@ export type RunningItemMarks = {
   planned?: true
   plannedStop?: true
   plannedChange?: true
+  /**
+   * A row after "now" that the item, running now, will still be running in
+   * (9.13.1): drawn dashed, and a control -- a change or stop made from it is
+   * dated to that row, and so is planned.
+   */
+  projected?: true
   stopUnconfirmed?: true
   /** With `stopUnconfirmed`: the stop to confirm or withdraw. */
   stopEventId?: string
@@ -63,10 +69,26 @@ export type RunningItem = RunningItemMarks & (
     }
 )
 
-type MarkableSegment = { startCol: number; endCol: number; planned?: boolean; plannedStopCol?: number; stopUnconfirmed?: boolean; stopEventId?: string }
+type MarkableSegment = { startCol: number; endCol: number; stopped?: boolean; planned?: boolean; plannedStopCol?: number; stopUnconfirmed?: boolean; stopEventId?: string }
 
-/** How a segment shows in a column, or null when it does not show there. */
-function rowMarks(segment: MarkableSegment, column: number): RunningItemMarks | null {
+/**
+ * Whether an item running now is still running at a later row (9.13.1): it has
+ * started, has not stopped, and has no planned stop at or before that row. A
+ * running bar is drawn only to "now", so a row after it showed nothing to
+ * change: a rate change for 15:55 could only be entered as a second infusion
+ * of the same drug, which then counted alongside the first. One rule for the
+ * PWA's rows and the web's lanes.
+ */
+export function runsOnAt(segment: MarkableSegment, column: number): boolean {
+  return !segment.planned && !segment.stopped && column > segment.endCol
+    && (segment.plannedStopCol == null || column < segment.plannedStopCol)
+}
+
+/**
+ * How a segment shows in a column, or null when it does not show there.
+ * `project`: the live chart also shows a running item in the rows after now.
+ */
+function rowMarks(segment: MarkableSegment, column: number, project = false): RunningItemMarks | null {
   if (segment.planned) return column === segment.startCol ? { planned: true } : null
   if (column >= segment.startCol && column <= segment.endCol) {
     return segment.stopUnconfirmed && column === segment.endCol
@@ -76,6 +98,7 @@ function rowMarks(segment: MarkableSegment, column: number): RunningItemMarks | 
   if (segment.plannedStopCol != null && column === segment.plannedStopCol && column > segment.endCol) {
     return { plannedStop: true }
   }
+  if (project && runsOnAt(segment, column)) return { projected: true }
   return null
 }
 
@@ -315,11 +338,13 @@ export function describeIntraopEvent(
 export function gasSettingsAtColumn(
   segment: GasSettingsSegment,
   column: number,
+  options: { projected?: boolean } = {},
 ): EffectiveGasSettings | null {
-  if (column < segment.startCol || column > segment.endCol) return null
+  if (column < segment.startCol || (!options.projected && column > segment.endCol)) return null
   let latest: NonNullable<GasSettingsSegment["settingsChanges"]>[number] | undefined
-  // A planned change is drawn but not yet in force (9.13.0).
-  for (const change of (segment.settingsChanges ?? []).filter(item => !item.planned)) {
+  // A planned change is drawn but not yet in force (9.13.0) -- except in a
+  // projected row after now, by when it will be (9.13.1).
+  for (const change of (segment.settingsChanges ?? []).filter(item => options.projected || !item.planned)) {
     if (change.col <= column && (!latest || change.col >= latest.col)) latest = change
   }
   const carrierGas = latest?.carrierGas ?? segment.carrierGas
@@ -374,11 +399,12 @@ export function rateAtColumn(
 export function fluidRateAtColumn(
   fluid: TimetableFluid,
   column: number,
+  options: { projected?: boolean } = {},
 ): { rate: NumericText | undefined; unit: string | undefined } {
   if (fluid.fluidEntryMode !== "RATE") return { rate: undefined, unit: undefined }
   let rate = fluid.rate
   let unit = fluid.unit ?? "mL/h"
-  for (const change of [...(fluid.rateChanges ?? [])].filter(item => !item.planned).sort((a, b) => a.col - b.col)) {
+  for (const change of [...(fluid.rateChanges ?? [])].filter(item => options.projected || !item.planned).sort((a, b) => a.col - b.col)) {
     if (change.col > column) break
     rate = change.rate
     unit = change.unit
@@ -386,17 +412,28 @@ export function fluidRateAtColumn(
   return { rate, unit }
 }
 
+/**
+ * `projectRunning` (the live chart of a case not yet ended): items running
+ * now also show, marked `projected`, in later rows up to their planned stop.
+ * Never for a record, a summary or an ended case -- an item continued into
+ * recovery does not run on in the chart after the end.
+ */
+export type RunningItemsOptions = { projectRunning?: boolean }
+
 export function runningItemsAt(
   timetable: TimetableData,
   column: number,
+  options: RunningItemsOptions = {},
 ): RunningItem[] {
-  return runningItemsByColumn(timetable, [column]).get(column) ?? []
+  return runningItemsByColumn(timetable, [column], options).get(column) ?? []
 }
 
 export function runningItemsByColumn(
   timetable: TimetableData,
   columns: number[],
+  options: RunningItemsOptions = {},
 ): Map<number, RunningItem[]> {
+  const project = options.projectRunning === true
   const rows = new Map(columns.map(column => [column, [] as RunningItem[]]))
   const push = (column: number, item: RunningItem) => {
     rows.get(column)?.push(item)
@@ -404,7 +441,7 @@ export function runningItemsByColumn(
 
   for (const agent of timetable.agents) {
     for (const column of columns) {
-      const marks = rowMarks(agent, column)
+      const marks = rowMarks(agent, column, project)
       if (!marks) continue
       push(column, {
         kind: "agent",
@@ -419,9 +456,11 @@ export function runningItemsByColumn(
 
   for (const gas of timetable.gasSettings ?? []) {
     for (const column of columns) {
-      const marks = rowMarks(gas, column)
+      const marks = rowMarks(gas, column, project)
       if (!marks) continue
-      const settings = gasSettingsAtColumn(gas, Math.min(column, gas.endCol))
+      const settings = marks.projected
+        ? gasSettingsAtColumn(gas, column, { projected: true })
+        : gasSettingsAtColumn(gas, Math.min(column, gas.endCol))
       if (!settings) continue
       push(column, {
         kind: "gas",
@@ -447,12 +486,13 @@ export function runningItemsByColumn(
   }
 
   for (const infusion of timetable.infusions) {
-    const changes = [...(infusion.rateChanges ?? [])]
-      .filter(change => !change.planned)
-      .sort((a, b) => a.col - b.col)
+    const allChanges = [...(infusion.rateChanges ?? [])].sort((a, b) => a.col - b.col)
+    const inForce = allChanges.filter(change => !change.planned)
     for (const column of columns) {
-      const marks = rowMarks(infusion, column)
+      const marks = rowMarks(infusion, column, project)
       if (!marks) continue
+      // In a projected row, a planned change due by then will be in force.
+      const changes = marks.projected ? allChanges : inForce
       let latest = changes[0]?.col <= column ? changes[0] : undefined
       for (let index = 1; index < changes.length; index += 1) {
         if (changes[index].col > column) break
@@ -485,9 +525,9 @@ export function runningItemsByColumn(
 
   for (const fluid of timetable.fluids) {
     for (const column of columns) {
-      const marks = rowMarks(fluid, column)
+      const marks = rowMarks(fluid, column, project)
       if (!marks) continue
-      const activeRate = fluidRateAtColumn(fluid, column)
+      const activeRate = fluidRateAtColumn(fluid, column, { projected: !!marks.projected })
       push(column, {
         kind: "fluid",
         id: `fluid-${fluid.id}`,

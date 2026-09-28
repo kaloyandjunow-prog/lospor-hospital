@@ -18,6 +18,8 @@ export type RunningItem = {
   plannedStop?: boolean
   /** A rate or setting change dated after now, shown with its new value (9.13.0). */
   plannedChange?: boolean
+  /** Running now and still running in this row after now: drawn dashed, and a control (9.13.1). */
+  projected?: boolean
   /** The row a stop entered ahead reached, not yet confirmed; the stop to answer about. */
   stopUnconfirmed?: boolean
   stopEventId?: string
@@ -30,6 +32,7 @@ function presentRunningItem(item: CoreRunningItem): RunningItem {
   if (item.planned) presented.planned = true
   if (item.plannedStop) presented.plannedStop = true
   if (item.plannedChange) presented.plannedChange = true
+  if (item.projected) presented.projected = true
   if (item.stopUnconfirmed) presented.stopUnconfirmed = true
   if (item.stopEventId) presented.stopEventId = item.stopEventId
   if (item.eventIds?.length) presented.eventIds = item.eventIds
@@ -78,8 +81,11 @@ export function runningItemsAt(
 export function runningItemsByCol(
   timetable: TimetableData,
   cols: number[],
+  // The live chart of a case not yet ended: running items also show in the
+  // rows after now, where a change can be planned on them (Core, 9.13.1).
+  options: { projectRunning?: boolean } = {},
 ): Map<number, RunningItem[]> {
-  const coreRows = runningItemsByColumn(timetable, cols)
+  const coreRows = runningItemsByColumn(timetable, cols, options)
   return new Map(
     [...coreRows].map(([col, items]) => [
       col,

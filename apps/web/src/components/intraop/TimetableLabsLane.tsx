@@ -140,7 +140,7 @@ export function TimetableLabsLane({
                 key={ci}
                 style={{ width: colW, minWidth: colW }}
                 className="group border-l border-slate-100 dark:border-[#2a2a2a] relative flex flex-col items-center justify-center py-0.5 px-0.5 cursor-pointer hover:bg-teal-50/40 dark:hover:bg-teal-900/10 transition-colors"
-                onClick={() => onOpenDraw(ci)}
+                data-testid="labs-draw-cell" onClick={() => onOpenDraw(ci)}
               >
                 {colDraws.length === 0 ? (
                   <Plus className="h-2.5 w-2.5 opacity-0 group-hover:opacity-30 transition-opacity text-slate-400 dark:text-[#666]" />

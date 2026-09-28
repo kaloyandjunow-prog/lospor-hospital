@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.1] - 2026-09-28
+
+### Added
+
+- **A running infusion runs on after now.** In a live case each infusion lane
+  continues its running bar, dashed, through the cells after now, until a
+  planned stop (Core's rule, the same as the PWA's rows). Clicking it opens
+  the infusion's menu dated to that cell: Change rate plans a change of the
+  same infusion there, Discontinue plans the stop there. An ended case runs
+  nothing on.
+
+### Fixed
+
+- **The import review in the clinician's language.** Values the hospital
+  sends as codes read as words, and a result's date is its day where it was
+  taken, as dd.MM.yyyy in Bulgarian (Core's `describeEhrReviewItem`, shared
+  with the phone).
+- **The chart's lab dialog knows the case and its AI consent.** Since 9.8.0
+  the page gave the intraop form neither, so the lab scan there always asked
+  for AI consent the case had already given.
+
 ## [9.13.0] - 2026-09-28
 
 ### Added

@@ -121,14 +121,17 @@ export function loadedTimetableStateFromLog(
     : null
   const startDate = trustedStart ?? new Date(oldestTimestamp!)
   const roundedStart = roundDown5Min(startDate)
-  const elapsedMs = Math.max(0, now.getTime() - startDate.getTime())
+  // An ended case lasted until its end: the header showed "+ 40h 42m" on a
+  // 31-minute case reopened two days later (1.4.13 appliance test).
+  const clock = endedAt ?? now
+  const elapsedMs = Math.max(0, clock.getTime() - startDate.getTime())
   return {
     startDate,
     elapsedMs,
     timetable: log.length > 0 ? eventsToTimetable(log, roundedStart, now, endedAt) : null,
     columnCount: Math.max(
       12,
-      Math.ceil(Math.max(0, now.getTime() - roundedStart.getTime()) / INTRAOP_COLUMN_MS) + 12,
+      Math.ceil(Math.max(0, clock.getTime() - roundedStart.getTime()) / INTRAOP_COLUMN_MS) + 12,
     ),
   }
 }
@@ -246,6 +249,22 @@ export function timetableTabInitialScrollTarget(
   return lastEventCol < currentCol - 6
     ? Math.min(lastEventCol + 3, rowCount - 1)
     : Math.min(currentCol, rowCount - 1)
+}
+
+/**
+ * Where the chart tab opens: a live case at now (or just after its last entry,
+ * when that is well before now); an ended case with its end row at the bottom
+ * of the screen, so what shows is the case and not the empty rows after it.
+ */
+export function timetableTabOpeningScroll(
+  lastEventCol: number,
+  clockCol: number,
+  rowCount: number,
+  ended: boolean,
+): { index: number; viewPosition: number } {
+  return ended
+    ? { index: safeTimetableScrollIndex(clockCol, rowCount), viewPosition: 1 }
+    : { index: timetableTabInitialScrollTarget(lastEventCol, clockCol, rowCount), viewPosition: 0.35 }
 }
 
 export function pickVitalsForColumn(

@@ -84,7 +84,7 @@ async function applianceHome(version) {
   return home
 }
 
-async function checkForUpdate(home, origin, locale) {
+async function checkForUpdate(home, origin, locale, args = []) {
   const env = {
     ...process.env,
     LOSPOR_APPLIANCE_HOME: posix(home),
@@ -95,7 +95,7 @@ async function checkForUpdate(home, origin, locale) {
   delete env.LOSPOR_DEFAULT_LOCALE
   if (locale) env.LOSPOR_DEFAULT_LOCALE = locale
   try {
-    const { stdout } = await run("sh", [posix(join(root, "scripts", "check-for-update.sh"))], {
+    const { stdout } = await run("sh", [posix(join(root, "scripts", "check-for-update.sh")), ...args], {
       cwd: root,
       env,
     })
@@ -289,4 +289,69 @@ test("refuses cross-origin pagination before sending the bearer token", async ()
     await registry.close()
     await hostile.close()
   }
+})
+
+// After an install (1.4.13 appliance test). The recorded answer still said
+// "running 1.4.12, 1.4.13 downloaded and ready to apply" with 1.4.13 running,
+// so the Status page offered to apply the release already installed.
+const FETCHED_SHA = "8c0087841387e80001664cf794b0385362d3d676c8e43554fdb01a3fd02f226a"
+const CHECKED_AT = "2026-09-28T04:08:49Z"
+
+async function recordStatus(home, fields) {
+  await writeFile(join(home, ".data", "update-status.tsv"), `LOSPOR-HOSPITAL-UPDATE-STATUS-V1	${fields.join("	")}
+`)
+}
+
+// Port 1: nothing listens. The after-install pass must never need the registry.
+const afterInstall = home => checkForUpdate(home, "http://127.0.0.1:1", undefined, ["--after-install"])
+
+test("after an install, the release now running is no longer offered", async () => {
+  const home = await applianceHome("1.4.13")
+  await recordStatus(home, [CHECKED_AT, "1.4.12", "1.4.13", "update-available", "1.4.13", FETCHED_SHA])
+  const result = await afterInstall(home)
+  assert.equal(result.code, 0, result.stderr)
+  assert.deepEqual(await recordedState(home), {
+    checkedAt: CHECKED_AT, installed: "1.4.13", latest: "1.4.13", state: "current", fetched: "-", fetchedLockSha256: "-",
+  })
+})
+
+test("after an install, a newer release already downloaded stays ready", async () => {
+  const home = await applianceHome("1.4.13")
+  await recordStatus(home, [CHECKED_AT, "1.4.12", "1.4.14", "update-available", "1.4.14", FETCHED_SHA])
+  const result = await afterInstall(home)
+  assert.equal(result.code, 0, result.stderr)
+  assert.deepEqual(await recordedState(home), {
+    checkedAt: CHECKED_AT, installed: "1.4.13", latest: "1.4.14", state: "update-available", fetched: "1.4.14", fetchedLockSha256: FETCHED_SHA,
+  })
+})
+
+test("after an install, an older download is dropped and an older answer is not newer", async () => {
+  const home = await applianceHome("1.4.13")
+  await recordStatus(home, [CHECKED_AT, "1.4.11", "1.4.12", "update-available", "1.4.12", FETCHED_SHA])
+  assert.equal((await afterInstall(home)).code, 0)
+  const state = await recordedState(home)
+  assert.equal(state.state, "current")
+  assert.equal(state.fetched, "-")
+})
+
+test("after an install with no recorded answer, nothing is claimed", async () => {
+  const home = await applianceHome("1.4.13")
+  assert.equal((await afterInstall(home)).code, 0)
+  await assert.rejects(readFile(join(home, ".data", "update-status.tsv"), "utf8"), { code: "ENOENT" })
+
+  // A failed check recorded no version: still nothing to correct.
+  await recordStatus(home, [CHECKED_AT, "1.4.12", "-", "unknown", "-", "-"])
+  assert.equal((await afterInstall(home)).code, 0)
+  assert.equal((await recordedState(home)).state, "unknown")
+})
+
+test("after an install, a record with a version but no check time is left alone", async () => {
+  // What a download writes before any check has run: it would otherwise be
+  // published with no time the registry was asked.
+  const home = await applianceHome("1.4.13")
+  await recordStatus(home, ["-", "1.4.12", "1.4.13", "update-available", "1.4.13", FETCHED_SHA])
+  assert.equal((await afterInstall(home)).code, 0)
+  const state = await recordedState(home)
+  assert.equal(state.checkedAt, "-")
+  assert.equal(state.fetched, "1.4.13")
 })

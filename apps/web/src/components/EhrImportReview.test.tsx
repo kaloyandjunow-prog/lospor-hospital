@@ -6,7 +6,8 @@ import { buildEhrReviewPlan, type EhrReviewInput } from "@lospor/core/ehr-import
 import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import { EhrImportReview } from "./EhrImportReview"
 
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }))
+const intl = vi.hoisted(() => ({ locale: "en" }))
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => intl.locale }))
 
 /**
  * These deliberately mirror `EhrImportPanel.test.tsx` in lospor-mobile, case for
@@ -177,7 +178,8 @@ describe("an undated result says so", () => {
   it("shows the draw date when there is one", () => {
     review({ labResults: [{ test: HB, value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" }] })
 
-    expect(screen.getByText(/2026-09-01/)).toBeTruthy()
+    // 08:00 UTC is 1 September in every zone a hospital runs in.
+    expect(screen.getByText("takenAt 01 Sep 2026")).toBeTruthy()
     expect(boxes()[0].checked).toBe(true)
   })
 
@@ -315,5 +317,20 @@ describe("groups the hospital system could not be read for", () => {
   it("says nothing when everything was read", () => {
     review({ allergies: ["Penicillin"] })
     expect(screen.queryByRole("alert")).toBeNull()
+  })
+})
+
+describe("values in the clinician's language (1.4.13 appliance test)", () => {
+  it("shows the hospital's codes as words, in the screen's language", () => {
+    intl.locale = "bg"
+    try {
+      review({ sex: "MALE", ageUnit: "YEARS", allergies: true })
+      expect(screen.getByText("Мъж")).toBeTruthy()
+      expect(screen.getByText("Години")).toBeTruthy()
+      expect(screen.getByText("Да")).toBeTruthy()
+      expect(screen.queryByText("MALE")).toBeNull()
+    } finally {
+      intl.locale = "en"
+    }
   })
 })
