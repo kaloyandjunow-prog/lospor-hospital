@@ -17,6 +17,7 @@ esac
 retention_interval="${HOSPITAL_RETENTION_INTERVAL_SECONDS:-86400}"
 retention_marker="${signals}/retention-status.v1.json"
 retention_stamp="${signals}/retention-last-attempt"
+retention_unreachable_file="${signals}/retention-unreachable-count"
 case "$retention_interval" in
   ''|*[!0-9]*) echo RETENTION_INTERVAL_INVALID >&2; exit 2 ;;
 esac
@@ -69,6 +70,25 @@ write_retention_marker() {
   trap - EXIT HUP INT TERM
 }
 
+# The API could not be reached at all -- usually the worker starting before the
+# API after a boot or an update. That says nothing about the purge, so it is not
+# worth a day's wait: the stamp is set back so the next attempt comes in 5, then
+# 15, then 60 minutes, and every hour after that until the API answers. A purge
+# the API refused still waits the whole interval.
+retention_unreachable() {
+  count="$(cat "$retention_unreachable_file" 2>/dev/null || echo 0)"
+  case "$count" in ''|*[!0-9]*) count=0 ;; esac
+  count=$((count + 1))
+  echo "$count" > "$retention_unreachable_file"
+  case "$count" in
+    1) delay=300 ;;
+    2) delay=900 ;;
+    *) delay=3600 ;;
+  esac
+  [ "$delay" -lt "$retention_interval" ] || return 0
+  echo "$(( $(date -u +%s) - retention_interval + delay ))" > "$retention_stamp"
+}
+
 run_retention() {
   # The attempt is stamped before the result is known, so a failing endpoint is
   # retried on the retention clock rather than on the 60-second delivery clock.
@@ -87,8 +107,10 @@ run_retention() {
   if [ "$status" -ne 0 ]; then
     echo "RETENTION_API_UNAVAILABLE" >&2
     write_retention_marker FAILURE RETENTION_API_UNAVAILABLE
+    retention_unreachable
     return 0
   fi
+  rm -f "$retention_unreachable_file"
   case "$(printf '%s' "$http_status" | cut -c1)" in
     2) ;;
     *) echo "RETENTION_REJECTED http=${http_status}" >&2
@@ -110,8 +132,10 @@ run_retention() {
   if [ "$status" -ne 0 ]; then
     echo "RETENTION_API_UNAVAILABLE" >&2
     write_retention_marker FAILURE RETENTION_API_UNAVAILABLE
+    retention_unreachable
     return 0
   fi
+  rm -f "$retention_unreachable_file"
   case "$(printf '%s' "$http_status" | cut -c1)" in
     2) echo "RETENTION_COMPLETED"; write_retention_marker SUCCESS RETENTION_COMPLETED ;;
     *) echo "RETENTION_EHR_STAGING_REJECTED http=${http_status}" >&2

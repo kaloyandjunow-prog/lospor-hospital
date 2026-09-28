@@ -29,7 +29,9 @@ make_work() {
 for arg in "\$@"; do
   case "\$arg" in
     *purge-deleted)
-      echo "retention \$*" >> "$calls"; printf '%s' "${1:-200}"; exit 0 ;;
+      echo "retention \$*" >> "$calls"
+      [ -z "\${RETENTION_UNREACHABLE:-}" ] || exit 7
+      printf '%s' "${1:-200}"; exit 0 ;;
     *ehr-import/purge)
       echo "ehrpurge \$*" >> "$calls"; printf '%s' "\${EHR_PURGE_STATUS:-200}"; exit 0 ;;
     *close-expired-cases)
@@ -155,6 +157,39 @@ if [ -f "$work/signals/retention-last-attempt" ]; then
   pass "a failed purge still records its attempt"
 else
   fail "a failed purge left no attempt stamp, so it would retry every pass"
+fi
+
+# 8b. An API that cannot be reached at all (the worker up before the API after a
+#     boot or an update) is retried in 5, 15, then 60 minutes rather than a day
+#     later, which left Status saying retention was failing for a whole day.
+make_work 200
+stamp="$work/signals/retention-last-attempt"
+next_try() { echo $(( $(cat "$stamp") + 86400 - $(date -u +%s) )); }
+RETENTION_UNREACHABLE=1
+export RETENTION_UNREACHABLE
+run_loop; first="$(next_try)"
+run_loop_due() { echo 0 > "$stamp"; run_loop; }
+run_loop_due; second="$(next_try)"
+run_loop_due; third="$(next_try)"
+run_loop_due; fourth="$(next_try)"
+unset RETENTION_UNREACHABLE
+if [ "$first" -ge 295 ] && [ "$first" -le 300 ] && [ "$second" -ge 895 ] && [ "$second" -le 900 ]   && [ "$third" -ge 3595 ] && [ "$third" -le 3600 ] && [ "$fourth" -ge 3595 ] && [ "$fourth" -le 3600 ]   && grep -q '"resultCode":"RETENTION_API_UNAVAILABLE"' "$work/signals/retention-status.v1.json"; then
+  pass "an unreachable API is retried in 5, 15, then 60 minutes, and still shows as a failure"
+else
+  fail "unreachable API retries were $first, $second, $third, $fourth seconds away"
+fi
+run_loop_due
+if [ ! -f "$work/signals/retention-unreachable-count" ] && [ "$(next_try)" -ge 86395 ]   && grep -q '"resultCode":"RETENTION_COMPLETED"' "$work/signals/retention-status.v1.json"; then
+  pass "once the API answers, retention is back on its daily clock"
+else
+  fail "retention did not return to its daily clock after the API answered"
+fi
+make_work 403
+run_loop
+if [ "$(next_try)" -ge 86395 ]; then
+  pass "a purge the API refused still waits the whole interval"
+else
+  fail "a refused purge was retried early"
 fi
 
 # 9. Automatic case closure, which had no clock here at all until 1.3.0. The
