@@ -107,6 +107,37 @@ test("Hospital capabilities use username-only login and administrator recovery",
   await expect(page.getByText("Create account", { exact: true })).toHaveCount(0)
 })
 
+test("a login with no language pressed leaves the account's language alone", async ({ page }) => {
+  // The server saves a sent language to the account. The screen shows the
+  // appliance's default, which is not the clinician's choice.
+  let submitted: Record<string, unknown> | null = null
+  await page.route("**/v1/locale", route => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify({ locale: "en" }),
+  }))
+  await page.route("**/v1/capabilities", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      authentication: { loginIdentifier: "USERNAME", selfRegistration: false, passwordRecovery: "ADMINISTRATOR" },
+      features: {},
+    }),
+  }))
+  await page.route("**/v1/auth/session", async route => {
+    if (route.request().method() === "POST") submitted = route.request().postDataJSON() as Record<string, unknown>
+    await route.fulfill({
+      status: 401, contentType: "application/json",
+      body: JSON.stringify({ code: "INVALID_CREDENTIALS", error: "Invalid credentials" }),
+    })
+  })
+
+  await page.goto("/")
+  await expect(page.getByText("Sign in", { exact: true })).toBeVisible()
+  await page.getByLabel("Username", { exact: true }).fill("Ivan.Petrov")
+  await page.getByLabel("Password", { exact: true }).fill("Strong1!")
+  await page.getByText("Sign in", { exact: true }).click()
+  await expect.poll(() => submitted).toEqual({ username: "Ivan.Petrov", password: "Strong1!" })
+})
+
 test("a malformed authentication capability fails the PWA closed", async ({ page }) => {
   await page.route("**/v1/capabilities", route => route.fulfill({
     status: 200,

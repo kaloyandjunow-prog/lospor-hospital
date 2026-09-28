@@ -10,6 +10,7 @@ import RegisterScreen from "../../../app/(auth)/register"
 
 const state = vi.hoisted(() => ({
   language: "en" as "bg" | "en",
+  explicit: null as "bg" | "en" | null,
   loaded: true,
   authentication: {
     status: "EXPLICIT",
@@ -64,7 +65,9 @@ vi.mock("@/lib/preferences-context", () => ({
     language: state.language,
     selectLoginLanguage: vi.fn(async (language: "bg" | "en") => {
       state.language = language
+      state.explicit = language
     }),
+    explicitLoginLanguage: () => state.explicit,
     t: (key: keyof typeof STRINGS.en) => STRINGS[state.language][key],
   }),
 }))
@@ -114,6 +117,7 @@ describe("authentication capability screens", () => {
   beforeEach(() => {
     ;(Platform as { OS: string }).OS = "ios"
     state.language = "en"
+    state.explicit = null
     state.authentication = {
       status: "EXPLICIT",
       loginIdentifier: "EMAIL",
@@ -138,7 +142,7 @@ describe("authentication capability screens", () => {
     expect(state.login).toHaveBeenCalledWith(
       { loginIdentifier: "EMAIL", value: " Doctor@Example.COM " },
       "Strong1!",
-      "en",
+      undefined,
     )
 
     act(() => pressableByText(tree, STRINGS.en.forgotPassword).props.onPress())
@@ -173,12 +177,31 @@ describe("authentication capability screens", () => {
     expect(state.login).toHaveBeenCalledWith(
       { loginIdentifier: "USERNAME", value: "Ivan.Petrov" },
       "Strong1!",
-      "en",
+      undefined,
     )
     expect(state.login.mock.calls[0]?.[0]).not.toHaveProperty("email")
 
     act(() => pressableByText(tree, STRINGS.en.accountAccessHelp).props.onPress())
     expect(state.push).toHaveBeenCalledWith("/(auth)/forgot-password")
+    tree.unmount()
+  })
+
+  it("sends the language only when one was pressed on the login screen", async () => {
+    // The server saves a sent language to the account (1.4.14 appliance test).
+    // As after pressing BG: the screen in Bulgarian, the choice explicit.
+    state.language = "bg"
+    state.explicit = "bg"
+    const tree = render(<LoginScreen />)
+    await enterCredentials(tree, STRINGS.bg.email, "doctor@example.com")
+    await act(async () => {
+      pressableByText(tree, STRINGS.bg.signIn).props.onPress()
+      await Promise.resolve()
+    })
+    expect(state.login).toHaveBeenCalledWith(
+      { loginIdentifier: "EMAIL", value: "doctor@example.com" },
+      "Strong1!",
+      "bg",
+    )
     tree.unmount()
   })
 

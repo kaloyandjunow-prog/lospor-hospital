@@ -17,7 +17,7 @@ type RouteProfileLite = {
 export function InfusionActionSheet({
   visible, onClose, target, ratePresets, newRate, setNewRate, onChangeRate, onStop,
   laConcentrations = {}, newConcentration, setNewConcentration, ranges = {}, routeProfiles = {},
-  pediatricMode = false,
+  pediatricMode = false, plannedAt = null,
 }: {
   visible: boolean
   onClose: () => void
@@ -36,6 +36,11 @@ export function InfusionActionSheet({
   // concentration), the rate-change controls use it instead of the flat range.
   routeProfiles?: Record<string, Record<string, RouteProfileLite>>
   pediatricMode?: boolean
+  /**
+   * The row time, when the sheet was opened from a row after now: the change
+   * or stop is planned for then, and the sheet says so (1.4.14 appliance test).
+   */
+  plannedAt?: string | null
 }) {
   const shade = useShade()
   const { tc, language } = usePreferences()
@@ -49,9 +54,10 @@ export function InfusionActionSheet({
     : (target ? ranges[target.name] : undefined) ?? { min: 0, max: 100, step: 1 }
   const quickValues = prof?.quickValues ?? (target ? ratePresets[target.name]?.map(Number) : undefined)
   const concentrationOptions = prof?.concentrationOptions ?? (target ? laConcentrations[target.name] : undefined)
+  const at = plannedAt ? ` ${formatMessage(tc("plannedAtTime"), { time: plannedAt })}` : ""
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={target ? infusionLabel(target.name) : tc("trRowInfusion")}>
+    <Sheet visible={visible} onClose={onClose} title={target ? `${infusionLabel(target.name)}${plannedAt ? ` ·${at}` : ""}` : tc("trRowInfusion")}>
       {target && (
         <View style={{ gap:12 }}>
           {pediatricMode ? (
@@ -72,7 +78,7 @@ export function InfusionActionSheet({
             concentrationOptions={concentrationOptions}
             concentration={newConcentration ?? target.concentration}
             onConcentrationChange={setNewConcentration}
-            confirmLabel={formatMessage(tc("changeTo"), { value: `${newRate} ${target.unit}` })}
+            confirmLabel={`${formatMessage(tc("changeTo"), { value: `${newRate} ${target.unit}` })}${at}`}
             onConfirm={() => onChangeRate(target, newRate, newConcentration)}
             confirmDisabled={!newRate}
           />
@@ -80,7 +86,7 @@ export function InfusionActionSheet({
             onPress={() => onStop(target)}
             style={{ backgroundColor:shade("#1e1414"), borderRadius:10, padding:14, alignItems:"center",
               borderWidth:1, borderColor:shade("#ef444444") }}>
-            <Text style={{ color:shade("#ef4444"), fontWeight:"700" }}>{tc("trStop")} {tc("trRowInfusion").toLowerCase()}</Text>
+            <Text style={{ color:shade("#ef4444"), fontWeight:"700" }}>{tc("trStop")} {tc("trRowInfusion").toLowerCase()}{at}</Text>
           </TouchableOpacity>
         </View>
       )}

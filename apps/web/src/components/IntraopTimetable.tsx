@@ -1953,7 +1953,7 @@ export function IntraopTimetable({
     {infMenu && (
       <InfusionMenuPopover
         anchor={infMenu.rect}
-        name={displayInfusionName(infMenu.name)}
+        name={displayInfusionName(infMenu.name) + (infMenu.fromPillCol != null && nowCol != null && infMenu.fromPillCol > nowCol ? ` · ${t("intraop.timetable.plannedAt", { time: times[infMenu.fromPillCol] })}` : "")}
         color={infMenu.color}
         stopped={!!infMenu.stopped}
         onChangeRate={() => {
@@ -1991,7 +1991,7 @@ export function IntraopTimetable({
     {rateDialog && (
       <RateChangeDialog
         state={rateDialog}
-        displayName={displayInfusionName(rateDialog.name)}
+        displayName={displayInfusionName(rateDialog.name) + (rateDialog.editFromCol != null && nowCol != null && rateDialog.editFromCol > nowCol ? ` · ${t("intraop.timetable.plannedAt", { time: times[rateDialog.editFromCol] })}` : "")}
         concentrations={prospectiveGuidanceEnabled
           ? LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name]
           : undefined}

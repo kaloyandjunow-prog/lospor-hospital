@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.2] - 2026-09-28
+
+### Fixed
+
+- **A planned change says when it is for.** Opened from a row after now, the
+  rate sheet reads "Propofol · at 14:35" and "Change to 10 mg/kg/hr at
+  14:35"; the note after it says "planned for 14:35", not "added"; and the
+  closed row shows "Change planned · Propofol 10" instead of only a stripe in
+  the lane (1.4.14 appliance test).
+- **Watching mode is read-only**, as on the web. A phone watching a case
+  another device holds only blocked End case and the attention answers: it
+  still planned rate changes and added entries over the device holding the
+  case. Every intraop write is now refused until this phone takes over, with a
+  notice; autofilled vitals are refused silently.
+- **Signing in no longer changes the account's language.** The login sent
+  whatever language the screen showed, and the server saves a sent language
+  to the account: on an appliance whose default was English, every phone
+  sign-in turned a Bulgarian account English. Only a language pressed on the
+  login screen is sent now.
+
 ## [9.13.1] - 2026-09-28
 
 ### Added

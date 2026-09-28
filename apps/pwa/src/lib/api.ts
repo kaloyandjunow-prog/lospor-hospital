@@ -391,7 +391,12 @@ export async function hasAuthenticatedSession(): Promise<boolean> {
 export async function login(
   credential: LoginCredential,
   password: string,
-  locale: AppLanguage,
+  /**
+   * Only a language the clinician chose on the login screen. The server saves
+   * it to the account, so sending whatever the screen happened to show turned
+   * a Bulgarian account English on any device whose login screen was English.
+   */
+  locale?: AppLanguage,
 ): Promise<LoginResult> {
   // A login attempt always starts from a token-free local state. This avoids a
   // failed sign-in leaving a previous clinician's bearer token on a shared
@@ -412,7 +417,7 @@ export async function login(
       body: JSON.stringify({
         ...loginRequestIdentifier(credential),
         password,
-        locale,
+        locale, // undefined unless chosen, and then left out of the JSON
       }),
     })
   } catch {

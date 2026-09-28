@@ -48,6 +48,8 @@ type UseIntraopEventPersistenceArgs = {
   resyncActiveRef?: MutableRefObject<() => void>
   /** The case end once ended: the chart is then read at the end. */
   endedAtRef?: MutableRefObject<Date | null>
+  /** Another device holds the case: nothing is written until this one takes over. */
+  watchingRef?: MutableRefObject<boolean>
 }
 
 export function useIntraopEventPersistence({
@@ -69,6 +71,7 @@ export function useIntraopEventPersistence({
   noteVitalsRef,
   resyncActiveRef,
   endedAtRef,
+  watchingRef,
 }: UseIntraopEventPersistenceArgs) {
   const { t, tc } = usePreferences()
   const [undoEv, setUndoEv] = useState<LogEvent | null>(null)
@@ -119,6 +122,21 @@ export function useIntraopEventPersistence({
    * in the future, ...). Only problems the edit introduces count, so an older
    * record that already breaks a rule stays editable.
    */
+  /**
+   * Watching mode is read-only, as on the web. It only blocked End case and
+   * the attention answers, so a watching phone still planned rate changes and
+   * added entries over the device holding the case (1.4.14 appliance test).
+   */
+  function refusedWhileWatching(silent = false): boolean {
+    if (!watchingRef?.current) return false
+    if (!silent) {
+      notify(t("watchingMode"), t("watchingNoEdits"))
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+    }
+    resyncActiveRef?.current()
+    return true
+  }
+
   function refused(before: LogEvent[], after: LogEvent[]): boolean {
     const messageKey = timelineRefusalMessageKey(newIntraopTimelineIssues(before, after, { now: serverNow() }))
     if (!messageKey) return false
@@ -134,6 +152,7 @@ export function useIntraopEventPersistence({
     tsOverride?: string | RowStamp,
     silent = false,
   ): Promise<LogEvent | null> {
+    if (refusedWhileWatching(silent)) return null
     seedLegacyRevision()
     const chartStart = startRef.current ? roundDown5Min(startRef.current) : null
     const ts = typeof tsOverride === "string"
@@ -187,6 +206,7 @@ export function useIntraopEventPersistence({
   }
 
   async function syncLog(edited: LogEvent[]): Promise<boolean> {
+    if (refusedWhileWatching()) return false
     seedLegacyRevision()
     // The log as last written, not as last rendered: an answer or an End case
     // step can edit right after a save, before the screen re-renders, and a

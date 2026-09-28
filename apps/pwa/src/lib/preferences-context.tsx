@@ -75,6 +75,8 @@ type PreferencesContextValue = {
   clinicalPreferencesReady: boolean
   setLanguage: (language: AppLanguage) => Promise<void>
   selectLoginLanguage: (language: AppLanguage) => Promise<void>
+  /** The language pressed on the login screen, if one was: only that is sent with the login. */
+  explicitLoginLanguage: () => AppLanguage | null
   completeLoginLocaleSync: () => Promise<void>
   setTheme: (theme: ColorScheme) => Promise<void>
   setPreopLayout: (layout: "sections" | "scroll") => Promise<void>
@@ -296,6 +298,8 @@ export function PreferencesProvider({
     await SecureStore.setItemAsync(PRE_AUTH_LANGUAGE_KEY, value)
   }, [applyLanguage])
 
+  const explicitLoginLanguage = useCallback(() => explicitLoginSelectionRef.current, [])
+
   const completeLoginLocaleSync = useCallback(async () => {
     setLocaleReady(false)
     try {
@@ -334,6 +338,7 @@ export function PreferencesProvider({
     clinicalPreferencesReady,
     setLanguage,
     selectLoginLanguage,
+    explicitLoginLanguage,
     completeLoginLocaleSync,
     setTheme,
     setPreopLayout,
@@ -360,6 +365,7 @@ export function PreferencesProvider({
     clinicalPreferences,
     clinicalPreferencesReady,
     completeLoginLocaleSync,
+    explicitLoginLanguage,
     language,
     localeReady,
     patchClinical,

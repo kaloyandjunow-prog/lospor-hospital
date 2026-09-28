@@ -1604,6 +1604,7 @@
       "labs": "Лаборатория",
       "labsMore": "още",
       "labsViewAll": "Всички резултати",
+      "plannedAt": "в {time}",
       "logClinicalEvent": "Регистрирай клинично събитие",
       "searchEvents": "Търсене на събития…",
       "searchDrug": "Търсене на медикамент…",

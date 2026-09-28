@@ -7,6 +7,7 @@ import { runningItemsByCol, type RunningItem, type RowSummary } from "@/lib/intr
 import { TimetableFooter } from "./TimetableFooter"
 import { TimetableRow, type QuickAddAction } from "./TimetableRow"
 import { IntraopUndoBar } from "./IntraopUndoBar"
+import { plannedRowTime } from "@/lib/intraop-projection"
 import { IntraopAttentionBanner, type IntraopAttentionView } from "./IntraopAttentionBanner"
 import type { IntraopAttentionAction } from "@lospor/core/intraop-attention"
 import { CaseSaveStateContext } from "@/lib/use-case-save-state"
@@ -192,6 +193,7 @@ export function IntraopTimetableTab({
       {undoEvent && (
         <IntraopUndoBar
           text={eventText(undoEvent)}
+          plannedAt={plannedRowTime(undoEvent.ts)}
           onUndo={onUndo}
           onDismiss={onDismissUndo}
         />

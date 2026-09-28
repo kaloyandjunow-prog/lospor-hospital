@@ -64,6 +64,21 @@ describe("auth API helpers", () => {
     expect(JSON.parse(String(request?.body))).not.toHaveProperty("email")
   })
 
+  it("sends no language when none was chosen, so the account keeps its own", async () => {
+    // The server saves a sent language to the account: the login screen's
+    // default (the appliance's) turned a Bulgarian account English.
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ access_token: "jwt-token" }),
+    } as Response)
+
+    const { login } = await import("./api")
+    await login({ loginIdentifier: "USERNAME", value: "Ivan.Petrov" }, "Strong1!")
+
+    const request = vi.mocked(fetch).mock.calls[0]?.[1]
+    expect(JSON.parse(String(request?.body))).toEqual({ username: "Ivan.Petrov", password: "Strong1!" })
+  })
+
   it("returns a validated administrator MFA challenge without creating a session", async () => {
     const challengeToken = "a".repeat(43)
     vi.mocked(fetch).mockResolvedValue({

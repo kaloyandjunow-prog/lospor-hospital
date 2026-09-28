@@ -25,7 +25,7 @@ type AuthContextValue = {
   login: (
     credential: LoginCredential,
     password: string,
-    locale: AppLanguage,
+    locale?: AppLanguage,
   ) => Promise<LoginResult>
   completeAdministratorMfa: (
     challenge: AdministratorMfaChallenge,
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(
     credential: LoginCredential,
     password: string,
-    locale: AppLanguage,
+    locale?: AppLanguage,
   ) {
     try {
       const result = await apiLogin(credential, password, locale)
