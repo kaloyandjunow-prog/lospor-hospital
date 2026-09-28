@@ -1,4 +1,37 @@
 # Changelog - LOSPOR Hospital
+## [1.4.16] - 2026-09-28
+
+Vendors Core, API, web and PWA 9.13.3. No database migration; a pre-update
+backup is still required. CVE-2026-16742 (libsystemd0/libudev1, Debian
+bookworm, no fixed version) carried forward and accepted again; its expiry is
+not extended.
+
+### Changed
+
+- **One medication list, from the national register** (9.13.3). Home
+  medications and allergies search NHIS CL009 (6,901 products) plus the 787
+  products of LOSPOR's earlier BDA list that CL009 lacks: 7,688 in all, up
+  from 3,659. The server, the phone offline and Status search the same list
+  the same way, by name, INN or ATC code. ATC codes are checked against WHO
+  ATC; the bundled OMOP numbers cover 1,414 ATC codes, up from 1,036, and no
+  existing mapping changed.
+- **The phone searches medications offline** (9.13.3), from the same list.
+
+### Fixed
+
+- **Status can map a hospital medication code to any drug.** Its dropdown
+  held the first 500 Drug rows alphabetically, and none at all on a site that
+  never ran the terminology import. Each unmapped code now searches the whole
+  list, results before suggestions, and the mapping creates the Drug row.
+- **A national product code maps itself.** An EHR import that sends a CL009
+  code gets that product with no Status mapping; an ATC code or a label maps
+  when it names one product, the strength in the label choosing between
+  strengths.
+- **Retention no longer reports a failure for a day after a restart.** The
+  first pass after a boot or an update often ran before the API was up, and
+  the next attempt came a day later. An unreachable API is now retried in 5,
+  15, then 60 minutes; a purge the API refused still waits the whole day.
+
 ## [1.4.15] - 2026-09-28
 
 Vendors API, web and PWA 9.13.2 (Core stays 9.13.1). No database migration; a
