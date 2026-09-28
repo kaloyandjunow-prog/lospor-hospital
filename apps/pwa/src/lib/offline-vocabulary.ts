@@ -6,9 +6,10 @@ import {
   type ClinicalSearchKind,
   type ClinicalSearchLocale,
 } from "@lospor/core/search"
+import { searchMedications } from "@lospor/core/medications"
 
 /**
- * Diagnosis and procedure lookup with no network.
+ * Diagnosis, procedure and medication lookup with no network.
  *
  * Both pickers were network-only, and on failure returned an empty list — which
  * reads as "no such code" rather than "you are offline". Worse, a case cannot be
@@ -24,8 +25,10 @@ export type OfflineSearchOutcome = {
 }
 
 type VocabularyModule = typeof import("@lospor/core/vocabulary")
+type MedicationModule = typeof import("@lospor/core/vocabulary/medications")
 
 let vocabulary: VocabularyModule | null = null
+let medications: MedicationModule | null = null
 
 /**
  * Loaded on first offline search, never at startup.
@@ -42,15 +45,23 @@ async function loadVocabulary(): Promise<VocabularyModule> {
   return vocabulary
 }
 
+/** The medication list, in its own chunk: a diagnosis searched offline does not load it. */
+async function loadMedications(): Promise<MedicationModule> {
+  if (!medications) {
+    medications = await import("@lospor/core/vocabulary/medications")
+  }
+  return medications
+}
+
 /** Whether this kind of search has an offline copy at all. */
 export function hasOfflineVocabulary(kind: ClinicalSearchKind): boolean {
-  return kind === "icd10" || kind === "procedure"
+  return kind === "icd10" || kind === "procedure" || kind === "medication"
 }
 
 /**
- * The medication catalogue is deliberately not bundled here: the intraop option
- * library already ships its own offline fallback, and duplicating it would mean
- * two drug lists that can disagree.
+ * Home medications and allergies search Core's medication list (9.13.3): the
+ * list the server searches, with the same search, so the two cannot disagree.
+ * It is not the intraop option library, which has its own offline fallback.
  */
 export async function searchOfflineVocabulary(
   kind: ClinicalSearchKind,
@@ -58,6 +69,19 @@ export async function searchOfflineVocabulary(
   locale: ClinicalSearchLocale,
 ): Promise<OfflineSearchOutcome | null> {
   if (!hasOfflineVocabulary(kind)) return null
+
+  if (kind === "medication") {
+    const { medicationRows, MEDICATION_LIST_VERSION } = await loadMedications()
+    const raw = searchMedications(medicationRows(), query).map(row => ({
+      name: row.name, inn: row.inn, atcCode: row.atc, form: row.form, strength: row.strength,
+    }))
+    return {
+      results: parseClinicalSearchResults(kind, raw, locale)
+        .map(tag => ({ ...tag, vocabularyVersion: MEDICATION_LIST_VERSION })),
+      source: "offline",
+      version: MEDICATION_LIST_VERSION,
+    }
+  }
 
   const { icd10Rows, procedureRows, VOCABULARY_VERSION } = await loadVocabulary()
   const raw = kind === "icd10"
