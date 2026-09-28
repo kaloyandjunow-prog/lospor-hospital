@@ -26,7 +26,6 @@ type Host = IntraopTabContentHostProps
 
 /** The host props are a union now, so pick the branch and read its content. */
 type ContentFor<T extends Host["tab"]> = Extract<Host, { tab: T }>["content"]
-
 type LogProps = ContentFor<"log">
 type TechniqueProps = ContentFor<"technique">
 type TimingProps = ContentFor<"timing">
@@ -40,6 +39,7 @@ type VascularProps = ComponentProps<typeof VascularTab>
 
 export type IntraopTabContentBuilderProps = {
   screenWidth: LogProps["screenWidth"]
+  caseEnded: boolean // ended: nothing runs on in the chart after the end
   attention?: LogProps["attention"] // Core intraop-attention, shown above the chart
   tab: Host["tab"]
   undoEv: LogProps["undoEvent"]
@@ -185,7 +185,7 @@ export type IntraopTabContentBuilderProps = {
 
 export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps): IntraopTabContentHostProps {
   const {
-    labResults, openLabs, screenWidth, attention, tab, undoEv, chartRows, chartStart, currentCol, expandedRow, nowSlotPercent,
+    labResults, openLabs, screenWidth, attention, caseEnded, tab, undoEv, chartRows, chartStart, currentCol, expandedRow, nowSlotPercent,
     timetable, eventRows, activeInfusions, activeFluids, activeAgents, activeGas, startRef,
     isWatching, verticalTimetableRef, undoLastEvent, setUndoEv, setExpandedRow, eventLabel,
     setInfActTgt, setInfActRate, setInfActOpen, setInfActTs, openFluidEnd, openGasSettings, tc, stopAgent,
@@ -237,7 +237,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       activeFluids,
       activeAgents,
       activeGas,
-      started: !!startRef.current,
+      started: !!startRef.current, projectRunning: !caseEnded,
       isWatching,
       listRef: verticalTimetableRef,
       onUndo: undoLastEvent,

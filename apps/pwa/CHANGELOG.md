@@ -1,5 +1,34 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.1] - 2026-09-28
+
+### Added
+
+- **Running items in the rows after now.** Opening a later row of a live case
+  shows what will still be running there, dashed: tapping propofol in the
+  15:55 row opens propofol's own sheet dated to 15:55, so the change is a
+  planned change of the same infusion, not a second propofol. The same for
+  fluids, agents and the gas. Rows after a planned stop, and every row of an
+  ended case, show nothing running on.
+
+### Fixed
+
+- **The import review in the clinician's language.** Values the hospital
+  sends as codes read as words ("Мъж", "Години", "Да", "Локално"), and a
+  result's date is its day where it was taken, as dd.MM.yyyy in Bulgarian
+  (Core's `describeEhrReviewItem`, shared with the web).
+- **An ended case reopened later.** The header shows how long the case
+  lasted, not the time since it started ("+ 40h 42m" on a 31-minute case).
+  The chart stops at the case end: it opens with the end at the bottom of
+  the screen, has no "now" row, and is no longer pulled down every five
+  minutes towards a now some 500 empty rows below.
+- **Resume and autofilled vitals on the server's clock.** The resume
+  countdown of an ended case ticked on the phone's clock after opening on the
+  server's, so a phone set wrong shortened the 30-minute window or held Resume
+  past it; nothing on the server checks it. Autofilled vitals judged "now" by
+  the phone's clock too: a fast phone filled the row the now line had not
+  reached, and a slow one skipped the current row for good.
+
 ## [9.13.0] - 2026-09-28
 
 ### Added

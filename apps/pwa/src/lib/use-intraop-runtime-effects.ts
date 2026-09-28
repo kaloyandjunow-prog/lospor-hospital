@@ -9,6 +9,8 @@ type UseIntraopRuntimeEffectsArgs = {
   log: LogEvent[]
   logRef: MutableRefObject<LogEvent[]>
   startRef: MutableRefObject<Date | null>
+  /** The case end once ended: the header then shows how long the case lasted. */
+  endedAtRef: MutableRefObject<Date | null>
   setElapsedMs: Dispatch<SetStateAction<number>>
   setTimetable: Dispatch<SetStateAction<TimetableData>>
   /** Projects the log read at now, or at the case end once ended. */
@@ -21,6 +23,7 @@ export function useIntraopRuntimeEffects({
   log,
   logRef,
   startRef,
+  endedAtRef,
   setElapsedMs,
   setTimetable,
   projectTimetable,
@@ -49,7 +52,7 @@ export function useIntraopRuntimeEffects({
       // The header renders elapsed time to the minute (`fmtElapsed`), so five
       // of every six ticks used to set state to a value that formatted to the
       // identical string — and re-rendered the screen to display it.
-      const elapsedMs = now.getTime() - start.getTime()
+      const elapsedMs = (endedAtRef.current ?? now).getTime() - start.getTime()
       const minute = Math.floor(elapsedMs / 60_000)
       if (minute !== publishedMinuteRef.current) {
         publishedMinuteRef.current = minute
@@ -69,5 +72,5 @@ export function useIntraopRuntimeEffects({
       }
     }, 10_000)
     return () => clearInterval(timer)
-  }, [logRef, projectTimetable, resyncActiveRef, setElapsedMs, setTimetable, startRef])
+  }, [endedAtRef, logRef, projectTimetable, resyncActiveRef, setElapsedMs, setTimetable, startRef])
 }

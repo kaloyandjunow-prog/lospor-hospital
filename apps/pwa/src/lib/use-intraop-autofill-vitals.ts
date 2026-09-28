@@ -11,6 +11,7 @@ import {
 import { roundDown5Min } from "@/lib/intraop-projection"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import { actionSheet } from "@/lib/notify"
+import { serverNow } from "@/lib/server-clock"
 import { usePreferences } from "@/lib/preferences-context"
 import { autoFillPauseAtMs } from "@lospor/core/intraop-vitals"
 
@@ -30,6 +31,10 @@ type AutofillContext = {
  * `log` is the rendered state, not only the ref: the reopen backfill used to
  * run before the screen copied the loaded log into the ref, saw no vitals and
  * silently did nothing.
+ *
+ * "Now" is the server-corrected clock, the one the chart's now row uses. The
+ * device clock put the two a few minutes apart on a phone set wrong, and a
+ * fast phone filled the row the now line had not reached yet.
  */
 export function useIntraopAutofillVitals(
   caseLoaded: boolean,
@@ -59,7 +64,7 @@ export function useIntraopAutofillVitals(
   function plan(fromCol: number, toCol: number) {
     if (!startRef.current) return []
     const chartStart = roundDown5Min(startRef.current)
-    const now = new Date()
+    const now = serverNow()
     return planAutoFillVitalEvents({
       log: logRef.current,
       chartStart,
@@ -90,7 +95,7 @@ export function useIntraopAutofillVitals(
   // After 60 minutes with no manual entry autofill stops and asks once.
   pausedTickRef.current = () => {
     if (!startRef.current || context.endedAtRef.current) return false
-    const now = Date.now()
+    const now = serverNow().getTime()
     const pauseAt = autoFillPauseAtMs({
       log: logRef.current,
       chartStart: roundDown5Min(startRef.current),
@@ -105,7 +110,7 @@ export function useIntraopAutofillVitals(
           label: tc("autofillStillRunning"),
           onPress: () => {
             pausePromptOpenRef.current = false
-            acknowledgedAtRef.current = Date.now()
+            acknowledgedAtRef.current = serverNow().getTime()
           },
         },
         { label: tc("tfEndCase"), onPress: () => { pausePromptOpenRef.current = false; context.onEndCase() } },
@@ -122,7 +127,7 @@ export function useIntraopAutofillVitals(
     }
     const timer = setInterval(() => {
       if (!startRef.current || context.endedAtRef.current) return
-      const col = activeTimetableColumnForTimestamp(roundDown5Min(startRef.current), Date.now())
+      const col = activeTimetableColumnForTimestamp(roundDown5Min(startRef.current), serverNow().getTime())
       if (col === null) {
         autoFillPrevColRef.current = null
         return
@@ -152,7 +157,7 @@ export function useIntraopAutofillVitals(
     logRef.current = log
     const chartStart = roundDown5Min(startRef.current)
     const lastDataCol = latestVitalColumn(log, chartStart)
-    const currentCol = activeTimetableColumnForTimestamp(chartStart, Date.now())
+    const currentCol = activeTimetableColumnForTimestamp(chartStart, serverNow().getTime())
     if (lastDataCol === null || currentCol === null || currentCol <= lastDataCol) return
     const planned = planRef.current(lastDataCol + 1, currentCol)
     if (planned.length === 0) return

@@ -566,7 +566,7 @@ export default function IntraopLiveScreen() {
   useIntraopRuntimeEffects({
     log,
     logRef,
-    startRef,
+    startRef, endedAtRef,
     setElapsedMs,
     setTimetable,
     projectTimetable,
@@ -592,7 +592,7 @@ export default function IntraopLiveScreen() {
   } = useIntraopTimetableViewport({
     log,
     timetable,
-    startRef,
+    startRef, endedAtRef,
     verticalTimetableRef,
     tab,
     setTab: selectTab,

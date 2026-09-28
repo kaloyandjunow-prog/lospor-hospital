@@ -1560,7 +1560,7 @@ export function IntraopTimetable({
             const segs = (data.infusions ?? []).filter(i => i.name === drugName)
             return (
               <InfusionLane
-                key={drugName}
+                key={drugName} projectRunning={!endedAt}
                 drugName={drugName}
                 color={segs[0]?.color ?? "#64748b"}
                 segments={segs}
@@ -1980,7 +1980,7 @@ export function IntraopTimetable({
         }}
         onDiscontinue={() => {
           setHoverDiscontinue(null)
-          extendInfusion(infMenu.segId, nowCol ?? 0)
+          extendInfusion(infMenu.segId, Math.max(nowCol ?? 0, infMenu.fromPillCol ?? 0))
           setInfMenu(null)
         }}
         onRestore={() => { restoreInfusion(infMenu.segId); setInfMenu(null) }}

@@ -1,5 +1,6 @@
 "use client"
 
+import { runsOnAt } from "@lospor/core/intraop-summary"
 import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
 import { SaveMark } from "./SaveMark"
 import { segmentEventIds } from "@lospor/core/intraop-save-state"
@@ -89,6 +90,8 @@ export type InfusionLaneProps = {
   /** Commit a whole-bar move; the owner decides move versus delete-prompt. */
   onMoveBar: (move: InfusionBarMove, toCol: number) => void
   onOpenMenu: (request: InfusionMenuRequest) => void
+  /** A live case not yet ended: a running infusion runs on in the cells after now (9.13.1). */
+  projectRunning?: boolean
 }
 
 export function InfusionLane({
@@ -115,6 +118,7 @@ export function InfusionLane({
   applyInfRateChange,
   onMoveBar,
   onOpenMenu,
+  projectRunning = false,
 }: InfusionLaneProps) {
   const copy = useIntraopUiCopy()
   const { movingInf, movingInfCol, movingRatePill, extendingInf, extInfHover, extendingInfLeft, extInfLeftHover } = drag
@@ -209,6 +213,25 @@ export function InfusionLane({
             }}
           >
             {segments.some(s => s.plannedStopCol === ci) && <PlannedStopMarker />}
+            {/* After now, a running infusion runs on (Core runsOnAt, the PWA's rule): dashed, and a
+                click opens its menu dated to this cell -- a planned change of this infusion,
+                never a second one of the same drug (9.13.1). */}
+            {!seg && projectRunning && (() => {
+              const runOn = segments.find(s => runsOnAt(s, ci))
+              return runOn ? (
+                <button
+                  type="button"
+                  data-testid="infusion-runs-on"
+                  aria-label={displayInfusionName(runOn.name)}
+                  className="absolute top-0 left-0 right-0 z-10 rounded-sm border border-dashed opacity-60 hover:opacity-100"
+                  style={{ height: 21, borderColor: color, backgroundColor: color + "14" }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    onOpenMenu({ segId: runOn.id, name: runOn.name, color, rect: e.currentTarget.getBoundingClientRect(), stopped: false, fromPillCol: ci })
+                  }}
+                />
+              ) : null
+            })()}
             {segments.flatMap(s => (s.rateChanges ?? []).filter(rc => rc.planned && rc.col === ci))
               .map(rc => <PlannedChangeMarker key={rc.eventId ?? rc.col} value={`${rc.rate} ${rc.unit}`} />)}
             {/* Rate strip — shares the bar's geometry so the two read as one object. */}

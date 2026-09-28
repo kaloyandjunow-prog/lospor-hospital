@@ -1,6 +1,6 @@
 import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { serverNow } from "@/lib/server-clock"
-import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
+import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 import { confirmAction, notify } from "@/lib/notify"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
 import { buildFinaliseCaseState, buildReopenedEndedState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
@@ -14,6 +14,7 @@ import { intraopAttentionItems, intraopAttentionText, type IntraopAttentionActio
 import { localTimeOf } from "@lospor/core/intraop-time"
 import { logAfterAttentionAnswer, useIntraopAttention } from "@/lib/use-intraop-attention"
 import { useCaseSaveState } from "@/lib/use-case-save-state"
+import { useResumeCountdown } from "@/lib/use-resume-countdown"
 import { promoteDraftCaseToInProgress, type IntraopTimingOverrides } from "@/lib/intraop-timing"
 import {
   buildIntraopEndTiming,
@@ -22,7 +23,6 @@ import {
   resolvedTimeZone,
   startInstantForWallClock,
 } from "@lospor/core/intraop-time"
-import { INTRAOP_RESUME_WINDOW_SECONDS } from "@lospor/core/intraop-engine"
 import {
   evaluateIntraopReadiness,
   type ClinicalIssueCode,
@@ -140,17 +140,7 @@ export function useIntraopCaseLifecycle({
   })
   const saveState = useCaseSaveState(timeline.caseId)
 
-  useEffect(() => {
-    if (resumeSecsLeft <= 0) return
-    const timer = setInterval(() => {
-      if (!caseEndedAtRef.current) return
-      const elapsed = Math.floor((Date.now() - caseEndedAtRef.current.getTime()) / 1000)
-      const remaining = Math.max(0, INTRAOP_RESUME_WINDOW_SECONDS - elapsed)
-      setResumeSecsLeft(remaining)
-      if (remaining === 0) clearInterval(timer)
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [resumeSecsLeft])
+  useResumeCountdown(caseEndedAtRef, resumeSecsLeft, setResumeSecsLeft)
 
   async function startCaseNow() {
     if (startRef.current) return

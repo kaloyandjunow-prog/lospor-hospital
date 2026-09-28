@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react"
 import { Modal, Pressable, ScrollView, Text, View } from "react-native"
 import { applyEhrSelections } from "@lospor/core/ehr-import-apply"
-import { importedProcedureOf, isExactProcedure, procedureDisplayText } from "@lospor/core/procedure-codes"
+import { describeEhrReviewItem } from "@lospor/core/ehr-import-display"
 import { visibleReviewItems, type EhrReviewItem, type EhrReviewPlan } from "@lospor/core/ehr-import-review"
 import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import type { ClinicalMode } from "@lospor/core/pediatric"
-import type { EhrLabValue, EhrTagValue } from "@lospor/core/ehr-import"
 import { notify } from "@/lib/notify"
 import { colors, withAlpha, useShade } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
@@ -69,41 +68,6 @@ type Props = {
   onClose: () => void
 }
 
-function describe(
-  item: EhrReviewItem,
-  undatedLabel: string,
-  takenLabel: string,
-): { title: string; detail?: string } {
-  const proposed = item.proposed
-  if (proposed && typeof proposed === "object") {
-    if ("takenAt" in (proposed as object)) {
-      const lab = proposed as EhrLabValue
-      return {
-        title: `${lab.test} ${lab.value}${lab.unit ? ` ${lab.unit}` : ""}`,
-        // Never silent. An undated result beside dated ones would otherwise
-        // read as current, and a preoperative haemoglobin is only worth
-        // anything if you know how old it is.
-        detail: lab.takenAt === null
-          ? undatedLabel
-          : `${takenLabel} ${lab.takenAt.slice(0, 10)}`,
-      }
-    }
-    // `sourceLabel` is the hospital's own wording when the label is a LOSPOR
-    // term proposed for it (a Bulgarian procedure name under a procedure
-    // group), so the clinician checks the proposal against what arrived.
-    const tag = proposed as EhrTagValue & { sourceLabel?: string }
-    const parts = [tag.dose, tag.route, tag.frequency].filter(Boolean)
-    // An exact operation proposed for a hospital code reads as the operation,
-    // with the code and wording the hospital actually sent beneath it.
-    const exact = isExactProcedure(tag as unknown as Record<string, unknown>)
-    const imported = exact ? importedProcedureOf(tag as unknown as Record<string, unknown>) : undefined
-    const source = (imported ? [imported.code, imported.sourceLabel] : [tag.code, tag.sourceLabel]).filter(Boolean).join(" · ")
-    const title = exact ? procedureDisplayText(tag as unknown as Record<string, unknown>) : tag.label
-    return { title, detail: parts.length ? parts.join(" · ") : source || undefined }
-  }
-  return { title: proposed === null ? "—" : String(proposed) }
-}
-
 const GROUP_LABELS = {
   labs: "ehrGroupLabs",
   diagnoses: "ehrGroupDiagnoses",
@@ -122,7 +86,7 @@ export function EhrImportPanel({
   onAccept, onDecline, onRequestModeChange, onClose,
 }: Props) {
   const shade = useShade()
-  const { tc } = usePreferences()
+  const { tc, language } = usePreferences()
   const [selected, setSelected] = useState<Set<string>>(() => new Set(plan.preselectedKeys))
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 
@@ -220,7 +184,9 @@ export function EhrImportPanel({
           ) : shown.map(item => {
             const isSelected = selected.has(item.itemKey)
             const blocked = item.state === "needs-mode-decision"
-            const { title, detail } = describe(item, tc("ehrUndated"), tc("ehrTakenAt"))
+            const { title, detail } = describeEhrReviewItem(item, {
+              locale: language === "bg" ? "bg" : "en", undatedLabel: tc("ehrUndated"), takenLabel: tc("ehrTakenAt"),
+            })
             return (
               <View
                 key={item.itemKey}
