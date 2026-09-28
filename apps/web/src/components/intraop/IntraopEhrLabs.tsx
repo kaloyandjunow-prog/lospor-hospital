@@ -23,12 +23,15 @@ type State =
  * review: the newest draw of each test ticked, up to three earlier ones
  * collapsed. Accepted results are added to the intraoperative labs with their
  * own draw times and saved with the case; the decisions are recorded as the
- * preoperative review records them.
+ * preoperative review records them -- only once the save has landed or is
+ * queued. Recorded first, an import read as accepted though a refused or
+ * lost save meant the case never had its results.
  */
 export function IntraopEhrLabs<Row>({ caseId, value, onChange }: {
   caseId: string | null
   value: Row[]
-  onChange: (next: Row[]) => void
+  /** Saves the list at once; resolves true once it is saved or queued to save. */
+  onChange: (next: Row[]) => Promise<boolean>
 }) {
   const t = useTranslations("ehr")
   const locale = useLocale()
@@ -80,10 +83,13 @@ export function IntraopEhrLabs<Row>({ caseId, value, onChange }: {
           onDecline={itemKey => { void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey]) }}
           onAccept={async (patch, appliedKeys) => {
             const importId = state.offer.importId
+            // Written first, then recorded: a save that did not land leaves
+            // the items offered again, not lost.
+            if (Array.isArray(patch.labResults) && !await onChange(patch.labResults as Row[])) {
+              setState({ kind: "idle" })
+              return
+            }
             acceptedRef.current.add(importId)
-            // Written first, then recorded: a failure between the two leaves
-            // the item offered again, not lost.
-            if (Array.isArray(patch.labResults)) onChange(patch.labResults as Row[])
             await recordEhrDecisions(caseId, importId, appliedKeys, []).catch(() => {})
             setState({ kind: "idle" })
           }}

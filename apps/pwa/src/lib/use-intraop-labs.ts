@@ -33,18 +33,26 @@ export function useIntraopLabs(
     lastSavedRef.current = JSON.stringify(next)
   }, [])
 
-  const saveLabs = useCallback(async (next: LabResult[]) => {
+  /**
+   * Resolves true once the list is on the server or durably queued for it,
+   * false when it was refused or dropped. A queued, refused or failed write
+   * used to count as saved: the hospital import then recorded its results as
+   * accepted though the case never received them.
+   */
+  const saveLabs = useCallback(async (next: LabResult[]): Promise<boolean> => {
     setLabResults(next)
     const serialised = JSON.stringify(next)
-    if (serialised === lastSavedRef.current) return
+    if (serialised === lastSavedRef.current) return true
     setLabsSaving(true)
     try {
-      await patchIntraopSection({ labResults: next })
-      lastSavedRef.current = serialised
+      const outcome = (await patchIntraopSection({ labResults: next })) as { result?: string } | undefined
+      if (outcome?.result === "saved") lastSavedRef.current = serialised
+      return outcome?.result === "saved" || outcome?.result === "queued"
     } catch {
       // The local list keeps the edit so it is not lost off-screen; the outbox
       // retries the write. Telling the clinician is what stops a silent drop.
       notify(errorLabel, "")
+      return false
     } finally {
       setLabsSaving(false)
     }

@@ -29,12 +29,16 @@ type State =
  *
  * Accepted results are added to the case's intraoperative labs as they came,
  * with their own draw times, and the decisions are recorded as the
- * preoperative review records them.
+ * preoperative review records them -- only once the case has them, saved or
+ * queued to save. Recorded on a refused write, an import read as accepted
+ * though its results never reached the case, and a second press said there
+ * was nothing new.
  */
 export function IntraopEhrLabs({ caseId, value, onChange }: {
   caseId: string | null
   value: LabResult[]
-  onChange: (next: LabResult[]) => void
+  /** Resolves true once the list is saved or queued to save. */
+  onChange: (next: LabResult[]) => Promise<boolean>
 }) {
   const { language } = usePreferences()
   const strings = STRINGS[language as "en" | "bg"]
@@ -69,10 +73,13 @@ export function IntraopEhrLabs({ caseId, value, onChange }: {
         onClose={() => setState({ kind: "idle" })}
         onDecline={itemKey => { void recordEhrDecisions(caseId, offer.importId, [], [itemKey]) }}
         onAccept={async (patch, appliedKeys) => {
-          acceptedRef.current.add(offer.importId)
           // Written first, then recorded, as the preoperative review does: a
-          // failure between the two leaves the item offered again, not lost.
-          if (Array.isArray(patch.labResults)) onChange(patch.labResults as LabResult[])
+          // write that did not land leaves the items offered again, not lost.
+          if (Array.isArray(patch.labResults) && !await onChange(patch.labResults as LabResult[])) {
+            setState({ kind: "idle" })
+            return
+          }
+          acceptedRef.current.add(offer.importId)
           await recordEhrDecisions(caseId, offer.importId, appliedKeys, []).catch(() => {})
           setState({ kind: "idle" })
         }}

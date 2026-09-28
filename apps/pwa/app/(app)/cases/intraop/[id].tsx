@@ -787,7 +787,7 @@ export default function IntraopLiveScreen() {
           onClose={() => setLabsOpen(false)}
           onChange={next => { void saveLabs(next) }}
           onEnsureCase={async () => id ?? null}
-          importPanel={<IntraopEhrLabs caseId={id ?? null} value={labResults} onChange={next => { void saveLabs(next) }} />}
+          importPanel={<IntraopEhrLabs caseId={id ?? null} value={labResults} onChange={saveLabs} />}
         />
       ) : null}
     </>
