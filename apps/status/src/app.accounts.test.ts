@@ -186,13 +186,13 @@ describe("Status account workflows", () => {
     expect(accessProfile).toContain('value="RESEARCH_ONLY"')
     expect(accessProfile).not.toContain('value="ADMIN"')
     expect(body).toContain('pattern="[A-Za-z][A-Za-z0-9._-]{2,63}"')
-    expect(body).toContain("Главните и малките букви са разрешени и се запазват")
+    expect(body).toContain("Може да има главни и малки букви и те се запазват")
     expect(body).toContain("никога не се използва за вход")
     expect(body).toContain("@Dr.Iva")
     expect(body).toContain("clinical-admin@example.test")
     expect(body).not.toContain("/status/accounts/admin-1/recovery")
-    expect(body).toContain("сама по себе си не дава достъп до клинични записи")
-    expect(body).toContain("Няма нива на права")
+    expect(body).toContain("сам по себе си не дава достъп до медицински записи")
+    expect(body).toContain("Няма отделни нива на права")
     expect(accountControl.list).toHaveBeenCalledTimes(1)
   })
 
@@ -314,7 +314,7 @@ describe("Status account workflows", () => {
     const cookie = await recoveryCookie(app, auth)
     const page = await app.request("/status/accounts", { headers: { cookie } })
     expect(page.status).toBe(403)
-    expect(await page.text()).toContain("Аварийните сесии")
+    expect(await page.text()).toContain("Сесия с токен за възстановяване")
 
     const mutation = await app.request("/status/accounts/user-1/recovery", {
       method: "POST",

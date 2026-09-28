@@ -688,7 +688,7 @@ if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
     ssh -L ${status_port}:127.0.0.1:${status_port} <admin>@this-host
     https://localhost:${status_port}/status/
 
-Страницата „Готовност“ показва какво остава: сертификат, външно архивиране,
+Страницата „Пускане в работа“ показва какво остава: сертификат, външно архивиране,
 съхранени тайни, терминология и потвържденията, които правят хора."
 else
   say "LOSPOR Hospital is installed, but NOT yet approved for clinical use.

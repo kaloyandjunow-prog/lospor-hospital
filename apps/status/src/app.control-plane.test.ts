@@ -393,16 +393,16 @@ describe("Status Hospital control plane", () => {
     const all = clinical + ehr + research + ai
     expect(all).toContain('<html lang="bg">')
 
-    expect(research).toContain("Точни одобрения за OMOP")
+    expect(research).toContain("Одобрение на конкретни OMOP набори")
     expect(research).toContain(HASH)
-    expect(research).toContain("Допустим активен профил")
+    expect(research).toContain("Активен профил, който може да получи разрешение")
     expect(research).toContain("началник на отделение")
     expect(research).not.toContain("HEAD_OF_DEPT")
     expect(research).toContain("Изключено по подразбиране")
     expect(research).toContain("https://central.example.test")
     expect(research).toContain("hospital-signing-key-1")
     expect(research).toContain("Клиентският сертификат е валиден от")
-    expect(research).toContain("CA за Central е валиден до")
+    expect(research).toContain("CA на Central е валиден до")
     expect(research).toContain("central-encryption-key-1")
     expect(research).toContain("Версии на манифеста, поддържани от Central")
     expect(research).toContain("67_108_864".replaceAll("_", ""))
@@ -415,17 +415,17 @@ describe("Status Hospital control plane", () => {
     expect(ai).toContain("Данните за достъп са настроени на")
     expect(ai).toContain('name="credential" type="password"')
 
-    expect(ehr).toContain("Политика за национален идентификатор (ЕГН)")
+    expect(ehr).toContain("Настройка за ЕГН")
     expect(ehr).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
-    expect(ehr).toContain("Транспорт за внос на ЕЗД")
-    expect(ehr).toContain("Наблюдаваната папка не се нуждае от данни за достъп")
+    expect(ehr).toContain("Канал за импорт от БИС")
+    expect(ehr).toContain("Наблюдаваната папка не изисква данни за достъп")
 
     expect(clinical).toContain("Документиране на педиатрични случаи")
-    expect(clinical).toContain("постоянна възможност на Hospital")
+    expect(clinical).toContain("постоянна функция на Hospital")
     expect(clinical).toContain("pediatric-v2")
     expect(clinical).toContain("Готовност на базовата конфигурация")
     expect(clinical).toContain("Не е готово")
-    expect(clinical).toContain("Няма избрана базова конфигурация за цялата система")
+    expect(clinical).toContain("Не е избрана базова конфигурация за системата")
     expect(clinical).toContain("Политиката е включена")
     expect(clinical).toContain("Публикуван")
     expect(clinical).not.toContain("PUBLISHED")
@@ -891,7 +891,7 @@ describe("Status Hospital control plane", () => {
       }),
     })
     expect(response.status).toBe(409)
-    expect(await response.text()).toContain("Изберете FHIR или HL7v2 като транспорт")
+    expect(await response.text()).toContain("Изберете FHIR или HL7v2 като канал")
   })
 
   it("chooses the external-AI models from the offered list", async () => {

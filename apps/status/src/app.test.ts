@@ -139,7 +139,7 @@ describe("status HTTP boundary", () => {
     })
     const bulgarian = await begin.text()
     const challengeToken = bulgarian.match(/name="challengeToken" value="([^"]+)"/)?.[1] ?? ""
-    expect(bulgarian).toContain("Настройване на потвърждение в две стъпки")
+    expect(bulgarian).toContain("Включване на потвърждаването в две стъпки")
     expect(bulgarian).toContain("Ключ за ръчна настройка")
     expect(begin.headers.get("set-cookie")).toBeNull()
 

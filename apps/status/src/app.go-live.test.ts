@@ -102,7 +102,7 @@ describe("the go-live page", () => {
     })).text()
     expect(body).toContain("Инсталирано, но все още не е одобрено за клинична употреба")
     expect(body).toContain("Следваща стъпка")
-    expect(body).toContain("5. Приемане от хората")
+    expect(body).toContain("5. Приемане от потребителите")
     expect(body).not.toContain("Next step")
   })
 
