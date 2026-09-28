@@ -125,7 +125,10 @@ export function EhrImportOffer({
     }
     if (result.status === "offer") {
       setState({ kind: "offer", offer: result.offer })
-      setOpen(true)
+      // Opened only when something is ticked to add. An offer left with just
+      // older, undated or unconvertible results opened on a greyed-out
+      // "Add selected (0)" (1.4.13); it stays one press away instead.
+      setOpen(result.offer.plan.preselectedKeys.length > 0)
       return
     }
     setState({ kind: result.status === "none" ? "none" : result.status })

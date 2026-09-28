@@ -41,10 +41,10 @@ export function PostopRecoverySection({
         </div>
         <div className="grid grid-cols-6 gap-2">
           {[
-            ["Activity",      o?.aldreteActivity],
-            ["Respiration",   o?.aldreteRespiration],
-            ["Circulation",   o?.aldreteCirculation],
-            ["Consciousness", o?.aldreteConsciousness],
+            [L.aldreteActivity,      o?.aldreteActivity],
+            [L.aldreteRespiration,   o?.aldreteRespiration],
+            [L.aldreteCirculation,   o?.aldreteCirculation],
+            [L.aldreteConsciousness, o?.aldreteConsciousness],
             ["SpO₂",          o?.aldreteSpO2],
           ].map(([lbl, val]) => (
             <div key={lbl as string} className="border border-slate-200 rounded-lg text-center py-1.5 bg-white">

@@ -64,7 +64,7 @@ runtime data и patient data остават в постоянното appliance 
 командата, когато инсталацията умишлено работи в console-only mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.3 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.13 -
 ```
 
 Root-owned preparer приема само semantic version и незадължителен request ID с
@@ -109,14 +109,14 @@ appliance не трябва да съобщава, че е актуален, з�
 пълната identity verification, след което спира:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.3 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.13 -
 ```
 
 Нищо работещо не се засяга. След това приложете само точния descriptor, записан
 от preparation:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.3 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.13 -
 ```
 
 Apply командата проверява отново descriptor, installed identity, от която е
@@ -148,9 +148,9 @@ raw 64-byte `.sig` и всички подредени offline parts. За същ
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.4.3/lospor-hospital-1.4.3-release.lock \
-  /media/lospor-1.4.3/lospor-hospital-1.4.3-release.lock.sha256 \
-  /media/lospor-1.4.3
+  /media/lospor-1.4.13/lospor-hospital-1.4.13-release.lock \
+  /media/lospor-1.4.13/lospor-hospital-1.4.13-release.lock.sha256 \
+  /media/lospor-1.4.13
 ```
 
 Първата инсталация още няма trusted `current` launcher. Използвайте

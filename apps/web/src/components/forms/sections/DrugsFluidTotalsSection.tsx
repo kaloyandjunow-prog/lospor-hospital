@@ -7,11 +7,13 @@ import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 
 type DrugTotals = {
   bolusList: { name: string; total: number; unit: string; count: number; mgTotal: number | null }[]
-  infusionList: { name: string; total: number; unit: string; mgTotal: number | null; weightUsed: number | null; weightBasis: "IBW" | "TBW" | "none" | null }[]
+  infusionList: { name: string; total: number; unit: string; display: string; mgTotal: number | null; weightUsed: number | null; weightBasis: "IBW" | "TBW" | "none" | null }[]
   weightNote: string | null
 }
 
-export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals }: {
+export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, provisional = false }: {
+  /** Part of these totals is not yet on the server: "≈"; the numbers are unchanged (9.13.0). */
+  provisional?: boolean
   t: (key: string, values?: Record<string, string | number>) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
@@ -26,7 +28,7 @@ export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals }: {
       {/* Infusion totals */}
       {liveDrugTotals.infusionList.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{t("intraop.totals.infusions")}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{provisional ? "≈ " : ""}{t("intraop.totals.infusions")}</p>
           {liveDrugTotals.infusionList.map(row => (
             <div key={row.name} className="flex items-center gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200 w-44 truncate">{row.name}</span>
@@ -48,7 +50,7 @@ export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals }: {
       {/* Bolus drug totals */}
       {liveDrugTotals.bolusList.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{t("intraop.totals.bolusDrugs")}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{provisional ? "≈ " : ""}{t("intraop.totals.bolusDrugs")}</p>
           {liveDrugTotals.bolusList.map(row => (
             <div key={row.name} className="flex items-center gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200 w-44 truncate">{row.name}</span>

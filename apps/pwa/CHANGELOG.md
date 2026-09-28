@@ -1,5 +1,66 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.0] - 2026-09-28
+
+### Added
+
+- **Every timetable row says whether what it holds is saved,** from the
+  queue itself: entries, running infusions' starts, changes and stops, labs.
+  Refusals are listed until marked seen; totals show "≈" while part of them
+  is unsaved.
+- **Questions on the timetable:** a banner and the stop's own row ask about a
+  stop entered ahead whose time came; End case and an ended case ask about
+  entries after the end. Planned changes show in their row.
+
+### Fixed
+
+- "Now" on the timeline follows the server's clock.
+- The chart view prints each dose at its minute in the case's time zone.
+
+### Fixed (test coverage review)
+
+- **The intraop screen stopped on opening a case** ("This device could not
+  start the app"). The save-state hook re-rendered the whole screen on every
+  autosave report, and the header's options were re-applied on each render
+  until React gave up. It now updates only when what is shown changes.
+- Deleting an entry right after saving another -- one tick, before the screen
+  re-rendered -- removed the one just saved as well; an edit in that window
+  re-sent it. Both now read the log as last written.
+- Refused changes say what they were and why, in the case's zone -- the web's
+  line, from Core.
+- Resume after reopening an ended case follows the server's clock.
+
+### Tests
+
+- The preop profile offline, follow-ups cleared with their parent,
+  suggestions accepted and rejected; the save badge store; the save-state
+  hook's re-renders; the save-then-delete race.
+
+### Fixed (release sweep)
+
+- Deleting an entry went around the case's send lock: an entry deleted while
+  it was being sent was saved anyway and came back on the next reload, and an
+  entry queued at that moment could be dropped from the queue. Every deletion
+  now goes through the autosave manager, which cancels an unsent entry or
+  deletes a sent one after it arrives.
+
+### Included from 9.12.3 (never released on its own)
+
+#### Fixed
+
+- **The case summary totalled infusions on a built-in weight table** instead of
+  the institution's drug library. It now uses the library (cached on the
+  device, the bundle before the first sync), as the intraop screen does, so the
+  summary, the web form and the printed record agree.
+- **Infusion totals follow Core 9.12.3:** the time actually run, per kg when no
+  weight is recorded, mg and mcg converted, and the weight used named when the
+  drug's own could not be.
+
+#### Added
+
+- **New infusions record their weight basis** from the library, and per-m²
+  infusions are totalled on the body surface area.
+
 ## [9.12.2] - 2026-09-26
 
 ### Fixed

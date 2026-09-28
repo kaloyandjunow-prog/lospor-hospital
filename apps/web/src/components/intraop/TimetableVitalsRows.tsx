@@ -3,6 +3,7 @@
 import { cvpToDisplay } from "@lospor/core/monitoring-values"
 import type { IntraopVitalKey } from "@lospor/core/intraop-vitals"
 import { useTranslations } from "next-intl"
+import { SaveMark } from "./SaveMark"
 
 import { nextVitalsField } from "./vitals-navigation"
 import type { VITAL_ROW_DEFS } from "./TimetableVitalsChart"
@@ -49,6 +50,10 @@ function displayVital(
  */
 
 export type VitalRowDef = (typeof VITAL_ROW_DEFS)[number]
+
+// Rows whose names are words rather than international abbreviations, said in
+// the screen's language (АН сист / АН диас); HR, SpO₂ and the rest stay as read.
+const TRANSLATED_ROW_LABELS: Partial<Record<string, string>> = { systolic: "vitalBpSys", diastolic: "vitalBpDia" }
 
 export type VitalsPopupRequest = {
   col: number
@@ -164,7 +169,7 @@ export function TimetableVitalsRows({
               className="flex flex-col items-end justify-center pr-2 py-1.5 gap-0 select-none bg-white dark:bg-[#1c1c1c]"
             >
               <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color: row.color }}>
-                {row.label}
+                {TRANSLATED_ROW_LABELS[row.key] ? t(TRANSLATED_ROW_LABELS[row.key]!) : row.label}
               </span>
               <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">({row.unit})</span>
             </div>
@@ -182,8 +187,9 @@ export function TimetableVitalsRows({
               <div
                 key={ci}
                 style={{ width: colW, minWidth: colW, borderLeft: `1px solid ${row.color}20` }}
-                className="px-1 py-1.5"
+                className="relative px-1 py-1.5"
               >
+                {stored != null && <SaveMark eventIds={[vitals[ci]?.eventId]} className="absolute top-0 right-0" />}
                 <input
                   type="number"
                   tabIndex={-1}

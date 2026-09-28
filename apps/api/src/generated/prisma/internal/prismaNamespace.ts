@@ -7962,6 +7962,7 @@ export const CaseEventScalarFieldEnum = {
   sourceVersion: 'sourceVersion',
   schemaVersion: 'schemaVersion',
   idempotencyKey: 'idempotencyKey',
+  madeAt: 'madeAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

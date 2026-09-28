@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics"
+import { serverNow } from "@/lib/server-clock"
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 
 import type { TimetableData } from "@/components/IntraopTimetable"
@@ -8,10 +9,8 @@ import {
   loadPendingIntraopEvents,
   markIntraopEventFailed,
   markIntraopEventSynced,
-  removePendingIntraopEvent,
   serializeIntraopEventForServer,
   stripIntraopLogSyncStatuses,
-  storePendingIntraopEvents,
 } from "@/lib/pending-intraop-events"
 import { uid, type LogEvent } from "@/lib/intraop-log-event"
 import { planEventMutations } from "@/lib/intraop-event-mutations"
@@ -23,6 +22,7 @@ import { timelineRefusalMessageKey } from "@/lib/intraop-timeline-refusal"
 import {
   intraopCascadeDeleteIds,
   newIntraopTimelineIssues,
+  stampEnteredEvents,
 } from "@lospor/core/intraop-commands"
 
 type SyncState = "saved" | "saving" | "failed" | "offline"
@@ -54,7 +54,7 @@ export function useIntraopEventPersistence({
   caseId,
   entryTs,
   setEntryTs,
-  log,
+  log: _log,
   logRef,
   startRef,
   legacyWebLogNeedsSyncRef,
@@ -108,7 +108,7 @@ export function useIntraopEventPersistence({
         eventId: event.id,
         event: serializeIntraopEventForServer(event) as Record<string, unknown>,
         baseRevision: autosaveManager.getRevision(caseId, "intraop"),
-        queuedAt: new Date().toISOString(),
+        queuedAt: serverNow().toISOString(),
       })
     }
     legacyWebLogNeedsSyncRef.current = false
@@ -120,7 +120,7 @@ export function useIntraopEventPersistence({
    * record that already breaks a rule stays editable.
    */
   function refused(before: LogEvent[], after: LogEvent[]): boolean {
-    const messageKey = timelineRefusalMessageKey(newIntraopTimelineIssues(before, after, { now: new Date() }))
+    const messageKey = timelineRefusalMessageKey(newIntraopTimelineIssues(before, after, { now: serverNow() }))
     if (!messageKey) return false
     notify(tc("timelineRefusedTitle"), tc(messageKey))
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
@@ -142,6 +142,9 @@ export function useIntraopEventPersistence({
     const event: LogEvent = {
       id: uid(),
       ts,
+      // When it was entered, beside when it happened: a stop dated ahead of
+      // its entry is asked about when its time comes (9.13.0).
+      recordedAt: serverNow().toISOString(),
       syncStatus: "pending",
       ...partial,
     }
@@ -158,7 +161,7 @@ export function useIntraopEventPersistence({
       startRef.current = new Date(event.ts)
       setElapsedMs(0)
     }
-    setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current), new Date(), endedAtRef?.current))
+    setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current), serverNow(), endedAtRef?.current))
 
     try {
       await migrateLegacyLog(next)
@@ -183,14 +186,19 @@ export function useIntraopEventPersistence({
     return event
   }
 
-  async function syncLog(newLog: LogEvent[]): Promise<boolean> {
+  async function syncLog(edited: LogEvent[]): Promise<boolean> {
     seedLegacyRevision()
-    const previousLog = log
-    if (refused(previousLog, newLog)) return false
+    // The log as last written, not as last rendered: an answer or an End case
+    // step can edit right after a save, before the screen re-renders, and a
+    // diff against the rendered log re-sent the entry just saved.
+    const previousLog = logRef.current
+    if (refused(previousLog, edited)) return false
+    // Re-timed events get a new entry time; a moved stop is a new guess.
+    const newLog = stampEnteredEvents(previousLog, edited, serverNow())
     logRef.current = newLog
     setLog(newLog)
     if (startRef.current) {
-      setTimetable(eventsToTimetable(newLog, roundDown5Min(startRef.current), new Date(), endedAtRef?.current))
+      setTimetable(eventsToTimetable(newLog, roundDown5Min(startRef.current), serverNow(), endedAtRef?.current))
     }
     setSyncState("saving")
 
@@ -201,7 +209,7 @@ export function useIntraopEventPersistence({
           caseId,
           ...mutation,
           baseRevision: autosaveManager.getRevision(caseId, "intraop"),
-          queuedAt: new Date().toISOString(),
+          queuedAt: serverNow().toISOString(),
         })
       }
       legacyWebLogNeedsSyncRef.current = false
@@ -237,18 +245,17 @@ export function useIntraopEventPersistence({
   }
 
   // Deleting a start takes its changes and its stop with it (Core rule).
-  async function removeEvent(event: LogEvent, sync = true) {
-    const ids = new Set(intraopCascadeDeleteIds(log, event.id))
+  // Every deletion is staged through the autosave manager, which decides
+  // under the case's write lock (9.13.0): an entry that never left the device
+  // is cancelled there, and one being sent right now is deleted after it
+  // arrives. This used to edit the unsent queue itself, outside that lock --
+  // so an entry queued meanwhile could be wiped from the queue, and an entry
+  // deleted mid-send was saved anyway and came back on the next reload.
+  async function removeEvent(event: LogEvent) {
+    const current = logRef.current
+    const ids = new Set(intraopCascadeDeleteIds(current, event.id))
     ids.add(event.id)
-    const next = log.filter((item) => !ids.has(item.id))
-    let remainingPending = await loadPendingIntraopEvents<LogEvent>(caseId)
-    for (const id of ids) remainingPending = removePendingIntraopEvent(remainingPending, id)
-    await storePendingIntraopEvents(caseId, remainingPending)
-    setPendingCount(remainingPending.length)
-    setLog(next)
-    if (startRef.current) setTimetable(eventsToTimetable(next, roundDown5Min(startRef.current), new Date(), endedAtRef?.current))
-    if (sync && log.some(item => ids.has(item.id) && !item.syncStatus)) await syncLog(next)
-    else setSyncState(remainingPending.length > 0 ? "failed" : "saved")
+    await syncLog(current.filter((item) => !ids.has(item.id)))
   }
 
   async function undoLastEvent() {

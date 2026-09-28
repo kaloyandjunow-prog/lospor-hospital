@@ -90,7 +90,9 @@ for (const file of targets) {
     for (const match of line.matchAll(DEFAULTED)) {
       const [, name, fallback] = match
       // Nested defaults such as ${A:-${B:-source}} are read by the inner match.
-      if (fallback.includes("${")) continue
+      // Only a default that is itself a variable is skipped: 1.4.12${SUFFIX}
+      // is still a pinned release.
+      if (fallback.startsWith("${")) continue
       if (MUST_NOT_PIN.has(name) && SEMVER.test(fallback)) {
         problems.push(
           `${where}:${index + 1}: ${name} defaults to the literal "${fallback}". `

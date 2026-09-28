@@ -61,3 +61,20 @@ export async function lookupEhrImportWithoutCase(
   if (!body?.pending) return { status: "none" }
   return { status: "offer", offer: body as unknown as EhrImportOffer }
 }
+
+/**
+ * Laboratory results drawn during the case, from the hospital system
+ * (1.4.13). The appliance asks with the case's own patient reference, so the
+ * screen needs no number, and returns only results drawn since the case
+ * started. Appliance-only, like the lookup above.
+ */
+export async function lookupIntraopEhrLabs(caseId: string): Promise<EhrImportLookup> {
+  const response = await apiFetch(`/api/cases/${encodeURIComponent(caseId)}/ehr-import/intraop-labs`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { code?: string } | null
+    return { status: body?.code === "PATIENT_AMBIGUOUS" ? "ambiguous" : "unavailable" }
+  }
+  const body = await response.json().catch(() => null) as { pending?: boolean } | null
+  if (!body?.pending) return { status: "none" }
+  return { status: "offer", offer: body as unknown as EhrImportOffer }
+}

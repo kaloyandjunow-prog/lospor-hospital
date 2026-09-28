@@ -43,6 +43,7 @@ import { useIntraopEventPersistence } from "@/lib/use-intraop-event-persistence"
 import { useIntraopEventActions } from "@/lib/use-intraop-event-actions"
 import { useIntraopLabs } from "@/lib/use-intraop-labs"
 import { LabsSheet } from "@/components/intraop/LabsSheet"
+import { IntraopEhrLabs } from "@/components/intraop/IntraopEhrLabs"
 import { useIntraopRuntimeEffects } from "@/lib/use-intraop-runtime-effects"
 import { useIntraopCaseLoader } from "@/lib/use-intraop-case-loader"
 import { useIntraopAutofillPreferences } from "@/lib/use-intraop-autofill-preferences"
@@ -252,7 +253,7 @@ export default function IntraopLiveScreen() {
     infActOpen, setInfActOpen, infActTgt, setInfActTgt, infActRate, setInfActRate,
     infActConcentration, setInfActConcentration, infActTs, setInfActTs,
     openInfusion, confirmInfusion, stopInfusion, changeRate,
-  } = useInfusionEntry(save, setEntryTs, setActiveInfusions, INFUSION_CODES)
+  } = useInfusionEntry(save, setEntryTs, setActiveInfusions, INFUSION_CODES, INFUSION_WEIGHT_BASIS)
 
   // Drug sheet
   const {
@@ -339,7 +340,7 @@ export default function IntraopLiveScreen() {
   const [labsOpen, setLabsOpen] = useState(false)
   const [labsTs, setLabsTs] = useState<string | null>(null)
   const openLabs = useCallback((ts: string) => { setLabsTs(ts); setLabsOpen(true) }, [])
-  const { caseIbw, caseTbw } = useCaseWeights({
+  const { caseIbw, caseTbw, caseBsa } = useCaseWeights({
     clinicalMode, sex: preop?.sex, heightCm: preop?.height,
     weightKg: preop?.weight, ageValue: preop?.ageValue, ageUnit: preop?.ageUnit,
   })
@@ -395,7 +396,7 @@ export default function IntraopLiveScreen() {
     openEndCase,
     finaliseCase,
     resumeCase, resumeUnlimited, restoreEndedCase,
-    endCaseRunningItems, afterEndItems, resolveAfterEnd,
+    endCaseRunningItems, afterEndItems, resolveAfterEnd, attention,
   } = useIntraopCaseLifecycle({
     startRef,
     setElapsedMs,
@@ -412,7 +413,7 @@ export default function IntraopLiveScreen() {
     activeGas,
     activeInfusions,
     activeFluids,
-    timeline: { logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef },
+    timeline: { caseId: id ?? null, log, logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef },
     stopAgent,
     stopGasSettings,
     stopInfusion,
@@ -693,7 +694,7 @@ export default function IntraopLiveScreen() {
           tabBar={{ tab, onSelect: selectTab, tc, screenWidth, railRef: tabRailRef, layouts: tabLayouts }}
         >
         <IntraopRenderSurface {...{
-          screenWidth, tabSwipeResponder, tab, undoEv, chartRows, chartStart, currentCol,
+          screenWidth, tabSwipeResponder, tab, undoEv, chartRows, chartStart, currentCol, attention,
           expandedRow, nowSlotPercent, timetable, eventRows, activeInfusions, activeFluids,
           activeAgent, activeAgents, activeGas, startRef, isWatching, verticalTimetableRef, undoLastEvent,
           setUndoEv, setExpandedRow, eventLabel, setInfActTgt, setInfActRate, setInfActTs,
@@ -723,7 +724,7 @@ export default function IntraopLiveScreen() {
           setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication,
           openPremedPicker, log, selectedComplications, complicationsNotes, setComplicationsNotes,
           saveComplications, setCompOpen, eventActions, promptDelete, prevVitalFor, ttColCount,
-          caseIbw, caseTbw, infusionWeightBasis: INFUSION_WEIGHT_BASIS,
+          caseIbw, caseTbw, caseBsa, infusionWeightBasis: INFUSION_WEIGHT_BASIS,
           urineMl, setUrineMl, bloodLossMl, setBloodLossMl,
           chartPage, caseEnded, resumeSecsLeft, resumeCase, setChartPage, setTtColCount,
           handleChartTimetableChange, setEntryTs, slotOpen, slotTs, timeStr, slotEventSearch,
@@ -786,6 +787,7 @@ export default function IntraopLiveScreen() {
           onClose={() => setLabsOpen(false)}
           onChange={next => { void saveLabs(next) }}
           onEnsureCase={async () => id ?? null}
+          importPanel={<IntraopEhrLabs caseId={id ?? null} value={labResults} onChange={next => { void saveLabs(next) }} />}
         />
       ) : null}
     </>

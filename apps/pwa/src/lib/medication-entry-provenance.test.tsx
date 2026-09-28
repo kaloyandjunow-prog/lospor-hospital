@@ -103,4 +103,28 @@ describe("manual medication event provenance", () => {
       clinicalPresetScope: "INSTITUTION",
     })
   })
+
+  it("records the institution's weight basis on the start event (9.12.3)", () => {
+    const save = vi.fn(async () => ({ ...savedEvent, type: "infusion_start" } as LogEvent))
+    let entry: ReturnType<typeof useInfusionEntry> | undefined
+    function Harness() {
+      entry = useInfusionEntry(save, () => {}, vi.fn(), {}, { Hideamine: "TBW", Flatamine: "none" })
+      return null
+    }
+    render(<Harness />)
+
+    act(() => {
+      entry?.setInfDrug({ name: "Hideamine", unit: "mcg/kg/min", color: "#ef4444" })
+      entry?.setInfRate("3")
+    })
+    act(() => entry?.confirmInfusion())
+    act(() => {
+      entry?.setInfDrug({ name: "Flatamine", unit: "mg/hr", color: "#ef4444" })
+      entry?.setInfRate("1")
+    })
+    act(() => entry?.confirmInfusion())
+
+    expect(save).toHaveBeenNthCalledWith(1, expect.objectContaining({ name: "Hideamine", calculationBasis: "TBW" }))
+    expect(save).toHaveBeenNthCalledWith(2, expect.objectContaining({ name: "Flatamine", calculationBasis: "FLAT" }))
+  })
 })

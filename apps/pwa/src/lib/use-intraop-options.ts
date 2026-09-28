@@ -156,12 +156,7 @@ export function useIntraopOptions(
   // TBW to IBW got two different total doses for one timetable — and for a
   // heavy patient those differ by tens of kilograms of weight term.
   const INFUSION_WEIGHT_BASIS = useMemo<WeightBasisMap>(
-    () => Object.fromEntries(
-      Object.entries(weightBasisMap(infusionLibOpts)).map(([name, basis]) => [
-        name,
-        basis === "IBW" || basis === "TBW" ? basis : "none",
-      ]),
-    ),
+    () => weightBasisMap(infusionLibOpts),
     [infusionLibOpts],
   )
   // Picker only; the FLUID_* maps below deliberately keep hidden entries.

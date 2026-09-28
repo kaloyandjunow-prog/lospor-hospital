@@ -7,6 +7,10 @@ import { timeAtCol, formatDateHHMM } from "@/lib/intraop-projection"
 import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@/lib/intraop-log-event"
 import type { ActiveAgent } from "@/lib/intraop-active-state"
 import type { RunningItem, RowSummary } from "@/lib/intraop-running"
+import type { IntraopAttentionAction } from "@lospor/core/intraop-attention"
+import { AttentionAnswers } from "./AttentionAnswers"
+import { eventsSaveState, type ItemSaveState } from "@lospor/core/intraop-save-state"
+import { useChartSaveState } from "@/lib/use-case-save-state"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 
@@ -59,18 +63,28 @@ type TimetableRowProps = {
   onEditGas: (col: number) => void
   onStopAgent: (name: string, col?: number) => void
   onQuickAdd: (col: number, action: QuickAddAction) => void
+  /** Answers an unconfirmed stop in its row; absent on a watching screen. */
+  onAnswerAttention?: (key: string, action: IntraopAttentionAction) => void
 }
 
 function TimetableRowComponent({
   col, labDraws, onOpenLabs, chartStart, rowHeight, isNow, isQuarter, isExpanded, nowSlotPercent,
   vital, rowEvents, running, summary, labelOf,
   activeInfusions, activeFluids, activeAgents, activeGas,
-  onExpand, onCollapse, onManageInfusion, onEndFluid, onEditGas, onStopAgent, onQuickAdd,
+  onExpand, onCollapse, onManageInfusion, onEndFluid, onEditGas, onStopAgent, onQuickAdd, onAnswerAttention,
 }: TimetableRowProps) {
   const shade = useShade()
   const { tc } = usePreferences()
   const t = timeAtCol(chartStart, col)
-  const { criticalParts, normalParts, drugParts, hasCritical, hasUnsynced } = summary
+  const { criticalParts, normalParts, drugParts, hasCritical } = summary
+  // From the queue itself (9.13.0): every entry in the row, every running
+  // item's start, changes and stop, and the row's lab draws.
+  const saveInput = useChartSaveState()
+  const labsQueued = (labDraws?.length ?? 0) > 0 && saveInput.queuedSections.includes("intraop")
+  const rowState: ItemSaveState | null = eventsSaveState(
+    [...rowEvents.map(event => event.id), ...running.flatMap(item => item.eventIds ?? [])],
+    saveInput,
+  ) ?? (labsQueued ? "queued" : null)
 
   // ── Expanded row ───────────────────────────────────────────
   if (isExpanded) {
@@ -135,11 +149,11 @@ function TimetableRowComponent({
                 const runningAgent = activeAgents.find(agent => item.id === `agent-${agent.name}`)
                 const isGasItem = item.id === "gas-settings"
                 // A planned item, or the row of a planned stop, is a marker, not a control.
-                const marker = !!(item.planned || item.plannedStop)
+                const marker = !!(item.planned || item.plannedStop || item.plannedChange)
                 const canManage = !marker && !!(activeInf || activeFl || runningAgent || (isGasItem && activeGas))
                 return (
+                  <View key={item.id}>
                   <TouchableOpacity
-                    key={item.id}
                     activeOpacity={canManage ? 0.7 : 1}
                     onPress={() => {
                       if (!canManage) return
@@ -157,8 +171,9 @@ function TimetableRowComponent({
                       borderLeftWidth: 4, borderLeftColor: item.color,
                     }}
                   >
+                    {(() => { const state = eventsSaveState(item.eventIds ?? [], saveInput); return state ? <SaveStateDot state={state} /> : null })()}
                     <Text style={{ color: item.color, fontSize: 13, fontWeight: "700", flex: 1 }}>
-                      {item.planned ? `${tc("plannedLabel")} · ` : item.plannedStop ? `${tc("plannedStopLabel")} · ` : ""}{item.label}
+                      {item.planned ? `${tc("plannedLabel")} · ` : item.plannedStop ? `${tc("plannedStopLabel")} · ` : item.plannedChange ? `${tc("plannedChangeLabel")} · ` : ""}{item.label}
                     </Text>
                     {canManage && (
                       <Text style={{ color: shade("#64748b"), fontSize: 11 }}>
@@ -166,6 +181,14 @@ function TimetableRowComponent({
                       </Text>
                     )}
                   </TouchableOpacity>
+                  {/* A stop entered ahead reached this row unconfirmed (9.13.0). */}
+                  {item.stopUnconfirmed && item.stopEventId && onAnswerAttention ? (
+                    <View style={{ marginTop: 6 }}>
+                      <Text style={{ color: shade("#fbbf24"), fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{tc("stopUnconfirmedLabel")}</Text>
+                      <AttentionAnswers id={item.stopEventId} kind="unconfirmed_stop" onAnswer={onAnswerAttention} />
+                    </View>
+                  ) : null}
+                  </View>
                 )
               })}
             </View>
@@ -284,11 +307,7 @@ function TimetableRowComponent({
           </Text>
         )}
         <LabDrawPill count={mergeRowLabDraws(labDraws).count} />
-        {hasUnsynced && (
-          <Text style={{ color: colors.warning, fontSize: 9, fontWeight: "800", lineHeight: 12 }}>
-            {tc("unsyncedShort")}
-          </Text>
-        )}
+        {rowState && <SaveStateBadge state={rowState} />}
       </View>
 
       {/* Running strips — full height, stacked from right edge inward (5px each) */}
@@ -298,6 +317,29 @@ function TimetableRowComponent({
         ))}
       </View>
     </TouchableOpacity>
+  )
+}
+
+/**
+ * Not yet saved, saving, or refused (9.13.0). A clock and words, never a
+ * dashed outline: dashes already mean planned on this chart.
+ */
+function SaveStateBadge({ state }: { state: ItemSaveState }) {
+  const { tc } = usePreferences()
+  const color = state === "refused" ? colors.danger : colors.warning
+  const label = state === "refused" ? tc("refusedShort") : state === "sending" ? tc("sendingShort") : tc("queuedShort")
+  return (
+    <Text testID={`row-save-${state}`} style={{ color, fontSize: 9, fontWeight: "800", lineHeight: 12 }}>
+      {state === "refused" ? "✕" : "◷"} {label}
+    </Text>
+  )
+}
+
+function SaveStateDot({ state }: { state: ItemSaveState }) {
+  return (
+    <Text testID={`item-save-${state}`} style={{ color: state === "refused" ? colors.danger : colors.warning, fontSize: 12, marginRight: 6 }}>
+      {state === "refused" ? "✕" : "◷"}
+    </Text>
   )
 }
 
@@ -321,7 +363,8 @@ export const TimetableRow = memo(TimetableRowComponent, (prev, next) => {
     prev.onEndFluid !== next.onEndFluid ||
     prev.onEditGas !== next.onEditGas ||
     prev.onStopAgent !== next.onStopAgent ||
-    prev.onQuickAdd !== next.onQuickAdd
+    prev.onQuickAdd !== next.onQuickAdd ||
+    prev.onAnswerAttention !== next.onAnswerAttention
   ) {
     return false
   }

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.4.12",
+  "release": "1.4.13",
   "policy": "backup-required",
-  "justification": "Conservative rather than assessed. 1.4.12 adds no migration, so its schema is 1.4.9's; but 1.4.9 introduced migration 20260926120000_intraop_auto_ended and the event-only chart, and no release-specific rollback proof shows 1.4.9 services behaving correctly on charts written by 1.4.12. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
+  "justification": "Conservative rather than assessed. 1.4.13 adds migration 20260927120000_case_event_made_at, one nullable column that older services never read, so an older schema reader is unlikely to fail on it; but 1.4.13 also changes how the chart is written (the last change made wins across devices, stops entered ahead of their time carry a confirmation) and no release-specific rollback proof shows 1.4.12 services behaving correctly on charts written by 1.4.13. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-09-26"
+  "assessedAt": "2026-09-27"
 }

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
+import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { Badge } from "@/components/ui/badge"
 import { calcBMI, calcABW } from "@/lib/scores"
 import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
@@ -541,7 +542,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           transport={ehrImportCapability.transport}
           current={getValues() as unknown as Record<string, unknown>}
           currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
-          labelFor={field => field}
+          labelFor={field => ehrFieldLabel(field, locale)}
           onRequestModeChange={pediatricCapability.enabled ? () => {
             // The same switch the Adult / Paediatric toggle performs, which
             // is the point: an imported age belonging to the other mode

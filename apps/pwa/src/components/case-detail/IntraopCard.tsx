@@ -1,5 +1,9 @@
 import React from "react"
 import { projectIntraopEvents } from "@lospor/core/intraop-engine"
+import { formatInfusionTotal } from "@lospor/core/intraop-totals"
+import { weightBasisMap } from "@lospor/core/option-library"
+import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
+import { useOptionLibrary } from "@/lib/use-option-library"
 import { parseLogEvents } from "@lospor/core/intraop-types"
 import { View, Text } from "react-native"
 import { colors, withAlpha, useShade } from "@/theme/colors"
@@ -53,6 +57,7 @@ function legacyKeyEventsToSummaryLog(keyEvents: unknown): KeyEvent[] {
 export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: CaseData["intraop"]; preop?: CaseData["preop"]; clinicalMode?: CaseData["clinicalMode"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
   const shade = useShade()
   const { language } = usePreferences()
+  const { options: infusionLibrary } = useOptionLibrary("INTRAOP_INFUSION")
 
   if (!intraop) {
     return (
@@ -110,7 +115,11 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
     }
     return Object.values(infMap)
   }
-  const infusionTotals = calcInfusionTotals(timetableInfusions, summaryIBW, summaryTBW)
+  const summaryBsa = preop?.heightCm && summaryTBW ? calculateMostellerBsa({ heightCm: preop.heightCm, weightKg: summaryTBW }) : null
+  const infusionTotals = calcInfusionTotals(
+    timetableInfusions, summaryIBW, summaryTBW, weightBasisMap(infusionLibrary),
+    summaryBsa?.available ? summaryBsa.value.squareMetres : null,
+  )
   const infWeightNote = (() => {
     const weighted = infusionTotals.filter(r => r.weightUsed != null)
     if (!weighted.length) return null
@@ -271,7 +280,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
             <View key={`it-${i}`} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.border, "66") }}>
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{displayClinicalCode("option:INTRAOP_INFUSION", d.name, language, { label: d.name })}</Text>
               <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "700" }}>
-                {d.total} {d.unit}
+                {formatInfusionTotal(d)}
                 {d.weightUsed != null ? <Text style={{ color: colors.warning, fontSize: 10 }}> ≈</Text> : null}
               </Text>
             </View>

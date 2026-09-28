@@ -88,6 +88,15 @@ export type LogEvent = {
    * never rewritten, so the old meaning is kept for those events.
    */
   agentMode?: "concurrent"
+  /**
+   * When the clinician entered this event, from the device's server-corrected
+   * clock (9.13.0). `ts` is when it happened clinically; the two differ for
+   * anything charted late or ahead. A stop entered ahead of its time is asked
+   * about when that time comes (see `stopEnteredAhead`).
+   */
+  recordedAt?: string
+  /** A stop entered ahead of its time, confirmed as having happened. */
+  stopConfirmed?: boolean
 }
 
 export type ActiveInfusion = {
@@ -158,6 +167,12 @@ export type SegmentEventRefs = {
   startEventId?: string
   /** The stop event, when the item was stopped (or has a planned stop). */
   stopEventId?: string
+  /**
+   * The stop was entered ahead of its time, that time has come, and nobody has
+   * said whether it really stopped (9.13.0). It counts as a stop until someone
+   * answers; "still running" removes it.
+   */
+  stopUnconfirmed?: boolean
   /**
    * The stop was made by End case (the case ended with this item stopped).
    * Set by the projection from the stop event; an editor sets it on a bar it
@@ -256,11 +271,17 @@ export type TimetableFluidRateChange = {
   ts: string
   rate: NumericText
   unit: string
+  /** Dated after the reading time: drawn as planned, applied to nothing yet. */
+  planned?: boolean
 }
 
 export type TimetableRateChange = {
   eventId?: string
   col: number
+  /** When the change was made; absent on charts saved before 9.12.3. */
+  ts?: string
+  /** Dated after the reading time: drawn as planned, applied to nothing yet. */
+  planned?: boolean
   rate: NumericText
   unit: string
   concentration?: string
@@ -273,6 +294,15 @@ export type TimetableInfusion = SegmentEventRefs & {
   unit: string
   startCol: number
   endCol: number
+  /** Real start and stop (or read-through) instants; absent on charts saved before 9.12.3. */
+  startTs?: string
+  endTs?: string
+  /**
+   * The body-size basis in force when the infusion was started, recorded on
+   * its start event (9.12.3). Totals use it rather than today's library, so a
+   * later change to the library does not reach back into this infusion.
+   */
+  calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
   color: string
   stopped?: boolean
   /** Starts after "now" or after the case end: a planned marker, left out of every total. */
@@ -321,6 +351,8 @@ export type ClinicalEvent = {
 export type GasSettingsChange = {
   eventId?: string
   col: number
+  /** Dated after the reading time: drawn as planned, applied to nothing yet. */
+  planned?: boolean
   fgf: number
   carrierGas: string | null
   fio2: number
@@ -453,6 +485,10 @@ export function parseLogEvent(value: unknown): LogEvent | null {
   if (value.carrierGas === null || typeof value.carrierGas === "string") {
     event.carrierGas = value.carrierGas
   }
+  if (typeof value.recordedAt === "string" && Number.isFinite(Date.parse(value.recordedAt))) {
+    event.recordedAt = value.recordedAt
+  }
+  if (value.stopConfirmed === true) event.stopConfirmed = true
   for (const key of ["dose", "rate", "volume"] as const) {
     const parsed = numericText(value[key])
     if (parsed !== null) event[key] = String(parsed)
@@ -624,7 +660,11 @@ function parseTimetableFluidRateChange(value: unknown): TimetableFluidRateChange
   const rate = numericText(value.rate)
   const unit = requiredString(value, "unit")
   if (col === null || ts === null || rate === null || unit === null) return null
-  return { col, ts, rate, unit }
+  return {
+    col, ts, rate, unit,
+    ...(optionalString(value, "eventId") !== undefined ? { eventId: optionalString(value, "eventId") } : {}),
+    ...(value.planned === true ? { planned: true } : {}),
+  }
 }
 
 function parseTimetableRateChange(value: unknown): TimetableRateChange | null {
@@ -640,6 +680,9 @@ function parseTimetableRateChange(value: unknown): TimetableRateChange | null {
     ...(optionalString(value, "concentration") !== undefined
       ? { concentration: optionalString(value, "concentration") }
       : {}),
+    ...(optionalString(value, "eventId") !== undefined ? { eventId: optionalString(value, "eventId") } : {}),
+    ...(optionalString(value, "ts") !== undefined ? { ts: optionalString(value, "ts") } : {}),
+    ...(value.planned === true ? { planned: true } : {}),
   }
 }
 
@@ -688,6 +731,27 @@ function parseTimetableInfusion(value: unknown): TimetableInfusion | null {
     ...(Array.isArray(value.rateChanges)
       ? { rateChanges: parseArray(value.rateChanges, parseTimetableRateChange) }
       : {}),
+    ...(optionalString(value, "startTs") !== undefined ? { startTs: optionalString(value, "startTs") } : {}),
+    ...(optionalString(value, "endTs") !== undefined ? { endTs: optionalString(value, "endTs") } : {}),
+    ...(value.calculationBasis === "FLAT"
+      || value.calculationBasis === "TBW"
+      || value.calculationBasis === "IBW"
+      || value.calculationBasis === "BSA_M2"
+      ? { calculationBasis: value.calculationBasis }
+      : {}),
+    ...(value.planned === true ? { planned: true } : {}),
+    ...(optionalNumber(value, "plannedStopCol") !== undefined ? { plannedStopCol: optionalNumber(value, "plannedStopCol") } : {}),
+    ...segmentRefs(value),
+  }
+}
+
+/** The links from a drawn item back to the events it came from. */
+function segmentRefs(value: Record<string, unknown>): SegmentEventRefs {
+  return {
+    ...(optionalString(value, "startEventId") !== undefined ? { startEventId: optionalString(value, "startEventId") } : {}),
+    ...(optionalString(value, "stopEventId") !== undefined ? { stopEventId: optionalString(value, "stopEventId") } : {}),
+    ...(value.endCaseStop === true ? { endCaseStop: true } : {}),
+    ...(value.stopUnconfirmed === true ? { stopUnconfirmed: true } : {}),
   }
 }
 

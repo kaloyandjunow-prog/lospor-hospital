@@ -3,6 +3,7 @@ import {
   eventIdempotencyKey,
   IDEMPOTENCY_HEADER,
   OPERATION_ID_HEADER,
+  MADE_AT_HEADER,
   SOURCE_HEADER,
   buildSectionRevisionHeaders,
   isTransientNetworkError,
@@ -150,6 +151,8 @@ async function mutationRequest(operation: EventMutation, revision: SectionRevisi
   const headers: Record<string, string> = {
     [SOURCE_HEADER]: "mobile",
     [OPERATION_ID_HEADER]: operation.operationId,
+    // When the change was made, so the last one made wins across devices (9.13.0).
+    [MADE_AT_HEADER]: operation.queuedAt,
     ...buildSectionRevisionHeaders("intraop", revision),
   }
   const response = await autosaveFetch(
@@ -213,6 +216,7 @@ export const autosaveManager = createAutosaveManager({
         headers: {
           [IDEMPOTENCY_HEADER]: eventIdempotencyKey(caseId, String(event.id)),
           [SOURCE_HEADER]: "mobile",
+          ...(typeof event.recordedAt === "string" ? { [MADE_AT_HEADER]: event.recordedAt } : {}),
           ...buildSectionRevisionHeaders("intraop", revision),
         },
         body: JSON.stringify(event),

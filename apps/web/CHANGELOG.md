@@ -1,5 +1,69 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.0] - 2026-09-28
+
+### Added
+
+- **Every chart item says whether it is saved:** a clock while queued or
+  saving, a red cross when refused, nothing once saved -- bars, doses,
+  events, vitals. Refusals are listed until marked seen; totals show "≈"
+  while part of them is unsaved.
+- **Questions above the chart,** always in view: a stop entered ahead whose
+  time came, and entries left after the end, with the same answers as the
+  PWA. End case asks the same. Planned changes are drawn as planned.
+
+### Fixed
+
+- Infusion and fluid bars end at their real minute inside the cell; they
+  ended 12 px short whatever the time.
+- The printed record: doses at their exact minute and the footer date in the
+  case's time zone; an unconfirmed stop is said beside its total.
+- "Now" on the chart follows the server's clock.
+- АН сист / АН диас on a Bulgarian screen.
+
+### Fixed (test coverage review)
+
+- Refused changes are listed with their time in the case's zone, what they
+  were and why, from Core -- the PWA's line. A refused edit or deletion
+  showed a raw id and no reason.
+- "Resume until" is in the case's zone; it used the computer's.
+- The save state re-renders the chart only when what it shows changes.
+- Removed the per-entry event handlers nothing called: they read the log as
+  last rendered, so an edit right after an add could be sent as a second add.
+
+### Tests
+
+- The chart's event journal: one edit in order (removals, edits, additions),
+  two edits in one tick, refusals said and undone from the saved log.
+
+### Fixed (release sweep)
+
+- The chart's "now" follows the server's clock from the moment a case opens;
+  before, only a save corrected it, so until the first save planned-or-given
+  and the now column were read from the computer's clock.
+
+### Included from 9.12.3 (never released on its own)
+
+#### Fixed
+
+- **The printed record and the case summary totalled per-kg infusions on
+  1 kg.** They passed no weight: remifentanil 0.1 mcg/kg/min for 25 minutes in
+  an 85 kg patient printed as 2.5 mcg. They now use the patient's weights, the
+  institution's drug library and the time actually run (Core 9.12.3). The End
+  Case dialog's estimated totals had the same fault.
+- **The Bulgarian record was partly English.** Month, "Case … · Page 1 of 2",
+  the duration ("0 ч 31 мин"), the fluid balance labels (Кристалоиди, Колоиди,
+  Биопродукти, Диуреза, Кръвозагуба), the Aldrete rows and the footer date
+  (27.09.2026) are now in the record's language. Units stay canonical ("mL").
+- **The intraop form used an unrounded ideal body weight** where the PWA and the
+  record use it to 0.1 kg, so one infusion could total a few decimals apart.
+
+#### Added
+
+- **New infusions record their weight basis** from the drug library, and totals
+  use per-m² body surface area. The dose profile editor says that a basis
+  change applies from now on.
+
 ## [9.12.2] - 2026-09-26
 
 ### Changed

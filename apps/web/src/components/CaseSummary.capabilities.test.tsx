@@ -9,10 +9,13 @@ import enMessages from "../../messages/en.json"
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 // The chart needs real geometry and is not what these tests are about.
+vi.mock("@/components/case-summary/print-infusion-totals", () => ({
+  calcInfTotals: () => [],
+  useInfusionWeightBasis: () => ({}),
+}))
 vi.mock("@/components/case-summary/PrintTimetable", () => ({
   PrintTimetable: () => <div data-testid="print-timetable" />,
   calcDrugTotals: () => [],
-  calcInfTotals: () => [],
   buildDrugLog: () => [],
   naturalMaxCols: () => 12,
 }))

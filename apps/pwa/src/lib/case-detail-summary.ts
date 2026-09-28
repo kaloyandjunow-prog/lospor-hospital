@@ -26,6 +26,8 @@ import {
 import {
   calcInfusionTotals as calculateInfusionTotals,
   DEFAULT_INFUSION_WEIGHT_BASIS,
+  type TimetableInfusionLike,
+  type WeightBasisMap,
 } from "@lospor/core/intraop-totals"
 import { MONITORING } from "@lospor/core/catalog"
 import { displayClinicalCode, displayOptionPath, toClinicalLocale } from "@/lib/clinical-display"
@@ -205,25 +207,20 @@ export function calcCaseIBW(input: {
 // Weight basis for per-kg infusion units — mirrors web INFUSION_WEIGHT_BASIS
 export const INFUSION_WEIGHT_BASIS = DEFAULT_INFUSION_WEIGHT_BASIS
 
+/**
+ * Infusion totals for the case summary, on the institution's weight basis
+ * (its drug library, cached on the device, the bundle before the first sync)
+ * and the patient's body surface area -- the same inputs the web form and the
+ * printed record use, so the three agree (9.12.3).
+ */
 export function calcInfusionTotals(
-  infusions: { id?: string; name: string; rate: string; unit: string; startCol: number; endCol: number; rateChanges?: { col: number; rate: string; unit: string }[] }[],
+  infusions: TimetableInfusionLike[],
   ibw: number | null,
   tbw: number | null,
-): { name: string; total: number; unit: string; weightUsed: number | null; weightBasis: "IBW" | "TBW" | null }[] {
-  return calculateInfusionTotals(
-    infusions,
-    ibw,
-    tbw,
-    { ...DEFAULT_INFUSION_WEIGHT_BASIS },
-  ).map(result => ({
-    name: result.name,
-    total: result.total,
-    unit: result.unit,
-    weightUsed: result.weightUsed,
-    weightBasis: result.weightBasis === "none"
-      ? null
-      : result.weightBasis,
-  }))
+  weightBasis: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
+  bodySurfaceAreaM2: number | null = null,
+) {
+  return calculateInfusionTotals(infusions, ibw, tbw, weightBasis, bodySurfaceAreaM2)
 }
 
 export function formatAirway(intraop: CaseData["intraop"], locale: string): string {

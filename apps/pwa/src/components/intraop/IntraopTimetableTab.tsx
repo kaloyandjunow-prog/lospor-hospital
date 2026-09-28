@@ -7,9 +7,14 @@ import { runningItemsByCol, type RunningItem, type RowSummary } from "@/lib/intr
 import { TimetableFooter } from "./TimetableFooter"
 import { TimetableRow, type QuickAddAction } from "./TimetableRow"
 import { IntraopUndoBar } from "./IntraopUndoBar"
+import { IntraopAttentionBanner, type IntraopAttentionView } from "./IntraopAttentionBanner"
+import type { IntraopAttentionAction } from "@lospor/core/intraop-attention"
+import { CaseSaveStateContext } from "@/lib/use-case-save-state"
 
 type Props = {
   screenWidth: number
+  /** Questions the timeline is waiting on (Core intraop-attention). */
+  attention?: IntraopAttentionView
   undoEvent: LogEvent | null
   chartRows: number[]
   rowHeight: number
@@ -45,8 +50,11 @@ type Props = {
   onViewChart?: () => void
 }
 
+const NO_SAVE_STATE = { queuedEventIds: [], sendingEventId: null, refused: [], queuedSections: [], dismissRefused: () => {} }
+
 export function IntraopTimetableTab({
   screenWidth,
+  attention,
   undoEvent,
   chartRows,
   rowHeight,
@@ -109,6 +117,11 @@ export function IntraopTimetableTab({
   }, [labDraws])
 
   const collapseExpandedRow = useCallback(() => onSetExpandedRow(null), [onSetExpandedRow])
+  const resolveAttention = attention?.resolve
+  const answerAttention = useMemo(
+    () => isWatching || !resolveAttention ? undefined : (key: string, action: IntraopAttentionAction) => { void resolveAttention(key, action) },
+    [isWatching, resolveAttention],
+  )
 
   const renderRow = useCallback(({ item: col }: { item: number }) => {
     const rowData = rowDataByCol.get(col)
@@ -143,6 +156,7 @@ export function IntraopTimetableTab({
         onEditGas={onEditGas}
         onStopAgent={onStopAgent}
         onQuickAdd={onQuickAdd}
+        onAnswerAttention={answerAttention}
       />
     )
   }, [
@@ -163,6 +177,7 @@ export function IntraopTimetableTab({
     onEndFluid,
     onManageInfusion,
     onQuickAdd,
+    answerAttention,
     onSetExpandedRow,
     onStopAgent,
     rowDataByCol,
@@ -179,6 +194,10 @@ export function IntraopTimetableTab({
         />
       )}
 
+      {/* A screen watching another screen's case writes nothing, so it asks nothing. */}
+      {attention && !isWatching && <IntraopAttentionBanner attention={attention} />}
+
+      <CaseSaveStateContext.Provider value={attention?.saveState ?? NO_SAVE_STATE}>
       <FlatList
         ref={listRef}
         data={chartRows}
@@ -199,6 +218,7 @@ export function IntraopTimetableTab({
         }}
         renderItem={renderRow}
       />
+      </CaseSaveStateContext.Provider>
 
       <TimetableFooter
         started={started}

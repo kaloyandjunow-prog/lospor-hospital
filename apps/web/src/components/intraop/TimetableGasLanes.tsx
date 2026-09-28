@@ -1,6 +1,8 @@
 "use client"
 
-import { PlannedStopMarker } from "./PlannedStopMarker"
+import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
+import { SaveMark } from "./SaveMark"
+import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { X } from "lucide-react"
 import { displayGasMix, displayGasSettings } from "@/lib/clinical-display"
 import { DiscontinuePrompt } from "./DiscontinuePrompt"
@@ -166,6 +168,7 @@ export function AgentLane({
                     title={seg.stopped ? copy.doubleClickResume : undefined}
                     className={`absolute inset-y-1 border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   />
+                  {isEnd && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
                   {agentLabel && (
                     <span
                       className={`absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none text-xs font-bold whitespace-nowrap flex items-center justify-center ${style2.text}`}
@@ -233,6 +236,8 @@ export function AgentLane({
 export type GasSettingsLaneProps = LaneChrome & {
   locale: string
   gasSegmentAt: (col: number) => GasSettingsSegment | null
+  /** A setting change dated after now in this column (9.13.0). */
+  plannedGasChangeAt?: (col: number) => { fgf: number; fio2: number } | null
   openPickerForSeg: (col: number, seg: GasSettingsSegment, rect: DOMRect) => void
   openPickerEmpty: (col: number, rect: DOMRect) => void
   stopGas: (id: string, col: number | null) => void
@@ -253,6 +258,7 @@ export function GasSettingsLane({
   openPickerForSeg,
   openPickerEmpty,
   stopGas,
+  plannedGasChangeAt,
 }: GasSettingsLaneProps) {
   const copy = useIntraopUiCopy()
   return (
@@ -286,11 +292,13 @@ export function GasSettingsLane({
               else openPickerEmpty(ci, rect)
             }}
           >
+            {(() => { const planned = plannedGasChangeAt?.(ci); return planned ? <PlannedChangeMarker value={`FGF ${planned.fgf} · FiO₂ ${planned.fio2}%`} /> : null })()}
             {!seg && (
               <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                 {copy.gas.tapToStart}
               </span>
             )}
+            {seg && isEnd && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
             {seg && (
               <div
                 className={`absolute inset-y-1 border-y bg-indigo-200/50 dark:bg-indigo-500/20 border-indigo-400 dark:border-indigo-500 ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd && !isRowExit, colEnd)} ${seg.stopped ? "opacity-50 border-dashed" : ""}`}

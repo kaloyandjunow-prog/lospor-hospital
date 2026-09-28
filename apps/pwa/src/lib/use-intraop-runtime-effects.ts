@@ -1,4 +1,5 @@
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
+import { serverNow } from "@/lib/server-clock"
 
 import type { TimetableData } from "@/components/IntraopTimetable"
 import { roundDown5Min } from "@/lib/intraop-projection"
@@ -43,7 +44,7 @@ export function useIntraopRuntimeEffects({
     const timer = setInterval(() => {
       const start = startRef.current
       if (!start) return
-      const now = new Date()
+      const now = serverNow()
 
       // The header renders elapsed time to the minute (`fmtElapsed`), so five
       // of every six ticks used to set state to a value that formatted to the

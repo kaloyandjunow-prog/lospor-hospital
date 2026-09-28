@@ -128,12 +128,7 @@ export function useIntraopLibraryConfig({
         suggestedRate: profile?.suggestedRate,
       }
     }
-    const infusionWeightBasis: WeightBasisMap = Object.fromEntries(
-      Object.entries(weightBasisMap(infusionLibOpts)).map(([name, basis]) => [
-        name,
-        basis === "IBW" || basis === "TBW" ? basis : "none",
-      ]),
-    )
+    const infusionWeightBasis: WeightBasisMap = weightBasisMap(infusionLibOpts)
     return {
       INFUSION_CONFIGS: configs,
       INFUSION_WEIGHT_BASIS: infusionWeightBasis,

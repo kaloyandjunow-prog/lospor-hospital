@@ -46,6 +46,13 @@ export const SOURCE_HEADER = "X-Lospor-Source"
 /** Stable identity of an autosave operation across retries. */
 export const OPERATION_ID_HEADER = "X-Lospor-Operation-Id"
 
+/**
+ * When an event change was made on the device, from its server-corrected
+ * clock (9.13.0). The last change made wins across devices: the server refuses
+ * an edit or deletion made before the entry's latest change with 412.
+ */
+export const MADE_AT_HEADER = "X-Lospor-Made-At"
+
 /** Identifies the first-party client and its release for compatibility diagnostics. */
 export const CLIENT_NAME_HEADER = "X-Lospor-Client"
 export const CLIENT_VERSION_HEADER = "X-Lospor-Client-Version"
@@ -62,6 +69,7 @@ export const CORS_REQUEST_HEADERS = [
   SOURCE_HEADER,
   IDEMPOTENCY_HEADER,
   OPERATION_ID_HEADER,
+  MADE_AT_HEADER,
   CLIENT_NAME_HEADER,
   CLIENT_VERSION_HEADER,
 ] as const

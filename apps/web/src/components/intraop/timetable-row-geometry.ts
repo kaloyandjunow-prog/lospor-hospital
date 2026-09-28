@@ -99,6 +99,36 @@ export function barContinues(barEndCol: number, rowColEnd: number): boolean {
   return barEndCol >= rowColEnd
 }
 
+const COLUMN_MS = 5 * 60_000
+
+/**
+ * Where a bar begins and ends inside its first and last cells, in pixels from
+ * the cell edges, from its real start and stop (9.13.0). A bar used to end
+ * 12 px short of its last cell whatever its real minute, to leave room for
+ * the grip, so an infusion that ran into that column looked as if it had
+ * stopped partway through; the grip now sits on the real end instead.
+ *
+ * A side the times cannot place -- no times (charts saved before 9.12.3,
+ * agents and gases), or a bar being dragged whose times no longer match its
+ * columns -- is null and keeps the column rule.
+ */
+export function barTimeInsets(
+  seg: { startTs?: string; endTs?: string; startCol: number; endCol: number },
+  colW: number,
+): { left: number | null; right: number | null } {
+  const start = Date.parse(seg.startTs ?? "")
+  if (!Number.isFinite(start)) return { left: null, right: null }
+  const firstColumn = Math.floor(start / COLUMN_MS) * COLUMN_MS
+  const left = (start - firstColumn) / COLUMN_MS * colW
+  const end = Date.parse(seg.endTs ?? "")
+  if (!Number.isFinite(end) || end < start) return { left: Math.round(left), right: null }
+  const fraction = (end - (firstColumn + (seg.endCol - seg.startCol) * COLUMN_MS)) / COLUMN_MS
+  if (fraction < 0 || fraction > 1) return { left: Math.round(left), right: null }
+  // A bar inside one cell stays at least 4 px wide, so it can still be seen and tapped.
+  const right = seg.startCol === seg.endCol ? Math.min((1 - fraction) * colW, colW - left - 4) : (1 - fraction) * colW
+  return { left: Math.round(left), right: Math.max(0, Math.round(right)) }
+}
+
 /** Whether a bar started before this row and enters it from the left. */
 export function barEntersRow(barStartCol: number, rowColStart: number): boolean {
   return barStartCol < rowColStart

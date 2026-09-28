@@ -1,5 +1,48 @@
 # Changelog - LOSPOR Hospital
-## [1.4.12] - Unreleased
+## [1.4.13] - 2026-09-28
+
+Vendors Core, API, web and PWA 9.13.0 (9.12.3 folded in). One database
+migration: `20260927120000_case_event_made_at`, a nullable column; a
+pre-update backup is required, as for every release that changes the chart.
+
+### Added
+
+- **Intraoperative labs from the hospital system.** The labs view on the web
+  and the PWA has a "Labs from the hospital system" button. It asks the
+  hospital system again, using the case's own patient number (the screen
+  never has it), and offers only results drawn since the case started: the
+  preoperative review already offered the earlier ones. The usual review
+  applies: the newest draw of each test is ticked, up to three earlier ones
+  are kept collapsed, and a result without a draw time is not offered.
+  Accepted results are added to the intraoperative labs at the times they
+  were drawn. New route: `GET /v1/cases/{id}/ehr-import/intraop-labs`.
+- **Planned, given and saved, the same on every screen (9.13.0).** Anything
+  entered for a later time, rate and gas changes included, is drawn as planned
+  and left out of every total until its time comes. A stop entered ahead of
+  its time is asked about when the time comes (stopped / still running),
+  above the chart and at End case; a case cannot be finalised with one open.
+  Every chart item says whether it has reached the server, refusals are
+  listed with what and why, and changes are sent in the order they were made.
+  An entry changed on two screens keeps the change made last. "Now" is the
+  server's time.
+- **Infusion totals on the patient's own weights (9.12.3).** Per-kg drugs on
+  ideal or actual weight as the hospital's drug library sets, recorded when
+  the infusion starts; per-m² drugs on body surface area; real running time;
+  mg and mcg together. The PWA reads the library from the appliance, with the
+  offline bundle as fallback. The phone, web and printout agree.
+- **The printed record in Bulgarian**, with every time, the footer date
+  included, in the case's own time zone.
+
+### Fixed
+
+- The EHR import review shows readable field names on the web and the PWA,
+  not raw field keys.
+- The review sheet no longer opens by itself with nothing ticked ("Add
+  selected (0)"); it stays one press away.
+- The PWA intraop screen no longer stops on opening a case, and an entry
+  deleted while it was being sent no longer comes back (9.13.0).
+
+## [1.4.12] - 2026-09-27
 
 1.4.11 was built but never published: its publication was cancelled because
 it hid imported items from a patient's later cases. 1.4.12 replaces it and

@@ -1538,6 +1538,13 @@ add("GET", "/v1/cases/{id}/ehr-import", "Review what the hospital system sent fo
 // new case, and the case-scoped route above could not answer until an age, a
 // height and a weight had been filled in first. Scoped to the signed-in
 // account's institution; decisions are still recorded against a case.
+// Asked again during the operation with the case's own patient reference; the
+// plan is narrowed to laboratory results drawn at or after the case start.
+// Accepted results go through the case PATCH and POST /v1/cases/{id}/ehr-import.
+add("GET", "/v1/cases/{id}/ehr-import/intraop-labs", "Ask the hospital system for laboratory results drawn during the case", {
+  parameters: [id],
+  result: { type: "object" },
+})
 add("GET", "/v1/ehr-import/lookup", "Ask the hospital system about a patient before a case exists", {
   parameters: [
     query("identifier", { type: "string" }, true, "The record number or national identifier the clinician typed"),

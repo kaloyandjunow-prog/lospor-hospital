@@ -1,9 +1,11 @@
 "use client"
 
-import { PlannedStopMarker } from "./PlannedStopMarker"
+import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
+import { SaveMark } from "./SaveMark"
+import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { X } from "lucide-react"
 import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
-import { barContinues, barLeftClass, barRightClass, showBarGrip } from "./timetable-row-geometry"
+import { barContinues, barLeftClass, barRightClass, barTimeInsets, showBarGrip } from "./timetable-row-geometry"
 import type { TimetableDragActions, TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
 import type { TimetableFluid } from "@/types/timetable"
@@ -111,6 +113,10 @@ export function FluidLane({
         const isActualEnd = seg !== null && ci === effectiveEnd
         const isRowExit = seg != null && barContinues(seg.endCol, colEnd) && ci === colEnd - 1 && !isActualEnd
         const isSel = seg && sel?.type === "fluid" && sel.id === seg.id
+        // The real start and stop inside the cell; the column rule while a grip is dragged.
+        const timed = seg && !isDragPreview && effectiveEnd === seg.endCol ? barTimeInsets(seg, colW) : { left: null, right: null }
+        const timedLeft = isActualStart && timed.left != null ? { left: timed.left } : {}
+        const timedRight = isActualEnd && !isRowExit && timed.right != null ? { right: timed.right } : {}
         // A bag that was stopped earlier can be picked up again in this column.
         const stoppedSeg = !seg ? segments.find(s => s.stopped && s.endCol < ci) ?? null : null
 
@@ -136,12 +142,15 @@ export function FluidLane({
           >
             {seg && (
               <>
+                {isActualEnd && !isRowExit && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
                 <div
                   onClick={e => { e.stopPropagation(); if (isActualStart || isRowCont) setSel({ type: "fluid", id: seg.id }) }}
                   onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeFluid(seg.id) }}
                   title={seg.stopped ? copy.doubleClickResume : undefined}
                   className={`absolute inset-y-1 border-y cursor-pointer ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${isDragPreview ? "opacity-50" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   style={{
+                    ...timedLeft,
+                    ...timedRight,
                     backgroundColor: isSel ? color + "88" : color + "33",
                     borderColor: isSel ? color : color + "88",
                     boxShadow: isSel ? `0 0 0 1.5px ${color}` : undefined,
@@ -194,7 +203,7 @@ export function FluidLane({
                 onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("ext-fluid", seg.id); dragActions.fluidExtendStart(seg.id) }}
                 onDragEnd={() => dragActions.fluidExtendEnd()}
                 className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 opacity-70 hover:opacity-100 rounded-r-sm"
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: color, ...timedRight }}
               >
                 <span className="text-white text-[8px] font-bold select-none">|</span>
               </div>
@@ -235,6 +244,8 @@ export function FluidLane({
               </button>
             )}
             {segments.some(s => s.plannedStopCol === ci) && <PlannedStopMarker />}
+            {segments.flatMap(s => (s.rateChanges ?? []).filter(rc => rc.planned && rc.col === ci))
+              .map(rc => <PlannedChangeMarker key={rc.eventId ?? rc.col} value={`${rc.rate} ${rc.unit}`} />)}
             {stoppedSeg && (
               <button
                 type="button"

@@ -1,5 +1,6 @@
 import type { KVAdapter, SectionRevision } from "./protocol"
 import { createSingleFlightQueue } from "./single-flight-queue"
+import type { SendOneOutcome } from "./pending-events"
 
 export type EventMutation =
   | {
@@ -189,6 +190,54 @@ export function createEventMutationJournal(deps: EventMutationJournalDeps) {
     return orderWrite(caseId, () => flushCaseUnlocked(caseId))
   }
 
+  /**
+   * One attempt for one staged change, for the autosave manager's single send
+   * order (9.13.0). The caller holds the case's write lock. Deleting an event
+   * the server no longer has is done, not refused.
+   */
+  async function sendOne(caseId: string, operationId: string): Promise<SendOneOutcome> {
+    const operation = (await load(caseId)).find((item) => item.operationId === operationId)
+    if (!operation) return "missing"
+    let revision = operation.baseRevision
+    try {
+      let result = await deps.send(operation, revision)
+      if (!result.ok && result.status === 409 && result.serverRevision != null) {
+        revision = result.serverRevision
+        await replaceRevision(caseId, operationId, revision)
+        result = await deps.send(operation, revision)
+      }
+      if (result.ok || (operation.kind === "event.delete" && result.status === 404)) {
+        await removeAcknowledged(caseId, operationId)
+        if (result.ok) deps.onAcknowledged?.(caseId, result.revision ?? revision)
+        return "saved"
+      }
+      // 412: a later change to this entry was made on another device (9.13.0);
+      // this one is refused for good and listed, never retried.
+      if (result.status === 400 || result.status === 403 || result.status === 404 || result.status === 412) {
+        await recordDropped(operation, result.status)
+        await removeAcknowledged(caseId, operationId)
+        return "dropped"
+      }
+      if (result.status === 401 || result.status === 409) return "stop"
+      return "retry"
+    } catch (error) {
+      return deps.isNetworkError(error) ? "offline" : "retry"
+    }
+  }
+
+  /** Drops every staged change to one event: its creation never left the device. */
+  function removeForEvent(caseId: string, eventId: string): Promise<void> {
+    return storageQueue.enqueue(async () => {
+      const current = await load(caseId)
+      const next = current.filter((item) => item.eventId !== eventId)
+      if (next.length === current.length) return
+      if (next.length === 0) await deps.kv.delete(eventMutationKey(caseId))
+      else await deps.kv.set(eventMutationKey(caseId), JSON.stringify(next))
+      if (next.length === 0) await storeIndex((await loadIndex()).filter((id) => id !== caseId))
+      notify()
+    })
+  }
+
   async function flushAll(): Promise<{ saved: number; failed: number; dropped: number }> {
     let saved = 0
     let failed = 0
@@ -215,5 +264,5 @@ export function createEventMutationJournal(deps: EventMutationJournalDeps) {
     await store(caseId, [])
   }
 
-  return { stage, load, total, flushCase, flushAll, clearCase, clearAll }
+  return { stage, load, total, flushCase, flushAll, clearCase, clearAll, sendOne, removeForEvent }
 }

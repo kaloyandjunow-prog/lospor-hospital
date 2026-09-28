@@ -1,4 +1,6 @@
 import * as SecureStore from "expo-secure-store"
+import { readServerTime } from "@lospor/core/sync"
+import { serverClock } from "@/lib/server-clock"
 import { Platform } from "react-native"
 import type { AppLanguage } from "@/i18n/locale"
 import type { LegalAcceptanceReference } from "@/lib/legal-documents"
@@ -318,6 +320,7 @@ export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Res
   const timeout = timeoutController
     ? setTimeout(() => timeoutController.abort(), timeoutMs)
     : null
+  const sentAt = Date.now()
   try {
     const res = await fetch(apiUrl(path), {
       ...requestInit,
@@ -327,6 +330,9 @@ export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Res
       headers,
       signal: timeoutController?.signal ?? requestInit.signal,
     })
+    // Every response tells the clock how far this device is from the server (9.13.0).
+    const serverTime = res.headers ? readServerTime(res.headers) : null
+    if (serverTime != null) serverClock.observe(serverTime, sentAt, Date.now())
     if (res.ok) {
       lastOkRequest = new Date().toISOString()
     } else {

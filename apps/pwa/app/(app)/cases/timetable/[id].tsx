@@ -30,7 +30,7 @@ import { displayClinicalCode, localizeSummaryTimetableModel } from "@/lib/clinic
 type CaseData = {
   caseCode?: string | null
   status?: string
-  intraop?: { keyEvents?: unknown; startTime?: string | null } | null
+  intraop?: { keyEvents?: unknown; startTime?: string | null; timezone?: string | null } | null
   preop?: { plannedProcedure?: string | null } | null
 }
 
@@ -62,10 +62,12 @@ export default function TimetableViewerScreen() {
     buildSummaryTimetableModel(kev, language === "bg" ? "bg" : "en"),
     language,
   ), [kev, language])
-  const drugLog = useMemo(() => buildDrugLogEntries(kev, startISO).map(drug => ({
+  // Each dose at its own minute, in the case's zone (9.13.0).
+  const timeZone = caseData?.intraop?.timezone ?? null
+  const drugLog = useMemo(() => buildDrugLogEntries(kev, startISO, timeZone).map(drug => ({
     ...drug,
     name: displayClinicalCode("option:INTRAOP_DRUG", drug.name, language, { label: drug.name }),
-  })), [kev, language, startISO])
+  })), [kev, language, startISO, timeZone])
   const panels = useMemo(
     () => (model.hasData ? planPanels({ totalCols: model.nCols }) : []),
     [model],

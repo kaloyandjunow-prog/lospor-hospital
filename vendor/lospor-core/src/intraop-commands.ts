@@ -1,4 +1,5 @@
-import { INTRAOP_COLUMN_MS, sortIntraopEvents } from "./intraop-engine"
+import { INTRAOP_COLUMN_MS, INTRAOP_RESUME_WINDOW_MS, sortIntraopEvents, stopEnteredAhead } from "./intraop-engine"
+import { localTimeOf } from "./intraop-time"
 import type { LogEvent } from "./intraop-types"
 
 /**
@@ -302,6 +303,63 @@ export function intraopEndCaseStopEvent(
   }
 }
 
+const STOP_TYPES = new Set<LogEvent["type"]>(["infusion_stop", "fluid_end", "agent_stop", "gas_stop"])
+
+/**
+ * Stops entered ahead of their time whose time has come and which nobody has
+ * confirmed (9.13.0). Each is asked about -- stopped, or still running -- on
+ * the chart, at End case and before finalising.
+ */
+export function intraopUnconfirmedStops(events: LogEvent[], asOf: Date | string | number): LogEvent[] {
+  const atMs = ms(asOf)
+  return sortIntraopEvents(events).filter(event =>
+    STOP_TYPES.has(event.type)
+    && ms(event.ts) <= atMs
+    && stopEnteredAhead(event)
+    && !event.stopConfirmed)
+}
+
+/** "It stopped": the same stop, confirmed. "Still running" deletes the stop instead. */
+export function intraopConfirmStop(event: LogEvent): LogEvent {
+  return { ...event, stopConfirmed: true }
+}
+
+/**
+ * An entry dated after the end, marked as having happened: moved to the end.
+ * A stop moved there is a stop End case made, so Resume offers to remove it
+ * like any other -- before 9.13.0 it did not, and resuming left that item
+ * stopped.
+ */
+export function intraopMoveToEnd(event: LogEvent, endedAt: Date | string | number): LogEvent {
+  return {
+    ...event,
+    ts: new Date(ms(endedAt)).toISOString(),
+    ...(STOP_TYPES.has(event.type) ? { endCaseStop: true } : {}),
+  }
+}
+
+/**
+ * Stamps when each new or re-timed event was entered (9.13.0): a new event
+ * without an entry time gets `now`, and an event whose time was changed gets
+ * `now` and loses any stop confirmation -- a stop moved to a new time is a new
+ * guess. Everything else is returned as it was.
+ */
+export function stampEnteredEvents(
+  previous: LogEvent[],
+  next: LogEvent[],
+  now: Date | string | number,
+): LogEvent[] {
+  const recordedAt = new Date(ms(now)).toISOString()
+  const before = new Map(previous.map(event => [event.id, event]))
+  return next.map(event => {
+    const was = before.get(event.id)
+    if (!was) return event.recordedAt ? event : { ...event, recordedAt }
+    if (was.ts === event.ts) return event
+    const { stopConfirmed: _confirmed, ...rest } = event
+    return { ...rest, recordedAt }
+  })
+}
+
 /** The stops End case wrote, which Resume offers to remove. */
 export function intraopEndCaseStopIds(events: LogEvent[]): string[] {
   return events.filter(event => event.endCaseStop).map(event => event.id)
@@ -325,10 +383,14 @@ export function intraopEntriesOutsideCase(
   })
 }
 
-/** Finalisation is blocked while planned entries remain after the case end. */
+/**
+ * Finalisation is blocked while planned entries remain after the case end, or
+ * a stop entered ahead of its time is still unconfirmed (9.13.0).
+ */
 export function intraopCanFinalise(events: LogEvent[], endedAt: Date | string | number | null | undefined): boolean {
   if (endedAt == null) return false
   return intraopEventsAfter(events, endedAt).length === 0
+    && intraopUnconfirmedStops(events, endedAt).length === 0
 }
 
 /**
@@ -379,4 +441,27 @@ export function intraopAutoEndInstant(
     if (Number.isFinite(eventMs) && eventMs <= nowMs && eventMs > latest) latest = eventMs
   }
   return new Date(latest)
+}
+
+/**
+ * How long an ended case can still be resumed (9.13.0), one rule for both
+ * apps: the window counts from the saved end, read on the server-corrected
+ * clock, and a case ended automatically after 48 hours can always be resumed
+ * -- nobody chose to end it. `until` is when the window closes, as a time of
+ * day in the case's own zone, never the device's: a hosted server runs at GMT+1.
+ */
+export function intraopResumeWindow(
+  endedAt: Date | string | number,
+  now: Date | string | number,
+  options: { autoEnded?: boolean; timeZone?: string | null } = {},
+): { secondsLeft: number; unlimited: boolean; until: string | null } {
+  if (options.autoEnded) return { secondsLeft: 0, unlimited: true, until: null }
+  const closes = ms(endedAt) + INTRAOP_RESUME_WINDOW_MS
+  const left = Math.floor((closes - ms(now)) / 1000)
+  if (!Number.isFinite(left) || left <= 0) return { secondsLeft: 0, unlimited: false, until: null }
+  return {
+    secondsLeft: Math.min(left, INTRAOP_RESUME_WINDOW_MS / 1000),
+    unlimited: false,
+    until: options.timeZone ? localTimeOf(new Date(closes), options.timeZone) : null,
+  }
 }

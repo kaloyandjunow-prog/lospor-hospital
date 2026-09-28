@@ -121,7 +121,9 @@ export function EhrImportOffer({
     }
     if (result.status === "offer") {
       setState({ kind: "offer", offer: result.offer })
-      setOpen(true)
+      // Opened only when something is ticked to add; otherwise one press away
+      // rather than a sheet whose only button is disabled (1.4.13).
+      setOpen(result.offer.plan.preselectedKeys.length > 0)
       return
     }
     setState({ kind: result.status === "none" ? "none" : result.status })

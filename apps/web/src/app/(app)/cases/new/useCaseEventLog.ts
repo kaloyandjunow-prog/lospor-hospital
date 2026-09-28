@@ -1,3 +1,4 @@
+import { serverNow } from "@/lib/intraop-clock"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { LogEvent } from "@/types/timetable"
@@ -5,18 +6,21 @@ import { autosaveManager, onEventRefused } from "@/lib/autosave-manager"
 import { randomId } from "@/lib/random-id"
 import { applyIntraopEventOps, type IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 
-/**
- * The intraoperative event journal: the timeline's own append/replace/delete
- * plumbing, lifted out of the case wizard because none of it is wizard logic.
- * Every write goes through the outbox rather than straight to the server, so an
- * event recorded in theatre survives losing the network on the way out of it.
- */
 /** The timeline rules with a message of their own (intraop.timelineRules.refused). */
 const TIMELINE_RULE_CODES = new Set([
   "STOP_BEFORE_START", "NOT_RUNNING", "STOP_BEFORE_LATER_CHANGE", "ALREADY_RUNNING",
   "FUTURE_VITAL", "BEFORE_CASE_START", "AFTER_CASE_END",
+  // A later change to the entry was made on another screen (9.13.0).
+  "SUPERSEDED",
 ])
 
+/**
+ * The intraoperative event journal. Every chart change is one set of Core
+ * operations (applyEventOps), staged through the outbox so an entry made in
+ * theatre survives losing the network. The older per-entry handlers were
+ * removed in 9.13.0: nothing called them, and they read the log as last
+ * rendered, so an edit right after an add could be sent as a second add.
+ */
 export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: string) => string) {
   const [eventLog, setEventLog] = useState<LogEvent[]>([])
 
@@ -35,79 +39,6 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
       .catch(() => setEventLog(prev => prev.filter(event => event.id !== eventId)))
   }), [caseIdRef, t])
 
-  async function handleDeleteEvent(evId: string) {
-    const caseId = caseIdRef.current
-    if (!caseId) return
-    setEventLog(prev => prev.filter(e => e.id !== evId))
-    try {
-      await autosaveManager.stageEventMutation({
-        operationId: `web-delete-${randomId()}`,
-        caseId,
-        kind: "event.delete",
-        eventId: evId,
-        baseRevision: autosaveManager.getRevision(caseId, "intraop"),
-        queuedAt: new Date().toISOString(),
-      })
-    } catch {
-      toast.error(t("case.timelineEditFailed"))
-    }
-  }
-
-  async function handleLogEvent(event: LogEvent) {
-    const caseId = caseIdRef.current
-    if (!caseId) return
-    const durableEvent = { ...event, id: event.id ?? randomId() }
-    // Editing an existing entry has to replace it rather than append beside it;
-    // the id is what tells the two apart.
-    const replacesExisting = eventLog.some(item => item.id === durableEvent.id)
-    setEventLog(prev => [durableEvent, ...prev.filter(e => e.id !== durableEvent.id)])
-    try {
-      if (replacesExisting) {
-        await autosaveManager.stageEventMutation({
-          operationId: `web-upsert-${randomId()}`,
-          caseId,
-          kind: "event.upsert",
-          eventId: durableEvent.id,
-          event: durableEvent as Record<string, unknown>,
-          baseRevision: autosaveManager.getRevision(caseId, "intraop"),
-          queuedAt: new Date().toISOString(),
-        })
-      } else {
-        await autosaveManager.appendEvent(caseId, durableEvent as Record<string, unknown> & { id: string })
-      }
-    } catch {
-      console.error("[intraop event] EVENT_JOURNAL_FAILED")
-      toast.error(t("case.timelineEditFailed"))
-    }
-  }
-
-  /** Removing an infusion or a fluid removes every timeline entry it produced. */
-  async function handleLogEventDelete(match: { infId?: string; fluidId?: string }) {
-    const caseId = caseIdRef.current
-    if (!caseId) return
-    const key = match.infId ? "infId" : "fluidId"
-    const value = match.infId ?? match.fluidId
-    if (!value) return
-    const newLog = eventLog.filter(e => e[key] !== value)
-    if (newLog.length === eventLog.length) return
-    const removed = eventLog.filter(e => e[key] === value && e.id)
-    setEventLog(newLog)
-    try {
-      for (const event of removed) {
-        await autosaveManager.stageEventMutation({
-          operationId: `web-delete-${randomId()}`,
-          caseId,
-          kind: "event.delete",
-          eventId: event.id!,
-          baseRevision: autosaveManager.getRevision(caseId, "intraop"),
-          queuedAt: new Date().toISOString(),
-        })
-      }
-    } catch {
-      toast.error(t("case.timelineEditFailed"))
-    }
-  }
-
   /**
    * Applies one timeline edit (1.4.9): the adds, updates and removals the
    * Core edit translation produced, in one state change, each staged in the
@@ -122,13 +53,13 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
       for (const eventId of ops.remove) {
         await autosaveManager.stageEventMutation({
           operationId: `web-delete-${randomId()}`, caseId, kind: "event.delete", eventId,
-          baseRevision: base(), queuedAt: new Date().toISOString(),
+          baseRevision: base(), queuedAt: serverNow().toISOString(),
         })
       }
       for (const event of ops.update) {
         await autosaveManager.stageEventMutation({
           operationId: `web-upsert-${randomId()}`, caseId, kind: "event.upsert", eventId: event.id,
-          event: event as Record<string, unknown>, baseRevision: base(), queuedAt: new Date().toISOString(),
+          event: event as Record<string, unknown>, baseRevision: base(), queuedAt: serverNow().toISOString(),
         })
       }
       for (const event of ops.add) {
@@ -141,5 +72,5 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
     }
   }
 
-  return { eventLog, setEventLog, handleDeleteEvent, handleLogEvent, handleLogEventDelete, applyEventOps }
+  return { eventLog, setEventLog, applyEventOps }
 }

@@ -194,7 +194,8 @@ export function currentFluidRate(fluid: TimetableFluid): number | null {
   if (fluid.fluidEntryMode !== "RATE") return null
   const baseRate = Number(fluid.rate)
   let current = Number.isFinite(baseRate) ? baseRate : null
-  const orderedChanges = [...(fluid.rateChanges ?? [])]
+  // A planned change is not yet the running rate (9.13.0).
+  const orderedChanges = [...(fluid.rateChanges ?? [])].filter(change => !change.planned)
     .map((change, index) => ({ change, index, time: Date.parse(change.ts) }))
     .filter(item => Number.isFinite(item.time))
     .sort((left, right) => left.time - right.time || left.index - right.index)

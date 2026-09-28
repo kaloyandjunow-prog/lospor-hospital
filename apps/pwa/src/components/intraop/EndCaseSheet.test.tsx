@@ -121,7 +121,10 @@ describe("EndCaseSheet fluid cleanup", () => {
         visible
         onClose={() => {}}
         items={[]}
-        afterEnd={[{ id:"planned-1", label:"Ondansetron 4 mg", time:"23:30", color:"#f59e0b" }]}
+        afterEnd={[
+          { id:"planned-1", kind:"after_end", label:"Ondansetron 4 mg", time:"23:30", color:"#f59e0b" },
+          { id:"stop-1", kind:"unconfirmed_stop", label:"Remifentanil stop", time:"23:15", color:"#3b82f6" },
+        ]}
         onResolveAfterEnd={onResolveAfterEnd}
         decisions={{}}
         continueLabel="Finalise"
@@ -131,6 +134,9 @@ describe("EndCaseSheet fluid cleanup", () => {
     )
     expect(tree.root.findByProps({ testID:"end-case-finalize" }).props.disabled).toBe(true)
     act(() => { tree.root.findByProps({ testID:"end-case-after-end-delete-planned-1" }).props.onPress() })
-    expect(onResolveAfterEnd).toHaveBeenCalledWith("planned-1", "delete")
+    expect(onResolveAfterEnd).toHaveBeenCalledWith("planned-1", "did_not_happen")
+    // An unconfirmed stop is answered with its own two answers (9.13.0).
+    act(() => { tree.root.findByProps({ testID:"attention-still-running-stop-1" }).props.onPress() })
+    expect(onResolveAfterEnd).toHaveBeenCalledWith("stop-1", "still_running")
   })
 })
