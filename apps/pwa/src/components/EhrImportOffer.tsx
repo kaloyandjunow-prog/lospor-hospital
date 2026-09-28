@@ -8,6 +8,7 @@ import {
   recordEhrDecisions,
   type EhrImportOffer as Offer,
 } from "@/lib/ehr-import"
+import { offerHasQuestions, offerWithoutAccepted } from "@/lib/ehr-offer-remaining"
 import { STRINGS } from "@/i18n/strings"
 import { colors, withAlpha } from "@/theme/colors"
 import { EhrImportPanel } from "./EhrImportPanel"
@@ -86,6 +87,8 @@ type State =
   | { kind: "asking" }
   | { kind: "offer"; offer: Offer }
   | { kind: "none" }
+  /** The hospital sent something, and all of it is already decided. */
+  | { kind: "reviewed" }
   | { kind: "ambiguous" }
   | { kind: "unavailable" }
   | { kind: "error" }
@@ -108,10 +111,12 @@ export function EhrImportOffer({
   const strings = STRINGS[language as "en" | "bg"]
   const [state, setState] = useState<State>({ kind: "idle" })
   const [open, setOpen] = useState(false)
-  // Imports accepted on this screen (1.4.11). Accepting creates the case, and
-  // the new case asks again at once -- before the values are saved -- which
-  // reopened the same offer; accepting it again duplicated every list item.
-  const acceptedImportsRef = useRef(new Set<string>())
+  // Items accepted on this screen, per import (1.4.11, narrowed in 1.4.17).
+  // Accepting creates the case, and the new case asks again at once -- before
+  // the values are saved -- which reopened the same offer; accepting it again
+  // duplicated every list item. Only those items are held back now: the rest
+  // of the import is still the clinician's to decide.
+  const acceptedItemsRef = useRef(new Map<string, Set<string>>())
 
   const ask = useCallback(async (id: string | null) => {
     if (!identifier) return
@@ -119,16 +124,20 @@ export function EhrImportOffer({
     const result = id
       ? await lookupEhrImport(id, identifier, identifierType)
       : await lookupEhrImportWithoutCase(identifier, identifierType)
-    if (result.status === "offer" && acceptedImportsRef.current.has(result.offer.importId)) {
-      setState({ kind: "none" })
-      return
-    }
     if (result.status === "offer") {
-      setState({ kind: "offer", offer: result.offer })
+      const accepted = acceptedItemsRef.current.get(result.offer.importId)
+      const offer = accepted ? offerWithoutAccepted(result.offer, accepted) : result.offer
+      // Everything the hospital sent is already in the case or refused. That
+      // is not "the hospital holds nothing", which reads as no history at all.
+      if (!offer || !offerHasQuestions(offer)) {
+        setState({ kind: "reviewed" })
+        return
+      }
+      setState({ kind: "offer", offer })
       // Opened only when something is ticked to add. An offer left with just
       // older, undated or unconvertible results opened on a greyed-out
       // "Add selected (0)" (1.4.13); it stays one press away instead.
-      setOpen(result.offer.plan.preselectedKeys.length > 0)
+      setOpen(offer.plan.preselectedKeys.length > 0)
       return
     }
     setState({ kind: result.status === "none" ? "none" : result.status })
@@ -192,6 +201,7 @@ export function EhrImportOffer({
       {state.kind === "asking" ? banner(strings.ehrAsking, "info") : null}
       {state.kind === "ambiguous" ? banner(strings.ehrAmbiguous, "warn") : null}
       {state.kind === "none" ? banner(strings.ehrNothingHeld, "info") : null}
+      {state.kind === "reviewed" ? banner(strings.ehrAllReviewed, "info") : null}
 
       {state.kind === "error" ? banner(strings.ehrLookupFailed, "warn") : null}
 
@@ -246,7 +256,8 @@ export function EhrImportOffer({
             if (caseId) void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey])
           }}
           onAccept={async (patch, appliedKeys) => {
-            acceptedImportsRef.current.add(state.offer.importId)
+            const importId = state.offer.importId
+            acceptedItemsRef.current.set(importId, new Set([...(acceptedItemsRef.current.get(importId) ?? []), ...appliedKeys]))
             // The write goes first, deliberately. A failure between the two
             // leaves the import pending and self-corrects, because a value
             // already in the case comes back unchanged; recording first would
