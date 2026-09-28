@@ -22,6 +22,8 @@ describe("one search over the medication list", () => {
     expect(found.map(r => r.name)).toEqual(["Ampril", "Tritace", "Hartil"])
     // A name that only contains the query comes after one that starts with it.
     expect(searchMedications(rows, "amp").map(r => r.name)).toEqual(["Ampril", "Rampiril-X"])
+    // By rank, not by where the list happens to put them.
+    expect(searchMedications([...rows].reverse(), "amp").map(r => r.name)).toEqual(["Ampril", "Rampiril-X"])
   })
 
   it("finds by ATC code, whole or by prefix", () => {
@@ -30,7 +32,8 @@ describe("one search over the medication list", () => {
   })
 
   it("ignores accents and case, and answers nothing to nothing", () => {
-    expect(searchMedications([row("x", "Paracétamol", "Paracetamol", "N02BE01")], "PARACETAMOL")).toHaveLength(1)
+    expect(searchMedications([row("x", "Paracétamol", "Paracétamol", "N02BE01")], "PARACETAMOL")).toHaveLength(1)
+    expect(searchMedications([row("x", "Paracetamol", "Paracetamol", "N02BE01")], "parácetamol")).toHaveLength(1)
     expect(searchMedications(rows, "  ")).toEqual([])
   })
 
