@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.13.0",
+  "version": "9.13.1",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -77,6 +77,7 @@
     "./ehr-import": "./src/ehr-import.ts",
     "./ehr-import-transport": "./src/ehr-import-transport.ts",
     "./ehr-import-review": "./src/ehr-import-review.ts",
+    "./ehr-import-display": "./src/ehr-import-display.ts",
     "./ehr-import-apply": "./src/ehr-import-apply.ts",
     "./ehr-age": "./src/ehr-age.ts",
     "./ehr-safety-findings": "./src/ehr-safety-findings.ts",

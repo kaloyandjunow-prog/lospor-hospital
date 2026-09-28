@@ -1,5 +1,31 @@
 # Changelog - LOSPOR Core
 
+## [9.13.1] - 2026-09-28
+
+### Added
+
+- **A running item in the rows after now.** `runsOnAt` is the one rule: an
+  item that has started, has not stopped and has no planned stop at or
+  before a later row is still running there. `runningItemsByColumn` and
+  `runningItemsAt` take `{ projectRunning: true }` for the live chart of a
+  case not yet ended, and mark those rows `projected`, with the rate or
+  settings in force by then (planned changes due by that row included).
+  Never for a record, a summary or an ended case. A rate change for 15:55
+  could otherwise only be entered as a second infusion of the same drug,
+  which then counted alongside the first.
+
+### Fixed
+
+- **The import review in the clinician's language.** `describeEhrReviewItem`
+  (`@lospor/core/ehr-import-display`) is what one review row says, moved from
+  the two apps, which carried it word for word. It translates LOSPOR's own
+  codes the hospital sends: sex, age unit, yes/no answers, Rh factor, group O
+  as 0 in Bulgarian, and a medication's route. It dates a result by its day
+  where it was taken (the device's zone unless given one), in the language's
+  format, not by its UTC day, which put a sample drawn at 01:30 on the day
+  before. The 1.4.13 appliance showed "MALE", "YEARS", "true" and "TOPICAL"
+  under Bulgarian labels.
+
 ## [9.13.0] - 2026-09-28
 
 ### Added
