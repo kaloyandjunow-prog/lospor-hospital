@@ -3,7 +3,7 @@
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
   "release": "1.4.16",
   "policy": "backup-required",
-  "justification": "Conservative rather than assessed. 1.4.16 adds no migration, but a Status medication mapping now creates Drug rows keyed by the medication list (drug-cl009:<code>, drug-bda:<hash>) and imports resolve national product codes to them, and no release-specific rollback proof shows 1.4.15 services behaving correctly on mappings and imports written by 1.4.16. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
+  "justification": "Conservative rather than assessed. 1.4.16 adds one migration (Medication.standardConceptIds, an array column with an empty default, which 1.4.15 services would ignore), and a Status medication mapping now creates Drug rows keyed by the medication list (drug-cl009:<code>, drug-bda:<hash>) and imports resolve national product codes to them, and no release-specific rollback proof shows 1.4.15 services behaving correctly on mappings and imports written by 1.4.16. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
   "assessedBy": "maintainer",
   "assessedAt": "2026-09-28"
 }

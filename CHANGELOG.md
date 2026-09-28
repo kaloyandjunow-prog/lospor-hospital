@@ -1,8 +1,8 @@
 # Changelog - LOSPOR Hospital
 ## [1.4.16] - 2026-09-28
 
-Vendors Core, API, web and PWA 9.13.3. No database migration; a pre-update
-backup is still required. CVE-2026-16742 (libsystemd0/libudev1, Debian
+Vendors Core, API, web and PWA 9.13.3. One additive database migration
+(20260928120000_medication_concept_ids); a pre-update backup is required. CVE-2026-16742 (libsystemd0/libudev1, Debian
 bookworm, no fixed version) carried forward and accepted again; its expiry is
 not extended.
 
@@ -16,6 +16,14 @@ not extended.
   ATC; the bundled OMOP numbers cover 1,414 ATC codes, up from 1,036, and no
   existing mapping changed.
 - **The phone searches medications offline** (9.13.3), from the same list.
+- **A combination medication exports as the combination** (9.13.3). It was
+  mapped through its ATC code alone, whose Athena "Maps to" names one
+  ingredient of some combinations: Co-Diovan (valsartan with
+  hydrochlorothiazide) exported as valsartan. Following OMOP's convention it
+  now takes its own RxNorm concept where one fits, otherwise one row per
+  ingredient, and concept 0 where RxNorm names only some of its ingredients.
+  6,412 of the list's 7,688 products export with a concept, up from 5,919.
+  Cases saved before keep what they had.
 
 ### Fixed
 
