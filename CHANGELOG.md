@@ -1,4 +1,23 @@
 # Changelog - LOSPOR Hospital
+## [1.4.17] - 2026-09-28
+
+Hospital-only fix; Core, API, web and PWA stay 9.13.3. No database migration;
+a pre-update backup is still required. CVE-2026-16742 (libsystemd0/libudev1,
+Debian bookworm, no fixed version) carried forward and accepted again; its
+expiry is not extended.
+
+### Fixed
+
+- **Asking the hospital again offers what was left.** A clinician who took
+  some values from the hospital system, left the rest unticked and pressed
+  „Провери отново“ was told „Болничната система няма данни за този пациент“.
+  The appliance had offered the undecided items again, as designed; the phone
+  and web import screens dropped any second offer of an import they had
+  already accepted from (a guard against accepting twice before the case is
+  saved, since 1.4.11). Only the accepted items are held back now, and the
+  rest comes back unticked. When everything the hospital sent is already in
+  the case or declined, the screen says that instead of "no data".
+
 ## [1.4.16] - 2026-09-28
 
 1.4.15 was built but never published: 1.4.16 replaces it and carries
