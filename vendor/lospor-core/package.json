@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.13.1",
+  "version": "9.13.3",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -17,6 +17,8 @@
     "./premedication": "./src/premedication.ts",
     "./vocabulary": "./src/vocabulary/index.ts",
     "./vocabulary/procedure-codes": "./src/vocabulary/procedure-codes.ts",
+    "./vocabulary/medications": "./src/vocabulary/medications.ts",
+    "./medications": "./src/medications.ts",
     "./labs": "./src/labs.ts",
     "./catalog": "./src/catalog/index.ts",
     "./option-library": "./src/option-library.ts",
