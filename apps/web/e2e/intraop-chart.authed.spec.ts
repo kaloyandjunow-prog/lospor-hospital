@@ -463,15 +463,35 @@ test("a second screen watching the case writes nothing", async ({ page, browser 
 // the same as the PWA's rows. What a click there writes is read back from the
 // saved log: a change of the same infusion, never a second infusion.
 
+/**
+ * A case started twenty minutes ago with propofol running from fifteen minutes
+ * ago, so the chart has cells after now for it to run on in. Written through
+ * the API, as the other infusion tests here do (the upstream spec starts it
+ * through the flyout).
+ */
+async function createRecentCaseWithInfusion(page: Page) {
+  const id = await createStartedCase(page)
+  const record = await page.request.get(`/api/cases/${id}`)
+  const intraop = (await record.json()).intraop
+  const infusion = await page.request.post(`/api/cases/${id}/events`, {
+    headers: { Origin: ORIGIN, "x-lospor-intraop-revision": String(intraop.syncRevision) },
+    data: {
+      id: `e2e-propofol-start-${id}`, type: "infusion_start", infId: `e2e-propofol-${id}`, name: "Propofol",
+      rate: "6", unit: "mg/kg/hr", color: "#8b5cf6", ts: new Date(Date.parse(intraop.startedAt) + 5 * 60_000).toISOString(),
+    },
+  })
+  expect(infusion.ok(), `infusion event failed: ${infusion.status()} ${await infusion.text()}`).toBeTruthy()
+  return id
+}
+
 async function savedLog(page: Page, id: string) {
   const record = await page.request.get(`/api/cases/${id}`)
   return ((await record.json()).intraop?.keyEvents?.log ?? []) as { type: string; infId?: string; ts: string }[]
 }
 
 test("a change planned from a cell after now is on the same infusion, dated to that cell", async ({ page }) => {
-  const id = await createRecentCase(page)
+  const id = await createRecentCaseWithInfusion(page)
   const chart = await openChart(page, id)
-  await startInfusion(page, chart)
 
   const runsOn = chart.getByTestId("infusion-runs-on")
   await expect(runsOn.first()).toBeVisible({ timeout: 30_000 })
@@ -489,9 +509,8 @@ test("a change planned from a cell after now is on the same infusion, dated to t
 })
 
 test("Discontinue from a cell after now stops the infusion at that cell, not now", async ({ page }) => {
-  const id = await createRecentCase(page)
+  const id = await createRecentCaseWithInfusion(page)
   const chart = await openChart(page, id)
-  await startInfusion(page, chart)
 
   const runsOn = chart.getByTestId("infusion-runs-on")
   await expect(runsOn.first()).toBeVisible({ timeout: 30_000 })
@@ -534,6 +553,7 @@ test("the lab dialog on the chart knows the case and its AI consent", async ({ p
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT", aiOptIn: true },
       intraop: { startTime: "08:00" },
     },
