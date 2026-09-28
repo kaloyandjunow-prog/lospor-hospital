@@ -13,7 +13,7 @@ import type {
   ManagedAccount,
   OneTimeAccountLink,
 } from "./account-control.js"
-import type { ClinicalBaselineReadiness, ControlPlaneView, PreopAdministrationView } from "./control-plane.js"
+import { MEDICATION_CATALOG_ID, type ClinicalBaselineReadiness, type ControlPlaneView, type MedicationCandidate, type PreopAdministrationView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
 import {
   ADVANCED_SETTINGS,
@@ -1228,6 +1228,14 @@ function renderPreopAdministration(
   return `<div class="component"><h3>${localize(locale, "Preoperative profile administration", "Управление на профила за предоперативна оценка")}</h3><div class="facts">${textFact(localize(locale, "Catalog version", "Версия на каталога"), active?.catalogVersion ?? null)}${textFact(localize(locale, "Catalog questions", "Въпроси в каталога"), String(administration.catalog.length))}</div><p>${localize(locale, "The catalog is bundled and immutable. This screen can enable or disable questions, make enabled questions required or optional, and change their order. It cannot edit labels, answer options, clinical rules, or delete questions. Changes apply to every case from its next load: a case in progress starts asking a question switched on and stops asking one switched off, and answers already given are kept. Required questions are checked when a clinician continues to intraop.", "Каталогът е включен и неизменяем. Този екран може да включва или изключва въпроси, да прави включените въпроси задължителни или незадължителни и да променя реда им. Не може да променя етикети, отговори или клинични правила, нито да изтрива въпроси. Промените важат за всеки случай от следващото му зареждане: текущ случай започва да задава включен въпрос и спира да задава изключен, а вече дадените отговори се запазват. Задължителните въпроси се проверяват, когато клиницист продължи към интраоперативния етап.")}</p><form method="post" action="/status/control/preop-profile">${rows}<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save changes", "Запазване на промените")}</button></form>${previewPanel}</div>`
 }
 
+/** One unmapped medication code's search; results null when the search failed. */
+export type MedicationSearch = {
+  system: string
+  code: string
+  query: string
+  results: MedicationCandidate[] | null
+}
+
 export function renderControlPlane(
   view: ControlPlaneView | null,
   locale: StatusLocale = "bg",
@@ -1235,6 +1243,7 @@ export function renderControlPlane(
   notice?: string,
   audience: StatusNavAudience = "password",
   section?: string,
+  medicationSearch?: MedicationSearch,
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1519,22 +1528,39 @@ export function renderControlPlane(
   // raw HIS medication remains visible and an unmapped medication still follows
   // the ordinary clinician import screen; no accepted or frozen case is edited.
   const medicationCodes = view?.ehrMedicationCodes
-  const medicationDrugOptions = (selected: string | null, candidates: NonNullable<typeof medicationCodes>["unmapped"][number]["candidates"] = []) => {
-    const options = [...(candidates ?? []), ...(medicationCodes?.drugs ?? [])]
-      .filter((drug, index, all) => all.findIndex(candidate => candidate.id === drug.id) === index)
-    return options.map(drug => {
+  // Only products from the medication list can be chosen: a mapping names a
+  // list product (catalogId), and the API makes its Drug row on the spot.
+  const medicationDrugOptions = (candidates: readonly MedicationCandidate[]) => candidates
+    .filter((drug, index, all) => drug.catalogId && MEDICATION_CATALOG_ID.test(drug.catalogId)
+      && all.findIndex(candidate => candidate.catalogId === drug.catalogId) === index)
+    .map(drug => {
       const detail = [drug.inn, drug.atcCode, drug.form, drug.strength].filter(Boolean).join(" · ")
-      return "<option value='" + escapeHtml(drug.id) + "'" + (drug.id === selected ? " selected" : "") + ">" + escapeHtml(drug.name) + (detail ? " — " + escapeHtml(detail) : "") + "</option>"
+      return "<option value='" + escapeHtml(drug.catalogId!) + "'>" + escapeHtml(drug.name) + (detail ? " — " + escapeHtml(detail) : "") + "</option>"
     }).join("")
-  }
-  const unmappedMedicationRows = (medicationCodes?.unmapped ?? []).map(row =>
-    "<div class='component'><form method='post' action='/status/control/ehr-medication-codes/map'>" +
-    "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
-    "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
+  const unmappedMedicationRow = (row: NonNullable<typeof medicationCodes>["unmapped"][number], index: number) => {
+    const search = medicationSearch && medicationSearch.system === row.system && medicationSearch.code === row.code ? medicationSearch : undefined
+    const found = search?.results ?? []
+    const searchNote = !search || search.query.length < 2 ? ""
+      : search.results === null ? "<p class='component-detail'>" + localize(locale, "The search could not reach the hospital system. Try again.", "Търсенето не достигна до болничната система. Опитайте отново.") + "</p>"
+      : "<p class='component-detail'>" + escapeHtml(localize(locale, `${found.length} found for “${search.query}”`, `Намерени: ${found.length} за „${search.query}“`)) + "</p>"
+    const options = medicationDrugOptions([...found, ...(row.candidates ?? [])])
+    return "<div class='component' id='medication-code-" + index + "'>" +
     "<p><strong>" + escapeHtml(row.code) + "</strong>" + (row.reportedLabel ? " — " + escapeHtml(row.reportedLabel) : "") + "</p>" +
     "<p class='component-detail'>" + (row.system ? escapeHtml(row.system) + " · " : "") + escapeHtml(seenFact(row)) + "</p>" +
-    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Тълкувайте това като лекарство от LOSPOR") + "<select name='drugId' required><option value=''>" + localize(locale, "Choose a drug…", "Изберете лекарство…") + "</option>" + medicationDrugOptions(null, row.candidates) + "</select></label>" +
-    "<button type='submit'>" + localize(locale, "Map this medication", "Съпоставяне на лекарството") + "</button></form></div>").join("")
+    "<form method='get' action='/status/control/ehr#medication-code-" + index + "'>" +
+    "<input type='hidden' name='medicationSystem' value='" + escapeHtml(row.system) + "'>" +
+    "<input type='hidden' name='medicationCode' value='" + escapeHtml(row.code) + "'>" +
+    "<label>" + localize(locale, "Search the medication list (name, INN or ATC code)", "Търсене в списъка с лекарства (име, INN или ATC код)") +
+    "<input type='search' name='medicationSearch' minlength='2' maxlength='100' required value='" + escapeHtml(search?.query ?? "") + "'></label>" +
+    "<button type='submit'>" + localize(locale, "Search", "Търсене") + "</button></form>" + searchNote +
+    "<form method='post' action='/status/control/ehr-medication-codes/map'>" +
+    "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
+    "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
+    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Тълкувайте това като лекарство от LOSPOR") + "<select name='catalogId' required><option value=''>" +
+    (options ? localize(locale, "Choose a drug…", "Изберете лекарство…") : localize(locale, "Search above to find the drug", "Потърсете лекарството по-горе")) + "</option>" + options + "</select></label>" +
+    "<button type='submit'>" + localize(locale, "Map this medication", "Съпоставяне на лекарството") + "</button></form></div>"
+  }
+  const unmappedMedicationRows = (medicationCodes?.unmapped ?? []).map(unmappedMedicationRow).join("")
   const mappedMedicationRows = (medicationCodes?.mapped ?? []).map(row =>
     "<div class='component'><div class='facts'>" +
     textFact(escapeHtml(row.code), escapeHtml(row.drugName)) +

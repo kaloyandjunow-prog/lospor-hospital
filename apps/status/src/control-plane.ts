@@ -304,14 +304,7 @@ export type ControlPlaneView = {
       seenCount: number
       lastSeenAt: string | null
       mappedAt: string | null
-      candidates?: {
-        id: string
-        name: string
-        inn: string | null
-        atcCode: string | null
-        form: string | null
-        strength: string | null
-      }[]
+      candidates?: MedicationCandidate[]
 
     }[]
     mapped: {
@@ -397,6 +390,23 @@ type CertificateView = {
   validFrom: string
   validTo: string
 }
+
+/**
+ * A product from the medication list. `catalogId` (cl009:<code> or
+ * bda:<hash>) is what a mapping sends; an API older than 1.4.16 sends none.
+ */
+export type MedicationCandidate = {
+  id: string
+  catalogId?: string
+  name: string
+  inn: string | null
+  atcCode: string | null
+  form: string | null
+  strength: string | null
+  nhisCode?: string | null
+}
+
+export const MEDICATION_CATALOG_ID = /^(cl009|bda):[A-Za-z0-9_-]{1,64}$/
 
 export interface ControlPlanePort {
   get(): Promise<ControlPlaneView>
@@ -508,7 +518,9 @@ export interface ControlPlanePort {
   unmapEhrLabCode(input: { system: string; code: string }): Promise<void>
   mapEhrVitalCode(input: { system: string; code: string; field: string }): Promise<void>
   unmapEhrVitalCode(input: { system: string; code: string }): Promise<void>
-  mapEhrMedicationCode(input: { system: string; code: string; drugId: string }): Promise<void>
+  mapEhrMedicationCode(input: { system: string; code: string; catalogId: string }): Promise<void>
+  /** Search the medication list by name, INN or ATC code. */
+  searchMedications(query: string): Promise<MedicationCandidate[]>
   unmapEhrMedicationCode(input: { system: string; code: string }): Promise<void>
   /**
    * Say which code list an address stands for, or take the answer back with
@@ -917,15 +929,19 @@ function ehrMedicationCodesShape(value: unknown): boolean {
     && nullableText(row.atcCode, 64)
     && nullableText(row.form, 256)
     && nullableText(row.strength, 256))
-  const candidates = value.unmapped.every(row => !isRecord(row) || row.candidates === undefined || (Array.isArray(row.candidates) && row.candidates.every(candidate =>
-    isRecord(candidate)
+  const candidates = value.unmapped.every(row => !isRecord(row) || row.candidates === undefined || (Array.isArray(row.candidates) && row.candidates.every(medicationCandidateShape)))
+  return unmapped && mapped && drugs && candidates
+}
+
+function medicationCandidateShape(candidate: unknown): boolean {
+  return isRecord(candidate)
     && Boolean(text(candidate.id, 128))
+    && (candidate.catalogId === undefined || (typeof candidate.catalogId === "string" && MEDICATION_CATALOG_ID.test(candidate.catalogId)))
     && Boolean(text(candidate.name, 512))
     && nullableText(candidate.inn, 512)
     && nullableText(candidate.atcCode, 64)
     && nullableText(candidate.form, 256)
-    && nullableText(candidate.strength, 256))))
-  return unmapped && mapped && drugs && candidates
+    && nullableText(candidate.strength, 256)
 }
 type Fetch = typeof globalThis.fetch
 
@@ -1080,6 +1096,13 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   mapEhrMedicationCode(input: Parameters<ControlPlanePort["mapEhrMedicationCode"]>[0]): Promise<void> {
     return this.mutate("/ehr-medication-codes", { action: "map", ...input })
+  }
+  async searchMedications(query: string): Promise<MedicationCandidate[]> {
+    const value = await this.request(`/ehr-medication-codes?q=${encodeURIComponent(query)}`)
+    if (!isRecord(value) || !Array.isArray(value.results) || !value.results.every(medicationCandidateShape)) {
+      throw new ControlPlaneClientError("CONTROL_INVALID_RESPONSE")
+    }
+    return value.results as MedicationCandidate[]
   }
   unmapEhrMedicationCode(input: Parameters<ControlPlanePort["unmapEhrMedicationCode"]>[0]): Promise<void> {
     return this.mutate("/ehr-medication-codes", { action: "unmap", ...input })

@@ -30,7 +30,7 @@ import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
 import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
 import { activePreopProfile, ensurePreopProfile, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
-import { ehrMedicationCodeMapView } from "./ehr-medication-code-map"
+import { ehrMedicationCodeMapView, ensureCatalogDrug } from "./ehr-medication-code-map"
 import {
   approveHospitalOmopExport,
   issueHospitalResearchGrant,
@@ -1519,11 +1519,14 @@ export async function setEhrVitalCodeMapping(input: z.infer<typeof ehrVitalCodeM
   })
 }
 
+// A product from Core's medication list (catalogId, what Status sends from
+// 1.4.16) or an existing Drug row (drugId, an older Status). Exactly one.
 export const ehrMedicationCodeMapSchema = z.object({
   system: z.string().trim().max(512).default(""),
   code: z.string().trim().min(1).max(512),
-  drugId: z.string().trim().min(1).max(128),
-}).strict()
+  drugId: z.string().trim().min(1).max(128).optional(),
+  catalogId: z.string().trim().regex(/^(cl009|bda):[A-Za-z0-9_-]{1,64}$/).optional(),
+}).strict().refine(input => Boolean(input.drugId) !== Boolean(input.catalogId))
 
 export const ehrMedicationCodeUnmapSchema = z.object({
   system: z.string().trim().max(512).default(""),
@@ -1534,10 +1537,9 @@ export async function setEhrMedicationCodeMapping(input: z.infer<typeof ehrMedic
   const parsed = ehrMedicationCodeMapSchema.parse(input)
   return prisma.$transaction(async tx => {
     const actor = await operatorActor(tx)
-    const drug = await tx.drug.findUnique({
-      where: { id: parsed.drugId },
-      select: { id: true },
-    })
+    const drug = parsed.catalogId
+      ? await ensureCatalogDrug(tx, parsed.catalogId).then(id => id ? { id } : null)
+      : await tx.drug.findUnique({ where: { id: parsed.drugId }, select: { id: true } })
     if (!drug) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
     const previous = await tx.hospitalEhrMedicationCodeMap.findUnique({
       where: { system_code: { system: parsed.system, code: parsed.code } },

@@ -14,7 +14,7 @@ import {
   readTerminologyPackagesSignal,
   readUpdateSignal,
 } from "./signals.js"
-import type { MaintenanceView, ReleaseView } from "./ui.js"
+import type { MaintenanceView, MedicationSearch, ReleaseView } from "./ui.js"
 import {
   PREOP_ORDER_SCRIPT,
   STATUS_NAV,
@@ -84,6 +84,7 @@ import {
   ControlPlaneClient,
   ControlPlaneClientError,
   EHR_CODE_LIST_ANSWERS,
+  MEDICATION_CATALOG_ID,
   type ControlPlanePort,
   type EhrCodeListAnswer,
   type ResearchGrantInput,
@@ -1115,6 +1116,7 @@ export function createStatusApp({
     error?: string,
     notice?: string,
     section?: string,
+    medicationSearch?: MedicationSearch,
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1124,7 +1126,19 @@ export function createStatusApp({
       notice,
       "password",
       section,
+      medicationSearch,
     )
+  }
+
+  // One unmapped medication code's search of the medication list, asked for
+  // with a plain GET form so the page keeps working without JavaScript.
+  const medicationSearchFor = async (context: Context): Promise<MedicationSearch | undefined> => {
+    const query = (context.req.query("medicationSearch") ?? "").trim().slice(0, 100)
+    const code = (context.req.query("medicationCode") ?? "").trim()
+    if (!code || code.length > 512) return undefined
+    const system = (context.req.query("medicationSystem") ?? "").trim().slice(0, 512)
+    const results = query.length >= 2 ? await controlPlane.searchMedications(query).catch(() => null) : []
+    return { system, code, query, results }
   }
 
   type ControlStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503
@@ -1274,6 +1288,11 @@ export function createStatusApp({
     return value
   }
 
+  const formCatalogId = (value: string): string => {
+    if (!MEDICATION_CATALOG_ID.test(value)) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+    return value
+  }
+
   const controlGet = async (context: Context, section?: string) => {
     const locale = currentLocale(context)
     const session = passwordAccountSession(context)
@@ -1285,7 +1304,8 @@ export function createStatusApp({
         "Влезте с администраторската парола, за да използвате управлението на болничната система.",
       ), undefined, "recovery", section), 403)
     }
-    return context.html(await controlHtml(locale, undefined, undefined, section))
+    const medicationSearch = section === "ehr" ? await medicationSearchFor(context) : undefined
+    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch))
   }
   app.get("/status/control", context => controlGet(context))
   // One address per section, written as literals rather than a loop so the
@@ -1662,7 +1682,7 @@ export function createStatusApp({
     body => controlPlane.mapEhrMedicationCode({
       system: formText(body, "system", 0, 512),
       code: formText(body, "code", 1, 512),
-      drugId: formId(formText(body, "drugId", 1, 128)),
+      catalogId: formCatalogId(formText(body, "catalogId", 1, 80)),
     }),
     locale => localize(locale, "The medication code was mapped and audited. Future imports will show the selected LOSPOR drug as the proposal.", "Лекарственият код беше съпоставен и одитиран. При бъдещи вносове избраното лекарство от LOSPOR ще се показва като предложение."),
     "ehr",

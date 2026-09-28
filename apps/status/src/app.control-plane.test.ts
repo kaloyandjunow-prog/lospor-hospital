@@ -278,6 +278,11 @@ const VIEW: ControlPlaneView = {
   },
 }
 
+const AMLODIPINE = {
+  id: "drug-cl009:2208", catalogId: "cl009:2208", name: "Amlodipin Aurobindo",
+  inn: "Amlodipine", atcCode: "C08CA01", form: "Tablet", strength: "5 mg", nhisCode: "2208",
+}
+
 const databases: StatusDatabase[] = []
 afterEach(() => {
   while (databases.length) databases.pop()?.close()
@@ -311,6 +316,7 @@ function setup() {
     unmapEhrVitalCode: vi.fn(async () => {}),
     mapEhrMedicationCode: vi.fn(async () => {}),
     unmapEhrMedicationCode: vi.fn(async () => {}),
+    searchMedications: vi.fn(async (query: string) => query === "amlo" ? [AMLODIPINE] : []),
     answerEhrCodeSystem: vi.fn(async () => {}),
     updatePreopProfile: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
@@ -1158,6 +1164,95 @@ describe("the laboratory code map", () => {
     expect(response.status).toBe(200)
     expect(await response.text()).toContain("password")
     expect(controlPlane.mapEhrLabCode).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The medication code map (1.4.16). The dropdown used to hold the first 500
+ * Drug rows alphabetically, and nothing on a site that never ran the
+ * terminology import, so a code could not be mapped to most drugs. Each code
+ * now searches the whole medication list and maps to a list product.
+ */
+describe("the medication code map", () => {
+  const withMedicationCode = (controlPlane: ControlPlanePort) => {
+    vi.mocked(controlPlane.get).mockResolvedValue({
+      ...VIEW,
+      ehrMedicationCodes: {
+        unmapped: [{
+          system: "urn:bg:his:products", code: "994", reportedLabel: "Амлодипин 5",
+          seenCount: 2, lastSeenAt: "2026-09-27T08:00:00.000Z", mappedAt: null,
+          candidates: [{ ...AMLODIPINE, id: "drug-cl009:111", catalogId: "cl009:111", name: "Norvasc" }],
+        }],
+        mapped: [],
+        drugs: [],
+      },
+    })
+  }
+
+  it("searches the list for one code and offers what it found, before the suggestions", async () => {
+    const { app, auth, controlPlane } = setup()
+    withMedicationCode(controlPlane)
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr?medicationSystem=urn%3Abg%3Ahis%3Aproducts&medicationCode=994&medicationSearch=amlo", {
+      headers: { cookie: `${session}; lospor_status_locale=en` },
+    })
+
+    const html = await response.text()
+    expect(controlPlane.searchMedications).toHaveBeenCalledWith("amlo")
+    expect(html).toContain("1 found for “amlo”")
+    expect(html).toContain("name='medicationSearch' minlength='2' maxlength='100' required value='amlo'")
+    const select = html.slice(html.indexOf("name='catalogId'"))
+    expect(select.indexOf("value='cl009:2208'")).toBeGreaterThan(0)
+    expect(select.indexOf("value='cl009:2208'")).toBeLessThan(select.indexOf("value='cl009:111'"))
+  })
+
+  it("does not search for another code's form, or for one letter", async () => {
+    const { app, auth, controlPlane } = setup()
+    withMedicationCode(controlPlane)
+    const session = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr?medicationCode=994&medicationSearch=a", { headers: { cookie: session } })
+    expect(controlPlane.searchMedications).not.toHaveBeenCalled()
+    const html = await (await app.request("/status/control/ehr?medicationCode=995&medicationSearch=amlo", { headers: { cookie: session } })).text()
+    expect(html).not.toContain("value='cl009:2208'")
+  })
+
+  it("says so when the search fails, instead of showing no results", async () => {
+    const { app, auth, controlPlane } = setup()
+    withMedicationCode(controlPlane)
+    vi.mocked(controlPlane.searchMedications).mockRejectedValue(new Error("down"))
+    const session = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/ehr?medicationSystem=urn%3Abg%3Ahis%3Aproducts&medicationCode=994&medicationSearch=amlo", {
+      headers: { cookie: `${session}; lospor_status_locale=en` },
+    })).text()
+    expect(html).toContain("The search could not reach the hospital system.")
+  })
+
+  it("maps a code to a list product without a password", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-medication-codes/map", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "urn:bg:his:products", code: "994", catalogId: "cl009:2208" }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(controlPlane.mapEhrMedicationCode).toHaveBeenCalledWith({
+      system: "urn:bg:his:products", code: "994", catalogId: "cl009:2208",
+    })
+  })
+
+  it("refuses anything that is not a list product", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    for (const catalogId of ["drug-amlodipine", "cl009:22 08", "atc:C08CA01"]) {
+      await app.request("/status/control/ehr-medication-codes/map", {
+        method: "POST",
+        headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams({ system: "", code: "994", catalogId }),
+      })
+    }
+    expect(controlPlane.mapEhrMedicationCode).not.toHaveBeenCalled()
   })
 })
 
