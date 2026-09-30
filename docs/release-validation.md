@@ -21,7 +21,7 @@ npm run verify:provenance
 npm --prefix apps/api run test -- src/__tests__/finalize.test.ts src/__tests__/submit-for-review.test.ts src/lib/case-finalization.test.ts src/lib/pending-close.test.ts
 npm --prefix apps/api run test -- src/lib/hospital/ehr-import.test.ts src/lib/hospital/ehr-fhir-discovery.test.ts src/lib/hospital/ehr-fhir-read.test.ts
 npm --prefix apps/web run test -- src/components/case-summary/finalize-error.test.ts
-npm --prefix apps/web run e2e -- --project=authed pediatric-mode.authed.spec.ts
+npm run e2e:hospital-pediatric
 ```
 
 The pediatric lifecycle test must fail if `Case.clinicalMode` stops reaching

@@ -43,6 +43,7 @@
     "test:migrator-image": "sh scripts/test-migrator-image.sh",
     "e2e:clinical-golden": "npm --prefix apps/web run e2e -- --project=authed clinical-golden-flow.authed.spec.ts",
     "e2e:printable-record": "npm --prefix apps/web run e2e -- --project=authed print-and-pdf.authed.spec.ts",
+    "e2e:hospital-pediatric": "npm --prefix apps/web run e2e -- --config ../../playwright.hospital.config.ts",
     "e2e:pwa-offline": "npm --prefix apps/pwa run e2e:pwa -- offline-new-case.spec.ts",
     "e2e:browser-authenticated": "npm --prefix apps/browser run e2e -- authenticated.spec.ts --project=desktop",
     "e2e:web-full": "npm --prefix apps/web run e2e",

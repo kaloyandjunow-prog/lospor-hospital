@@ -269,6 +269,9 @@ jobs:
       - name: Run the complete Hospital Web E2E suite
         run: npm run e2e:web-full
 
+      - name: Run the Hospital-owned pediatric finalization regression
+        run: npm run e2e:hospital-pediatric
+
       - name: Run the complete Hospital PWA E2E suite
         run: npm run e2e:pwa-full
 
