@@ -37,6 +37,9 @@ accepted again; its expiry is not extended.
   submit-for-review and finalize with the production intraoperative timing
   payload; Hospital EHR/FHIR tests cover the import
   review path and HAPI-shaped discovery/read behavior.
+- The Hospital-owned Playwright config anchors the reused API and Web dev
+  servers to the vendored app directories, so the independent regression can
+  run after the full Web suite on CI.
 
 ## [1.4.17] - 2026-09-28
 
