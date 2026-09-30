@@ -34,7 +34,8 @@ accepted again; its expiry is not extended.
 - Biting Core, API and Web regressions cover a complete pediatric case whose
   pre-op row has `ageValue`/`ageUnit` but no row-level clinical mode.
 - Authenticated Playwright covers pediatric mode decision, completion,
-  submit-for-review and finalize; Hospital EHR/FHIR tests cover the import
+  submit-for-review and finalize with the production intraoperative timing
+  payload; Hospital EHR/FHIR tests cover the import
   review path and HAPI-shaped discovery/read behavior.
 
 ## [1.4.17] - 2026-09-28
