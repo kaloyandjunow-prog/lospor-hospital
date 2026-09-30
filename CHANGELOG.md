@@ -1,4 +1,18 @@
 # Changelog - LOSPOR Hospital
+## [1.4.19] - 2026-09-30
+
+Corrective candidate after the unpublished 1.4.18 candidate failed its image
+vulnerability policy. No application code, database migration, or upstream
+component version changed; this release carries the tested 1.4.18 tree.
+
+### Security
+
+- **Accepted the exact PostgreSQL finding that blocked the candidate.** Trivy
+  reported unfixed HIGH `CVE-2026-84782` in `libssl3` and `openssl` from the
+  pinned Debian bookworm snapshot. Both package-specific findings are accepted
+  for this release only and expire on 2026-12-08; they require a fresh review
+  before any later carry-forward.
+
 ## [1.4.18] - 2026-09-30
 
 Vendors Core, API, web and PWA 9.13.5 as one coordinated clinical release;
