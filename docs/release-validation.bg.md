@@ -5,6 +5,32 @@
 Hospital release е приемлив само след успешни automated quality workflow и
 Linux appliance drill. Serverless демонстрацията не е част от упражнението.
 
+За клиничния кандидат 1.4.18 координираният набор е Core, API, Web и PWA
+9.13.5; Browser е 0.8.1. Прегледайте и внесете промените в този ред:
+Core, Web, PWA, API. API е нарочно последен, защото маршрутите за
+финализиране използват общия Core договор. Локалните Hospital package
+overlay-и се запазват, а `UPSTREAM_VERSIONS.json` записва точните commit-и и
+commit-натите tree ID стойности.
+
+Доказателствата за тази промяна са изпълними, а не списък от тестове, които
+могат да останат зелени, без да стигнат до дефекта:
+
+```sh
+npm run verify:provenance
+npm --prefix apps/api run test -- src/__tests__/finalize.test.ts src/__tests__/submit-for-review.test.ts src/lib/case-finalization.test.ts src/lib/pending-close.test.ts
+npm --prefix apps/api run test -- src/lib/hospital/ehr-import.test.ts src/lib/hospital/ehr-fhir-discovery.test.ts src/lib/hospital/ehr-fhir-read.test.ts
+npm --prefix apps/web run test -- src/components/case-summary/finalize-error.test.ts
+npm run e2e:hospital-pediatric
+```
+
+Тестът за педиатричния жизнен цикъл трябва да се провали, ако
+`Case.clinicalMode` престане да стига до общия валидатор: pre-op фикстурата
+има педиатрични стойност и единица за възрастта, но няма клиничен режим в
+pre-op реда, след което случаят трябва да мине през submit-for-review и
+finalize. Пълните Playwright набори за Web, PWA и Browser, синтетичният
+Central full story и Status fixture/contract/smoke проверките остават задължителни;
+фокусираните команди са допълнително доказателство, не заместител.
+
 Quality workflow трябва задължително да извика пълната проверка
 `npm run test:update-pipeline`. Тя обхваща update compatibility, общото
 заключване за backup/update, ограниченията за capacity и retention,
@@ -354,7 +380,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.4.17"
+$Version = "1.4.18"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -406,7 +432,7 @@ input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.17-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.18-release.lock
 ```
 
 Върнете само публичния `lospor-hospital-<version>-release.lock.sig` в
@@ -483,7 +509,7 @@ Candidate workflow също иска от GitHub атестация за lock, m
 и `prepare` го изискват. Всеки може да провери изтеглен файл:
 
 ```sh
-gh attestation verify lospor-hospital-1.4.17-release.lock \
+gh attestation verify lospor-hospital-1.4.18-release.lock \
   --repo kaloyandjunow-prog/lospor-hospital \
   --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
 ```
@@ -719,7 +745,7 @@ Hyper-V хост (с администраторски права). Той съз
 записва резултата, а машината се премахва, освен ако не е зададен `-Keep`.
 
 ```powershell
-.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.17 -EvidencePath .\gate.json
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.18 -EvidencePath .\gate.json
 ```
 
 **Всички launcher команди на тази страница се изпълняват като root.**

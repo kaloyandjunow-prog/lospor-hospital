@@ -1,5 +1,29 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.5] - 2026-09-30
+
+### Fixed
+
+- **The pediatric complete-case regression uses a patient number.** The
+  end-to-end submit-for-review/finalize path now supplies the patient identity
+  required by the Hospital API, so the test reaches the lifecycle assertions.
+- The Web client version header is stamped to 9.13.5 with the package release.
+
+### Security
+
+- **Refreshed the high-severity transitive dependencies** `brace-expansion`
+  and `undici` to their patched releases. The application code and clinical
+  contract are unchanged.
+
+## [9.13.4] - 2026-09-30
+
+### Fixed
+
+- **Finalization explains incomplete demographics.** A structured
+  `incomplete_preop` refusal now identifies missing age, sex, height, or weight
+  when the server reports the demographics blocker, instead of showing a raw
+  protocol code.
+
 ## [9.13.3] - 2026-09-28
 
 ### Changed

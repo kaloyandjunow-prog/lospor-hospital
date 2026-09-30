@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Core
 
+## [9.13.5] - 2026-09-30
+
+### Security
+
+- **Refreshed the transitive brace-expansion dependency** to the patched
+  release. This is a dependency-only patch; the clinical contract and runtime
+  behavior are unchanged.
+
+## [9.13.4] - 2026-09-30
+
+### Fixed
+
+- **Finalization uses the recorded clinical mode.** Shared case-readiness validation now evaluates pediatric preoperative demographics using the authoritative Case clinical mode, even when the persisted preoperative row does not repeat it.
+
 ## [9.13.3] - 2026-09-28
 
 ### Added

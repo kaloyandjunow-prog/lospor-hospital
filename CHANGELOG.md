@@ -1,4 +1,47 @@
 # Changelog - LOSPOR Hospital
+## [1.4.18] - 2026-09-30
+
+Vendors Core, API, web and PWA 9.13.5 as one coordinated clinical release;
+the API promotion was performed last. Browser is 0.8.1. No database
+migration; a pre-update backup is still required. CVE-2026-16742
+(libsystemd0/libudev1, Debian bookworm, no fixed version) carried forward and
+accepted again; its expiry is not extended.
+
+### Security
+
+- Coordinated upstream lockfile refreshes remove the fixable high-severity
+  `brace-expansion` and `undici` advisories from the shipped application set.
+- Corrected the Hospital API export provenance constants to identify the
+  vendored API and Core trees as 9.13.5.
+
+### Fixed
+
+- **A pediatric imported case can be finalized.** Shared case-readiness
+  validation now receives the authoritative `Case.clinicalMode` and evaluates
+  imported pediatric demographics as pediatric even when the persisted pre-op
+  row does not repeat the mode. The API forwards that mode on direct create,
+  submit-for-review, manual finalize and automatic close.
+- **EHR pediatric mode selection remains a real gate.** An imported pediatric
+  age still requires the clinician to choose pediatric mode; once the case is
+  completed, the same imported-shaped record can pass submit-for-review and
+  finalization.
+- **Finalization errors name the missing data.** The Web case summary maps an
+  `incomplete_preop` demographics blocker to the actual age/sex/height/weight
+  message instead of exposing a generic or raw reason code.
+
+### Verification
+
+- Biting Core, API and Web regressions cover a complete pediatric case whose
+  pre-op row has `ageValue`/`ageUnit` but no row-level clinical mode.
+- Authenticated Playwright covers pediatric mode decision, completion,
+  submit-for-review and finalize with the production intraoperative timing
+  payload in both the vendored Web and Hospital-owned regressions; Hospital
+  EHR/FHIR tests cover the import review path and HAPI-shaped discovery/read
+  behavior.
+- The Hospital-owned Playwright config anchors the reused API and Web dev
+  servers to the vendored app directories, so the independent regression can
+  run after the full Web suite on CI.
+
 ## [1.4.17] - 2026-09-28
 
 Hospital-only fix; Core, API, web and PWA stay 9.13.3. No database migration;

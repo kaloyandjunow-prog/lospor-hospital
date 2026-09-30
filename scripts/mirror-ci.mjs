@@ -54,6 +54,7 @@ const listOnly = args.has("--list")
  */
 const NOT_MIRRORED = {
   "e2e:web-full": "Playwright + a live stack",
+  "e2e:hospital-pediatric": "Playwright + a live stack",
   "e2e:pwa-full": "Playwright + a live stack",
   "e2e:browser-full": "Playwright + a live stack",
   "test:migrator-image": "builds a Docker image",

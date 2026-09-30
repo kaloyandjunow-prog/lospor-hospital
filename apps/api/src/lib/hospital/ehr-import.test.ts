@@ -4,6 +4,8 @@ vi.mock("server-only", () => ({}))
 vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
+import { applyEhrSelections } from "@lospor/core/ehr-import-apply"
+import { evaluateCaseFinalization } from "@lospor/core/clinical-validation"
 
 import {
   ehrPayloadHash,
@@ -391,6 +393,67 @@ describe("the plan is rebuilt against the case as it stands", () => {
 
     expect(result?.plan.items[0].state).toBe("needs-mode-decision")
     expect(result?.plan.preselectedKeys).toEqual([])
+  })
+
+  it("carries a HAPI-shaped pediatric import through mode choice and finalization", async () => {
+    // HAPI FHIR values enter the appliance through normalizeEhrImport. This is
+    // intentionally the importable part of a complete pre-op: airway and ASA
+    // remain the anaesthetist's own judgement and are added below, just as the
+    // real review screen requires.
+    const { db, id } = await staged({
+      ageYears: 7,
+      sex: "MALE",
+      heightCm: 122,
+      weightKg: 24,
+      diagnoses: [{ label: "Recurrent tonsillitis" }],
+      procedures: [{ label: "Tonsillectomy" }],
+      bpSystolic: 106,
+      bpDiastolic: 68,
+      heartRate: 88,
+      respiratoryRate: 20,
+    })
+
+    const adultPlan = await ehrReviewPlanFor(db, {
+      importId: id, institutionId: "inst-1", current: {},
+      currentClinicalMode: "ADULT", now: NOW,
+    })
+    expect(adultPlan?.plan.items.find(item => item.itemKey === "ageYears")?.state)
+      .toBe("needs-mode-decision")
+    expect(adultPlan?.plan.preselectedKeys).not.toContain("ageYears")
+
+    const pediatricPlan = await ehrReviewPlanFor(db, {
+      importId: id, institutionId: "inst-1", current: {},
+      currentClinicalMode: "PEDIATRIC", now: NOW,
+    })
+    expect(pediatricPlan?.plan.preselectedKeys).toContain("ageYears")
+    const applied = applyEhrSelections({
+      plan: pediatricPlan!.plan,
+      selectedKeys: pediatricPlan!.plan.preselectedKeys,
+      current: {},
+      currentClinicalMode: "PEDIATRIC",
+    })
+    expect(applied.refused).toEqual([])
+    expect(applied.patch).toMatchObject({ ageValue: 7, ageUnit: "YEARS", ageYears: 7 })
+
+    const readiness = evaluateCaseFinalization({
+      clinicalMode: "PEDIATRIC",
+      // The import deliberately does not write clinicalMode. That value lives
+      // on Case, and this is the exact shape that used to fail at finalization.
+      preop: { ...applied.patch, mallampati: "II", asaScore: "II" },
+      intraop: {
+        startedAt: new Date("2026-09-02T07:30:00Z"),
+        endedAt: new Date("2026-09-02T09:05:00Z"),
+        timezone: "Europe/Sofia",
+        techniques: ["GENERAL"],
+      },
+      postop: {
+        aldreteActivity: 2, aldreteRespiration: 2,
+        aldreteCirculation: 2, aldreteConsciousness: 2, aldreteSpO2: 2,
+        disposition: "WARD",
+      },
+    })
+    expect(readiness.valid).toBe(true)
+    expect(readiness.issues.filter(issue => issue.severity === "error")).toEqual([])
   })
 
   it("rebuilds tag and lab shapes, not just scalars", async () => {

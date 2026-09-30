@@ -8,6 +8,7 @@ import { displayClinicalCode } from "@/lib/clinical-display"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { usePendingCloseCountdown } from "@/hooks/usePendingCloseCountdown"
 import type { LABELS } from "@/components/case-summary/labels"
+import { finalizeErrorMessage } from "@/components/case-summary/finalize-error"
 
 type Labels = (typeof LABELS)["en" | "bg"]
 
@@ -96,16 +97,7 @@ export function ReviewBar({
       }
       if (options.automatic) return
       const body = await res.json().catch(() => ({}))
-      const REASON_LABELS: Record<string, string> = {
-        missing_technique:      L.finalizeMissingTechnique,
-        missing_postop:         L.finalizeMissingPostop,
-        missing_aldrete:        L.finalizeMissingAldrete,
-        missing_disposition:    L.finalizeMissingDisposition,
-        missing_intraop:        L.finalizeMissingIntraop,
-        missing_preop:          L.finalizeMissingPreop,
-        invalid_intraop_times:  L.finalizeInvalidTimes,
-      }
-      alert(body?.reason ? (REASON_LABELS[body.reason] ?? body.reason) : L.finalizeFailed)
+      alert(finalizeErrorMessage(body, L))
     } finally {
       setFinalizing(false)
     }

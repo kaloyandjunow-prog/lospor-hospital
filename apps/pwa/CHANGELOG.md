@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.5] - 2026-09-30
+
+### Security
+
+- **Refreshed the transitive brace-expansion dependency** to the patched
+  release and advanced the shared Core pin to 9.13.5. The PWA clinical
+  behavior is unchanged.
+- The native app version and client-version header are stamped to 9.13.5.
+
+## [9.13.4] - 2026-09-30
+
+### Changed
+
+- Released with Web, API, and Core 9.13.4 so the PWA consumes the same
+  authoritative clinical-mode finalization contract as the other clients.
+
 ## [9.13.3] - 2026-09-28
 
 ### Added

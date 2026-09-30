@@ -119,6 +119,7 @@ describe("clinical validation and readiness", () => {
 
   it("preserves the server finalization reason codes", () => {
     const result = evaluateCaseFinalization({
+      clinicalMode: "ADULT",
       preop: {
         ageYears: 55,
         sex: "MALE",

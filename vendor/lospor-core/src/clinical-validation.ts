@@ -1,4 +1,4 @@
-import { isPediatricAge, type PediatricAgeUnit } from "./pediatric"
+import { isPediatricAge, type ClinicalMode, type PediatricAgeUnit } from "./pediatric"
 import { intraopEventsAfter, intraopUnconfirmedStops } from "./intraop-commands"
 import { parseLogEvents } from "./intraop-types"
 
@@ -573,6 +573,12 @@ export function evaluatePostopReadiness(postop: Record<string, unknown> | null |
 }
 
 export type CaseReadinessInput = {
+  /**
+   * The mode recorded on the Case row is authoritative. Preoperative rows
+   * predate the mode column and cannot safely select the age scale on their
+   * own.
+   */
+  clinicalMode: ClinicalMode
   preop?: Record<string, unknown> | null
   intraop?: Record<string, unknown> | null
   postop?: Record<string, unknown> | null
@@ -591,7 +597,12 @@ export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalVal
     // The optional sections report "optional" rather than "empty", so this
     // reduces to the five that are genuinely required: demographics, case
     // details, physical examination, airway and ASA.
-    const sections = evaluatePreopSectionCompletion(input.preop)
+    // The Case row is the source of truth for the clinical mode. The
+    // preoperative row may not carry it (especially for imported/older
+    // records), and trusting that row would silently evaluate a pediatric
+    // age using adult rules.
+    const preop = { ...input.preop, clinicalMode: input.clinicalMode }
+    const sections = evaluatePreopSectionCompletion(preop)
     for (const [section, completion] of Object.entries(sections)) {
       if (completion === "empty" || completion === "incomplete") {
         issues.push(issue("incomplete_preop", `preop.${section}`))

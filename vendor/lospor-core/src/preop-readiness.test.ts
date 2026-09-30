@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { evaluatePreopReadiness } from "./clinical-validation"
+import { evaluateCaseFinalization, evaluatePreopReadiness } from "./clinical-validation"
 
 /**
  * What a preoperative assessment must contain, from the one place both clients
@@ -56,6 +56,33 @@ describe("whether a preoperative assessment is finished", () => {
     })
     expect(evaluatePreopReadiness(pediatric).valid).toBe(true)
     expect(codes({ ...pediatric, ageValue: 40, ageUnit: "YEARS" })).toEqual(["missing_age"])
+  })
+
+  it("uses the authoritative case mode when evaluating finalization", () => {
+    const pediatric = complete({
+      ageYears: undefined,
+      ageValue: 8,
+      ageUnit: "YEARS",
+    })
+    const result = evaluateCaseFinalization({
+      clinicalMode: "PEDIATRIC",
+      preop: pediatric,
+      intraop: {
+        startedAt: new Date("2026-01-01T08:00:00Z"),
+        endedAt: new Date("2026-01-01T09:00:00Z"),
+        techniques: ["GENERAL"],
+      },
+      postop: {
+        aldreteActivity: 2,
+        aldreteRespiration: 2,
+        aldreteCirculation: 2,
+        aldreteConsciousness: 2,
+        aldreteSpO2: 2,
+        disposition: "WARD",
+      },
+    })
+    expect(result.valid).toBe(true)
+    expect(result.issues.filter(issue => issue.severity === "error")).toEqual([])
   })
 
   // "Nobody has recorded this" is a truthy string and must block exactly as a

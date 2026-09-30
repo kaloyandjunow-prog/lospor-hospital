@@ -1,5 +1,9 @@
-import { test, expect } from "@playwright/test"
-import { withRoles, JSON_HEADERS } from "./roles"
+import { test, expect } from "../apps/web/node_modules/@playwright/test"
+import { withRoles, JSON_HEADERS } from "../apps/web/e2e/roles"
+
+// This is Hospital-owned release coverage. Keep it outside apps/web: the
+// vendored Web tree is authenticated by UPSTREAM_VERSIONS.json and must remain
+// byte-identical to the pinned Web release.
 
 // Paediatric mode: the newest clinical surface, and the one where being wrong
 // is worst. A child is not a small adult — the doses, the fluid maths and the
