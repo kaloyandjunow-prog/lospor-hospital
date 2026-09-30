@@ -1,11 +1,16 @@
 # Changelog - LOSPOR Hospital
 ## [1.4.18] - 2026-09-30
 
-Vendors Core, API, web and PWA 9.13.4 as one coordinated clinical release;
-the API promotion was performed last. Browser remains 0.8.0. No database
+Vendors Core, API, web and PWA 9.13.5 as one coordinated clinical release;
+the API promotion was performed last. Browser is 0.8.1. No database
 migration; a pre-update backup is still required. CVE-2026-16742
 (libsystemd0/libudev1, Debian bookworm, no fixed version) carried forward and
 accepted again; its expiry is not extended.
+
+### Security
+
+- Coordinated upstream lockfile refreshes remove the fixable high-severity
+  `brace-expansion` and `undici` advisories from the shipped application set.
 
 ### Fixed
 

@@ -7,7 +7,7 @@ this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
 For the 1.4.18 clinical candidate, the coordinated client pins are Core, API,
-Web and PWA 9.13.4; Browser remains 0.8.0. Promote and review them in this
+Web and PWA 9.13.5; Browser is 0.8.1. Promote and review them in this
 order: Core, Web, PWA, API. API is deliberately last because its finalization
 routes consume the shared Core contract. The Hospital candidate must retain
 the local package overlays while `UPSTREAM_VERSIONS.json` records the exact
