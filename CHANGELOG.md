@@ -35,8 +35,9 @@ accepted again; its expiry is not extended.
   pre-op row has `ageValue`/`ageUnit` but no row-level clinical mode.
 - Authenticated Playwright covers pediatric mode decision, completion,
   submit-for-review and finalize with the production intraoperative timing
-  payload; Hospital EHR/FHIR tests cover the import
-  review path and HAPI-shaped discovery/read behavior.
+  payload in both the vendored Web and Hospital-owned regressions; Hospital
+  EHR/FHIR tests cover the import review path and HAPI-shaped discovery/read
+  behavior.
 - The Hospital-owned Playwright config anchors the reused API and Web dev
   servers to the vendored app directories, so the independent regression can
   run after the full Web suite on CI.
