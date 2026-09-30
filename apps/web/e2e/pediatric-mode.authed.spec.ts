@@ -12,6 +12,18 @@ import { withRoles, JSON_HEADERS } from "./roles"
 
 const NEONATE = { ageValue: 6, ageUnit: "DAYS" as const, sex: "FEMALE" as const, weightKg: 3.2, heightCm: 50 }
 
+const COMPLETE_PAEDIATRIC_PREOP = {
+  ageValue: 7, ageUnit: "YEARS" as const, sex: "MALE" as const, heightCm: 122, weightKg: 24,
+  diagnoses: [{ label: "Recurrent tonsillitis" }],
+  procedures: [{ label: "Tonsillectomy" }],
+  bpSystolic: 106, bpDiastolic: 68, heartRate: 88, respiratoryRate: 20,
+  mallampati: "II" as const,
+  asaScore: "II" as const,
+}
+
+const STARTED_AT = "2026-03-04T07:30:00.000Z"
+const ENDED_AT = "2026-03-04T09:05:00.000Z"
+
 test("paediatric mode reports the exact release-owned baseline as production ready", async ({ browser }) => {
   await withRoles(browser, ["member-a"], async ctx => {
     const capabilities = await ctx["member-a"].request.get("/api/capabilities").then(r => r.json())
@@ -58,6 +70,62 @@ test("a paediatric case is stamped with the mode and the ruleset it was recorded
     } finally {
       const del = await api.delete(`/api/cases/${body.id}`, { headers: JSON_HEADERS })
       expect(del.ok(), `cleanup delete failed: ${del.status()}`).toBeTruthy()
+    }
+  })
+})
+
+test("a complete paediatric case can be submitted for review and finalised", async ({ browser }) => {
+  await withRoles(browser, ["member-a"], async ctx => {
+    const api = ctx["member-a"].request
+    const created = await api.post("/api/cases", {
+      headers: JSON_HEADERS,
+      data: {
+        clinicalMode: "PEDIATRIC",
+        preop: COMPLETE_PAEDIATRIC_PREOP,
+      },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    const { id } = await created.json()
+    let finalized = false
+
+    try {
+      const intraop = await api.patch(`/api/cases/${id}`, {
+        headers: JSON_HEADERS,
+        data: { intraop: { startedAt: STARTED_AT, endedAt: ENDED_AT, timezone: "Europe/Sofia", techniques: ["GENERAL"] } },
+      })
+      expect(intraop.ok(), await intraop.text()).toBeTruthy()
+
+      const postop = await api.patch(`/api/cases/${id}`, {
+        headers: JSON_HEADERS,
+        data: {
+          postop: {
+            aldreteActivity: 2, aldreteRespiration: 2,
+            aldreteCirculation: 2, aldreteConsciousness: 2, aldreteSpO2: 2,
+            disposition: "WARD",
+          },
+        },
+      })
+      expect(postop.ok(), await postop.text()).toBeTruthy()
+
+      const submitted = await api.post(`/api/cases/${id}/submit-for-review`, { headers: JSON_HEADERS })
+      expect(submitted.status(), await submitted.text()).toBe(200)
+      expect((await submitted.json()).status).toBe("AWAITING_REVIEW")
+
+      const finalised = await api.post(`/api/cases/${id}/finalize`, { headers: JSON_HEADERS })
+      expect(finalised.status(), await finalised.text()).toBe(200)
+      expect((await finalised.json()).status).toBe("COMPLETE")
+      finalized = true
+
+      const detail = await api.get(`/api/cases/${id}`).then(response => response.json())
+      expect(detail.status).toBe("COMPLETE")
+      expect(detail.clinicalMode).toBe("PEDIATRIC")
+      expect(detail.preop.ageValue).toBe(7)
+      expect(detail.preop.ageUnit).toBe("YEARS")
+    } finally {
+      if (!finalized) {
+        const deleted = await api.delete(`/api/cases/${id}`, { headers: JSON_HEADERS })
+        expect(deleted.ok(), `cleanup delete failed: ${deleted.status()}`).toBeTruthy()
+      }
     }
   })
 })

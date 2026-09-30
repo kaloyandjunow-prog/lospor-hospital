@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.4] - 2026-09-30
+
+### Fixed
+
+- **Finalization explains incomplete demographics.** A structured
+  `incomplete_preop` refusal now identifies missing age, sex, height, or weight
+  when the server reports the demographics blocker, instead of showing a raw
+  protocol code.
+
 ## [9.13.3] - 2026-09-28
 
 ### Changed

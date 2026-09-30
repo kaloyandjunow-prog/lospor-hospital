@@ -368,6 +368,16 @@ A case that cannot be closed — incomplete documentation — is not closed. It 
 deferred with a growing backoff so that the cases behind it are still reached,
 and it is finalised on a later pass once the missing record is entered.
 
+Finalization readiness uses the authoritative `Case.clinicalMode`, not a mode
+field copied into the pre-operative JSON. This matters for EHR/FHIR imports:
+an imported pre-op row may contain `ageValue` and `ageUnit` without repeating
+the mode. Once the clinician accepts the pediatric mode decision, that case is
+validated as pediatric for submit-for-review, manual finalize, and automatic
+closure. Complete the required pre-op demographics and sections, intra-op
+record, and post-op record before submitting; if the API reports
+`incomplete_preop`, inspect its blocker path so a demographics issue is fixed
+rather than treating it as a generic finalization failure.
+
 The Status page reports it under **Automatic case closure**:
 
 | Reading | Meaning |

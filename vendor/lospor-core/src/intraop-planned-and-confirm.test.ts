@@ -105,6 +105,7 @@ describe("a stop entered ahead of its time", () => {
   it("blocks finalising while unconfirmed", () => {
     expect(intraopCanFinalise(events, at(60))).toBe(false)
     const result = evaluateCaseFinalization({
+      clinicalMode: "ADULT",
       intraop: { startedAt: start, endedAt: at(60), keyEvents: { log: events } },
     } as Parameters<typeof evaluateCaseFinalization>[0])
     expect(result.issues.map(issue => issue.code)).toContain("unconfirmed_stops")

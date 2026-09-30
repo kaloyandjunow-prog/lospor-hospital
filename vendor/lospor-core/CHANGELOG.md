@@ -1,5 +1,11 @@
 # Changelog - LOSPOR Core
 
+## [9.13.4] - 2026-09-30
+
+### Fixed
+
+- **Finalization uses the recorded clinical mode.** Shared case-readiness validation now evaluates pediatric preoperative demographics using the authoritative Case clinical mode, even when the persisted preoperative row does not repeat it.
+
 ## [9.13.3] - 2026-09-28
 
 ### Added
