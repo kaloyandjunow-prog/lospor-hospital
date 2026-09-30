@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Core
 
+## [9.13.5] - 2026-09-30
+
+### Security
+
+- **Refreshed the transitive brace-expansion dependency** to the patched
+  release. This is a dependency-only patch; the clinical contract and runtime
+  behavior are unchanged.
+
 ## [9.13.4] - 2026-09-30
 
 ### Fixed

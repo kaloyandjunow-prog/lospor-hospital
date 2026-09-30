@@ -80,6 +80,7 @@ test("a complete paediatric case can be submitted for review and finalised", asy
     const created = await api.post("/api/cases", {
       headers: JSON_HEADERS,
       data: {
+        patientNumber: `PEDIATRIC-FINALIZE-E2E-${Date.now()}`,
         clinicalMode: "PEDIATRIC",
         preop: COMPLETE_PAEDIATRIC_PREOP,
       },
