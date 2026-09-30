@@ -11,6 +11,8 @@ accepted again; its expiry is not extended.
 
 - Coordinated upstream lockfile refreshes remove the fixable high-severity
   `brace-expansion` and `undici` advisories from the shipped application set.
+- Corrected the Hospital API export provenance constants to identify the
+  vendored API and Core trees as 9.13.5.
 
 ### Fixed
 
