@@ -132,7 +132,7 @@ test("the summary explains the demographics blocker when Close Now is pressed", 
     const api = context.request
     const created = await api.post("/api/cases", {
       headers: JSON_HEADERS,
-      data: { preop: INCOMPLETE_PREOP },
+      data: { patientNumber: "E2E-FINALIZE-GATE", preop: INCOMPLETE_PREOP },
     })
     expect(created.status(), await created.text()).toBe(201)
     const { id } = await created.json()
