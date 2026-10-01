@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.7] - 2026-10-01
+
+### Security
+
+- **Coordinated the PWA version with the API and Web 9.13.7 security release.**
+  The native client has no Next.js runtime, but the version/client header stays
+  aligned while the server-facing applications carry the patched Next.js
+  dependency.
+
 ## [9.13.6] - 2026-10-01
 
 ### Fixed

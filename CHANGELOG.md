@@ -1,8 +1,8 @@
 # Changelog - LOSPOR Hospital
 ## [1.4.20] - 2026-10-01
 
-Vendors Core, API, Web and PWA 9.13.6 as one coordinated clinical release;
-the API promotion remains last. Browser is 0.8.1. No database migration; a
+Vendors Core 9.13.6 plus API, Web and PWA 9.13.7 as one coordinated clinical
+release; the API promotion remains last. Browser is 0.8.2. No database migration; a
 pre-update backup is still required. CVE-2026-16742
 (libsystemd0/libudev1, Debian bookworm, no fixed version) is explicitly
 accepted for this release on the existing reachability basis; its expiry
@@ -31,6 +31,12 @@ remains 2026-12-08 and is not extended.
   pediatric submit-for-review/finalize E2E all remain biting regressions.
 - Hospital EHR/FHIR overlays and the Hospital-owned pediatric lifecycle test
   remain part of the release validation set.
+
+### Security
+
+- **Patched Next.js in the vendored API and Web applications to 16.3.8.** The
+  critical `GHSA-vcvr-r3jv-pc5j` `next/og` advisory is cleared by the shipped
+  lockfiles; no audit exception is used.
 ## [1.4.19] - 2026-09-30
 
 Corrective candidate after the unpublished 1.4.18 candidate failed its image
