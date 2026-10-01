@@ -27,8 +27,11 @@ audited.
 Administrators cannot edit or delete bundled questions or add their own. A new
 question or a changed clinical definition requires a software release.
 
-On a new installation the 30 baseline questions (the `BASE_*` keys) are on,
-the 45 adult and pediatric additions are off, and no question is required.
+On a new installation the 30 baseline questions (the `BASE_*` keys) are on and
+recommended by default; the 45 adult and pediatric additions are off. None of
+the baseline questions is required by default, but an administrator can mark
+each enabled question required independently. An unanswered recommended
+question does not block continuing; an unanswered required question does.
 
 ## What clinicians see
 
@@ -55,7 +58,8 @@ off before anyone answered it leaves no row for that case.
 A draft always saves, whatever is unanswered. Required questions are checked
 when the clinician continues from the preoperative assessment to the
 intraoperative record: the web app and the PWA list the required questions
-still unanswered and stay on the preoperative form.
+still unanswered and stay on the preoperative form. Recommended questions are
+visible guidance, not a gate.
 
 A finalized case is never changed by a profile change.
 

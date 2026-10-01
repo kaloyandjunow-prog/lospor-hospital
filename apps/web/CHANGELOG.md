@@ -1,5 +1,33 @@
 # Changelog - LOSPOR Web App
 
+## [9.13.7] - 2026-10-01
+
+### Security
+
+- **Updated Next.js to 16.3.8** in the Web runtime and lint toolchain. This
+  clears the critical `GHSA-vcvr-r3jv-pc5j` remote-code-execution advisory in
+  `next/og` without an audit exception.
+- Release-train E2E now checks out the matching API and PWA release branches
+  both while the vendor branch is the PR base and while it is being promoted
+  into `main`; it no longer depends on the deleted 9.13.6 feature branch or
+  stale client `main` branches while API is intentionally merged last.
+
+## [9.13.6] - 2026-10-01
+
+### Fixed
+
+- **Finalization errors use the shared clinical protocol classifier.** The web
+  client keeps its demographics-specific message, explains an already
+  finalized conflict, and falls back to a safe localized message for unknown
+  server reasons instead of displaying a raw protocol code.
+- The long intraoperative chart regression now advances virtual browser time
+  instead of waiting 20 wall-clock seconds, reducing CI retries without
+  weakening the no-unintended-save assertion.
+- The pediatric submit-for-review/finalize regression now sends the same
+  intraoperative wall-clock and ISO time fields as the production client.
+- The Web client pins Core 9.13.6 and is versioned for the coordinated 9.13.6
+  application release.
+
 ## [9.13.5] - 2026-09-30
 
 ### Fixed

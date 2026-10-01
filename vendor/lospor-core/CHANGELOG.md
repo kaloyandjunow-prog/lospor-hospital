@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Core
 
+## [9.13.6] - 2026-10-01
+
+### Added
+
+- **Shared finalization-error classification.** Web and PWA now consume one
+  protocol-only classifier for structured finalization refusals, including
+  demographics blockers and already-finalized conflicts, with a safe generic
+  fallback for unknown server reasons.
+
 ## [9.13.5] - 2026-09-30
 
 ### Security

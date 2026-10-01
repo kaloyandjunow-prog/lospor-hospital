@@ -552,6 +552,15 @@ export const CLINICAL_STRINGS = {
     diagnosisAndProcedure: "Diagnosis and procedure",
     pendingSyncFinalise: "Some changes are still waiting to sync. Reconnect and try again.",
     couldFinaliseCase:   "The case could not be finalised.",
+    finalizeMissingTechnique: "No anaesthesia technique recorded",
+    finalizeMissingPostop: "Post-op record not completed",
+    finalizeMissingAldrete: "Aldrete score missing",
+    finalizeMissingDisposition: "Patient disposition not recorded",
+    finalizeMissingIntraop: "Intraop record not started",
+    finalizeMissingPreop: "Pre-op assessment missing",
+    finalizeMissingDemographics: "Pre-op demographics incomplete — age, sex, height, or weight missing",
+    finalizeInvalidTimes: "End time is before start time",
+    finalizeAlreadyFinalized: "This case is already finalized",
 
     // Intraop — drug/infusion sheets (shared)
     dsBrowseDrugs:       "Browse drugs",
@@ -1584,6 +1593,15 @@ export const CLINICAL_STRINGS = {
     diagnosisAndProcedure: "Диагноза и процедура",
     pendingSyncFinalise: "Някои промени още чакат синхронизация. Свържете се с мрежата и опитайте отново.",
     couldFinaliseCase:   "Случаят не можа да бъде финализиран.",
+    finalizeMissingTechnique: "Няма записана анестезиологична техника",
+    finalizeMissingPostop: "Следоперативният запис не е завършен",
+    finalizeMissingAldrete: "Липсва оценка по Aldrete",
+    finalizeMissingDisposition: "Не е записано къде е насочен пациентът",
+    finalizeMissingIntraop: "Интраоперативният запис не е започнат",
+    finalizeMissingPreop: "Липсва предоперативна оценка",
+    finalizeMissingDemographics: "Непълни предоперативни демографски данни — липсва възраст, пол, ръст или тегло",
+    finalizeInvalidTimes: "Крайният час е преди началния",
+    finalizeAlreadyFinalized: "Случаят вече е финализиран",
 
     // Intraop — drug/infusion sheets (shared)
     dsBrowseDrugs:       "Преглед на медикаменти",

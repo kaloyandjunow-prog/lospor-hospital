@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react"
 import { apiFetch } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
+import { finalizationErrorMessage } from "@/lib/finalize-error"
 import { notify } from "@/lib/notify"
 import type { CaseData } from "@/lib/case-detail-summary"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
@@ -28,7 +29,8 @@ export function useCaseFinalize(id: string, tc: (key: ClinicalStringKey) => stri
       const res = await apiFetch(`/api/cases/${id}/finalize`, { method: "POST" })
       // apiFetch only throws on a network failure, so a 4xx must be checked here.
       if (!res.ok) {
-        complain(tc("couldFinaliseCase"))
+        const body = await res.json().catch(() => null)
+        complain(finalizationErrorMessage(body, tc))
         return false
       }
       const body = await res.json().catch(() => null)

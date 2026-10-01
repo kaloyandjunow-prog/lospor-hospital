@@ -94,10 +94,10 @@ test("a complete paediatric case can be submitted for review and finalised", asy
         headers: JSON_HEADERS,
         data: {
           intraop: {
-            // Mirror the production Web payload: the wall-clock fields drive
-            // the DRAFT -> IN_PROGRESS transition, while the instants preserve
-            // the authoritative timeline.
-            startTime: "09:30", endTime: "11:05",
+            // Mirror the production client payload: wall-clock times are used
+            // for the chart while the ISO instants preserve the authoritative
+            // timeline. Both shapes must leave a newly created case in progress.
+            startTime: "07:30", endTime: "09:05",
             startedAt: STARTED_AT, endedAt: ENDED_AT,
             timezone: "Europe/Sofia", techniques: ["GENERAL"],
           },

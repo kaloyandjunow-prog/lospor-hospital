@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.4.19",
+  "release": "1.4.20",
   "policy": "backup-required",
-  "justification": "Conservative rather than assessed. 1.4.19 adds no migration, application code, or upstream version change; it carries the tested 1.4.18 clinical release and adds only release-risk exception metadata for the failed candidate's unfixed PostgreSQL CVE. No release-specific rollback proof shows 1.4.18 services behaving correctly after 1.4.19 has run. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
+  "justification": "Conservative rather than assessed. 1.4.20 adds no database migration, but it changes application behavior and advances the coordinated Core/API/Web/PWA train. No release-specific rollback proof shows the previous appliance services behaving correctly after 1.4.20 has run. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-09-30"
+  "assessedAt": "2026-10-01"
 }

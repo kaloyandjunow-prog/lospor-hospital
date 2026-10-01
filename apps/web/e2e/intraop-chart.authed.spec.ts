@@ -431,10 +431,14 @@ test("an open chart with vitals does not keep saving while nothing changes", asy
   const id = await createStartedCase(page)
   await chartVital(page, id)
   await openChart(page, id)
-  await page.waitForTimeout(5_000)
+  // The first hydration autosave is allowed to settle under virtual time so
+  // this regression does not spend 20 wall-clock seconds (or become a retry
+  // candidate on a busy CI runner).
+  await page.clock.install()
+  await page.clock.fastForward(5_000)
 
   const writes = countCaseWrites(page, id)
-  await page.waitForTimeout(15_000)
+  await page.clock.fastForward(15_000)
   expect(writes, "the page saved with nothing changed").toEqual([])
 })
 
@@ -451,7 +455,8 @@ test("a second screen watching the case writes nothing", async ({ page, browser 
     const writes = countCaseWrites(watcher, id)
     await openChart(watcher, id)
     await expect(watcher.getByText(/currently editing/)).toBeVisible({ timeout: 30_000 })
-    await watcher.waitForTimeout(15_000)
+    await watcher.clock.install()
+    await watcher.clock.fastForward(15_000)
     expect(writes, "the watching screen wrote to the case").toEqual([])
   } finally {
     await watcher.goto("about:blank")
