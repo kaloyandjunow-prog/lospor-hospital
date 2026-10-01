@@ -37,6 +37,8 @@ remains 2026-12-08 and is not extended.
 - **Patched Next.js in the vendored API and Web applications to 16.3.8.** The
   critical `GHSA-vcvr-r3jv-pc5j` `next/og` advisory is cleared by the shipped
   lockfiles; no audit exception is used.
+- **Aligned exported-batch API provenance with the vendored API 9.13.7 release.**
+  Hospital no longer reports the previous 9.13.6 API version.
 ## [1.4.19] - 2026-09-30
 
 Corrective candidate after the unpublished 1.4.18 candidate failed its image
