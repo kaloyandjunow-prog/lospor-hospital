@@ -125,3 +125,43 @@ test("the server refuses to finalise an incomplete case, and says everything tha
     // clears the cast's cases at the start of the next run.
   })
 })
+
+test("the summary explains the demographics blocker when Close Now is pressed", async ({ browser }) => {
+  await withRoles(browser, ["member-a"], async ctx => {
+    const context = ctx["member-a"]
+    const api = context.request
+    const created = await api.post("/api/cases", {
+      headers: JSON_HEADERS,
+      data: { preop: INCOMPLETE_PREOP },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    const { id } = await created.json()
+
+    const page = await context.newPage()
+    let dialogMessage = ""
+    page.on("dialog", async dialog => {
+      dialogMessage = dialog.message()
+      await dialog.accept()
+    })
+
+    try {
+      await page.goto(`/cases/${id}`)
+      const close = page.getByRole("button", { name: "Close Now" })
+      await expect(close).toBeVisible()
+
+      const responsePromise = page.waitForResponse(response =>
+        response.url().endsWith(`/api/cases/${id}/finalize`)
+        && response.request().method() === "POST",
+      )
+      await close.click()
+      expect((await responsePromise).status()).toBe(422)
+
+      await expect.poll(() => dialogMessage).toContain(
+        "Pre-op demographics incomplete — age, sex, height, or weight missing",
+      )
+    } finally {
+      await page.close()
+      await api.delete(`/api/cases/${id}`, { headers: JSON_HEADERS }).catch(() => {})
+    }
+  })
+})

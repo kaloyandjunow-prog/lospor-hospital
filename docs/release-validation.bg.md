@@ -5,8 +5,8 @@
 Hospital release е приемлив само след успешни automated quality workflow и
 Linux appliance drill. Serverless демонстрацията не е част от упражнението.
 
-За клиничния кандидат 1.4.18 координираният набор е Core, API, Web и PWA
-9.13.5; Browser е 0.8.1. Прегледайте и внесете промените в този ред:
+За клиничния кандидат 1.4.19 координираният набор е Core, API, Web и PWA
+9.13.6; Browser е 0.8.1. Прегледайте и внесете промените в този ред:
 Core, Web, PWA, API. API е нарочно последен, защото маршрутите за
 финализиране използват общия Core договор. Локалните Hospital package
 overlay-и се запазват, а `UPSTREAM_VERSIONS.json` записва точните commit-и и
@@ -20,6 +20,7 @@ npm run verify:provenance
 npm --prefix apps/api run test -- src/__tests__/finalize.test.ts src/__tests__/submit-for-review.test.ts src/lib/case-finalization.test.ts src/lib/pending-close.test.ts
 npm --prefix apps/api run test -- src/lib/hospital/ehr-import.test.ts src/lib/hospital/ehr-fhir-discovery.test.ts src/lib/hospital/ehr-fhir-read.test.ts
 npm --prefix apps/web run test -- src/components/case-summary/finalize-error.test.ts
+npm --prefix apps/pwa run test -- src/lib/finalize-error.test.ts src/lib/use-case-finalize.test.tsx
 npm run e2e:hospital-pediatric
 ```
 
@@ -380,7 +381,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.4.18"
+$Version = "1.4.19"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -432,7 +433,7 @@ input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.18-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.19-release.lock
 ```
 
 Върнете само публичния `lospor-hospital-<version>-release.lock.sig` в
@@ -509,7 +510,7 @@ Candidate workflow също иска от GitHub атестация за lock, m
 и `prepare` го изискват. Всеки може да провери изтеглен файл:
 
 ```sh
-gh attestation verify lospor-hospital-1.4.18-release.lock \
+gh attestation verify lospor-hospital-1.4.19-release.lock \
   --repo kaloyandjunow-prog/lospor-hospital \
   --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
 ```
@@ -745,7 +746,7 @@ Hyper-V хост (с администраторски права). Той съз
 записва резултата, а машината се премахва, освен ако не е зададен `-Keep`.
 
 ```powershell
-.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.18 -EvidencePath .\gate.json
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.19 -EvidencePath .\gate.json
 ```
 
 **Всички launcher команди на тази страница се изпълняват като root.**

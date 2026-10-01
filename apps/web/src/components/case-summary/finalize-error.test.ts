@@ -21,4 +21,14 @@ describe("finalization error messages", () => {
     expect(finalizeErrorMessage({ reason: "incomplete_preop" }, LABELS.en))
       .toBe(LABELS.en.finalizeMissingPreop)
   })
+
+  it("maps an already-finalized conflict without exposing the protocol code", () => {
+    expect(finalizeErrorMessage({ code: "CASE_ALREADY_FINALISED" }, LABELS.en))
+      .toBe(LABELS.en.finalizeAlreadyFinalized)
+  })
+
+  it("uses the safe generic message for an unknown server reason", () => {
+    expect(finalizeErrorMessage({ reason: "future_internal_protocol_code" }, LABELS.en))
+      .toBe(LABELS.en.finalizeFailed)
+  })
 })

@@ -6,8 +6,8 @@ A Hospital release is acceptable only after the automated quality workflow and
 this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
-For the 1.4.18 clinical candidate, the coordinated client pins are Core, API,
-Web and PWA 9.13.5; Browser is 0.8.1. Promote and review them in this
+For the 1.4.19 clinical candidate, the coordinated client pins are Core, API,
+Web and PWA 9.13.6; Browser is 0.8.1. Promote and review them in this
 order: Core, Web, PWA, API. API is deliberately last because its finalization
 routes consume the shared Core contract. The Hospital candidate must retain
 the local package overlays while `UPSTREAM_VERSIONS.json` records the exact
@@ -21,6 +21,7 @@ npm run verify:provenance
 npm --prefix apps/api run test -- src/__tests__/finalize.test.ts src/__tests__/submit-for-review.test.ts src/lib/case-finalization.test.ts src/lib/pending-close.test.ts
 npm --prefix apps/api run test -- src/lib/hospital/ehr-import.test.ts src/lib/hospital/ehr-fhir-discovery.test.ts src/lib/hospital/ehr-fhir-read.test.ts
 npm --prefix apps/web run test -- src/components/case-summary/finalize-error.test.ts
+npm --prefix apps/pwa run test -- src/lib/finalize-error.test.ts src/lib/use-case-finalize.test.tsx
 npm run e2e:hospital-pediatric
 ```
 
@@ -388,7 +389,7 @@ After the ordinary quality checks and capacity check pass, create and push the
 exact release tag. For example:
 
 ```powershell
-$Version = "1.4.18"
+$Version = "1.4.19"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -442,7 +443,7 @@ input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.18-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.19-release.lock
 ```
 
 Move only the public `lospor-hospital-<version>-release.lock.sig` back into the
@@ -524,7 +525,7 @@ publication job and `prepare` both require it. Anyone can check a downloaded
 file:
 
 ```sh
-gh attestation verify lospor-hospital-1.4.18-release.lock \
+gh attestation verify lospor-hospital-1.4.19-release.lock \
   --repo kaloyandjunow-prog/lospor-hospital \
   --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
 ```
@@ -764,7 +765,7 @@ to pass. Every step is timed; `-EvidencePath` writes the result, and the VM is
 removed unless `-Keep` is given.
 
 ```powershell
-.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.18 -EvidencePath .\gate.json
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.19 -EvidencePath .\gate.json
 ```
 
 **Every launcher on this page runs as root.** An installation ends by writing

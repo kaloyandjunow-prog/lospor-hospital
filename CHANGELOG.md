@@ -1,4 +1,37 @@
 # Changelog - LOSPOR Hospital
+## [1.4.19] - 2026-10-01
+
+Vendors Core, API, Web and PWA 9.13.6 as one coordinated clinical release;
+the API promotion remains last. Browser is 0.8.1. No database migration; a
+pre-update backup is still required. CVE-2026-16742
+(libsystemd0/libudev1, Debian bookworm, no fixed version) is explicitly
+accepted for this release on the existing reachability basis; its expiry
+remains 2026-12-08 and is not extended.
+
+### Fixed
+
+- **Pediatric finalization uses the case mode.** The shared readiness validator
+  receives authoritative `Case.clinicalMode`, so imported `ageValue`/`ageUnit`
+  data is evaluated as pediatric even when the legacy pre-op row has no mode.
+- **Pre-op policy is explicit.** The 30 bundled baseline questions remain
+  enabled and recommended by default; administrators can mark individual
+  questions required, and only unanswered required questions block the
+  transition to intraoperative documentation. Draft saves remain allowed.
+- **Finalization feedback is actionable.** Web and PWA map structured blocker
+  responses to the specific missing pre-op or clinical section instead of
+  showing a raw or generic failure.
+- **Lifecycle timing is consistent.** ISO `startedAt` patches promote a case
+  to `IN_PROGRESS`, and the pediatric submit/finalize regression uses the same
+  timing payload as production. The long-delay E2E gate uses virtual time.
+
+### Verification
+
+- Shared Core classifier tests, API profile/status/finalization tests, Web
+  Close Now Playwright coverage, PWA hook-boundary tests, and the complete
+  pediatric submit-for-review/finalize E2E all remain biting regressions.
+- Hospital EHR/FHIR overlays and the Hospital-owned pediatric lifecycle test
+  remain part of the release validation set.
+
 ## [1.4.18] - 2026-09-30
 
 Vendors Core, API, web and PWA 9.13.5 as one coordinated clinical release;

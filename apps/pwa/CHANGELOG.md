@@ -1,5 +1,16 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.6] - 2026-10-01
+
+### Fixed
+
+- Finalization refusals now use Core's shared error classification. The PWA
+  explains a known missing preoperative-demographics requirement instead of
+  showing only a generic failure or an internal protocol value.
+- Added regression coverage for the localized finalization mapping and kept
+  the client on Core 9.13.6 so the PWA, web app, and API share the same
+  finalization vocabulary.
+
 ## [9.13.5] - 2026-09-30
 
 ### Security

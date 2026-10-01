@@ -24,7 +24,7 @@ import { corsHeaders } from "@/lib/cors"
 import type { CaseDetail, Serialized } from "@/types/case-detail"
 import { SECTION_REVISION_HEADER } from "@lospor/core/sync"
 import { detectSectionConflicts } from "./_patch-conflicts"
-import { computeNextStatus, shouldStampAwaitingReview } from "./_patch-status"
+import { computeNextStatus, intraopPatchHasStartedAt, shouldStampAwaitingReview } from "./_patch-status"
 import { normalizeOptionCodes } from "@lospor/core/option-aliases"
 import {
   CaseWriteError,
@@ -507,7 +507,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const finalStatus = computeNextStatus({
       currentStatus: existing.status,
       requestedStatus: status,
-      intraopStarted: !!intraop?.startTime,
+      intraopStarted: intraopPatchHasStartedAt(intraop),
     })
     if (finalStatus) {
       await tx.case.update({
