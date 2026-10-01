@@ -32,6 +32,14 @@
       "package": "openssl",
       "release": "1.4.20",
       "vulnerabilityId": "CVE-2026-84782"
+    },
+    {
+      "expiresAt": "2026-12-08",
+      "image": "postgres",
+      "justification": "Trivy reports this HIGH CVE as unfixed in the exact pinned PostgreSQL candidate and supplies no fixed version for libpcre2-8-0=10.42-1+deb12u1. The Dockerfile already pins that package from the immutable 20260912 Debian snapshot, so there is no safe package update within the reviewed inputs; changing the snapshot or PostgreSQL base would require a new image, compatibility and provenance review. The maintainer accepts this exact PostgreSQL/package finding for Hospital 1.4.20 only. Re-check when Debian publishes a fixed package or before any carry-forward; this exception expires 2026-12-08.",
+      "package": "libpcre2-8-0",
+      "release": "1.4.20",
+      "vulnerabilityId": "CVE-2026-103111"
     }
   ]
 }

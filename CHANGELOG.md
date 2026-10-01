@@ -39,6 +39,12 @@ remains 2026-12-08 and is not extended.
   lockfiles; no audit exception is used.
 - **Aligned exported-batch API provenance with the vendored API 9.13.7 release.**
   Hospital no longer reports the previous 9.13.6 API version.
+- **Accepted the remaining PostgreSQL scan finding for this release.** Trivy
+  reports unfixed HIGH `CVE-2026-103111` in `libpcre2-8-0` from the exact pinned
+  Debian Bookworm candidate. No fixed version is available in the reviewed
+  inputs, so the exact package/image finding is accepted for 1.4.20 only and
+  expires on 2026-12-08. It must be re-reviewed before any carry-forward.
+
 ## [1.4.19] - 2026-09-30
 
 Corrective candidate after the unpublished 1.4.18 candidate failed its image
