@@ -24,6 +24,10 @@
 - Added biting API regressions for reopen/lease races, route-level frozen
   printable data, structured totals, FHIR paging and conditional create, and
   dashboard boundary predicates.
+- Dependency audit records the maintainer-approved 1.4.21 exception for
+  GHSA-86w9-cpqp-85rv in the PWA's Expo build-time dependency tree. No patched
+  node-forge release is available; the exception retires when Expo drops or
+  replaces the dependency and must be re-audited before the next release.
 
 ## [1.4.20] - 2026-10-01
 

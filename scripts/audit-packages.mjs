@@ -36,7 +36,26 @@ const FAIL_AT = new Set(["high", "critical"])
  * and the audit will start failing again if it does not.
  */
 const EXCEPTIONS = {
-  // Empty, and that is the current truth rather than an oversight.
+  "apps/pwa": {
+    "GHSA-86w9-cpqp-85rv": {
+      reason:
+        "Accepted for Hospital 1.4.21 only. node-forge 1.4.0 is pulled "
+        + "transitively by Expo's code-signing certificates tooling; the PWA "
+        + "source has no node-forge import, and the production PWA is a static "
+        + "export rather than a runtime that verifies RSA signatures. GitHub "
+        + "lists no patched node-forge version, so the only available npm "
+        + "remedy would replace the reviewed Expo toolchain without a safe "
+        + "target. This is a build-time, unreachable dependency in this "
+        + "appliance release, not an assertion that the cryptographic flaw is "
+        + "harmless.",
+      removeWhen:
+        "node-forge publishes a patched version, or Expo drops/replaces the "
+        + "dependency; re-audit before the next Hospital release",
+    },
+  },
+
+  // No other package advisories are currently accepted; a new advisory in any
+  // package must still fail the gate.
   //
   // Three lived here until 2026-09-06 and all three had retired without
   // anybody noticing:
