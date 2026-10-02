@@ -1,5 +1,28 @@
 # Changelog - LOSPOR API
 
+## [1.4.21] - 2026-10-02
+
+### Fixed
+
+- **Cancelled stale EHR deliveries when a finalized case is reopened.** Queue
+  claims verify `Case.status` and the latest finalization, and the worker
+  re-checks before egress so an old protocol cannot be sent after undo.
+- **Kept the structured and printable EHR record on the same revision.** The
+  adapter print token is bound to the delivery/finalization snapshot, and the
+  coded header receives Core's persisted drug and fluid totals.
+- **Made FHIR imports and retries fail safer.** Patient search treats
+  `Bundle.total` and a next link as ambiguity, query-relative links retain the
+  current resource path, and outbound resources use a stable conditional-create
+  identifier.
+- **Moved dashboard today/month filtering into database counts** using shared
+  Europe/Sofia UTC boundaries, retaining legacy and current `monthYear` labels.
+
+### Tests
+
+- Added route-level print snapshot coverage plus queue cancellation, stale
+  lease completion, totals, FHIR paging/idempotency, dashboard boundary, and
+  unfinalize regressions. Focused suite: 124 tests passed; API typecheck passed.
+
 ## [9.13.7] - 2026-10-01
 
 ### Security

@@ -2509,6 +2509,8 @@ enum EhrDeliveryStatus {
   FAILED
   /// A later finalization replaced this message before it was sent.
   SUPERSEDED
+  /// The case was reopened before this message was sent.
+  CANCELLED
 }
 
 /// One message queued for the hospital system.

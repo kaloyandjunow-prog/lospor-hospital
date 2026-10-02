@@ -173,7 +173,13 @@ export async function findFhirPatient(input: {
 
   const entries = bundleEntries(result.body)
   if (entries.length === 0) return { found: false }
-  if (entries.length > 1) return { found: false, ambiguous: true }
+  // `_count` is only a hint. A FHIR server may cap the page below two and
+  // report the real cardinality in Bundle.total or expose a next link. One
+  // first-page entry is therefore not proof of uniqueness.
+  const total = (result.body as { total?: unknown } | null)?.total
+  if (entries.length > 1 || (typeof total === "number" && total > 1) || nextPageUrl(result.body)) {
+    return { found: false, ambiguous: true }
+  }
 
   const patientId = typeof entries[0].id === "string" ? entries[0].id : ""
   if (!patientId) return { found: false, errorCode: "PATIENT_WITHOUT_ID" }
@@ -312,16 +318,17 @@ function nextPageUrl(body: unknown): string | null {
  * the first page for every server that writes them that way. The result was a
  * truncated list presented as a complete one.
  *
- * Resolved against the endpoint and then checked: the link is content from a
+ * Resolved against the current resource URL and then checked: the link is content from a
  * response, and following it is a server-side request carrying the bearer
  * token, so a link that resolves somewhere else is refused rather than
  * dialled.
  */
-function nextPageWithin(candidate: string, endpoint: string): string | null {
+function nextPageWithin(candidate: string, currentUrl: string): string | null {
   try {
-    const base = new URL(endpoint)
+    const base = new URL(currentUrl)
+    const endpoint = new URL(currentUrl)
     const resolved = new URL(candidate, base)
-    return resolved.origin === base.origin ? resolved.toString() : null
+    return resolved.origin === endpoint.origin ? resolved.toString() : null
   } catch {
     return null
   }
@@ -495,7 +502,7 @@ export async function fetchPatientResources(input: {
 
     const next = nextPageUrl(result.body)
     if (!next) { url = null; break }
-    const following = nextPageWithin(next, input.endpoint)
+    const following = nextPageWithin(next, url)
     if (!following) { truncated = true; break }
 
     // Stopping at the cap is only safe once the server has been *seen* putting

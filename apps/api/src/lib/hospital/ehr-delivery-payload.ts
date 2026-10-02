@@ -2,6 +2,8 @@ import "server-only"
 
 import { buildCodedHeader } from "@lospor/core/ehr-export-header"
 import { buildSafetyFindings } from "@lospor/core/ehr-safety-findings"
+import { calculateDrugTotals } from "@lospor/core/intraop-summary"
+import { calculateFluidTotals } from "@lospor/core/intraop-totals"
 
 import { decryptPatientIdentifier } from "./patient-identity"
 import type { Prisma } from "@/generated/prisma/client"
@@ -24,6 +26,7 @@ export type EhrDeliveryPayloadClient = Pick<
 
 export type EhrDeliveryPayload = {
   deliveryId: string
+  finalizationId: string
   kind: string
   /** What the hospital files this against. */
   patient: { identifierType: string; identifier: string } | null
@@ -38,6 +41,39 @@ type SnapshotDocument = {
   preop?: Record<string, unknown> | null
   intraop?: Record<string, unknown> | null
   postop?: Record<string, unknown> | null
+}
+
+type SnapshotTimetable = {
+  drugs?: unknown[]
+  fluids?: unknown[]
+}
+
+function codedTotals(intraop: Record<string, unknown> | null | undefined): {
+  drugTotals: ReturnType<typeof calculateDrugTotals>
+  fluidTotals: ReturnType<typeof calculateFluidTotals> | null
+} {
+  const timetable = intraop?.keyEvents as SnapshotTimetable | null | undefined
+  const drugs = Array.isArray(timetable?.drugs) ? timetable.drugs : []
+  const fluids = Array.isArray(timetable?.fluids) ? timetable.fluids : []
+
+  // The projection stores the scalar fluid totals beside the timetable. Use
+  // the Core calculation over the frozen timetable when it is present, which
+  // is the same source used to create those scalar fields. A case with no
+  // fluid chart remains unrecorded rather than becoming a measured zero.
+  const fluidTotals = fluids.length > 0
+    ? calculateFluidTotals(fluids as Parameters<typeof calculateFluidTotals>[0])
+    : ["crystalloidsMl", "colloidsMl", "bloodMl"].some(key => intraop?.[key] != null)
+      ? {
+          crystalloids: Number(intraop?.crystalloidsMl ?? 0),
+          colloids: Number(intraop?.colloidsMl ?? 0),
+          blood: Number(intraop?.bloodMl ?? 0),
+        }
+      : null
+
+  return {
+    drugTotals: calculateDrugTotals({ drugs } as Parameters<typeof calculateDrugTotals>[0]),
+    fluidTotals,
+  }
 }
 
 /**
@@ -147,6 +183,7 @@ export async function buildEhrDeliveryPayload(
   if (kind === "SAFETY_FINDINGS") {
     return {
       deliveryId: String(delivery.id),
+      finalizationId: String(delivery.finalizationId),
       kind,
       patient,
       header: {
@@ -161,12 +198,14 @@ export async function buildEhrDeliveryPayload(
   if (kind === "CASE_START" || kind === "CASE_END") {
     return {
       deliveryId: String(delivery.id),
+      finalizationId: String(delivery.finalizationId),
       kind,
       patient,
       header: { kind, caseId: String(delivery.caseId), at: new Date().toISOString() },
     }
   }
 
+  const { drugTotals, fluidTotals } = codedTotals(snapshot.intraop)
   const header = buildCodedHeader({
     finalization: {
       sequence: Number(finalization!.sequence),
@@ -177,6 +216,8 @@ export async function buildEhrDeliveryPayload(
     },
     intraop: snapshot.intraop as Parameters<typeof buildCodedHeader>[0]["intraop"],
     postop: snapshot.postop as Parameters<typeof buildCodedHeader>[0]["postop"],
+    drugTotals,
+    fluidTotals,
   })
 
   const documentUrl = input.documentUrlFor
@@ -185,6 +226,7 @@ export async function buildEhrDeliveryPayload(
 
   return {
     deliveryId: String(delivery.id),
+    finalizationId: String(delivery.finalizationId),
     kind,
     patient,
     header,

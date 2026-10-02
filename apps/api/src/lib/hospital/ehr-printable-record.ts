@@ -35,8 +35,14 @@ function secret() {
  * The subject is the delivery rather than a user, because no user asked for
  * this — the audit trail should not name a clinician who was not involved.
  */
-async function adapterPrintToken(caseId: string, deliveryId: string): Promise<string> {
-  return new SignJWT({ caseId, userId: `ehr-adapter:${deliveryId}`, type: "print" })
+async function adapterPrintToken(caseId: string, deliveryId: string, finalizationId: string): Promise<string> {
+  return new SignJWT({
+    caseId,
+    userId: `ehr-adapter:${deliveryId}`,
+    deliveryId,
+    finalizationId,
+    type: "print",
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setJti(crypto.randomUUID())
     .setIssuedAt()
@@ -60,6 +66,7 @@ export async function renderPrintableRecord(
   input: {
     caseId: string
     deliveryId: string
+    finalizationId: string
     lang?: "en" | "bg"
     timeoutMs?: number
     fetchImpl?: typeof fetch
@@ -71,7 +78,7 @@ export async function renderPrintableRecord(
   const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 30_000)
 
   try {
-    const token = await adapterPrintToken(input.caseId, input.deliveryId)
+    const token = await adapterPrintToken(input.caseId, input.deliveryId, input.finalizationId)
     const query = new URLSearchParams({ print_token: token })
     if (input.lang) query.set("lang", input.lang)
 

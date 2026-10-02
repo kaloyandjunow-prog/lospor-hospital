@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import {
   claimNextEhrDelivery,
+  cancelUnsentEhrDeliveries,
   completeEhrDelivery,
   deliverAfterFor,
   EHR_DELIVERY_LEASE_MS,
@@ -13,6 +14,7 @@ import {
   retryDelayMs,
   deliveriesFor,
   dueEhrDeliveries,
+  ensureEhrDeliveryStillCurrent,
   queueCaseSignal,
   queueFinalizationDeliveries,
   type EhrDeliveryClient,
@@ -71,7 +73,21 @@ function client(seed: Row[] = []) {
         return hit.slice(0, args.take ?? 20).map(r => ({ ...r }))
       }),
       create: vi.fn(async (args: { data: Row }) => {
-        const row = { id: `d-${n++}`, status: "PENDING", attemptCount: 0, nextAttemptAt: null, leaseOwner: null, leaseExpiresAt: null, sentAt: null, errorCode: null, ...args.data }
+        const row = {
+          id: `d-${n++}`,
+          status: "PENDING",
+          attemptCount: 0,
+          nextAttemptAt: null,
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          sentAt: null,
+          errorCode: null,
+          ...args.data,
+          case: {
+            status: "COMPLETE",
+            finalizations: [{ id: String(args.data.finalizationId) }],
+          },
+        }
         rows.push(row)
         return row
       }),
@@ -180,6 +196,38 @@ describe("a correction supersedes rather than edits", () => {
   })
 })
 
+describe("reopening a case cancels stale outbound work", () => {
+  it("cancels queued messages for the finalization being undone", async () => {
+    const db = client()
+    await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1", hasSafetyFindings: true })
+
+    await expect(cancelUnsentEhrDeliveries(db, {
+      caseId: "case-1",
+      finalizationId: "fin-1",
+    })).resolves.toBe(2)
+
+    expect(db.rows.every(row => row.status === "CANCELLED")).toBe(true)
+    expect(await dueEhrDeliveries(db, { now: new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS) }))
+      .toEqual([])
+  })
+
+  it("does not let a late completion resurrect a cancelled delivery", async () => {
+    const db = client()
+    await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1" })
+    const after = new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS)
+    const claim = await claimNextEhrDelivery(db, { worker: "w1", now: after })
+    await cancelUnsentEhrDeliveries(db, { caseId: "case-1", finalizationId: "fin-1" })
+
+    await expect(completeEhrDelivery(db, {
+      worker: "w1",
+      id: claim!.id,
+      outcome: "sent",
+      now: after,
+    })).resolves.toEqual({ status: "CANCELLED" })
+    expect(db.rows[0].status).toBe("CANCELLED")
+  })
+})
+
 describe("finalizing twice does not send twice", () => {
   it("is idempotent on the finalization and kind", async () => {
     // Clients retry a finalize. A retry must not become a second message the
@@ -276,6 +324,19 @@ describe("claiming a delivery for a worker", () => {
     expect(await claimNextEhrDelivery(db, { worker: "w2", now: after })).toBeNull()
   })
 
+  it("still claims a case-start signal without requiring a finalization", async () => {
+    const db = client()
+    await queueCaseSignal(db, {
+      institutionId: "inst-1", caseId: "case-1", kind: "CASE_START",
+      at: NOW, transport: "FOLDER",
+    })
+
+    const claim = await claimNextEhrDelivery(db, { worker: "w1", now: NOW })
+
+    expect(claim?.kind).toBe("CASE_START")
+    expect(db.rows[0].status).toBe("SENDING")
+  })
+
   it("lets another worker take it once the lease expires", async () => {
     // A worker that dies mid-send must not strand a message forever. The cost
     // is a message the hospital may see twice, which is why every payload
@@ -306,6 +367,22 @@ describe("claiming a delivery for a worker", () => {
 
     expect(claim?.attemptCount).toBe(1)
     expect(db.rows[0].attemptCount).toBe(1)
+  })
+
+  it("cancels a due delivery when the case is no longer complete", async () => {
+    const db = await queued()
+    db.rows[0].case = { status: "IN_PROGRESS", finalizations: [{ id: "fin-1" }] }
+
+    expect(await claimNextEhrDelivery(db, { worker: "w1", now: after })).toBeNull()
+    expect(db.rows[0].status).toBe("CANCELLED")
+  })
+
+  it("cancels a delivery superseded by a newer finalization", async () => {
+    const db = await queued()
+    db.rows[0].case = { status: "COMPLETE", finalizations: [{ id: "fin-2" }] }
+
+    expect(await claimNextEhrDelivery(db, { worker: "w1", now: after })).toBeNull()
+    expect(db.rows[0].status).toBe("CANCELLED")
   })
 })
 
@@ -413,6 +490,17 @@ describe("recovering a delivery from a worker that died mid-send", () => {
 
     expect(await claimNextEhrDelivery(db, { worker: "w2", now: withinLease })).toBeNull()
     expect(db.rows[0].leaseOwner).toBe("w1")
+  })
+
+  it("cancels a claimed delivery if the case is reopened before transport", async () => {
+    const { db, id, after } = await claimedBy("w1")
+    db.rows[0].case = { status: "IN_PROGRESS", finalizations: [{ id: "fin-1" }] }
+
+    await expect(ensureEhrDeliveryStillCurrent(db, { id, worker: "w1" })).resolves.toBe(false)
+    expect(db.rows[0].status).toBe("CANCELLED")
+
+    await expect(completeEhrDelivery(db, { worker: "w1", id, outcome: "sent", now: after }))
+      .resolves.toEqual({ status: "CANCELLED" })
   })
 
   /**

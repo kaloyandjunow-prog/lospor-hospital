@@ -7,6 +7,7 @@ import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { cancelUnsentEhrDeliveries } from "@/lib/hospital/ehr-delivery"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -30,6 +31,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           finalizedAt: true,
           clinicalMode: true,
           institutionId: true,
+          finalizations: {
+            orderBy: { sequence: "desc" },
+            take: 1,
+            select: { id: true },
+          },
         },
       })
       if (!caseRecord) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
@@ -56,6 +62,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // transition stamps a fresh one.
         data: { status: "IN_PROGRESS", finalizedAt: null, awaitingReviewAt: null },
       })
+      // Keep this tolerant of older test doubles and migrated records that do
+      // not expose the relation, while production Prisma always supplies the
+      // selected array.
+      const currentFinalization = caseRecord.finalizations?.[0]
+      if (currentFinalization) {
+        await cancelUnsentEhrDeliveries(tx, {
+          caseId: id,
+          finalizationId: currentFinalization.id,
+        })
+      }
       // Undoing an attestation is itself an act that has to be provable, so
       // its record commits with it rather than after the response.
       await logAuditInTransaction(tx, user.id, "CASE_UNFINALIZED", id, {

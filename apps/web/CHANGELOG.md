@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Web App
 
+## [1.4.21] - 2026-10-02
+
+### Fixed
+
+- The Hospital EHR adapter's printable protocol request now resolves against
+  the finalization snapshot and exposes a read-only record, so the structured
+  header and attached document cannot describe different case revisions.
+
 ## [9.13.7] - 2026-10-01
 
 ### Security
