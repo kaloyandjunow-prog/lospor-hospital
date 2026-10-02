@@ -29,6 +29,30 @@ describe("finding the patient a record number names", () => {
     expect(result).toEqual({ found: false, ambiguous: true })
   })
 
+  it("refuses one page entry when Bundle.total says there are more patients", async () => {
+    const result = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "42",
+      fetchImpl: json({
+        ...patientBundle("p1"),
+        total: 2,
+      }),
+    })
+    expect(result).toEqual({ found: false, ambiguous: true })
+  })
+
+  it("refuses one page entry when the patient search has a next link", async () => {
+    const result = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "42",
+      fetchImpl: json({
+        ...patientBundle("p1"),
+        link: [{ relation: "next", url: "?page=2" }],
+      }),
+    })
+    expect(result).toEqual({ found: false, ambiguous: true })
+  })
+
   it("searches on value alone, without an identifier system", async () => {
     // The same choice the discovery probe makes: asking an operator for an OID
     // they would have to get from their vendor is how an integration stalls.
@@ -419,12 +443,13 @@ describe("following a relative next link", () => {
     return { impl, dialled }
   }
 
-  it("resolves it against the endpoint and keeps paging", async () => {
-    const { impl } = relativeServer()
+  it("resolves a query-only link against the current resource and keeps paging", async () => {
+    const { impl, dialled } = relativeServer()
     const result = await fetchPatientResources({
       ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl,
     })
     expect(result.resources).toHaveLength(3)
+    expect(dialled[1]).toContain("/r4/Observation?page=1")
   })
 
   // Still refused when it resolves somewhere else: the link is response

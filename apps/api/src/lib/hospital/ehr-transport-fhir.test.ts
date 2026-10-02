@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 import {
   classifyFhirStatus,
   documentReferenceFor,
+  ehrDeliveryIdentifier,
   LOSPOR_RECORD_NUMBER_SYSTEM,
   postFhirResource,
 } from "./ehr-transport-fhir"
@@ -85,6 +86,20 @@ describe("sending a resource", () => {
     expect(init.headers["Content-Type"]).toBe("application/fhir+json")
   })
 
+  it("uses conditional create with the stable delivery identity", async () => {
+    const send = respond(201)
+    const key = ehrDeliveryIdentifier("fin-1", "PROTOCOL")
+    await postFhirResource(
+      { resourceType: "DocumentReference", identifier: [key] },
+      { ...OPTIONS, idempotencyKey: key, fetchImpl: send },
+    )
+
+    const init = (send as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1]
+    expect(init.headers["If-None-Exist"]).toBe(
+      `identifier=${encodeURIComponent(`${key.system}|${key.value}`)}`,
+    )
+  })
+
   it("treats a refused connection as worth retrying", async () => {
     // A hospital's internal CA being installed later is a normal course of
     // events, not a permanent misconfiguration.
@@ -122,6 +137,7 @@ describe("the protocol as a DocumentReference", () => {
     contentHtml: "<html>record</html>",
     createdAt: "2026-09-02T10:00:00.000Z",
     title: "Anaesthesia protocol",
+    messageIdentifier: ehrDeliveryIdentifier("fin-1", "PROTOCOL"),
   })
 
   /**
@@ -143,6 +159,7 @@ describe("the protocol as a DocumentReference", () => {
       contentHtml: "<html>record</html>",
       createdAt: "2026-09-02T10:00:00.000Z",
       title: "Anaesthesia protocol",
+      messageIdentifier: ehrDeliveryIdentifier("fin-1", "PROTOCOL"),
       identifierSystems: { recordNumber: "http://hospital.bg/iz" },
     })
 
@@ -159,6 +176,7 @@ describe("the protocol as a DocumentReference", () => {
       contentHtml: "<html>record</html>",
       createdAt: "2026-09-02T10:00:00.000Z",
       title: "Anaesthesia protocol",
+      messageIdentifier: ehrDeliveryIdentifier("fin-1", "PROTOCOL"),
       identifierSystems: {
         recordNumber: "http://hospital.bg/iz",
         national: "urn:oid:1.3.6.1.4.1.99999.egn",
@@ -189,6 +207,10 @@ describe("the protocol as a DocumentReference", () => {
       .toBe("<html>record</html>")
   })
 
+  it("carries the same stable delivery identity on the resource", () => {
+    expect(doc().identifier).toEqual([ehrDeliveryIdentifier("fin-1", "PROTOCOL")])
+  })
+
   it("identifies the patient by the number the hospital knows them by", async () => {
     const subject = doc().subject as { identifier: { value: string; system: string } }
 
@@ -202,6 +224,7 @@ describe("the protocol as a DocumentReference", () => {
     const egn = documentReferenceFor({
       patient: { identifierType: "EGN", identifier: "8001010008" },
       contentHtml: "<p/>", createdAt: "2026-09-02T10:00:00.000Z", title: "t",
+      messageIdentifier: ehrDeliveryIdentifier("fin-1", "PROTOCOL"),
     })
     const izSystem = (doc().subject as { identifier: { system: string } }).identifier.system
     const egnSystem = (egn.subject as { identifier: { system: string } }).identifier.system

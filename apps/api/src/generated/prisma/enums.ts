@@ -477,7 +477,8 @@ export const EhrDeliveryStatus = {
   SENDING: 'SENDING',
   SENT: 'SENT',
   FAILED: 'FAILED',
-  SUPERSEDED: 'SUPERSEDED'
+  SUPERSEDED: 'SUPERSEDED',
+  CANCELLED: 'CANCELLED'
 } as const
 
 export type EhrDeliveryStatus = (typeof EhrDeliveryStatus)[keyof typeof EhrDeliveryStatus]

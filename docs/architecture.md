@@ -107,6 +107,35 @@ with a lease and backoff. Withdrawal is another signed, receipted delivery.
 Central cannot query the Hospital database, pull cases, or write back into a
 case.
 
+## Hospital EHR delivery consistency
+
+Hospital EHR delivery is an at-least-once outbound integration. A completed
+case creates an immutable `CaseFinalization` snapshot and delivery rows tied to
+that finalization. Reopening the case cancels every unsent row for that
+revision; a claimant and the delivery worker also verify that the case is still
+complete and that the row is the latest finalization before egress. A delivery
+already accepted as sent remains an immutable historical fact.
+
+The structured header and printable attachment are built from the same
+finalization snapshot. The adapter's short-lived print token carries both the
+delivery and finalization identifiers, and the print-data endpoint refuses to
+fall back to live case tables. Drug and crystalloid/colloid/blood totals are
+calculated from the frozen timetable used by Core and preserve “not recorded”
+when no chart exists.
+
+FHIR patient search fails closed when the first page is not provably unique
+(`Bundle.total` or a next link indicates more results). FHIR next links are
+resolved against the current resource URL and kept on the configured origin.
+Outbound DocumentReferences carry a stable finalization/kind identifier both
+in the resource and in `If-None-Exist`, so a lost response can be retried
+without creating a duplicate when the receiving server supports conditional
+create.
+
+Dashboard “today” and “this month” are database counts. Their half-open UTC
+ranges are derived from the shared Europe/Sofia calendar definition, so the
+archive is not loaded into application memory and the result is consistent at
+midnight and daylight-saving boundaries.
+
 ## Network boundary
 
 The clinical web, PWA, and API may be internet-facing behind hospital firewall

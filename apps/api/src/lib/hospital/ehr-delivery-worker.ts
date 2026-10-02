@@ -2,11 +2,19 @@ import "server-only"
 
 import { prisma } from "@/lib/prisma"
 
-import { claimNextEhrDelivery, completeEhrDelivery } from "./ehr-delivery"
+import {
+  claimNextEhrDelivery,
+  completeEhrDelivery,
+  ensureEhrDeliveryStillCurrent,
+} from "./ehr-delivery"
 import { buildEhrDeliveryPayload } from "./ehr-delivery-payload"
 import { renderPrintableRecord } from "./ehr-printable-record"
 import { ehrAuthConfigFor, forgetEhrAccessToken, resolveEhrAccessToken } from "./ehr-fhir-auth"
-import { documentReferenceFor, postFhirResource } from "./ehr-transport-fhir"
+import {
+  documentReferenceFor,
+  ehrDeliveryIdentifier,
+  postFhirResource,
+} from "./ehr-transport-fhir"
 import { dropOutboundMessage } from "./ehr-transport-folder"
 import { ehrTransportAccess, ehrTransportCapabilityState } from "./ehr-transport-policy"
 
@@ -73,11 +81,13 @@ export async function processDueEhrDeliveries(
     let documentHtml: string | null = null
     if (payload.kind === "PROTOCOL") {
       const rendered = await renderPrintableRecord({
-        caseId: claim.caseId, deliveryId: claim.id,
+        caseId: claim.caseId,
+        deliveryId: claim.id,
+        finalizationId: claim.finalizationId,
       })
       if (!rendered.ok) {
         await completeEhrDelivery(prisma, {
-        worker,
+          worker,
           id: claim.id, outcome: "failed",
           permanent: rendered.permanent, errorCode: rendered.errorCode,
         })
@@ -85,6 +95,14 @@ export async function processDueEhrDeliveries(
         continue
       }
       documentHtml = rendered.html
+    }
+
+    // Rendering and credential exchange can take long enough for a clinician
+    // to reopen the case. Unfinalize cancels the row in the same database, and
+    // this check makes the worker observe that cancellation before egress.
+    if (!await ensureEhrDeliveryStillCurrent(prisma, { id: claim.id, worker })) {
+      result.skipped += 1
+      continue
     }
 
     // Reopened for this message rather than once for the batch.
@@ -107,6 +125,14 @@ export async function processDueEhrDeliveries(
         worker,
         id: claim.id, outcome: "failed", errorCode: access.reason,
       })
+      result.skipped += 1
+      continue
+    }
+
+    // The policy/credential lookup above can itself cross a network boundary.
+    // Re-check after it so a case reopened while that work was in progress is
+    // not the next thing handed to folder or FHIR transport.
+    if (!await ensureEhrDeliveryStillCurrent(prisma, { id: claim.id, worker })) {
       result.skipped += 1
       continue
     }
@@ -142,19 +168,21 @@ export async function processDueEhrDeliveries(
           // because being wrong here destroys a record, and being wrong in the
           // other direction costs one retry.
           await completeEhrDelivery(prisma, {
-        worker,
+            worker,
             id: claim.id, outcome: "failed", errorCode: "ENDPOINT_NOT_CONFIGURED",
           })
           result.failed += 1
           continue
         }
 
+        const messageIdentifier = ehrDeliveryIdentifier(payload.finalizationId, payload.kind)
         const resource = documentHtml
           ? documentReferenceFor({
               patient: payload.patient,
               contentHtml: documentHtml,
               createdAt: new Date().toISOString(),
               title: "Anaesthesia protocol",
+              messageIdentifier,
               // The receiving hospital matches on its own namespaces. Asked
               // once, for the inbound patient check, and used both ways.
               identifierSystems: {
@@ -167,6 +195,7 @@ export async function processDueEhrDeliveries(
               // resource so a receiver that files everything still gets it,
               // rather than being dropped for having no FHIR shape of its own.
               resourceType: "Basic",
+              identifier: [messageIdentifier],
               code: { text: payload.kind },
               extension: [{
                 url: "https://lospor.org/fhir/StructureDefinition/ehr-message",
@@ -180,7 +209,7 @@ export async function processDueEhrDeliveries(
         const auth = await resolveEhrAccessToken(authConfig)
         if (!auth.ok) {
           await completeEhrDelivery(prisma, {
-        worker,
+            worker,
             id: claim.id, outcome: "failed",
             permanent: auth.permanent, errorCode: auth.errorCode,
           })
@@ -189,7 +218,9 @@ export async function processDueEhrDeliveries(
         }
 
         const sent = await postFhirResource(resource, {
-          endpoint, credential: auth.token,
+          endpoint,
+          credential: auth.token,
+          idempotencyKey: messageIdentifier,
         })
         if (!sent.ok) {
           // A token can stop working before it expires -- revoked at the
@@ -201,7 +232,7 @@ export async function processDueEhrDeliveries(
             forgetEhrAccessToken(authConfig)
           }
           await completeEhrDelivery(prisma, {
-        worker,
+            worker,
             id: claim.id, outcome: "failed",
             permanent: sent.permanent, errorCode: sent.errorCode,
           })
@@ -214,7 +245,7 @@ export async function processDueEhrDeliveries(
         // permanently rather than quietly marked sent: a site whose messages
         // are going nowhere has to be told.
         await completeEhrDelivery(prisma, {
-        worker,
+          worker,
           id: claim.id, outcome: "failed", permanent: true, errorCode: "TRANSPORT_NOT_IMPLEMENTED",
         })
         result.skipped += 1

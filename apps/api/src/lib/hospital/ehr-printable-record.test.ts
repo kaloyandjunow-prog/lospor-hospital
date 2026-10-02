@@ -24,7 +24,7 @@ describe("fetching the printable record", () => {
   it("asks the print page for this case, with a token", async () => {
     const send = respond(200)
     const result = await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: send, baseUrl: BASE,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: send, baseUrl: BASE,
     })
 
     expect(result).toEqual({ ok: true, html: "<html>record</html>" })
@@ -38,7 +38,7 @@ describe("fetching the printable record", () => {
     // and never leaves the appliance on its way between containers.
     const send = respond(200)
     await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: send, baseUrl: BASE,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: send, baseUrl: BASE,
     })
 
     expect(String((send as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0])
@@ -52,7 +52,7 @@ describe("which failures are worth repeating", () => {
     // because a container was cycling after an update.
     const send = vi.fn(async () => { throw new Error("ECONNREFUSED") }) as unknown as typeof fetch
     const result = await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: send, baseUrl: BASE,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: send, baseUrl: BASE,
     })
 
     expect(result).toEqual({ ok: false, permanent: false, errorCode: "PRINT_UNREACHABLE" })
@@ -60,7 +60,7 @@ describe("which failures are worth repeating", () => {
 
   it("gives up when the case is gone, because nothing will bring it back", async () => {
     const result = await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: respond(404), baseUrl: BASE,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: respond(404), baseUrl: BASE,
     })
 
     expect(result).toMatchObject({ ok: false, permanent: true })
@@ -68,7 +68,7 @@ describe("which failures are worth repeating", () => {
 
   it("retries a server error", async () => {
     const result = await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: respond(500), baseUrl: BASE,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: respond(500), baseUrl: BASE,
     })
 
     expect(result).toMatchObject({ ok: false, permanent: false })
@@ -78,7 +78,7 @@ describe("which failures are worth repeating", () => {
     // A 200 with nothing in it would otherwise be sent as the anaesthetic
     // record, and a blank document filed against a patient is worse than none.
     const result = await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: respond(200, "   "), baseUrl: BASE,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: respond(200, "   "), baseUrl: BASE,
     })
 
     expect(result).toEqual({ ok: false, permanent: false, errorCode: "PRINT_EMPTY" })
@@ -89,7 +89,7 @@ describe("which failures are worth repeating", () => {
       const e = new Error("aborted"); e.name = "AbortError"; throw e
     }) as unknown as typeof fetch
     const result = await renderPrintableRecord({
-      caseId: "case-1", deliveryId: "d-1", fetchImpl: send, baseUrl: BASE, timeoutMs: 5,
+      caseId: "case-1", deliveryId: "d-1", finalizationId: "fin-1", fetchImpl: send, baseUrl: BASE, timeoutMs: 5,
     })
 
     expect(result).toEqual({ ok: false, permanent: false, errorCode: "PRINT_TIMEOUT" })

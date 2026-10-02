@@ -118,6 +118,33 @@ export async function queueFinalizationDeliveries(
 }
 
 /**
+ * Reopening a case withdraws the unsent messages for the finalization that was
+ * just undone. A delivery already marked SENT stays reconstructable; a
+ * SENDING row is cancelled as well so a late worker completion cannot turn it
+ * back into SENT underneath the reopening transaction.
+ */
+export async function cancelUnsentEhrDeliveries(
+  client: EhrDeliveryClient,
+  input: { caseId: string; finalizationId: string },
+): Promise<number> {
+  const result = await client.ehrDelivery.updateMany({
+    where: {
+      caseId: input.caseId,
+      finalizationId: input.finalizationId,
+      status: { in: ["PENDING", "SENDING"] },
+    },
+    data: {
+      status: "CANCELLED",
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextAttemptAt: null,
+      errorCode: "CASE_UNFINALIZED",
+    },
+  })
+  return result.count
+}
+
+/**
  * Queue a start or end signal.
  *
  * Fire and forget, and deliberately not held: these describe a moment rather
@@ -225,46 +252,141 @@ export async function claimNextEhrDelivery(
     { status: "SENDING" as const, leaseExpiresAt: { lte: now } },
   ]
 
-  const candidate = await client.ehrDelivery.findFirst({
-    where: {
-      deliverAfter: { lte: now },
-      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-      AND: [
-        { OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] },
-        { OR: reclaimable },
-      ],
-    },
-    orderBy: [{ deliverAfter: "asc" }, { id: "asc" }],
-    select: { id: true, caseId: true, kind: true, finalizationId: true, attemptCount: true },
-  })
-  if (!candidate) return null
+  // A stale row may already exist from an older release, so keep looking after
+  // cancelling one. The status predicate makes the loop finite in normal
+  // operation; the compare-and-set still turns a concurrent race into a miss.
+  for (;;) {
+    const candidate = await client.ehrDelivery.findFirst({
+      where: {
+        deliverAfter: { lte: now },
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        AND: [
+          { OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] },
+          { OR: reclaimable },
+        ],
+      },
+      orderBy: [{ deliverAfter: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        caseId: true,
+        kind: true,
+        finalizationId: true,
+        attemptCount: true,
+        case: {
+          select: {
+            status: true,
+            finalizations: {
+              orderBy: { sequence: "desc" },
+              take: 1,
+              select: { id: true },
+            },
+          },
+        },
+      },
+    })
+    if (!candidate) return null
 
-  // Compare-and-set on the lease: two workers racing for the same row means
-  // exactly one wins, and the loser simply asks again. The same reclaimable
-  // condition is repeated here rather than trusting the read above -- between
-  // the two statements another worker may have taken it.
-  const claimed = await client.ehrDelivery.updateMany({
-    where: {
+    const isMomentSignal = candidate.kind === "CASE_START" || candidate.kind === "CASE_END"
+    const currentFinalizationId = candidate.case.finalizations[0]?.id ?? null
+    if (!isMomentSignal && (candidate.case.status !== "COMPLETE" || currentFinalizationId !== String(candidate.finalizationId))) {
+      // Reopening and correction both make an old queued message unsafe. Do
+      // not merely skip it: leave an auditable terminal state and prevent an
+      // old worker lease from completing it later.
+      await client.ehrDelivery.updateMany({
+        where: {
+          id: String(candidate.id),
+          OR: [
+            { status: "PENDING" },
+            { status: "SENDING", leaseExpiresAt: { lte: now } },
+          ],
+        },
+        data: {
+          status: "CANCELLED",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          nextAttemptAt: null,
+          errorCode: "STALE_FINALIZATION",
+        },
+      })
+      continue
+    }
+
+    // Compare-and-set on the lease: two workers racing for the same row means
+    // exactly one wins, and the loser simply asks again. The same reclaimable
+    // condition is repeated here rather than trusting the read above -- between
+    // the two statements another worker may have taken it.
+    const claimed = await client.ehrDelivery.updateMany({
+      where: {
+        id: String(candidate.id),
+        OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }],
+        AND: [{ OR: reclaimable }],
+      },
+      data: {
+        status: "SENDING",
+        leaseOwner: input.worker,
+        leaseExpiresAt: new Date(now.getTime() + EHR_DELIVERY_LEASE_MS),
+        attemptCount: Number(candidate.attemptCount) + 1,
+      },
+    })
+    if (claimed.count === 0) return null
+
+    return {
       id: String(candidate.id),
-      OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }],
-      AND: [{ OR: reclaimable }],
-    },
-    data: {
-      status: "SENDING",
-      leaseOwner: input.worker,
-      leaseExpiresAt: new Date(now.getTime() + EHR_DELIVERY_LEASE_MS),
+      caseId: String(candidate.caseId),
+      kind: candidate.kind as EhrDeliveryKind,
+      finalizationId: String(candidate.finalizationId),
       attemptCount: Number(candidate.attemptCount) + 1,
+    }
+  }
+}
+
+/**
+ * Re-check immediately before payload construction/egress. Unfinalization
+ * cancels the row transactionally, but this closes the gap between a claim and
+ * the worker's slower printable render or credential exchange.
+ */
+export async function ensureEhrDeliveryStillCurrent(
+  client: EhrDeliveryClient,
+  input: { id: string; worker: string },
+): Promise<boolean> {
+  const row = await client.ehrDelivery.findFirst({
+    where: { id: input.id, status: "SENDING", leaseOwner: input.worker },
+    select: {
+      id: true,
+      kind: true,
+      finalizationId: true,
+      case: {
+        select: {
+          status: true,
+          finalizations: {
+            orderBy: { sequence: "desc" },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      },
     },
   })
-  if (claimed.count === 0) return null
+  if (!row) return false
 
-  return {
-    id: String(candidate.id),
-    caseId: String(candidate.caseId),
-    kind: candidate.kind as EhrDeliveryKind,
-    finalizationId: String(candidate.finalizationId),
-    attemptCount: Number(candidate.attemptCount) + 1,
-  }
+  const isMomentSignal = row.kind === "CASE_START" || row.kind === "CASE_END"
+  const current = isMomentSignal || (
+    row.case.status === "COMPLETE"
+    && row.case.finalizations[0]?.id === String(row.finalizationId)
+  )
+  if (current) return true
+
+  await client.ehrDelivery.updateMany({
+    where: { id: input.id, status: "SENDING", leaseOwner: input.worker },
+    data: {
+      status: "CANCELLED",
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextAttemptAt: null,
+      errorCode: "STALE_FINALIZATION",
+    },
+  })
+  return false
 }
 
 /** How many attempts before a delivery is given up on. */
@@ -298,22 +420,34 @@ export async function completeEhrDelivery(
     errorCode?: string
     now?: Date
   },
-): Promise<{ status: "SENT" | "FAILED" | "PENDING" }> {
+): Promise<{ status: "SENT" | "FAILED" | "PENDING" | "CANCELLED" }> {
   const now = input.now ?? new Date()
-  const owned = { id: input.id, leaseOwner: input.worker }
+  const owned = { id: input.id, leaseOwner: input.worker, status: "SENDING" as const }
 
   if (input.outcome === "sent") {
-    await client.ehrDelivery.updateMany({
+    const updated = await client.ehrDelivery.updateMany({
       where: owned,
       data: { status: "SENT", sentAt: now, leaseOwner: null, leaseExpiresAt: null, errorCode: null },
     })
-    return { status: "SENT" }
+    if (updated.count === 1) return { status: "SENT" }
+    const current = await client.ehrDelivery.findFirst({
+      where: { id: input.id },
+      select: { status: true },
+    })
+    return { status: current?.status === "CANCELLED" ? "CANCELLED" : "PENDING" }
   }
 
   const row = await client.ehrDelivery.findFirst({
     where: owned,
     select: { attemptCount: true },
   })
+  if (!row) {
+    const current = await client.ehrDelivery.findFirst({
+      where: { id: input.id },
+      select: { status: true },
+    })
+    return { status: current?.status === "CANCELLED" ? "CANCELLED" : "PENDING" }
+  }
   const attempts = Number(row?.attemptCount ?? 1)
   const exhausted = attempts >= EHR_DELIVERY_MAX_ATTEMPTS
 

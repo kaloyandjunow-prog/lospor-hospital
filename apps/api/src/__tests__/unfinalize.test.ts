@@ -5,6 +5,7 @@ const getAuthUserMock = vi.fn()
 const findUniqueMock  = vi.fn()
 const updateMock      = vi.fn()
 const logAuditMock    = vi.fn()
+const cancelUnsentEhrDeliveriesMock = vi.fn()
 
 vi.mock("next/server", async importOriginal => {
   const actual = await importOriginal<typeof import("next/server")>()
@@ -21,6 +22,9 @@ vi.mock("@/lib/clinical-transaction", () => ({
     operation({ case: { findUnique: findUniqueMock, update: updateMock } })),
 }))
 vi.mock("@/lib/audit", () => ({ logAudit: logAuditMock, logAuditInTransaction: logAuditMock }))
+vi.mock("@/lib/hospital/ehr-delivery", () => ({
+  cancelUnsentEhrDeliveries: cancelUnsentEhrDeliveriesMock,
+}))
 
 function makeRequest(caseId = "case-1") {
   return new Request(`http://localhost/api/cases/${caseId}/unfinalize`, { method: "POST" }) as Parameters<typeof POST>[0]
@@ -41,6 +45,7 @@ describe("POST /api/cases/:id/unfinalize", () => {
       user: { institutionId: "inst-1" },
     })
     updateMock.mockResolvedValue({ id: "case-1", status: "IN_PROGRESS" })
+    cancelUnsentEhrDeliveriesMock.mockResolvedValue(0)
     const mod = await import("@/app/v1/cases/[id]/unfinalize/route")
     POST = mod.POST
   })
@@ -103,5 +108,25 @@ describe("POST /api/cases/:id/unfinalize", () => {
     })
     const res = await POST(makeRequest(), { params: Promise.resolve({ id: "case-1" }) })
     expect(res.status).toBe(200)
+  })
+
+  it("cancels the current finalization's unsent deliveries", async () => {
+    findUniqueMock.mockResolvedValue({
+      userId: "user-1",
+      status: "COMPLETE",
+      finalizedAt: recentFinalizedAt,
+      clinicalMode: "ADULT",
+      institutionId: "inst-1",
+      finalizations: [{ id: "fin-1" }],
+      user: { institutionId: "inst-1" },
+    })
+
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "case-1" }) })
+
+    expect(res.status).toBe(200)
+    expect(cancelUnsentEhrDeliveriesMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { caseId: "case-1", finalizationId: "fin-1" },
+    )
   })
 })

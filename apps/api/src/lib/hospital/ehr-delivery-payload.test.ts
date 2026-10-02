@@ -114,6 +114,39 @@ describe("the message describes the version that was attested to", () => {
 
     expect(header.fluids.bloodLoss).toEqual({ recorded: false, unit: "mL" })
   })
+
+  it("carries the frozen timetable totals into the structured header", async () => {
+    const payload = await buildEhrDeliveryPayload(client({
+      snapshot: {
+        intraop: {
+          keyEvents: {
+            drugs: [
+              { column: 1, time: "07:35", name: "Propofol", dose: "100", unit: "mg" },
+              { column: 2, time: "07:40", name: "Propofol", dose: "50", unit: "mg" },
+            ],
+            fluids: [
+              { id: "f-1", volume: "500", category: "Crystalloids", startCol: 1 },
+              { id: "f-2", volume: "250", category: "Colloids", startCol: 2 },
+              { id: "f-3", volume: "1", category: "Blood products", startCol: 3 },
+            ],
+          },
+        },
+        postop: {},
+      },
+    }), { deliveryId: "d-1" })
+    const header = payload?.header as {
+      drugs: { name: string; unit: string; total: number; count: number }[]
+      fluids: { crystalloids: unknown; colloids: unknown; blood: unknown }
+    }
+
+    expect(payload?.finalizationId).toBe("fin-1")
+    expect(header.drugs).toEqual([{ name: "Propofol", unit: "mg", total: 150, count: 2 }])
+    expect(header.fluids).toMatchObject({
+      crystalloids: { recorded: true, value: 500, unit: "mL" },
+      colloids: { recorded: true, value: 250, unit: "mL" },
+      blood: { recorded: true, value: 1, unit: "mL" },
+    })
+  })
 })
 
 describe("the record number the hospital files it against", () => {

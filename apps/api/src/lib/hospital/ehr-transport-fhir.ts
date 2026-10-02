@@ -57,6 +57,19 @@ export function classifyFhirStatus(status: number): { permanent: boolean; errorC
 export const LOSPOR_RECORD_NUMBER_SYSTEM = "urn:oid:1.3.6.1.4.1.55897.1.1"
 export const LOSPOR_NATIONAL_IDENTIFIER_SYSTEM = "urn:oid:1.3.6.1.4.1.55897.1.2"
 
+/** Stable namespace for the appliance's at-least-once EHR messages. */
+export const LOSPOR_EHR_DELIVERY_IDENTIFIER_SYSTEM = "https://lospor.org/fhir/NamingSystem/ehr-delivery"
+
+export function ehrDeliveryIdentifier(finalizationId: string, kind: string): {
+  system: string
+  value: string
+} {
+  return {
+    system: LOSPOR_EHR_DELIVERY_IDENTIFIER_SYSTEM,
+    value: `${finalizationId}:${kind}`,
+  }
+}
+
 /**
  * A DocumentReference carrying the printable record.
  *
@@ -80,6 +93,7 @@ export function documentReferenceFor(input: {
   contentHtml: string
   createdAt: string
   title: string
+  messageIdentifier: { system: string; value: string }
   /**
    * The hospital's own identifier systems, when the site has configured them.
    * Undefined leaves the LOSPOR fallbacks in place, which is what an
@@ -98,6 +112,7 @@ export function documentReferenceFor(input: {
     || (isNational ? LOSPOR_NATIONAL_IDENTIFIER_SYSTEM : LOSPOR_RECORD_NUMBER_SYSTEM)
   return {
     resourceType: "DocumentReference",
+    identifier: [input.messageIdentifier],
     status: "current",
     // "Anaesthesia record" in LOINC. Sites that do not recognise it still get
     // the title and the attachment.
@@ -128,6 +143,8 @@ export type FhirClientOptions = {
   credential: string
   timeoutMs?: number
   fetchImpl?: typeof fetch
+  /** FHIR conditional-create identity for safe retries after a lost response. */
+  idempotencyKey?: { system: string; value: string }
 }
 
 /**
@@ -150,13 +167,25 @@ export async function postFhirResource(
 
   try {
     const send = options.fetchImpl ?? fetch
+    const headers: Record<string, string> = {
+      "Content-Type": "application/fhir+json",
+      Accept: "application/fhir+json",
+      Authorization: `Bearer ${options.credential}`,
+    }
+    if (options.idempotencyKey) {
+      // Conditional create is expressed as the search query that identifies
+      // the one resource this delivery is allowed to create. The resource also
+      // carries the identifier so receivers can reconcile it if they do not
+      // implement the header.
+      const search = new URLSearchParams({
+        identifier: `${options.idempotencyKey.system}|${options.idempotencyKey.value}`,
+      }).toString()
+      headers["If-None-Exist"] = search
+    }
+
     const response = await send(`${base}/${type}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/fhir+json",
-        Accept: "application/fhir+json",
-        Authorization: `Bearer ${options.credential}`,
-      },
+      headers,
       body: JSON.stringify(resource),
       signal: controller.signal,
     })

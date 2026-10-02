@@ -1,4 +1,30 @@
 # Changelog - LOSPOR Hospital
+
+## [1.4.21] - 2026-10-02
+
+### Fixed
+
+- **Reopened finalizations no longer dispatch stale EHR messages.** Unsent
+  protocol and safety deliveries are cancelled when a case is reopened, and
+  both the claimant and worker re-check that the case is complete and still on
+  the latest finalization.
+- **EHR protocol structure and attachment use one frozen revision.** The
+  printable adapter path is bound to the finalization snapshot, while the
+  structured header now includes persisted drug and fluid totals.
+- **FHIR delivery is safer at the edges.** Patient matching fails closed on
+  paged ambiguity, relative next links resolve against the current resource,
+  and outbound resources carry a stable conditional-create identity for lost
+  response retries.
+- **Dashboard calendar counts stay database-bounded.** Today and month use
+  indexed UTC ranges derived from the shared Europe/Sofia calendar, without
+  loading every accessible case into application memory.
+
+### Verification
+
+- Added biting API regressions for reopen/lease races, route-level frozen
+  printable data, structured totals, FHIR paging and conditional create, and
+  dashboard boundary predicates.
+
 ## [1.4.20] - 2026-10-01
 
 Vendors Core 9.13.6 plus API, Web and PWA 9.13.7 as one coordinated clinical
