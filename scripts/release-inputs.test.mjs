@@ -25,7 +25,7 @@ test("rejects mutable tags, wrong repositories, wrong platforms and extra inputs
   assert.throws(() => parseReleaseInputs(mutable), /node.*sha256/)
   const incompatiblePostgres = structuredClone(real)
   incompatiblePostgres.images.postgres = `postgres:17.11-alpine3.24@sha256:${"c".repeat(64)}`
-  assert.throws(() => parseReleaseInputs(incompatiblePostgres), /postgres.*17\.11-bookworm/)
+  assert.throws(() => parseReleaseInputs(incompatiblePostgres), /postgres.*17\.11-trixie/)
   const attacker = structuredClone(real)
   attacker.images.caddyRuntime = `ghcr.io/attacker/caddy@sha256:${"a".repeat(64)}`
   assert.throws(() => parseReleaseInputs(attacker), /caddyRuntime.*sha256/)

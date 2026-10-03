@@ -100,6 +100,48 @@ describe("sending a resource", () => {
     )
   })
 
+  // Conditional create is optional in FHIR (1.4.22). A server that refuses the
+  // header must still receive the message, not fail it permanently.
+  it.each([400, 412, 422, 501])("sends once more without If-None-Exist when the server refuses it with %i", async status => {
+    const send = vi.fn()
+      .mockResolvedValueOnce(new Response("", { status }))
+      .mockResolvedValueOnce(new Response("", { status: 201, headers: { location: "DocumentReference/9" } })) as unknown as typeof fetch
+    const key = ehrDeliveryIdentifier("fin-1", "PROTOCOL")
+    const result = await postFhirResource(
+      { resourceType: "DocumentReference", identifier: [key] },
+      { ...OPTIONS, idempotencyKey: key, fetchImpl: send },
+    )
+
+    expect(result).toMatchObject({ ok: true, status: 201, location: "DocumentReference/9" })
+    const calls = (send as unknown as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[0][1].headers["If-None-Exist"]).toBeDefined()
+    expect(calls[1][1].headers["If-None-Exist"]).toBeUndefined()
+    expect(JSON.parse(calls[1][1].body).identifier).toEqual([key])
+  })
+
+  it("does not retry a refusal unrelated to the header, or a message sent without one", async () => {
+    const key = ehrDeliveryIdentifier("fin-1", "PROTOCOL")
+    const forbidden = vi.fn(async () => new Response("", { status: 404 })) as unknown as typeof fetch
+    expect(await postFhirResource({ resourceType: "DocumentReference" }, { ...OPTIONS, idempotencyKey: key, fetchImpl: forbidden }))
+      .toMatchObject({ ok: false, permanent: true, errorCode: "HTTP_404" })
+    expect((forbidden as unknown as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+
+    const plain = vi.fn(async () => new Response("", { status: 400 })) as unknown as typeof fetch
+    expect(await postFhirResource({ resourceType: "DocumentReference" }, { ...OPTIONS, fetchImpl: plain }))
+      .toMatchObject({ ok: false, permanent: true, errorCode: "HTTP_400" })
+    expect((plain as unknown as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+  })
+
+  it("reports the second answer when the plain create is refused too", async () => {
+    const key = ehrDeliveryIdentifier("fin-1", "PROTOCOL")
+    const send = vi.fn()
+      .mockResolvedValueOnce(new Response("", { status: 400 }))
+      .mockResolvedValueOnce(new Response("", { status: 422 })) as unknown as typeof fetch
+    expect(await postFhirResource({ resourceType: "DocumentReference" }, { ...OPTIONS, idempotencyKey: key, fetchImpl: send }))
+      .toMatchObject({ ok: false, permanent: true, status: 422, errorCode: "HTTP_422" })
+  })
+
   it("treats a refused connection as worth retrying", async () => {
     // A hospital's internal CA being installed later is a normal course of
     // events, not a permanent misconfiguration.

@@ -10,16 +10,29 @@ describe("finalization error messages", () => {
     }, LABELS.en)).toBe(LABELS.en.finalizeMissingDemographics)
   })
 
-  it("keeps other incomplete pre-op sections on the general pre-op message", () => {
+  it("says an existing assessment is incomplete rather than missing", () => {
     expect(finalizeErrorMessage({
       reason: "incomplete_preop",
-      blockers: [{ code: "incomplete_preop", path: ["preop.case_details"] }],
-    }, LABELS.bg)).toBe(LABELS.bg.finalizeMissingPreop)
+      blockers: [{ code: "incomplete_preop", path: ["preop.caseDetails"] }],
+    }, LABELS.bg)).toBe(LABELS.bg.finalizeIncompletePreop)
   })
 
   it("does not expose an incomplete_preop protocol code as raw text", () => {
     expect(finalizeErrorMessage({ reason: "incomplete_preop" }, LABELS.en))
-      .toBe(LABELS.en.finalizeMissingPreop)
+      .toBe(LABELS.en.finalizeIncompletePreop)
+  })
+
+  // These four used to come out as the generic message (9.13.8).
+  it.each([
+    ["missing_end_time", "finalizeMissingEndTime"],
+    ["missing_start_time", "finalizeMissingStartTime"],
+    ["entries_after_case_end", "finalizeEntriesAfterEnd"],
+    ["unconfirmed_stops", "finalizeUnconfirmedStops"],
+  ] as const)("names what blocks finalization: %s", (reason, label) => {
+    for (const locale of ["en", "bg"] as const) {
+      expect(finalizeErrorMessage({ reason }, LABELS[locale])).toBe(LABELS[locale][label])
+      expect(LABELS[locale][label]).not.toBe(LABELS[locale].finalizeFailed)
+    }
   })
 
   it("maps an already-finalized conflict without exposing the protocol code", () => {

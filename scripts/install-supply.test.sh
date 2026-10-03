@@ -148,8 +148,9 @@ LOSPOR_POSTGRES_GATE_TEST_READY_AFTER=3 \
 LOSPOR_POSTGRES_GATE_READY_ATTEMPTS=4 \
 LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS=0 \
   sh "$root/scripts/postgres-update-gate.sh" preflight >/dev/null
+# Preflight runs two files once ready: security, then collation (1.4.22).
 assert_equal "PostgreSQL gate waits until readiness before psql" \
-  'ready-tcp:1,sleep:0,ready-tcp:2,sleep:0,ready-tcp:3,probe,psql' \
+  'ready-tcp:1,sleep:0,ready-tcp:2,sleep:0,ready-tcp:3,probe,psql,psql' \
   "$(tr '\n' ',' < "$gate_events" | sed 's/,$//')"
 
 rm -f "$gate_state"

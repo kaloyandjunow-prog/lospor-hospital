@@ -207,17 +207,29 @@ development path. `update.sh` открива resolved Compose model. Release mod
 `pull_policy: never`, така че Compose не може тихо да замени проверен image при
 стартиране на appliance.
 
-Hospital PostgreSQL image остава съвместим с Debian Bookworm/glibc и volumes,
-създадени от `postgres:17.6-bookworm`, но изгражда PostgreSQL 17.11, `pg_trgm`
+От 1.4.22 Hospital PostgreSQL image е Debian 13 (Trixie, glibc 2.41). Той
+отваря на място volumes, създадени от `postgres:17.6-bookworm` (glibc 2.36), и
+изгражда PostgreSQL 17.11, `pg_trgm`
 и `pgcrypto` от upstream tarball с проверена контролна сума. Runtime libraries zlib 1.3.2 и
 ACL 2.4.0 също се изграждат от source, а LDAP, libxml, UUID, readline/ncurses и
 неизползваните package tools отсъстват. CI отваря точен 17.6 `en_US.utf8` data
-volume в production image, сравнява collation metadata, ordering и indexed
-lookup semantics и отделно доказва custom-format backup/restore и всички
-migrations.
+volume в production image, пуска проверката за collation, доказва, че
+преизграденият индекс връща редовете в реда на текущата библиотека и че новата
+collation version е записана, и отделно доказва custom-format backup/restore и
+всички migrations.
+
+По-нова C библиотека може да подрежда същия текст различно, а btree индекс,
+изграден по стария ред, тогава може да пропусне редове или да допусне дубликат.
+Преди migrations preflight сравнява записаната от PostgreSQL collation version с
+тази, която библиотеката отчита; ако се различават, изпълнява
+`REINDEX DATABASE` и `ALTER DATABASE … REFRESH COLLATION VERSION` и спира
+безопасно, ако разликата остане. Когато съвпадат — при всяко обновяване, което
+не сменя C библиотеката — не прави нищо. Връщането назад през тази промяна
+възстановява архива отпреди обновяването и никога не отваря преизградените
+индекси със стария image.
 
 Patch update 17.11 отваря съществуваща version-17 data directory in place; не
-изисква dump/restore или `pg_upgrade`. Преди migrations appliance отказва
+изисква dump/restore или `pg_upgrade`. Преди migrations appliance съгласува collation version (по-горе), отказва
 logical-decoding slots и custom output plugins (Hospital не използва нито
 едното), така че migrations не могат да издават WAL в неподдържаното състояние.
 След migrations следва документираната PostgreSQL remediation чрез `ANALYZE` на

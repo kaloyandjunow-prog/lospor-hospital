@@ -206,18 +206,29 @@ model fails closed unless an integrity-verifying launcher passes its ephemeral
 verification state, and every release service uses `pull_policy: never` so
 Compose cannot silently replace a verified image while starting the appliance.
 
-The Hospital PostgreSQL image remains Debian Bookworm/glibc compatible with
-volumes created by `postgres:17.6-bookworm`, but builds PostgreSQL 17.11 plus
+Since 1.4.22 the Hospital PostgreSQL image is Debian 13 (Trixie, glibc 2.41).
+It opens volumes created by `postgres:17.6-bookworm` (glibc 2.36) in place, and
+builds PostgreSQL 17.11 plus
 `pg_trgm` and `pgcrypto` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
 runtime libraries are likewise source-built, while LDAP, libxml, UUID,
 readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
-`en_US.utf8` data volume in the production image, compares collation metadata,
-ordering and indexed lookup semantics, and separately proves custom-format
+`en_US.utf8` data volume in the production image, runs the collation gate,
+proves the rebuilt index returns rows in the running library's order and that
+the new collation version is recorded, and separately proves custom-format
 backup/restore and all migrations.
+
+A newer C library can sort the same text differently, and a btree index built
+under the old order can then miss rows or admit a duplicate. Before
+migrations, the preflight compares the collation version PostgreSQL recorded
+with the one the library reports; when they differ it runs `REINDEX DATABASE`
+and `ALTER DATABASE … REFRESH COLLATION VERSION`, and fails closed if they
+still differ. When they agree, which is every update that keeps the C library,
+it does nothing. Rolling back across this change restores the pre-update
+backup, never opens the rebuilt indexes with the older image.
 
 The 17.11 patch update opens an existing version-17 data directory in place;
 it requires neither dump/restore nor `pg_upgrade`. Before migrations, the
-appliance rejects logical-decoding slots and custom output plugins (Hospital
+appliance reconciles the collation version (above), rejects logical-decoding slots and custom output plugins (Hospital
 does not use either), so migrations cannot emit WAL in that unsupported state.
 After migrations, it follows PostgreSQL's documented remediation by running
 `ANALYZE` on every

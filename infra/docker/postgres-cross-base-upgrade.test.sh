@@ -4,9 +4,15 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd -P)"
 
 # Prove that an existing Hospital PostgreSQL 17.6 Bookworm data directory can
-# be opened in place by the hardened 17.11 Bookworm image. This deliberately
-# exercises a glibc-backed locale and its btree index: switching the appliance
-# to Alpine/musl would make this volume-level upgrade unsafe.
+# be opened in place by the hardened 17.11 image. This deliberately exercises a
+# glibc-backed locale and its btree index: switching the appliance to
+# Alpine/musl would make this volume-level upgrade unsafe.
+#
+# Since Hospital 1.4.22 the hardened image is Debian 13 (glibc 2.41), so the
+# recorded collation version legitimately moves. The preflight collation gate
+# must rebuild the indexes and record the new version before anything else
+# touches the data; the checks below prove it did, rather than that nothing
+# changed.
 
 if [ "$#" -ne 1 ] || [ -z "$1" ]; then
   echo "Usage: $0 <hardened-postgres-image>" >&2
@@ -126,23 +132,49 @@ docker run --detach --name "$hardened_container" \
     -c output_plugin_libraries=pgoutput,untrusted_decoder >/dev/null
 wait_for_postgres "$hardened_container" 0
 
-hardened_order="$(docker exec "$hardened_container" psql \
+# The update runs this before migrations (postgres-update-gate.sh preflight).
+docker exec -i "$hardened_container" psql \
+  --username "$username" --dbname "$database" --set ON_ERROR_STOP=1 \
+  < "$root/infra/postgres/pre-migration-collation.sql" >/dev/null
+
+# The order the index returns must be the order the running C library sorts
+# in. A stale index built under the old library could disagree; the rebuilt
+# one may not.
+ordered_labels="SELECT string_agg(label, '|') FROM (SELECT label FROM upgrade_probe ORDER BY label) AS ordered;"
+index_order="$(docker exec \
+  -e PGOPTIONS='-c enable_seqscan=off -c enable_bitmapscan=off' \
+  "$hardened_container" psql \
   --username "$username" --dbname "$database" --tuples-only --no-align \
-  --command "SELECT string_agg(label, '|' ORDER BY label) FROM upgrade_probe;")"
-[ "$hardened_order" = "$legacy_order" ] || {
-  echo "Collation order changed across the in-place upgrade." >&2
-  echo "17.6: $legacy_order" >&2
-  echo "17.11: $hardened_order" >&2
+  --command "$ordered_labels")"
+sorted_order="$(docker exec \
+  -e PGOPTIONS='-c enable_indexscan=off -c enable_indexonlyscan=off -c enable_bitmapscan=off' \
+  "$hardened_container" psql \
+  --username "$username" --dbname "$database" --tuples-only --no-align \
+  --command "$ordered_labels")"
+[ "$index_order" = "$sorted_order" ] || {
+  echo "Index order disagrees with the running collation after the upgrade." >&2
+  echo "index: $index_order" >&2
+  echo "sort: $sorted_order" >&2
   exit 1
 }
+[ "$sorted_order" = "$legacy_order" ] \
+  || echo "Note: collation order moved with the C library ($legacy_order -> $sorted_order)."
 
 hardened_collation="$(docker exec "$hardened_container" psql \
   --username "$username" --dbname "$database" --tuples-only --no-align \
   --command "SELECT datcollate || ':' || datcollversion || ':' || pg_database_collation_actual_version(oid) FROM pg_database WHERE datname = current_database();")"
-[ "$hardened_collation" = "$legacy_collation" ] || {
-  echo "Database collation metadata changed across the in-place upgrade." >&2
-  echo "17.6: $legacy_collation" >&2
-  echo "17.11: $hardened_collation" >&2
+legacy_locale="${legacy_collation%%:*}"
+hardened_locale="${hardened_collation%%:*}"
+hardened_versions="${hardened_collation#*:}"
+[ "$hardened_locale" = "$legacy_locale" ] || {
+  echo "Database locale changed across the in-place upgrade." >&2
+  echo "before: $legacy_collation" >&2
+  echo "after: $hardened_collation" >&2
+  exit 1
+}
+[ "${hardened_versions%%:*}" = "${hardened_versions#*:}" ] || {
+  echo "The collation gate did not record the running collation version." >&2
+  echo "after: $hardened_collation" >&2
   exit 1
 }
 

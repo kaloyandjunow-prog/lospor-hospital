@@ -4,6 +4,11 @@ import type { ClinicalStringKey } from "@/lib/preferences-context"
 const FINALIZATION_MESSAGE_KEYS: Record<FinalizationErrorKind, ClinicalStringKey> = {
   missing_demographics: "finalizeMissingDemographics",
   missing_preop: "finalizeMissingPreop",
+  incomplete_preop: "finalizeIncompletePreop",
+  missing_start_time: "finalizeMissingStartTime",
+  missing_end_time: "finalizeMissingEndTime",
+  entries_after_case_end: "finalizeEntriesAfterEnd",
+  unconfirmed_stops: "finalizeUnconfirmedStops",
   missing_technique: "finalizeMissingTechnique",
   missing_postop: "finalizeMissingPostop",
   missing_aldrete: "finalizeMissingAldrete",

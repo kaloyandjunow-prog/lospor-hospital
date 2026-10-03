@@ -57,6 +57,13 @@ export function classifyFhirStatus(status: number): { permanent: boolean; errorC
 export const LOSPOR_RECORD_NUMBER_SYSTEM = "urn:oid:1.3.6.1.4.1.55897.1.1"
 export const LOSPOR_NATIONAL_IDENTIFIER_SYSTEM = "urn:oid:1.3.6.1.4.1.55897.1.2"
 
+/**
+ * Responses a server may give to an `If-None-Exist` header it does not
+ * support: a bad request, a failed precondition, an unprocessable request, or
+ * not implemented.
+ */
+const CONDITIONAL_CREATE_REFUSALS = new Set([400, 412, 422, 501])
+
 /** Stable namespace for the appliance's at-least-once EHR messages. */
 export const LOSPOR_EHR_DELIVERY_IDENTIFIER_SYSTEM = "https://lospor.org/fhir/NamingSystem/ehr-delivery"
 
@@ -183,12 +190,25 @@ export async function postFhirResource(
       headers["If-None-Exist"] = search
     }
 
-    const response = await send(`${base}/${type}`, {
+    const post = (withHeaders: Record<string, string>) => send(`${base}/${type}`, {
       method: "POST",
-      headers,
+      headers: withHeaders,
       body: JSON.stringify(resource),
       signal: controller.signal,
     })
+    let response = await post(headers)
+
+    // Conditional create is optional in FHIR, and a server that does not
+    // implement it may refuse the header rather than ignore it (1.4.22). With
+    // 4xx permanent, every message to such a hospital would fail for good, so
+    // a refusal of the header gets one plain create. The resource still
+    // carries its identifier, so a duplicate stays reconcilable -- the
+    // behaviour every message had before conditional create was added.
+    if (options.idempotencyKey && CONDITIONAL_CREATE_REFUSALS.has(response.status)) {
+      const plain = { ...headers }
+      delete plain["If-None-Exist"]
+      response = await post(plain)
+    }
 
     if (response.ok) {
       return {

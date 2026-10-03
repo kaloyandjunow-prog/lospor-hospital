@@ -8,12 +8,16 @@ phase="${1:-}"
 
 case "$phase" in
   preflight)
+    # Security first: it refuses an unsupported database before the collation
+    # step rebuilds anything in it.
     sql="$root/infra/postgres/pre-migration-security.sql"
+    extra_sql="$root/infra/postgres/pre-migration-collation.sql"
     description_en="pre-migration security"
     description_bg="сигурност преди миграцията"
     ;;
   postflight)
     sql="$root/infra/postgres/post-migration-gin-statistics.sql"
+    extra_sql=""
     description_en="post-migration GIN statistics"
     description_bg="GIN статистика след миграцията"
     ;;
@@ -23,10 +27,12 @@ case "$phase" in
     ;;
 esac
 
-test -s "$sql" || {
-  operator_error "PostgreSQL ${description_en} gate is missing." "Липсва проверката на PostgreSQL за ${description_bg}."
-  exit 1
-}
+for gate_sql in "$sql" $extra_sql; do
+  test -s "$gate_sql" || {
+    operator_error "PostgreSQL ${description_en} gate is missing." "Липсва проверката на PostgreSQL за ${description_bg}."
+    exit 1
+  }
+done
 
 ready_attempts="${LOSPOR_POSTGRES_GATE_READY_ATTEMPTS:-60}"
 ready_interval="${LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS:-2}"
@@ -76,8 +82,10 @@ while :; do
   attempt=$((attempt + 1))
 done
 
-docker compose exec -T postgres \
-  psql --username=lospor --dbname=lospor --set=ON_ERROR_STOP=1 \
-  < "$sql"
+for gate_sql in "$sql" $extra_sql; do
+  docker compose exec -T postgres \
+    psql --username=lospor --dbname=lospor --set=ON_ERROR_STOP=1 \
+    < "$gate_sql"
+done
 
 operator_say "PostgreSQL ${description_en} gate passed." "Проверката на PostgreSQL за ${description_bg} завърши успешно."

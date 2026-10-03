@@ -142,6 +142,7 @@ run_postgres_gate() {
 
 echo "Applying every migration to a fresh database ..."
 run_postgres_gate lospor_fresh infra/postgres/pre-migration-security.sql
+run_postgres_gate lospor_fresh infra/postgres/pre-migration-collation.sql
 run_migrator lospor_fresh
 run_migrator lospor_fresh
 run_postgres_gate lospor_fresh infra/postgres/post-migration-gin-statistics.sql

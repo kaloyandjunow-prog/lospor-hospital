@@ -1,5 +1,57 @@
 # Changelog - LOSPOR Hospital
 
+## [1.4.22] - 2026-10-03
+
+Vendors Core, API, Web and PWA 9.13.8; Browser stays 0.8.2. No database
+migration; a pre-update backup is required, and rolling back restores it.
+Every release image scans with no HIGH or CRITICAL finding, so no image risk
+exception is carried: the five 1.4.21 exceptions are retired.
+
+### Changed
+
+- **PostgreSQL runs on Debian 13.** The image moves from Debian 12 (bookworm)
+  to Debian 13 (trixie) at the 2026-10-03 snapshot. Debian 12 had no fix for
+  OpenSSL CVE-2026-84782 or libpcre2 CVE-2026-103111; Debian 13 does, and both
+  fixed versions are pinned. CVE-2026-16742 (libsystemd0/libudev1) is unfixed
+  in both, so those libraries are removed: nothing in the image runs them.
+  PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 are unchanged.
+- **The update rebuilds text indexes when the C library changes.** Debian 13's
+  glibc 2.41 sorts some text differently from 2.36. Before migrations the
+  update compares the recorded collation version with the running one and,
+  when they differ, rebuilds the indexes and records the new version. On
+  every other update it does nothing.
+- **Lint tooling no longer ships in the tools and migrate images.** braces
+  (CVE-2026-93687, no fixed release) reached them only through Next's ESLint
+  config, which never runs in a hospital.
+
+### Fixed
+
+- **A refused finalization says what is missing** (9.13.8): not ended, no
+  start time, entries after the end, an unconfirmed infusion stop, or an
+  unfinished preoperative section, each with its own message.
+- **A late EHR send is recorded as sent.** A message the hospital system
+  accepted just after the case was reopened stayed CANCELLED; it is now SENT,
+  marked as sent after reopen, and logged.
+- **EHR servers without conditional create still receive messages.** A server
+  that refuses the If-None-Exist header (400, 412, 422, 501) gets one plain
+  create; the resource still carries its identifier.
+- **Dashboard month counts include cases with an empty month label**, by
+  creation date. The database-bounded counts from 1.4.21 now come from
+  upstream API 9.13.8 instead of a Hospital-only copy.
+- The three Hospital-only API changes from 1.4.21 (unfinalize withdrawal,
+  frozen print snapshot, print-token claims) are guarded by overlay contracts,
+  so a future vendor cannot silently drop them.
+
+### Verification
+
+- Dependency audit carries GHSA-86w9-cpqp-85rv (node-forge, Expo build tooling
+  in the PWA) for 1.4.22 only: re-audited 2026-10-03, still no patched
+  release, not part of the shipped PWA.
+- Dependency audit accepts GHSA-vfj7-8cjw-p6xm (braces 3.0.3, CVE-2026-93687)
+  for 1.4.22 only in the API, Web, PWA and Browser workspaces. No patched
+  release exists; every route is build-time tooling (ESLint, next-pwa,
+  Tailwind), and no shipped image contains it.
+
 ## [1.4.21] - 2026-10-02
 
 ### Fixed

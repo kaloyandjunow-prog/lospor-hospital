@@ -41,6 +41,16 @@ FROM builder AS hardened-tooling
 RUN rm -rf /root/.npm /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
   && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
     /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+# Lint never runs in a hospital. Next's ESLint config is the only route to
+# fast-glob, micromatch and braces in this tree (npm ls), and braces carries an
+# unfixed HIGH advisory (CVE-2026-93687), so the chain leaves with it. Prisma
+# and tsx are what these images execute; prove both still start.
+WORKDIR /workspace/apps/api
+RUN rm -rf node_modules/eslint-config-next node_modules/@next/eslint-plugin-next \
+    node_modules/fast-glob node_modules/micromatch node_modules/braces \
+  && ! test -e node_modules/braces \
+  && node node_modules/prisma/build/index.js --version >/dev/null \
+  && node_modules/.bin/tsx --version >/dev/null
 
 FROM hardened-tooling AS migrator
 ENTRYPOINT ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]

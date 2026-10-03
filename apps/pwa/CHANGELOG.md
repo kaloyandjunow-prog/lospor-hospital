@@ -1,5 +1,23 @@
 # Changelog - LOSPOR Mobile
 
+## [9.13.8] - 2026-10-03
+
+### Fixed
+
+- **A refused finalization says what is missing.** A case not yet ended, a
+  missing start time, chart entries after the case end and an unconfirmed
+  infusion stop each have their own message (Core 9.13.8); they used to show
+  "check all required fields". An unfinished section of an existing
+  preoperative assessment says it is incomplete, not missing.
+
+### Changed
+
+- Core dependency moved to 9.13.8.
+- **Expo SDK 56 patch update.** Expo 56.0.18 → 56.0.23 with its matching
+  module versions (dev client, image picker, linking, notifications, sharing,
+  splash screen). The node-forge advisory in Expo's build tooling remains:
+  1.4.0 is the newest release, and it is not part of the shipped app.
+
 ## [9.13.7] - 2026-10-01
 
 ### Security
