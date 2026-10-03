@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.4.21",
+  "release": "1.4.22",
   "policy": "backup-required",
-  "justification": "Conservative rather than assessed. 1.4.21 adds the cancel-reopened-EHR-deliveries migration and changes delivery, snapshot, FHIR and dashboard behavior. No release-specific rollback proof shows the previous appliance services and database behaving correctly after 1.4.21 has run. Declaring service-compatible would be an unverified claim, so rolling back stays tied to the verified pre-update backup.",
+  "justification": "Required, not merely conservative. 1.4.22 moves the PostgreSQL image from Debian 12 (glibc 2.36) to Debian 13 (glibc 2.41), and the update preflight rebuilds every user index and records the new collation version before migrations. An older image opening that data directory would read indexes sorted under a different C library, so the only correct way back is the verified pre-update backup, which pg_restore rebuilds under the running image. 1.4.22 adds no migration.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-10-02"
+  "assessedAt": "2026-10-03"
 }

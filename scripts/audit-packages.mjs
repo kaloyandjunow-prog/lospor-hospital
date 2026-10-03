@@ -39,7 +39,9 @@ const EXCEPTIONS = {
   "apps/pwa": {
     "GHSA-86w9-cpqp-85rv": {
       reason:
-        "Accepted for Hospital 1.4.21 only. node-forge 1.4.0 is pulled "
+        "Accepted for Hospital 1.4.22 only (re-audited 2026-10-03: node-forge "
+        + "1.4.0 is still the newest release, and the PWA moved to Expo "
+        + "56.0.23 without dropping it). node-forge 1.4.0 is pulled "
         + "transitively by Expo's code-signing certificates tooling; the PWA "
         + "source has no node-forge import, and the production PWA is a static "
         + "export rather than a runtime that verifies RSA signatures. GitHub "
