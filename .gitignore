@@ -53,3 +53,14 @@ release-signing-private*
 # Python bytecode caches, regenerated whenever a .test.py runs.
 __pycache__/
 *.pyc
+
+# Local secrets, logs, scratch and agent state
+!.env.*.example
+.tmp-*
+.DS_Store
+Thumbs.db
+.claude/
+.codex/
+candidate-*/
+apps/*/AGENTS.md
+apps/*/CLAUDE.md
