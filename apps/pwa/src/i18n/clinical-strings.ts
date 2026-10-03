@@ -561,6 +561,11 @@ export const CLINICAL_STRINGS = {
     finalizeMissingDemographics: "Pre-op demographics incomplete — age, sex, height, or weight missing",
     finalizeInvalidTimes: "End time is before start time",
     finalizeAlreadyFinalized: "This case is already finalized",
+    finalizeIncompletePreop: "Pre-op assessment incomplete — finish case details, examination, airway and ASA",
+    finalizeMissingStartTime: "Anaesthesia start time not recorded",
+    finalizeMissingEndTime: "The case has not been ended — record the end time first",
+    finalizeEntriesAfterEnd: "There are chart entries after the case end — move or remove them",
+    finalizeUnconfirmedStops: "An infusion stop has not been confirmed — confirm it on the chart",
 
     // Intraop — drug/infusion sheets (shared)
     dsBrowseDrugs:       "Browse drugs",
@@ -1602,6 +1607,11 @@ export const CLINICAL_STRINGS = {
     finalizeMissingDemographics: "Непълни предоперативни демографски данни — липсва възраст, пол, ръст или тегло",
     finalizeInvalidTimes: "Крайният час е преди началния",
     finalizeAlreadyFinalized: "Случаят вече е финализиран",
+    finalizeIncompletePreop: "Предоперативната оценка не е завършена — попълнете данните за случая, прегледа, дихателните пътища и ASA",
+    finalizeMissingStartTime: "Не е записан началният час на анестезията",
+    finalizeMissingEndTime: "Случаят не е приключен — първо запишете крайния час",
+    finalizeEntriesAfterEnd: "Има записи след края на случая — преместете ги или ги изтрийте",
+    finalizeUnconfirmedStops: "Спирането на инфузия не е потвърдено — потвърдете го в картата",
 
     // Intraop — drug/infusion sheets (shared)
     dsBrowseDrugs:       "Преглед на медикаменти",
