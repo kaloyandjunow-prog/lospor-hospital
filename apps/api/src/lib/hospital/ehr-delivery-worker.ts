@@ -252,7 +252,10 @@ export async function processDueEhrDeliveries(
         continue
       }
 
-      await completeEhrDelivery(prisma, { worker, id: claim.id, outcome: "sent" })
+      const completed = await completeEhrDelivery(prisma, { worker, id: claim.id, outcome: "sent" })
+      // Delivered although the case was reopened while it was on the wire. The
+      // row records it (SENT_AFTER_REOPEN); this makes it visible in the log.
+      if (completed.afterReopen) console.error("[ehr] EHR_DELIVERY_SENT_AFTER_REOPEN")
       result.sent += 1
     } catch {
       // Transient by assumption: a full disk, a volume not mounted yet. The

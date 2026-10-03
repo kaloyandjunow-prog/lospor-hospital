@@ -138,7 +138,7 @@ export async function cancelUnsentEhrDeliveries(
       leaseOwner: null,
       leaseExpiresAt: null,
       nextAttemptAt: null,
-      errorCode: "CASE_UNFINALIZED",
+      errorCode: EHR_CANCELLED_BY_REOPEN,
     },
   })
   return result.count
@@ -389,6 +389,15 @@ export async function ensureEhrDeliveryStillCurrent(
   return false
 }
 
+/**
+ * The error code on a delivery that reached the hospital system although its
+ * finalization had been withdrawn while it was being sent.
+ */
+export const EHR_SENT_AFTER_REOPEN = "SENT_AFTER_REOPEN"
+
+/** The error code reopening a case leaves on the deliveries it withdraws. */
+export const EHR_CANCELLED_BY_REOPEN = "CASE_UNFINALIZED"
+
 /** How many attempts before a delivery is given up on. */
 export const EHR_DELIVERY_MAX_ATTEMPTS = 8
 
@@ -420,7 +429,7 @@ export async function completeEhrDelivery(
     errorCode?: string
     now?: Date
   },
-): Promise<{ status: "SENT" | "FAILED" | "PENDING" | "CANCELLED" }> {
+): Promise<{ status: "SENT" | "FAILED" | "PENDING" | "CANCELLED"; afterReopen?: boolean }> {
   const now = input.now ?? new Date()
   const owned = { id: input.id, leaseOwner: input.worker, status: "SENDING" as const }
 
@@ -430,6 +439,24 @@ export async function completeEhrDelivery(
       data: { status: "SENT", sentAt: now, leaseOwner: null, leaseExpiresAt: null, errorCode: null },
     })
     if (updated.count === 1) return { status: "SENT" }
+
+    // Cancelled while this worker was sending (the case was reopened, or a
+    // correction replaced it). The message reached the hospital system all the
+    // same, so the record says so: SENT, flagged, never CANCELLED, which would
+    // claim a document the hospital holds was never delivered (1.4.22). The
+    // correction that follows carries `supersedes`, which is how the hospital
+    // learns this one is replaced.
+    //
+    // Only a cancellation by reopening (CASE_UNFINALIZED) can race a send. A
+    // row this worker cancelled itself in its pre-send check was never sent.
+    const late = await client.ehrDelivery.updateMany({
+      where: { id: input.id, status: "CANCELLED", errorCode: EHR_CANCELLED_BY_REOPEN, sentAt: null },
+      data: { status: "SENT", sentAt: now, leaseOwner: null, leaseExpiresAt: null, errorCode: EHR_SENT_AFTER_REOPEN },
+    })
+    if (late.count === 1) return { status: "SENT", afterReopen: true }
+
+    // Otherwise taken over by another worker after this one's lease expired,
+    // whose outcome is the one recorded, or cancelled before it was sent.
     const current = await client.ehrDelivery.findFirst({
       where: { id: input.id },
       select: { status: true },

@@ -211,7 +211,10 @@ describe("reopening a case cancels stale outbound work", () => {
       .toEqual([])
   })
 
-  it("does not let a late completion resurrect a cancelled delivery", async () => {
+  // A send already on the wire when the case was reopened reaches the hospital
+  // anyway. Recording it as cancelled would claim a document the hospital
+  // holds was never delivered (1.4.22).
+  it("records a send that completes after the reopen as sent, and flags it", async () => {
     const db = client()
     await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1" })
     const after = new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS)
@@ -223,8 +226,20 @@ describe("reopening a case cancels stale outbound work", () => {
       id: claim!.id,
       outcome: "sent",
       now: after,
-    })).resolves.toEqual({ status: "CANCELLED" })
-    expect(db.rows[0].status).toBe("CANCELLED")
+    })).resolves.toEqual({ status: "SENT", afterReopen: true })
+    expect(db.rows[0]).toMatchObject({ status: "SENT", errorCode: "SENT_AFTER_REOPEN", sentAt: after })
+  })
+
+  it("keeps a failed send after the reopen cancelled, since nothing was delivered", async () => {
+    const db = client()
+    await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1" })
+    const after = new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS)
+    const claim = await claimNextEhrDelivery(db, { worker: "w1", now: after })
+    await cancelUnsentEhrDeliveries(db, { caseId: "case-1", finalizationId: "fin-1" })
+
+    await expect(completeEhrDelivery(db, { worker: "w1", id: claim!.id, outcome: "failed", now: after }))
+      .resolves.toEqual({ status: "CANCELLED" })
+    expect(db.rows[0]).toMatchObject({ status: "CANCELLED", errorCode: "CASE_UNFINALIZED" })
   })
 })
 

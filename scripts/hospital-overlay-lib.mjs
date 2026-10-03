@@ -51,6 +51,31 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     required: ["MISTRAL_ALLOW_GLOBAL_FALLBACK", "DEFAULT_MISTRAL_API_BASE", "api.eu.mistral.ai"],
   },
   {
+    // 1.4.21 changed three vendored API files for EHR delivery, and only here:
+    // they use tables and modules upstream does not have, so they cannot be
+    // upstreamed. Asserted, so re-vendoring the API cannot quietly restore the
+    // upstream files. Reopening a case must withdraw its unsent EHR messages...
+    id: "api.unfinalize-withdraws-ehr-deliveries",
+    source: "api",
+    path: "apps/api/src/app/v1/cases/[id]/unfinalize/route.ts",
+    required: ["cancelUnsentEhrDeliveries", "finalizations"],
+  },
+  {
+    // ...the protocol the EHR adapter prints must come from the frozen
+    // finalization, not the live case...
+    id: "api.print-data-frozen-ehr-snapshot",
+    source: "api",
+    path: "apps/api/src/app/v1/cases/[id]/print-data/route.ts",
+    required: ["verifyPrintTokenClaims", "printableRecordFromSnapshot", "tokenClaims?.deliveryId"],
+  },
+  {
+    // ...which needs the print token to carry the delivery and finalization.
+    id: "api.print-token-delivery-claims",
+    source: "api",
+    path: "apps/api/src/lib/print-token.ts",
+    required: ["verifyPrintTokenClaims", "deliveryId", "finalizationId"],
+  },
+  {
     id: "api.operator-status-route",
     source: "api",
     path: "apps/api/src/app/internal/appliance-status/route.ts",
