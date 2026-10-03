@@ -93,9 +93,12 @@ export async function dashboardCaseCounts(
   const legacyMonthKey = `${monthKey.slice(0, 4)}-${Number(monthKey.slice(5, 7))}`
   const dateFallback = {
     createdAt: monthRange,
+    // No label, or an empty one: the creation date decides, as it did before
+    // the count moved into the database. An empty label is not a month.
     OR: [
       { intraop: { is: null } },
       { intraop: { is: { monthYear: null } } },
+      { intraop: { is: { monthYear: "" } } },
     ],
   } satisfies Prisma.CaseWhereInput
 
