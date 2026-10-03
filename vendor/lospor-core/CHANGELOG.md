@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Core
 
+## [9.13.8] - 2026-10-03
+
+### Fixed
+
+- **Every finalization refusal has its own message.** The shared classifier
+  knew only some of the reasons finalization can give. A case not yet ended,
+  a missing start time, chart entries after the case end and an unconfirmed
+  infusion stop all came out as the generic "check all required fields",
+  sending the clinician to the wrong forms. Each now has its own kind. An
+  existing preoperative assessment with an unfinished section is
+  `incomplete_preop`, no longer reported as a missing assessment.
+
 ## [9.13.6] - 2026-10-01
 
 ### Added
