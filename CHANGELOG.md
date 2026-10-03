@@ -47,6 +47,10 @@ exception is carried: the five 1.4.21 exceptions are retired.
 - Dependency audit carries GHSA-86w9-cpqp-85rv (node-forge, Expo build tooling
   in the PWA) for 1.4.22 only: re-audited 2026-10-03, still no patched
   release, not part of the shipped PWA.
+- Dependency audit accepts GHSA-vfj7-8cjw-p6xm (braces 3.0.3, CVE-2026-93687)
+  for 1.4.22 only in the API, Web, PWA and Browser workspaces. No patched
+  release exists; every route is build-time tooling (ESLint, next-pwa,
+  Tailwind), and no shipped image contains it.
 
 ## [1.4.21] - 2026-10-02
 
