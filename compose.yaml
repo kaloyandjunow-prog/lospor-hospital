@@ -22,7 +22,7 @@ x-postgres-build: &postgres-build
   context: .
   dockerfile: infra/docker/postgres.Dockerfile
   args:
-    POSTGRES_BASE_IMAGE: ${POSTGRES_BASE_IMAGE:-postgres:17.11-bookworm}
+    POSTGRES_BASE_IMAGE: ${POSTGRES_BASE_IMAGE:-postgres:17.11-trixie}
 
 x-api-environment: &api-environment
   NODE_ENV: production

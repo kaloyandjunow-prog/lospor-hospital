@@ -112,8 +112,11 @@ docker exec "$postgres_container" sh -c \
    ! command -v gzip >/dev/null &&
    ! command -v infocmp >/dev/null &&
    grep -Eq "^ID=debian$" /etc/os-release &&
-   grep -Eq "^VERSION_CODENAME=bookworm$" /etc/os-release &&
-   getconf GNU_LIBC_VERSION | grep -Fq "glibc 2.36" &&
+   grep -Eq "^VERSION_CODENAME=trixie$" /etc/os-release &&
+   getconf GNU_LIBC_VERSION | grep -Fq "glibc 2.41" &&
+   ! command -v login >/dev/null &&
+   ! test -e /usr/lib/x86_64-linux-gnu/libsystemd.so.0 &&
+   ! test -e /usr/lib/x86_64-linux-gnu/libudev.so.1 &&
    locale -a | grep -Fq "en_US.utf8"'
 actual="$(docker exec "$postgres_container" psql \
   --username lospor_smoke --dbname lospor_smoke --tuples-only --no-align \
@@ -131,7 +134,8 @@ layers="$(docker image inspect --format '{{len .RootFS.Layers}}' "$postgres_imag
 
 # Reuse the newly built image against a volume initialized by the exact legacy
 # 17.6 Bookworm release. This catches libc/locale incompatibilities that a
-# fresh-database smoke test cannot detect.
+# fresh-database smoke test cannot detect, and proves the collation gate
+# reconciles the Bookworm-to-Trixie C library change.
 sh infra/docker/postgres-cross-base-upgrade.test.sh "$postgres_image"
 
 echo "HARDENED_INFRA_IMAGES_OK"

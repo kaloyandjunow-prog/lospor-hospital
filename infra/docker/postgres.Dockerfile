@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Release CI replaces this default with the approved linux/amd64 digest.
-ARG POSTGRES_BASE_IMAGE=postgres:17.11-bookworm
+ARG POSTGRES_BASE_IMAGE=postgres:17.11-trixie
 
 FROM ${POSTGRES_BASE_IMAGE} AS source-builder
 
@@ -12,25 +12,25 @@ USER root
 RUN set -eux; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
-      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260912T000000Z|' \
-      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20260912T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20261003T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20261003T000000Z|' \
       /etc/apt/sources.list.d/debian.sources; \
-    grep -Fq 'snapshot.debian.org/archive/debian/20260912T000000Z' /etc/apt/sources.list.d/debian.sources; \
-    grep -Fq 'snapshot.debian.org/archive/debian-security/20260912T000000Z' /etc/apt/sources.list.d/debian.sources; \
+    grep -Fq 'snapshot.debian.org/archive/debian/20261003T000000Z' /etc/apt/sources.list.d/debian.sources; \
+    grep -Fq 'snapshot.debian.org/archive/debian-security/20261003T000000Z' /etc/apt/sources.list.d/debian.sources; \
     apt-get -o Acquire::Check-Valid-Until=false update; \
     apt-get install --yes --no-install-recommends \
-      bison=2:3.8.2+dfsg-1+b1 \
-      bzip2=1.0.8-5+b1 \
-      build-essential=12.9 \
-      ca-certificates=20230311+deb12u1 \
-      flex=2.6.4-8.2 \
-      libicu-dev=72.1-3+deb12u1 \
-      libattr1-dev=1:2.5.1-4 \
-      liblz4-dev=1.9.4-1 \
-      libssl-dev=3.0.20-1~deb12u2 \
-      libzstd-dev=1.5.4+dfsg2-5 \
-      perl=5.36.0-7+deb12u3 \
-      pkg-config=1.8.1-1; \
+      bison=2:3.8.2+dfsg-1+b2 \
+      bzip2=1.0.8-6 \
+      build-essential=12.12 \
+      ca-certificates=20250419 \
+      flex=2.6.4-8.2+b4 \
+      libicu-dev=76.1-4 \
+      libattr1-dev=1:2.5.2-3 \
+      liblz4-dev=1.10.0-4 \
+      libssl-dev=3.5.7-1~deb13u3 \
+      libzstd-dev=1.5.7+dfsg-1 \
+      perl=5.40.1-6+deb13u1 \
+      pkg-config=1.8.1-4; \
     mkdir -p /opt/lospor-postgresql/share/lospor-build; \
     dpkg-query -W -f='${binary:Package}=${Version}\n' \
       | LC_ALL=C sort \
@@ -48,7 +48,7 @@ ADD --checksum=sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42
   /tmp/zlib-1.3.2.tar.xz
 
 ADD --checksum=sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3 \
-  http://snapshot.debian.org/archive/debian/20260912T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz \
+  http://snapshot.debian.org/archive/debian/20261003T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz \
   /tmp/acl-2.4.0.tar.xz
 
 RUN set -eux; \
@@ -157,11 +157,11 @@ RUN set -eux; \
     /opt/lospor-postgresql/bin/pg_config --configure \
       > /opt/lospor-postgresql/share/lospor-build/postgresql-configure.txt; \
     printf '%s\n' \
-      'debian=http://snapshot.debian.org/archive/debian/20260912T000000Z' \
-      'debian-security=http://snapshot.debian.org/archive/debian-security/20260912T000000Z' \
+      'debian=http://snapshot.debian.org/archive/debian/20261003T000000Z' \
+      'debian-security=http://snapshot.debian.org/archive/debian-security/20261003T000000Z' \
       'postgresql=https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2 sha256:dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979' \
       'zlib=https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3' \
-      'acl=http://snapshot.debian.org/archive/debian/20260912T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
+      'acl=http://snapshot.debian.org/archive/debian/20261003T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
       > /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
     test -s /opt/lospor-postgresql/lib/pg_trgm.so; \
@@ -188,28 +188,37 @@ RUN set -eux; \
     cp /usr/bin/flock /usr/local/bin/flock; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
-      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260912T000000Z|' \
-      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20260912T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20261003T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20261003T000000Z|' \
       /etc/apt/sources.list.d/debian.sources; \
     apt-get -o Acquire::Check-Valid-Until=false update; \
     apt-get install --yes --no-install-recommends \
-      bash-static=5.2.15-2+b13 \
-      libpcre2-8-0=10.42-1+deb12u1; \
+      bash-static=5.2.37-2+b10 \
+      libpcre2-8-0=10.46-1~deb13u3 \
+      libssl3t64=3.5.7-1~deb13u3 \
+      openssl=3.5.7-1~deb13u3 \
+      openssl-provider-legacy=3.5.7-1~deb13u3; \
     grep -Fq 'exec gosu postgres "$BASH_SOURCE" "$@"' /usr/local/bin/docker-entrypoint.sh; \
     sed -i 's|exec gosu postgres|exec chroot --userspec=postgres:postgres --groups=postgres /|' /usr/local/bin/docker-entrypoint.sh; \
     ! grep -Fq 'gosu' /usr/local/bin/docker-entrypoint.sh; \
     rm -f /usr/local/bin/gosu; \
-    dpkg --remove --force-depends --force-remove-essential \
+    dpkg --remove --force-depends --force-remove-essential --force-remove-protected \
       postgresql-17 postgresql-client-17 libpq5 \
       postgresql-common postgresql-client-common libjson-perl \
-      perl libperl5.36 perl-modules-5.36 perl-base \
+      perl libperl5.40 perl-modules-5.40 perl-base \
       gnupg gpg gpg-agent gpg-wks-client gpg-wks-server gpgconf gpgsm dirmngr pinentry-curses \
-      gnupg-utils gpgv apt libapt-pkg6.0 less zstd libllvm19 libedit2 \
+      gnupg-utils gnupg-l10n gpgv sqv apt libapt-pkg7.0 less zstd libllvm19 libedit2 \
       libsqlite3-0 \
-      bash libreadline8 readline-common libtinfo6 ncurses-base libncursesw6 ncurses-bin \
-      e2fsprogs mount util-linux util-linux-extra libblkid1 libmount1 libsmartcols1 libuuid1 \
-      libxml2 libxslt1.1 libldap-2.5-0 \
+      bash libreadline8t64 readline-common libtinfo6 ncurses-base libncursesw6 ncurses-bin \
+      e2fsprogs mount util-linux login liblastlog2-2 libblkid1 libmount1 libsmartcols1 libuuid1 \
+      libxml2 libxslt1.1 libldap2 \
+      libsystemd0 libudev1 procps libproc2-0 \
       gzip bsdutils; \
+    # Debian 13 coreutils links libsystemd only for these three login-session
+    # reporters. Nothing here has login sessions, so they go with libsystemd.
+    # PAM's pam_issue/pam_limits/pam_timestamp also link it but are loaded
+    # only by an interactive sign-in, which this container never performs.
+    rm -f /usr/bin/pinky /usr/bin/users /usr/bin/who; \
     ln -s /bin/bash-static /usr/local/bin/bash; \
     ln -s /bin/bash-static /bin/bash; \
     ! command -v postgres; \
@@ -233,6 +242,10 @@ RUN set -eux; \
     LD_LIBRARY_PATH=/opt/lospor-postgresql/lib \
       dpkg --remove --force-depends libacl1 zlib1g; \
     ln -s /opt/lospor-postgresql/lib/libacl.so.1 /lib/x86_64-linux-gnu/libacl.so.1; \
+    # Debian 13's OpenSSL 3.5 links zlib for certificate compression. Resolve
+    # it to the same checksummed zlib 1.3.2 PostgreSQL uses, exactly as libacl
+    # is resolved above, rather than reinstalling Debian's zlib.
+    ln -s /opt/lospor-postgresql/lib/libz.so.1 /lib/x86_64-linux-gnu/libz.so.1; \
     rm -f /usr/bin/dpkg-deb; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*; \
     postgres --version | grep -Eq ' 17\.11( |$)'; \
@@ -244,8 +257,10 @@ RUN set -eux; \
     ldd "$(command -v postgres)" | grep -Fq '/opt/lospor-postgresql/lib/libz.so.1'; \
     ldd "$(command -v pg_dump)" | grep -Fq '/opt/lospor-postgresql/lib/libz.so.1'; \
     test ! -e /lib/x86_64-linux-gnu/libxml2.so.2; \
-    test ! -e /lib/x86_64-linux-gnu/libldap-2.5.so.0; \
-    test ! -e /lib/x86_64-linux-gnu/libz.so.1; \
+    test ! -e /lib/x86_64-linux-gnu/libldap.so.2; \
+    test "$(readlink -f /lib/x86_64-linux-gnu/libz.so.1)" = "$(readlink -f /opt/lospor-postgresql/lib/libz.so.1)"; \
+    ! dpkg-query -W zlib1g >/dev/null 2>&1; \
+    ldd /usr/lib/x86_64-linux-gnu/libcrypto.so.3 | grep -Fq 'libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1'; \
     test ! -e /lib/x86_64-linux-gnu/libtinfo.so.6; \
     test "$(readlink -f /lib/x86_64-linux-gnu/libacl.so.1)" = "$(readlink -f /opt/lospor-postgresql/lib/libacl.so.1)"; \
     ldd /usr/bin/cp | grep -Fq 'libacl.so.1'; \
@@ -292,8 +307,8 @@ RUN set -eux; \
 FROM scratch
 COPY --from=runtime / /
 
-LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.11-bookworm" \
-      org.lospor.build.debian-snapshot="20260912T000000Z" \
+LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.11-trixie" \
+      org.lospor.build.debian-snapshot="20261003T000000Z" \
       org.lospor.build.postgresql-source-sha256="dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979" \
       org.lospor.build.zlib-source-sha256="d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3" \
       org.lospor.build.acl-source-sha256="e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3"
