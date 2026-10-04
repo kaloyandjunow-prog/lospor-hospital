@@ -1122,6 +1122,7 @@ export default function NewCaseScreen() {
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
                 transport={ehrImportCapability.transport}
+                folderRequests={ehrImportCapability.folderRequests}
                 language={language}
                 current={getValues() as unknown as Record<string, unknown>}
                 currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}

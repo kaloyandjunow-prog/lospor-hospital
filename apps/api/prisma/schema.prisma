@@ -2858,6 +2858,12 @@ model HospitalEhrTransportPolicy {
   /// (lib/hospital/ehr-retention.ts). 1 to 14; an import is offered for 14.
   stagingRetentionDays          Int                 @default(14)
   stagingRetentionChangedAt     DateTime?
+  /// Whether a clinician's lookup asks the hospital system for the patient
+  /// over the watched folder (1.5.0): a request file in outbox/ when nothing
+  /// has arrived for that patient. Off until the site's vendor answers them;
+  /// unanswered requests would only pile up.
+  folderRequestsEnabled         Boolean             @default(false)
+  folderRequestsChangedAt       DateTime?
   createdAt                     DateTime            @default(now())
   updatedAt                     DateTime            @updatedAt
 }

@@ -11,9 +11,10 @@
     "identifier": { "type": "string", "minLength": 1, "pattern": "\\S" },
     "identifierType": { "enum": ["IZ", "EGN"], "default": "IZ" },
     "sourceMessageId": { "type": "string" },
+    "requestId": { "type": "string", "pattern": "^[a-f0-9]{32}$", "description": "The LOSPOR request this file answers (outbox/request-<requestId>.json)." },
     "fields": {
       "type": "object",
-      "minProperties": 1,
+      "description": "Empty only to answer a LOSPOR request for a patient the hospital system holds nothing for.",
       "additionalProperties": false,
       "properties": {
         "ageYears": { "type": ["number", "null"], "minimum": 0 },

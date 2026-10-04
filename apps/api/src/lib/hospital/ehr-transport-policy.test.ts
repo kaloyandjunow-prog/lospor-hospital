@@ -107,6 +107,7 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: false,
       credentialStored: false,
       providerConfigured: false,
+      folderRequests: false,
     })
     expect((db as never as { hospitalEhrTransportPolicy: { findUnique: ReturnType<typeof vi.fn> } })
       .hospitalEhrTransportPolicy.findUnique).not.toHaveBeenCalled()
@@ -121,6 +122,7 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: false,
       credentialStored: false,
       providerConfigured: false,
+      folderRequests: false,
     })
   })
 
@@ -145,13 +147,14 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: true,
       credentialStored: false,
       providerConfigured: true,
+      folderRequests: false,
     })
   })
 
   it("lets a FOLDER site poll without opening any credential", async () => {
     process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
     const db = database({ transport: "FOLDER" })
-    await expect(ehrTransportAccess(db)).resolves.toEqual({ enabled: true, transport: "FOLDER" })
+    await expect(ehrTransportAccess(db)).resolves.toEqual({ enabled: true, transport: "FOLDER", folderRequests: false })
   })
 
   it("reports a chosen FHIR/HL7v2 transport as not ready until a credential is sealed", async () => {
@@ -171,6 +174,7 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: true,
       credentialStored: false,
       providerConfigured: false,
+      folderRequests: false,
     })
   })
 
@@ -213,6 +217,7 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: true,
       credentialStored: true,
       providerConfigured: true,
+      folderRequests: false,
     })
   })
 
@@ -282,6 +287,7 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: true,
       credentialStored: true,
       providerConfigured: false,
+      folderRequests: false,
     })
   })
 
@@ -327,6 +333,9 @@ describe("hospital EHR transport availability", () => {
       // A policy row written before the retention setting existed reads as the default.
       stagingRetentionDays: 14,
       stagingRetentionChangedAt: null,
+      // Asking the hospital system over the folder is off until switched on (1.5.0).
+      folderRequestsEnabled: false,
+      folderRequestsChangedAt: null,
       updatedAt: "2026-09-02T08:00:00.000Z",
     })
   })

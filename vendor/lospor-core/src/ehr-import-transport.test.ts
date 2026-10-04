@@ -144,3 +144,24 @@ describe("recording decisions", () => {
     await expect(recordEhrDecisions(fetcher, { caseId: "c1", importId: "i1" })).resolves.toBeUndefined()
   })
 })
+
+describe("a request to the hospital system over the watched folder (1.5.0)", () => {
+  it("reads a request in flight as requested, never as the hospital holding nothing", () => {
+    expect(readEhrImportResponse(200, { pending: false, requested: true, requestId: "r-1" })).toEqual({ status: "requested", requestId: "r-1" })
+    expect(readEhrImportResponse(200, { pending: false, requested: true })).toEqual({ status: "none" })
+    expect(readEhrImportResponse(200, { pending: false })).toEqual({ status: "none" })
+  })
+
+  it("asks only when told to", async () => {
+    const paths: string[] = []
+    const fetcher = async (path: string) => { paths.push(path); return { status: 200, json: async () => ({ pending: false }) } }
+    await lookupEhrImport(fetcher, { caseId: "c1", identifier: "42", request: true })
+    await lookupEhrImport(fetcher, { caseId: "c1", identifier: "42" })
+    await lookupEhrImport(fetcher, { caseId: "c1", identifier: "42", requestId: "r-1" })
+    expect(paths).toEqual([
+      "/api/cases/c1/ehr-import?identifier=42&identifierType=IZ&request=1",
+      "/api/cases/c1/ehr-import?identifier=42&identifierType=IZ",
+      "/api/cases/c1/ehr-import?identifier=42&identifierType=IZ&requestId=r-1",
+    ])
+  })
+})

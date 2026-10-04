@@ -1541,6 +1541,22 @@ export function renderControlPlane(
     <p class="component-detail">${localize(locale,
       "The hospital system writes one JSON file per patient into inbox/; every file read gets an answer in results/ saying what was staged, what was ignored and why. The format is in the folder-drop guide.",
       "Болничната система записва по един JSON файл на пациент в inbox/; за всеки прочетен файл в results/ се появява отговор кое е прието за преглед, кое е пропуснато и защо. Форматът е описан в ръководството за обмен чрез папка.")}</p>
+    <h4>${localize(locale, "Asking the hospital system for a patient", "Заявки към болничната система за пациент")}</h4>
+    <p class="component-detail">${localize(locale,
+      "When on, a clinician who looks up a patient nothing has arrived for causes a request file in outbox/, and the hospital system answers with an ordinary file in inbox/. Switch it on only once the hospital system's team has built that answer: a request nobody answers leaves the clinician waiting.",
+      "Когато е включено, търсене на пациент, за когото нищо не е пристигнало, създава файл със заявка в outbox/, а болничната система отговаря с обикновен файл в inbox/. Включете го едва когато екипът на болничната система е изградил този отговор: заявка без отговор оставя лекаря да чака.")}</p>
+    <div class="facts">
+      ${textFact(localize(locale, "Requests", "Заявки"), ehrTransport.folderRequestsEnabled ? localize(locale, "on", "включени") : localize(locale, "off", "изключени"))}
+      ${dateFact(localize(locale, "Last changed", "Последна промяна"), ehrTransport.folderRequestsChangedAt ?? null, locale)}
+    </div>
+    <form method="post" action="/status/control/ehr-transport/folder-requests">
+      <input type="hidden" name="enabled" value="${ehrTransport.folderRequestsEnabled ? "false" : "true"}">
+      <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit"${ehrTransport.folderRequestsEnabled ? ` class="danger"` : ""}>${ehrTransport.folderRequestsEnabled
+        ? localize(locale, "Stop asking the hospital system", "Спри заявките към болничната система")
+        : localize(locale, "Start asking the hospital system", "Включи заявките към болничната система")}</button>
+    </form>
     <form method="post" action="/status/control/ehr-transport/check-file" enctype="multipart/form-data">
       <label>${localize(locale, "Check a file before it is dropped (nothing is imported)", "Проверка на файл преди поставянето му (нищо не се импортира)")}<input type="file" name="file" accept=".json,application/json" required></label>
       <button type="submit">${localize(locale, "Check the file", "Провери файла")}</button>

@@ -67,6 +67,13 @@ export type EhrImportLookup =
   /** The server answered, and there is nothing for this patient. */
   | { status: "none" }
   /**
+   * Nothing has arrived yet, and the appliance has asked the hospital system
+   * for it (a watched-folder site with requests switched on). The answer comes
+   * later, as an ordinary import; until then the clinician is told it was asked
+   * for, not that the hospital holds nothing.
+   */
+  | { status: "requested"; requestId: string }
+  /**
    * The record number matched more than one patient.
    *
    * Its own state rather than a flavour of "unavailable", because it is the one
@@ -146,7 +153,11 @@ export function readEhrImportResponse(
     return code === "PATIENT_AMBIGUOUS" ? { status: "ambiguous" } : { status: "unavailable", code }
   }
   if (status < 200 || status >= 300) return { status: "unavailable", code }
-  if (!body?.pending) return { status: "none" }
+  if (!body?.pending) {
+    return body?.requested === true && typeof body.requestId === "string" && body.requestId
+      ? { status: "requested", requestId: body.requestId }
+      : { status: "none" }
+  }
 
   return {
     status: "offer",
@@ -170,7 +181,19 @@ export function readEhrImportResponse(
  */
 export async function lookupEhrImport(
   fetcher: EhrFetcher,
-  input: { caseId: string; identifier: string; identifierType?: "IZ" | "EGN" },
+  input: {
+    caseId: string
+    identifier: string
+    identifierType?: "IZ" | "EGN"
+    /**
+     * Ask the hospital system when nothing has arrived, where the site does
+     * that over its watched folder. Off for a repeat check while waiting, so
+     * checking never sends a second request.
+     */
+    request?: boolean
+    /** The request a repeat check is waiting on, so a check across midnight still finds it. */
+    requestId?: string
+  },
 ): Promise<EhrImportLookup> {
   const identifier = input.identifier.trim()
   if (!input.caseId || !identifier) return { status: "none" }
@@ -180,6 +203,8 @@ export async function lookupEhrImport(
     response = await fetcher(ehrImportPath(input.caseId, {
       identifier,
       identifierType: input.identifierType ?? "IZ",
+      ...(input.request ? { request: "1" } : {}),
+      ...(input.requestId ? { requestId: input.requestId } : {}),
     }))
   } catch {
     // Offline, or the appliance is unreachable. Not an error worth a dialog:

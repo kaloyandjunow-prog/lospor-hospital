@@ -16,6 +16,7 @@ import {
 } from "@/lib/hospital/ehr-import"
 import { assertEgnLinkingPermitted } from "@/lib/hospital/patient-identifier-policy"
 import { ehrTransportAccess } from "@/lib/hospital/ehr-transport-policy"
+import { folderRequestFor } from "@/lib/hospital/ehr-folder-requests"
 import { pullFhirImport, type FhirPullResult } from "@/lib/hospital/ehr-fhir-pull"
 import {
   ehrAuthConfigFor,
@@ -214,6 +215,32 @@ export async function GET(
   }
 
   if (!pending) {
+    // A watched-folder site that asks (1.5.0): nothing has arrived, so the
+    // hospital system is asked, and the clinician is told it was asked rather
+    // than that it holds nothing. A repeat check never asks again.
+    const asked = await folderRequestFor({
+      institutionId: existing.institutionId,
+      identifierType: parsed.data.identifierType,
+      identifier: parsed.data.identifier,
+      request: req.nextUrl.searchParams.get("request") === "1",
+      requestId: req.nextUrl.searchParams.get("requestId") ?? undefined,
+    }).catch(() => "failed" as const)
+    // Said as a failure, never as an empty answer: "the hospital holds
+    // nothing" is the one thing a clinician must not be told when the
+    // question could not even be written.
+    if (asked === "failed") {
+      console.error("[ehr] EHR_FOLDER_REQUEST_FAILED")
+      return NextResponse.json(
+        { pending: false, code: "EHR_REQUEST_FAILED" },
+        { status: 502, headers: corsHeaders(req) },
+      )
+    }
+    if (asked) {
+      return NextResponse.json(
+        { pending: false, requested: true, requestId: asked.requestId },
+        { status: 200, headers: corsHeaders(req) },
+      )
+    }
     return NextResponse.json(
       { pending: false },
       { status: 200, headers: corsHeaders(req) },

@@ -540,6 +540,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           identifierType={identifierType}
           available={ehrImportCapability.enabled}
           transport={ehrImportCapability.transport}
+          folderRequests={ehrImportCapability.folderRequests}
           current={getValues() as unknown as Record<string, unknown>}
           currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
           labelFor={field => ehrFieldLabel(field, locale)}

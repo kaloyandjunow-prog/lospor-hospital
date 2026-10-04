@@ -236,6 +236,9 @@ export type ControlPlaneView = {
     /** Days staged EHR imports are kept before deletion (1 to 14). */
     stagingRetentionDays?: number
     stagingRetentionChangedAt?: string | null
+    /** Whether a lookup asks the hospital system over the watched folder (1.5.0). */
+    folderRequestsEnabled?: boolean
+    folderRequestsChangedAt?: string | null
     updatedAt: string | null
   }
   /**
@@ -527,6 +530,8 @@ export interface ControlPlanePort {
    * number at once. The identifier looked up is not stored or echoed back --
    * only the systems it was found under.
    */
+  /** Switch asking the hospital system over the watched folder (1.5.0). */
+  setEhrFolderRequests(input: { enabled: boolean; reason: string }): Promise<void>
   /** Run the inbox's reader on a sample file; nothing is staged (1.5.0). */
   checkEhrFile(input: { file?: string; content: string }): Promise<EhrFileCheck>
   discoverEhrTransport(input: { identifier?: string }): Promise<{
@@ -857,6 +862,8 @@ function parseView(value: unknown): ControlPlaneView | null {
       || (Number.isInteger(value.ehrTransport.stagingRetentionDays)
         && Number(value.ehrTransport.stagingRetentionDays) >= 1 && Number(value.ehrTransport.stagingRetentionDays) <= 14))
     || !(value.ehrTransport.stagingRetentionChangedAt === undefined || nullableIso(value.ehrTransport.stagingRetentionChangedAt))
+    || !(value.ehrTransport.folderRequestsEnabled === undefined || typeof value.ehrTransport.folderRequestsEnabled === "boolean")
+    || !(value.ehrTransport.folderRequestsChangedAt === undefined || nullableIso(value.ehrTransport.folderRequestsChangedAt))
     || !nullableIso(value.ehrTransport.updatedAt)) return null
   if (!ehrLabCodesShape(value.ehrLabCodes)) return null
   if (!ehrVitalCodesShape(value.ehrVitalCodes)) return null
@@ -1148,6 +1155,11 @@ export class ControlPlaneClient implements ControlPlanePort {
     input: Parameters<ControlPlanePort["setEhrIdentifierSystems"]>[0],
   ): Promise<void> {
     return this.mutate("/ehr-transport/identifier-systems", input)
+  }
+  setEhrFolderRequests(
+    input: Parameters<ControlPlanePort["setEhrFolderRequests"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/folder-requests", input)
   }
   async checkEhrFile(
     input: Parameters<ControlPlanePort["checkEhrFile"]>[0],

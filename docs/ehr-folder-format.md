@@ -10,8 +10,9 @@ The folder exchange carries the same content as the FHIR exchange: the same
 admission fields offered to the anaesthetist, resolved through the same
 laboratory, diagnosis and procedure mappings, and the same protocol and
 safety findings sent back. Use it when the hospital system cannot offer a FHIR
-server. The one thing it cannot do is answer a question: LOSPOR reads what you
-drop and does not ask the hospital system for a patient.
+server. By default LOSPOR only reads what you drop. If the hospital system can
+answer requests, the appliance administrator can switch on asking (below), and
+LOSPOR then asks for a patient the moment an anaesthetist looks one up.
 
 ## The folders
 
@@ -24,10 +25,11 @@ The appliance administrator chooses **Watched folder** under
 | `results/` | LOSPOR | one answer per file read: `<name>.result.json` |
 | `processed/` | LOSPOR | files that were read and offered to a clinician |
 | `rejected/` | LOSPOR | files that could not be used, with the reason in `results/` |
-| `outbox/` | LOSPOR | protocols and findings for the hospital system to collect |
+| `outbox/` | LOSPOR | protocols, findings and requests for the hospital system to collect |
+| `requests/` | LOSPOR | LOSPOR's own record of the requests it made; no patient numbers; never read from it |
 | `.staging/` | LOSPOR | half-written outbox files; never read from it |
 
-Files in `processed/`, `rejected/` and `results/` are deleted after the
+Files in `processed/`, `rejected/`, `results/` and `requests/` are deleted after the
 site's retention window (14 days at most). Nothing in `inbox/` or `outbox/` is
 ever deleted by LOSPOR.
 
@@ -68,6 +70,7 @@ ever deleted by LOSPOR.
 | `identifier` | yes | The patient's number, as the hospital system records it. |
 | `identifierType` | no | `IZ` (record number, ИЗ №, the default) or `EGN`. Any other value is refused rather than guessed. |
 | `sourceMessageId` | no | The hospital system's own id for the message. Repeated in the answer; the file name is used when absent. |
+| `requestId` | no | The id of the LOSPOR request this file answers, when it answers one. |
 | `fields` | yes | What to offer the anaesthetist. Unknown fields are ignored and listed in the answer. |
 
 Any other top-level key is listed in the answer as unknown: it is usually a
@@ -175,6 +178,40 @@ answer. Nothing is imported, moved or recorded. Files up to 1 MB can be
 checked. The same card shows how many files are waiting, when the last file
 was read, the day's counts and the latest refusals.
 
+## Requests from LOSPOR (optional)
+
+Off by default. The appliance administrator switches it on in Status under
+**Hospital controls → EHR → The watched folder → Asking the hospital system for
+a patient**, with a reason; the change is audited. Switch it on only once the
+hospital system answers requests: a request nobody answers leaves the
+anaesthetist waiting.
+
+When it is on and an anaesthetist looks up a patient for whom nothing has
+arrived, LOSPOR writes `outbox/request-<requestId>.json`:
+
+```json
+{
+  "formatVersion": 1,
+  "kind": "PATIENT_REQUEST",
+  "requestId": "5f1c0a9d2b7e4c13a8d6e0f2b4c69a71",
+  "requestedAt": "2026-10-05T07:58:12.000Z",
+  "identifierType": "IZ",
+  "identifier": "2026-004512"
+}
+```
+
+- A patient is asked for at most once a day, however often they are looked
+  up. Collect or delete the request file when you have read it; LOSPOR does
+  not write it again.
+- Answer with an ordinary file in `inbox/` for that patient, carrying the same
+  `requestId`. It is read like any other file and the anaesthetist sees the
+  data as soon as it is.
+- If the hospital system holds nothing for the patient, answer with the same
+  `identifier` and `requestId` and empty `fields` (`{}`). The anaesthetist is
+  then told the hospital system holds nothing, instead of waiting.
+- LOSPOR checks for the answer every 15 seconds for five minutes. An answer
+  that comes later is still offered the next time the patient is looked up.
+
 ## What LOSPOR writes into the outbox
 
 LOSPOR writes each file into `.staging/` and renames it into `outbox/`, so a
@@ -186,7 +223,8 @@ a redelivery overwrites its own file.
 | `protocol` | the anaesthetic record is finalised | coded header (times, drugs and fluid totals, finalisation) and, beside it, `protocol-<id>.html`, the printable record |
 | `safety_findings` | the record holds a difficult airway or an allergy | the findings alone, so they reach the next admission |
 | `case_start`, `case_end` | the case starts or ends | the moment, for a hospital system that tracks theatre time |
+| `request` | an anaesthetist looks up a patient nothing has arrived for, with requests switched on | the request described above |
 
-Every outbox JSON file carries `patient: { "identifierType", "identifier" }`
+Every outbox JSON file except a request carries `patient: { "identifierType", "identifier" }`
 so the hospital system can file it against its own record. An amended record
 is sent again with `finalization.supersedes` naming the record it replaces.

@@ -324,6 +324,7 @@ function setup() {
     discoverEhrTransport: vi.fn(async () => ({
       capabilities: null, identifierSystems: [], patientFound: null, probeErrorCode: null,
     })),
+    setEhrFolderRequests: vi.fn(async () => {}),
     checkEhrFile: vi.fn(async () => ({
       file: "checked.json", outcome: "would-import" as const, reason: null, identifierType: null, sourceMessageId: null,
       accepted: [], ignored: [], unknownKeys: [], labs: null,
@@ -1465,5 +1466,43 @@ describe("the watched folder (1.5.0)", () => {
     expect((await upload(cookie, "   ")).status).toBe(400)
     expect((await upload(cookie, "x".repeat(1024 * 1024 + 1))).status).toBe(413)
     expect(setupResult.controlPlane.checkEhrFile).not.toHaveBeenCalled()
+  })
+})
+
+describe("asking the hospital system over the folder (1.5.0)", () => {
+  it("shows the switch off by default, and switches it on with a reason and the password", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+    expect(page).toContain("<b>Заявки</b>изключени")
+    expect(page).toContain('<input type="hidden" name="enabled" value="true">')
+
+    const response = await app.request("/status/control/ehr-transport/folder-requests", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ enabled: "true", reason: "Vendor answers request files", password: "Initial password phrase1!" }).toString(),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.setEhrFolderRequests).toHaveBeenCalledWith({ enabled: true, reason: "Vendor answers request files" })
+  })
+
+  it("offers to stop once it is on", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue({ ...VIEW, ehrTransport: { ...VIEW.ehrTransport, folderRequestsEnabled: true } } as never)
+    const cookie = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+    expect(page).toContain("<b>Заявки</b>включени")
+    expect(page).toContain('<input type="hidden" name="enabled" value="false">')
+  })
+
+  it("changes nothing without the password", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr-transport/folder-requests", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ enabled: "true", reason: "Vendor answers request files", password: "wrong" }).toString(),
+    })
+    expect(controlPlane.setEhrFolderRequests).not.toHaveBeenCalled()
   })
 })

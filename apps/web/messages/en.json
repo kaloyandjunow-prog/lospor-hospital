@@ -1836,6 +1836,8 @@
     "provenance": "Reported by the hospital system, not by the patient",
     "asking": "Asking the hospital system about this patient…",
     "nothingHeld": "The hospital system holds nothing for this patient.",
+    "requested": "Requested from the hospital system. Its answer appears here when it arrives…",
+    "notAnswered": "The hospital system has not answered yet. Its answer can still arrive: look again later, or enter the values by hand.",
     "allReviewed": "Everything the hospital system sent for this patient is already in the case or was declined.",
     "ambiguous": "That number matches more than one patient in the hospital system, so nothing was fetched. Check the number.",
     "reviewWaiting": "Review what the hospital sent",

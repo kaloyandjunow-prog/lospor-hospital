@@ -20,6 +20,7 @@ import {
 } from "./ehr-code-systems"
 import { diagnosisCodeSystemsSeen, resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
 import { resolveImportedProcedures } from "./ehr-procedures"
+import { answerFileName, isFolderRequestId } from "./ehr-folder-requests"
 
 /**
  * Read what the hospital system left for us.
@@ -65,7 +66,7 @@ export const INBOX_MAX_BYTES = 5 * 1024 * 1024
 export const INBOX_SETTLE_MS = 30_000
 
 /** The envelope keys the format defines. Anything else is reported, not read. */
-const ENVELOPE_KEYS = new Set(["formatVersion", "identifier", "identifierType", "sourceMessageId", "fields"])
+const ENVELOPE_KEYS = new Set(["formatVersion", "identifier", "identifierType", "sourceMessageId", "requestId", "fields"])
 
 export type InboxRejectReason =
   | "unreadable"
@@ -92,6 +93,8 @@ export type InboxReport = {
   reason?: InboxRejectReason
   identifierType?: "IZ" | "EGN"
   sourceMessageId?: string
+  /** The LOSPOR request this file answers, when it names one (1.5.0). */
+  requestId?: string
   fields: {
     /** Fields a clinician will be offered. */
     accepted: string[]
@@ -211,6 +214,7 @@ export function prepareInboxDocument(bytes: Buffer | string, input: { file: stri
   if (typeof document.sourceMessageId === "string" && document.sourceMessageId.trim()) {
     report.sourceMessageId = document.sourceMessageId.trim()
   }
+  if (isFolderRequestId(document.requestId)) report.requestId = document.requestId
   if (document.formatVersion !== undefined && document.formatVersion !== FOLDER_FORMAT_VERSION) {
     return rejection(report, "unsupported-format-version")
   }
@@ -334,6 +338,12 @@ export function resultFileName(file: string): string {
 async function writeResult(root: string, report: InboxReport): Promise<void> {
   try {
     await writeExchangeFile(RESULTS, resultFileName(report.file), `${JSON.stringify(report, null, 2)}\n`, root)
+    // The answer to a request, findable by its id alone (ehr-folder-requests.ts).
+    if (report.requestId) {
+      await writeExchangeFile(RESULTS, answerFileName(report.requestId), `${JSON.stringify({
+        requestId: report.requestId, outcome: report.outcome, reason: report.reason ?? null, checkedAt: report.checkedAt,
+      })}\n`, root)
+    }
   } catch {
     console.error("[ehr] EHR_INBOX_RESULT_WRITE_FAILED")
   }

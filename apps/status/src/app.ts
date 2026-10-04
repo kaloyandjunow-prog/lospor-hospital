@@ -275,6 +275,7 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     EHR_TRANSPORT_SEAL_KEY_INVALID: ["The appliance key used to protect the EHR transport credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп до БИС е невалиден. Нищо не е променено."],
     EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп до БИС. Нищо не е променено."],
     EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп до БИС не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете канала отново."],
+    EHR_FOLDER_REQUESTS_NOT_ACTIVE: ["Requests to the hospital system work only over a watched folder. Choose the watched folder as the transport first. Nothing was changed.", "Заявките към болничната система работят само чрез наблюдавана папка. Първо изберете наблюдаваната папка като канал. Нищо не е променено."],
     EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като канал, преди да зададете данни за достъп. Наблюдаваната папка не изисква такива."],
     PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question. Nothing was changed.", "Профилът за предоперативна оценка трябва да съдържа всички вградени въпроси. Нищо не е променено."],
     DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
@@ -1532,6 +1533,18 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The EHR import transport policy was saved and audited.", "Каналът за импорт от БИС е запазен и записан в одитния журнал."),
+    "ehr",
+  ))
+
+  app.post("/status/control/ehr-transport/folder-requests", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setEhrFolderRequests({
+      enabled: formBoolean(body, "enabled"),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale,
+      "The setting for asking the hospital system was saved and audited. It applies to the next patient lookup.",
+      "Настройката за заявки към болничната система е запазена и записана в одитния журнал. Прилага се при следващото търсене на пациент."),
     "ehr",
   ))
 

@@ -235,6 +235,8 @@ export type EhrImportCapability = {
   enabled: boolean
   reason: CapabilityReason
   transport: "FOLDER" | "FHIR" | "HL7V2" | null
+  /** A watched-folder site whose lookups ask the hospital system (1.5.0). */
+  folderRequests: boolean
   egnPermitted: boolean
 }
 
@@ -249,6 +251,7 @@ export const SAFE_EHR_IMPORT_CAPABILITY: EhrImportCapability = {
   enabled: false,
   reason: "PROVIDER_NOT_CONFIGURED",
   transport: null,
+  folderRequests: false,
   egnPermitted: false,
 }
 
@@ -288,6 +291,7 @@ export function parseEhrImportCapability(value: unknown): EhrImportCapability {
     transport: transport === "FOLDER" || transport === "FHIR" || transport === "HL7V2"
       ? transport
       : null,
+    folderRequests: transport === "FOLDER" && source.folderRequests === true,
     egnPermitted: source.egnPermitted === true,
   }
 }

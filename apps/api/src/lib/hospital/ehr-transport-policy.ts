@@ -56,10 +56,13 @@ export type EhrTransportCapabilityState = {
   policyEnabled: boolean
   credentialStored: boolean
   providerConfigured: boolean
+  /** A watched-folder site that asks the hospital system for a patient (1.5.0). */
+  folderRequests?: boolean
 }
 
 export type EhrTransportAccess =
-  | { enabled: true; transport: "FOLDER" }
+  /** folderRequests: ask the hospital system over the folder when nothing has arrived (1.5.0). */
+  | { enabled: true; transport: "FOLDER"; folderRequests: boolean }
   | {
       enabled: true
       transport: "FHIR"
@@ -318,9 +321,15 @@ export async function ehrTransportCapabilityState(
       policyEnabled: false,
       credentialStored: false,
       providerConfigured: false,
+      folderRequests: false,
     }
   }
-  return stateFromPolicy(await storedEhrTransportPolicy(db))
+  const policy = await storedEhrTransportPolicy(db)
+  const state = stateFromPolicy(policy)
+  return {
+    ...state,
+    folderRequests: state.enabled && state.transport === "FOLDER" && policy?.folderRequestsEnabled === true,
+  }
 }
 
 /**
@@ -339,7 +348,7 @@ export async function ehrTransportAccess(db: Database = prisma): Promise<EhrTran
     return { enabled: false, transport: null, reason: "DISABLED_BY_DEPLOYMENT" }
   }
   if (!isCredentialedTransport(transport)) {
-    return { enabled: true, transport: "FOLDER" }
+    return { enabled: true, transport: "FOLDER", folderRequests: policy?.folderRequestsEnabled === true }
   }
   const sealed = policy ? completeSealedCredential(policy) : null
   if (!sealed) {
@@ -421,6 +430,9 @@ export async function ehrTransportControlView(db: Database = prisma) {
     // How long staged imports are kept before they are deleted.
     stagingRetentionDays: policy?.stagingRetentionDays ?? 14,
     stagingRetentionChangedAt: policy?.stagingRetentionChangedAt?.toISOString() ?? null,
+    // Whether a lookup asks the hospital system over the folder (1.5.0).
+    folderRequestsEnabled: policy?.folderRequestsEnabled === true,
+    folderRequestsChangedAt: policy?.folderRequestsChangedAt?.toISOString() ?? null,
     updatedAt: policy?.updatedAt?.toISOString() ?? null,
   }
 }
