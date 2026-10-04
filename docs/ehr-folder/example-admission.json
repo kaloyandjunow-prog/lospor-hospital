@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "identifier": "2026-004512",
+  "identifierType": "IZ",
+  "sourceMessageId": "HIS-ADM-88213",
+  "fields": {
+    "ageYears": 67,
+    "sex": "FEMALE",
+    "heightCm": 162,
+    "weightKg": 72.5,
+    "bloodType": "A",
+    "rhFactor": "POSITIVE",
+    "bpSystolic": 148,
+    "bpDiastolic": 86,
+    "heartRate": 78,
+    "allergies": true,
+    "allergyDetails": [
+      { "label": "Пеницилин", "atcCode": "J01CE01", "inn": "benzylpenicillin" }
+    ],
+    "diagnoses": [
+      { "label": "Холелитиаза", "code": "K80.2", "system": "ICD10" }
+    ],
+    "comorbidities": [
+      { "label": "Есенциална хипертония", "code": "I10", "system": "ICD10" }
+    ],
+    "currentMedications": [
+      { "label": "Амлодипин 5 mg", "atcCode": "C08CA01", "inn": "amlodipine", "dose": "5 mg", "route": "PO", "frequency": "1x1" }
+    ],
+    "labResults": [
+      { "test": "ХГБ", "value": "128", "unit": "g/L", "takenAt": "2026-10-04T07:45:00+03:00" },
+      { "test": "Калий", "value": "4,2", "unit": "mmol/L", "takenAt": "2026-10-04T07:45:00+03:00" },
+      { "test": "Creatinine", "value": "88", "unit": "umol/L", "takenAt": "2026-10-04T07:45:00+03:00", "system": "http://loinc.org", "code": "14682-9" }
+    ]
+  }
+}

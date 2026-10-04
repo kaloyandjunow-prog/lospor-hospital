@@ -42,6 +42,7 @@ Start with:
 - `docs/operations.md`
 - `docs/secret-rotation.md`
 - `docs/central-enrollment.md`
+- `docs/ehr-folder-format.md` — exchanging data with the hospital system through a shared folder
 
 After installation, authorized appliance administrators can open Status at
 `https://<clinical>/status/`. A loopback-only HTTPS listener is also available
