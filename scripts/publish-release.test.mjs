@@ -19,6 +19,7 @@ function github(overrides = {}) {
     tagObject: { object: { type: "commit", sha: COMMIT } },
     immutable: { enabled: true, enforced_by_owner: false },
     release: null,
+    artifacts: [{ name: `hospital-1.4.0-${RUN}-2-approval`, expired: false }],
     ...overrides,
   }
   const gh = args => {
@@ -28,13 +29,16 @@ function github(overrides = {}) {
     if (args[0] === "api" && path === `repos/${REPOSITORY}/actions/workflows/77`) return `${answers.workflowPath}\n`
     if (args[0] === "api" && path.startsWith(`repos/${REPOSITORY}/git/ref/tags/`)) return JSON.stringify(answers.tag)
     if (args[0] === "api" && path === `repos/${REPOSITORY}/git/tags/feedface`) return JSON.stringify(answers.tagObject)
+    if (args[0] === "api" && path === `repos/${REPOSITORY}/actions/runs/${RUN}/artifacts?per_page=100`) return JSON.stringify({ artifacts: answers.artifacts })
     if (args[0] === "api" && path === `repos/${REPOSITORY}/immutable-releases`) return JSON.stringify(answers.immutable)
     if (args[0] === "release") {
       if (!answers.release) throw new Error("release not found")
       return JSON.stringify(answers.release)
     }
     if (args[0] === "run" && args[1] === "download") {
-      writeCandidate(args[args.indexOf("--dir") + 1])
+      const directory = args[args.indexOf("--dir") + 1]
+      writeCandidate(directory)
+      if (args.includes(`hospital-1.4.0-${RUN}-2-candidate`)) writeFileSync(join(directory, "lospor-hospital-1.4.0-deployment.tar.gz"), "kit")
       return ""
     }
     if (args[0] === "workflow") return ""
@@ -71,7 +75,7 @@ test("derives version, attempt, commit and artifact from the candidate run", () 
   const { gh } = github()
   assert.deepEqual(readCandidate(RUN, { gh }), {
     runId: RUN, attempt: 2, version: "1.4.0", tag: "hospital-1.4.0", commit: COMMIT,
-    artifactName: `hospital-1.4.0-${RUN}-2-candidate`, directory: `candidate-1.4.0-${RUN}-2`,
+    artifactName: `hospital-1.4.0-${RUN}-2-candidate`, approvalArtifactName: `hospital-1.4.0-${RUN}-2-approval`, directory: `candidate-1.4.0-${RUN}-2`,
     lockName: "lospor-hospital-1.4.0-release.lock",
   })
 })
@@ -104,21 +108,35 @@ test("prepare downloads into its own directory, verifies candidate, dossier and 
   const space = workspace()
   const { gh, calls } = github()
   const verified = []
+  const modes = []
   const dossierChecks = []
   await prepare(RUN, {
     ...space,
     gh,
-    node: args => verified.push(args[0].split(/[\\/]/).at(-1)),
+    node: args => { verified.push(args[0].split(/[\\/]/).at(-1)); modes.push(args[3]) },
     verifyDossier: async options => { dossierChecks.push(options); return dossierSummary },
   })
   assert.deepEqual(dossierChecks.map(check => [check.runId, check.runAttempt]), [[RUN, 2]])
   assert.ok(calls.some(args => args[0] === "attestation" && args.includes(`${REPOSITORY}/.github/workflows/release.yml`)))
   assert.ok(space.lines.includes("  Vulnerabilities: 0 critical, 1 high; 0 accepted with a dated exception"))
-  assert.ok(calls.some(args => args[0] === "run" && args.includes(`hospital-1.4.0-${RUN}-2-candidate`)))
+  // Only the small approval artifact is downloaded, never the several-GB candidate.
+  assert.ok(calls.some(args => args[0] === "run" && args.includes(`hospital-1.4.0-${RUN}-2-approval`)))
+  assert.ok(!calls.some(args => args[0] === "run" && args.includes(`hospital-1.4.0-${RUN}-2-candidate`)))
   assert.deepEqual(verified, ["verify-release-candidate.mjs", "verify-release-handoff.mjs"])
+  assert.equal(modes[0], "approval-assets")
   assert.ok(space.lines.some(line => line.includes("sign-release-lock.sh lospor-hospital-1.4.0-release.lock")))
   assert.ok(space.lines.some(line => line === `  node scripts/publish-release.mjs publish ${RUN}`))
   assert.ok(space.lines.includes(`Release lock SHA-256: ${createHash("sha256").update(lock).digest("hex")}`))
+})
+
+test("prepare falls back to the whole candidate for a run without the approval artifact", async () => {
+  const space = workspace()
+  const { gh, calls } = github({ artifacts: [{ name: `hospital-1.4.0-${RUN}-2-approval`, expired: true }] })
+  const modes = []
+  await prepare(RUN, { ...space, gh, node: args => modes.push(args[3]), verifyDossier: async () => dossierSummary })
+  assert.ok(calls.some(args => args[0] === "run" && args.includes(`hospital-1.4.0-${RUN}-2-candidate`)))
+  assert.ok(!calls.some(args => args[0] === "run" && args.includes(`hospital-1.4.0-${RUN}-2-approval`)))
+  assert.equal(modes[0], "candidate-assets")
 })
 
 test("prepare never mixes candidates, and stops before signing without GitHub's attestation", async () => {

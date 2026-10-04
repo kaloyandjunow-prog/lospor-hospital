@@ -59,8 +59,13 @@ export async function verifyReleaseCandidate({
       throw new Error("Image lock does not exactly match the canonical release manifest")
     }
   }
+  // "evidence" checks only the security evidence: the signing download
+  // carries the lock and its evidence, not the deployment or the image bundle.
   if (verifyArtifacts) {
-    for (const artifact of [manifest.artifacts.deployment, manifest.artifacts.securityEvidence, ...manifest.artifacts.offlineImages]) {
+    const artifacts = verifyArtifacts === "evidence"
+      ? [manifest.artifacts.securityEvidence]
+      : [manifest.artifacts.deployment, manifest.artifacts.securityEvidence, ...manifest.artifacts.offlineImages]
+    for (const artifact of artifacts) {
       const path = resolve(artifactDirectory, artifact.file)
       const details = await stat(path)
       if (!details.isFile() || details.size !== artifact.bytes) throw new Error(`Artifact size mismatch: ${artifact.file}`)
@@ -73,7 +78,8 @@ export async function verifyReleaseCandidate({
 export function expectedReleaseAssetNames(manifestValue, phase) {
   const manifest = parseReleaseManifest(manifestValue)
   const version = manifest.appliance.version
-  if (phase !== "candidate" && phase !== "final") throw new Error("asset phase must be candidate or final")
+  if (phase === "approval") return approvalAssetNames(version)
+  if (phase !== "candidate" && phase !== "final") throw new Error("asset phase must be candidate, final or approval")
   const names = [
     `lospor-hospital-${version}-deployment.tar.gz`,
     ...manifest.artifacts.offlineImages.map(part => part.file),
@@ -93,6 +99,23 @@ export function expectedReleaseAssetNames(manifestValue, phase) {
     names.push(`lospor-hospital-${version}-release.lock.sig`)
   }
   return names.sort()
+}
+
+/**
+ * What the maintainer needs to approve a candidate: the lock, what it pins
+ * (manifest and image lock), the publication request and the security
+ * evidence. Uploaded beside the full candidate so prepare downloads megabytes,
+ * not the offline bundle; publication still verifies the full candidate.
+ */
+export function approvalAssetNames(version) {
+  return [
+    `lospor-hospital-${version}-images.json`,
+    `lospor-hospital-${version}-manifest.json`,
+    `lospor-hospital-${version}-publication-request.tsv`,
+    `lospor-hospital-${version}-release.lock`,
+    `lospor-hospital-${version}-release.lock.sha256`,
+    `lospor-hospital-${version}-security-evidence.tar.gz`,
+  ].sort()
 }
 
 export async function verifyReleaseAssetSet(directory, manifestValue, phase) {
