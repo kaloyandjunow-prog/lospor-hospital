@@ -4,7 +4,8 @@
 //   node scripts/upstream-train.mjs <X.Y.Z>          print the plan, change nothing
 //   node scripts/upstream-train.mjs <X.Y.Z> --yes    run it
 //
-// Order: Core first, then Web and PWA, then API, then docs -- each repo's PR
+// Order: Core first, then Web and PWA, then docs, then API (whose tag starts
+// the cross-repository gate, so every other tag must already exist) -- each repo's PR
 // merged before the next starts, because Web, PWA and API pin Core's tag and
 // the tag only exists once Core is merged. For each repo, on its current
 // release branch:
@@ -34,8 +35,11 @@ export const TRAIN = Object.freeze([
   { repo: "lospor-core", pinsCore: false, protectedMain: false },
   { repo: "lospor-app", pinsCore: true, protectedMain: false },
   { repo: "lospor-mobile", pinsCore: true, protectedMain: false },
-  { repo: "lospor-api", pinsCore: true, protectedMain: true },
+  // Docs before API: pushing the API tag starts its cross-repository release
+  // gate, which checks out all five repositories at the tag. With docs last,
+  // its tag did not exist yet and the 9.14.0 gate failed.
   { repo: "lospor-docs", pinsCore: false, protectedMain: true },
+  { repo: "lospor-api", pinsCore: true, protectedMain: true },
 ])
 const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 /** One word per check: a status context's state, or a check run's conclusion once complete. */

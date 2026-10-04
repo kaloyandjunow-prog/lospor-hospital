@@ -94,6 +94,9 @@ test("runs the train in order, pins Core's merged commit, merges, waits on prote
   // Core is tagged before anything pins it.
   const order = w.calls.filter(call => / tag -a | push --quiet -u /.test(call)).map(call => call.split(" ").slice(0, 3).join(" "))
   assert.deepEqual(order.slice(0, 3), ["lospor-core git push", "lospor-core git tag", "lospor-app git push"])
+  // The API tag starts the cross-repository gate, so every other repository is tagged first.
+  const tagged = w.calls.filter(call => call.includes(" git tag -a ")).map(call => call.split(" ")[0])
+  assert.deepEqual(tagged, ["lospor-core", "lospor-app", "lospor-mobile", "lospor-docs", "lospor-api"])
 })
 
 test("resumes: a released repo is skipped and its tag still feeds the pins", async () => {
