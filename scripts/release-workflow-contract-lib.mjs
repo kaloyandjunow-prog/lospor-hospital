@@ -143,6 +143,19 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   // that was actually built.
   requirePattern(candidate, /postgres-source-provenance\.mjs require-vulnerability-review[\s\S]{0,120}steps\.release\.outputs\.version[\s\S]{0,80}release-inputs\.json/, "Metadata must pre-flight the source-component vulnerability review before any build starts")
   requirePattern(candidate, /quality:\s*\n(?:\s*#[^\n]*\n)*\s*needs: metadata/, "Quality must wait for the cheap metadata gates so a policy failure cannot cost a full build")
+  // The release may skip its own quality run only when this exact commit
+  // already passed it on a push (1.5.0), and nothing downstream may treat any
+  // other skip as a pass.
+  requirePattern(candidate, /node scripts\/quality-already-passed\.mjs "\$GITHUB_REPOSITORY" "\$GITHUB_SHA"/, "Metadata must decide quality reuse from the exact tagged commit")
+  requirePattern(candidate, /\n  quality:\n(?:\s*#[^\n]*\n)*\s*needs: metadata\n\s*if: needs\.metadata\.outputs\.quality_reused != 'true'\n\s*uses: \.\/\.github\/workflows\/quality\.yml\n/, "Quality may be skipped only when the exact commit already passed it")
+  for (const job of ["clean-appliance", "candidate"]) {
+    const section = candidate.slice(candidate.indexOf(`\n  ${job}:\n`) + 1)
+    const header = section.slice(0, section.indexOf("\n    runs-on:"))
+    requirePattern(header, /needs\.metadata\.result == 'success'/, `${job} must require the metadata gates to pass`)
+    requirePattern(header, /needs\.quality\.result == 'success' \|\| \(needs\.quality\.result == 'skipped' && needs\.metadata\.outputs\.quality_reused == 'true'\)/, `${job} must accept a skipped quality gate only when it was reused`)
+    forbidPattern(header, /always\(\)/, `${job} must not run whatever the gates concluded`)
+  }
+  requirePattern(candidate.slice(candidate.indexOf("\n  candidate:\n")), /^[\s\S]{0,400}needs\.clean-appliance\.result == 'success'/, "The candidate must require the clean-appliance proof to pass")
   // The compatibility row decides whether a failed update may roll services
   // back or must restore from a verified backup. A release whose row still
   // names the previous version would carry the wrong answer to that question.

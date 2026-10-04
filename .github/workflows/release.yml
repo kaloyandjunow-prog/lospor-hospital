@@ -15,8 +15,12 @@ concurrency:
 jobs:
   metadata:
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     outputs:
       version: ${{ steps.release.outputs.version }}
+      quality_reused: ${{ steps.quality.outputs.reused }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -102,15 +106,43 @@ jobs:
           }
           echo "schema_max names the newest migration ($newest)."
 
+      # The tag sits on a commit that was pushed to main, and that push already
+      # ran the full quality gate on these exact bytes. Running it a second time
+      # cost ~25 minutes and proved nothing new (1.5.0). Only a successful push
+      # run of quality.yml at exactly this commit counts; otherwise the gate
+      # runs here as before.
+      - id: quality
+        name: Reuse the quality gate this exact commit already passed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          answer="$(node scripts/quality-already-passed.mjs "$GITHUB_REPOSITORY" "$GITHUB_SHA")"
+          case "$answer" in
+            "reuse "*)
+              echo "reused=true" >> "$GITHUB_OUTPUT"
+              echo "Quality already passed for $GITHUB_SHA: ${answer#reuse }" | tee -a "$GITHUB_STEP_SUMMARY"
+              ;;
+            run)
+              echo "reused=false" >> "$GITHUB_OUTPUT"
+              echo "No successful quality run for $GITHUB_SHA yet; running the gate." | tee -a "$GITHUB_STEP_SUMMARY"
+              ;;
+            *) echo "Unexpected answer: $answer" >&2; exit 1 ;;
+          esac
+
   quality:
     # Cheap identity and policy gates decide before an hour of building starts.
     needs: metadata
+    if: needs.metadata.outputs.quality_reused != 'true'
     uses: ./.github/workflows/quality.yml
     permissions:
       contents: read
 
   clean-appliance:
     needs: [metadata, quality]
+    # quality is skipped only when this exact commit already passed it.
+    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.metadata.outputs.quality_reused == 'true')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -155,6 +187,7 @@ jobs:
 
   candidate:
     needs: [metadata, quality, clean-appliance]
+    if: ${{ !cancelled() && needs.metadata.result == 'success' && needs.clean-appliance.result == 'success' && (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.metadata.outputs.quality_reused == 'true')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     permissions:
@@ -693,6 +726,29 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+      # The maintainer approves only the lock. prepare used to download this
+      # whole candidate (the offline image bundle included) to read a few small
+      # files; this artifact carries just what approval needs. Publication
+      # still downloads and verifies the full candidate above.
+      - name: Collect the files the maintainer needs to approve the lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/approval"
+          prefix="dist/lospor-hospital-$HOSPITAL_RELEASE"
+          for suffix in images.json manifest.json publication-request.tsv release.lock release.lock.sha256 security-evidence.tar.gz; do
+            cp "$prefix-$suffix" "$RUNNER_TEMP/approval/"
+          done
+          node scripts/verify-release-candidate.mjs "$HOSPITAL_RELEASE" "$RUNNER_TEMP/approval" approval-assets "$GITHUB_SHA"
+
+      - name: Upload the approval files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hospital-${{ needs.metadata.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}-approval
+          path: ${{ runner.temp }}/approval
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Summarise the candidate identity
         shell: bash

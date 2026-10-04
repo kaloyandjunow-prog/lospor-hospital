@@ -20,6 +20,18 @@ test("accepts the manually signed integrity release and clinical gates", () => {
   assert.equal(assertReleaseWorkflowContract(candidate, publisher, quality), true)
 })
 
+test("skips the release's own quality run only for a commit that already passed it", () => {
+  const reject = (from, to, message) => assert.throws(
+    () => assertReleaseWorkflowContract(candidate.replace(from, to), publisher, quality),
+    message,
+  )
+  reject("    if: needs.metadata.outputs.quality_reused != 'true'\n    uses: ./.github/workflows/quality.yml", "    if: false\n    uses: ./.github/workflows/quality.yml", /skipped only when the exact commit/)
+  reject('node scripts/quality-already-passed.mjs "$GITHUB_REPOSITORY" "$GITHUB_SHA"', 'node scripts/quality-already-passed.mjs "$GITHUB_REPOSITORY" "$1"', /exact tagged commit/)
+  reject("(needs.quality.result == 'skipped' && needs.metadata.outputs.quality_reused == 'true')", "needs.quality.result == 'skipped'", /accept a skipped quality gate only when it was reused/)
+  reject("!cancelled() && needs.metadata.result == 'success' && needs.clean-appliance.result == 'success'", "!cancelled() && needs.metadata.result == 'success'", /clean-appliance proof/)
+  reject("    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.quality", "    if: ${{ always() && (needs.quality", /require the metadata gates/)
+})
+
 test("requires the versioned Windows kit in the release candidate", () => {
   assert.throws(
     () => assertReleaseWorkflowContract(

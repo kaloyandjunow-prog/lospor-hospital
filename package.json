@@ -24,7 +24,7 @@
     "verify:release-compose": "node scripts/verify-release-compose.mjs",
     "test:release-compose": "node --test scripts/verify-release-compose.test.mjs scripts/verify-version-defaults.test.mjs scripts/mirror-ci.test.mjs",
     "verify:release-workflow": "node scripts/verify-release-workflow.mjs",
-    "test:release-workflow": "node --test scripts/verify-release-workflow.test.mjs",
+    "test:release-workflow": "node --test scripts/verify-release-workflow.test.mjs scripts/quality-already-passed.test.mjs",
     "test:appliance-update": "node --test scripts/check-for-update.test.mjs scripts/ghcr-tag-state.test.mjs",
     "verify:release-inputs": "node scripts/release-inputs.mjs json release-inputs.json",
     "test:manual-release": "node --test scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/materialize-release-signature.test.mjs scripts/publish-release.test.mjs scripts/release-dossier.test.mjs scripts/solo-release-contracts.test.mjs scripts/pinned-contract-metadata.test.mjs",
