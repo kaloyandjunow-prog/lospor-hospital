@@ -4,7 +4,7 @@ import { readdir, rm, stat } from "node:fs/promises"
 import { join } from "node:path"
 
 import { EHR_IMPORT_RETENTION_DAYS } from "@/lib/hospital/ehr-import"
-import { PROCESSED, REJECTED } from "@/lib/hospital/ehr-inbox-folder"
+import { PROCESSED, REJECTED, RESULTS } from "@/lib/hospital/ehr-inbox-folder"
 import { ehrExchangeRoot } from "@/lib/hospital/ehr-transport-folder"
 import { prisma } from "@/lib/prisma"
 
@@ -46,12 +46,12 @@ export async function ehrStagingRetentionDays(): Promise<number> {
 
 /**
  * Removes kept inbox files older than the cutoff. Only regular files directly
- * inside processed/ and rejected/ are touched; the inbox itself holds files not
+ * inside processed/, rejected/ and results/ are touched; the inbox itself holds files not
  * yet read, and the outbox belongs to the hospital system that collects it.
  */
 async function purgeKeptFiles(root: string, cutoff: Date): Promise<number> {
   let deleted = 0
-  for (const folder of [PROCESSED, REJECTED]) {
+  for (const folder of [PROCESSED, REJECTED, RESULTS]) {
     const directory = join(root, folder)
     let names: string[]
     try {

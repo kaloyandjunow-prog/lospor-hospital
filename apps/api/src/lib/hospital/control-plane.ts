@@ -27,6 +27,7 @@ import {
 } from "./external-ai-policy"
 import { patientIdentifierControlView } from "./patient-identifier-policy"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
+import { ehrInboxHealth } from "./ehr-inbox-folder"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
 import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
 import { activePreopProfile, ensurePreopProfile, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
@@ -1345,6 +1346,11 @@ export async function hospitalControlPlaneView() {
     ehrCodeSystemView(),
     preoperativeControlView(),
   ])
+  // How the folder exchange is doing, for a site that uses it (1.5.0). Read
+  // from the folders; a failure to read them is not a reason to hide the rest.
+  const ehrFolder = ehrTransport.transport === "FOLDER"
+    ? await ehrInboxHealth().catch(() => null)
+    : null
   const pediatricMode = pediatricCapabilities()
   return {
     schemaVersion: 4,
@@ -1371,6 +1377,7 @@ export async function hospitalControlPlaneView() {
     ehrVitalCodes,
     ehrMedicationCodes,
     ehrCodeSystems,
+    ehrFolder,
     preoperative,
   }
 }
