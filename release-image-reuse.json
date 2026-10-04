@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Bump rebuildEpoch to rebuild every release image from source instead of reusing an unchanged one from the previous release (scripts/image-reuse.mjs).",
+  "rebuildEpoch": 1
+}

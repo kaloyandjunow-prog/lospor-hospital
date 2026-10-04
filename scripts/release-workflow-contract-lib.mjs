@@ -161,6 +161,18 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
     forbidPattern(header, /always\(\)/, `${job} must not run whatever the gates concluded`)
   }
   requirePattern(candidate.slice(candidate.indexOf("\n  candidate:\n")), /^[\s\S]{0,400}needs\.clean-appliance\.result == 'success'/, "The candidate must require the clean-appliance proof to pass")
+  // An image reused from the previous release (1.5.0) must come from a lock
+  // this repository's release.yml provably built, by digest, with a label equal
+  // to this commit's input fingerprint -- and be built otherwise. Everything
+  // after the build still runs on it.
+  const reuseStep = candidate.slice(candidate.indexOf("- name: Reuse unchanged images from the previous published release"), candidate.indexOf("- name: Build each missing custom candidate exactly once"))
+  requirePattern(candidate, /node scripts\/image-reuse\.mjs fingerprints > "\$RUNNER_TEMP\/hospital-image-fingerprints\.tsv"\n\s*node scripts\/image-reuse\.mjs env >> "\$GITHUB_ENV"/, "Each image must be labelled with this commit's input fingerprint")
+  requirePattern(reuseStep, /select\(\.immutable == true/, "Images may be reused only from an immutable release")
+  requirePattern(reuseStep, /if ! gh attestation verify "\$previous_lock" --repo "\$GITHUB_REPOSITORY" \\\n\s*--signer-workflow "\$GITHUB_REPOSITORY\/\.github\/workflows\/release\.yml"/, "A reused image's lock must verify as built by this repository's release.yml")
+  requirePattern(reuseStep, /node scripts\/image-reuse\.mjs previous "\$previous_lock" "\$published_at"/, "Reused digests must come from the previous lock, within its age limit")
+  requirePattern(reuseStep, /docker image inspect --format '\{\{ index \.Config\.Labels "org\.lospor\.hospital\.input-fingerprint" \}\}' "\$source_ref"\)" = "\$expected"/, "A reused image's pulled label must equal this commit's fingerprint")
+  requirePattern(candidate, /- name: Build each missing custom candidate exactly once[\s\S]{0,400}done < "\$RUNNER_TEMP\/hospital-candidates-to-build\.txt"/, "Every image not reused must be built")
+  requirePattern(candidate, /- name: Push only missing run-specific private candidates[\s\S]{0,1600}done < "\$RUNNER_TEMP\/hospital-candidates-missing\.txt"/, "Reused images must be pushed as candidates like built ones")
   // The compatibility row decides whether a failed update may roll services
   // back or must restore from a verified backup. A release whose row still
   // names the previous version would carry the wrong answer to that question.

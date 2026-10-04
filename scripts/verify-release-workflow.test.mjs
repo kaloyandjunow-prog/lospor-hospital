@@ -32,6 +32,18 @@ test("skips the release's own quality run only for a commit that already passed 
   reject("    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.quality", "    if: ${{ always() && (needs.quality", /require the metadata gates/)
 })
 
+test("reuses a previous image only from a provable lock, by digest and matching fingerprint", () => {
+  const reject = (from, to, message) => assert.throws(
+    () => assertReleaseWorkflowContract(candidate.replace(from, to), publisher, quality),
+    message,
+  )
+  reject("select(.immutable == true and", "select(true and", /immutable release/)
+  reject('if ! gh attestation verify "$previous_lock"', 'if ! true "$previous_lock"', /built by this repository's release\.yml/)
+  reject('= "$expected"\n              test "$(docker image inspect --format \'{{.Os}}', '!= ""\n              test "$(docker image inspect --format \'{{.Os}}', /pulled label must equal/)
+  reject('done < "$RUNNER_TEMP/hospital-candidates-to-build.txt"', 'done < "$RUNNER_TEMP/hospital-candidates-reused.txt"', /not reused must be built/)
+  reject("node scripts/image-reuse.mjs env >> \"$GITHUB_ENV\"", "true", /labelled with this commit's input fingerprint/)
+})
+
 test("rejects a candidate workflow that does not check the release metadata first", () => {
   assert.throws(
     () => assertReleaseWorkflowContract(
