@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { usePreopAutosave } from "@/lib/use-preop-autosave"
 import { missingPreopFields } from "@/lib/preop-validation"
-import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
+import { applyClinicalModeSwitch, applyEhrImportToForm } from "@/lib/clinical-mode-switch"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
@@ -543,24 +543,16 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           current={getValues() as unknown as Record<string, unknown>}
           currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
           labelFor={field => ehrFieldLabel(field, locale)}
+          modeChangeAvailable={pediatricCapability.enabled}
           onRequestModeChange={pediatricCapability.enabled ? () => {
-            // The same switch the Adult / Paediatric toggle performs, which
-            // is the point: an imported age belonging to the other mode
-            // cannot be accepted until the case is in it, and the toggle
-            // can be a long way up the form. Refused where the deployment
-            // has no paediatric mode, exactly as the toggle refuses.
+            // Only reached from a review built by an appliance older than
+            // 1.4.23, which still holds the age back until the mode is
+            // switched by hand. The same switch the toggle performs.
             applyClinicalModeSwitch(isPediatric ? "ADULT" : "PEDIATRIC",
               { ageYears: getValues("ageYears"), ageValue: getValues("ageValue"), ageUnit: getValues("ageUnit") },
               setValue as never)
           } : undefined}
-          onApply={async patch => {
-            // Applied as an ordinary edit by this clinician: same form, same
-            // validation, same audit. That is what keeps an import off the
-            // conflict path entirely.
-            for (const [field, value] of Object.entries(patch)) {
-              setValue(field as never, value as never, { shouldDirty: true })
-            }
-          }}
+          onApply={(patch, modeChange) => applyEhrImportToForm(patch, modeChange, getValues as never, setValue as never)}
         />
         <div className="space-y-4">
           <ClinicalModeAgeFields

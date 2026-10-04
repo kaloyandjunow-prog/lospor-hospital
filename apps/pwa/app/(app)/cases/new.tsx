@@ -46,7 +46,7 @@ import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { recordEhrDecisions } from "@/lib/ehr-import"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
-import { toggleClinicalMode } from "@/lib/clinical-mode-switch"
+import { applyEhrImportToForm, toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -1126,15 +1126,8 @@ export default function NewCaseScreen() {
                 current={getValues() as unknown as Record<string, unknown>}
                 currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}
                 labelFor={field => ehrFieldLabel(field, language)}
-                onApply={async patch => {
-                  // Applied as an ordinary edit by this clinician: same form,
-                  // same validation, same audit. That is what keeps an import
-                  // off the conflict path on the two clients that have no
-                  // conflict UI.
-                  for (const [field, value] of Object.entries(patch)) {
-                    setValue(field as never, value as never, { shouldDirty: true })
-                  }
-                }}
+                modeChangeAvailable={pediatricModeCapability.enabled}
+                onApply={(patch, modeChange) => applyEhrImportToForm(patch, modeChange, getValues as never, setValue as never)}
               />
               <PediatricModeAgeFields
                 control={control}

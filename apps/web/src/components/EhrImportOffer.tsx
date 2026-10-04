@@ -47,8 +47,17 @@ type Props = {
   current: Record<string, unknown>
   currentClinicalMode?: ClinicalMode | null
   labelFor: (field: string) => string
-  /** Applies accepted values as an ordinary case edit by this clinician. */
-  onApply: (patch: Record<string, unknown>) => Promise<void> | void
+  /**
+   * Applies accepted values as an ordinary case edit by this clinician.
+   *
+   * `modeChange`, when set, is the clinical mode the accepted age puts the
+   * case in (1.4.23). Run the page's own mode switch first, with the clearing
+   * it always does, then write `patch`: the other order would wipe the
+   * vitals the import just brought.
+   */
+  onApply: (patch: Record<string, unknown>, modeChange: ClinicalMode | null) => Promise<void> | void
+  /** False where the deployment has no paediatric mode; the age is then left out. */
+  modeChangeAvailable?: boolean
   /**
    * Restrict the offer to these canonical fields.
    *
@@ -101,6 +110,7 @@ export function EhrImportOffer({
   labelFor,
   onApply,
   onlyFields,
+  modeChangeAvailable,
   onRequestModeChange,
   onAcceptedBeforeCase,
 }: Props) {
@@ -231,6 +241,7 @@ export function EhrImportOffer({
           unreadSources={state.offer.unreadSources}
           current={current}
           currentClinicalMode={currentClinicalMode}
+          modeChangeAvailable={modeChangeAvailable}
           labelFor={labelFor}
           onClose={() => setOpen(false)}
           onRequestModeChange={onRequestModeChange}
@@ -241,14 +252,14 @@ export function EhrImportOffer({
             // closing an unaccepted offer leaves no case behind either.
             if (caseId) void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey])
           }}
-          onAccept={async (patch, appliedKeys) => {
+          onAccept={async (patch, appliedKeys, modeChange) => {
             const importId = state.offer.importId
             acceptedItemsRef.current.set(importId, new Set([...(acceptedItemsRef.current.get(importId) ?? []), ...appliedKeys]))
             // The write goes first, deliberately. A failure between the two
             // leaves the import pending and self-corrects, because a value
             // already in the case comes back unchanged; recording first would
             // mark an item decided that never reached the record.
-            await onApply(patch)
+            await onApply(patch, modeChange)
             if (caseId) {
               await recordEhrDecisions(caseId, state.offer.importId, appliedKeys, [])
             } else {
