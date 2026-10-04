@@ -275,6 +275,7 @@ function main() {
       console.log(`Release metadata set to ${release} (from ${result.previous}); rollback policy ${result.policy}.`)
       console.log("Next: rewrite the CHANGELOG draft for operators, delete its marker, then run:")
       console.log(`  node scripts/release-version.mjs check ${release}`)
+      console.log("apps/api/src/lib/hospital/appliance-versions.ts moved the API tree: commit, then restamp with node scripts/stamp-upstream.mjs and commit UPSTREAM_VERSIONS.json.")
     } else if (command === "check") {
       if (!VERSION.test(release ?? "")) refuse("Usage: node scripts/release-version.mjs check <X.Y.Z>")
       const problems = check(root, release)

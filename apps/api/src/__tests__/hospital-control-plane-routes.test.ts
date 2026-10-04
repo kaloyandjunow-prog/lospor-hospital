@@ -148,6 +148,9 @@ describe("private Status Hospital control-plane routes", () => {
     })
   })
 
+  // The first import of the whole control-plane route graph; under a full
+  // parallel run that alone has taken over five seconds. This tests refusal,
+  // not speed.
   it("is unreachable outside Hospital before any control function runs", async () => {
     mocks.hospital.mockReturnValue(false)
     const root = await import("@/app/v1/internal/hospital/control-plane/route")
@@ -162,7 +165,7 @@ describe("private Status Hospital control-plane routes", () => {
     expect(mocks.view).not.toHaveBeenCalled()
     expect(mocks.issue).not.toHaveBeenCalled()
     expect(mocks.externalAiReplace).not.toHaveBeenCalled()
-  })
+  }, 30_000)
 
   it("returns privacy-safe metadata with no-store caching", async () => {
     const { GET } = await import("@/app/v1/internal/hospital/control-plane/route")

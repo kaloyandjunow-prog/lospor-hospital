@@ -36,12 +36,12 @@ const FAIL_AT = new Set(["high", "critical"])
  * and the audit will start failing again if it does not.
  */
 // braces 3.0.3 (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687) is the newest release and
-// has no patched version. Every route to it is build-time tooling, and the
+// has no patched version (re-audited 2026-10-04 for 1.5.0). Every route to it is build-time tooling, and the
 // release image scans confirm no shipped image contains it (the tools and
 // migrate images strip the API's lint chain in api.Dockerfile).
-const BRACES_1_4_22 = (route) => ({
+const BRACES_1_5_0 = (route) => ({
   reason:
-    "Accepted by the maintainer for Hospital 1.4.22 only. braces 3.0.3 has no "
+    "Accepted by the maintainer for Hospital 1.5.0 only (re-audited 2026-10-04). braces 3.0.3 has no "
     + `patched release; here it is reached only through ${route}, which runs at `
     + "build or lint time and is not part of any shipped image.",
   removeWhen: "braces publishes a patched version; re-audit before the next Hospital release",
@@ -49,21 +49,21 @@ const BRACES_1_4_22 = (route) => ({
 
 const EXCEPTIONS = {
   "apps/api": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_4_22("eslint-config-next (lint)"),
+    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("eslint-config-next (lint)"),
   },
   "apps/web": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_4_22("@ducanh2912/next-pwa (service-worker generation during the production build)"),
+    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("@ducanh2912/next-pwa (service-worker generation during the production build)"),
   },
   "apps/browser": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_4_22("eslint-config-next (lint)"),
+    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("eslint-config-next (lint)"),
   },
   "apps/pwa": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_4_22("tailwindcss (style build)"),
+    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("tailwindcss (style build)"),
     "GHSA-86w9-cpqp-85rv": {
       reason:
-        "Accepted for Hospital 1.4.22 only (re-audited 2026-10-03: node-forge "
-        + "1.4.0 is still the newest release, and the PWA moved to Expo "
-        + "56.0.23 without dropping it). node-forge 1.4.0 is pulled "
+        "Accepted by the maintainer for Hospital 1.5.0 only (re-audited 2026-10-04: "
+        + "node-forge 1.4.0 is still the newest release, and the PWA still "
+        + "reaches it through Expo 56). node-forge 1.4.0 is pulled "
         + "transitively by Expo's code-signing certificates tooling; the PWA "
         + "source has no node-forge import, and the production PWA is a static "
         + "export rather than a runtime that verifies RSA signatures. GitHub "

@@ -381,9 +381,10 @@ describe("the plan is rebuilt against the case as it stands", () => {
     expect(result?.plan.preselectedKeys).toEqual(["weightKg"])
   })
 
-  it("still refuses an age that would change the clinical mode", async () => {
-    // The guard has to survive the round trip through the database, not just
-    // hold in Core.
+  it("offers an age that changes the clinical mode, and applying it asks for the switch (9.13.9)", async () => {
+    // Held back until 9.13.9, and unaddable in practice: switching the mode in
+    // the form never released it. Through the database round trip too, the
+    // age is offered and the client switches the mode before writing it.
     const { db, id } = await staged({ ageYears: 7 })
 
     const result = await ehrReviewPlanFor(db, {
@@ -391,8 +392,12 @@ describe("the plan is rebuilt against the case as it stands", () => {
       currentClinicalMode: "ADULT", now: NOW,
     })
 
-    expect(result?.plan.items[0].state).toBe("needs-mode-decision")
-    expect(result?.plan.preselectedKeys).toEqual([])
+    expect(result?.plan.items[0].state).toBe("preselected")
+    expect(result?.plan.preselectedKeys).toEqual(["ageYears"])
+    const applied = applyEhrSelections({
+      plan: result!.plan, selectedKeys: result!.plan.preselectedKeys, current: {}, currentClinicalMode: "ADULT",
+    })
+    expect(applied.modeChange).toBe("PEDIATRIC")
   })
 
   it("carries a HAPI-shaped pediatric import through mode choice and finalization", async () => {
@@ -417,9 +422,13 @@ describe("the plan is rebuilt against the case as it stands", () => {
       importId: id, institutionId: "inst-1", current: {},
       currentClinicalMode: "ADULT", now: NOW,
     })
+    // Since 9.13.9 the age is offered from an adult case too; taking it
+    // switches the case to paediatric mode first.
     expect(adultPlan?.plan.items.find(item => item.itemKey === "ageYears")?.state)
-      .toBe("needs-mode-decision")
-    expect(adultPlan?.plan.preselectedKeys).not.toContain("ageYears")
+      .toBe("preselected")
+    expect(applyEhrSelections({
+      plan: adultPlan!.plan, selectedKeys: adultPlan!.plan.preselectedKeys, current: {}, currentClinicalMode: "ADULT",
+    }).modeChange).toBe("PEDIATRIC")
 
     const pediatricPlan = await ehrReviewPlanFor(db, {
       importId: id, institutionId: "inst-1", current: {},
