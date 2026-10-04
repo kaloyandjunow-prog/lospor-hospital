@@ -6,12 +6,12 @@ A Hospital release is acceptable only after the automated quality workflow and
 this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
-For the 1.4.22 clinical candidate, the coordinated client pins are Core, API,
-Web and PWA 9.13.8; Browser is 0.8.2. Promote and review them in this
-order: Core, Web, PWA, Browser, API. API is deliberately last because its finalization
-routes consume the shared Core contract. The Hospital candidate must retain
-the local package overlays while `UPSTREAM_VERSIONS.json` records the exact
-commits and committed vendor tree IDs.
+For the 1.5.0 clinical candidate, the coordinated client pins are Core, API, Web
+and PWA 9.14.0; Browser is 0.8.2. Promote and review them in this order: Core,
+Web, PWA, Browser, API. API is deliberately last because its finalization routes
+consume the shared Core contract. The Hospital candidate must retain the local
+package overlays while `UPSTREAM_VERSIONS.json` records the exact commits and
+committed vendor tree IDs.
 
 The change-specific evidence is deliberately executable, not a checklist of
 green-looking unit tests:
@@ -366,6 +366,35 @@ version.
 
 ### 2. Build the candidate
 
+Since 1.5.0 the release commit is prepared with three commands, run from the
+Hospital repository with the upstream clones beside it:
+
+```powershell
+npm run release:train -- 9.14.0             # the plan; add --yes to run it
+npm run release:vendor -- core=9.14.0 api=9.14.0 web=9.14.0 pwa=9.14.0
+npm run release:version -- 1.5.0 --justification "<why this rollback policy>"
+```
+
+- `release:train` releases the upstream repositories in order (Core, Web, PWA,
+  API, docs): it pins Core's merged commit in Web, PWA and API, pushes, opens
+  each PR, waits for CI, merges (API and docs: you merge in the browser, it
+  waits), and tags the merged commit on `main`. Without `--yes` it only prints
+  the plan. A stopped run resumes where it stopped.
+- `release:vendor` checks every source before changing any, stamps Hospital
+  edits inside vendored paths first, and resolves only the conflicts its rules
+  cover (`scripts/vendor-conflict-rules.mjs`: package identity and Core link,
+  changelog sections, lockfiles, generated OpenAPI). Any other conflicted file
+  stops it, unchanged, naming the file; resolve that one by hand with
+  `vendor-upstream.mjs --stage`. It then refreshes lockfiles, stamps, and runs
+  `verify:upstream` and `verify:hospital-overlays`. `--check` changes nothing.
+- `release:version` writes the version everywhere it is recorded, the
+  compatibility row with the newest migration as `schema_max`, the rollback
+  justification, the client-pin sentence in this page (both languages) and a
+  CHANGELOG draft drawn from the upstream changelogs. Rewrite the draft for
+  operators and delete its marker: `release.yml` runs
+  `release-version.mjs check` before building and refuses a draft, or any part
+  that names another release.
+
 Finish and review the release commit locally, confirm `package.json` has the
 intended version, and review every entry in `release-inputs.json`. Before the
 tag, measure a representative compressed offline bundle for the exact ten
@@ -426,10 +455,14 @@ node .\scripts\publish-release.mjs prepare 12345678901
 
 `prepare` refuses a run that did not succeed, was not built from a
 `hospital-X.Y.Z` tag by `release.yml`, or whose tag has since moved. It then
-downloads that run's candidate into a new directory named
+downloads that run's approval files into a new directory named
 `candidate-<version>-<run>-<attempt>` (it refuses a directory holding anything
-else, so files from different runs are never combined), runs the candidate
-verifier and the handoff verifier over it, and prints the lock's SHA-256 and the
+else, so files from different runs are never combined): the lock, its
+checksum, the manifest and image lock it pins, the publication request and the
+security evidence -- megabytes, not the several-GB offline bundle. A run from
+before 1.5.0 has no approval artifact, and the whole candidate is downloaded
+instead. It runs the candidate verifier (on the evidence the lock pins) and the
+handoff verifier over them, and prints the lock's SHA-256 and the
 exact command to sign it. The candidate verifier checks the canonical manifest
 and lock, lock sidecar, complete member set, sizes, hashes, and image
 identities; the handoff verifier binds the lock to the official repository,
@@ -600,8 +633,22 @@ node scripts/verify-release-compose.mjs
 node --test scripts/verify-release-compose.test.mjs
 ```
 
-The candidate workflow calls the ordinary quality workflow, then runs the full
-disposable installation test. It builds ten commit-specific candidates with
+The candidate workflow calls the ordinary quality workflow -- unless the tagged
+commit already passed it on a push, which it then reuses (the same commit is
+the same tree and the same tests) -- then runs the full disposable
+installation test.
+
+An image whose build inputs did not change since the previous release is not
+rebuilt (1.5.0). Each image carries a fingerprint of what its build reads --
+Dockerfile, target, build arguments, `.dockerignore` and every copied file --
+and when it equals the label on the image the previous immutable release
+published, the candidate takes that exact image, by the digest in that
+release's lock, whose build provenance must verify as this repository's
+`release.yml`. It goes through every step below like a built image. Because a
+fingerprint cannot see the Alpine and Debian security updates a rebuild would
+fetch, reuse stops once the previous release is 14 days old, and bumping
+`rebuildEpoch` in `release-image-reuse.json` rebuilds everything. A reused
+image keeps its digest, so an online update does not download it again. It builds ten commit-specific candidates with
 the digest-pinned base and source-tarball inputs from `release-inputs.json` and
 scans all ten images. The PostgreSQL evidence gate extracts its embedded build
 records from the exact candidate, matches them to those inputs, and binds the

@@ -1,2 +1,15 @@
 node_modules/
 *.tsbuildinfo
+
+# Local secrets, logs, scratch and agent state
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.log
+.tmp-*
+.DS_Store
+Thumbs.db
+.claude/
+.codex/
+coverage/

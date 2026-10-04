@@ -29,6 +29,8 @@ export function repeatDrugEventPayload(event: LogEvent): Omit<LogEvent, "id" | "
     ...(event.drugId !== undefined ? { drugId: event.drugId } : {}),
     ...(event.atcCode !== undefined ? { atcCode: event.atcCode } : {}),
     ...(event.inn !== undefined ? { inn: event.inn } : {}),
+    // A repeat of an acknowledged dose keeps the acknowledgement (1.5.0).
+    ...(event.allergyAck !== undefined ? { allergyAck: event.allergyAck } : {}),
     ...(event.clinicalRuleKey !== undefined ? { clinicalRuleKey: event.clinicalRuleKey } : {}),
     ...(event.clinicalRuleVersion !== undefined ? { clinicalRuleVersion: event.clinicalRuleVersion } : {}),
     ...(event.clinicalRuleSourceIds !== undefined

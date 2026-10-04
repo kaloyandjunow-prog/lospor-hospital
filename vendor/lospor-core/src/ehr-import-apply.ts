@@ -22,7 +22,7 @@
 
 import type { EhrLabValue, EhrTagValue } from "./ehr-import"
 import type { EhrReviewItem, EhrReviewPlan } from "./ehr-import-review"
-import { normalizePediatricAge } from "./pediatric"
+import { isPediatricAge, normalizePediatricAge } from "./pediatric"
 import type { ClinicalMode, PediatricAgeUnit } from "./pediatric"
 
 export type EhrApplyRefusal = {
@@ -56,23 +56,40 @@ export type EhrApplyRefusal = {
      */
     | "unsupported-test"
     /**
-     * An age whose acceptance would imply a change of clinical mode.
+     * An age that needs the other clinical mode on a deployment that cannot
+     * switch to it (`allowModeChange: false`, no paediatric mode), or an item
+     * from a pre-9.13.9 plan that was built in that state.
      *
-     * Refused rather than written even when explicitly ticked. The clinician
-     * changes mode themselves, and the plan is then rebuilt — at which point
-     * the age is an ordinary proposal. Making the order structural is the
-     * point: it leaves no sequence of clicks that writes an age into a case
-     * whose mode disagrees with it.
+     * Refused rather than written: an age in a mode that disagrees with it is
+     * refused by the server anyway, and writing half of it is worse.
      */
     | "needs-mode-decision"
 }
 
 export type EhrApplyResult = {
-  /** A patch by canonical field name, exactly as the clinician's own edit. */
+  /**
+   * A patch by canonical field name, exactly as the clinician's own edit.
+   *
+   * When `modeChange` is set, the age in it is already written for the new
+   * mode, and it does not include `clinicalMode` itself.
+   */
   patch: Record<string, unknown>
   /** Keys that were written, for recording what this import contributed. */
   appliedKeys: string[]
   refused: EhrApplyRefusal[]
+  /**
+   * The clinical mode the accepted age puts the case in, when it differs from
+   * the mode the case is in now; otherwise null.
+   *
+   * **The client switches mode first, then writes `patch`.** The switch is the
+   * client's own mode switch, with everything it always does: clearing the
+   * vitals and risk scores of the old mode and normalising the age. Run after
+   * the patch it would wipe the vitals this import just brought; run before,
+   * the patch writes over the cleared fields and the case ends up holding
+   * exactly what was accepted. Both land in one save, so the server never sees
+   * a paediatric age in an adult case.
+   */
+  modeChange: ClinicalMode | null
 }
 
 const SELECTABLE: Record<EhrReviewItem["state"], EhrApplyRefusal["reason"] | null> = {
@@ -118,15 +135,10 @@ function num(value: unknown): number | null {
  * survive — the same mistake that produced the pediatric-to-adult trap.
  */
 function ageFor(
-  mode: ClinicalMode | null | undefined,
-  proposed: Record<string, unknown>,
-  current: Record<string, unknown>,
+  mode: ClinicalMode,
+  age: { value: number; unit: PediatricAgeUnit },
 ): Record<string, unknown> {
-  const pick = (name: string) => name in proposed ? proposed[name] : current[name]
-  const unit = (pick("ageUnit") as PediatricAgeUnit | null) ?? "YEARS"
-  const value = num(pick("ageValue")) ?? num(pick("ageYears"))
-  if (value === null) return {}
-
+  const { value, unit } = age
   if (mode === "PEDIATRIC") {
     // ageYears rides along as completed years, exactly as the form's own age
     // control maintains it, so the two never disagree.
@@ -147,8 +159,13 @@ export function applyEhrSelections(input: {
   selectedKeys: Iterable<string>
   /** The case as it stands, by canonical field name. */
   current: Record<string, unknown>
-  /** Decides which fields an accepted age is written into. */
+  /** The mode the case is in now. A case with no mode yet is adult. */
   currentClinicalMode?: ClinicalMode | null
+  /**
+   * Whether the case may change mode. False on a deployment without
+   * paediatric mode: an age that would need it is refused instead.
+   */
+  allowModeChange?: boolean
 }): EhrApplyResult {
   const byKey = new Map(input.plan.items.map(item => [item.itemKey, item]))
   const patch: Record<string, unknown> = {}
@@ -182,12 +199,59 @@ export function applyEhrSelections(input: {
   // Age is resolved last and as a set. Written field by field it can leave the
   // case saying two different ages at once, and the mode decides which of them
   // anything downstream will actually read.
+  //
+  // The mode follows the age (9.13.9). The hospital's age is the age; the mode
+  // is what that age means for this case, so the age chooses it rather than
+  // waiting behind it.
+  const currentMode: ClinicalMode = input.currentClinicalMode ?? "ADULT"
+  let modeChange: ClinicalMode | null = null
   const acceptedAge = Object.keys(patch).filter(field => AGE_FIELDS.has(field))
   if (acceptedAge.length > 0) {
     const proposed = Object.fromEntries(acceptedAge.map(field => [field, patch[field]]))
     for (const field of acceptedAge) delete patch[field]
-    Object.assign(patch, ageFor(input.currentClinicalMode, proposed, input.current))
+    const age = acceptedAgeOf(proposed, input.current)
+    const implied: ClinicalMode | null = age
+      ? isPediatricAge(age) ? "PEDIATRIC" : "ADULT"
+      : null
+    if (implied && implied !== currentMode && input.allowModeChange === false) {
+      // Nothing of the age is written; every key that carried it is refused.
+      for (const itemKey of [...appliedKeys]) {
+        if (!AGE_FIELDS.has(byKey.get(itemKey)!.field)) continue
+        appliedKeys.splice(appliedKeys.indexOf(itemKey), 1)
+        refused.push({ itemKey, reason: "needs-mode-decision" })
+      }
+    } else {
+      if (implied && implied !== currentMode) modeChange = implied
+      if (age) Object.assign(patch, ageFor(implied ?? currentMode, age))
+    }
   }
 
-  return { patch, appliedKeys, refused }
+  return { patch, appliedKeys, refused, modeChange }
+}
+
+/**
+ * The age the clinician accepted, as one value and unit.
+ *
+ * The accepted fields win over the case's own as a set: an accepted `ageYears`
+ * alone is an age in years, never to be read against a paediatric `ageValue`
+ * the case still holds from before (a 40-year-old would otherwise come out as
+ * "7 months"). Only a lone accepted unit borrows the case's number.
+ */
+function acceptedAgeOf(
+  proposed: Record<string, unknown>,
+  current: Record<string, unknown>,
+): { value: number; unit: PediatricAgeUnit } | null {
+  let value: number | null
+  let unit: PediatricAgeUnit
+  if ("ageValue" in proposed) {
+    value = num(proposed.ageValue)
+    unit = (proposed.ageUnit ?? current.ageUnit ?? "YEARS") as PediatricAgeUnit
+  } else if ("ageYears" in proposed) {
+    value = num(proposed.ageYears)
+    unit = "YEARS"
+  } else {
+    value = num(current.ageValue) ?? num(current.ageYears)
+    unit = (proposed.ageUnit ?? "YEARS") as PediatricAgeUnit
+  }
+  return value === null ? null : { value, unit }
 }

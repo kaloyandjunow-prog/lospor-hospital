@@ -20,6 +20,41 @@ test("accepts the manually signed integrity release and clinical gates", () => {
   assert.equal(assertReleaseWorkflowContract(candidate, publisher, quality), true)
 })
 
+test("skips the release's own quality run only for a commit that already passed it", () => {
+  const reject = (from, to, message) => assert.throws(
+    () => assertReleaseWorkflowContract(candidate.replace(from, to), publisher, quality),
+    message,
+  )
+  reject("    if: needs.metadata.outputs.quality_reused != 'true'\n    uses: ./.github/workflows/quality.yml", "    if: false\n    uses: ./.github/workflows/quality.yml", /skipped only when the exact commit/)
+  reject('node scripts/quality-already-passed.mjs "$GITHUB_REPOSITORY" "$GITHUB_SHA"', 'node scripts/quality-already-passed.mjs "$GITHUB_REPOSITORY" "$1"', /exact tagged commit/)
+  reject("(needs.quality.result == 'skipped' && needs.metadata.outputs.quality_reused == 'true')", "needs.quality.result == 'skipped'", /accept a skipped quality gate only when it was reused/)
+  reject("!cancelled() && needs.metadata.result == 'success' && needs.clean-appliance.result == 'success'", "!cancelled() && needs.metadata.result == 'success'", /clean-appliance proof/)
+  reject("    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.quality", "    if: ${{ always() && (needs.quality", /require the metadata gates/)
+})
+
+test("reuses a previous image only from a provable lock, by digest and matching fingerprint", () => {
+  const reject = (from, to, message) => assert.throws(
+    () => assertReleaseWorkflowContract(candidate.replace(from, to), publisher, quality),
+    message,
+  )
+  reject("select(.immutable == true and", "select(true and", /immutable release/)
+  reject('if ! gh attestation verify "$previous_lock"', 'if ! true "$previous_lock"', /built by this repository's release\.yml/)
+  reject('= "$expected"\n              test "$(docker image inspect --format \'{{.Os}}', '!= ""\n              test "$(docker image inspect --format \'{{.Os}}', /pulled label must equal/)
+  reject('done < "$RUNNER_TEMP/hospital-candidates-to-build.txt"', 'done < "$RUNNER_TEMP/hospital-candidates-reused.txt"', /not reused must be built/)
+  reject("node scripts/image-reuse.mjs env >> \"$GITHUB_ENV\"", "true", /labelled with this commit's input fingerprint/)
+})
+
+test("rejects a candidate workflow that does not check the release metadata first", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate.replace('        run: node scripts/release-version.mjs check "${{ steps.release.outputs.version }}"\n', ""),
+      publisher,
+      quality,
+    ),
+    /changelog draft/,
+  )
+})
+
 test("requires the versioned Windows kit in the release candidate", () => {
   assert.throws(
     () => assertReleaseWorkflowContract(

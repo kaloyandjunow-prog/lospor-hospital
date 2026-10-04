@@ -23,7 +23,7 @@ import { WatchingOverlay } from "@/components/WatchingOverlay"
 import { usePreferences } from "@/lib/preferences-context"
 import { useRangeSpec } from "@/lib/use-option-library"
 import { normaliseHandoverCodes, postopFormSchema, type PostopFormData as FormData, type PostopFormInput as FormInput } from "@/lib/postop-form-schema"
-import { DispositionPicker, Field, HandoverChecklist, NRSRow, RecoverySummary, ScoreRow, SectionHeader } from "@/components/postop/PostopFormSections"
+import { DispositionPicker, Field, HandoverChecklist, NRSRow, RecoverySummary, ScoreRow, SectionHeader, usePostopFocusScroll } from "@/components/postop/PostopFormSections"
 import { canonicalizePostopPatch } from "@lospor/core/case-payloads"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import {
@@ -41,7 +41,8 @@ type AutosaveState = "idle" | "saving" | "saved" | "queued" | "blocked" | "error
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 export default function PostopFormScreen() {
-  const { id, continuedItems } = useLocalSearchParams<{ id: string; continuedItems?: string }>()
+  const { id, continuedItems, focus } = useLocalSearchParams<{ id: string; continuedItems?: string; focus?: string }>()
+  const focusScroll = usePostopFocusScroll(focus)
   const router    = useRouter()
   const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
@@ -124,14 +125,9 @@ export default function PostopFormScreen() {
   // looked and found them unresponsive.
   const aldreteStatus = aldreteTotal == null ? null : aldreteBand(aldreteTotal)
 
-  const aldreteLabel =
-    aldreteStatus === null
-      ? tc("aldreteNotAssessed")
-      : aldreteStatus === "ready"
-      ? tc("summaryReadyDischarge")
-      : aldreteStatus === "observe"
-      ? tc("summaryMonitor")
-      : tc("summaryContinueRecovery")
+  const aldreteLabel = tc(aldreteStatus === null ? "aldreteNotAssessed"
+    : aldreteStatus === "ready" ? "summaryReadyDischarge"
+    : aldreteStatus === "observe" ? "summaryMonitor" : "summaryContinueRecovery")
 
   type PostopRecord = Partial<FormData> & {
     activityScore?: number
@@ -370,7 +366,7 @@ export default function PostopFormScreen() {
         style={{ flex: 1, backgroundColor: colors.background }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView style={{ paddingHorizontal: 20, paddingTop: 2 }} contentContainerStyle={{ paddingBottom: 80 }}>
+        <ScrollView ref={focusScroll.ref} style={{ paddingHorizontal: 20, paddingTop: 2 }} contentContainerStyle={{ paddingBottom: 80 }}>
           <RecoverySummary
             total={aldreteTotal}
             label={aldreteLabel}
@@ -392,7 +388,7 @@ export default function PostopFormScreen() {
               : tc("autosaveReady")}
           </Text>
           {/* ── Modified Aldrete Score ─────────────────────────────── */}
-          <SectionHeader title={tc("aldreteScore")} />
+          <SectionHeader title={tc("aldreteScore")} onLayout={focusScroll.mark("recovery")} />
 
           {ALDRETE_CRITERIA.map((criterion) => (
             <View key={criterion.field} className="mb-4">
@@ -535,7 +531,7 @@ export default function PostopFormScreen() {
           </Field>
 
           {/* ── Disposition ────────────────────────────────────────── */}
-          <SectionHeader title={tc("dispositionLabel")} />
+          <SectionHeader title={tc("dispositionLabel")} onLayout={focusScroll.mark("disposition")} />
 
           <View className="mb-4">
             <Controller

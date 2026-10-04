@@ -1,6 +1,7 @@
 import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
+import { NO_ALLERGY_CHECK, whenGiven, type AllergyCheck } from "@/lib/use-allergy-check"
 import type {
   DrugFormulation,
 } from "@/lib/intraop-log-event"
@@ -52,6 +53,8 @@ export function useDrugEntry(
   drugCodes: Record<string, CodedIdentity> = {},
   infusionRatePresets: Record<string, string[]> = {},
   doseCalcs: Record<string, { roundTo?: number }> = {},
+  /** The case's recorded allergies, checked before a bolus is saved (1.5.0). */
+  allergyCheck: AllergyCheck = NO_ALLERGY_CHECK,
 ) {
   const [drugOpen, setDrugOpen] = useState(false)
   const [drugCat, setDrugCat]   = useState<DrugCat | null>(null)
@@ -116,10 +119,13 @@ export function useDrugEntry(
     setDrugOpen(false)
     setDrugCat(null)
     setDrugDraft(emptyDrugDraft())
-    void save({ type: "drug", name: drug.name, dose: finalDose, unit: drug.unit,
-      category: cat?.cat, color: cat?.color as string, drugRoute: route, concentration: conc, formulation,
-      drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
-      ...provenanceFromRule(rule) })
+    whenGiven(allergyCheck({ name: drug.name, atcCode: codes?.atcCode, inn: codes?.inn }), allergyAck => {
+      void save({ type: "drug", name: drug.name, dose: finalDose, unit: drug.unit,
+        category: cat?.cat, color: cat?.color as string, drugRoute: route, concentration: conc, formulation,
+        drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
+        ...(allergyAck ? { allergyAck } : {}),
+        ...provenanceFromRule(rule) })
+    })
   }
 
 

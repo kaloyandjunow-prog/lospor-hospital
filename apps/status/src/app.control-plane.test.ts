@@ -324,6 +324,11 @@ function setup() {
     discoverEhrTransport: vi.fn(async () => ({
       capabilities: null, identifierSystems: [], patientFound: null, probeErrorCode: null,
     })),
+    setEhrFolderRequests: vi.fn(async () => {}),
+    checkEhrFile: vi.fn(async () => ({
+      file: "checked.json", outcome: "would-import" as const, reason: null, identifierType: null, sourceMessageId: null,
+      accepted: [], ignored: [], unknownKeys: [], labs: null,
+    })),
   }
   const config = {
     defaultLocale: "bg",
@@ -1291,6 +1296,37 @@ describe("configuring the EHR integration", () => {
     expect(body).toContain("https://fhir.hospital.example/r4")
   })
 
+  // 1.5.0: what "Ask the server" returned is offered as a choice in both
+  // fields, instead of a sentence the operator had to copy from by hand.
+  it("offers the numberings the server returned in both fields", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    vi.mocked(controlPlane.discoverEhrTransport).mockResolvedValue({
+      capabilities: null, patientFound: true, probeErrorCode: null,
+      identifierSystems: ["urn:oid:1.2.3.4", "https://demo-bis.bg/fhir/sid/egn"],
+    })
+    const cookie = await passwordCookie(app, auth)
+
+    const body = await (await app.request("/status/control/ehr-transport/discover", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ identifier: "71005", password: "Initial password phrase1!" }).toString(),
+    })).text()
+
+    expect(body).toContain("<datalist id=\"ehr-numberings\"><option value=\"urn:oid:1.2.3.4\"><option value=\"https://demo-bis.bg/fhir/sid/egn\"></datalist>")
+    expect(body).toMatch(/name="recordNumberSystem" list="ehr-numberings"/)
+    expect(body).toMatch(/name="nationalIdentifierSystem" list="ehr-numberings"/)
+  })
+
+  it("offers no list before the server has been asked", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+    const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+
+    expect(body).not.toContain("ehr-numberings")
+  })
+
   // A folder-drop site has no endpoint, no credential and no namespaces to
   // configure; showing the forms would be offering settings that do nothing.
   it("shows none of it for a watched folder", async () => {
@@ -1349,5 +1385,124 @@ describe("configuring the EHR integration", () => {
     const call = vi.mocked(controlPlane.setEhrIdentifierSystems).mock.calls[0]?.[0]
     expect(call).toMatchObject({ recordNumberSystem: "http://hospital.bg/iz" })
     expect(call).not.toHaveProperty("nationalIdentifierSystem")
+  })
+})
+
+describe("the watched folder (1.5.0)", () => {
+  const health = {
+    waiting: 2,
+    oldestWaitingSeconds: 900,
+    lastReadAt: "2026-10-04T09:00:00.000Z",
+    last24h: { imported: 14, rejected: 1 },
+    recentRejections: [{ file: "adm-77.json", reason: "unknown-identifier-type" as const, at: "2026-10-04T08:59:00.000Z" }],
+  }
+  const check = {
+    file: "sample.json", outcome: "would-import" as const, reason: null, identifierType: "IZ" as const, sourceMessageId: "HIS-1",
+    accepted: ["weightKg", "labResults"], ignored: [{ field: "clinicalMode", reason: "not-importable" }], unknownKeys: ["patientNmae"],
+    labs: { received: 3, undated: 1, unmappedCodes: [{ system: "", code: "ХГБ-местен", display: "ХГБ-местен" }] },
+  }
+  const upload = (cookie: string, content = '{"identifier":"42"}', headers: Record<string, string> = {}) => {
+    const form = new FormData()
+    form.set("file", new File([content], "sample.json", { type: "application/json" }))
+    return app.request("/status/control/ehr-transport/check-file", { method: "POST", headers: origin({ cookie, ...headers }), body: form })
+  }
+  let app: ReturnType<typeof setup>["app"]
+
+  it("shows how the folder is doing, with each refusal in the operator's words", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    vi.mocked(setupResult.controlPlane.get).mockResolvedValue({ ...VIEW, ehrFolder: health } as never)
+    const cookie = await passwordCookie(app, setupResult.auth)
+    const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+
+    expect(body).toContain("<b>Файлове, чакащи прочитане</b>2")
+    expect(body).toContain("14 приети за преглед, 1 отказани")
+    expect(body).toContain("<code>adm-77.json</code> — identifierType не е нито IZ, нито EGN")
+    expect(body).toContain("Файл чака повече от десет минути")
+    expect(body).toContain('action="/status/control/ehr-transport/check-file" enctype="multipart/form-data"')
+  })
+
+  it("offers no folder card on a FHIR site", async () => {
+    const setupResult = setup()
+    vi.mocked(setupResult.controlPlane.get).mockResolvedValue({ ...VIEW, ehrTransport: { ...VIEW.ehrTransport, transport: "FHIR" }, ehrFolder: null } as never)
+    const cookie = await passwordCookie(setupResult.app, setupResult.auth)
+    const body = await (await setupResult.app.request("/status/control/ehr", { headers: { cookie } })).text()
+    expect(body).not.toContain("/status/control/ehr-transport/check-file")
+  })
+
+  it("checks an uploaded file through the API and shows what the inbox would do", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    vi.mocked(setupResult.controlPlane.checkEhrFile).mockResolvedValue(check)
+    const cookie = await passwordCookie(app, setupResult.auth)
+    const response = await upload(cookie)
+    const body = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(setupResult.controlPlane.checkEhrFile).toHaveBeenCalledWith({ content: '{"identifier":"42"}', file: "sample.json" })
+    expect(body).toContain("Този файл ще бъде приет за преглед от лекар.")
+    expect(body).toContain("<code>weightKg</code>, <code>labResults</code>")
+    expect(body).toContain("<code>clinicalMode</code> — поле, което форматът не приема")
+    expect(body).toContain("<code>patientNmae</code>")
+    expect(body).toContain("ХГБ-местен")
+  })
+
+  it("says why a file would be refused", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    vi.mocked(setupResult.controlPlane.checkEhrFile).mockResolvedValue({ ...check, outcome: "rejected", reason: "no-identifier", accepted: [] })
+    const cookie = await passwordCookie(app, setupResult.auth)
+    expect(await (await upload(cookie)).text()).toContain("Този файл ще бъде отказан: няма идентификатор на пациента.")
+  })
+
+  it("checks nothing for another origin, a recovery session, an empty file or one over a megabyte", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    const cookie = await passwordCookie(app, setupResult.auth)
+    const form = new FormData()
+    form.set("file", new File(["{}"], "a.json"))
+    expect((await app.request("/status/control/ehr-transport/check-file", { method: "POST", headers: { cookie, origin: "https://evil.example" }, body: form })).status).toBe(403)
+    expect((await upload(await recoveryCookie(app, setupResult.auth))).status).toBe(403)
+    expect((await upload(cookie, "   ")).status).toBe(400)
+    expect((await upload(cookie, "x".repeat(1024 * 1024 + 1))).status).toBe(413)
+    expect(setupResult.controlPlane.checkEhrFile).not.toHaveBeenCalled()
+  })
+})
+
+describe("asking the hospital system over the folder (1.5.0)", () => {
+  it("shows the switch off by default, and switches it on with a reason and the password", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+    expect(page).toContain("<b>Заявки</b>изключени")
+    expect(page).toContain('<input type="hidden" name="enabled" value="true">')
+
+    const response = await app.request("/status/control/ehr-transport/folder-requests", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ enabled: "true", reason: "Vendor answers request files", password: "Initial password phrase1!" }).toString(),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.setEhrFolderRequests).toHaveBeenCalledWith({ enabled: true, reason: "Vendor answers request files" })
+  })
+
+  it("offers to stop once it is on", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue({ ...VIEW, ehrTransport: { ...VIEW.ehrTransport, folderRequestsEnabled: true } } as never)
+    const cookie = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+    expect(page).toContain("<b>Заявки</b>включени")
+    expect(page).toContain('<input type="hidden" name="enabled" value="false">')
+  })
+
+  it("changes nothing without the password", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr-transport/folder-requests", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ enabled: "true", reason: "Vendor answers request files", password: "wrong" }).toString(),
+    })
+    expect(controlPlane.setEhrFolderRequests).not.toHaveBeenCalled()
   })
 })

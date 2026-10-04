@@ -254,6 +254,11 @@ export const ehrStagingRetentionSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+export const ehrFolderRequestsSchema = z.object({
+  enabled: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
 /**
  * Whether a stored transport secret still belongs to the configuration.
  *
@@ -612,6 +617,37 @@ export async function setEhrStagingRetention(input: z.infer<typeof ehrStagingRet
     })
     return policy
   })
+}
+
+/**
+ * Whether a lookup on a watched-folder site asks the hospital system (1.5.0).
+ *
+ * Off until the site's vendor answers request files: a request nobody answers
+ * only piles up in outbox/, and the clinician waits for nothing. Only a folder
+ * site can switch it on -- FHIR asks by its nature -- and switching the
+ * transport away does not need it cleared, because nothing else reads it.
+ */
+export async function setEhrFolderRequests(input: z.infer<typeof ehrFolderRequestsSchema>) {
+  const parsed = ehrFolderRequestsSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    if (parsed.enabled && existing?.transport !== "FOLDER") {
+      throw new HospitalControlPlaneError("EHR_FOLDER_REQUESTS_NOT_ACTIVE")
+    }
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", folderRequestsEnabled: parsed.enabled, folderRequestsChangedAt: now },
+      update: { folderRequestsEnabled: parsed.enabled, folderRequestsChangedAt: now },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
+      folderRequestsEnabled: policy.folderRequestsEnabled,
+      previousFolderRequestsEnabled: existing?.folderRequestsEnabled === true,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  }, serializableTransaction)
 }
 
 /**
@@ -1345,6 +1381,13 @@ export async function hospitalControlPlaneView() {
     ehrCodeSystemView(),
     preoperativeControlView(),
   ])
+  // How the folder exchange is doing, for a site that uses it (1.5.0). Read
+  // from the folders; a failure to read them is not a reason to hide the rest.
+  // Loaded only here: the inbox reader brings the clinical vocabularies with it,
+  // and every control route would otherwise pay for them on first import.
+  const ehrFolder = ehrTransport.transport === "FOLDER"
+    ? await import("./ehr-inbox-folder").then(module => module.ehrInboxHealth()).catch(() => null)
+    : null
   const pediatricMode = pediatricCapabilities()
   return {
     schemaVersion: 4,
@@ -1371,6 +1414,7 @@ export async function hospitalControlPlaneView() {
     ehrVitalCodes,
     ehrMedicationCodes,
     ehrCodeSystems,
+    ehrFolder,
     preoperative,
   }
 }

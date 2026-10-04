@@ -2,6 +2,13 @@ import type { FluidEntryMode } from "./intraop-fluids"
 import type { LocalAnaestheticFormulation } from "./catalog/dose-profile"
 import type { ConcentrationUnit } from "./clinical-rule-vocabulary"
 
+/**
+ * A recorded allergy the clinician acknowledged before giving this dose
+ * (1.5.0). Kept on the dose itself, so the record says what was known when it
+ * was given.
+ */
+export type AllergyAck = { allergy: string; level: "same_substance" | "same_class" | "cross_reaction" }
+
 export type EventType =
   | "drug" | "vital" | "clinical_event"
   | "infusion_start" | "infusion_rate" | "infusion_stop"
@@ -58,6 +65,7 @@ export type LogEvent = {
   atcCode?: string
   drugId?: string
   inn?: string
+  allergyAck?: AllergyAck[]
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
   clinicalRuleSourceIds?: string[]
@@ -111,6 +119,7 @@ export type ActiveInfusion = {
   drugId?: string
   atcCode?: string
   inn?: string
+  allergyAck?: AllergyAck[]
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
   clinicalRuleSourceIds?: string[]
@@ -219,6 +228,7 @@ export type TimetableDrug = {
   drugId?: string
   atcCode?: string
   inn?: string
+  allergyAck?: AllergyAck[]
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
   clinicalRuleSourceIds?: string[]
@@ -315,6 +325,7 @@ export type TimetableInfusion = SegmentEventRefs & {
   drugId?: string
   atcCode?: string
   inn?: string
+  allergyAck?: AllergyAck[]
   rateChanges?: TimetableRateChange[]
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
@@ -471,6 +482,8 @@ export function parseLogEvent(value: unknown): LogEvent | null {
     const parsed = optionalString(value, key)
     if (parsed !== undefined) event[key] = parsed
   }
+  const allergyAck = parseAllergyAck(value.allergyAck)
+  if (allergyAck) event.allergyAck = allergyAck
   const numberFields = [
     "systolic", "diastolic", "heartRate", "spO2", "etco2", "temp",
     "bis", "tofRatio", "cvp",
@@ -596,8 +609,21 @@ function parseTimetableDrug(value: unknown): TimetableDrug | null {
   }
 }
 
+function parseAllergyAck(value: unknown): AllergyAck[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const acks = value.flatMap((item): AllergyAck[] => {
+    if (!isRecord(item) || typeof item.allergy !== "string") return []
+    const level = item.level
+    if (level !== "same_substance" && level !== "same_class" && level !== "cross_reaction") return []
+    return [{ allergy: item.allergy, level }]
+  })
+  return acks.length > 0 ? acks : undefined
+}
+
 function optionalIdentity(record: Record<string, unknown>) {
+  const allergyAck = parseAllergyAck(record.allergyAck)
   return {
+    ...(allergyAck ? { allergyAck } : {}),
     ...(optionalString(record, "drugId") !== undefined ? { drugId: optionalString(record, "drugId") } : {}),
     ...(optionalString(record, "atcCode") !== undefined ? { atcCode: optionalString(record, "atcCode") } : {}),
     ...(optionalString(record, "inn") !== undefined ? { inn: optionalString(record, "inn") } : {}),

@@ -139,6 +139,7 @@ interface Props {
   data: TimetableData
   onChange: (d: TimetableData) => void
   onEndCase?: () => void
+  beforeEndCase?: () => boolean // checked by End now; false keeps the case running (1.5.0)
   onResumeCase?: () => void
   /** The saved end instant: a reopened ended case can still be resumed (9.12.1). */
   endedAt?: string | null
@@ -211,7 +212,7 @@ export function IntraopTimetable({
   showAgentRow = false,
   data,
   onChange,
-  onEndCase,
+  onEndCase, beforeEndCase,
   onResumeCase,
   endedAt, attention,
   autoEnded = false,
@@ -348,7 +349,6 @@ export function IntraopTimetable({
     INFUSION_CONFIGS, INFUSION_WEIGHT_BASIS, INFUSION_ROUTES, QUICK_RATES,
     INFUSION_ROUTE_PROFILES,
   } = useIntraopLibraryConfig({ drugLibOpts, fluidLibOpts, infusionLibOpts })
-
 
   const getFluidColor = useCallback((name: string) => fluidColor(name, QUICK_FLUIDS), [QUICK_FLUIDS])
   const getFluidCategory = useCallback((name: string) => fluidCategory(name, QUICK_FLUIDS), [QUICK_FLUIDS])
@@ -1747,7 +1747,7 @@ export function IntraopTimetable({
                     <div className="absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-xl p-3 space-y-2 min-w-[160px]">
                       <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{t("intraop.timetable.endCaseEllipsis")}</p>
                       <button type="button"
-                        onClick={() => { setShowEndPrompt(false); setShowEndModal(true) }}
+                        onClick={() => { setShowEndPrompt(false); if (beforeEndCase?.() === false) return; setShowEndModal(true) }}
                         className="w-full text-left text-sm font-medium px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
                         {uiCopy.timetable.endNow}
                       </button>

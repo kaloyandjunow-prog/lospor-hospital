@@ -66,3 +66,12 @@ CODEX_HANDOFF*.md
 /test-results/
 /playwright-report/
 /e2e/.auth/
+
+# Local secrets, logs, scratch and agent state
+.env
+.env.*
+!.env.*.example
+.tmp-*
+Thumbs.db
+.codex/
+coverage/

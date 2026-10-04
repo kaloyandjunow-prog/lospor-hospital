@@ -48,21 +48,31 @@ type Props = {
   identityUnverified?: boolean
   /** The case as it stands, by canonical field name. */
   current: Record<string, unknown>
-  /** Decides which fields an accepted age is written into. */
+  /** The mode the case is in now; an accepted age may change it. */
   currentClinicalMode?: ClinicalMode | null
+  /**
+   * Whether this deployment can switch the case's mode. False where there is
+   * no paediatric mode: an age that would need it is then left out.
+   */
+  modeChangeAvailable?: boolean
   /** Field labels come from wherever the form already keeps them. */
   labelFor: (field: string) => string
-  onAccept: (patch: Record<string, unknown>, appliedKeys: string[]) => void
+  /**
+   * `modeChange`, when set, is the mode the accepted age puts the case in. The
+   * host runs its own mode switch first, with the clearing it always does,
+   * and writes `patch` after it, so the switch never wipes an imported value.
+   */
+  onAccept: (
+    patch: Record<string, unknown>,
+    appliedKeys: string[],
+    modeChange: ClinicalMode | null,
+  ) => void
   /** Remembered by the server so the item is never offered again. */
   onDecline: (itemKey: string) => void
   /**
-   * Take the clinician to the mode control.
-   *
-   * This sheet covers the screen, so without it a blocked age is a dead end:
-   * the row says to switch mode and the control is behind the sheet. The host
-   * closes this and puts the toggle in front of them. Reopening rebuilds the
-   * plan from the server, and the age is then an ordinary proposal — the only
-   * thing lost is local ticks, which the mode change has invalidated anyway.
+   * Take the clinician to the mode control. Only reached from a plan built
+   * by an appliance older than 9.13.9, which still holds an age back until
+   * the mode is switched by hand.
    */
   onRequestModeChange?: () => void
   onClose: () => void
@@ -82,8 +92,8 @@ function labTest(item: EhrReviewItem): string {
 }
 
 export function EhrImportPanel({
-  plan, identityUnverified, unreadSources = [], current, currentClinicalMode, labelFor,
-  onAccept, onDecline, onRequestModeChange, onClose,
+  plan, identityUnverified, unreadSources = [], current, currentClinicalMode,
+  modeChangeAvailable = true, labelFor, onAccept, onDecline, onRequestModeChange, onClose,
 }: Props) {
   const shade = useShade()
   const { tc, language } = usePreferences()
@@ -119,11 +129,20 @@ export function EhrImportPanel({
     onDecline(item.itemKey)
   }
 
+  // What "Add selected" would do, worked out the same way it will be done, so
+  // the clinician sees a mode switch (and what it clears) before causing it.
+  const preview = applyEhrSelections({
+    plan, selectedKeys: selected, current, currentClinicalMode,
+    allowModeChange: modeChangeAvailable,
+  })
+  const ageLeftOut = preview.refused.some(refusal => refusal.reason === "needs-mode-decision")
+  const modeNotice = preview.modeChange === "PEDIATRIC" ? tc("ehrModeSwitchToPediatric")
+    : preview.modeChange === "ADULT" ? tc("ehrModeSwitchToAdult")
+    : ageLeftOut ? tc("ehrModeUnavailable")
+    : null
+
   function accept() {
-    const result = applyEhrSelections({
-      plan, selectedKeys: selected, current, currentClinicalMode,
-    })
-    onAccept(result.patch, result.appliedKeys)
+    onAccept(preview.patch, preview.appliedKeys, preview.modeChange)
   }
 
   return (
@@ -176,7 +195,7 @@ export function EhrImportPanel({
           </View>
         ) : null}
 
-        <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 90 }}>
+        <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: modeNotice ? 190 : 90 }}>
           {shown.length === 0 ? (
             <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 32 }}>
               {tc("ehrNothingToReview")}
@@ -279,20 +298,38 @@ export function EhrImportPanel({
           ))}
         </ScrollView>
 
-        <Pressable
-          onPress={accept}
-          disabled={selected.size === 0}
-          style={{
-            position: "absolute", left: 16, right: 16, bottom: 22,
-            borderRadius: 14, borderCurve: "continuous",
-            backgroundColor: selected.size === 0 ? colors.surface : colors.primary,
-            paddingVertical: 14, alignItems: "center",
-          }}
-        >
-          <Text style={{ color: selected.size === 0 ? colors.textMuted : shade("#fff"), fontSize: 15, fontWeight: "900" }}>
-            {tc("ehrAccept")} ({selected.size})
-          </Text>
-        </Pressable>
+        <View style={{ position: "absolute", left: 16, right: 16, bottom: 22, gap: 8 }}>
+          {modeNotice ? (
+            <View
+              accessibilityRole="alert"
+              style={{
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.warning,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              }}
+            >
+              <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 17, fontWeight: "700" }}>
+                {modeNotice}
+              </Text>
+            </View>
+          ) : null}
+          <Pressable
+            onPress={accept}
+            disabled={selected.size === 0}
+            style={{
+              borderRadius: 14, borderCurve: "continuous",
+              backgroundColor: selected.size === 0 ? colors.surface : colors.primary,
+              paddingVertical: 14, alignItems: "center",
+            }}
+          >
+            <Text style={{ color: selected.size === 0 ? colors.textMuted : shade("#fff"), fontSize: 15, fontWeight: "900" }}>
+              {tc("ehrAccept")} ({selected.size})
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </Modal>
   )

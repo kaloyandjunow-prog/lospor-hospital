@@ -36,12 +36,13 @@ function review(
   fields: Record<string, unknown>,
   rest: Partial<Omit<EhrReviewInput, "canonical">> = {},
   handlers: Partial<{
-    onAccept: (patch: Record<string, unknown>, appliedKeys: string[]) => void
+    onAccept: (patch: Record<string, unknown>, appliedKeys: string[], modeChange: unknown) => void
     onDecline: (itemKey: string) => void
     onRequestModeChange: () => void
   }> = {},
   identityUnverified?: boolean,
   unreadSources?: EhrUnreadSource[],
+  modeChangeAvailable?: boolean,
 ) {
   const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields })
   const current = rest.current ?? {}
@@ -53,6 +54,7 @@ function review(
       unreadSources={unreadSources}
       current={current}
       currentClinicalMode={rest.currentClinicalMode}
+      modeChangeAvailable={modeChangeAvailable}
       labelFor={field => field}
       onAccept={handlers.onAccept ?? (() => {})}
       onDecline={handlers.onDecline ?? (() => {})}
@@ -70,53 +72,96 @@ function acceptButton(): HTMLElement {
   return screen.getByRole("button", { name: /^accept/ })
 }
 
-describe("an age needing a mode change cannot be accepted here", () => {
-  it("leaves it unticked and refuses the tick", () => {
-    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
-    const box = boxes()[0]
+describe("an imported age switches the clinical mode (9.13.9)", () => {
+  // Until 9.13.9 such an age was disabled until the clinician switched mode,
+  // and the plan, built on the server from the saved mode, never released it.
 
-    expect(box.checked).toBe(false)
-    expect(box.disabled).toBe(true)
-    fireEvent.click(box)
-    expect((boxes()[0]).checked).toBe(false)
-  })
-
-  it("explains why, rather than silently disabling a control", () => {
-    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
-
-    expect(screen.getByText("modeBlockedTitle")).toBeTruthy()
-    expect(screen.getByText(/modeBlockedMsg/)).toBeTruthy()
-  })
-
-  it("still shows the age the hospital sent", () => {
-    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
-    expect(screen.getByText("7")).toBeTruthy()
-  })
-
-  it("offers a way to the mode control instead of being a dead end", () => {
-    // Telling someone to switch mode without a route to the switch is the loop
-    // this guards. It matters most on mobile, where the review covers the
-    // screen entirely, but a long preop form can bury the toggle here too.
-    const onRequestModeChange = vi.fn()
-    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" }, { onRequestModeChange })
-
-    fireEvent.click(screen.getByRole("button", { name: "goToMode" }))
-
-    expect(onRequestModeChange).toHaveBeenCalled()
-  })
-
-  it("writes the paediatric pair once the mode has been switched", () => {
-    // The server's preciseAge reads only ageValue/ageUnit, so an age accepted
-    // as ageYears alone would save and leave the field blank.
+  it("ticks a paediatric age in an adult case and hands over the switch", () => {
     const onAccept = vi.fn()
-    review({ ageYears: 7 }, { currentClinicalMode: "PEDIATRIC" }, { onAccept })
+    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" }, { onAccept })
 
+    expect(boxes()[0].checked).toBe(true)
+    expect(boxes()[0].disabled).toBe(false)
     fireEvent.click(acceptButton())
 
     expect(onAccept).toHaveBeenCalledWith(
       expect.objectContaining({ ageValue: 7, ageUnit: "YEARS" }),
       ["ageYears"],
+      "PEDIATRIC",
     )
+  })
+
+  it("says what the switch will clear before it happens", () => {
+    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
+    expect(screen.getByText("modeSwitchToPediatric")).toBeTruthy()
+  })
+
+  it("switches a paediatric case to adult for an adult age", () => {
+    const onAccept = vi.fn()
+    review({ ageYears: 40 }, { currentClinicalMode: "PEDIATRIC" }, { onAccept })
+
+    expect(screen.getByText("modeSwitchToAdult")).toBeTruthy()
+    fireEvent.click(acceptButton())
+    expect(onAccept).toHaveBeenCalledWith(
+      { ageYears: 40, ageValue: null, ageUnit: null },
+      ["ageYears"],
+      "ADULT",
+    )
+  })
+
+  it("drops the notice when the clinician unticks the age", () => {
+    review({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
+    fireEvent.click(boxes()[0])
+    expect(screen.queryByText("modeSwitchToPediatric")).toBeNull()
+  })
+
+  it("says nothing and switches nothing when the mode already fits", () => {
+    const onAccept = vi.fn()
+    review({ ageYears: 7 }, { currentClinicalMode: "PEDIATRIC" }, { onAccept })
+
+    expect(screen.queryByRole("note")).toBeNull()
+    fireEvent.click(acceptButton())
+    expect(onAccept).toHaveBeenCalledWith(
+      expect.objectContaining({ ageValue: 7, ageUnit: "YEARS" }),
+      ["ageYears"],
+      null,
+    )
+  })
+
+  it("leaves the age out where the deployment has no paediatric mode", () => {
+    const onAccept = vi.fn()
+    review({ ageYears: 7, weightKg: 22 }, { currentClinicalMode: "ADULT" }, { onAccept }, undefined, undefined, false)
+
+    expect(screen.getByText("modeUnavailable")).toBeTruthy()
+    fireEvent.click(acceptButton())
+    expect(onAccept).toHaveBeenCalledWith({ weightKg: 22 }, ["weightKg"], null)
+  })
+
+  it("still renders a pre-9.13.9 plan that holds the age back", () => {
+    const onRequestModeChange = vi.fn()
+    const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields: { ageYears: 7 } })
+    const plan = buildEhrReviewPlan({ canonical, current: {} })
+    const legacy = {
+      ...plan,
+      items: plan.items.map(item => ({ ...item, state: "needs-mode-decision" as const })),
+      preselectedKeys: [],
+    }
+    render(
+      <EhrImportReview
+        plan={legacy}
+        current={{}}
+        currentClinicalMode="ADULT"
+        labelFor={field => field}
+        onAccept={() => {}}
+        onDecline={() => {}}
+        onRequestModeChange={onRequestModeChange}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(boxes()[0].disabled).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "goToMode" }))
+    expect(onRequestModeChange).toHaveBeenCalled()
   })
 })
 
@@ -136,7 +181,7 @@ describe("what the clinician already wrote stays on screen", () => {
     fireEvent.click(boxes()[0])
     fireEvent.click(acceptButton())
 
-    expect(onAccept).toHaveBeenCalledWith({ weightKg: 80 }, ["weightKg"])
+    expect(onAccept).toHaveBeenCalledWith({ weightKg: 80 }, ["weightKg"], null)
   })
 })
 
@@ -193,6 +238,7 @@ describe("an undated result says so", () => {
     expect(onAccept).toHaveBeenCalledWith(
       { labResults: [expect.objectContaining({ test: HB, takenAt: null })] },
       [expect.any(String)],
+      null,
     )
   })
 })
@@ -205,7 +251,7 @@ describe("nothing is written without a deliberate act", () => {
     fireEvent.click(acceptButton())
 
     // The conflicting weight is left behind; only the empty height goes.
-    expect(onAccept).toHaveBeenCalledWith({ heightCm: 175 }, ["heightCm"])
+    expect(onAccept).toHaveBeenCalledWith({ heightCm: 175 }, ["heightCm"], null)
   })
 
   it("cannot be accepted when nothing is ticked", () => {

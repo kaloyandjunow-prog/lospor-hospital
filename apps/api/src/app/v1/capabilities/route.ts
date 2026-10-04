@@ -75,6 +75,8 @@ export async function GET() {
         enabled: ehrTransport.enabled,
         reason: ehrTransport.enabled ? "ENABLED" : ehrTransport.reason ?? "PROVIDER_NOT_CONFIGURED",
         transport: ehrTransport.transport,
+        // Whether a lookup on a watched-folder site asks the hospital system (1.5.0).
+        folderRequests: "folderRequests" in ehrTransport && ehrTransport.folderRequests === true,
         egnPermitted: patientIdentifier.egnPermitted,
       },
       pediatricMode: {

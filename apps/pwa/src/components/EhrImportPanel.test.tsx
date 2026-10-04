@@ -1,5 +1,4 @@
 import React from "react"
-import { act, type ReactTestInstance } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 
 const { notifyMock, prefs } = vi.hoisted(() => ({ notifyMock: vi.fn(), prefs: { language: "en" } }))
@@ -10,10 +9,10 @@ vi.mock("@/lib/preferences-context", () => ({
 }))
 
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
-import { buildEhrReviewPlan, type EhrReviewInput } from "@lospor/core/ehr-import-review"
+import { buildEhrReviewPlan } from "@lospor/core/ehr-import-review"
 import { render } from "@/test/render"
-import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import { EhrImportPanel } from "./EhrImportPanel"
+import { HB, panel, pressable, rowFor, tap, texts } from "@/test/ehr-import-panel"
 
 /**
  * The panel's job is to make the unsafe states unreachable, so that is what
@@ -24,122 +23,6 @@ import { EhrImportPanel } from "./EhrImportPanel"
  * This file ships to native and to the PWA, the two clients with no conflict
  * UI. A review they could skip past would be a value written with nobody told.
  */
-
-function panel(
-  fields: Record<string, unknown>,
-  rest: Partial<Omit<EhrReviewInput, "canonical">> = {},
-  handlers: Partial<{
-    onAccept: (patch: Record<string, unknown>, appliedKeys: string[]) => void
-    onDecline: (itemKey: string) => void
-    onRequestModeChange: () => void
-  }> = {},
-  identityUnverified?: boolean,
-  unreadSources?: EhrUnreadSource[],
-) {
-  const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields })
-  const current = rest.current ?? {}
-  const plan = buildEhrReviewPlan({ canonical, current, ...rest })
-  return render(
-    <EhrImportPanel
-      plan={plan}
-      identityUnverified={identityUnverified}
-      unreadSources={unreadSources}
-      current={current}
-      currentClinicalMode={rest.currentClinicalMode}
-      labelFor={field => field}
-      onAccept={handlers.onAccept ?? vi.fn()}
-      onDecline={handlers.onDecline ?? vi.fn()}
-      onRequestModeChange={handlers.onRequestModeChange}
-      onClose={vi.fn()}
-    />,
-  )
-}
-
-function texts(tree: ReturnType<typeof render>): string[] {
-  return tree.root
-    .findAll(n => String(n.type) === "Text")
-    .map(n => n.children.filter(c => typeof c === "string").join(""))
-    .filter(Boolean)
-}
-
-/**
- * A test name the catalogue actually holds, with its canonical unit.
- *
- * These fixtures used the shorthand "Hb" and no unit, which passed when any
- * name flowed through untouched. Core now resolves an incoming result against
- * the catalogue and refuses one it has no field for -- an unrecognised name is
- * `unsupported-test` and an unconvertible unit is `unconverted`, neither of
- * which is offered pre-ticked. That is the point of the check: a hospital's own
- * code reaches a LOSPOR field only once a site has mapped it. So the fixture
- * has to name a real test, or it is exercising the refusal path rather than the
- * freshness ranking these tests are about.
- */
-const HB = "Haemoglobin (Hb)"
-
-function rowFor(tree: ReturnType<typeof render>, title: string) {
-  const node = tree.root.findAll(n =>
-    typeof n.type !== "string"
-    && n.props?.accessibilityRole === "checkbox"
-    && texts({ root: n } as never).includes(title))[0]
-  expect(node, `no row titled "${title}"`).toBeDefined()
-  return node
-}
-
-/** Presses go through act, or the state they set never reaches the next read. */
-function tap(node: ReactTestInstance) {
-  expect(typeof node.props.onPress, "node is not pressable").toBe("function")
-  act(() => { node.props.onPress() })
-}
-
-/** The first pressable whose own text satisfies `match`. */
-function pressable(tree: ReturnType<typeof render>, match: (text: string) => boolean) {
-  const node = tree.root.findAll(n =>
-    typeof n.props?.onPress === "function"
-    && texts({ root: n } as never).some(match))[0]
-  expect(node, "no pressable matched").toBeDefined()
-  return node
-}
-
-describe("an age needing a mode change cannot be accepted here", () => {
-  it("does not tick it, and tapping it explains instead of selecting", () => {
-    const tree = panel({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
-    const row = rowFor(tree, "7")
-
-    expect(row.props.accessibilityState.checked).toBe(false)
-    tap(row)
-    expect(notifyMock).toHaveBeenCalledWith("ehrModeBlockedTitle", "ehrModeBlockedMsg")
-    expect(rowFor(tree, "7").props.accessibilityState.checked).toBe(false)
-  })
-
-  it("still shows it, so the clinician knows the hospital sent an age", () => {
-    expect(texts(panel({ ageYears: 7 }, { currentClinicalMode: "ADULT" }))).toContain("7")
-  })
-
-  it("offers a way to the mode control instead of being a dead end", () => {
-    // This sheet covers the screen. Telling someone to switch mode with the
-    // switch behind the sheet is a loop: close, hunt, switch, reopen.
-    const onRequestModeChange = vi.fn()
-    const tree = panel({ ageYears: 7 }, { currentClinicalMode: "ADULT" }, { onRequestModeChange })
-
-    tap(pressable(tree, t => t === "ehrGoToMode"))
-
-    expect(onRequestModeChange).toHaveBeenCalled()
-  })
-
-  it("writes the paediatric pair once the mode has been switched", () => {
-    // The server's preciseAge reads only ageValue/ageUnit, so an age accepted
-    // as ageYears alone would save and leave the field blank.
-    const onAccept = vi.fn()
-    const tree = panel({ ageYears: 7 }, { currentClinicalMode: "PEDIATRIC" }, { onAccept })
-
-    tap(pressable(tree, t => t.startsWith("ehrAccept")))
-
-    expect(onAccept).toHaveBeenCalledWith(
-      expect.objectContaining({ ageValue: 7, ageUnit: "YEARS" }),
-      ["ageYears"],
-    )
-  })
-})
 
 describe("what the clinician already wrote stays on screen", () => {
   it("shows their value beside the proposal and does not tick it", () => {
@@ -156,7 +39,7 @@ describe("what the clinician already wrote stays on screen", () => {
     tap(rowFor(tree, "80"))
     tap(pressable(tree, t => t.startsWith("ehrAccept")))
 
-    expect(onAccept).toHaveBeenCalledWith({ weightKg: 80 }, ["weightKg"])
+    expect(onAccept).toHaveBeenCalledWith({ weightKg: 80 }, ["weightKg"], null)
   })
 })
 
@@ -216,6 +99,7 @@ describe("an undated result says so", () => {
     expect(onAccept).toHaveBeenCalledWith(
       { labResults: [expect.objectContaining({ test: HB, takenAt: null })] },
       [expect.any(String)],
+      null,
     )
   })
 })
@@ -232,7 +116,7 @@ describe("nothing is written without a deliberate act", () => {
     tap(pressable(tree, t => t.startsWith("ehrAccept")))
 
     // The conflicting weight is left behind; only the empty height goes.
-    expect(onAccept).toHaveBeenCalledWith({ heightCm: 175 }, ["heightCm"])
+    expect(onAccept).toHaveBeenCalledWith({ heightCm: 175 }, ["heightCm"], null)
   })
 
   it("says there is nothing to review rather than showing an empty list", () => {

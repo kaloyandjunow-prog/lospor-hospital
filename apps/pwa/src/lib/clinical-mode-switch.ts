@@ -51,6 +51,32 @@ export function applyClinicalModeSwitch(
  * size ratchet, and because the rule it applies is this file's, not the
  * screen's.
  */
+export function applyEhrImportToForm(
+  patch: Record<string, unknown>,
+  modeChange: ClinicalMode | null,
+  getValues: (field: string) => unknown,
+  setValue: (field: string, value: unknown, options: { shouldDirty: true }) => void,
+): void {
+  // An imported age that belongs to the other mode switches the case first
+  // (1.4.23), with exactly what the Adult / Paediatric toggle does: it clears
+  // that mode's vitals and normalises the age. The import is written over it
+  // afterwards, so nothing just imported is cleared, and both reach the
+  // server in one save, so it never sees the age in the wrong mode.
+  if (modeChange) {
+    applyClinicalModeSwitch(modeChange, {
+      ageYears: getValues("ageYears") as number | null,
+      ageValue: getValues("ageValue") as number | null,
+      ageUnit: getValues("ageUnit") as string | null,
+    }, setValue)
+  }
+  // Applied as an ordinary edit by this clinician: same form, same
+  // validation, same audit. That is what keeps an import off the conflict
+  // path on the two clients that have no conflict UI.
+  for (const [field, value] of Object.entries(patch)) {
+    setValue(field, value, { shouldDirty: true })
+  }
+}
+
 export function toggleClinicalMode(
   pediatricNow: boolean,
   getValues: (field: string) => unknown,

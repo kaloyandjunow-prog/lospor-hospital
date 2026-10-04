@@ -5,12 +5,12 @@
 Hospital release е приемлив само след успешни automated quality workflow и
 Linux appliance drill. Serverless демонстрацията не е част от упражнението.
 
-За клиничния кандидат 1.4.22 координираният набор е Core, API, Web и PWA
-9.13.8; Browser е 0.8.2. Прегледайте и внесете промените в този ред:
-Core, Web, PWA, Browser, API. API е нарочно последен, защото маршрутите за
-финализиране използват общия Core договор. Локалните Hospital package
-overlay-и се запазват, а `UPSTREAM_VERSIONS.json` записва точните commit-и и
-commit-натите tree ID стойности.
+За клиничния кандидат 1.5.0 координираният набор е Core, API, Web и PWA 9.14.0;
+Browser е 0.8.2. Прегледайте и внесете промените в този ред: Core, Web, PWA,
+Browser, API. API е нарочно последен, защото маршрутите за финализиране
+използват общия Core договор. Локалните Hospital package overlay-и се запазват,
+а `UPSTREAM_VERSIONS.json` записва точните commit-и и commit-натите tree ID
+стойности.
 
 Доказателствата за тази промяна са изпълними, а не списък от тестове, които
 могат да останат зелени, без да стигнат до дефекта:
@@ -359,6 +359,35 @@ GitHub login на поддържащия преди всеки dispatch и от�
 
 ### 2. Изграждане на candidate
 
+От 1.5.0 release commit се подготвя с три команди, изпълнени от Hospital
+repository, до който са upstream clones:
+
+```powershell
+npm run release:train -- 9.14.0             # планът; добавете --yes, за да се изпълни
+npm run release:vendor -- core=9.14.0 api=9.14.0 web=9.14.0 pwa=9.14.0
+npm run release:version -- 1.5.0 --justification "<защо е тази rollback policy>"
+```
+
+- `release:train` издава upstream repositories по ред (Core, Web, PWA, API,
+  docs): фиксира merged commit на Core в Web, PWA и API, push-ва, отваря всеки
+  PR, изчаква CI, merge-ва (API и docs: вие merge-вате в браузъра, а той чака) и
+  слага tag на merged commit в `main`. Без `--yes` само показва плана. Спрян
+  run продължава оттам, където е спрял.
+- `release:vendor` проверява всеки source, преди да промени който и да е,
+  първо stamp-ва Hospital промените във vendored пътищата и разрешава само
+  конфликтите, които правилата му покриват (`scripts/vendor-conflict-rules.mjs`:
+  package identity и Core link, changelog sections, lockfiles, generated
+  OpenAPI). Всеки друг конфликтен файл го спира без промени и го назовава;
+  разрешете него ръчно с `vendor-upstream.mjs --stage`. След това опреснява
+  lockfiles, stamp-ва и изпълнява `verify:upstream` и
+  `verify:hospital-overlays`. `--check` не променя нищо.
+- `release:version` записва версията навсякъде, където се води, compatibility
+  row с най-новата migration като `schema_max`, rollback justification,
+  изречението с client pins в тази страница (на двата езика) и CHANGELOG
+  draft, съставен от upstream changelogs. Пренапишете draft за операторите и
+  изтрийте маркера му: `release.yml` изпълнява `release-version.mjs check`
+  преди изграждането и отказва draft или част, която назовава друго издание.
+
 Завършете и прегледайте release commit локално, потвърдете, че `package.json`
 съдържа желаната версия, и прегледайте всеки entry в `release-inputs.json`.
 Преди tag измерете представителен compressed offline bundle за точните десет
@@ -417,9 +446,13 @@ node .\scripts\publish-release.mjs prepare 12345678901
 
 `prepare` отказва run, който не е успешен, не е изграден от `release.yml` от tag
 `hospital-X.Y.Z` или чийто tag междувременно е преместен. След това изтегля
-candidate на този run в нова директория `candidate-<version>-<run>-<attempt>`
-(отказва директория с нещо друго, за да не се смесват файлове от различни runs),
-изпълнява candidate verifier и handoff verifier върху нея и показва SHA-256 на
+файловете за одобрение на този run в нова директория
+`candidate-<version>-<run>-<attempt>` (отказва директория с нещо друго, за да не
+се смесват файлове от различни runs): lock, неговия checksum, manifest и image
+lock, които той фиксира, publication request и security evidence -- мегабайти, не
+многогигабайтовия offline bundle. Run отпреди 1.5.0 няма approval artifact и
+тогава се изтегля целият candidate. Изпълнява candidate verifier (върху
+evidence, фиксиран от lock) и handoff verifier върху тях и показва SHA-256 на
 lock и точната команда за подписването му. Candidate verifier проверява canonical
 manifest и lock, lock sidecar, пълния member set, sizes, hashes и image
 identities; handoff verifier обвързва lock с official repository, candidate
@@ -583,8 +616,23 @@ node scripts/verify-release-compose.mjs
 node --test scripts/verify-release-compose.test.mjs
 ```
 
-Candidate workflow извиква обичайния quality workflow, след което изпълнява
-пълния disposable installation test. Изгражда десет commit-specific candidates
+Candidate workflow извиква обичайния quality workflow -- освен ако tagged commit
+вече го е преминал при push, и тогава използва този резултат (същият commit е
+същото дърво и същите тестове) -- след което изпълнява пълния disposable
+installation test.
+
+Image, чиито build inputs не са се променили от предишното издание, не се
+изгражда отново (1.5.0). Всеки image носи fingerprint на това, което build чете
+-- Dockerfile, target, build arguments, `.dockerignore` и всеки копиран файл --
+и когато той съвпада с label на image, публикуван от предишното immutable
+издание, candidate взема точно този image по digest от lock на това издание,
+чийто build provenance трябва да се потвърди като `release.yml` на това
+repository. Той минава през всяка стъпка по-долу като изграден image. Тъй като
+fingerprint не вижда security updates на Alpine и Debian, които нов build би
+изтеглил, повторната употреба спира, когато предишното издание стане на 14
+дни, а увеличаването на `rebuildEpoch` в `release-image-reuse.json` изгражда
+всичко наново. Повторно използваният image запазва digest, затова online
+обновяването не го изтегля отново. Изгражда десет commit-specific candidates
 с digest-pinned base и source-tarball inputs от `release-inputs.json` и сканира
 всичките десет images. PostgreSQL evidence gate извлича embedded build records
 от точния candidate, съпоставя ги с тези inputs и обвързва provenance hash с

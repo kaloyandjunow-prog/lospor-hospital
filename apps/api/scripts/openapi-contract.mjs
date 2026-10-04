@@ -2008,6 +2008,22 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-transport/discover", "Ask t
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/check-file", "Run the folder inbox's reader on a sample file and say what it would do; nothing is staged", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/folder-requests", "Switch asking the hospital system for a patient over the watched folder on or off", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/ehr-lab-codes", "Map one of this hospital's laboratory codes to one of ours, or unmap it", {
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalEhrLabCodeMapRequest")),

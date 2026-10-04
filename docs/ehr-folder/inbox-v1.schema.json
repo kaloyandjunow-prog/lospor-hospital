@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lospor.org/schemas/hospital/ehr-folder-inbox-v1.json",
+  "title": "LOSPOR Hospital folder exchange: inbox file, format version 1",
+  "description": "One patient message dropped into inbox/. See docs/ehr-folder-format.md. LOSPOR reads more leniently than this schema (case-insensitive words, numbers as text, the older `labs` name) and reports anything it ignored in results/<name>.result.json.",
+  "type": "object",
+  "required": ["identifier", "fields"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "identifier": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "identifierType": { "enum": ["IZ", "EGN"], "default": "IZ" },
+    "sourceMessageId": { "type": "string" },
+    "requestId": { "type": "string", "pattern": "^[a-f0-9]{32}$", "description": "The LOSPOR request this file answers (outbox/request-<requestId>.json)." },
+    "fields": {
+      "type": "object",
+      "description": "Empty only to answer a LOSPOR request for a patient the hospital system holds nothing for.",
+      "additionalProperties": false,
+      "properties": {
+        "ageYears": { "type": ["number", "null"], "minimum": 0 },
+        "ageValue": { "type": ["number", "null"], "minimum": 0 },
+        "ageUnit": { "enum": ["DAYS", "MONTHS", "YEARS", null] },
+        "sex": { "enum": ["MALE", "FEMALE", "OTHER", "UNKNOWN", null] },
+        "heightCm": { "type": ["number", "null"] },
+        "weightKg": { "type": ["number", "null"] },
+        "bloodType": { "enum": ["A", "B", "AB", "O", null] },
+        "rhFactor": { "enum": ["POSITIVE", "NEGATIVE", null] },
+        "bpSystolic": { "type": ["number", "null"] },
+        "bpDiastolic": { "type": ["number", "null"] },
+        "heartRate": { "type": ["number", "null"] },
+        "spO2": { "type": ["number", "null"] },
+        "temperature": { "type": ["number", "null"] },
+        "respiratoryRate": { "type": ["number", "null"] },
+        "allergies": { "type": ["boolean", "null"] },
+        "latexAllergy": { "type": ["boolean", "null"] },
+        "diagnoses": { "$ref": "#/$defs/codedList" },
+        "comorbidities": { "$ref": "#/$defs/codedList" },
+        "procedures": { "$ref": "#/$defs/codedList" },
+        "currentMedications": { "$ref": "#/$defs/medicationList" },
+        "allergyDetails": { "$ref": "#/$defs/medicationList" },
+        "labResults": { "$ref": "#/$defs/labList" }
+      }
+    }
+  },
+  "$defs": {
+    "codedList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "code": { "type": "string" },
+          "system": { "type": "string" }
+        }
+      }
+    },
+    "medicationList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "atcCode": { "type": "string" },
+          "inn": { "type": "string" },
+          "dose": { "type": "string" },
+          "route": { "type": "string" },
+          "frequency": { "type": "string" }
+        }
+      }
+    },
+    "labList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test", "value"],
+        "properties": {
+          "test": { "type": "string", "minLength": 1 },
+          "value": { "type": ["string", "number"] },
+          "unit": { "type": "string" },
+          "takenAt": { "type": ["string", "null"], "format": "date-time" },
+          "system": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      }
+    }
+  }
+}

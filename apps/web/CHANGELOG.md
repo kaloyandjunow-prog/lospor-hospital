@@ -1,5 +1,37 @@
 # Changelog - LOSPOR Web App
 
+## [9.14.0] - 2026-10-04
+
+### Added
+
+- **Readiness cockpit.** The case summary lists everything that stops the case
+  from being finalized, and what is only worth a look, before anyone presses
+  Finalize; each item goes straight to the form section where it is fixed. The
+  Finalize button shows how many items block. A refused finalization shows the
+  server's list the same way. Ending the case checks the intraoperative items
+  first: blockers stop the end, warnings ask. Core 9.14.0.
+- **Allergy check when a drug is given.** A bolus or infusion that clashes with
+  an allergy typed in preop or accepted from the hospital system asks first,
+  naming the allergy and whether it is the same drug, the same class or a
+  possible cross-reaction. "Give anyway" records the acknowledgement on the
+  dose; "Don't give" adds nothing. It never blocks. Allergies the check cannot
+  recognise are listed as not checked automatically. Core 9.14.0.
+
+### Fixed
+
+- **An imported age from the hospital system switches the clinical mode.** A
+  paediatric age arriving at an adult case was held back with "Switch to
+  paediatric mode first", and switching did not release it, so the age could
+  not be added. The age is now ticked like any other value; adding it switches
+  the case to paediatric mode (or an adult age to adult mode) first, with the
+  same clearing as the mode toggle, and then writes the imported values, so
+  imported vitals are kept. The review says what the switch will clear before
+  it happens. Core 9.13.9.
+
+### Changed
+
+- Core dependency moved to 9.14.0.
+
 ## [9.13.8] - 2026-10-03
 
 ### Fixed

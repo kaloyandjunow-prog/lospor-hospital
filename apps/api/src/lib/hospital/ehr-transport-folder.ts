@@ -60,13 +60,26 @@ export async function writeOutboxFile(
   contents: string,
   root = ehrExchangeRoot(),
 ): Promise<string> {
+  return writeExchangeFile(OUTBOX, name, contents, root)
+}
+
+/**
+ * The same staged write into any exchange folder: the outbox, and the inbox's
+ * results (1.5.0), which the hospital's team may be watching just as closely.
+ */
+export async function writeExchangeFile(
+  folder: string,
+  name: string,
+  contents: string,
+  root = ehrExchangeRoot(),
+): Promise<string> {
   const stagingDir = join(root, STAGING)
-  const outboxDir = join(root, OUTBOX)
+  const targetDir = join(root, folder)
   await mkdir(stagingDir, { recursive: true })
-  await mkdir(outboxDir, { recursive: true })
+  await mkdir(targetDir, { recursive: true })
 
   const staged = join(stagingDir, name)
-  const destination = join(outboxDir, name)
+  const destination = join(targetDir, name)
   await writeFile(staged, contents, { encoding: "utf8", mode: 0o640 })
   await rename(staged, destination)
   return destination

@@ -15,8 +15,12 @@ concurrency:
 jobs:
   metadata:
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     outputs:
       version: ${{ steps.release.outputs.version }}
+      quality_reused: ${{ steps.quality.outputs.reused }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -102,15 +106,50 @@ jobs:
           }
           echo "schema_max names the newest migration ($newest)."
 
+      # Every piece of release metadata names this release: package and
+      # manifest versions, the vendored api/core pins, the rollback
+      # justification, the client-pin sentence in the docs, and a changelog
+      # entry that is written rather than the release:version draft (1.5.0).
+      - name: Require the release metadata to describe this release
+        run: node scripts/release-version.mjs check "${{ steps.release.outputs.version }}"
+
+      # The tag sits on a commit that was pushed to main, and that push already
+      # ran the full quality gate on these exact bytes. Running it a second time
+      # cost ~25 minutes and proved nothing new (1.5.0). Only a successful push
+      # run of quality.yml at exactly this commit counts; otherwise the gate
+      # runs here as before.
+      - id: quality
+        name: Reuse the quality gate this exact commit already passed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          answer="$(node scripts/quality-already-passed.mjs "$GITHUB_REPOSITORY" "$GITHUB_SHA")"
+          case "$answer" in
+            "reuse "*)
+              echo "reused=true" >> "$GITHUB_OUTPUT"
+              echo "Quality already passed for $GITHUB_SHA: ${answer#reuse }" | tee -a "$GITHUB_STEP_SUMMARY"
+              ;;
+            run)
+              echo "reused=false" >> "$GITHUB_OUTPUT"
+              echo "No successful quality run for $GITHUB_SHA yet; running the gate." | tee -a "$GITHUB_STEP_SUMMARY"
+              ;;
+            *) echo "Unexpected answer: $answer" >&2; exit 1 ;;
+          esac
+
   quality:
     # Cheap identity and policy gates decide before an hour of building starts.
     needs: metadata
+    if: needs.metadata.outputs.quality_reused != 'true'
     uses: ./.github/workflows/quality.yml
     permissions:
       contents: read
 
   clean-appliance:
     needs: [metadata, quality]
+    # quality is skipped only when this exact commit already passed it.
+    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.metadata.outputs.quality_reused == 'true')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -155,6 +194,7 @@ jobs:
 
   candidate:
     needs: [metadata, quality, clean-appliance]
+    if: ${{ !cancelled() && needs.metadata.result == 'success' && needs.clean-appliance.result == 'success' && (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.metadata.outputs.quality_reused == 'true')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     permissions:
@@ -286,6 +326,16 @@ jobs:
           echo "HOSPITAL_IMAGE_TAG=$candidate" >> "$GITHUB_ENV"
           echo "HOSPITAL_CANDIDATE_TAG=$candidate" >> "$GITHUB_ENV"
 
+      # Each image is labelled with this fingerprint when built, and an
+      # unchanged image is taken from the previous release below (1.5.0).
+      - name: Fingerprint each image's build inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/image-reuse.mjs fingerprints > "$RUNNER_TEMP/hospital-image-fingerprints.tsv"
+          node scripts/image-reuse.mjs env >> "$GITHUB_ENV"
+          cat "$RUNNER_TEMP/hospital-image-fingerprints.tsv"
+
       - name: Prepare non-production Compose inputs
         shell: bash
         run: |
@@ -362,6 +412,76 @@ jobs:
             done < "$RUNNER_TEMP/hospital-candidates-existing.txt"
           fi
 
+      # A missing candidate whose build inputs are unchanged since the last
+      # published release is that release's exact image, not a rebuild (1.5.0).
+      # Its digest comes from the lock of the previous immutable GitHub Release,
+      # whose build provenance must verify as this repository's release.yml; it
+      # is pulled by that digest, and its label must equal this commit's
+      # fingerprint. It then goes through every step below like a built image:
+      # backup and restore, ledger, today's vulnerability scan, SBOM, push,
+      # lock, install. Reuse stops at MAX_AGE_DAYS (security updates that
+      # apk/apt would pull on a rebuild) and when release-image-reuse.json's
+      # rebuildEpoch moves.
+      - name: Reuse unchanged images from the previous published release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          to_build="$RUNNER_TEMP/hospital-candidates-to-build.txt"
+          reused="$RUNNER_TEMP/hospital-candidates-reused.txt"
+          cp "$RUNNER_TEMP/hospital-candidates-missing.txt" "$to_build"
+          : > "$reused"
+          # Read-only REST calls: this workflow never touches a published release.
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" \
+            --jq 'select(.immutable == true and (.tag_name | startswith("hospital-"))) | "\(.tag_name) \(.published_at)"' || true)"
+          previous_tag="${latest%% *}"
+          if [ -z "$latest" ] || [ "$previous_tag" = "hospital-$HOSPITAL_RELEASE" ]; then
+            echo "No immutable earlier release to reuse images from; building every missing image." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          previous_version="${previous_tag#hospital-}"
+          published_at="${latest#* }"
+          lock_dir="$RUNNER_TEMP/previous-release"
+          previous_lock="$lock_dir/lospor-hospital-$previous_version-release.lock"
+          mkdir -p "$lock_dir"
+          asset_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$previous_tag" \
+            --jq ".assets[] | select(.name == \"lospor-hospital-$previous_version-release.lock\") | .id")"
+          test -n "$asset_id"
+          gh api "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" -H "Accept: application/octet-stream" > "$previous_lock"
+          # Reuse is an optimisation: a lock this repository's release.yml did not
+          # provably build means a full build, never a failed release.
+          if ! gh attestation verify "$previous_lock" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" >/dev/null; then
+            echo "The $previous_tag lock has no verifiable build provenance; building every missing image." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/image-reuse.mjs previous "$previous_lock" "$published_at" > "$RUNNER_TEMP/hospital-previous-images.tsv"
+          : > "$to_build"
+          while read -r image_name service; do
+            test -n "$image_name" && test -n "$service" || continue
+            source_ref="$(awk -F '\t' -v name="$image_name" '$1 == name { print $2 }' "$RUNNER_TEMP/hospital-previous-images.tsv")"
+            expected="$(awk -F '\t' -v name="$image_name" '$1 == name { print $2 }' "$RUNNER_TEMP/hospital-image-fingerprints.tsv")"
+            test -n "$expected"
+            # The label is read from the registry first, so an image that
+            # changed is never downloaded; a match is pulled by digest and its
+            # label checked again on the bytes actually pulled.
+            if [ -n "$source_ref" ] && [ "$(docker buildx imagetools inspect "$source_ref" \
+                --format '{{ index .Image.Config.Labels "org.lospor.hospital.input-fingerprint" }}')" = "$expected" ]; then
+              docker pull --platform linux/amd64 "$source_ref" >/dev/null
+              test "$(docker image inspect --format '{{ index .Config.Labels "org.lospor.hospital.input-fingerprint" }}' "$source_ref")" = "$expected"
+              test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$source_ref")" = linux/amd64
+              docker tag "$source_ref" "ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG"
+              printf '%s\t%s\t%s\n' "$image_name" "$service" "$source_ref" >> "$reused"
+              continue
+            fi
+            printf '%s\t%s\n' "$image_name" "$service" >> "$to_build"
+          done < "$RUNNER_TEMP/hospital-candidates-missing.txt"
+          {
+            echo "### Images reused from $previous_tag"
+            if [ -s "$reused" ]; then awk -F '\t' '{ print "- " $1 ": " $3 }' "$reused"; else echo "- none: every missing image is rebuilt"; fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Build each missing custom candidate exactly once
         shell: bash
         run: |
@@ -369,7 +489,7 @@ jobs:
           while read -r image_name service; do
             test -n "$image_name" && test -n "$service" || continue
             docker compose -f compose.yaml -f compose.publish.yaml --profile tools build "$service"
-          done < "$RUNNER_TEMP/hospital-candidates-missing.txt"
+          done < "$RUNNER_TEMP/hospital-candidates-to-build.txt"
 
       - name: Prove backup and restore with the exact candidate PostgreSQL image
         run: |
@@ -693,6 +813,29 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+      # The maintainer approves only the lock. prepare used to download this
+      # whole candidate (the offline image bundle included) to read a few small
+      # files; this artifact carries just what approval needs. Publication
+      # still downloads and verifies the full candidate above.
+      - name: Collect the files the maintainer needs to approve the lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/approval"
+          prefix="dist/lospor-hospital-$HOSPITAL_RELEASE"
+          for suffix in images.json manifest.json publication-request.tsv release.lock release.lock.sha256 security-evidence.tar.gz; do
+            cp "$prefix-$suffix" "$RUNNER_TEMP/approval/"
+          done
+          node scripts/verify-release-candidate.mjs "$HOSPITAL_RELEASE" "$RUNNER_TEMP/approval" approval-assets "$GITHUB_SHA"
+
+      - name: Upload the approval files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hospital-${{ needs.metadata.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}-approval
+          path: ${{ runner.temp }}/approval
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Summarise the candidate identity
         shell: bash

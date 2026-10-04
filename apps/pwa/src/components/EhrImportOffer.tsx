@@ -14,6 +14,10 @@ import { colors, withAlpha } from "@/theme/colors"
 import { EhrImportPanel } from "./EhrImportPanel"
 import { FeedbackPressable } from "./intraop/FeedbackPressable"
 
+/** How often a request to the hospital system is checked, and for how long (1.5.0). */
+const REQUEST_CHECK_MS = 15_000
+const REQUEST_WAIT_MS = 5 * 60_000
+
 /**
  * The door onto the import review.
  *
@@ -46,12 +50,27 @@ type Props = {
    * having no history.
    */
   transport?: "FOLDER" | "FHIR" | "HL7V2" | null
+  /**
+   * A watched-folder site whose lookups ask the hospital system (1.5.0).
+   * Then a folder answers a question too, only later: the lookup drops a
+   * request, and the answer arrives as an ordinary import.
+   */
+  folderRequests?: boolean
   language: string
   current: Record<string, unknown>
   currentClinicalMode?: ClinicalMode | null
   labelFor: (field: string) => string
-  /** Applies accepted values as an ordinary case edit by this clinician. */
-  onApply: (patch: Record<string, unknown>) => Promise<void> | void
+  /**
+   * Applies accepted values as an ordinary case edit by this clinician.
+   *
+   * `modeChange`, when set, is the clinical mode the accepted age puts the
+   * case in (1.4.23). Run the screen's own mode switch first, with the
+   * clearing it always does, then write `patch`: the other order would wipe
+   * the vitals the import just brought.
+   */
+  onApply: (patch: Record<string, unknown>, modeChange: ClinicalMode | null) => Promise<void> | void
+  /** False where the deployment has no paediatric mode; the age is then left out. */
+  modeChangeAvailable?: boolean
   /**
    * Restrict the offer to these canonical fields.
    *
@@ -92,6 +111,10 @@ type State =
   | { kind: "ambiguous" }
   | { kind: "unavailable" }
   | { kind: "error" }
+  /** Asked of the hospital system over the folder, and waiting for its answer (1.5.0). */
+  | { kind: "requested"; requestId: string; since: number; checks: number }
+  /** Asked, and no answer within the wait. It can still come. */
+  | { kind: "notAnswered" }
 
 export function EhrImportOffer({
   caseId,
@@ -99,12 +122,14 @@ export function EhrImportOffer({
   identifierType = "IZ",
   available,
   transport,
+  folderRequests,
   language,
   current,
   currentClinicalMode,
   labelFor,
   onApply,
   onlyFields,
+  modeChangeAvailable,
   onRequestModeChange,
   onAcceptedBeforeCase,
 }: Props) {
@@ -118,12 +143,17 @@ export function EhrImportOffer({
   // of the import is still the clinician's to decide.
   const acceptedItemsRef = useRef(new Map<string, Set<string>>())
 
-  const ask = useCallback(async (id: string | null) => {
+  const ask = useCallback(async (
+    id: string | null,
+    how: { request?: boolean; waiting?: { requestId: string; since: number; checks: number } } = {},
+  ) => {
     if (!identifier) return
-    setState({ kind: "asking" })
+    if (!how.waiting) setState({ kind: "asking" })
+    // A re-check names the request it waits on and never asks again.
+    const lookupAsk = how.waiting ? { requestId: how.waiting.requestId } : how.request ? { request: true } : {}
     const result = id
-      ? await lookupEhrImport(id, identifier, identifierType)
-      : await lookupEhrImportWithoutCase(identifier, identifierType)
+      ? await lookupEhrImport(id, identifier, identifierType, lookupAsk)
+      : await lookupEhrImportWithoutCase(identifier, identifierType, lookupAsk)
     if (result.status === "offer") {
       const accepted = acceptedItemsRef.current.get(result.offer.importId)
       const offer = accepted ? offerWithoutAccepted(result.offer, accepted) : result.offer
@@ -140,8 +170,30 @@ export function EhrImportOffer({
       setOpen(offer.plan.preselectedKeys.length > 0)
       return
     }
+    if (result.status === "requested") {
+      const since = how.waiting?.since ?? Date.now()
+      setState(Date.now() - since >= REQUEST_WAIT_MS
+        ? { kind: "notAnswered" }
+        : { kind: "requested", requestId: result.requestId, since, checks: (how.waiting?.checks ?? 0) + 1 })
+      return
+    }
     setState({ kind: result.status === "none" ? "none" : result.status })
   }, [identifier, identifierType])
+
+  // Whether the button can ask: FHIR always answers a question; a folder only
+  // where the site has the hospital system answering requests.
+  const asksOverFolder = transport === "FOLDER" && folderRequests === true
+  const canAsk = transport === "FHIR" || asksOverFolder
+
+  // The one repeated check (1.5.0), and only after a request was actually
+  // sent: every REQUEST_CHECK_MS until the answer arrives or REQUEST_WAIT_MS
+  // runs out. A check never asks again, and leaving the form stops it.
+  useEffect(() => {
+    if (state.kind !== "requested") return
+    const waiting = state
+    const timer = setTimeout(() => { void ask(caseId, { waiting }) }, REQUEST_CHECK_MS)
+    return () => clearTimeout(timer)
+  }, [state, ask, caseId])
 
   // Asked once per case and identifier, not polled. A later look is a
   // deliberate act — the button below — because a hospital system that has
@@ -150,14 +202,14 @@ export function EhrImportOffer({
   useEffect(() => {
     if (!available || !identifier) return
     setState(current => (current.kind === "idle" ? current : current))
-    void ask(caseId)
+    void ask(caseId, { request: asksOverFolder })
     // `ask` is declared with exactly this effect's own reactive inputs
     // (caseId, identifier, identifierType) as its useCallback deps, so its
     // identity only changes when this effect would already rerun -- naming it
     // here does not add a rerun, and CI's --no-inline-config ignores the
     // disable comment this used to lean on, so the warning failed the strict
     // lint gate even though nothing was actually unsafe.
-  }, [available, caseId, identifier, identifierType, ask])
+  }, [available, caseId, identifier, identifierType, ask, asksOverFolder])
 
   // With a case already saved this is a deliberate second look. Without one,
   // it saves the draft and stops: the effect above asks as soon as the case
@@ -165,7 +217,7 @@ export function EhrImportOffer({
   // No case needed to ask any more. Typing the number and pressing this is
   // the whole interaction; the case comes into existence if the clinician
   // accepts something.
-  const fetchNow = async () => { await ask(caseId) }
+  const fetchNow = async () => { await ask(caseId, { request: asksOverFolder }) }
 
   if (!available || !identifier) return null
 
@@ -202,13 +254,15 @@ export function EhrImportOffer({
       {state.kind === "ambiguous" ? banner(strings.ehrAmbiguous, "warn") : null}
       {state.kind === "none" ? banner(strings.ehrNothingHeld, "info") : null}
       {state.kind === "reviewed" ? banner(strings.ehrAllReviewed, "info") : null}
+      {state.kind === "requested" ? banner(strings.ehrRequested, "info") : null}
+      {state.kind === "notAnswered" ? banner(strings.ehrNotAnswered, "warn") : null}
 
       {state.kind === "error" ? banner(strings.ehrLookupFailed, "warn") : null}
 
       {/* Offered whenever there is no plan on screen: before the first ask,
           and again after one that found nothing, since the number may simply
           have been mistyped. */}
-      {state.kind !== "offer" && state.kind !== "asking" && transport === "FHIR" ? (
+      {state.kind !== "offer" && state.kind !== "asking" && state.kind !== "requested" && canAsk ? (
         <FeedbackPressable
           onPress={() => { void fetchNow() }}
           style={{
@@ -245,6 +299,7 @@ export function EhrImportOffer({
           unreadSources={state.offer.unreadSources}
           current={current}
           currentClinicalMode={currentClinicalMode}
+          modeChangeAvailable={modeChangeAvailable}
           labelFor={labelFor}
           onClose={() => setOpen(false)}
           onRequestModeChange={onRequestModeChange}
@@ -255,14 +310,14 @@ export function EhrImportOffer({
             // closing an unaccepted offer leaves no case behind either.
             if (caseId) void recordEhrDecisions(caseId, state.offer.importId, [], [itemKey])
           }}
-          onAccept={async (patch, appliedKeys) => {
+          onAccept={async (patch, appliedKeys, modeChange) => {
             const importId = state.offer.importId
             acceptedItemsRef.current.set(importId, new Set([...(acceptedItemsRef.current.get(importId) ?? []), ...appliedKeys]))
             // The write goes first, deliberately. A failure between the two
             // leaves the import pending and self-corrects, because a value
             // already in the case comes back unchanged; recording first would
             // mark an item decided that never reached the record.
-            await onApply(patch)
+            await onApply(patch, modeChange)
             if (caseId) {
               await recordEhrDecisions(caseId, state.offer.importId, appliedKeys, [])
             } else {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import { execFileSync } from "node:child_process"
-import { mkdir, mkdtemp, rm, unlink, writeFile } from "node:fs/promises"
+import { copyFile, mkdir, mkdtemp, rm, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import test from "node:test"
@@ -14,6 +14,7 @@ import {
 } from "./release-artifacts-lib.mjs"
 import {
   expectedReleaseAssetNames,
+  approvalAssetNames,
   verifyReleaseAssetSet,
   verifyReleaseCandidate,
 } from "./release-candidate-lib.mjs"
@@ -321,6 +322,36 @@ test("release candidate rejects canonical, commit, lock, image, and artifact mis
 
   await writeFile(fixture.deployment, "deploymenx")
   await assert.rejects(verify(), /checksum mismatch/i)
+})
+
+test("the approval download carries the lock, what it pins and the evidence, and nothing else is needed to check it", async t => {
+  const fixture = await candidateFixture(t)
+  const approval = join(fixture.directory, "approval")
+  await mkdir(approval)
+  for (const name of approvalAssetNames(VERSION)) await copyFile(join(fixture.directory, name), join(approval, name))
+  const verify = () => verifyReleaseCandidate({
+    version: VERSION,
+    manifestPath: join(approval, `lospor-hospital-${VERSION}-manifest.json`),
+    lockPath: join(approval, `lospor-hospital-${VERSION}-release.lock`),
+    imageLockPath: join(approval, `lospor-hospital-${VERSION}-images.json`),
+    artifactDirectory: approval,
+    expectedCommit: COMMIT,
+    verifyArtifacts: "evidence",
+  })
+  const result = await verify()
+  assert.equal(await verifyReleaseAssetSet(approval, result.manifest, "approval"), true)
+  // The full check needs the deployment and the image bundle; this one does not.
+  await assert.rejects(verifyReleaseCandidate({
+    version: VERSION,
+    manifestPath: join(approval, `lospor-hospital-${VERSION}-manifest.json`),
+    lockPath: join(approval, `lospor-hospital-${VERSION}-release.lock`),
+    artifactDirectory: approval,
+  }), /ENOENT/)
+  // Evidence that is not the evidence the lock pins is refused.
+  await writeFile(join(approval, `lospor-hospital-${VERSION}-security-evidence.tar.gz`), "security-evidencf")
+  await assert.rejects(verify(), /checksum mismatch/i)
+  await writeFile(join(approval, "extra.txt"), "x")
+  await assert.rejects(verifyReleaseAssetSet(approval, result.manifest, "approval"), /approval asset set/)
 })
 
 test("release asset set rejects both missing and extra candidate assets", async t => {

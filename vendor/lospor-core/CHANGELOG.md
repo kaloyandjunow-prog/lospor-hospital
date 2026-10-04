@@ -1,5 +1,57 @@
 # Changelog - LOSPOR Core
 
+## [9.14.0] - 2026-10-04
+
+### Added
+
+- **Case readiness** (`@lospor/core/case-readiness`). `caseReadiness` turns
+  the finalization rules into a list of items, each with its kind, whether it
+  blocks or only warns, and where it is fixed (stage plus preop section or
+  intraop/postop area), in the order the rules emit them. `omitPostop` checks
+  only what can be fixed before the case ends. `readinessFromRefusal` reads a
+  refused finalization's `blockers` into the same items, so a client shows the
+  server's answer and its own check the same way.
+- **Allergy against drug check** (`@lospor/core/allergy-drug-check`).
+  `allergyRecords` reads the preop allergies, typed or accepted from the
+  hospital system; `allergyConflicts` matches a drug against them as the same
+  substance, the same class or a known cross-reaction, by ATC code first and by
+  name (Bulgarian and English) otherwise. Families cover the beta-lactams and
+  other antibiotic classes, NSAIDs, coxibs, pyrazolones, local anaesthetics,
+  neuromuscular blockers, opioids, benzodiazepines, barbiturates, setrons, and
+  fish for protamine. Cross-reactions: penicillins to cephalosporins and
+  carbapenems, NSAIDs to pyrazolones and coxibs, between neuromuscular
+  blockers, and ceftazidime with aztreonam. `uncheckedAllergies` lists the
+  allergies the check cannot recognise, so a client can say they were not
+  checked.
+- **Acknowledgement on the dose.** Drug and infusion events carry an optional
+  `allergyAck` (`{ allergy, level }[]`), kept through parsing, timetable
+  edits and the chart projection.
+- **A lookup can ask the hospital system and wait** (`ehr-import-transport`).
+  `EhrImportLookup` gains `requested` (with the request id): the appliance has
+  asked the hospital system over a watched folder and the answer comes later,
+  which a client must not show as "the hospital holds nothing".
+  `lookupEhrImport` takes `request` to ask and `requestId` to re-check without
+  asking again.
+- Finalization warns (never blocks) with `unacknowledged_allergy_conflict`
+  when a dose on the chart clashes with a recorded allergy and carries no
+  acknowledgement.
+
+## [9.13.9] - 2026-10-04
+
+### Changed
+
+- **An imported age switches the clinical mode.** A paediatric age from the
+  hospital system arriving at an adult case (or an adult age at a paediatric
+  case) was held back until the clinician switched mode, but the review is
+  built on the server from the saved mode, so switching in the form never
+  released it and the age could not be added. The age is now offered like any
+  other value. `applyEhrSelections` writes it in the shape its own mode reads
+  and returns `modeChange`; the client runs its usual mode switch first (with
+  the clearing it always does) and writes the import after it, so imported
+  vitals are not wiped. With `allowModeChange: false` (no paediatric mode) the
+  age is refused instead. An accepted `ageYears` is no longer read against a
+  paediatric `ageValue` the case still holds.
+
 ## [9.13.8] - 2026-10-03
 
 ### Fixed

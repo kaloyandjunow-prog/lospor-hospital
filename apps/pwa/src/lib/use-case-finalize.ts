@@ -2,6 +2,7 @@ import { useCallback, useState } from "react"
 import { apiFetch } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { finalizationErrorMessage } from "@/lib/finalize-error"
+import { readinessFromRefusal, type CaseReadiness } from "@lospor/core/case-readiness"
 import { notify } from "@/lib/notify"
 import type { CaseData } from "@/lib/case-detail-summary"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
@@ -13,6 +14,9 @@ import type { ClinicalStringKey } from "@/lib/preferences-context"
  */
 export function useCaseFinalize(id: string, tc: (key: ClinicalStringKey) => string, setCaseData: (updater: (prev: CaseData | null) => CaseData | null) => void) {
   const [finalizing, setFinalizing] = useState(false)
+  // The server's own blocker list after a refusal (1.5.0): what it checks, shown
+  // in full on the case screen instead of one line in a dialog.
+  const [refusal, setRefusal] = useState<CaseReadiness | null>(null)
 
   const doFinalize = useCallback(async (options: { automatic?: boolean } = {}) => {
     const complain = (message: string) => {
@@ -30,9 +34,12 @@ export function useCaseFinalize(id: string, tc: (key: ClinicalStringKey) => stri
       // apiFetch only throws on a network failure, so a 4xx must be checked here.
       if (!res.ok) {
         const body = await res.json().catch(() => null)
-        complain(finalizationErrorMessage(body, tc))
+        const listed = readinessFromRefusal(body)
+        if (listed) setRefusal(listed)
+        else complain(finalizationErrorMessage(body, tc))
         return false
       }
+      setRefusal(null)
       const body = await res.json().catch(() => null)
       setCaseData(prev => prev ? { ...prev, status: "COMPLETE", finalizedAt: body?.finalizedAt ?? new Date().toISOString() } : prev)
       return true
@@ -44,5 +51,5 @@ export function useCaseFinalize(id: string, tc: (key: ClinicalStringKey) => stri
     }
   }, [id, tc, setCaseData])
 
-  return { finalizing, doFinalize }
+  return { finalizing, doFinalize, refusal }
 }

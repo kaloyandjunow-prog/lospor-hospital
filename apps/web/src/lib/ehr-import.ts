@@ -19,12 +19,19 @@ import {
 
 export type { EhrImportLookup, EhrImportOffer }
 
+/**
+ * How a lookup treats the hospital system on a watched-folder site that asks
+ * (1.5.0): `request` asks it, `requestId` re-checks a request already made.
+ */
+export type EhrLookupAsk = { request?: boolean; requestId?: string }
+
 export function lookupEhrImport(
   caseId: string,
   identifier: string,
   identifierType: "IZ" | "EGN" = "IZ",
+  ask: EhrLookupAsk = {},
 ): Promise<EhrImportLookup> {
-  return coreLookup(fetch, { caseId, identifier, identifierType })
+  return coreLookup(fetch, { caseId, identifier, identifierType, ...ask })
 }
 
 export function recordEhrDecisions(
@@ -48,8 +55,14 @@ export function recordEhrDecisions(
 export async function lookupEhrImportWithoutCase(
   identifier: string,
   identifierType: "IZ" | "EGN" = "IZ",
+  ask: EhrLookupAsk = {},
 ): Promise<EhrImportLookup> {
-  const query = new URLSearchParams({ identifier, identifierType })
+  const query = new URLSearchParams({
+    identifier,
+    identifierType,
+    ...(ask.request ? { request: "1" } : {}),
+    ...(ask.requestId ? { requestId: ask.requestId } : {}),
+  })
   const response = await fetch(`/api/ehr-import/lookup?${query.toString()}`, {
     headers: { Accept: "application/json" },
   })
@@ -57,8 +70,13 @@ export async function lookupEhrImportWithoutCase(
     const body = await response.json().catch(() => null) as { code?: string } | null
     return { status: body?.code === "ambiguous" ? "ambiguous" : "unavailable" }
   }
-  const body = await response.json().catch(() => null) as { pending?: boolean } | null
-  if (!body?.pending) return { status: "none" }
+  const body = await response.json().catch(() => null) as { pending?: boolean; requested?: boolean; requestId?: unknown } | null
+  if (!body?.pending) {
+    // Asked of the hospital system over the folder, and not answered yet (1.5.0).
+    return body?.requested === true && typeof body.requestId === "string" && body.requestId
+      ? { status: "requested", requestId: body.requestId }
+      : { status: "none" }
+  }
   return { status: "offer", offer: body as unknown as EhrImportOffer }
 }
 

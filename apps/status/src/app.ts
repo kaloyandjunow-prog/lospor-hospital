@@ -80,6 +80,9 @@ import {
   type ClinicalAccountRole,
 } from "./account-control.js"
 import { accountLinkQrSvg } from "./account-qr.js"
+
+/** A sample, not an archive; the API refuses more. */
+const EHR_CHECK_FILE_MAX_BYTES = 1024 * 1024
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
@@ -87,6 +90,7 @@ import {
   MEDICATION_CATALOG_ID,
   type ControlPlanePort,
   type EhrCodeListAnswer,
+  type EhrFileCheck,
   type ResearchGrantInput,
 } from "./control-plane.js"
 
@@ -271,6 +275,7 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     EHR_TRANSPORT_SEAL_KEY_INVALID: ["The appliance key used to protect the EHR transport credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп до БИС е невалиден. Нищо не е променено."],
     EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп до БИС. Нищо не е променено."],
     EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп до БИС не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете канала отново."],
+    EHR_FOLDER_REQUESTS_NOT_ACTIVE: ["Requests to the hospital system work only over a watched folder. Choose the watched folder as the transport first. Nothing was changed.", "Заявките към болничната система работят само чрез наблюдавана папка. Първо изберете наблюдаваната папка като канал. Нищо не е променено."],
     EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като канал, преди да зададете данни за достъп. Наблюдаваната папка не изисква такива."],
     PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question. Nothing was changed.", "Профилът за предоперативна оценка трябва да съдържа всички вградени въпроси. Нищо не е променено."],
     DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
@@ -1117,6 +1122,8 @@ export function createStatusApp({
     notice?: string,
     section?: string,
     medicationSearch?: MedicationSearch,
+    discoveredNumberings?: readonly string[],
+    fileCheck?: EhrFileCheck,
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1127,6 +1134,8 @@ export function createStatusApp({
       "password",
       section,
       medicationSearch,
+      discoveredNumberings,
+      fileCheck,
     )
   }
 
@@ -1224,6 +1233,8 @@ export function createStatusApp({
     action: (body: Record<string, unknown>) => Promise<T>,
     notice: (locale: StatusLocale, result: T) => string,
     section?: string,
+    /** Numberings a discovery returned, offered in the form it re-renders. */
+    numberingsOf?: (result: T) => readonly string[],
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1256,7 +1267,7 @@ export function createStatusApp({
     }
     try {
       const result = await action(body)
-      return context.html(await controlHtml(locale, undefined, notice(locale, result), section))
+      return context.html(await controlHtml(locale, undefined, notice(locale, result), section, undefined, numberingsOf?.(result)))
     } catch (error) {
       const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
       return context.html(
@@ -1525,6 +1536,18 @@ export function createStatusApp({
     "ehr",
   ))
 
+  app.post("/status/control/ehr-transport/folder-requests", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setEhrFolderRequests({
+      enabled: formBoolean(body, "enabled"),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale,
+      "The setting for asking the hospital system was saved and audited. It applies to the next patient lookup.",
+      "Настройката за заявки към болничната система е запазена и записана в одитния журнал. Прилага се при следващото търсене на пациент."),
+    "ehr",
+  ))
+
   app.post("/status/control/ehr-transport/retention", context => sensitiveControlAction(
     context,
     body => {
@@ -1538,6 +1561,44 @@ export function createStatusApp({
     "ehr",
   ))
 
+  // "Check a file" (1.5.0): the inbox's own reader run on a sample the
+  // hospital system's team produced, with nothing staged. It changes nothing,
+  // so it asks for a signed-in administrator rather than the password again;
+  // and it takes a real file, so it is not held to the 16 KB of a settings form.
+  app.post("/status/control/ehr-transport/check-file", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = passwordAccountSession(context)
+    if (session === "missing") return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (session === "recovery") {
+      return context.html(await controlHtml(locale, localize(
+        locale,
+        "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
+        "Влезте с администраторската парола, за да използвате управлението. Сесия с токен за възстановяване не може да разрешава тези промени.",
+      ), undefined, "ehr"), 403)
+    }
+    const tooBig = localize(locale, "Choose a file of up to 1 MB.", "Изберете файл до 1 MB.")
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    if (!Number.isFinite(contentLength) || contentLength > EHR_CHECK_FILE_MAX_BYTES + 65_536) {
+      return context.html(await controlHtml(locale, tooBig, undefined, "ehr"), 413)
+    }
+    const body = await context.req.parseBody().catch(() => null)
+    const upload = isRecord(body) ? body.file : null
+    const content = upload instanceof File ? await upload.text() : typeof body?.content === "string" ? body.content : ""
+    const name = upload instanceof File && upload.name ? upload.name : undefined
+    if (!content.trim()) {
+      return context.html(await controlHtml(locale, localize(locale, "Choose a file to check.", "Изберете файл за проверка."), undefined, "ehr"), 400)
+    }
+    if (Buffer.byteLength(content, "utf8") > EHR_CHECK_FILE_MAX_BYTES) return context.html(await controlHtml(locale, tooBig, undefined, "ehr"), 413)
+    try {
+      const check = await controlPlane.checkEhrFile({ content, ...(name ? { file: name.slice(0, 200) } : {}) })
+      return context.html(await controlHtml(locale, undefined, undefined, "ehr", undefined, undefined, check))
+    } catch (error) {
+      const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
+      return context.html(await controlHtml(locale, controlPlaneMessage(code, locale), undefined, "ehr"), controlErrorStatus(code))
+    }
+  })
+
   app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
     context,
     body => {
@@ -1549,7 +1610,7 @@ export function createStatusApp({
       // operator: which of three is the admission number is theirs to say.
       if (result.identifierSystems.length > 0) {
         return localize(locale,
-          `This server returned: ${result.identifierSystems.join(", ")}. Copy the one your record numbers use into the field below.`,`Сървърът върна: ${result.identifierSystems.join(", ")}. Копирайте в полето по-долу тази, която използват вашите номера на ИЗ.`)
+          `This server returned: ${result.identifierSystems.join(", ")}. Choose the one your record numbers use from the list in the field below.`,`Сървърът върна: ${result.identifierSystems.join(", ")}. Изберете от списъка в полето по-долу тази, която използват вашите номера на ИЗ.`)
       }
       if (result.patientFound === false) {
         return localize(locale,
@@ -1561,6 +1622,7 @@ export function createStatusApp({
         "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите кои номерации използва.")
     },
     "ehr",
+    result => result.identifierSystems,
   ))
 
   app.post("/status/control/ehr-transport/endpoint", context => sensitiveControlAction(

@@ -3,13 +3,15 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronDown } from "lucide-react"
 
-export function SectionCard({ title, children, collapsible = false, defaultCollapsed = false, badge }: {
+export function SectionCard({ title, children, collapsible = false, defaultCollapsed = false, badge, readiness }: {
   title: string; children: React.ReactNode
   collapsible?: boolean; defaultCollapsed?: boolean; badge?: string
+  /** The readiness name a "Go to" scrolls to (1.5.0). */
+  readiness?: string
 }) {
   const [open, setOpen] = useState(!defaultCollapsed)
   return (
-    <Card>
+    <Card data-readiness={readiness}>
       <CardHeader
         className={`pb-3 ${collapsible ? "cursor-pointer select-none" : ""}`}
         onClick={collapsible ? () => setOpen(v => !v) : undefined}

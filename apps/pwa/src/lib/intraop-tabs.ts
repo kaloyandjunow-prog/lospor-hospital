@@ -35,3 +35,22 @@ export function intraopTabSwipeDirection(dx: number, dy: number): -1 | 1 | null 
   if (dx > 50) return -1
   return null
 }
+
+/** The tab each part of the intraoperative record lives on, for a readiness "Go to" (1.5.0). */
+const FOCUS_TAB: Record<string, IntraopTab> = {
+  times: "timing",
+  technique: "technique",
+  position: "position",
+  monitoring: "monitoring",
+  airway: "airway",
+  vascular_access: "vascular",
+  vitals: "log",
+  medications: "log",
+  events: "log",
+  fluids: "fluids",
+  complications: "events",
+}
+
+export function intraopTabForFocus(focus: string | null | undefined): IntraopTab | null {
+  return focus ? FOCUS_TAB[focus] ?? null : null
+}

@@ -72,6 +72,7 @@ export function readCandidate(runId, { gh }) {
     tag: tag[0],
     commit: run.head_sha,
     artifactName: `hospital-${version}-${runId}-${attempt}-candidate`,
+    approvalArtifactName: `hospital-${version}-${runId}-${attempt}-approval`,
     directory: `candidate-${version}-${runId}-${attempt}`,
     lockName: `lospor-hospital-${version}-release.lock`,
   }
@@ -87,6 +88,12 @@ function lockDigest(directory, candidate) {
   return { lockPath, lock, digest }
 }
 
+/** Whether the run uploaded the small approval artifact (release.yml since 1.5.0). */
+function hasApprovalArtifact(candidate, gh) {
+  const listing = json(gh(["api", `repos/${REPOSITORY}/actions/runs/${candidate.runId}/artifacts?per_page=100`]), "the run's artifacts")
+  return (listing.artifacts ?? []).some(artifact => artifact.name === candidate.approvalArtifactName && artifact.expired !== true)
+}
+
 export async function prepare(runId, deps) {
   const { gh, node, say, cwd } = deps
   const verifyDossier = deps.verifyDossier ?? verifyEvidenceArchive
@@ -97,11 +104,17 @@ export async function prepare(runId, deps) {
       refuse(`${directory} exists and is not this candidate. Move it away; files from different runs must never be combined.`)
     }
     say(`Using the candidate already downloaded in ${directory}.`)
+  } else if (hasApprovalArtifact(candidate, gh)) {
+    say(`Downloading ${candidate.approvalArtifactName} (the lock and its evidence, for approval) into ${directory}...`)
+    gh(["run", "download", candidate.runId, "--repo", REPOSITORY, "--name", candidate.approvalArtifactName, "--dir", directory])
   } else {
     say(`Downloading ${candidate.artifactName} (the whole candidate, several GB) into ${directory}...`)
     gh(["run", "download", candidate.runId, "--repo", REPOSITORY, "--name", candidate.artifactName, "--dir", directory])
   }
-  node([join(root, "scripts/verify-release-candidate.mjs"), candidate.version, directory, "candidate-assets", candidate.commit])
+  // Only the approval files: the lock pins every other file by digest, and
+  // publication verifies the full candidate on GitHub before anything is written.
+  const signingOnly = !existsSync(join(directory, `lospor-hospital-${candidate.version}-deployment.tar.gz`))
+  node([join(root, "scripts/verify-release-candidate.mjs"), candidate.version, directory, signingOnly ? "approval-assets" : "candidate-assets", candidate.commit])
   node([
     join(root, "scripts/verify-release-handoff.mjs"),
     join(directory, `lospor-hospital-${candidate.version}-publication-request.tsv`),

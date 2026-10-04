@@ -69,6 +69,11 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
     /node scripts\/client-localization-import-gate\.mjs --require-ready/,
     "Candidate metadata must refuse a pending or incomplete client localization import before release work",
   )
+  requirePattern(
+    metadataSection,
+    /node scripts\/release-version\.mjs check "\$\{\{ steps\.release\.outputs\.version \}\}"/,
+    "Candidate metadata must refuse release metadata that names another release or a changelog draft",
+  )
   requirePattern(candidate, /\n\s*candidate:\s*\n/, "Tag workflow must produce a candidate")
   forbidPattern(candidate, /environment:\s*hospital-release|contents:\s*write|gh release/, "Candidate workflow must not publish a GitHub Release")
   requirePattern(candidate, /node scripts\/release-inputs\.mjs env release-inputs\.json/, "Candidate build inputs must be committed and digest-pinned")
@@ -143,6 +148,31 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   // that was actually built.
   requirePattern(candidate, /postgres-source-provenance\.mjs require-vulnerability-review[\s\S]{0,120}steps\.release\.outputs\.version[\s\S]{0,80}release-inputs\.json/, "Metadata must pre-flight the source-component vulnerability review before any build starts")
   requirePattern(candidate, /quality:\s*\n(?:\s*#[^\n]*\n)*\s*needs: metadata/, "Quality must wait for the cheap metadata gates so a policy failure cannot cost a full build")
+  // The release may skip its own quality run only when this exact commit
+  // already passed it on a push (1.5.0), and nothing downstream may treat any
+  // other skip as a pass.
+  requirePattern(candidate, /node scripts\/quality-already-passed\.mjs "\$GITHUB_REPOSITORY" "\$GITHUB_SHA"/, "Metadata must decide quality reuse from the exact tagged commit")
+  requirePattern(candidate, /\n  quality:\n(?:\s*#[^\n]*\n)*\s*needs: metadata\n\s*if: needs\.metadata\.outputs\.quality_reused != 'true'\n\s*uses: \.\/\.github\/workflows\/quality\.yml\n/, "Quality may be skipped only when the exact commit already passed it")
+  for (const job of ["clean-appliance", "candidate"]) {
+    const section = candidate.slice(candidate.indexOf(`\n  ${job}:\n`) + 1)
+    const header = section.slice(0, section.indexOf("\n    runs-on:"))
+    requirePattern(header, /needs\.metadata\.result == 'success'/, `${job} must require the metadata gates to pass`)
+    requirePattern(header, /needs\.quality\.result == 'success' \|\| \(needs\.quality\.result == 'skipped' && needs\.metadata\.outputs\.quality_reused == 'true'\)/, `${job} must accept a skipped quality gate only when it was reused`)
+    forbidPattern(header, /always\(\)/, `${job} must not run whatever the gates concluded`)
+  }
+  requirePattern(candidate.slice(candidate.indexOf("\n  candidate:\n")), /^[\s\S]{0,400}needs\.clean-appliance\.result == 'success'/, "The candidate must require the clean-appliance proof to pass")
+  // An image reused from the previous release (1.5.0) must come from a lock
+  // this repository's release.yml provably built, by digest, with a label equal
+  // to this commit's input fingerprint -- and be built otherwise. Everything
+  // after the build still runs on it.
+  const reuseStep = candidate.slice(candidate.indexOf("- name: Reuse unchanged images from the previous published release"), candidate.indexOf("- name: Build each missing custom candidate exactly once"))
+  requirePattern(candidate, /node scripts\/image-reuse\.mjs fingerprints > "\$RUNNER_TEMP\/hospital-image-fingerprints\.tsv"\n\s*node scripts\/image-reuse\.mjs env >> "\$GITHUB_ENV"/, "Each image must be labelled with this commit's input fingerprint")
+  requirePattern(reuseStep, /select\(\.immutable == true/, "Images may be reused only from an immutable release")
+  requirePattern(reuseStep, /if ! gh attestation verify "\$previous_lock" --repo "\$GITHUB_REPOSITORY" \\\n\s*--signer-workflow "\$GITHUB_REPOSITORY\/\.github\/workflows\/release\.yml"/, "A reused image's lock must verify as built by this repository's release.yml")
+  requirePattern(reuseStep, /node scripts\/image-reuse\.mjs previous "\$previous_lock" "\$published_at"/, "Reused digests must come from the previous lock, within its age limit")
+  requirePattern(reuseStep, /docker image inspect --format '\{\{ index \.Config\.Labels "org\.lospor\.hospital\.input-fingerprint" \}\}' "\$source_ref"\)" = "\$expected"/, "A reused image's pulled label must equal this commit's fingerprint")
+  requirePattern(candidate, /- name: Build each missing custom candidate exactly once[\s\S]{0,400}done < "\$RUNNER_TEMP\/hospital-candidates-to-build\.txt"/, "Every image not reused must be built")
+  requirePattern(candidate, /- name: Push only missing run-specific private candidates[\s\S]{0,1600}done < "\$RUNNER_TEMP\/hospital-candidates-missing\.txt"/, "Reused images must be pushed as candidates like built ones")
   // The compatibility row decides whether a failed update may roll services
   // back or must restore from a verified backup. A release whose row still
   // names the previous version would carry the wrong answer to that question.

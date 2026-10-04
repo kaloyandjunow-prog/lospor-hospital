@@ -11,37 +11,72 @@
 # tests the registry digests behind it, and only then promotes those same
 # digests to the final version. Rerun attempts reuse that namespace and never
 # rebuild an image that is already present unless an approved base input changed.
+#
+# Each built image is labelled with the fingerprint of its build inputs
+# (scripts/image-reuse.mjs). A later release whose inputs for that image are
+# unchanged takes the published image instead of rebuilding it; an image built
+# outside the release workflow is labelled "unrecorded" and is never reused.
 
 services:
   postgres:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_POSTGRES:-unrecorded}
 
   migrate:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-migrate:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_MIGRATE:-unrecorded}
 
   api:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-api:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_API:-unrecorded}
 
   delivery-worker:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-curl-worker:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_CURL_WORKER:-unrecorded}
 
   web:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-web:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_WEB:-unrecorded}
 
   pwa:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-pwa:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_PWA:-unrecorded}
 
   browser:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-browser:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_BROWSER:-unrecorded}
 
   status:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-status:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_STATUS:-unrecorded}
 
   tools:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-tools:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_TOOLS:-unrecorded}
 
   caddy:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+    build:
+      labels:
+        org.lospor.hospital.input-fingerprint: ${HOSPITAL_INPUT_FP_CADDY:-unrecorded}
 
   acme-http:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}

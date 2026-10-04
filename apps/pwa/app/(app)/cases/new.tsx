@@ -46,7 +46,7 @@ import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { recordEhrDecisions } from "@/lib/ehr-import"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
-import { toggleClinicalMode } from "@/lib/clinical-mode-switch"
+import { applyEhrImportToForm, toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -94,6 +94,7 @@ import {
   PediatricRiskAndCalculators,
   PediatricVitalReferenceNote,
 } from "@/components/preop/PediatricPreopSections"
+import { useReadinessFocus } from "@/lib/use-readiness-focus"
 
 const SECTION_RAIL_EXPANDED_HEIGHT = 68
 
@@ -103,7 +104,7 @@ function impact() {
 
 export default function NewCaseScreen() {
   const router = useRouter()
-  const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
+  const { continue: continueId, localId: localIdParam, focus } = useLocalSearchParams<{ continue?: string; localId?: string; focus?: string }>()
   const insets = useSafeAreaInsets()
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
   const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
@@ -471,6 +472,10 @@ export default function NewCaseScreen() {
       setDraftState("queued")
     })
   }, [continueId, draftOwner, localIdParam, reset])
+
+  // A readiness "Go to" opens the section it names once the case has loaded
+  // (9.14.0); upstream's shared loader does this, the appliance's own loads here.
+  useReadinessFocus(focus, caseLoadedRef, jumpTo)
 
   // useWatch re-renders on every field change on native and web (watch(callback) is unreliable on Expo web).
   const _allFormValues = useWatch({ control })
@@ -1122,19 +1127,13 @@ export default function NewCaseScreen() {
                 identifier={patientNumberWatch ?? null}
                 available={ehrImportCapability.enabled}
                 transport={ehrImportCapability.transport}
+                folderRequests={ehrImportCapability.folderRequests}
                 language={language}
                 current={getValues() as unknown as Record<string, unknown>}
                 currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}
                 labelFor={field => ehrFieldLabel(field, language)}
-                onApply={async patch => {
-                  // Applied as an ordinary edit by this clinician: same form,
-                  // same validation, same audit. That is what keeps an import
-                  // off the conflict path on the two clients that have no
-                  // conflict UI.
-                  for (const [field, value] of Object.entries(patch)) {
-                    setValue(field as never, value as never, { shouldDirty: true })
-                  }
-                }}
+                modeChangeAvailable={pediatricModeCapability.enabled}
+                onApply={(patch, modeChange) => applyEhrImportToForm(patch, modeChange, getValues as never, setValue as never)}
               />
               <PediatricModeAgeFields
                 control={control}

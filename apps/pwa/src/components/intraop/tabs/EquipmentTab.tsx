@@ -1,6 +1,7 @@
 import { View, Text, ScrollView } from "react-native"
 import { calcEquipment } from "@/lib/equipment-calculator"
 import { getMedicationWarnings } from "@/lib/risk-derivation"
+import { allergyRecords, uncheckedAllergies } from "@lospor/core/allergy-drug-check"
 import { translateEquipment } from "@/i18n/equipment-strings"
 import { usePreferences } from "@/lib/preferences-context"
 import {
@@ -38,8 +39,25 @@ export function EquipmentTab({
     },
   }) : [], language)
   const medicationWarnings = getMedicationWarnings(preop?.currentMedications ?? [])
+  // The recorded allergies in view while drugs are given, and any the drug
+  // check cannot read named as such, so silence is not taken for a pass (1.5.0).
+  const allergies = allergyRecords(preop)
+  const unchecked = uncheckedAllergies(allergies)
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
+      {allergies.length > 0 && (
+        <View style={{ backgroundColor:shade("#1e1010"), borderRadius:14, borderWidth:1, borderColor:shade("#7f1d1d"),
+          padding:14, marginBottom:16, gap:4 }}>
+          <Text style={{ color:shade("#f87171"), fontSize:13, fontWeight:"900" }}>
+            ⚠ {tc("allergiesTitle")}: {allergies.map(allergy => allergy.label).join(", ")}
+          </Text>
+          {unchecked.length > 0 && (
+            <Text style={{ color:shade("#fb923c"), fontSize:12, fontWeight:"700" }}>
+              {tc("allergiesUnchecked")} {unchecked.join(", ")}
+            </Text>
+          )}
+        </View>
+      )}
       {medicationWarnings.length > 0 && (
         <View style={{ backgroundColor:shade("#2a1410"), borderRadius:14, borderWidth:1, borderColor:shade("#7c2d12"),
           padding:14, marginBottom:16, gap:4 }}>
