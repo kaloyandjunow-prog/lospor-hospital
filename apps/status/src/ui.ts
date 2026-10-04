@@ -13,7 +13,7 @@ import type {
   ManagedAccount,
   OneTimeAccountLink,
 } from "./account-control.js"
-import { MEDICATION_CATALOG_ID, type ClinicalBaselineReadiness, type ControlPlaneView, type MedicationCandidate, type PreopAdministrationView } from "./control-plane.js"
+import { MEDICATION_CATALOG_ID, type ClinicalBaselineReadiness, type ControlPlaneView, type EhrFileCheck, type EhrFolderRejectReason, type MedicationCandidate, type PreopAdministrationView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
 import {
   ADVANCED_SETTINGS,
@@ -1069,6 +1069,49 @@ function hashFact(label: string, value: string | null): string {
   return `<div class="fact"><b>${escapeHtml(label)}</b><span class="mono">${escapeHtml(value ?? "—")}</span></div>`
 }
 
+/** Why the inbox refused a file, in the operator's words. */
+export function folderRejectReason(reason: EhrFolderRejectReason | null, locale: StatusLocale): string {
+  switch (reason) {
+    case "unreadable": return localize(locale, "not readable as a JSON object", "не може да се прочете като JSON обект")
+    case "too-large": return localize(locale, "larger than 5 MB", "по-голям от 5 MB")
+    case "unsupported-format-version": return localize(locale, "a formatVersion this appliance does not know", "formatVersion, който сървърът не познава")
+    case "no-identifier": return localize(locale, "no patient identifier", "няма идентификатор на пациента")
+    case "unknown-identifier-type": return localize(locale, "identifierType is neither IZ nor EGN", "identifierType не е нито IZ, нито EGN")
+    case "nothing-importable": return localize(locale, "no field that can be imported", "няма поле, което може да бъде импортирано")
+    default: return localize(locale, "refused", "отказан")
+  }
+}
+
+function waitingAge(seconds: number, locale: StatusLocale): string {
+  if (seconds < 120) return localize(locale, `${seconds} seconds`, `${seconds} секунди`)
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 120) return localize(locale, `${minutes} minutes`, `${minutes} минути`)
+  return localize(locale, `${Math.round(minutes / 60)} hours`, `${Math.round(minutes / 60)} часа`)
+}
+
+function fileCheckHtml(check: EhrFileCheck, locale: StatusLocale): string {
+  const verdict = check.outcome === "would-import"
+    ? localize(locale, "This file would be staged for a clinician to review.", "Този файл ще бъде приет за преглед от лекар.")
+    : localize(locale, `This file would be refused: ${folderRejectReason(check.reason, locale)}.`, `Този файл ще бъде отказан: ${folderRejectReason(check.reason, locale)}.`)
+  const list = (items: string[]) => items.length ? items.map(item => `<code>${escapeHtml(item)}</code>`).join(", ") : localize(locale, "none", "няма")
+  const ignoredReason = (reason: string) => reason === "not-importable"
+    ? localize(locale, "not a field this format takes", "поле, което форматът не приема")
+    : reason === "wrong-shape"
+      ? localize(locale, "the wrong kind of value", "неправилен вид стойност")
+      : reason === "invalid-value" ? localize(locale, "a value the form does not accept", "стойност, която формулярът не приема")
+        : reason === "empty" ? localize(locale, "empty", "празно") : reason
+  return `<div class="${check.outcome === "would-import" ? "notice" : "error"}" role="status"><h4>${escapeHtml(check.file)}</h4><p>${escapeHtml(verdict)}</p>
+    <div class="facts">
+      ${textFact(localize(locale, "Identifier type", "Вид идентификатор"), check.identifierType)}
+      ${textFact("sourceMessageId", check.sourceMessageId)}
+    </div>
+    <p>${localize(locale, "Fields offered to the clinician:", "Полета, предложени на лекаря:")} ${list(check.accepted)}</p>
+    ${check.ignored.length ? `<p>${localize(locale, "Fields ignored:", "Пропуснати полета:")}</p><ul>${check.ignored.map(entry => `<li><code>${escapeHtml(entry.field)}</code> — ${escapeHtml(ignoredReason(entry.reason))}</li>`).join("")}</ul>` : ""}
+    ${check.unknownKeys.length ? `<p>${localize(locale, "Keys this format does not define (often a misspelling):", "Ключове, които форматът не определя (често правописна грешка):")} ${list(check.unknownKeys)}</p>` : ""}
+    ${check.labs ? `<p>${localize(locale, `Laboratory results: ${check.labs.received} received, ${check.labs.undated} without a sampling time.`, `Лабораторни резултати: получени ${check.labs.received}, без час на вземане ${check.labs.undated}.`)}</p>${check.labs.unmappedCodes.length ? `<p>${localize(locale, "Tests not mapped yet (they arrive under the hospital's own name; map them in the laboratory codes below):", "Изследвания, които още не са съпоставени (идват с името на болницата; съпоставете ги в лабораторните кодове по-долу):")}</p><ul>${check.labs.unmappedCodes.map(code => `<li>${escapeHtml(code.display || code.code)}${code.system ? ` <code>${escapeHtml(code.system)}</code>` : ""}</li>`).join("")}</ul>` : ""}` : ""}
+  </div>`
+}
+
 function textFact(label: string, value: string | null): string {
   return `<div class="fact"><b>${escapeHtml(label)}</b>${escapeHtml(value ?? "—")}</div>`
 }
@@ -1246,6 +1289,8 @@ export function renderControlPlane(
   medicationSearch?: MedicationSearch,
   /** Numberings the hospital server just returned, offered in both fields (1.5.0). */
   discoveredNumberings?: readonly string[],
+  /** What the inbox would do with the file just checked (1.5.0). */
+  fileCheck?: EhrFileCheck,
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1475,6 +1520,34 @@ export function renderControlPlane(
     ${identifierSystemsSection}
   ` : ""
 
+  // ── the watched folder: how it is doing, and "check a file" (1.5.0) ─────────
+  //
+  // Folder drop is what a hospital reaches for when it cannot do FHIR, and the
+  // vendor writing the files used to learn what we made of them only by asking.
+  // Every file read now leaves an answer in results/, this shows the last day
+  // of them, and a sample can be checked here before it is dropped for real.
+  const folderHealth = view?.ehrFolder ?? null
+  const ehrFolderSection = ehrTransport && ehrTransport.transport === "FOLDER" ? `
+    <div class="component"><h3>${localize(locale, "The watched folder", "Наблюдаваната папка")}</h3>
+    ${folderHealth ? `<div class="facts">
+      ${textFact(localize(locale, "Files waiting to be read", "Файлове, чакащи прочитане"), String(folderHealth.waiting))}
+      ${textFact(localize(locale, "Oldest waiting file", "Най-старият чакащ файл"), folderHealth.oldestWaitingSeconds === null ? localize(locale, "none", "няма") : waitingAge(folderHealth.oldestWaitingSeconds, locale))}
+      ${dateFact(localize(locale, "Last file read", "Последен прочетен файл"), folderHealth.lastReadAt, locale)}
+      ${textFact(localize(locale, "Last 24 hours", "Последните 24 часа"), localize(locale, `${folderHealth.last24h.imported} staged, ${folderHealth.last24h.rejected} refused`, `${folderHealth.last24h.imported} приети за преглед, ${folderHealth.last24h.rejected} отказани`))}
+    </div>
+    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака повече от десет минути. Файловете се четат всяка минута, след като не са се променяли 30 секунди; файл, който продължава да чака, все още се записва или EHR worker не работи.")}</p>` : ""}
+    ${folderHealth.recentRejections.length ? `<p>${localize(locale, "Latest refused files (each has its answer in results/):", "Последно отказани файлове (за всеки има отговор в results/):")}</p><ul>${folderHealth.recentRejections.map(entry => `<li><code>${escapeHtml(entry.file)}</code> — ${escapeHtml(folderRejectReason(entry.reason, locale))} — ${escapeHtml(utcDate(Date.parse(entry.at), locale))} UTC${""}</li>`).join("")}</ul>` : ""}`
+    : `<div class="empty">${localize(locale, "The folder could not be read just now.", "Папката не можа да бъде прочетена в момента.")}</div>`}
+    <p class="component-detail">${localize(locale,
+      "The hospital system writes one JSON file per patient into inbox/; every file read gets an answer in results/ saying what was staged, what was ignored and why. The format is in the folder-drop guide.",
+      "Болничната система записва по един JSON файл на пациент в inbox/; за всеки прочетен файл в results/ се появява отговор кое е прието за преглед, кое е пропуснато и защо. Форматът е описан в ръководството за обмен чрез папка.")}</p>
+    <form method="post" action="/status/control/ehr-transport/check-file" enctype="multipart/form-data">
+      <label>${localize(locale, "Check a file before it is dropped (nothing is imported)", "Проверка на файл преди поставянето му (нищо не се импортира)")}<input type="file" name="file" accept=".json,application/json" required></label>
+      <button type="submit">${localize(locale, "Check the file", "Провери файла")}</button>
+    </form>
+    ${fileCheck ? fileCheckHtml(fileCheck, locale) : ""}</div>
+  ` : ""
+
   const ehrTransportControls = ehrTransport ? `
     <div class="component"><div class="facts">
       ${textFact(localize(locale, "Chosen transport", "Избран канал"), ehrTransport.transport ?? localize(locale, "none", "няма"))}
@@ -1488,6 +1561,7 @@ export function renderControlPlane(
     <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Няма (импортът е изключен)")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Наблюдавана папка")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 — все още не е наличен")}</option></select><label>${localize(locale, "Transport change reason", "Причина за смяната на канала")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване на канала")}</button></form><form method="post" action="/status/control/ehr-transport/retention"><label for="ehr-retention-days">${localize(locale, "Days staged EHR data is kept before it is deleted (1 to 14)", "Колко дни се пазят импортираните данни преди изтриване (от 1 до 14)")}</label><input id="ehr-retention-days" name="days" type="number" min="1" max="14" value="${ehrTransport.stagingRetentionDays ?? 14}" required><p class="component-detail">${localize(locale, "Imports nobody reviewed, and the files the folder transport kept, are deleted by the daily retention run. They are offered to clinicians for at most 14 days, so they are never kept longer.", "Непрегледаните импорти и файловете, запазени от канала с папка, се изтриват при ежедневното почистване. Те се предлагат на лекарите най-много 14 дни, така че никога не се пазят по-дълго.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save retention", "Запазване на срока")}</button></form></div>
     ${ehrTransportCredentialSection}
     ${ehrEndpointSection}
+    ${ehrFolderSection}
   ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Управлението на импорта от БИС не е достъпно.")}</div>`
 
   // ── the laboratory code map ────────────────────────────────────────────────

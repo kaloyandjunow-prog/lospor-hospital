@@ -655,3 +655,59 @@ describe("Status control-plane client", () => {
     })
   })
 })
+
+describe("the watched folder through the control plane (1.5.0)", () => {
+  const client = (response: unknown) => {
+    const fetcher = vi.fn(async () => json(response)) as unknown as typeof fetch
+    return { fetcher, client: new ControlPlaneClient("http://api:3002/v1/internal/hospital/control-plane/", "s".repeat(32), 1_000, fetcher) }
+  }
+  const health = {
+    waiting: 0, oldestWaitingSeconds: null, lastReadAt: "2026-10-04T09:00:00.000Z",
+    last24h: { imported: 3, rejected: 1 },
+    recentRejections: [{ file: "a.json", reason: "unreadable", at: "2026-10-04T09:00:00.000Z" }],
+  }
+
+  it("accepts the folder's health, and an older API that sends none", async () => {
+    await expect(client({ ...VIEW, ehrFolder: health }).client.get()).resolves.toMatchObject({ ehrFolder: health })
+    await expect(client({ ...VIEW, ehrFolder: null }).client.get()).resolves.toMatchObject({ ehrFolder: null })
+    await expect(client(VIEW).client.get()).resolves.not.toHaveProperty("ehrFolder")
+  })
+
+  it("refuses health it cannot vouch for", async () => {
+    for (const ehrFolder of [
+      { ...health, waiting: -1 },
+      { ...health, recentRejections: [{ file: "a.json", reason: "made-up", at: "2026-10-04T09:00:00.000Z" }] },
+      { ...health, last24h: { imported: "3", rejected: 0 } },
+    ]) {
+      await expect(client({ ...VIEW, ehrFolder }).client.get()).rejects.toThrow()
+    }
+  })
+
+  it("posts the sample and rebuilds the answer from known parts only", async () => {
+    const { client: control, fetcher } = client({
+      report: {
+        file: "s.json", outcome: "would-import", identifierType: "IZ", sourceMessageId: "HIS-1",
+        identifier: "8701011234",
+        fields: { accepted: ["weightKg", 7], ignored: [{ field: "x", reason: "not-importable", extra: "<script>" }] },
+        unknownKeys: ["typo"],
+        labs: { received: 2, undated: 0, unmappedCodes: [{ system: "", code: "ХГБ", display: "ХГБ" }] },
+      },
+    })
+    const check = await control.checkEhrFile({ file: "s.json", content: "{}" })
+    expect(check).toEqual({
+      file: "s.json", outcome: "would-import", reason: null, identifierType: "IZ", sourceMessageId: "HIS-1",
+      accepted: ["weightKg"], ignored: [{ field: "x", reason: "not-importable" }], unknownKeys: ["typo"],
+      labs: { received: 2, undated: 0, unmappedCodes: [{ system: "", code: "ХГБ", display: "ХГБ" }] },
+    })
+    expect(JSON.stringify(check)).not.toContain("8701011234")
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://api:3002/v1/internal/hospital/control-plane/ehr-transport/check-file",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ file: "s.json", content: "{}" }) }),
+    )
+  })
+
+  it("refuses an answer that is not a check", async () => {
+    await expect(client({ report: { outcome: "imported" } }).client.checkEhrFile({ content: "{}" })).rejects.toThrow()
+    await expect(client({}).client.checkEhrFile({ content: "{}" })).rejects.toThrow()
+  })
+})

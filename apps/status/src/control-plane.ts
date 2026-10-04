@@ -332,6 +332,42 @@ export type ControlPlaneView = {
     waiting: EhrCodeSystemRow[]
     answered: EhrCodeSystemRow[]
   }
+  /**
+   * How the watched folder is doing, for a site that uses it (1.5.0). Null on
+   * any other transport, and absent from an older API.
+   */
+  ehrFolder?: EhrFolderHealth | null
+}
+
+export const EHR_FOLDER_REJECT_REASONS = [
+  "unreadable",
+  "too-large",
+  "unsupported-format-version",
+  "no-identifier",
+  "unknown-identifier-type",
+  "nothing-importable",
+] as const
+export type EhrFolderRejectReason = (typeof EHR_FOLDER_REJECT_REASONS)[number]
+
+export type EhrFolderHealth = {
+  waiting: number
+  oldestWaitingSeconds: number | null
+  lastReadAt: string | null
+  last24h: { imported: number; rejected: number }
+  recentRejections: { file: string; reason: EhrFolderRejectReason; at: string }[]
+}
+
+/** What the inbox would do with a sample file; carries no patient number. */
+export type EhrFileCheck = {
+  file: string
+  outcome: "would-import" | "rejected"
+  reason: EhrFolderRejectReason | null
+  identifierType: "IZ" | "EGN" | null
+  sourceMessageId: string | null
+  accepted: string[]
+  ignored: { field: string; reason: string }[]
+  unknownKeys: string[]
+  labs: { received: number; undated: number; unmappedCodes: { system: string; code: string; display: string }[] } | null
 }
 
 export const EHR_CODE_LIST_ANSWERS = ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] as const
@@ -491,6 +527,8 @@ export interface ControlPlanePort {
    * number at once. The identifier looked up is not stored or echoed back --
    * only the systems it was found under.
    */
+  /** Run the inbox's reader on a sample file; nothing is staged (1.5.0). */
+  checkEhrFile(input: { file?: string; content: string }): Promise<EhrFileCheck>
   discoverEhrTransport(input: { identifier?: string }): Promise<{
     capabilities: unknown
     identifierSystems: string[]
@@ -824,6 +862,7 @@ function parseView(value: unknown): ControlPlaneView | null {
   if (!ehrVitalCodesShape(value.ehrVitalCodes)) return null
   if (value.ehrMedicationCodes !== undefined && !ehrMedicationCodesShape(value.ehrMedicationCodes)) return null
   if (!ehrCodeSystemsShape(value.ehrCodeSystems)) return null
+  if (value.ehrFolder !== undefined && value.ehrFolder !== null && !ehrFolderShape(value.ehrFolder)) return null
   if (value.preoperative !== undefined && (!isRecord(value.preoperative)
     || value.preoperative.scope !== "APPLIANCE_WIDE"
     || !text(value.preoperative.catalogVersion, 64)
@@ -839,6 +878,61 @@ function parseView(value: unknown): ControlPlaneView | null {
       profileAdministrationPath: "/v1/preop/profile",
     },
   } as unknown as ControlPlaneView
+}
+
+function ehrFolderShape(value: unknown): boolean {
+  return isRecord(value)
+    && finiteInteger(value.waiting, 1_000_000_000)
+    && (value.oldestWaitingSeconds === null || finiteInteger(value.oldestWaitingSeconds, 1_000_000_000))
+    && nullableIso(value.lastReadAt)
+    && isRecord(value.last24h)
+    && finiteInteger(value.last24h.imported, 1_000_000_000)
+    && finiteInteger(value.last24h.rejected, 1_000_000_000)
+    && Array.isArray(value.recentRejections)
+    && value.recentRejections.length <= 20
+    && value.recentRejections.every(entry => isRecord(entry)
+      && text(entry.file, 512)
+      && EHR_FOLDER_REJECT_REASONS.includes(entry.reason as EhrFolderRejectReason)
+      && nullableIso(entry.at) && typeof entry.at === "string")
+}
+
+/**
+ * A check's answer, rebuilt from known parts only: it is drawn from a file
+ * someone else wrote and goes straight onto the operator's screen.
+ */
+export function ehrFileCheckFrom(value: unknown): EhrFileCheck {
+  const report = isRecord(value) && isRecord(value.report) ? value.report : null
+  if (!report || (report.outcome !== "would-import" && report.outcome !== "rejected")) {
+    throw new ControlPlaneClientError("CONTROL_INVALID_RESPONSE")
+  }
+  const strings = (list: unknown, max = 128): string[] => Array.isArray(list)
+    ? list.filter((entry): entry is string => typeof entry === "string" && entry.length <= max).slice(0, 100)
+    : []
+  const fields = isRecord(report.fields) ? report.fields : {}
+  const labs = isRecord(report.labs) ? report.labs : null
+  return {
+    file: typeof report.file === "string" ? report.file.slice(0, 200) : "",
+    outcome: report.outcome,
+    reason: EHR_FOLDER_REJECT_REASONS.includes(report.reason as EhrFolderRejectReason) ? report.reason as EhrFolderRejectReason : null,
+    identifierType: report.identifierType === "IZ" || report.identifierType === "EGN" ? report.identifierType : null,
+    sourceMessageId: typeof report.sourceMessageId === "string" ? report.sourceMessageId.slice(0, 200) : null,
+    accepted: strings(fields.accepted),
+    ignored: Array.isArray(fields.ignored)
+      ? fields.ignored.filter(isRecord).slice(0, 100).map(entry => ({ field: String(entry.field ?? "").slice(0, 128), reason: String(entry.reason ?? "").slice(0, 64) }))
+      : [],
+    unknownKeys: strings(report.unknownKeys),
+    labs: labs ? {
+      received: Number.isInteger(labs.received) ? Number(labs.received) : 0,
+      undated: Number.isInteger(labs.undated) ? Number(labs.undated) : 0,
+      unmappedCodes: Array.isArray(labs.unmappedCodes)
+        ? labs.unmappedCodes.filter(isRecord).slice(0, 100).map(entry => ({
+          system: String(entry.system ?? "").slice(0, 512),
+          code: String(entry.code ?? "").slice(0, 512),
+          display: String(entry.display ?? "").slice(0, 512),
+        }))
+        : [],
+    } : null,
+  }
 }
 
 /** Validated for the lab map's reason: its rows become answers in a form. */
@@ -1054,6 +1148,14 @@ export class ControlPlaneClient implements ControlPlanePort {
     input: Parameters<ControlPlanePort["setEhrIdentifierSystems"]>[0],
   ): Promise<void> {
     return this.mutate("/ehr-transport/identifier-systems", input)
+  }
+  async checkEhrFile(
+    input: Parameters<ControlPlanePort["checkEhrFile"]>[0],
+  ): ReturnType<ControlPlanePort["checkEhrFile"]> {
+    return ehrFileCheckFrom(await this.request("/ehr-transport/check-file", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }))
   }
   async discoverEhrTransport(
     input: Parameters<ControlPlanePort["discoverEhrTransport"]>[0],

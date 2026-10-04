@@ -324,6 +324,10 @@ function setup() {
     discoverEhrTransport: vi.fn(async () => ({
       capabilities: null, identifierSystems: [], patientFound: null, probeErrorCode: null,
     })),
+    checkEhrFile: vi.fn(async () => ({
+      file: "checked.json", outcome: "would-import" as const, reason: null, identifierType: null, sourceMessageId: null,
+      accepted: [], ignored: [], unknownKeys: [], labs: null,
+    })),
   }
   const config = {
     defaultLocale: "bg",
@@ -1380,5 +1384,86 @@ describe("configuring the EHR integration", () => {
     const call = vi.mocked(controlPlane.setEhrIdentifierSystems).mock.calls[0]?.[0]
     expect(call).toMatchObject({ recordNumberSystem: "http://hospital.bg/iz" })
     expect(call).not.toHaveProperty("nationalIdentifierSystem")
+  })
+})
+
+describe("the watched folder (1.5.0)", () => {
+  const health = {
+    waiting: 2,
+    oldestWaitingSeconds: 900,
+    lastReadAt: "2026-10-04T09:00:00.000Z",
+    last24h: { imported: 14, rejected: 1 },
+    recentRejections: [{ file: "adm-77.json", reason: "unknown-identifier-type" as const, at: "2026-10-04T08:59:00.000Z" }],
+  }
+  const check = {
+    file: "sample.json", outcome: "would-import" as const, reason: null, identifierType: "IZ" as const, sourceMessageId: "HIS-1",
+    accepted: ["weightKg", "labResults"], ignored: [{ field: "clinicalMode", reason: "not-importable" }], unknownKeys: ["patientNmae"],
+    labs: { received: 3, undated: 1, unmappedCodes: [{ system: "", code: "ХГБ-местен", display: "ХГБ-местен" }] },
+  }
+  const upload = (cookie: string, content = '{"identifier":"42"}', headers: Record<string, string> = {}) => {
+    const form = new FormData()
+    form.set("file", new File([content], "sample.json", { type: "application/json" }))
+    return app.request("/status/control/ehr-transport/check-file", { method: "POST", headers: origin({ cookie, ...headers }), body: form })
+  }
+  let app: ReturnType<typeof setup>["app"]
+
+  it("shows how the folder is doing, with each refusal in the operator's words", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    vi.mocked(setupResult.controlPlane.get).mockResolvedValue({ ...VIEW, ehrFolder: health } as never)
+    const cookie = await passwordCookie(app, setupResult.auth)
+    const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+
+    expect(body).toContain("<b>Файлове, чакащи прочитане</b>2")
+    expect(body).toContain("14 приети за преглед, 1 отказани")
+    expect(body).toContain("<code>adm-77.json</code> — identifierType не е нито IZ, нито EGN")
+    expect(body).toContain("Файл чака повече от десет минути")
+    expect(body).toContain('action="/status/control/ehr-transport/check-file" enctype="multipart/form-data"')
+  })
+
+  it("offers no folder card on a FHIR site", async () => {
+    const setupResult = setup()
+    vi.mocked(setupResult.controlPlane.get).mockResolvedValue({ ...VIEW, ehrTransport: { ...VIEW.ehrTransport, transport: "FHIR" }, ehrFolder: null } as never)
+    const cookie = await passwordCookie(setupResult.app, setupResult.auth)
+    const body = await (await setupResult.app.request("/status/control/ehr", { headers: { cookie } })).text()
+    expect(body).not.toContain("/status/control/ehr-transport/check-file")
+  })
+
+  it("checks an uploaded file through the API and shows what the inbox would do", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    vi.mocked(setupResult.controlPlane.checkEhrFile).mockResolvedValue(check)
+    const cookie = await passwordCookie(app, setupResult.auth)
+    const response = await upload(cookie)
+    const body = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(setupResult.controlPlane.checkEhrFile).toHaveBeenCalledWith({ content: '{"identifier":"42"}', file: "sample.json" })
+    expect(body).toContain("Този файл ще бъде приет за преглед от лекар.")
+    expect(body).toContain("<code>weightKg</code>, <code>labResults</code>")
+    expect(body).toContain("<code>clinicalMode</code> — поле, което форматът не приема")
+    expect(body).toContain("<code>patientNmae</code>")
+    expect(body).toContain("ХГБ-местен")
+  })
+
+  it("says why a file would be refused", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    vi.mocked(setupResult.controlPlane.checkEhrFile).mockResolvedValue({ ...check, outcome: "rejected", reason: "no-identifier", accepted: [] })
+    const cookie = await passwordCookie(app, setupResult.auth)
+    expect(await (await upload(cookie)).text()).toContain("Този файл ще бъде отказан: няма идентификатор на пациента.")
+  })
+
+  it("checks nothing for another origin, a recovery session, an empty file or one over a megabyte", async () => {
+    const setupResult = setup()
+    app = setupResult.app
+    const cookie = await passwordCookie(app, setupResult.auth)
+    const form = new FormData()
+    form.set("file", new File(["{}"], "a.json"))
+    expect((await app.request("/status/control/ehr-transport/check-file", { method: "POST", headers: { cookie, origin: "https://evil.example" }, body: form })).status).toBe(403)
+    expect((await upload(await recoveryCookie(app, setupResult.auth))).status).toBe(403)
+    expect((await upload(cookie, "   ")).status).toBe(400)
+    expect((await upload(cookie, "x".repeat(1024 * 1024 + 1))).status).toBe(413)
+    expect(setupResult.controlPlane.checkEhrFile).not.toHaveBeenCalled()
   })
 })

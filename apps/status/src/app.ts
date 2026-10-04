@@ -80,6 +80,9 @@ import {
   type ClinicalAccountRole,
 } from "./account-control.js"
 import { accountLinkQrSvg } from "./account-qr.js"
+
+/** A sample, not an archive; the API refuses more. */
+const EHR_CHECK_FILE_MAX_BYTES = 1024 * 1024
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
@@ -87,6 +90,7 @@ import {
   MEDICATION_CATALOG_ID,
   type ControlPlanePort,
   type EhrCodeListAnswer,
+  type EhrFileCheck,
   type ResearchGrantInput,
 } from "./control-plane.js"
 
@@ -1118,6 +1122,7 @@ export function createStatusApp({
     section?: string,
     medicationSearch?: MedicationSearch,
     discoveredNumberings?: readonly string[],
+    fileCheck?: EhrFileCheck,
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1129,6 +1134,7 @@ export function createStatusApp({
       section,
       medicationSearch,
       discoveredNumberings,
+      fileCheck,
     )
   }
 
@@ -1541,6 +1547,44 @@ export function createStatusApp({
     locale => localize(locale, "The EHR staging retention was saved and audited. The next daily retention run applies it.", "Срокът за пазене на импортираните данни е запазен и записан в одитния журнал. Прилага се при следващото ежедневно почистване."),
     "ehr",
   ))
+
+  // "Check a file" (1.5.0): the inbox's own reader run on a sample the
+  // hospital system's team produced, with nothing staged. It changes nothing,
+  // so it asks for a signed-in administrator rather than the password again;
+  // and it takes a real file, so it is not held to the 16 KB of a settings form.
+  app.post("/status/control/ehr-transport/check-file", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = passwordAccountSession(context)
+    if (session === "missing") return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (session === "recovery") {
+      return context.html(await controlHtml(locale, localize(
+        locale,
+        "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
+        "Влезте с администраторската парола, за да използвате управлението. Сесия с токен за възстановяване не може да разрешава тези промени.",
+      ), undefined, "ehr"), 403)
+    }
+    const tooBig = localize(locale, "Choose a file of up to 1 MB.", "Изберете файл до 1 MB.")
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    if (!Number.isFinite(contentLength) || contentLength > EHR_CHECK_FILE_MAX_BYTES + 65_536) {
+      return context.html(await controlHtml(locale, tooBig, undefined, "ehr"), 413)
+    }
+    const body = await context.req.parseBody().catch(() => null)
+    const upload = isRecord(body) ? body.file : null
+    const content = upload instanceof File ? await upload.text() : typeof body?.content === "string" ? body.content : ""
+    const name = upload instanceof File && upload.name ? upload.name : undefined
+    if (!content.trim()) {
+      return context.html(await controlHtml(locale, localize(locale, "Choose a file to check.", "Изберете файл за проверка."), undefined, "ehr"), 400)
+    }
+    if (Buffer.byteLength(content, "utf8") > EHR_CHECK_FILE_MAX_BYTES) return context.html(await controlHtml(locale, tooBig, undefined, "ehr"), 413)
+    try {
+      const check = await controlPlane.checkEhrFile({ content, ...(name ? { file: name.slice(0, 200) } : {}) })
+      return context.html(await controlHtml(locale, undefined, undefined, "ehr", undefined, undefined, check))
+    } catch (error) {
+      const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
+      return context.html(await controlHtml(locale, controlPlaneMessage(code, locale), undefined, "ehr"), controlErrorStatus(code))
+    }
+  })
 
   app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
     context,
