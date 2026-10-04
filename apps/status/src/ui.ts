@@ -1244,6 +1244,8 @@ export function renderControlPlane(
   audience: StatusNavAudience = "password",
   section?: string,
   medicationSearch?: MedicationSearch,
+  /** Numberings the hospital server just returned, offered in both fields (1.5.0). */
+  discoveredNumberings?: readonly string[],
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1414,6 +1416,16 @@ export function renderControlPlane(
   // review screen, because a site cannot answer this before it has seen real
   // traffic. The discovery button is what lets it answer: nobody recalls an
   // OID, and everybody recognises their own admission number when shown one.
+  // What "Ask the server" returned, offered as a choice in both fields rather
+  // than read off a sentence and retyped (1.5.0). A datalist still takes typing,
+  // for a numbering the lookup did not happen to show, and needs no script.
+  const numberings = discoveredNumberings ?? []
+  const numberingList = numberings.length > 0
+    ? ` list="ehr-numberings"`
+    : ""
+  const numberingOptions = numberings.length > 0
+    ? `<datalist id="ehr-numberings">${numberings.map(system => `<option value="${escapeHtml(system)}">`).join("")}</datalist>`
+    : ""
   const identifierSystemsSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
     <div class="component"><h3>${localize(locale, "Which numbering a patient number belongs to", "Към коя номерация принадлежи номерът на пациента")}</h3>
     <p class="component-detail">${localize(locale,
@@ -1424,10 +1436,10 @@ export function renderControlPlane(
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
       <button type="submit">${localize(locale, "Ask the server", "Попитай сървъра")}</button>
     </form>
-    <form method="post" action="/status/control/ehr-transport/identifier-systems">
-      <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерация за ИЗ №")}<input name="recordNumberSystem" maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
+    <form method="post" action="/status/control/ehr-transport/identifier-systems">${numberingOptions}
+      <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерация за ИЗ №")}<input name="recordNumberSystem"${numberingList} maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
       <label class="inline"><input type="checkbox" name="clearRecordNumberSystem"> ${localize(locale, "Clear it instead", "изчистете я")}</label>
-      <label>${localize(locale, "Numbering for national identifiers (ЕГН)", "Номерация за ЕГН")}<input name="nationalIdentifierSystem" maxlength="2048" value="${escapeHtml(ehrTransport.nationalIdentifierSystem ?? "")}"></label>
+      <label>${localize(locale, "Numbering for national identifiers (ЕГН)", "Номерация за ЕГН")}<input name="nationalIdentifierSystem"${numberingList} maxlength="2048" value="${escapeHtml(ehrTransport.nationalIdentifierSystem ?? "")}"></label>
       <label class="inline"><input type="checkbox" name="clearNationalIdentifierSystem"> ${localize(locale, "Clear it instead", "изчистете я")}</label>
       <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>

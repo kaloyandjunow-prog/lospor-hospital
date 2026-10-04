@@ -1117,6 +1117,7 @@ export function createStatusApp({
     notice?: string,
     section?: string,
     medicationSearch?: MedicationSearch,
+    discoveredNumberings?: readonly string[],
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1127,6 +1128,7 @@ export function createStatusApp({
       "password",
       section,
       medicationSearch,
+      discoveredNumberings,
     )
   }
 
@@ -1224,6 +1226,8 @@ export function createStatusApp({
     action: (body: Record<string, unknown>) => Promise<T>,
     notice: (locale: StatusLocale, result: T) => string,
     section?: string,
+    /** Numberings a discovery returned, offered in the form it re-renders. */
+    numberingsOf?: (result: T) => readonly string[],
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1256,7 +1260,7 @@ export function createStatusApp({
     }
     try {
       const result = await action(body)
-      return context.html(await controlHtml(locale, undefined, notice(locale, result), section))
+      return context.html(await controlHtml(locale, undefined, notice(locale, result), section, undefined, numberingsOf?.(result)))
     } catch (error) {
       const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
       return context.html(
@@ -1549,7 +1553,7 @@ export function createStatusApp({
       // operator: which of three is the admission number is theirs to say.
       if (result.identifierSystems.length > 0) {
         return localize(locale,
-          `This server returned: ${result.identifierSystems.join(", ")}. Copy the one your record numbers use into the field below.`,`Сървърът върна: ${result.identifierSystems.join(", ")}. Копирайте в полето по-долу тази, която използват вашите номера на ИЗ.`)
+          `This server returned: ${result.identifierSystems.join(", ")}. Choose the one your record numbers use from the list in the field below.`,`Сървърът върна: ${result.identifierSystems.join(", ")}. Изберете от списъка в полето по-долу тази, която използват вашите номера на ИЗ.`)
       }
       if (result.patientFound === false) {
         return localize(locale,
@@ -1561,6 +1565,7 @@ export function createStatusApp({
         "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите кои номерации използва.")
     },
     "ehr",
+    result => result.identifierSystems,
   ))
 
   app.post("/status/control/ehr-transport/endpoint", context => sensitiveControlAction(

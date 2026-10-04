@@ -1291,6 +1291,37 @@ describe("configuring the EHR integration", () => {
     expect(body).toContain("https://fhir.hospital.example/r4")
   })
 
+  // 1.5.0: what "Ask the server" returned is offered as a choice in both
+  // fields, instead of a sentence the operator had to copy from by hand.
+  it("offers the numberings the server returned in both fields", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    vi.mocked(controlPlane.discoverEhrTransport).mockResolvedValue({
+      capabilities: null, patientFound: true, probeErrorCode: null,
+      identifierSystems: ["urn:oid:1.2.3.4", "https://demo-bis.bg/fhir/sid/egn"],
+    })
+    const cookie = await passwordCookie(app, auth)
+
+    const body = await (await app.request("/status/control/ehr-transport/discover", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ identifier: "71005", password: "Initial password phrase1!" }).toString(),
+    })).text()
+
+    expect(body).toContain("<datalist id=\"ehr-numberings\"><option value=\"urn:oid:1.2.3.4\"><option value=\"https://demo-bis.bg/fhir/sid/egn\"></datalist>")
+    expect(body).toMatch(/name="recordNumberSystem" list="ehr-numberings"/)
+    expect(body).toMatch(/name="nationalIdentifierSystem" list="ehr-numberings"/)
+  })
+
+  it("offers no list before the server has been asked", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+    const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
+
+    expect(body).not.toContain("ehr-numberings")
+  })
+
   // A folder-drop site has no endpoint, no credential and no namespaces to
   // configure; showing the forms would be offering settings that do nothing.
   it("shows none of it for a watched folder", async () => {
