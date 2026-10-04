@@ -1,5 +1,69 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.0] - 2026-10-04
+
+Vendors Core, API, Web and PWA 9.14.0; Browser stays 0.8.2. One database
+migration (20261005120000_ehr_folder_requests, two columns, off by default);
+a pre-update backup is required, and rolling back restores it.
+
+### Added
+
+- **What stops finalisation is listed up front.** The case summary shows every
+  item that would stop the case from being finalised, each with a link to the
+  section where it is fixed, and **Close Now** shows how many remain. Items
+  that only deserve a look are listed apart. **End case** checks the
+  intraoperative items first: blockers stop the end, warnings ask. A refused
+  finalisation shows the server's reasons in the same list.
+- **Drugs are checked against recorded allergies.** A bolus or infusion that
+  matches an allergy typed in preop or accepted from the hospital system asks
+  first, naming the allergy and whether it is the same drug, the same class or
+  a possible cross-reaction. **Give anyway** records on the dose that the
+  allergy was seen; **Don't give** charts nothing. It never blocks. Allergies
+  the check cannot recognise are listed as not checked automatically.
+- **The watched folder answers for every file.** Each file read leaves
+  results/<name>.result.json: staged or refused and why, the fields taken
+  and ignored, unknown keys, undated labs and unmapped lab codes. Never the
+  patient number.
+- **Status → EHR → The watched folder:** files waiting, the oldest wait, the
+  last file read, the day's counts and the latest refusals; and **Check a
+  file**, which runs the inbox's reader on a sample without importing it.
+- **Asking the hospital system over the folder** (off by default; Status, with
+  the administrator password and a reason, audited). A lookup that finds
+  nothing writes a request to outbox/, at most once per patient per day; the
+  anaesthetist sees that it was requested, and the answer appears when the
+  hospital system drops it. Switch it on only once the hospital system answers
+  requests.
+- **The folder exchange format is published** for the hospital system's team
+  (docs/ehr-folder-format, English and Bulgarian), with a JSON Schema and
+  examples.
+- **Status picker for numberings.** "Ask the server" offers the numberings the
+  hospital's FHIR server returned as a choice in both fields, instead of text
+  to copy.
+
+### Fixed
+
+- **Lab results in a dropped file are no longer lost.** A file that sent them
+  as `labs` was refused whole; one that sent `labResults` skipped the site's
+  lab mapping, stated units and unmapped-code screen. Both now go through the
+  same mapping as FHIR results.
+- **An unknown identifierType in a dropped file is refused**, never read as
+  ИЗ (a wrong-patient risk). A byte-order mark no longer makes a file
+  unreadable; single values are checked against the form's rules; files over
+  5 MB are refused unread.
+- **An imported age switches the clinical mode.** A paediatric age from the
+  hospital system arriving at an adult case (or the reverse) could not be
+  added; adding it now switches the mode first, with the clearing the mode
+  toggle always does, and keeps the imported values.
+
+### Release process
+
+- Release candidates reuse the quality gate the tagged commit already passed,
+  and reuse an image whose build inputs did not change since the previous
+  release (by digest, from a lock this repository's release workflow
+  provably built, within 14 days; scanned again like a built image).
+  `prepare` downloads only the files approval needs. The IT update is
+  unchanged.
+
 ## [1.4.22] - 2026-10-03
 
 Vendors Core, API, Web and PWA 9.13.8; Browser stays 0.8.2. No database
