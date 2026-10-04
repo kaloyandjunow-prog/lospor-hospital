@@ -106,6 +106,13 @@ jobs:
           }
           echo "schema_max names the newest migration ($newest)."
 
+      # Every piece of release metadata names this release: package and
+      # manifest versions, the vendored api/core pins, the rollback
+      # justification, the client-pin sentence in the docs, and a changelog
+      # entry that is written rather than the release:version draft (1.5.0).
+      - name: Require the release metadata to describe this release
+        run: node scripts/release-version.mjs check "${{ steps.release.outputs.version }}"
+
       # The tag sits on a commit that was pushed to main, and that push already
       # ran the full quality gate on these exact bytes. Running it a second time
       # cost ~25 minutes and proved nothing new (1.5.0). Only a successful push

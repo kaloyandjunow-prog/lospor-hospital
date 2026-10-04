@@ -69,6 +69,11 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
     /node scripts\/client-localization-import-gate\.mjs --require-ready/,
     "Candidate metadata must refuse a pending or incomplete client localization import before release work",
   )
+  requirePattern(
+    metadataSection,
+    /node scripts\/release-version\.mjs check "\$\{\{ steps\.release\.outputs\.version \}\}"/,
+    "Candidate metadata must refuse release metadata that names another release or a changelog draft",
+  )
   requirePattern(candidate, /\n\s*candidate:\s*\n/, "Tag workflow must produce a candidate")
   forbidPattern(candidate, /environment:\s*hospital-release|contents:\s*write|gh release/, "Candidate workflow must not publish a GitHub Release")
   requirePattern(candidate, /node scripts\/release-inputs\.mjs env release-inputs\.json/, "Candidate build inputs must be committed and digest-pinned")

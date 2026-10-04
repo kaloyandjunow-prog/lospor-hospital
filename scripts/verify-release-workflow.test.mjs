@@ -32,6 +32,17 @@ test("skips the release's own quality run only for a commit that already passed 
   reject("    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.quality", "    if: ${{ always() && (needs.quality", /require the metadata gates/)
 })
 
+test("rejects a candidate workflow that does not check the release metadata first", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate.replace('        run: node scripts/release-version.mjs check "${{ steps.release.outputs.version }}"\n', ""),
+      publisher,
+      quality,
+    ),
+    /changelog draft/,
+  )
+})
+
 test("requires the versioned Windows kit in the release candidate", () => {
   assert.throws(
     () => assertReleaseWorkflowContract(
