@@ -37,6 +37,7 @@ function world({ released = [], prState = "OPEN", version = VERSION } = {}) {
     if (command === "git") {
       if (args[0] === "ls-remote") return state.tags.has(`v${VERSION}`) ? `${CORE_MERGE}\trefs/tags/v${VERSION}` : ""
       if (args[0] === "branch") return state.branch
+      if (args[0] === "rev-parse") return "h".repeat(40)
       if (args[0] === "status") { const dirty = state.dirty; return dirty ? " M package.json" : "" }
       if (args[0] === "add") { state.dirty = false; return "" }
       if (args[0] === "commit") { state.commits.push(args.at(-1)); return "" }
@@ -48,7 +49,8 @@ function world({ released = [], prState = "OPEN", version = VERSION } = {}) {
     if (args[1] === "view" && args.includes("state")) return state.prState
     if (args[1] === "view" && args.includes("mergeCommit")) return repo === "lospor-core" ? CORE_MERGE : "d".repeat(40)
     if (args[1] === "merge") { state.merges++; state.prState = "MERGED"; return "" }
-    if (args[1] === "checks") return ""
+    if (args[1] === "view" && args.includes("headRefOid")) return state.prHead ?? "h".repeat(40)
+    if (args[1] === "view" && args.includes("statusCheckRollup")) return state.checks ?? "SUCCESS,SKIPPED"
     throw new Error(`unexpected ${command} ${args.join(" ")}`)
   }
   const write = (path, text) => {
@@ -74,7 +76,7 @@ test("runs the train in order, pins Core's merged commit, merges, waits on prote
   // The browser merge of a protected main: the PR turns MERGED while the driver waits.
   const exec = (command, args, cwd) => {
     const repo = cwd.split(/[\\/]/).at(-1)
-    if (args[1] === "checks" && ["lospor-api", "lospor-docs"].includes(repo)) setTimeout(() => { w.repos.get(repo).prState = "MERGED" }, 5)
+    if (args.includes("statusCheckRollup") && ["lospor-api", "lospor-docs"].includes(repo)) setTimeout(() => { w.repos.get(repo).prState = "MERGED" }, 5)
     return w.exec(command, args, cwd)
   }
   await runTrain({ version: VERSION, root: ROOT, exec, say: line => lines.push(line), poll: 1, maxWait: 2000, read: w.read, write: w.write, exists: w.exists })
@@ -96,7 +98,7 @@ test("runs the train in order, pins Core's merged commit, merges, waits on prote
 
 test("resumes: a released repo is skipped and its tag still feeds the pins", async () => {
   const w = world({ released: ["lospor-core", "lospor-app"] })
-  await runTrain({ version: VERSION, root: ROOT, exec: (c, a, d) => { if (a[1] === "checks") { const r = d.split(/[\\/]/).at(-1); if (["lospor-api", "lospor-docs"].includes(r)) w.repos.get(r).prState = "MERGED" } return w.exec(c, a, d) }, say: () => {}, poll: 1, maxWait: 2000, read: w.read, write: w.write, exists: w.exists })
+  await runTrain({ version: VERSION, root: ROOT, exec: (c, a, d) => { if (a.includes("statusCheckRollup")) { const r = d.split(/[\\/]/).at(-1); if (["lospor-api", "lospor-docs"].includes(r)) w.repos.get(r).prState = "MERGED" } return w.exec(c, a, d) }, say: () => {}, poll: 1, maxWait: 2000, read: w.read, write: w.write, exists: w.exists })
   assert.equal(w.repos.get("lospor-core").merges, 0)
   assert.equal(w.repos.get("lospor-app").merges, 0)
   assert.ok(!w.calls.some(call => call.startsWith("lospor-core git push")))
@@ -133,6 +135,33 @@ test("stops waiting for a merge that never comes, so a rerun can resume", async 
   const exec = (command, args, cwd) => args[1] === "merge" ? "" : w.exec(command, args, cwd)
   await assert.rejects(runTrain({ version: VERSION, root: ROOT, exec, say: () => {}, poll: 1, maxWait: 20, read: w.read, write: w.write, exists: w.exists }), /not merged within/)
   assert.equal(w.repos.get("lospor-core").tags.size, 0)
+})
+
+test("waits through no checks yet, and stops on a failed one", async () => {
+  const w = world()
+  const seen = []
+  const answers = ["", "PENDING,SUCCESS", "FAILURE,SUCCESS"]
+  const exec = (command, args, cwd) => {
+    if (args.includes("statusCheckRollup")) { const next = answers.shift(); seen.push(next); return next }
+    return w.exec(command, args, cwd)
+  }
+  await assert.rejects(runTrain({ version: VERSION, root: ROOT, exec, say: () => {}, poll: 1, maxWait: 2000, read: w.read, write: w.write, exists: w.exists }), /CI did not pass \(FAILURE\)/)
+  assert.deepEqual(seen, ["", "PENDING,SUCCESS", "FAILURE,SUCCESS"])
+  assert.equal(w.repos.get("lospor-core").merges, 0)
+})
+
+test("ignores checks until the PR shows the commit just pushed", async () => {
+  const w = world()
+  const heads = ["o".repeat(40), "o".repeat(40), "h".repeat(40)]
+  const seen = []
+  const exec = (command, args, cwd) => {
+    if (args.includes("headRefOid")) return heads.length > 1 ? heads.shift() : heads[0]
+    if (args.includes("statusCheckRollup")) { seen.push(heads.length); return heads.length > 1 ? "FAILURE" : "SUCCESS" }
+    return w.exec(command, args, cwd)
+  }
+  w.repos.get("lospor-api").prState = "MERGED"; w.repos.get("lospor-docs").prState = "MERGED"
+  await runTrain({ version: VERSION, root: ROOT, exec, say: () => {}, poll: 1, maxWait: 2000, read: w.read, write: w.write, exists: w.exists })
+  assert.ok(seen.length > 0 && seen.every(left => left === 1), "no check was read while the old head showed")
 })
 
 test("the plan names every step, and the browser merge where main is protected", () => {

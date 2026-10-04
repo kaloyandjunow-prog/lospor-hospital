@@ -38,6 +38,10 @@ export const TRAIN = Object.freeze([
   { repo: "lospor-docs", pinsCore: false, protectedMain: true },
 ])
 const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
+/** One word per check: a status context's state, or a check run's conclusion once complete. */
+const CHECK_STATES = '.statusCheckRollup | map(if .__typename == "StatusContext" then .state elif .status == "COMPLETED" then .conclusion else "PENDING" end) | join(",")'
+const PASSED_CHECK = new Set(["SUCCESS", "SKIPPED", "NEUTRAL"])
+const FAILED_CHECK = new Set(["FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "STALE"])
 
 export class TrainError extends Error {}
 const refuse = message => { throw new TrainError(message) }
@@ -112,7 +116,26 @@ export async function runTrain({ version, root, exec, say, poll = 30_000, maxWai
     let state = gh(repo, "pr", "view", number, "--json", "state", "--jq", ".state")
     if (state !== "MERGED") {
       say(`${repo}: waiting for CI on #${number}...`)
-      exec("gh", ["pr", "checks", number, "--watch", "--fail-fast", "--repo", `${OWNER}/${repo}`], dir)
+      // Polled rather than `gh pr checks --watch`, which exits with an error
+      // when it runs before GitHub has registered any check on a new PR.
+      const ciDeadline = Date.now() + maxWait
+      // Right after a push GitHub can still report the previous head's checks;
+      // results count only once the PR's head is the commit just pushed.
+      const pushed = git(repo, "rev-parse", "HEAD")
+      for (;;) {
+        const head = gh(repo, "pr", "view", number, "--json", "headRefOid", "--jq", ".headRefOid")
+        if (head !== pushed) {
+          if (Date.now() > ciDeadline) refuse(`${repo} #${number} does not show the pushed commit ${pushed}`)
+          await sleep(poll)
+          continue
+        }
+        const states = gh(repo, "pr", "view", number, "--json", "statusCheckRollup", "--jq", CHECK_STATES).split(",").filter(Boolean)
+        const failed = states.filter(state => FAILED_CHECK.has(state))
+        if (failed.length > 0) refuse(`${repo} #${number}: CI did not pass (${failed.join(", ")}). Fix it, push, and run the train again.`)
+        if (states.length > 0 && states.every(state => PASSED_CHECK.has(state))) break
+        if (Date.now() > ciDeadline) refuse(`${repo} #${number}: CI did not finish within ${Math.round(maxWait / 60_000)} minutes; run again to resume`)
+        await sleep(poll)
+      }
       if (protectedMain) {
         say(`${repo}: main is protected. Merge #${number} in the browser (squash): https://github.com/${OWNER}/${repo}/pull/${number}`)
       } else {
@@ -130,7 +153,9 @@ export async function runTrain({ version, root, exec, say, poll = 30_000, maxWai
 
     const merged = gh(repo, "pr", "view", number, "--json", "mergeCommit", "--jq", ".mergeCommit.oid")
     if (!/^[a-f0-9]{40}$/.test(merged)) refuse(`${repo} #${number} has no merge commit`)
-    git(repo, "fetch", "--quiet", "origin", "main", "--tags")
+    // Only main: fetching every tag fails on an old local tag that differs from
+    // the remote one, which has nothing to do with this release.
+    git(repo, "fetch", "--quiet", "origin", "main")
     git(repo, "tag", "-a", tag, merged, "-m", `${repo} ${version}`)
     git(repo, "push", "--quiet", "origin", `refs/tags/${tag}`)
     say(`${repo}: released ${tag} at ${merged}.`)
