@@ -1,5 +1,5 @@
-import React, { useState } from "react"
-import { View, Text, TouchableOpacity } from "react-native"
+import React, { useCallback, useEffect, useRef, useState } from "react"
+import { View, Text, TouchableOpacity, type LayoutChangeEvent, type ScrollView } from "react-native"
 import { useMemo } from "react"
 import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
@@ -8,13 +8,31 @@ import { aldreteBand, handoverGroups } from "@lospor/core/postop"
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-export function SectionHeader({ title }: { title: string }) {
+export function SectionHeader({ title, onLayout }: { title: string; onLayout?: (event: LayoutChangeEvent) => void }) {
   useThemeRefresh()
   return (
-    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
+    <Text onLayout={onLayout} style={{ color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
       {title}
     </Text>
   )
+}
+
+/**
+ * Bring the part of the postoperative record a readiness "Go to" named into
+ * view once it has been laid out (1.5.0). Once only; after that the clinician
+ * scrolls.
+ */
+export function usePostopFocusScroll(focus: string | null | undefined) {
+  const ref = useRef<ScrollView>(null)
+  const done = useRef(false)
+  const mark = useCallback((key: "recovery" | "disposition") => (event: LayoutChangeEvent) => {
+    if (done.current || focus !== key) return
+    done.current = true
+    const y = event.nativeEvent.layout.y
+    setTimeout(() => ref.current?.scrollTo({ y: Math.max(0, y - 12), animated: true }), 50)
+  }, [focus])
+  useEffect(() => { done.current = false }, [focus])
+  return { ref, mark }
 }
 
 export function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {

@@ -23,9 +23,9 @@ import { useDrugEntry } from "@/lib/use-drug-entry"
 import { BOLUS_SCENARIOS, INFUSION_SCENARIOS } from "@lospor/core"
 import { useVitalsEntry } from "@/lib/use-vitals-entry"
 import { COMPLICATION_GROUPS, COMPLICATION_ITEMS, COMPLICATION_TC_TITLES } from "@/lib/intraop-static-options"
-import type { IntraopTab } from "@/lib/intraop-tabs"
+import { intraopTabForFocus, type IntraopTab } from "@/lib/intraop-tabs"
 import { newChartFluidsWithTimestamps } from "@/lib/intraop-chart-change"
-import { pediatricAgeFromPreop, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
+import { pediatricAgeFromPreop, useAllergyCheck, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
 import { useIntraopCaseLifecycle } from "@/lib/use-intraop-case-lifecycle"
 import { useIntraopPremedication } from "@/lib/use-intraop-premedication"
@@ -105,7 +105,7 @@ export default function IntraopLiveScreen() {
     clinicalRulesSnapshot?.preset ?? null,
     prospectiveGuidanceEnabled,
   )
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>()
   const router  = useRouter()
   // Read-only chart view of the case so far: the same panel the finished-case
   // viewer draws, reachable mid-case. Pushed rather than shown as a modal so
@@ -140,7 +140,7 @@ export default function IntraopLiveScreen() {
   const tabRailRef  = useRef<ScrollView>(null)
   const tabLayouts  = useRef<Partial<Record<string, { x: number; width: number }>>>({})
 
-  const [tab,       setTab]       = useState<IntraopTab>("equipment")
+  const [tab,       setTab]       = useState<IntraopTab>(() => intraopTabForFocus(focus) ?? "equipment")
   // Time from the tap to the committed render of the new tab — the number the
   // clinician actually experiences, readable later on the diagnostics screen.
   const tabSwitchStartedAt = useRef<number | null>(null)
@@ -244,7 +244,7 @@ export default function IntraopLiveScreen() {
 
   // Pediatric cases remain manually chartable but must not inherit unreviewed
   // adult dose, rate, concentration, fluid, gas, or equipment presets.
-  // Infusion sheets
+  const allergyCheck = useAllergyCheck(preop, tc) // infusion + drug sheets check recorded allergies (1.5.0)
   const {
     infOpen, setInfOpen, infDrug, setInfDrug, infRate, setInfRate,
     infRoute, setInfRoute, infConcentration, setInfConcentration,
@@ -253,7 +253,7 @@ export default function IntraopLiveScreen() {
     infActOpen, setInfActOpen, infActTgt, setInfActTgt, infActRate, setInfActRate,
     infActConcentration, setInfActConcentration, infActTs, setInfActTs,
     openInfusion, confirmInfusion, stopInfusion, changeRate,
-  } = useInfusionEntry(save, setEntryTs, setActiveInfusions, INFUSION_CODES, INFUSION_WEIGHT_BASIS)
+  } = useInfusionEntry(save, setEntryTs, setActiveInfusions, INFUSION_CODES, INFUSION_WEIGHT_BASIS, allergyCheck)
 
   // Drug sheet
   const {
@@ -272,7 +272,7 @@ export default function IntraopLiveScreen() {
     setInfOpen,
     DRUG_CODES,
     pediatricMode ? {} : INFUSION_QUICK_RATES,
-    pediatricMode ? {} : DRUG_DOSE_CALCS,
+    pediatricMode ? {} : DRUG_DOSE_CALCS, allergyCheck,
   )
 
   // Fluid sheet + end options

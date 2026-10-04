@@ -94,6 +94,7 @@ import {
   PediatricRiskAndCalculators,
   PediatricVitalReferenceNote,
 } from "@/components/preop/PediatricPreopSections"
+import { useReadinessFocus } from "@/lib/use-readiness-focus"
 
 const SECTION_RAIL_EXPANDED_HEIGHT = 68
 
@@ -103,7 +104,7 @@ function impact() {
 
 export default function NewCaseScreen() {
   const router = useRouter()
-  const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
+  const { continue: continueId, localId: localIdParam, focus } = useLocalSearchParams<{ continue?: string; localId?: string; focus?: string }>()
   const insets = useSafeAreaInsets()
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
   const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
@@ -471,6 +472,10 @@ export default function NewCaseScreen() {
       setDraftState("queued")
     })
   }, [continueId, draftOwner, localIdParam, reset])
+
+  // A readiness "Go to" opens the section it names once the case has loaded
+  // (9.14.0); upstream's shared loader does this, the appliance's own loads here.
+  useReadinessFocus(focus, caseLoadedRef, jumpTo)
 
   // useWatch re-renders on every field change on native and web (watch(callback) is unreliable on Expo web).
   const _allFormValues = useWatch({ control })

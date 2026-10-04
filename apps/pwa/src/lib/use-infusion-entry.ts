@@ -1,4 +1,5 @@
 import { atRow, type SaveIntraopEvent } from "@/lib/intraop-stamp"
+import { NO_ALLERGY_CHECK, whenGiven, type AllergyCheck } from "@/lib/use-allergy-check"
 import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
 import { DEFAULT_INFUSION_WEIGHT_BASIS, infusionCalculationBasis, type WeightBasisMap } from "@lospor/core/intraop-totals"
@@ -28,6 +29,8 @@ export function useInfusionEntry(
   // The institution's weight basis per drug; recorded on the start event so
   // a later library edit cannot change what this infusion was given on.
   weightBasis: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
+  /** The case's recorded allergies, checked before an infusion starts (1.5.0). */
+  allergyCheck: AllergyCheck = NO_ALLERGY_CHECK,
 ) {
   const [infOpen, setInfOpen] = useState(false)
   const [infDrug, setInfDrug] = useState<InfusionOption | null>(null)
@@ -62,19 +65,24 @@ export function useInfusionEntry(
       drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
       ...provenanceFromRule(infRule),
     }
-    // Optimistic add + close the sheet synchronously, then fire the save.
-    setActiveInfusions(prev => [...prev, inf])
+    // Close the sheet synchronously; the allergy check answers at once when
+    // nothing clashes. Only a given infusion is shown running and saved, so a
+    // declined one never appears (1.5.0).
     setInfOpen(false); setInfDrug(null); setInfRate(""); setInfRoute(undefined); setInfConcentration(undefined)
     setInfCustomConcentration(undefined); setInfFormulation(undefined); setInfRule(undefined)
-    void save({
-      type: "infusion_start", infId: inf.infId, name: inf.name, rate: inf.rate, unit: inf.unit,
-      color: inf.color, concentration: inf.concentration, formulation: inf.formulation,
-      drugRoute: inf.route, drugId: inf.drugId, atcCode: inf.atcCode, inn: inf.inn,
-      clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
-      clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
-      clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
-      clinicalPresetScope: inf.clinicalPresetScope,
-      calculationBasis: infusionCalculationBasis(inf.name, weightBasis),
+    whenGiven(allergyCheck({ name: inf.name, atcCode: inf.atcCode, inn: inf.inn }), allergyAck => {
+      setActiveInfusions(prev => [...prev, inf])
+      void save({
+        ...(allergyAck ? { allergyAck } : {}),
+        type: "infusion_start", infId: inf.infId, name: inf.name, rate: inf.rate, unit: inf.unit,
+        color: inf.color, concentration: inf.concentration, formulation: inf.formulation,
+        drugRoute: inf.route, drugId: inf.drugId, atcCode: inf.atcCode, inn: inf.inn,
+        clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
+        clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
+        clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
+        clinicalPresetScope: inf.clinicalPresetScope,
+        calculationBasis: infusionCalculationBasis(inf.name, weightBasis),
+      })
     })
   }
 

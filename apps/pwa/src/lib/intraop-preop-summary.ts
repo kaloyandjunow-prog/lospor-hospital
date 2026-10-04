@@ -4,6 +4,8 @@ import type {
   PediatricAgeUnit,
 } from "@lospor/core/pediatric"
 
+export { useAllergyCheck } from "@/lib/use-allergy-check"
+
 export type IntraopPreopSummary = {
   clinicalMode: ClinicalMode
   age?: number
@@ -19,6 +21,8 @@ export type IntraopPreopSummary = {
   cormackLehane?: string
   comorbidities?: { label: string; code?: string }[]
   currentMedications?: { label: string; atcCode?: string }[]
+  allergies?: boolean | null
+  allergyDetails?: unknown
 }
 
 function numberOrUndefined(value: unknown): number | undefined {
@@ -47,6 +51,9 @@ export function buildIntraopPreopSummary(
     cormackLehane: typeof pd.cormackLehane === "string" ? pd.cormackLehane : undefined,
     comorbidities: Array.isArray(pd.comorbidities) ? pd.comorbidities as IntraopPreopSummary["comorbidities"] : [],
     currentMedications: Array.isArray(pd.currentMedications) ? pd.currentMedications as IntraopPreopSummary["currentMedications"] : [],
+    // For the allergy check when a drug is given (1.5.0).
+    allergies: typeof pd.allergies === "boolean" ? pd.allergies : null,
+    allergyDetails: pd.allergyDetails,
   }
 }
 export function pediatricAgeFromPreop(

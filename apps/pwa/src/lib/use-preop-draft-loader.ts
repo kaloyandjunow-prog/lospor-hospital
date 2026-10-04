@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react"
+import { useReadinessFocus } from "@/lib/use-readiness-focus"
+import type { PreopSection } from "@/lib/preop-form-schema"
 import { useRouter } from "expo-router"
 import { ApiError, apiJson } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
@@ -38,6 +40,9 @@ type Input<TFormValues> = {
   setPreopFinalizedAt: (value: string | null) => void
   setPreopCaseStatus: (value: string | null) => void
   tc: ReturnType<typeof usePreferences>["tc"]
+  /** The section a readiness "Go to" named, opened once the case is loaded (1.5.0). */
+  focus?: string
+  jumpTo?: (section: PreopSection) => void
 }
 
 /**
@@ -60,6 +65,7 @@ type Input<TFormValues> = {
  */
 export function usePreopDraftLoader<TFormValues>(input: Input<TFormValues>) {
   const router = useRouter()
+  useReadinessFocus(input.focus, input.caseLoadedRef, section => input.jumpTo?.(section))
   const latest = useRef({ ...input, router })
   latest.current = { ...input, router }
   const { continueId, localIdParam, draftOwner } = input
