@@ -100,7 +100,9 @@ function commit(root, paths, message) {
 }
 
 function defaultRun(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, stdio: "inherit", shell: process.platform === "win32" })
+  // npm is a .cmd on Windows and needs the shell; node must not go through it,
+  // because its path (C:\Program Files\...) has a space in it.
+  const result = spawnSync(command, args, { cwd, stdio: "inherit", shell: process.platform === "win32" && command === "npm" })
   if (result.status !== 0) refuse(`${command} ${args.join(" ")} failed in ${cwd}`)
 }
 
