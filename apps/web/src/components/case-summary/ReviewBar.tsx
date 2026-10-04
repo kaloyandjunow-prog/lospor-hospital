@@ -9,6 +9,8 @@ import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { usePendingCloseCountdown } from "@/hooks/usePendingCloseCountdown"
 import type { LABELS } from "@/components/case-summary/labels"
 import { finalizeErrorMessage } from "@/components/case-summary/finalize-error"
+import { caseReadiness, readinessFromRefusal, type CaseReadiness } from "@lospor/core/case-readiness"
+import { ReadinessPanel } from "@/components/case-summary/ReadinessPanel"
 
 type Labels = (typeof LABELS)["en" | "bg"]
 
@@ -33,6 +35,7 @@ export function ReviewBar({
   finalizedAtMs,
   now,
   labels: L,
+  readinessCase,
   onFinalized,
   onUnfinalized,
 }: {
@@ -43,6 +46,12 @@ export function ReviewBar({
   finalizedAtMs: number | null
   now: number
   labels: Labels
+  /**
+   * The case on screen. What still blocks finalizing is worked out from it by
+   * the same rules the server finalizes by (1.5.0), shown before anyone presses
+   * the button and counted beside it.
+   */
+  readinessCase: { clinicalMode?: string | null; preop?: unknown; intraop?: unknown; postop?: unknown }
   onFinalized: (finalizedAt: string) => void
   onUnfinalized: () => void
 }) {
@@ -51,6 +60,16 @@ export function ReviewBar({
   const router = useRouter()
   const [finalizing, setFinalizing] = useState(false)
   const [showPrintPrompt, setShowPrintPrompt] = useState(false)
+  // The server's own list after a refusal. It is what the server checks, so
+  // it replaces the local one until the case changes.
+  const [refusal, setRefusal] = useState<CaseReadiness | null>(null)
+  const readiness = caseReadiness({
+    clinicalMode: readinessCase.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT",
+    preop: (readinessCase.preop ?? null) as Record<string, unknown> | null,
+    intraop: (readinessCase.intraop ?? null) as Record<string, unknown> | null,
+    postop: (readinessCase.postop ?? null) as Record<string, unknown> | null,
+  })
+  const shown = refusal ?? readiness
 
   // Passive countdown to the automatic finalize that started when the case
   // reached AWAITING_REVIEW -- same server anchor and same core decision the
@@ -97,7 +116,11 @@ export function ReviewBar({
       }
       if (options.automatic) return
       const body = await res.json().catch(() => ({}))
-      alert(finalizeErrorMessage(body, L))
+      // Every blocker at once, with a way to each (1.5.0). A refusal without a
+      // list (an older server, a conflict) still says why in one line.
+      const listed = readinessFromRefusal(body)
+      if (listed) setRefusal(listed)
+      else alert(finalizeErrorMessage(body, L))
     } finally {
       setFinalizing(false)
     }
@@ -169,6 +192,7 @@ export function ReviewBar({
                   onClick={() => finalize()}
                   className="text-xs font-bold px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors">
                   {finalizing ? L.closing : L.closeNow}
+                  {!finalizing && shown.blockers.length > 0 ? ` (${shown.blockers.length})` : ""}
                 </button>
               </>
             )}
@@ -190,6 +214,9 @@ export function ReviewBar({
         {!canWrite && (
           <p className="text-xs text-slate-500 dark:text-slate-400">{t("case.handedOnReadOnly")}</p>
         )}
+        {canWrite && status !== "COMPLETE" ? (
+          <ReadinessPanel caseId={caseId} readiness={shown} locale={locale === "bg" ? "bg" : "en"} />
+        ) : null}
         {closeSecsLeft !== null && (
           <p className="text-xs text-amber-700 dark:text-amber-400">
             {t("case.pendingClose")}{" "}

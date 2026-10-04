@@ -364,7 +364,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             awaitingReviewAt={data.awaitingReviewAt ?? null}
             finalizedAtMs={finalizedAtMs}
             now={now}
-            labels={L}
+            labels={L} readinessCase={data}
             onFinalized={finalizedAt => setData(prev => prev ? { ...prev, status: "COMPLETE", finalizedAt } : prev)}
             onUnfinalized={() => setData(prev => prev ? { ...prev, status: "IN_PROGRESS", finalizedAt: null } : prev)}
           />

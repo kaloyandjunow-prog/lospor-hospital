@@ -1682,7 +1682,8 @@
       "resumeKeepStops": "Keep",
       "labsPill": "Labs · {count}",
       "autoEndedNotice": "This case was ended automatically 48 hours after it started. Resume it if it is still running."
-    }
+    },
+    "allergiesUnchecked": "Not checked against drugs automatically:"
   },
   "postop": {
     "aldreteSection": "Modified Aldrete Score (on leaving theatre)",
@@ -1834,6 +1835,9 @@
     "goToMode": "Go to mode setting",
     "undated": "No date given by the hospital",
     "provenance": "Reported by the hospital system, not by the patient",
+    "modeSwitchToPediatric": "Adding this age switches the case to paediatric mode. Adult risk scores and vitals already recorded are cleared and AI assistance is turned off for the case; the values you add here are kept.",
+    "modeSwitchToAdult": "Adding this age switches the case to adult mode. The paediatric age, fasting times and COLDS assessment already recorded are cleared and AI assistance is turned off for the case; the values you add here are kept.",
+    "modeUnavailable": "This age is paediatric and this system has no paediatric mode, so the age is not added.",
     "asking": "Asking the hospital system about this patient…",
     "nothingHeld": "The hospital system holds nothing for this patient.",
     "requested": "Requested from the hospital system. Its answer appears here when it arrives…",

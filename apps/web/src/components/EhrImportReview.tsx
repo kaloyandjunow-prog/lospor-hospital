@@ -32,6 +32,7 @@ export function EhrImportReview({
   unreadSources = [],
   current,
   currentClinicalMode,
+  modeChangeAvailable = true,
   labelFor,
   onAccept,
   onDecline,
@@ -61,19 +62,31 @@ export function EhrImportReview({
   unreadSources?: EhrUnreadSource[]
   /** The case as it stands, by canonical field name. */
   current: Record<string, unknown>
-  /** Decides which fields an accepted age is written into. */
+  /** The mode the case is in now; an accepted age may change it. */
   currentClinicalMode?: ClinicalMode | null
+  /**
+   * Whether this deployment can switch the case's mode. False where there is
+   * no paediatric mode: an age that would need it is then left out.
+   */
+  modeChangeAvailable?: boolean
   /** Field labels come from wherever the form already keeps them. */
   labelFor: (field: string) => string
-  onAccept: (patch: Record<string, unknown>, appliedKeys: string[]) => void
+  /**
+   * `modeChange`, when set, is the mode the accepted age puts the case in. The
+   * host runs its own mode switch first, with the clearing it always does,
+   * and writes `patch` after it, so the switch never wipes an imported value.
+   */
+  onAccept: (
+    patch: Record<string, unknown>,
+    appliedKeys: string[],
+    modeChange: ClinicalMode | null,
+  ) => void
   /** Remembered by the server so the item is never offered again. */
   onDecline: (itemKey: string) => void
   /**
-   * Take the clinician to the mode control.
-   *
-   * Less urgent here than on mobile, where the review covers the screen and a
-   * blocked age would otherwise be a dead end — but a long preop form can put
-   * the toggle well off-screen, so the row offers the same way out.
+   * Take the clinician to the mode control. Only reached from a plan built
+   * by an appliance older than 9.13.9, which still holds an age back until
+   * the mode is switched by hand.
    */
   onRequestModeChange?: () => void
   onClose: () => void
@@ -84,6 +97,14 @@ export function EhrImportReview({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 
   const visible = useMemo(() => visibleReviewItems(plan), [plan])
+
+  // What "Add selected" would do, worked out the same way it will be done, so
+  // the clinician sees a mode switch (and what it clears) before causing it.
+  const preview = applyEhrSelections({
+    plan, selectedKeys: selected, current, currentClinicalMode,
+    allowModeChange: modeChangeAvailable,
+  })
+  const ageLeftOut = preview.refused.some(refusal => refusal.reason === "needs-mode-decision")
 
   // Older results stay out of the way until asked for. A falling haemoglobin is
   // the interesting part, so they collapse rather than disappear.
@@ -260,15 +281,23 @@ export function EhrImportReview({
         </button>
       ))}
 
+      {preview.modeChange || ageLeftOut ? (
+        <p
+          role="note"
+          className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {preview.modeChange === "PEDIATRIC"
+            ? t("modeSwitchToPediatric")
+            : preview.modeChange === "ADULT"
+              ? t("modeSwitchToAdult")
+              : t("modeUnavailable")}
+        </p>
+      ) : null}
+
       <button
         type="button"
         disabled={selected.size === 0}
-        onClick={() => {
-          const result = applyEhrSelections({
-            plan, selectedKeys: selected, current, currentClinicalMode,
-          })
-          onAccept(result.patch, result.appliedKeys)
-        }}
+        onClick={() => onAccept(preview.patch, preview.appliedKeys, preview.modeChange)}
         className="mt-4 w-full rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
       >
         {t("accept")} ({selected.size})

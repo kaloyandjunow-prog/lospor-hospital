@@ -65,7 +65,8 @@ function writeControls() {
     preop:      screen.queryByRole("link", { name: "Preop" }),
     intraop:    screen.queryByRole("link", { name: "Intraop" }),
     postop:     screen.queryByRole("link", { name: "Postop" }),
-    closeNow:   screen.queryByRole("button", { name: "Close Now" }),
+    // The label carries the readiness count when something blocks (1.5.0).
+    closeNow:   screen.queryByRole("button", { name: /^Close Now( \(\d+\))?$/ }),
     unfinalize: screen.queryByRole("button", { name: "Unfinalize" }),
   }
 }

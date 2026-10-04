@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { preopFocusTab, preopSectionForErrors, scrollToReadiness, useScrollToReadiness } from "@/lib/readiness-focus"
 import { usePreopAutosave } from "@/lib/use-preop-autosave"
 import { missingPreopFields } from "@/lib/preop-validation"
 import { applyClinicalModeSwitch, applyEhrImportToForm } from "@/lib/clinical-mode-switch"
@@ -75,7 +76,7 @@ type ProcedureSearchItem = { code: string; group?: string; description: string; 
 type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?: string }
 
 
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, onEhrAcceptedBeforeCase, submitting = false, submitError, onClinicalInput, preopProfile }: {
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, onEhrAcceptedBeforeCase, submitting = false, submitError, onClinicalInput, preopProfile, focus }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
   onNameChange?: (name: string) => void
@@ -97,6 +98,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   /** Shown above the submit action when the gated submit rejects the case. */
   submitError?: string | null
   onClinicalInput?: () => void
+  /** A section to open on arrival, from a readiness "Go to" (1.5.0). */
+  focus?: string | null
 }) {
   const t      = useTranslations()
   const locale = useLocale()
@@ -298,10 +301,10 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   }, [onClinicalInput, pediatricRecordReadOnly, watch])
 
   const airwayUTO = !!watch("airwayUnobtainable")
-  const [activeTab, setActiveTab] = useState<"patient" | "case" | "history" | "exam" | "risk">("patient")
+  const [activeTab, setActiveTab] = useState<"patient" | "case" | "history" | "exam" | "risk">(() => preopFocusTab(focus) ?? "patient")
+  useScrollToReadiness(focus)
 
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set())
-  const refMap = useRef<Record<string, HTMLDivElement | null>>({})
 
   function fe(key: string) {
     // A server-refused value gets the same ring as a missing required one —
@@ -363,30 +366,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   /** Highlights the given (abstracted) field keys and jumps to wherever the first one lives. */
   function reportFieldErrorsAndJump(errs: string[]) {
-    const errSet = new Set(errs)
-    setFieldErrors(errSet)
-    if (layoutMode === "tabs") {
-      const firstErr = errs[0]
-      const tab: "patient" | "case" | "exam" | "risk" =
-        // patientId is appliance-only and belongs with the patient tab.
-        firstErr === "patientId" || firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
-        firstErr === "diagnoses" || firstErr === "procedures" ? "case" :
-        firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" || firstErr === "airway" ? "exam" :
-        "risk"
-      setActiveTab(tab)
-    } else {
-      const sectionOrder = ["patientId","ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
-      const firstErr = sectionOrder.find(e => errSet.has(e))
-      if (firstErr) {
-        const sectionKey =
-          firstErr === "patientName" || firstErr === "patientId" ? "patient" :
-          firstErr === "ageYears"   || firstErr === "ageValue" || firstErr === "sex" ? "demographics" :
-          firstErr === "diagnoses"  || firstErr === "procedures" ? "case" :
-          firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" ? "vitals" :
-          firstErr === "airway" ? "airway" : "asa"
-        setTimeout(() => refMap.current[sectionKey]?.scrollIntoView({ behavior: "smooth", block: "center" }), 0)
-      }
-    }
+    setFieldErrors(new Set(errs))
+    // The same map a readiness "Go to" uses, so the two cannot disagree (1.5.0).
+    const section = preopSectionForErrors(errs)
+    setActiveTab(preopFocusTab(section) ?? "risk")
+    scrollToReadiness(section)
   }
 
   function handleValidatedSubmit(data: PreopData) {
@@ -471,10 +455,10 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       {/* ── Patient tab ─────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
       {/* Demographics */}
-      <div ref={el => { refMap.current.demographics = el }} data-tour="preop-demographics">
+      <div data-readiness="demographics" data-tour="preop-demographics">
       <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
         {!caseId && (
-          <div ref={el => { refMap.current.patient = el }} className="space-y-2">
+          <div className="space-y-2">
             <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
             </Label>
@@ -674,7 +658,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       {/* ── Case tab ─────────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "case" ? "hidden" : ""}>
       {/* Case details */}
-      <div ref={el => { refMap.current.case = el }} data-tour="preop-diagnosis">
+      <div data-readiness="case_details" data-tour="preop-diagnosis">
       <SectionCard title={t("preop.caseSection")} error={fieldErrors.has("diagnoses") || fieldErrors.has("procedures")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1 sm:col-span-2">
@@ -777,7 +761,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {/* ── History tab ──────────────────────────────────────────── */}
-      <div className={layoutMode === "tabs" && activeTab !== "history" ? "hidden" : "space-y-6"}>
+      <div data-readiness="medical_history current_medications anamnesis" className={layoutMode === "tabs" && activeTab !== "history" ? "hidden" : "space-y-6"}>
       {/* Medical History */}
       <SectionCard title={t("preop.historySection")}>
         <p className="text-sm text-slate-500">{t("preop.historyDesc")}</p>
@@ -842,7 +826,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       {/* ── Exam tab ─────────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "exam" ? "hidden" : "space-y-6"}>
       {/* Vitals */}
-      <div ref={el => { refMap.current.vitals = el }}>
+      <div data-readiness="physical_exam">
       <SectionCard title={t("preop.vitalsSection")} error={fieldErrors.has("bp") || fieldErrors.has("heartRate") || fieldErrors.has("respiratoryRate")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <PediatricVitalReferenceNote control={control} />
@@ -938,7 +922,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {/* Airway */}
-      <div ref={el => { refMap.current.airway = el }} data-tour="preop-airway">
+      <div data-readiness="airway" data-tour="preop-airway">
       <SectionCard title={`${t("preop.airwaySection")} *`} error={fieldErrors.has("airway")} action={
         <button type="button"
           onClick={() => setValue("airwayUnobtainable", !airwayUTO)}
@@ -1058,12 +1042,12 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {/* ── Risk & ASA tab ────────────────────────────────────────── */}
-      <div className={layoutMode === "tabs" && activeTab !== "risk" ? "hidden" : "space-y-6"}>
+      <div data-readiness="labs" className={layoutMode === "tabs" && activeTab !== "risk" ? "hidden" : "space-y-6"}>
       {/* Lab Results */}
       <LabResultsSection control={control} aiOptIn={!!watch("aiOptIn")} caseId={caseId} />
 
       {/* ASA */}
-      <div ref={el => { refMap.current.asa = el }} data-tour="preop-scores">
+      <div data-readiness="risk_scores" data-tour="preop-scores">
       <SectionCard title={`${t("preop.riskSection")} *`} error={fieldErrors.has("asaScore")}>
         <div className="space-y-3">
           <div className="space-y-2">

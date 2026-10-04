@@ -138,10 +138,12 @@ test("the summary explains the demographics blocker when Close Now is pressed", 
     const { id } = await created.json()
 
     const page = await context.newPage()
-    let dialogMessage = ""
+    // Since 9.14.0 the refusal is listed on the page, in the readiness panel,
+    // with a way to the field -- no longer an alert() that named it and went.
+    let dialogShown = false
     page.on("dialog", async dialog => {
-      dialogMessage = dialog.message()
-      await dialog.accept()
+      dialogShown = true
+      await dialog.dismiss()
     })
 
     try {
@@ -156,9 +158,10 @@ test("the summary explains the demographics blocker when Close Now is pressed", 
       await close.click()
       expect((await responsePromise).status()).toBe(422)
 
-      await expect.poll(() => dialogMessage).toContain(
-        "Pre-op demographics incomplete — age, sex, height, or weight missing",
-      )
+      const readiness = page.getByRole("region", { name: "Before this case can be finalized" })
+      await expect(readiness).toContainText("Age, sex, height or weight")
+      await expect(readiness.getByRole("link", { name: /Go to/ }).first()).toBeVisible()
+      expect(dialogShown).toBe(false)
     } finally {
       await page.close()
       await api.delete(`/api/cases/${id}`, { headers: JSON_HEADERS }).catch(() => {})

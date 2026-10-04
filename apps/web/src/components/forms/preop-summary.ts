@@ -23,7 +23,7 @@ export type PreopSummary = {
   // reassuring the anaesthetist that the airway history is clear.
   difficultAirwayHistory?: boolean | null
   allergies?: boolean | null
-  allergyDetails?: { label: string }[]
+  allergyDetails?: { label: string; inn?: string; atcCode?: string; source?: string }[]
   comorbidities?: { label: string }[]
   currentMedications?: { label: string; atcCode?: string }[]
   labResults?: { test: string; value: string; unit: string }[]
