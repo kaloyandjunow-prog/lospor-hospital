@@ -1,6 +1,7 @@
 import { isPediatricAge, type ClinicalMode, type PediatricAgeUnit } from "./pediatric"
 import { intraopEventsAfter, intraopUnconfirmedStops } from "./intraop-commands"
 import { parseLogEvents } from "./intraop-types"
+import { allergyConflicts, allergyRecords } from "./allergy-drug-check"
 
 export type ClinicalSection = "preop" | "intraop" | "postop"
 export type ClinicalIssueSeverity = "error" | "warning"
@@ -41,6 +42,7 @@ export type ClinicalIssueCode =
   | "missing_postop"
   | "missing_aldrete"
   | "missing_disposition"
+  | "unacknowledged_allergy_conflict"
 
 export type ClinicalIssue = {
   code: ClinicalIssueCode
@@ -620,7 +622,51 @@ export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalVal
     issues.push(issue("unconfirmed_stops", "intraop.keyEvents"))
   }
   issues.push(...evaluatePostopReadiness(input.postop).issues)
+  if (hasUnacknowledgedAllergyConflict(input.preop, input.intraop)) {
+    issues.push(issue("unacknowledged_allergy_conflict", "intraop.medications", { severity: "warning" }))
+  }
   return { valid: issues.every(candidate => candidate.severity !== "error"), issues }
+}
+
+/**
+ * A drug given that clashes with a recorded allergy, without the clinician
+ * having acknowledged it (1.5.0). Happens when the allergy was recorded after
+ * the dose -- typed later, or arriving from the hospital system mid-case. A
+ * warning, never a blocker: the dose was given, and what is wanted is that
+ * somebody looks.
+ */
+function hasUnacknowledgedAllergyConflict(
+  preop: Record<string, unknown> | null | undefined,
+  intraop: Record<string, unknown> | null | undefined,
+): boolean {
+  const allergies = allergyRecords(preop)
+  if (allergies.length === 0 || !intraop) return false
+  const keyEvents = intraop.keyEvents
+  const log = parseLogEvents(Array.isArray(keyEvents)
+    ? keyEvents
+    : keyEvents && typeof keyEvents === "object" ? (keyEvents as { log?: unknown }).log : [])
+  const timetable = (intraop.timetableData && typeof intraop.timetableData === "object"
+    ? intraop.timetableData
+    : keyEvents && typeof keyEvents === "object" && !Array.isArray(keyEvents) ? keyEvents : {}) as {
+    drugs?: unknown[]; infusions?: unknown[]
+  }
+  const given = [
+    ...log.filter(event => event.type === "drug" || event.type === "infusion_start"),
+    ...[...(timetable.drugs ?? []), ...(timetable.infusions ?? [])]
+      .filter((row): row is Record<string, unknown> => !!row && typeof row === "object"),
+  ]
+  return given.some(dose => {
+    const name = typeof dose.name === "string" ? dose.name : ""
+    if (!name) return false
+    const acknowledged = new Set(
+      Array.isArray(dose.allergyAck) ? dose.allergyAck.map(ack => (ack as { allergy?: unknown }).allergy) : [],
+    )
+    return allergyConflicts(allergies, {
+      name,
+      atcCode: typeof dose.atcCode === "string" ? dose.atcCode : null,
+      inn: typeof dose.inn === "string" ? dose.inn : null,
+    }).some(conflict => !acknowledged.has(conflict.allergy))
+  })
 }
 
 export const PREOP_SECTIONS = [

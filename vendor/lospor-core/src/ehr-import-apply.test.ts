@@ -7,7 +7,7 @@ import { applyEhrSelections } from "./ehr-import-apply"
 function accept(
   fields: Record<string, unknown>,
   selectedKeys: string[] | "preselected",
-  rest: Partial<Omit<EhrReviewInput, "canonical">> = {},
+  rest: Partial<Omit<EhrReviewInput, "canonical">> & { allowModeChange?: boolean } = {},
 ) {
   const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields })
   const current = rest.current ?? {}
@@ -17,6 +17,7 @@ function accept(
     selectedKeys: selectedKeys === "preselected" ? plan.preselectedKeys : selectedKeys,
     current,
     currentClinicalMode: rest.currentClinicalMode,
+    allowModeChange: rest.allowModeChange,
   })
 }
 
@@ -68,19 +69,21 @@ describe("the selection arriving from a client is not trusted", () => {
     expect(result.refused).toEqual([{ itemKey: key, reason: "declined" }])
   })
 
-  it("refuses an age that would imply a mode change, even ticked deliberately", () => {
-    // There is no sequence of clicks that writes an age into a case whose mode
-    // disagrees with it. The clinician changes mode, the plan is rebuilt, and
-    // the age becomes an ordinary proposal.
+  it("switches an adult case to paediatric mode for a paediatric age (9.13.9)", () => {
+    // Held back until 9.13.9, and unaddable in practice: the plan is built from
+    // the saved mode, so a switch made in the form never released it.
     const result = accept({ ageYears: 7 }, ["ageYears"], { currentClinicalMode: "ADULT" })
 
-    expect(result.patch).toEqual({})
-    expect(result.refused).toEqual([{ itemKey: "ageYears", reason: "needs-mode-decision" }])
+    expect(result.modeChange).toBe("PEDIATRIC")
+    expect(result.patch).toEqual({ ageValue: 7, ageUnit: "YEARS", ageYears: 7 })
+    expect(result.patch).not.toHaveProperty("clinicalMode")
+    expect(result.refused).toEqual([])
   })
 
-  it("accepts the same age once the case is in paediatric mode", () => {
-    expect(accept({ ageYears: 7 }, ["ageYears"], { currentClinicalMode: "PEDIATRIC" }).patch)
-      .toMatchObject({ ageValue: 7, ageUnit: "YEARS" })
+  it("accepts the same age without a switch once the case is in paediatric mode", () => {
+    const result = accept({ ageYears: 7 }, ["ageYears"], { currentClinicalMode: "PEDIATRIC" })
+    expect(result.modeChange).toBeNull()
+    expect(result.patch).toMatchObject({ ageValue: 7, ageUnit: "YEARS" })
   })
 
   it("applies the good keys alongside the refused ones", () => {
@@ -153,6 +156,70 @@ describe("an accepted age lands where the mode will read it", () => {
     ).patch
 
     expect(patch).toEqual({ weightKg: 80 })
+  })
+})
+
+describe("an accepted age carries its clinical mode", () => {
+  it("switches a paediatric case to adult mode for an adult age", () => {
+    const result = accept(
+      { ageYears: 40 },
+      ["ageYears"],
+      { current: { ageValue: 7, ageUnit: "MONTHS", ageYears: 0 }, currentClinicalMode: "PEDIATRIC" },
+    )
+
+    expect(result.modeChange).toBe("ADULT")
+    expect(result.patch).toEqual({ ageYears: 40, ageValue: null, ageUnit: null })
+  })
+
+  it("reads an accepted ageYears as years, never against the case's own value", () => {
+    // The case still says "7 months"; the hospital says 40 years. Borrowing the
+    // case's ageValue would have read the import as an infant.
+    const result = accept(
+      { ageYears: 40 },
+      ["ageYears"],
+      { current: { ageValue: 7, ageUnit: "MONTHS" }, currentClinicalMode: "PEDIATRIC" },
+    )
+    expect(result.patch.ageYears).toBe(40)
+  })
+
+  it("reads value and unit together, because 3 is an adult in years and an infant in months", () => {
+    const months = accept({ ageValue: 3, ageUnit: "MONTHS" }, "preselected", { currentClinicalMode: "ADULT" })
+    expect(months.modeChange).toBe("PEDIATRIC")
+    expect(months.patch).toMatchObject({ ageValue: 3, ageUnit: "MONTHS", ageYears: 0 })
+
+    const years = accept({ ageValue: 30, ageUnit: "YEARS" }, "preselected", { currentClinicalMode: "ADULT" })
+    expect(years.modeChange).toBeNull()
+    expect(years.patch).toEqual({ ageYears: 30, ageValue: null, ageUnit: null })
+  })
+
+  it("treats a case with no mode yet as adult", () => {
+    expect(accept({ ageYears: 7 }, ["ageYears"]).modeChange).toBe("PEDIATRIC")
+    expect(accept({ ageYears: 40 }, ["ageYears"]).modeChange).toBeNull()
+  })
+
+  it("does not switch when no age was accepted", () => {
+    const result = accept({ ageYears: 7, weightKg: 22 }, ["weightKg"], { currentClinicalMode: "ADULT" })
+    expect(result.modeChange).toBeNull()
+    expect(result.patch).toEqual({ weightKg: 22 })
+  })
+
+  it("refuses the age, and only the age, where the mode cannot change", () => {
+    // A deployment without paediatric mode. The rest of the import still lands.
+    const result = accept(
+      { ageValue: 7, ageUnit: "YEARS", weightKg: 22 },
+      "preselected",
+      { currentClinicalMode: "ADULT", allowModeChange: false },
+    )
+
+    expect(result.modeChange).toBeNull()
+    expect(result.patch).toEqual({ weightKg: 22 })
+    expect(result.appliedKeys).toEqual(["weightKg"])
+    expect(result.refused.map(r => r.reason)).toEqual(["needs-mode-decision", "needs-mode-decision"])
+  })
+
+  it("still accepts an age that needs no switch where the mode cannot change", () => {
+    const result = accept({ ageYears: 40 }, ["ageYears"], { currentClinicalMode: "ADULT", allowModeChange: false })
+    expect(result.patch).toEqual({ ageYears: 40, ageValue: null, ageUnit: null })
   })
 })
 

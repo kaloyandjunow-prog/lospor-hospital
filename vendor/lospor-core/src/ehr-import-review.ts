@@ -20,8 +20,7 @@ import {
   type EhrLabValue,
   type EhrTagValue,
 } from "./ehr-import"
-import { requiresPediatricModeDecision } from "./pediatric"
-import type { ClinicalMode, PediatricAgeUnit } from "./pediatric"
+import type { ClinicalMode } from "./pediatric"
 
 export type EhrReviewState =
   /** Nothing there yet, and nothing to argue with. Ticked when the screen opens. */
@@ -29,13 +28,16 @@ export type EhrReviewState =
   /** The clinician already wrote something different. Shown side by side, never ticked. */
   | "conflict"
   /**
-   * An age whose acceptance would imply a change of clinical mode.
+   * An age whose acceptance would imply a change of clinical mode, from a plan
+   * built before 9.13.9.
    *
-   * Its own state rather than a flag on another one, so the pediatric trap is
-   * visible in the type and cannot be lost in a boolean nobody reads. Switching
-   * mode clears the adult risk scores and every vital, and resets aiOptIn to
-   * false — an import must never cause that, so this is never ticked and the
-   * clinician switches mode themselves.
+   * No longer produced. An imported age now carries its mode with it: accepting
+   * a paediatric age into an adult case switches the case to paediatric mode
+   * (and back), and `applyEhrSelections` reports the switch so the client runs
+   * it, with the clearing it always does, before writing the import. Waiting for
+   * the clinician to switch first left the age unaddable, because the plan is
+   * built on the server from the saved mode and never saw the switch. Kept so a
+   * client can still render a plan from an appliance that has not updated.
    */
   | "needs-mode-decision"
   /** An older result for a test that has a newer one. Kept, collapsed, not ticked. */
@@ -93,8 +95,8 @@ export type EhrReviewPlan = {
   /**
    * The items ticked when the screen opens.
    *
-   * Only ever the "preselected" ones: a conflict, a superseded lab and an age
-   * implying a mode change all require the clinician to reach for them.
+   * Only ever the "preselected" ones: a conflict and a superseded lab both
+   * require the clinician to reach for them.
    */
   preselectedKeys: string[]
   /** Older results per test that are kept, for the "3 earlier" collapse. */
@@ -113,6 +115,10 @@ export type EhrReviewInput = {
   canonical: CanonicalEhrImport
   /** The case as it stands, by canonical field name. */
   current: Record<string, unknown>
+  /**
+   * Informational since 9.13.9: an age no longer waits on the mode, because
+   * accepting it changes the mode (see `applyEhrSelections`).
+   */
   currentClinicalMode?: ClinicalMode | null
   /** Item keys refused on an earlier import for this case. */
   declinedKeys?: Iterable<string>
@@ -194,38 +200,6 @@ function currentTagKeys(field: EhrImportableField, current: unknown): Set<string
   }))
 }
 
-const AGE_FIELDS = new Set<EhrImportableField>(["ageYears", "ageValue", "ageUnit"])
-
-/**
- * Would accepting the proposed age put the case in the wrong clinical mode?
- *
- * Evaluated once across all the age fields in the message rather than per
- * field, because a value and a unit only mean something together: "3" is an
- * adult in years and an infant in months.
- */
-function ageImpliesModeDecision(
-  input: EhrReviewInput,
-): boolean {
-  const proposed = new Map<string, unknown>()
-  for (const field of input.canonical.fields) {
-    if (AGE_FIELDS.has(field.field)) proposed.set(field.field, field.value)
-  }
-  if (proposed.size === 0) return false
-
-  const pick = (name: string) => proposed.has(name) ? proposed.get(name) : input.current[name]
-  const num = (value: unknown) => {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
-  return requiresPediatricModeDecision({
-    clinicalMode: input.currentClinicalMode ?? (input.current.clinicalMode as ClinicalMode | null),
-    ageValue: num(pick("ageValue")),
-    ageYears: num(pick("ageYears")),
-    ageUnit: (pick("ageUnit") as PediatricAgeUnit | null) ?? null,
-  })
-}
-
 /**
  * Sort a field's labs newest-first and mark everything after the first for
  * each test as superseded.
@@ -303,7 +277,6 @@ export function buildEhrReviewPlan(input: EhrReviewInput): EhrReviewPlan {
   const items: EhrReviewItem[] = []
   const supersededCountByTest: Record<string, number> = {}
   const discardedOlderByTest: Record<string, number> = {}
-  const modeDecision = ageImpliesModeDecision(input)
 
   for (const field of input.canonical.fields) {
     const current = input.current[field.field]
@@ -313,7 +286,6 @@ export function buildEhrReviewPlan(input: EhrReviewInput): EhrReviewPlan {
       const state: EhrReviewState =
         declined.has(itemKey) ? "declined"
         : norm(current) === norm(field.value) ? "unchanged"
-        : modeDecision && AGE_FIELDS.has(field.field) ? "needs-mode-decision"
         : isUnrecorded(current) ? "preselected"
         : "conflict"
       items.push({

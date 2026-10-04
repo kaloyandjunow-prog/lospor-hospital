@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.13.8",
+  "version": "9.14.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -48,6 +48,8 @@
     "./legal": "./src/legal.ts",
     "./api": "./src/api.ts",
     "./case-payloads": "./src/case-payloads.ts",
+    "./allergy-drug-check": "./src/allergy-drug-check.ts",
+    "./case-readiness": "./src/case-readiness.ts",
     "./clinical-validation": "./src/clinical-validation.ts",
     "./clinical-preferences": "./src/clinical-preferences.ts",
     "./intraop-engine": "./src/intraop-engine.ts",

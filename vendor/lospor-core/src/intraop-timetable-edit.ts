@@ -48,7 +48,7 @@ export type TimetableEditContext = {
 }
 
 const DRUG_FIELDS = [
-  "drugId", "atcCode", "inn", "concentration", "concentrationValue", "concentrationUnit", "formulation",
+  "drugId", "atcCode", "inn", "allergyAck", "concentration", "concentrationValue", "concentrationUnit", "formulation",
   "calculationBasis", "calculationWeightKg", "calculationMethod", "clinicalRuleKey", "clinicalRuleVersion",
   "clinicalRuleSourceIds", "clinicalPresetId", "clinicalPresetVersion", "clinicalPresetScope",
 ] as const
@@ -248,7 +248,7 @@ function infusionStart(item: TimetableInfusion): Partial<LogEvent> {
   return {
     infId: item.id, name: item.name, rate: String(item.rate), unit: item.unit, color: item.color,
     concentration: item.concentration, formulation: item.formulation, drugRoute: item.route,
-    drugId: item.drugId, atcCode: item.atcCode, inn: item.inn, calculationBasis: item.calculationBasis,
+    drugId: item.drugId, atcCode: item.atcCode, inn: item.inn, allergyAck: item.allergyAck, calculationBasis: item.calculationBasis,
     clinicalRuleKey: item.clinicalRuleKey, clinicalRuleVersion: item.clinicalRuleVersion,
     clinicalRuleSourceIds: item.clinicalRuleSourceIds, clinicalPresetId: item.clinicalPresetId,
     clinicalPresetVersion: item.clinicalPresetVersion, clinicalPresetScope: item.clinicalPresetScope,

@@ -22,48 +22,31 @@ function stateOf(result: ReturnType<typeof plan>, key: string) {
   return result.items.find(i => i.itemKey === key)?.state
 }
 
-describe("an imported age never changes the clinical mode", () => {
-  // The failure this whole design exists to prevent. Switching mode clears the
-  // adult risk scores and every vital and resets aiOptIn to false, so an
-  // import that caused it would silently revoke AI consent and discard
-  // recorded observations.
+describe("an imported age is offered whatever the case's mode", () => {
+  // Until 9.13.9 an age implying the other mode was held back until the
+  // clinician switched mode themselves. The plan is built on the server from
+  // the saved mode, so a switch made in the form never reached it and the age
+  // stayed unaddable. Accepting the age now switches the mode (see
+  // ehr-import-apply), so the plan offers it like any other value.
 
-  it("does not tick a paediatric age arriving at an adult-mode case", () => {
+  it("ticks a paediatric age arriving at an adult-mode case", () => {
     const result = plan({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
 
-    expect(stateOf(result, "ageYears")).toBe("needs-mode-decision")
-    expect(result.preselectedKeys).toEqual([])
+    expect(stateOf(result, "ageYears")).toBe("preselected")
+    expect(result.preselectedKeys).toEqual(["ageYears"])
   })
 
-  it("still shows it, so the clinician can decide", () => {
-    const result = plan({ ageYears: 7 }, { currentClinicalMode: "ADULT" })
-
-    expect(visibleReviewItems(result)).toHaveLength(1)
+  it("ticks an adult age arriving at a paediatric-mode case", () => {
+    expect(plan({ ageYears: 40 }, { currentClinicalMode: "PEDIATRIC" }).preselectedKeys)
+      .toEqual(["ageYears"])
   })
 
-  it("reads value and unit together, because 3 is an adult in years and an infant in months", () => {
-    const months = plan(
-      { ageValue: 3, ageUnit: "MONTHS" },
-      { currentClinicalMode: "ADULT" },
-    )
-    expect(months.preselectedKeys).toEqual([])
-
-    const years = plan(
-      { ageValue: 30, ageUnit: "YEARS" },
-      { currentClinicalMode: "ADULT" },
-    )
-    expect(years.preselectedKeys.sort()).toEqual(["ageUnit", "ageValue"])
-  })
-
-  it("takes the missing half from the case when the message sends only one", () => {
-    // A message carrying a bare "3" against a case already recording months is
-    // an infant, and must be read as one.
+  it("never produces the pre-9.13.9 mode-decision state", () => {
     const result = plan(
-      { ageValue: 3 },
+      { ageValue: 3, ageUnit: "MONTHS" },
       { current: { ageUnit: "MONTHS" }, currentClinicalMode: "ADULT" },
     )
-
-    expect(stateOf(result, "ageValue")).toBe("needs-mode-decision")
+    expect(result.items.some(item => item.state === "needs-mode-decision")).toBe(false)
   })
 
   it("leaves an adult age alone in an adult case", () => {
@@ -71,9 +54,9 @@ describe("an imported age never changes the clinical mode", () => {
       .toEqual(["ageYears"])
   })
 
-  it("does not flag a paediatric age in a case already in paediatric mode", () => {
-    expect(plan({ ageYears: 7 }, { currentClinicalMode: "PEDIATRIC" }).preselectedKeys)
-      .toEqual(["ageYears"])
+  it("still offers a differing age as a conflict, never ticked", () => {
+    const result = plan({ ageYears: 7 }, { current: { ageYears: 40 }, currentClinicalMode: "ADULT" })
+    expect(stateOf(result, "ageYears")).toBe("conflict")
   })
 })
 
@@ -305,8 +288,8 @@ describe("a refusal is remembered", () => {
 
 describe("only preselected items are ticked", () => {
   it("holds across every state at once", () => {
-    // The one invariant the screen depends on: a conflict, a superseded lab, a
-    // refusal and an age implying a mode change all require a deliberate reach.
+    // The one invariant the screen depends on: a conflict, a superseded lab and
+    // a refusal all require a deliberate reach. An age is an ordinary value.
     const result = plan(
       {
         weightKg: 80,
@@ -326,6 +309,7 @@ describe("only preselected items are ticked", () => {
     )
 
     expect(result.preselectedKeys.sort()).toEqual([
+      "ageYears",
       "diagnoses|k35",
       "labResults|haemoglobin (hb)|2026-09-01T08:00:00.000Z|89",
     ])
