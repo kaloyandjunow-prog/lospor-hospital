@@ -171,6 +171,9 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   requirePattern(reuseStep, /if ! gh attestation verify "\$previous_lock" --repo "\$GITHUB_REPOSITORY" \\\n\s*--signer-workflow "\$GITHUB_REPOSITORY\/\.github\/workflows\/release\.yml"/, "A reused image's lock must verify as built by this repository's release.yml")
   requirePattern(reuseStep, /node scripts\/image-reuse\.mjs previous "\$previous_lock" "\$published_at"/, "Reused digests must come from the previous lock, within its age limit")
   requirePattern(reuseStep, /docker image inspect --format '\{\{ index \.Config\.Labels "org\.lospor\.hospital\.input-fingerprint" \}\}' "\$source_ref"\)" = "\$expected"/, "A reused image's pulled label must equal this commit's fingerprint")
+  // 1.5.1: the previous digest reference must go, or the image carries two
+  // digests in one repository and its SBOM names the old one.
+  requirePattern(reuseStep, /docker tag "\$source_ref" [^\n]+\n(?:\s*#[^\n]*\n)*\s*docker image rm "\$source_ref"[^\n]*\n\s*test "\$\(docker image inspect --format '\{\{len \.RepoDigests\}\}'/, "A reused image must drop the previous release's digest before its candidate push")
   requirePattern(candidate, /- name: Build each missing custom candidate exactly once[\s\S]{0,400}done < "\$RUNNER_TEMP\/hospital-candidates-to-build\.txt"/, "Every image not reused must be built")
   requirePattern(candidate, /- name: Push only missing run-specific private candidates[\s\S]{0,1600}done < "\$RUNNER_TEMP\/hospital-candidates-missing\.txt"/, "Reused images must be pushed as candidates like built ones")
   // The compatibility row decides whether a failed update may roll services
