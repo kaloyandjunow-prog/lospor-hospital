@@ -32,24 +32,24 @@ export const NECK_MOBILITY = [
 ]
 
 export const MALLAMPATI = [
-  { v: "I", label: "I", labelBg: "I", desc: "Soft palate, uvula, fauces, pillars", color: "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-500" },
-  { v: "II", label: "II", labelBg: "II", desc: "Soft palate, uvula, fauces", color: "bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
-  { v: "III", label: "III", labelBg: "III", desc: "Soft palate, base of uvula", color: "bg-orange-500 border-orange-500 text-white dark:bg-orange-700 dark:border-orange-500" },
-  { v: "IV", label: "IV", labelBg: "IV", desc: "Hard palate only", color: "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-500" },
+  { v: "I", label: "I", labelBg: "I", desc: "Soft palate, uvula, fauces, pillars", descBg: "Виждат се мекото небце, увулата, провлакът и небните дъги", color: "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-500" },
+  { v: "II", label: "II", labelBg: "II", desc: "Soft palate, uvula, fauces", descBg: "Виждат се мекото небце, увулата и провлакът", color: "bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
+  { v: "III", label: "III", labelBg: "III", desc: "Soft palate, base of uvula", descBg: "Виждат се мекото небце и основата на увулата", color: "bg-orange-500 border-orange-500 text-white dark:bg-orange-700 dark:border-orange-500" },
+  { v: "IV", label: "IV", labelBg: "IV", desc: "Hard palate only", descBg: "Вижда се само твърдото небце", color: "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-500" },
 ]
 
 export const UPPER_LIP_BITE = [
-  { v: "CLASS_I", label: "Class I", labelBg: "Клас I", desc: "Incisors bite above vermillion", color: "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-500" },
-  { v: "CLASS_II", label: "Class II", labelBg: "Клас II", desc: "Incisors bite below vermillion", color: "bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
-  { v: "CLASS_III", label: "Class III", labelBg: "Клас III", desc: "Cannot bite upper lip", color: "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-500" },
+  { v: "CLASS_I", label: "Class I", labelBg: "Клас I", desc: "Incisors bite above vermillion", descBg: "Резците захапват над границата на устната", color: "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-500" },
+  { v: "CLASS_II", label: "Class II", labelBg: "Клас II", desc: "Incisors bite below vermillion", descBg: "Резците захапват под границата на устната", color: "bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
+  { v: "CLASS_III", label: "Class III", labelBg: "Клас III", desc: "Cannot bite upper lip", descBg: "Не може да захапе горната устна", color: "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-500" },
 ]
 
 export const CORMACK_LEHANE = [
-  { v: "I", label: "I", labelBg: "I", desc: "Full glottis", color: "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-500" },
-  { v: "IIa", label: "IIa", labelBg: "IIa", desc: "Posterior glottis", color: "bg-lime-500 border-lime-500 text-white dark:bg-lime-700 dark:border-lime-500" },
-  { v: "IIb", label: "IIb", labelBg: "IIb", desc: "Arytenoids only", color: "bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
-  { v: "III", label: "III", labelBg: "III", desc: "Epiglottis only", color: "bg-orange-500 border-orange-500 text-white dark:bg-orange-700 dark:border-orange-500" },
-  { v: "IV", label: "IV", labelBg: "IV", desc: "No glottic structures", color: "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-500" },
+  { v: "I", label: "I", labelBg: "I", desc: "Full glottis", descBg: "Глотисът се вижда изцяло", color: "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-500" },
+  { v: "IIa", label: "IIa", labelBg: "IIa", desc: "Posterior glottis", descBg: "Вижда се задната част на глотиса", color: "bg-lime-500 border-lime-500 text-white dark:bg-lime-700 dark:border-lime-500" },
+  { v: "IIb", label: "IIb", labelBg: "IIb", desc: "Arytenoids only", descBg: "Виждат се само аритеноидите", color: "bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
+  { v: "III", label: "III", labelBg: "III", desc: "Epiglottis only", descBg: "Вижда се само епиглотисът", color: "bg-orange-500 border-orange-500 text-white dark:bg-orange-700 dark:border-orange-500" },
+  { v: "IV", label: "IV", labelBg: "IV", desc: "No glottic structures", descBg: "Не се вижда нито глотис, нито епиглотис", color: "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-500" },
 ]
 
 export const DISPOSITION = [

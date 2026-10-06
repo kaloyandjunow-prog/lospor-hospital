@@ -2,6 +2,7 @@ import { CASE_STATUS_LABELS } from "../case-status"
 import { formatGasMixLabel, type GasDisplaySettings } from "../intraop-summary"
 import {
   buildOptionTree,
+  catalogDescriptionBg,
   catalogOption,
   catalogOptions,
   findOptionPath,
@@ -118,7 +119,7 @@ function optionTerms(): ClinicalDisplayTerm[] {
         option.value,
         option.label,
         option.labelBg,
-        { descriptionEn: option.description },
+        { descriptionEn: option.description, descriptionBg: catalogDescriptionBg(category, option.value) },
       ))
     }
   }
@@ -245,7 +246,9 @@ export function resolveClinicalDisplay(
         const labelEn = clean(option.label) ?? option.value
         const labelBg = clean(option.labelBg) ?? clean(dynamic.labelBg) ?? labelEn
         const descriptionEn = clean(option.description) ?? clean(dynamic.descriptionEn) ?? clean(dynamic.description)
-        const descriptionBg = clean(dynamic.descriptionBg) ?? descriptionEn
+        const descriptionBg = clean(dynamic.descriptionBg)
+          ?? catalogDescriptionBg(category, option.value)
+          ?? descriptionEn
         return {
           domain,
           code: option.value,

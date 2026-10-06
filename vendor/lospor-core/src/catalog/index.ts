@@ -343,6 +343,25 @@ export function catalogOptions(category: LibraryCategory): readonly CatalogOptio
   return CATALOG_BY_CATEGORY.get(category) ?? []
 }
 
+// Bulgarian descriptions (9.14.2). Kept out of the catalogue rows, which seed
+// the database and the option API: only the display layer reads them.
+const DESCRIPTION_BG = new Map<string, string>(
+  ([
+    ["POSITION", POSITIONS],
+    ["MALLAMPATI", MALLAMPATI],
+    ["UPPER_LIP_BITE", UPPER_LIP_BITE],
+    ["CORMACK_LEHANE", CORMACK_LEHANE],
+  ] as const).flatMap(([category, options]) =>
+    (options as readonly { v: string; descBg?: string }[])
+      .filter(option => option.descBg)
+      .map(option => [`${category}:${option.v}`, option.descBg as string] as [string, string])),
+)
+
+/** A catalogue option's description in Bulgarian, where one is written. */
+export function catalogDescriptionBg(category: LibraryCategory, value: string): string | null {
+  return DESCRIPTION_BG.get(`${category}:${value}`) ?? null
+}
+
 export function catalogOption(category: LibraryCategory, value: string): CatalogOption | undefined {
   const normalized = normalizeOptionCode(category, value)
   return catalogOptions(category).find(option => option.value === normalized)

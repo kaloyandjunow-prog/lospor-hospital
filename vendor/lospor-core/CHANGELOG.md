@@ -1,5 +1,16 @@
 # Changelog - LOSPOR Core
 
+## [9.14.2] - 2026-10-06
+
+### Fixed
+
+- **Bulgarian descriptions for positions and airway grades.** On a Bulgarian
+  screen the patient positions and the Mallampati, upper lip bite and
+  Cormack-Lehane classes kept their English descriptions ("Flat on back",
+  "Soft palate, uvula, fauces"). Each now has a Bulgarian one, served to the
+  display layer only; the catalogue rows that seed the database and the option
+  API are unchanged. Jackknife is named „Позиция на Краске (jackknife)“.
+
 ## [9.14.0] - 2026-10-04
 
 ### Added
