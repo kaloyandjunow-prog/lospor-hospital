@@ -74,3 +74,25 @@ describe("notify helpers (native paths)", () => {
     expect(getActionSheetSnapshot()?.title).toBe("WebMenu")
   })
 })
+
+// Found on the appliance in 1.5.0: the PWA's allergy prompt was window.confirm,
+// so "Give anyway" / "Don't give" showed as OK / Cancel under the warning.
+describe("a labelled confirmation on web", () => {
+  beforeEach(() => { setOS("web"); dismissActionSheet() })
+
+  it("asks in the in-app sheet with its own labels, and answers yes on the confirm label", async () => {
+    const p = confirmAction("⚠ Recorded allergy: Cefazolin", "Penicillin", {
+      destructive: true, confirmLabel: "Give anyway", cancelLabel: "Don't give", labelledOnWeb: true,
+    })
+    const sheet = getActionSheetSnapshot()!
+    expect(sheet.actions.map(a => a.label)).toEqual(["Give anyway", "Don't give"])
+    sheet.actions.find(a => a.label === "Give anyway")!.onPress!()
+    await expect(p).resolves.toBe(true)
+  })
+
+  it("answers no on the cancel label", async () => {
+    const p = confirmAction("⚠", undefined, { confirmLabel: "Give anyway", cancelLabel: "Don't give", labelledOnWeb: true })
+    getActionSheetSnapshot()!.actions.find(a => a.cancel)!.onPress!()
+    await expect(p).resolves.toBe(false)
+  })
+})

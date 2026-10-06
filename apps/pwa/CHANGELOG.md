@@ -1,5 +1,18 @@
 # Changelog - LOSPOR Mobile
 
+## [9.14.1] - 2026-10-06
+
+### Fixed
+
+- **The allergy prompt says Give anyway / Don't give in the browser.** On the
+  PWA the prompt was the browser's own confirm box, whose buttons only read
+  OK / Cancel. It now opens in the app's sheet with its own labels; closing
+  the sheet any other way counts as Don't give.
+- **Continue names every missing required field at once.** On an empty case,
+  Continue listed Sex, Height, Weight and ASA, and age, diagnosis, procedure,
+  vitals and Mallampati came one notice later. All are now listed together in
+  form order, and the form opens at the first.
+
 ## [9.14.0] - 2026-10-04
 
 ### Added

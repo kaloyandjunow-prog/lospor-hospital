@@ -39,7 +39,7 @@ import { buildPreopSectionItems } from "@/lib/preop-section-overview"
 import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
 import { autosaveDelayMs, isDiscreteTapChange } from "@/lib/preop-autosave-cadence"
-import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/preop-validation-navigation"
+import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage, preopMissingFieldKeys } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
 import { PatientIdentityField } from "@/components/PatientIdentityField"
@@ -840,7 +840,7 @@ export default function NewCaseScreen() {
   }
 
   function onInvalid(invalid: Record<string, unknown>) {
-    const keys = Object.keys(invalid)
+    const keys = preopMissingFieldKeys(Object.keys(invalid), getValues() as Record<string, unknown>)
     const first = keys[0]
     const target = first ? PREOP_REQUIRED_FIELD_SECTION[first] : undefined
     if (target) jumpTo(target)

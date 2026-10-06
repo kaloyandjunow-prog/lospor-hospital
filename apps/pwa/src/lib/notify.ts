@@ -23,10 +23,28 @@ export type ConfirmOptions = {
   destructive?: boolean
   confirmLabel?: string
   cancelLabel?: string
+  /**
+   * On web, ask in the in-app sheet so the buttons carry their own labels.
+   * window.confirm only ever says OK / Cancel, and "OK" under an allergy
+   * warning does not say whether it means "read" or "give it" (1.5.0).
+   */
+  labelledOnWeb?: boolean
 }
 
 // Two-button confirm. Resolves true if confirmed, false if cancelled/dismissed.
 export function confirmAction(title: string, message?: string, opts: ConfirmOptions = {}): Promise<boolean> {
+  if (Platform.OS === "web" && opts.labelledOnWeb) {
+    return new Promise((resolve) => {
+      showActionSheet({
+        title,
+        message,
+        actions: [
+          { label: opts.confirmLabel ?? "OK", destructive: opts.destructive, onPress: () => resolve(true) },
+          { label: opts.cancelLabel ?? "Cancel", cancel: true, onPress: () => resolve(false) },
+        ],
+      })
+    })
+  }
   if (Platform.OS === "web") {
     const text = message ? `${title}\n\n${message}` : title
     const ok = typeof window !== "undefined" && typeof window.confirm === "function"
