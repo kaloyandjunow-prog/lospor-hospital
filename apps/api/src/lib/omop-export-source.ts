@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client"
-import { deepRedactPII, redactText } from "@/lib/pii-check"
+import { EVENT_FREE_TEXT_KEYS } from "@/lib/clinical-pii"
+import { redactText } from "@/lib/pii-check"
 
 type ExportRow = Prisma.CaseGetPayload<{ select: typeof CASE_SELECT }>
 
@@ -43,19 +44,19 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
   // capital, so any two adjacent Cyrillic words matched and ordinary clinical
   // text was destroyed wholesale on the way out.
   //
-  // nameHeuristic: false keeps every structural check -- EGN, long numbers,
-  // dates, email -- and drops only the two-capitalised-words guess that cannot
-  // tell a disease from a patient. Genuine prose keeps the guess on.
-  const coded = { nameHeuristic: false } as const
+  // 9.14.2: coded fields now leave as they are. A diagnosis or drug name is not
+  // where a patient's identity is written, and on a hospital appliance
+  // identifying text is no longer refused at save, so free text -- which keeps
+  // every rule, the name rule included -- is where it is cleaned.
   const codedText = <T extends string | null | undefined>(value: T): T | null => {
     if (!includeText) return null
-    return value ? (redactText(value, coded) as T) : value
+    return value
   }
   // The same, for the coded fields the mapper types as non-nullable strings.
   // They cannot be dropped to null without changing the row's shape, so they
   // are emptied instead when text may not leave.
   const codedRequiredText = (value: string): string =>
-    includeText ? redactText(value, coded) : ""
+    includeText ? value : ""
 
   return {
     ...c,
@@ -94,13 +95,33 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
       // The freeform timetable blob. Dropping it entirely would take the
       // structured intraoperative record with it, so when text may not leave it
       // is emptied rather than removed.
-      keyEvents: includeText ? deepRedactPII(c.intraop.keyEvents) : {},
+      keyEvents: includeText ? redactEventFreeText(c.intraop.keyEvents) : {},
       premedicationRows: c.intraop.premedicationRows.map(row => ({
         ...row,
         nameRaw: codedRequiredText(row.nameRaw),
       })),
     } : c.intraop,
   }
+}
+
+/**
+ * The intraop event log with only its typed parts cleaned. Scrubbing every
+ * string in it also scrubbed drug names, event labels and units (9.14.2).
+ */
+export function redactEventFreeText<T>(keyEvents: T): T {
+  const clean = (event: unknown): unknown => {
+    if (!event || typeof event !== "object" || Array.isArray(event)) return event
+    const out: Record<string, unknown> = { ...(event as Record<string, unknown>) }
+    for (const key of EVENT_FREE_TEXT_KEYS) {
+      if (typeof out[key] === "string" && out[key]) out[key] = redactText(out[key] as string)
+    }
+    return out
+  }
+  if (Array.isArray(keyEvents)) return keyEvents.map(clean) as T
+  if (keyEvents && typeof keyEvents === "object" && Array.isArray((keyEvents as { log?: unknown }).log)) {
+    return { ...(keyEvents as object), log: (keyEvents as unknown as { log: unknown[] }).log.map(clean) } as T
+  }
+  return keyEvents
 }
 
 export const CASE_SELECT = {
