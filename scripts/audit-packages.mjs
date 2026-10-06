@@ -36,12 +36,12 @@ const FAIL_AT = new Set(["high", "critical"])
  * and the audit will start failing again if it does not.
  */
 // braces 3.0.3 (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687) is the newest release and
-// has no patched version (re-audited 2026-10-04 for 1.5.0). Every route to it is build-time tooling, and the
+// has no patched version (re-audited 2026-10-06 for 1.5.1). Every route to it is build-time tooling, and the
 // release image scans confirm no shipped image contains it (the tools and
 // migrate images strip the API's lint chain in api.Dockerfile).
 const BRACES_1_5_0 = (route) => ({
   reason:
-    "Accepted by the maintainer for Hospital 1.5.0 only (re-audited 2026-10-04). braces 3.0.3 has no "
+    "Accepted by the maintainer for Hospital 1.5.1 only (re-audited 2026-10-06). braces 3.0.3 has no "
     + `patched release; here it is reached only through ${route}, which runs at `
     + "build or lint time and is not part of any shipped image.",
   removeWhen: "braces publishes a patched version; re-audit before the next Hospital release",
@@ -61,7 +61,7 @@ const EXCEPTIONS = {
     "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("tailwindcss (style build)"),
     "GHSA-86w9-cpqp-85rv": {
       reason:
-        "Accepted by the maintainer for Hospital 1.5.0 only (re-audited 2026-10-04: "
+        "Accepted by the maintainer for Hospital 1.5.1 only (re-audited 2026-10-06: "
         + "node-forge 1.4.0 is still the newest release, and the PWA still "
         + "reaches it through Expo 56). node-forge 1.4.0 is pulled "
         + "transitively by Expo's code-signing certificates tooling; the PWA "
