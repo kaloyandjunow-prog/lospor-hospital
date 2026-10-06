@@ -1,5 +1,36 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.2] - 2026-10-06
+
+Vendors Core, API, Web and PWA 9.14.2; Browser stays 0.8.2. No database
+migration. Rolling back to 1.5.1 restores the pre-update backup, as before.
+
+### Changed
+
+- **Clinical text is no longer refused as identifying.** Phrases such as
+  "Ритмична Сърдечна дейност", an ECG date or "Paracetamol Sopharma" were read
+  as a name or a date and the save was refused; refused on the first save, the
+  case was never created. The appliance now stores free text as typed, inside
+  the hospital, and cleans it whenever it leaves: OMOP and research exports,
+  Central delivery, the AI advisor. Exports clean free text only: diagnoses,
+  procedures, drug and allergy lists and event labels leave as they are. The
+  export policy that keeps free text from leaving at all is unchanged.
+
+### Fixed
+
+- **Events in Bulgarian.** An event added in Bulgarian showed an English pill on
+  the phone's timetable, and some event names stayed in English on the web.
+- **Undo after a delete (PWA).** Deleting an entry on the timetable now offers
+  Undo / Hide, as adding one does; Undo puts it back at the same time.
+- **Bulgarian descriptions** under the patient positions and the Mallampati,
+  upper lip bite and Cormack-Lehane classes; Jackknife is „Позиция на Краске“.
+
+### Security
+
+- sharp 0.35.5 (GHSA-wq5f-xc86-pv6w, high), @modelcontextprotocol/sdk 1.32.1
+  (GHSA-6qxp-vccf-f47h, high) and shell-quote 1.12.0 (GHSA-pqg4-j6r4-53mv,
+  critical).
+
 ## [1.5.1] - 2026-10-06
 
 Vendors API, Web and PWA 9.14.1 (API unchanged, released with them as one
