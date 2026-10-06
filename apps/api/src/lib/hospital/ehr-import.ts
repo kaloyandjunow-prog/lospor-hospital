@@ -203,16 +203,41 @@ export async function recordEhrImport(
      * scopes. The case id, for a clinician-initiated pull.
      */
     restageFor?: string
+    /**
+     * Reuse an earlier copy only while it still waits for review.
+     *
+     * For a scope that outlives one case -- the clinician's, before any case
+     * exists -- a copy a case has already taken is used up. Matching it again
+     * staged nothing, and the next case for the same patient was told the
+     * hospital held nothing (found on the appliance, 1.5.0). A case's own scope
+     * leaves this off: there a reviewed copy is the record of what was refused,
+     * and a refusal is never offered again.
+     */
+    reuseOnlyWhilePending?: boolean
   },
 ): Promise<{ id: string; created: boolean }> {
   const now = input.now ?? new Date()
-  const payloadHash = ehrPayloadHash(input.canonical, input.restageFor)
+  let scope = input.restageFor
+  let payloadHash = ehrPayloadHash(input.canonical, scope)
 
-  const existing = await client.ehrImport.findFirst({
-    where: { institutionId: input.institutionId, payloadHash },
-    select: { id: true },
-  })
-  if (existing) return { id: String(existing.id), created: false }
+  // The payload hash is unique per institution, so a used-up copy cannot be
+  // staged again under the same hash. The next copy is scoped after the one it
+  // replaces instead: still stable, so a lookup repeated while it waits finds
+  // it rather than staging a third.
+  for (let generation = 0; ; generation++) {
+    const existing = await client.ehrImport.findFirst({
+      where: { institutionId: input.institutionId, payloadHash },
+      select: { id: true, status: true, expiresAt: true },
+    })
+    if (!existing) break
+    const waiting = existing.status === "PENDING"
+      && (existing.expiresAt == null || (existing.expiresAt as Date) > now)
+    if (!input.reuseOnlyWhilePending || waiting || generation >= 100) {
+      return { id: String(existing.id), created: false }
+    }
+    scope = `${scope ?? ""}#after:${String(existing.id)}`
+    payloadHash = ehrPayloadHash(input.canonical, scope)
+  }
 
   const identity = importIdentity(
     input.institutionId, input.identifierType, input.identifier, now,

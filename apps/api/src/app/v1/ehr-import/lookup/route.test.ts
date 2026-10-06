@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   pending: vi.fn(async () => null),
   access: vi.fn(async () => ({ enabled: true, transport: "FOLDER", folderRequests: true })),
   request: vi.fn(async (_input: unknown): Promise<{ requestId: string } | null> => null),
+  pull: vi.fn(async (_client: unknown, _input: unknown) => ({ ok: true, importId: "imp-1", created: true, fieldCount: 1, unread: [] })),
 }))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: async () => ({ id: "user-1", institutionId: "inst-1" }) }))
 vi.mock("@/lib/prisma", () => ({ prisma: {} }))
@@ -16,6 +17,11 @@ vi.mock("@/lib/hospital/ehr-import", async importOriginal => ({
 }))
 vi.mock("@/lib/hospital/ehr-transport-policy", () => ({ ehrTransportAccess: mocks.access }))
 vi.mock("@/lib/hospital/ehr-folder-requests", () => ({ folderRequestFor: mocks.request }))
+vi.mock("@/lib/hospital/ehr-fhir-pull", () => ({ pullFhirImport: mocks.pull }))
+vi.mock("@/lib/hospital/ehr-fhir-auth", () => ({
+  ehrAuthConfigFor: () => ({}),
+  resolveEhrAccessToken: async () => ({ ok: true, token: "t" }),
+}))
 
 import { GET } from "./route"
 
@@ -47,5 +53,18 @@ describe("a lookup on a watched-folder site that asks", () => {
     mocks.request.mockRejectedValueOnce(new Error("disk full"))
     vi.spyOn(console, "error").mockImplementation(() => {})
     expect(await lookup("&request=1")).toEqual({ status: 502, body: { pending: false, code: "EHR_REQUEST_FAILED" } })
+  })
+})
+
+// Found on the appliance in 1.5.0: a clinician who had imported a patient onto
+// one case was told on the next case that the hospital held nothing.
+describe("a lookup on a FHIR site", () => {
+  it("asks for a fresh copy once a case has taken the clinician's last one", async () => {
+    mocks.access.mockResolvedValueOnce({ enabled: true, transport: "FHIR", endpoint: "http://ehr", credential: "c" } as never)
+    await lookup("")
+    expect(mocks.pull).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      restageFor: "user:user-1",
+      reuseOnlyWhilePending: true,
+    }))
   })
 })

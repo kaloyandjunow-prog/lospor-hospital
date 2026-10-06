@@ -1,5 +1,18 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+### Fixed
+
+- **A second case for the same patient is no longer told the hospital holds
+  nothing.** A clinician who imported a patient from the hospital system onto
+  one case, then looked the same patient up for a new case, got "the hospital
+  system holds nothing for this patient" while the hospital's record was
+  unchanged. The lookup reused the copy the first case had already taken. A
+  copy is now reused only while it still waits for review; once a case has
+  taken it, the next lookup stages a fresh one. Inside a case nothing changes:
+  a value the clinician refused is still never offered again.
+
 ## [1.5.0] - 2026-10-04
 
 Vendors Core, API, Web and PWA 9.14.0; Browser stays 0.8.2. One database

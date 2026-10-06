@@ -120,6 +120,9 @@ export async function GET(req: NextRequest) {
         recordNumberSystem: access.recordNumberSystem,
         nationalIdentifierSystem: access.nationalIdentifierSystem,
         restageFor: scope,
+        // The clinician's scope outlives the case it fed: once a case has
+        // taken that copy, the next case for this patient needs a fresh one.
+        reuseOnlyWhilePending: true,
       }).catch((): FhirPullResult => ({ ok: false, reason: "unreachable" }))
 
       if (pulled.ok) {

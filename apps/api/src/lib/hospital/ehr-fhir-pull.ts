@@ -159,6 +159,8 @@ export async function pullFhirImport(
      * because the first case already took the answer.
      */
     restageFor?: string
+    /** Passed to `recordEhrImport`: a copy a case has taken is not reused. */
+    reuseOnlyWhilePending?: boolean
     /**
      * Which numbering the record number lives in, when the site has said.
      */
@@ -398,6 +400,7 @@ export async function pullFhirImport(
   const recorded = await recordEhrImport(client, {
     institutionId: input.institutionId,
     ...(input.restageFor ? { restageFor: input.restageFor } : {}),
+    ...(input.reuseOnlyWhilePending ? { reuseOnlyWhilePending: true } : {}),
     identifier: input.identifier,
     identifierType: input.identifierType,
     transport: "FHIR",
