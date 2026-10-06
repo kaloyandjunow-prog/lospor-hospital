@@ -427,7 +427,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   }
 
   // A dose that clashes with a recorded allergy is acknowledged before it is added (1.5.0).
-  const allergyGate = useAllergyGate({ preop, locale: locale === "bg" ? "bg" : "en" })
+  const allergyGate = useAllergyGate({ preop, locale: locale === "bg" ? "bg" : "en", ready: chartStartMs !== null })
   // The phone app's End case check, on web (1.5.0): blockers stop the end.
   const endCheck = useEndCaseCheck({
     record: () => ({ ...getValues(), timetableData: timetable, keyEvents: eventLog ?? [] }) as Record<string, unknown>,

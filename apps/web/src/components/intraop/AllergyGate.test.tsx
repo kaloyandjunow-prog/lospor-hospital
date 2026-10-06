@@ -63,6 +63,18 @@ describe("everything else passes straight through", () => {
     expect(apply).toHaveBeenCalled()
   })
 
+  // Found on the appliance in 1.5.0: on a case not yet started the clinician
+  // was asked about the allergy, chose Give anyway, and only then was told to
+  // start the case. The refusal comes first now.
+  it("asks nothing while the case has not started, and lets the chart refuse the dose", () => {
+    const { result } = renderHook(() => useAllergyGate({ preop: PREOP, locale: "en", ready: false }))
+    const apply = vi.fn()
+    const next = { drugs: [propofol, { name: "Ampicillin", atcCode: "J01CA01" }], infusions: [] }
+    act(() => result.current.guard(prev, apply)(next))
+    expect(apply).toHaveBeenCalledWith(next)
+    expect(result.current.modal).toBeNull()
+  })
+
   it("asks nothing for a case with no recorded allergies", () => {
     const { result } = gate({ allergies: false })
     const apply = vi.fn()
