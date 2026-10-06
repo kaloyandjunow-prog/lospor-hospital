@@ -472,6 +472,13 @@ jobs:
               test "$(docker image inspect --format '{{ index .Config.Labels "org.lospor.hospital.input-fingerprint" }}' "$source_ref")" = "$expected"
               test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$source_ref")" = linux/amd64
               docker tag "$source_ref" "ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG"
+              # Drop the previous release's digest reference: pushing the
+              # candidate tag writes a new manifest with its own digest, and an
+              # image carrying both in one repository gave the SBOM the old
+              # one while the lock recorded the new (1.5.1 candidate).
+              docker image rm "$source_ref" >/dev/null
+              test "$(docker image inspect --format '{{len .RepoDigests}}' \
+                "ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG")" = 0
               printf '%s\t%s\t%s\n' "$image_name" "$service" "$source_ref" >> "$reused"
               continue
             fi
