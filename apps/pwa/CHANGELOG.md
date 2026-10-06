@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Mobile
 
+## [9.14.2] - 2026-10-06
+
+### Fixed
+
+- **Event pills in the clinician's language.** An event added in Bulgarian
+  showed an English pill on the timetable, because events are saved under
+  their English name. The pill, the event log and the undo bar now name it in
+  the clinician's language, "Anaesthesia start" included; a typed detail is
+  kept as typed.
+- **Undo after a delete.** Adding an event offered Undo / Hide and deleting one
+  did not. Deleting now offers the same bar; Undo puts the entry back at the
+  same time, an infusion with its rate changes and stop.
+- **Bulgarian descriptions** under positions (Core 9.14.2).
+
 ## [9.14.1] - 2026-10-06
 
 ### Fixed

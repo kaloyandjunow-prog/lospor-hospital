@@ -58,7 +58,7 @@ export type IntraopTabContentBuilderProps = {
   isWatching: LogProps["isWatching"]
   verticalTimetableRef: LogProps["listRef"]
   undoLastEvent: LogProps["onUndo"]
-  setUndoEv: (event: null) => void
+  setUndoEv: (event: null) => void; removalUndo: LogProps["removalUndo"] // last delete, for its Undo (9.14.2)
   setExpandedRow: LogProps["onSetExpandedRow"]
   eventLabel: EventsProps["eventLabel"]
   setInfActTgt: (infusion: Parameters<LogProps["onManageInfusion"]>[0]) => void
@@ -187,7 +187,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
   const {
     labResults, openLabs, screenWidth, attention, caseEnded, tab, undoEv, chartRows, chartStart, currentCol, expandedRow, nowSlotPercent,
     timetable, eventRows, activeInfusions, activeFluids, activeAgents, activeGas, startRef,
-    isWatching, verticalTimetableRef, undoLastEvent, setUndoEv, setExpandedRow, eventLabel,
+    isWatching, verticalTimetableRef, undoLastEvent, setUndoEv, removalUndo, setExpandedRow, eventLabel,
     setInfActTgt, setInfActRate, setInfActOpen, setInfActTs, openFluidEnd, openGasSettings, tc, stopAgent,
     openRowQuickAdd, jumpVerticalTimetableToNow, openEndCase, openChartView, preop,
     techPath, setTechPath,
@@ -241,7 +241,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       isWatching,
       listRef: verticalTimetableRef,
       onUndo: undoLastEvent,
-      onDismissUndo: () => setUndoEv(null),
+      onDismissUndo: () => setUndoEv(null), removalUndo,
       onSetExpandedRow: setExpandedRow,
       eventText: logEventText ?? ((ev: LogEvent) => eventLabel(ev).text),
       buildSummary: logBuildSummary ?? ((vital: VitalsEntry | undefined, rowEvents: LogEvent[]) => buildRowSummary(vital, rowEvents, ev => eventLabel(ev).text)),

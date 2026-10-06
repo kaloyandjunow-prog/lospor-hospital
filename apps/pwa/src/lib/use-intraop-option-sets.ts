@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react"
-import { buildEventLabel } from "@/lib/intraop-event-label"
+import { buildEventLabel, localizedClinicalEventText } from "@/lib/intraop-event-label"
 import { localizedOptions } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import type { LogEvent } from "@/lib/intraop-log-event"
@@ -41,6 +41,7 @@ export function useIntraopOptionSets(
   const {
     drugColor,
     clinicalEventColor,
+    CLINICAL_EVENT_CATS,
   } = intraopOptions
 
   const { options: positionLibOpts } = useOptionLibrary("POSITION")
@@ -64,10 +65,16 @@ export function useIntraopOptionSets(
 
   // Auto-filled vitals are copies, not readings: the log says so.
   const autoFilledTag = tc("autoFilledTag")
+  // Events are saved in English and shown in the clinician's language (9.14.2).
+  const eventNames = useMemo(() => CLINICAL_EVENT_CATS.flatMap(cat => cat.events), [CLINICAL_EVENT_CATS])
+  const writtenByApp = useMemo(() => ({ "Anaesthesia start": tc("evAnaesthesiaStart") }), [tc])
   const eventLabel = useCallback((ev: LogEvent, prevVital?: LogEvent): { text: string; color: string; sub?: string } => {
-    const label = buildEventLabel(ev, prevVital, { drugColor, clinicalEventColor })
+    const built = buildEventLabel(ev, prevVital, { drugColor, clinicalEventColor })
+    const label = ev.type === "clinical_event"
+      ? { ...built, text: localizedClinicalEventText(built.text, language, eventNames, writtenByApp) }
+      : built
     return ev.autoFilled ? { ...label, text: `${label.text} · ${autoFilledTag}` } : label
-  }, [autoFilledTag, clinicalEventColor, drugColor])
+  }, [autoFilledTag, clinicalEventColor, drugColor, eventNames, language, writtenByApp])
 
   const techniqueLabel = useCallback((value: string): string =>
     techniqueDisplayLabel(value, TECHNIQUE_TREE),
