@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Web App
 
+## [9.14.1] - 2026-10-06
+
+### Fixed
+
+- **A case not yet started is refused before the allergy question.** A dose
+  that clashed with a recorded allergy on a case not yet started asked about
+  the allergy first; choosing Give anyway was then refused with "start the
+  case first", and nothing was recorded. The refusal now comes first, and the
+  allergy question only for a dose that can be given.
+
 ## [9.14.0] - 2026-10-04
 
 ### Added

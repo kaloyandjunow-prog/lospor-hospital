@@ -23,12 +23,15 @@ export function ActionSheetHost() {
 
   const cancelAction = req.actions.find((a) => a.cancel)
   const mainActions = req.actions.filter((a) => !a.cancel)
+  // Closing the sheet any other way is its cancel: a caller waiting on the
+  // answer (the allergy check) must hear "no", not nothing.
+  const cancel = () => (cancelAction ? run(cancelAction) : dismissActionSheet())
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={dismissActionSheet}>
+    <Modal visible transparent animationType="fade" onRequestClose={cancel}>
       <Pressable
         style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" }}
-        onPress={dismissActionSheet}
+        onPress={cancel}
       >
         <Pressable
           style={{
@@ -78,7 +81,7 @@ export function ActionSheetHost() {
           ))}
 
           <TouchableOpacity
-            onPress={() => (cancelAction ? run(cancelAction) : dismissActionSheet())}
+            onPress={cancel}
             style={{ paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, marginTop: 4 }}
           >
             <Text style={{ color: colors.textMuted, fontSize: 15, fontWeight: "700", textAlign: "center" }}>

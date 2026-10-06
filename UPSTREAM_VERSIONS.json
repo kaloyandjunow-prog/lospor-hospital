@@ -1,40 +1,40 @@
 {
-  "importedAt": "2026-10-04T18:24:40.033Z",
+  "importedAt": "2026-10-06T08:05:54.595Z",
   "sources": {
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
-      "version": "9.14.0",
-      "commit": "cadc9c2fc4ef2163416078c7f8a3d4de57f3c683",
+      "version": "9.14.1",
+      "commit": "96b0b1d1a80a1feab8f9672a7ec2a885f7586a36",
       "path": "apps/api",
-      "treeOid": "4accfa764534acd333a4864017bacd204964ca02"
+      "treeOid": "98c6a7043cc3efdb5b7ca81c5b649a019d7b5716"
     },
     "web": {
       "repository": "kaloyandjunow-prog/lospor-app",
-      "version": "9.14.0",
-      "commit": "c69d537375ffe3031e1cac6c36b8debb55c44867",
+      "version": "9.14.1",
+      "commit": "d6e5f347deb7b71ccd04078468622a3b9930e8b0",
       "path": "apps/web",
-      "treeOid": "7d046125e92c8323c2615a872a44f272e5699186"
+      "treeOid": "87a3bc298091cd2091ad9e06a6c94af272076dc6"
     },
     "pwa": {
       "repository": "kaloyandjunow-prog/lospor-mobile",
-      "version": "9.14.0",
-      "commit": "9ac1e3905cba2fbe300240873320daeb95752bbd",
+      "version": "9.14.1",
+      "commit": "8b895d219981b214da4f8735976c41d8986615aa",
       "path": "apps/pwa",
-      "treeOid": "5a9eab4a68dcf61d7ae1f2e131945ec5e0600c55"
+      "treeOid": "59939cad75e263aed6eedfa2e4827dcca4b24eef"
     },
     "browser": {
       "repository": "kaloyandjunow-prog/lospor-browser",
       "version": "0.8.2",
       "commit": "0226b6b94bd619baeed1a92c5b4ac6e2c9183a73",
       "path": "apps/browser",
-      "treeOid": "7736c44efda18c5b8853335ca5dfb4faa0fccc6d"
+      "treeOid": "57d175450219364e21ca7c6cc1feebc340ee2bad"
     },
     "core": {
       "repository": "kaloyandjunow-prog/lospor-core",
       "version": "9.14.0",
       "commit": "00214360e2f16b19e0c78dbfd633926ddf795a13",
       "path": "vendor/lospor-core",
-      "treeOid": "f61804fa775496f7e1ecab0bd99973a7f42b5d91"
+      "treeOid": "0d71f1bbedffec6489620fe36491ad98b5cf443a"
     },
     "exchangeContract": {
       "owner": "lospor-central",

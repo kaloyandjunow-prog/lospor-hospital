@@ -53,9 +53,16 @@ export function newAllergyHits(allergies: ReturnType<typeof allergyRecords>, pre
  * Sits on the chart's change, outside the timetable, so every way of adding a
  * bolus or starting an infusion passes through it.
  */
-export function useAllergyGate({ preop, locale }: {
+export function useAllergyGate({ preop, locale, ready = true }: {
   preop: { allergies?: boolean | null; allergyDetails?: unknown } | null | undefined
   locale: "en" | "bg"
+  /**
+   * False while the chart cannot take a dose at all (the case has not
+   * started). The change then goes straight through to be refused for that,
+   * rather than asking about an allergy for a dose that was never going to be
+   * recorded (found on the appliance, 1.5.0).
+   */
+  ready?: boolean
 }): {
   guard: <T extends Chart>(prev: T, apply: (next: T) => void) => (next: T) => void
   modal: ReactNode
@@ -65,6 +72,7 @@ export function useAllergyGate({ preop, locale }: {
 
   function guard<T extends Chart>(prev: T, apply: (next: T) => void) {
     return (next: T) => {
+      if (!ready) return apply(next)
       const hits = newAllergyHits(allergies, prev, next)
       if (hits.length === 0) return apply(next)
       const acked = new Map(hits.map(hit => [hit.dose, hit.conflicts.map(c => ({ allergy: c.allergy, level: c.level }))]))

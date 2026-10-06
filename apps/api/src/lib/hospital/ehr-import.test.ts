@@ -149,6 +149,58 @@ describe("a redelivered message is not a second thing to read", () => {
     expect(db.imports).toHaveLength(2)
   })
 
+  // Found on the appliance in 1.5.0. The lookup before a case exists stages
+  // under the clinician's scope. Once a case took that copy, the same clinician
+  // starting a second case for the same patient matched the used copy, staged
+  // nothing, and was told the hospital held nothing.
+  it("stages a fresh copy for the clinician's next case once a case has taken the last one", async () => {
+    const db = client()
+    const payload = canonical({ weightKg: 80 })
+    const asClinician = { ...base, canonical: payload, restageFor: "user:u-1", reuseOnlyWhilePending: true }
+
+    const first = await recordEhrImport(db, asClinician)
+    db.imports[0].status = "REVIEWED"
+
+    const second = await recordEhrImport(db, asClinician)
+    const secondAgain = await recordEhrImport(db, asClinician)
+
+    expect(second.created).toBe(true)
+    expect(second.id).not.toBe(first.id)
+    // Asked again while it still waits, it is the same copy, not a third.
+    expect(secondAgain).toEqual({ id: second.id, created: false })
+    expect(db.imports).toHaveLength(2)
+    expect(db.imports[1].payloadHash).not.toBe(db.imports[0].payloadHash)
+
+    db.imports[1].status = "DISCARDED"
+    const third = await recordEhrImport(db, asClinician)
+    expect(third.created).toBe(true)
+    expect(db.imports).toHaveLength(3)
+  })
+
+  it("stages a fresh copy when the waiting one has expired", async () => {
+    const db = client()
+    const payload = canonical({ weightKg: 80 })
+    const asClinician = { ...base, canonical: payload, restageFor: "user:u-1", reuseOnlyWhilePending: true }
+
+    await recordEhrImport(db, asClinician)
+    db.imports[0].expiresAt = new Date(NOW.getTime() - 1)
+
+    expect((await recordEhrImport(db, asClinician)).created).toBe(true)
+  })
+
+  // A case's own scope keeps its reviewed copy: that copy is the record of
+  // what the clinician refused, and a refusal is not offered again.
+  it("keeps reusing a reviewed copy within a case", async () => {
+    const db = client()
+    const payload = canonical({ weightKg: 80 })
+
+    const first = await recordEhrImport(db, { ...base, canonical: payload, restageFor: "case-a" })
+    db.imports[0].status = "REVIEWED"
+
+    expect(await recordEhrImport(db, { ...base, canonical: payload, restageFor: "case-a" }))
+      .toEqual({ id: first.id, created: false })
+  })
+
   // The delivery path passes no scope and keeps the old behaviour exactly.
   it("still deduplicates a delivery that names no case", async () => {
     const db = client()

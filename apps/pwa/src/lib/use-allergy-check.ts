@@ -62,7 +62,7 @@ async function askAboutClash(
     const give = await confirmAction(
       `⚠ ${tc("allergyAlertTitle")}: ${name}`,
       `${lines.join("\n")}\n\n${tc("allergyAckNote")}`,
-      { destructive: true, confirmLabel: tc("allergyGiveAnyway"), cancelLabel: tc("allergyDontGive") },
+      { destructive: true, confirmLabel: tc("allergyGiveAnyway"), cancelLabel: tc("allergyDontGive"), labelledOnWeb: true },
     )
     return give
       ? { give: true, allergyAck: conflicts.map(conflict => ({ allergy: conflict.allergy, level: conflict.level })) }

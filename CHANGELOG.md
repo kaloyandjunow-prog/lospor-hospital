@@ -1,5 +1,36 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.1] - 2026-10-06
+
+Vendors API, Web and PWA 9.14.1 (API unchanged, released with them as one
+set); Core stays 9.14.0, Browser 0.8.2. No database migration. Rolling back
+to 1.5.0 restores the pre-update backup, as before.
+
+### Security
+
+- source-map-js 1.2.2 and proxy-addr 2.0.8 (GHSA-68fv-2mgg-jv7q, high;
+  GHSA-jqcg-44mw-7w3h, critical), both patch releases inside existing ranges.
+
+### Fixed
+
+- **A second case for the same patient is no longer told the hospital holds
+  nothing.** A clinician who imported a patient from the hospital system onto
+  one case, then looked the same patient up for a new case, got "the hospital
+  system holds nothing for this patient" while the hospital's record was
+  unchanged. A stored copy is now reused only while it still waits for review;
+  once a case has taken it, the next lookup fetches a fresh one. Inside a case
+  nothing changes: a value the clinician refused is still never offered again.
+- **A case not yet started is refused before the allergy question (web).** A
+  dose that clashed with a recorded allergy asked about the allergy first and
+  only then said "start the case first", recording nothing. The refusal now
+  comes first.
+- **The PWA's allergy prompt says Give anyway / Don't give.** It was the
+  browser's own box, whose buttons only read OK / Cancel. It now opens in the
+  app's own sheet; closing the sheet any other way counts as Don't give.
+- **Continue names every missing required field at once (PWA).** On an empty
+  case it listed Sex, Height, Weight and ASA, and the rest one notice later.
+  All are now listed together in form order, and the form opens at the first.
+
 ## [1.5.0] - 2026-10-04
 
 Vendors Core, API, Web and PWA 9.14.0; Browser stays 0.8.2. One database
