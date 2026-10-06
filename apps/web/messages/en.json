@@ -1633,7 +1633,8 @@
       "back": "Back",
       "selected": "selected",
       "manualEntry": "Manual entry only",
-      "positionChange": "Position change"
+      "positionChange": "Position change",
+      "anaesthesiaStartEvent": "Anaesthesia start"
     },
     "timelineRules": {
       "refused": {

@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Web App
 
+## [9.14.2] - 2026-10-06
+
+### Fixed
+
+- **Event names in the reader's language.** The timetable's events lane
+  translated a whole catalogue name only; a name with a typed detail
+  ("Hypotension (treated)") and the PWA's "Anaesthesia start" stayed in
+  English on a Bulgarian timetable. The detail is kept as typed.
+- **Bulgarian descriptions** under positions and the airway grades (Core 9.14.2).
+
 ## [9.14.1] - 2026-10-06
 
 ### Fixed
