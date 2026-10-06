@@ -39,6 +39,8 @@ type Props = {
   listRef: RefObject<FlatList<number> | null>
   onUndo: () => void
   onDismissUndo: () => void
+  /** The last delete, offered back like an add is (9.14.2). */
+  removalUndo?: { events: LogEvent[]; undo: () => void; dismiss: () => void } | null
   onSetExpandedRow: (row: number | null) => void
   eventText: (event: LogEvent) => string
   buildSummary: (vital: VitalsEntry | undefined, events: LogEvent[]) => RowSummary
@@ -79,6 +81,7 @@ export function IntraopTimetableTab({
   listRef,
   onUndo,
   onDismissUndo,
+  removalUndo = null,
   onSetExpandedRow,
   eventText,
   buildSummary,
@@ -196,6 +199,14 @@ export function IntraopTimetableTab({
           plannedAt={plannedRowTime(undoEvent.ts)}
           onUndo={onUndo}
           onDismiss={onDismissUndo}
+        />
+      )}
+      {removalUndo && removalUndo.events[0] && (
+        <IntraopUndoBar
+          text={eventText(removalUndo.events[0])}
+          removed
+          onUndo={removalUndo.undo}
+          onDismiss={removalUndo.dismiss}
         />
       )}
 

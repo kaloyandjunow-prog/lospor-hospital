@@ -13,6 +13,7 @@ import {
   stripIntraopLogSyncStatuses,
 } from "@/lib/pending-intraop-events"
 import { uid, type LogEvent } from "@/lib/intraop-log-event"
+import { removalOf, restoreRemoved } from "@/lib/intraop-removal-undo"
 import { planEventMutations } from "@/lib/intraop-event-mutations"
 import { notify } from "@/lib/notify"
 import { formatMessage } from "@/i18n/locale"
@@ -75,6 +76,8 @@ export function useIntraopEventPersistence({
 }: UseIntraopEventPersistenceArgs) {
   const { t, tc } = usePreferences()
   const [undoEv, setUndoEv] = useState<LogEvent | null>(null)
+  // What a clinician's last delete took off the chart, for its Undo (9.14.2).
+  const [removedEvents, setRemovedEvents] = useState<LogEvent[] | null>(null)
 
   function seedLegacyRevision(): void {
     if (
@@ -190,6 +193,7 @@ export function useIntraopEventPersistence({
         ? markIntraopEventSynced(current, event.id) as LogEvent[]
         : markIntraopEventFailed(current, event.id) as LogEvent[])
       if (!silent) {
+        setRemovedEvents(null)
         setUndoEv(saved ? serializeIntraopEventForServer(event) as LogEvent : { ...event, syncStatus: "failed" })
         if (event.type === "vital") noteVitalsRef.current()
       }
@@ -197,6 +201,7 @@ export function useIntraopEventPersistence({
       setLog((current) => markIntraopEventFailed(current, event.id) as LogEvent[])
       setSyncState("failed")
       if (!silent) {
+        setRemovedEvents(null)
         setUndoEv({ ...event, syncStatus: "failed" })
         notify(t("savedLocally"), tc("eventSavedLocalRetry"))
       }
@@ -278,6 +283,23 @@ export function useIntraopEventPersistence({
     await syncLog(current.filter((item) => !ids.has(item.id)))
   }
 
+  // A clinician's delete offers Undo, as an add does (9.14.2). Internal
+  // removals -- an add's own Undo, Resume, End case -- go through removeEvent.
+  async function deleteEvent(event: LogEvent) {
+    const { kept, removed } = removalOf(logRef.current, event)
+    if (!(await syncLog(kept))) return
+    setUndoEv(null)
+    setRemovedEvents(removed)
+  }
+
+  async function undoRemoval() {
+    if (!removedEvents) return
+    const back = restoreRemoved(logRef.current, removedEvents, uid)
+    setRemovedEvents(null)
+    await syncLog(back)
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
+  }
+
   async function undoLastEvent() {
     if (!undoEv) return
     await removeEvent(undoEv)
@@ -295,8 +317,13 @@ export function useIntraopEventPersistence({
     syncLog,
     retryPendingEvents,
     removeEvent,
+    deleteEvent,
     undoLastEvent,
     undoEv,
     setUndoEv,
+    /** The last delete, for the timetable's Undo bar; null when there is none. */
+    removalUndo: removedEvents
+      ? { events: removedEvents, undo: undoRemoval, dismiss: () => setRemovedEvents(null) }
+      : null,
   }
 }

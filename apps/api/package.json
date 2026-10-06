@@ -65,7 +65,7 @@
   },
   "overrides": {
     "postcss": "8.5.23",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "js-yaml": "4.3.2",
     "serialize-javascript": "^7.0.6",
     "minimatch": "10.2.6",

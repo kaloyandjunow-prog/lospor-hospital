@@ -1633,7 +1633,8 @@
       "back": "Назад",
       "selected": "избрани",
       "manualEntry": "Само ръчно въвеждане",
-      "positionChange": "Смяна на позиция"
+      "positionChange": "Смяна на позиция",
+      "anaesthesiaStartEvent": "Начало на анестезията"
     },
     "timelineRules": {
       "refused": {

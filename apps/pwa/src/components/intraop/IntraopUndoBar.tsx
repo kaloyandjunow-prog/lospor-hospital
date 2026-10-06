@@ -4,10 +4,12 @@ import { usePreferences } from "@/lib/preferences-context"
 
 // Undo/dismiss bar shown after an event is added on the Timetable tab.
 // Presentational only — markup moved verbatim from cases/intraop/[id].tsx.
-export function IntraopUndoBar({ text, plannedAt = null, onUndo, onDismiss }: {
+export function IntraopUndoBar({ text, plannedAt = null, removed = false, onUndo, onDismiss }: {
   text: string
   /** An entry for a row after now: planned for then, not added now. */
   plannedAt?: string | null
+  /** After a delete: Undo puts it back (9.14.2). */
+  removed?: boolean
   onUndo: () => void
   onDismiss: () => void
 }) {
@@ -18,9 +20,11 @@ export function IntraopUndoBar({ text, plannedAt = null, onUndo, onDismiss }: {
       paddingHorizontal:12, paddingVertical:9, backgroundColor:shade("#17212a"),
       borderBottomWidth:1, borderBottomColor:shade("#2a3a46") }}>
       <Text style={{ color:colors.textSecondary, fontSize:12, flex:1 }} numberOfLines={1}>
-        {plannedAt
-          ? tc("ubItemPlanned").replace("{text}", text).replace("{time}", plannedAt)
-          : tc("ubItemAdded").replace("{text}", text)}
+        {removed
+          ? tc("ubItemRemoved").replace("{text}", text)
+          : plannedAt
+            ? tc("ubItemPlanned").replace("{text}", text).replace("{time}", plannedAt)
+            : tc("ubItemAdded").replace("{text}", text)}
       </Text>
       <TouchableOpacity onPress={onUndo}
         style={{ paddingHorizontal:10, paddingVertical:6, borderRadius:8,
