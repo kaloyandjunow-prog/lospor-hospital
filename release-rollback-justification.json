@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
   "release": "1.5.1",
-  "policy": "service-compatible",
-  "justification": "No migration; 1.5.1 changes application code only, so rolling back to 1.5.0 needs no restore.",
+  "policy": "backup-required",
+  "justification": "Conservative: 1.5.1 adds no migration, but no rollback rehearsal has been recorded for it, so the verified pre-update backup stays the way back.",
   "assessedBy": "maintainer",
   "assessedAt": "2026-10-06"
 }

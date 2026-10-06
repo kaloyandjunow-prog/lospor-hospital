@@ -3,8 +3,13 @@
 ## [1.5.1] - 2026-10-06
 
 Vendors API, Web and PWA 9.14.1 (API unchanged, released with them as one
-set); Core stays 9.14.0, Browser 0.8.2. No database migration: rolling back
-to 1.5.0 needs no restore.
+set); Core stays 9.14.0, Browser 0.8.2. No database migration. Rolling back
+to 1.5.0 restores the pre-update backup, as before.
+
+### Security
+
+- source-map-js 1.2.2 and proxy-addr 2.0.8 (GHSA-68fv-2mgg-jv7q, high;
+  GHSA-jqcg-44mw-7w3h, critical), both patch releases inside existing ranges.
 
 ### Fixed
 
