@@ -6,8 +6,8 @@ A Hospital release is acceptable only after the automated quality workflow and
 this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
-For the 1.5.1 clinical candidate, the coordinated client pins are Core and API
-9.14.0 and Web and PWA 9.14.1; Browser is 0.8.2. Promote and review them in this
+For the 1.5.1 clinical candidate, the coordinated client pins are Core 9.14.0
+and API, Web and PWA 9.14.1; Browser is 0.8.2. Promote and review them in this
 order: Core, Web, PWA, Browser, API. API is deliberately last because its
 finalization routes consume the shared Core contract. The Hospital candidate
 must retain the local package overlays while `UPSTREAM_VERSIONS.json` records

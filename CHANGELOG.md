@@ -2,8 +2,9 @@
 
 ## [1.5.1] - 2026-10-06
 
-Vendors Web and PWA 9.14.1; Core and API stay 9.14.0, Browser 0.8.2. No
-database migration: rolling back to 1.5.0 needs no restore.
+Vendors API, Web and PWA 9.14.1 (API unchanged, released with them as one
+set); Core stays 9.14.0, Browser 0.8.2. No database migration: rolling back
+to 1.5.0 needs no restore.
 
 ### Fixed
 
