@@ -195,8 +195,8 @@ const VIEW: ControlPlaneView = {
     policyChangedAt: "2026-08-22T08:00:00.000Z",
     advisorModel: "mistral-small-2603",
     visionModel: "mistral-large-2512",
-    advisorModelOptions: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"],
-    visionModelOptions: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"],
+    advisorModelOptions: ["mistral-small-2603", "mistral-large-2512"],
+    visionModelOptions: ["mistral-large-2512", "ministral-14b-2512"],
     modelsChangedAt: null,
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
@@ -911,7 +911,7 @@ describe("Status Hospital control plane", () => {
       method: "POST",
       headers,
       body: new URLSearchParams({
-        advisorModel: "mistral-medium-2508",
+        advisorModel: "mistral-large-2512",
         visionModel: "ministral-14b-2512",
         reason: "Mistral retired the previous model",
         password: "Initial password phrase1!",
@@ -919,7 +919,7 @@ describe("Status Hospital control plane", () => {
     })
     expect(saved.status).toBe(200)
     expect(controlPlane.setExternalAiModels).toHaveBeenCalledWith({
-      advisorModel: "mistral-medium-2508",
+      advisorModel: "mistral-large-2512",
       visionModel: "ministral-14b-2512",
       reason: "Mistral retired the previous model",
     })

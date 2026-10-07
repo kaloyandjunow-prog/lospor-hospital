@@ -28,7 +28,7 @@ import { ProcedureOperationPicker } from "@/components/forms/ProcedureOperationP
 import { procedureGroupTag } from "@lospor/core/procedure-codes"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
-import { AIAdvisor } from "@/components/AIAdvisor"
+import { AiConsentSection } from "@/components/forms/sections/AiConsentSection"
 import GuardedTextarea from "@/components/GuardedTextarea"
 import { useOptionLibrary, useRange } from "@/hooks/useOptionLibrary"
 import { displayOption, resolveDisplayOption } from "@/lib/clinical-display"
@@ -41,7 +41,6 @@ import {
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { metadataString } from "@lospor/core/option-contracts"
 import {
-  capabilityMessageKey,
   pediatricCapabilityMessageKey,
   useClinicalAiCapabilities,
   usePediatricModeCapability,
@@ -380,10 +379,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       return
     }
     setFieldErrors(new Set())
+    // A paediatric case keeps its AI consent: it covers the scans, and the
+    // server refuses the advisor for a paediatric case on its own (9.14.3).
     onSubmit(isPediatric
       ? {
           ...data,
-          aiOptIn: false,
           rcriScore: undefined,
           apfelScore: undefined,
           stopBangScore: undefined,
@@ -1127,29 +1127,9 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </SectionCard>
       </div>
 
-      {/* AI advisor opt-in */}
-      {!isPediatric && clinicalAi.clinicalAdvice.enabled ? (<>
-      <div className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3">
-        <Controller name="aiOptIn" control={control} render={({ field }) => (
-          <input type="checkbox" id="aiOptIn" checked={!!field.value} onChange={e => field.onChange(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 shrink-0" />
-        )} />
-        <div>
-          <label htmlFor="aiOptIn" className="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer">
-            {t("preop.aiOptInLabel")}
-          </label>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-            {t("preop.aiOptInHint")}
-          </p>
-        </div>
-      </div>
-
-      {watch("aiOptIn") && <AIAdvisor getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />}
-      </>) : !isPediatric ? (
-        <p className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
-          {t(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
-        </p>
-      ) : null}
+      {/* The case's AI consent, and the adult advisor (9.14.3). */}
+      <AiConsentSection control={control} aiOptIn={!!watch("aiOptIn")} isPediatric={isPediatric} clinicalAi={clinicalAi}
+        getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />
       </div>
 
       {fieldErrors.size > 0 && (

@@ -19,10 +19,17 @@ describe("pinned Mistral models", () => {
   })
 
   it("keeps a listed choice and replaces anything else with the default", () => {
-    expect(advisorModelOrDefault("mistral-medium-2508")).toBe("mistral-medium-2508")
+    expect(advisorModelOrDefault("mistral-large-2512")).toBe("mistral-large-2512")
+    expect(visionModelOrDefault("ministral-14b-2512")).toBe("ministral-14b-2512")
     expect(advisorModelOrDefault(null)).toBe("mistral-small-2603")
     expect(advisorModelOrDefault("mistral-small-2506")).toBe("mistral-small-2603")
-    expect(visionModelOrDefault("mistral-small-2506")).toBe("mistral-small-2506")
+  })
+
+  it("moves a stored choice of a model Mistral retired back to the default", () => {
+    // Medium 3.1 and Small 3.2 left Mistral's catalogue in August and July 2026.
+    expect(advisorModelOrDefault("mistral-medium-2508")).toBe("mistral-small-2603")
+    expect(visionModelOrDefault("mistral-medium-2508")).toBe("mistral-large-2512")
+    expect(visionModelOrDefault("mistral-small-2506")).toBe("mistral-large-2512")
     expect(visionModelOrDefault("pixtral-12b-2409")).toBe("mistral-large-2512")
     expect(visionModelOrDefault(undefined)).toBe("mistral-large-2512")
   })

@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Web App
 
+## [9.14.3] - 2026-10-07
+
+### Fixed
+
+- **AI consent for every case, paediatric included.** The case's AI consent
+  lived inside the adult advisor, which paediatric mode hides, so a paediatric
+  case could never consent and its lab scans were always refused. The consent
+  is now its own section, shown whenever any AI feature is switched on; the
+  advisor stays adult-only. With every AI feature off in Status nothing new is
+  shown.
+- **Lab scan errors say what went wrong, in the reader's language.** The scan
+  showed the server's English error text whatever the interface language.
+  Missing consent, an oversized or unreadable image, the hourly limit, a retired
+  model, AI not set up and a timeout each have their own message.
+
+### Changed
+
+- **Warnings for SpO₂, EtCO₂ and low systolic pressure** on the timetable, each
+  with its own text (Core 9.14.3).
+
 ## [9.14.2] - 2026-10-06
 
 ### Fixed

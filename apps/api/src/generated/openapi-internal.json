@@ -19920,7 +19920,6 @@
             "type": "string",
             "enum": [
               "mistral-small-2603",
-              "mistral-medium-2508",
               "mistral-large-2512"
             ]
           },
@@ -19928,8 +19927,6 @@
             "type": "string",
             "enum": [
               "mistral-large-2512",
-              "mistral-medium-2508",
-              "mistral-small-2506",
               "ministral-14b-2512"
             ]
           },
@@ -20209,7 +20206,6 @@
             "type": "string",
             "enum": [
               "mistral-small-2603",
-              "mistral-medium-2508",
               "mistral-large-2512"
             ]
           },
@@ -20217,8 +20213,6 @@
             "type": "string",
             "enum": [
               "mistral-large-2512",
-              "mistral-medium-2508",
-              "mistral-small-2506",
               "ministral-14b-2512"
             ]
           },

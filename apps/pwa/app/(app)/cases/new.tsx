@@ -241,7 +241,7 @@ export default function NewCaseScreen() {
   // Batched watch subscriptions — 4 groups instead of 17 individual calls
   const [clinicalMode, sex, smoking, ageYears, heightCm, weightKg, bloodType, rhFactor,
          allergies, familyAnesthesiaProblems, airwayUnobtainable, difficultAirwayHistory,
-         labResults, _aiOptIn, highRiskSurgery, emergencySurgery, comorbidities, currentMedications,
+         labResults, aiOptIn, highRiskSurgery, emergencySurgery, comorbidities, currentMedications,
          ageValue, ageUnit] =
     useWatch({ control, name: ["clinicalMode", "sex", "smoking", "ageYears", "heightCm", "weightKg", "bloodType", "rhFactor",
                "allergies", "familyAnesthesiaProblems", "airwayUnobtainable", "difficultAirwayHistory",
@@ -1328,7 +1328,7 @@ export default function NewCaseScreen() {
               <Controller control={control} name="labResults" render={({ field }) => (
                 <>
                   {clinicalAi.labImageExtraction.enabled ? (
-                    <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} onEnsureCase={ensureCaseForAi} />
+                    <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} onEnsureCase={ensureCaseForAi} aiOptIn={!!aiOptIn} />
                   ) : null}
                   <ManualLabPanel value={field.value ?? []} onChange={field.onChange} labelManualLabEntry={tc("manualLabEntry")} labelHideManualLab={tc("hideManualLab")} labelSearchLabs={tc("searchLabs")} />
                 </>
@@ -1359,9 +1359,10 @@ export default function NewCaseScreen() {
               ) : (
                 <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} caseId={caseId} isShown={preopProfile.shownField} />
               )}
-              {!pediatricMode && clinicalAi.clinicalAdvice.enabled ? (
+              {clinicalAi.clinicalAdvice.enabled || clinicalAi.labImageExtraction.enabled || clinicalAi.monitorOcr.enabled ? (
                 <Controller control={control} name="aiOptIn" render={({ field }) => (
                   <AiAdvisorPanel
+                    adviceAvailable={!pediatricMode && clinicalAi.clinicalAdvice.enabled}
                     aiOptIn={!!field.value}
                     onToggleOptIn={field.onChange}
                     analysing={aiLoading}
@@ -1371,10 +1372,9 @@ export default function NewCaseScreen() {
                     tc={tc}
                   />
                 )} />
-              ) : !pediatricMode ? (
-                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>
-                  {tc(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
-                </Text>
+              ) : null}
+              {!pediatricMode && !clinicalAi.clinicalAdvice.enabled ? (
+                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>{tc(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}</Text>
               ) : null}
               {questionList("risk_scores")}
             </SectionCard>

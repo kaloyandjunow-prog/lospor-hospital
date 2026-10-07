@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Mobile
 
+## [9.14.3] - 2026-10-07
+
+### Fixed
+
+- **"The image could not be read" when consent was missing.** A lab or monitor
+  scan on a case without AI consent was refused by the server, and every
+  refusal read as an unreadable photo. The lab scan now says consent is missing
+  before the camera is offered; every scan error names its cause (consent,
+  image size or type, the hourly limit, a retired model, AI not set up, a
+  timeout, no connection). A consent ticked moments ago is waited for once.
+- **AI consent for paediatric cases.** The consent switch lived in the adult
+  advisor, hidden in paediatric mode, so a paediatric case could not scan. It
+  is now shown whenever any AI feature is on; the advisor stays adult-only.
+  With every AI feature off in Status nothing new is shown.
+
+### Changed
+
+- **Warnings for SpO₂, EtCO₂ and low systolic pressure** in the vitals sheet,
+  each with its own text (Core 9.14.3).
+
 ## [9.14.2] - 2026-10-06
 
 ### Fixed

@@ -4,6 +4,7 @@ import type { RefObject } from "react"
 import { Platform } from "react-native"
 import type { TextInput } from "react-native"
 import { apiFetch } from "@/lib/api"
+import { aiScanFailureKey, type ScanFailure } from "@/lib/ai-scan-failure"
 import { notify } from "@/lib/notify"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import {
@@ -171,10 +172,10 @@ export function useVitalsEntry(
       const res = await apiFetch(`/api/cases/${caseId}/vitals-scan`, {
         method: "POST",
         body: JSON.stringify(prepared),
-      })
+      }).catch((): never => { throw { status: 0, code: "NETWORK" } satisfies ScanFailure })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Monitor scan failed (${res.status}).`)
+        throw { status: res.status, code: body.code, message: body.error } satisfies ScanFailure
       }
       const v = await res.json()
       if (v.systolic  != null) setVSys(String(v.systolic))
@@ -186,8 +187,8 @@ export function useVitalsEntry(
       if ([v.systolic, v.diastolic, v.heartRate, v.spO2, v.etco2, v.temp].every((value: unknown) => value == null)) {
         notify(tc("noReadingsFound"), tc("noReadingsFoundMsg"))
       }
-    } catch {
-      notify(tErrorLabel, tc("monitorScanFailedMsg"))
+    } catch (error) {
+      notify(tErrorLabel, tc(aiScanFailureKey(error, "monitorScanFailedMsg")))
     } finally {
       setVitScanBusy(false)
     }

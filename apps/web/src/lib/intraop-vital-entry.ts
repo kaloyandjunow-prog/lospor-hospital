@@ -20,12 +20,16 @@ export type VitalFeedbackMessageKey =
   | "vitalErrorWholeNonnegative"
   | "vitalErrorNonnegative"
   | "vitalErrorNumber"
+  | "vitalWarningSysLow"
   | "vitalWarningSysHigh"
   | "vitalWarningDiaHigh"
   | "vitalWarningHeartLow"
   | "vitalWarningHeartHigh"
   | "vitalWarningTempLow"
   | "vitalWarningTempHigh"
+  | "vitalWarningSpo2Low"
+  | "vitalWarningEtco2Low"
+  | "vitalWarningEtco2High"
 
 export function evaluateVitalInput(
   key: IntraopVitalKey,
@@ -68,8 +72,13 @@ export function vitalFeedbackMessageKey(
     return "vitalErrorNumber"
   }
   if (!feedback.warning) return null
-  if (key === "systolic") return "vitalWarningSysHigh"
+  const low = feedback.warning === "low"
+  if (key === "systolic") return low ? "vitalWarningSysLow" : "vitalWarningSysHigh"
   if (key === "diastolic") return "vitalWarningDiaHigh"
-  if (key === "heartRate") return feedback.warning === "low" ? "vitalWarningHeartLow" : "vitalWarningHeartHigh"
-  return feedback.warning === "low" ? "vitalWarningTempLow" : "vitalWarningTempHigh"
+  if (key === "heartRate") return low ? "vitalWarningHeartLow" : "vitalWarningHeartHigh"
+  if (key === "spO2") return "vitalWarningSpo2Low"
+  if (key === "etco2") return low ? "vitalWarningEtco2Low" : "vitalWarningEtco2High"
+  if (key === "temp") return low ? "vitalWarningTempLow" : "vitalWarningTempHigh"
+  // A field with no warning band has no warning text: never borrow another field's.
+  return null
 }

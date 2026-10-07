@@ -1,5 +1,36 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.3] - 2026-10-07
+
+Vendors Core, API, Web and PWA 9.14.3; Browser stays 0.8.2. No database
+migration. Rolling back to 1.5.2 restores the pre-update backup, as before.
+
+### Fixed
+
+- **"Неуспешно сканиране. Изображението не можа да бъде разчетено."** A lab or
+  monitor scan on a case without AI consent was refused, and the phone showed
+  every refusal as an unreadable photo. The phone now says consent is missing
+  before offering the camera, and every scan error names its cause: no consent,
+  image too large or of the wrong type, the hourly limit, a retired AI model, AI
+  not set up, a timeout, no connection. The web says the same in the reader's
+  language.
+- **AI consent for paediatric cases.** The consent lived inside the adult
+  advisor, which paediatric mode hides, so a paediatric case could never scan.
+  "Allow AI assistance for this case" is now shown whenever any AI feature is
+  switched on in Status; the advisor stays adult-only. With every AI feature
+  off nothing new is shown.
+- **Retired AI models.** Status no longer offers Mistral Medium 3.1
+  (mistral-medium-2508) and Small 3.2 (mistral-small-2506), which Mistral
+  retired; an appliance set to either now uses the default model (Large 3 for
+  scans, Small 4 for advice) instead of failing.
+
+### Changed
+
+- **SpO₂, EtCO₂ and low blood pressure ask for a second look.** The timetable
+  marks SpO₂ below 80 %, EtCO₂ below 25 or above 60 mmHg (3.3 / 8 kPa) and a
+  systolic pressure below 60 mmHg in amber with a note, as it did for heart
+  rate and temperature. A warning never blocks the save.
+
 ## [1.5.2] - 2026-10-06
 
 Vendors Core, API, Web and PWA 9.14.2; Browser stays 0.8.2. No database
