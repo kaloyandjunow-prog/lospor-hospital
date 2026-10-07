@@ -330,10 +330,14 @@ export const INTRAOP_VITAL_RULES: Readonly<Record<IntraopVitalKey, IntraopVitalR
 export type IntraopVitalHardError = "not_finite" | "not_integer" | "below_min" | "above_max"
 export type IntraopVitalWarning = "low" | "high"
 
+// Values in the canonical unit: EtCO2 in mmHg whatever the clinician typed.
+// SpO2, EtCO2 and the low systolic band were set by the clinical lead in 9.14.3.
 export const INTRAOP_VITAL_WARNING_RULES: Readonly<Partial<Record<IntraopVitalKey, { min?: number; max?: number }>>> = Object.freeze({
-  systolic: { max: 300 },
+  systolic: { min: 60, max: 300 },
   diastolic: { max: 150 },
   heartRate: { min: 40, max: 250 },
+  spO2: { min: 80 },
+  etco2: { min: 25, max: 60 },
   temp: { min: 28, max: 41 },
 })
 

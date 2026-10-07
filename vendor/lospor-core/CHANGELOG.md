@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Core
 
+## [9.14.3] - 2026-10-07
+
+### Changed
+
+- **SpO₂, EtCO₂ and low systolic pressure ask for a second look.** The
+  intraoperative warning bands named blood pressure, heart rate and
+  temperature only, so an SpO₂ of 70 or an EtCO₂ of 15 was charted without a
+  word. They now warn below SpO₂ 80 %, below EtCO₂ 25 mmHg or above 60 mmHg,
+  and below a systolic of 60 mmHg (bands set by the clinical lead). EtCO₂ is
+  compared in mmHg whatever unit was typed. A warning still never blocks the
+  save.
+
 ## [9.14.2] - 2026-10-06
 
 ### Fixed
