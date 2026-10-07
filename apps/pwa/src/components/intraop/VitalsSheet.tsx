@@ -116,13 +116,15 @@ export function VitalsSheet({
     }
     const warning = feedback.warnings[field]
     if (!warning) return null
-    const text = field === "systolic" ? tc("vsWarningSysHigh")
-      : field === "diastolic" ? tc("vsWarningDiaHigh")
-      : field === "heartRate" && warning === "low" ? tc("vsWarningHeartLow")
-      : field === "heartRate" ? tc("vsWarningHeartHigh")
-      : field === "temp" && warning === "low" ? tc("vsWarningTempLow")
-      : tc("vsWarningTempHigh")
-    return { text, error: false }
+    const low = warning === "low"
+    const key = field === "systolic" ? (low ? "vsWarningSysLow" : "vsWarningSysHigh")
+      : field === "diastolic" ? "vsWarningDiaHigh"
+      : field === "heartRate" ? (low ? "vsWarningHeartLow" : "vsWarningHeartHigh")
+      : field === "spO2" ? "vsWarningSpo2Low"
+      : field === "etco2" ? (low ? "vsWarningEtco2Low" : "vsWarningEtco2High")
+      : field === "temp" ? (low ? "vsWarningTempLow" : "vsWarningTempHigh")
+      : null
+    return key ? { text: tc(key), error: false } : null
   }
   function renderFeedback(field: IntraopVitalKey) {
     const message = feedbackText(field)

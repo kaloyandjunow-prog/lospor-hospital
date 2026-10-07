@@ -6,6 +6,7 @@ import { notify } from "@/lib/notify"
 import { colors, withAlpha, useShade } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
+import { aiScanFailureKey, isConsentRefusal } from "@/lib/ai-scan-failure"
 
 // Lazy require — native module is only present after a full expo run:android build.
  
@@ -38,9 +39,15 @@ type Props = {
    * the clinician may not know it.
    */
   takenAt?: string
+  /**
+   * The case's AI consent, where the caller holds it (9.14.3). False shows why
+   * scanning is unavailable instead of the camera buttons, so nobody photographs
+   * a report only to be refused. Omitted, the server's answer decides.
+   */
+  aiOptIn?: boolean
 }
 
-export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Props) {
+export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt, aiOptIn }: Props) {
   const shade = useShade()
   const { tc } = usePreferences()
   // Gated here rather than at the call site. Scanning sends a photograph of a
@@ -101,15 +108,22 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Pro
       // image can be sent — the server reads consent from the record.
       const caseId = await onEnsureCase()
       if (!caseId) {
-        notify(tc("lspScanFailedTitle"), tc("lspScanFailedMsg"))
+        notify(tc("lspScanFailedTitle"), tc("caseSaveFailed"))
         return
       }
-      const data = await apiJson<{ results: ScannedLabResult[] }>(`/api/cases/${caseId}/ai/read-labs`, {
+      const send = () => apiJson<{ results: ScannedLabResult[] }>(`/api/cases/${caseId}/ai/read-labs`, {
         method: "POST",
         body: JSON.stringify({
           imageBase64,
           mimeType: asset.mimeType ?? "image/jpeg",
         }),
+      })
+      // A consent ticked moments ago may still be waiting on the autosave
+      // debounce: wait for it once, as the advisor does, before believing the refusal.
+      const data = await send().catch(async (error: unknown) => {
+        if (aiOptIn !== true || !isConsentRefusal(error)) throw error
+        await new Promise((r) => setTimeout(r, 2500))
+        return send()
       })
       // A row is only offered ticked when the server converted it from a unit it
       // recognised. Rows with an unrecognised unit are listed with their printed
@@ -121,8 +135,8 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Pro
       }))
       setResults(imported)
       setReviewOpen(true)
-    } catch {
-      notify(tc("lspScanFailedTitle"), tc("lspScanFailedMsg"))
+    } catch (error) {
+      notify(tc("lspScanFailedTitle"), tc(aiScanFailureKey(error, "lspScanFailedMsg")))
     } finally {
       setScanning(false)
     }
@@ -168,6 +182,9 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Pro
       <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 17 }}>
         {tc("lspPrivacyInstruction")}
       </Text>
+      {aiOptIn === false ? (
+        <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 17 }}>{tc("aiScanNeedsConsent")}</Text>
+      ) : (
       <View style={{ flexDirection: "row", gap: 10 }}>
         <Pressable onPress={() => pick("camera")} disabled={scanning} style={{ flex: 1, borderRadius: 12, borderCurve: "continuous", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: withAlpha(colors.primary, "66"), paddingVertical: 12, alignItems: "center" }}>
           <Text style={{ color: colors.primary, fontWeight: "900", fontSize: 13 }}>{tc("lspCamera")}</Text>
@@ -176,6 +193,7 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Pro
           <Text style={{ color: colors.textSecondary, fontWeight: "900", fontSize: 13 }}>{tc("lspGallery")}</Text>
         </Pressable>
       </View>
+      )}
       {scanning ? (
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
           <ActivityIndicator color={colors.primary} />

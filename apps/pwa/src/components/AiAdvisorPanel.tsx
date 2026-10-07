@@ -190,7 +190,15 @@ function AiResultCard({ title, body }: ParsedSection) {
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
+/**
+ * The case's AI consent, and the advisor where it applies.
+ *
+ * The consent covers every AI feature switched on, lab and monitor scans
+ * included (9.14.3). Where the advisor itself is unavailable -- a paediatric
+ * case, or advice off in Status -- only the consent card is shown.
+ */
 export function AiAdvisorPanel({
+  adviceAvailable = true,
   aiOptIn,
   onToggleOptIn,
   analysing,
@@ -199,6 +207,7 @@ export function AiAdvisorPanel({
   onRun,
   tc,
 }: {
+  adviceAvailable?: boolean
   aiOptIn: boolean
   onToggleOptIn: (v: boolean) => void
   analysing: boolean
@@ -208,6 +217,9 @@ export function AiAdvisorPanel({
   tc: (key: ClinicalStringKey) => string
 }) {
   const sections = parseSections(streamedText)
+  if (!adviceAvailable) {
+    return <GdprCard aiOptIn={aiOptIn} onToggle={onToggleOptIn} privacyNote={tc("aiPrivacyNote")} enableLabel={tc("aiEnableLabel")} />
+  }
 
   return (
     <View>

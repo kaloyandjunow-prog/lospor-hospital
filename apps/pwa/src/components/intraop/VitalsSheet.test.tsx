@@ -88,6 +88,17 @@ describe("VitalsSheet validation feedback", () => {
     expect(sheetProps.onConfirm).toHaveBeenCalledOnce()
   })
 
+  it("names low SpO2 and EtCO2 rather than borrowing the temperature warning", () => {
+    const sheetProps = props()
+    sheetProps.spo2 = "75"
+    sheetProps.etco2 = "20"
+    sheetProps.feedback = { errors: {}, warnings: { spO2: "low", etco2: "low" }, hasHardErrors: false }
+    const tree = renderWithPreferences(<VitalsSheet {...sheetProps} />)
+
+    expect(getByText(tree, "Low SpO₂ (<80 %). Verify the reading.")).toBeTruthy()
+    expect(getByText(tree, "Low EtCO₂ (<25 mmHg / 3.3 kPa). Verify the reading.")).toBeTruthy()
+  })
+
   it("reveals a hidden hard-invalid field in BP mode so Save explains why it is blocked", () => {
     const sheetProps = props()
     sheetProps.mode = "bp"
