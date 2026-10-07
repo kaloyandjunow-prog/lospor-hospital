@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react"
 import { LabScanControls } from "@/components/LabScanControls"
+import { aiScanFailureKey } from "@/lib/ai-scan-failure"
 import { Input } from "@/components/ui/input"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import {
@@ -86,17 +87,16 @@ export function LabResults({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64, mimeType: file.type }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok || data.error) {
-        setAiError(data.error ?? t("intraop.lab.scanFailed"))
+        setAiError(t(res.ok ? "intraop.lab.scanFailed" : aiScanFailureKey(res.status, data.code)))
       } else if (!data.results?.length) {
         setAiError(t("intraop.lab.noImageResults"))
       } else {
         setAiPreview(data.results)
-        // Only rows the server converted from a recognised unit are offered
-        // ticked. A row whose printed unit was not understood is shown with its
-        // source value so it can be checked against the report, but it is never
-        // accepted by default.
+        // Only rows converted from a recognised unit are offered ticked. A row whose
+        // printed unit was not understood is shown with its source value, to check
+        // against the report, but is never accepted by default.
         setAiSelected(new Set(
           data.results
             .map((row: { confident?: boolean }, i: number) => (row.confident === false ? -1 : i))
