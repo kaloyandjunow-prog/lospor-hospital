@@ -496,8 +496,8 @@ export const schemas = {
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["transport", "reason"]),
   HospitalExternalAiModelsRequest: object({
-    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"] },
-    visionModel: { type: "string", enum: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"] },
+    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-large-2512"] },
+    visionModel: { type: "string", enum: ["mistral-large-2512", "ministral-14b-2512"] },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["advisorModel", "visionModel", "reason"]),
   HospitalEhrStagingRetentionRequest: object({
@@ -563,8 +563,8 @@ export const schemas = {
     policyChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["externalAiEnabled", "provider", "policyChangedAt"]),
   HospitalExternalAiModelsResponse: object({
-    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"] },
-    visionModel: { type: "string", enum: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"] },
+    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-large-2512"] },
+    visionModel: { type: "string", enum: ["mistral-large-2512", "ministral-14b-2512"] },
     modelsChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["advisorModel", "visionModel", "modelsChangedAt"]),
   HospitalExternalAiCredentialResponse: object({

@@ -9,21 +9,22 @@
  * 2026). Hospital controls chooses among them; when Mistral retires one,
  * the feature reports EXTERNAL_AI_MODEL_UNAVAILABLE and Status shows it.
  *
+ * Mistral Medium 3.1 (2508) and Small 3.2 (2506) were retired on 30 August
+ * and 30 July 2026 and left the lists in 1.5.3; a stored choice of either
+ * falls back to the default rather than failing.
+ *
  * Adding a model is a release change: a new identifier belongs in this list
  * only once someone has checked what it does with lab reports and monitors.
  */
 
 export const ADVISOR_MODELS = [
   "mistral-small-2603",
-  "mistral-medium-2508",
   "mistral-large-2512",
 ] as const
 
 /** Models that read images: lab report photos and monitor screens. */
 export const VISION_MODELS = [
   "mistral-large-2512",
-  "mistral-medium-2508",
-  "mistral-small-2506",
   "ministral-14b-2512",
 ] as const
 

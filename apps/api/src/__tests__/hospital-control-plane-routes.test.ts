@@ -356,7 +356,7 @@ describe("private Status Hospital control-plane routes", () => {
 
   it("accepts only pinned external AI models", async () => {
     mocks.externalAiModels.mockResolvedValue({
-      advisorModel: "mistral-medium-2508",
+      advisorModel: "mistral-large-2512",
       visionModel: "ministral-14b-2512",
       modelsChangedAt: new Date("2026-09-13T12:00:00Z"),
     })
@@ -366,16 +366,16 @@ describe("private Status Hospital control-plane routes", () => {
     const path = "/v1/internal/hospital/control-plane/external-ai/models"
     const reason = "Mistral retired the previous model"
     const response = await POST(request(path, {
-      advisorModel: "mistral-medium-2508", visionModel: "ministral-14b-2512", reason,
+      advisorModel: "mistral-large-2512", visionModel: "ministral-14b-2512", reason,
     }))
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
-      advisorModel: "mistral-medium-2508",
+      advisorModel: "mistral-large-2512",
       visionModel: "ministral-14b-2512",
       modelsChangedAt: "2026-09-13T12:00:00.000Z",
     })
     expect(mocks.externalAiModels).toHaveBeenCalledWith({
-      advisorModel: "mistral-medium-2508", visionModel: "ministral-14b-2512", reason,
+      advisorModel: "mistral-large-2512", visionModel: "ministral-14b-2512", reason,
     })
 
     mocks.externalAiModels.mockClear()

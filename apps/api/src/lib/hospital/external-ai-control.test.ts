@@ -96,21 +96,21 @@ describe("Hospital external AI Status mutations", () => {
     mocks.policyUpsert.mockImplementation(async ({ update }) => ({ id: "local", ...update }))
 
     await setExternalAiModels({
-      advisorModel: "mistral-medium-2508",
+      advisorModel: "mistral-large-2512",
       visionModel: "ministral-14b-2512",
       reason: "Mistral retired the previous model",
     })
 
     const call = mocks.policyUpsert.mock.calls[0]?.[0]
     expect(Object.keys(call.update).sort()).toEqual(["advisorModel", "modelsChangedAt", "visionModel"])
-    expect(call.update).toMatchObject({ advisorModel: "mistral-medium-2508", visionModel: "ministral-14b-2512" })
+    expect(call.update).toMatchObject({ advisorModel: "mistral-large-2512", visionModel: "ministral-14b-2512" })
     expect(mocks.audit).toHaveBeenCalledWith(
       tx,
       "admin-1",
       "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE",
       "local",
       expect.objectContaining({
-        advisorModel: "mistral-medium-2508",
+        advisorModel: "mistral-large-2512",
         visionModel: "ministral-14b-2512",
         previousAdvisorModel: null,
         previousVisionModel: "mistral-large-2512",
