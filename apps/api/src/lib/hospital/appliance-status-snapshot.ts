@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma"
 import { APPLIANCE_MANIFEST_VERSIONS } from "@/lib/hospital/appliance-versions"
 import { isCentralDeliveryConfigured } from "@/lib/hospital/config"
 import { countCasesAwaitingCentralExport } from "@/lib/hospital/central-status"
+import { applianceActivity, applianceIntegrations } from "@/lib/hospital/appliance-activity"
 
 function declaredApplianceRelease(): string {
   const value = process.env.HOSPITAL_APPLIANCE_RELEASE?.trim()
@@ -109,6 +110,8 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
     migrations,
     logicalDatabaseSize,
     researchStorage,
+    activity,
+    integrations,
   ] = await Promise.all([
     institutionId
       ? prisma.centralExportPolicy.findUnique({
@@ -128,6 +131,8 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
     migrationState(),
     databaseSize(),
     researchStorageCapacity(),
+    applianceActivity(),
+    applianceIntegrations(),
   ])
 
   let centralCredentialsPresent = false
@@ -173,5 +178,8 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
       lastCapabilitiesAt: installation?.lastCapabilitiesAt?.toISOString() ?? null,
       lastDeliveryAt: installation?.lastDeliveryAt?.toISOString() ?? null,
     },
+    // Optional: Status accepts a snapshot without them, so an older API still works.
+    ...(activity ? { activity } : {}),
+    ...(integrations ? { integrations } : {}),
   }
 }
