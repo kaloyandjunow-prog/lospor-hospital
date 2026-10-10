@@ -179,6 +179,25 @@ describe("the overview and services pages", () => {
     expect(legacy).toContain("Needs attention today")
   })
 
+  it("does not repeat a page's heading in a line under it, but still describes pages in lists", async () => {
+    const { app, auth } = setup()
+    const cookie = await signIn(auth)
+    const page = async (path: string, extra = "") => (await app.request(path, { headers: headers({ cookie: `${cookie}${extra}` }) })).text()
+    const subtitle = (html: string) => /<div class="skin-title">.*?<\/h1>(<p>.*?<\/p>)?<\/div>/s.exec(html)?.[1]
+    expect(subtitle(await page("/status/"))).toBeUndefined()
+    expect(subtitle(await page("/status/", "; lospor_status_locale=bg"))).toBeUndefined()
+    expect(subtitle(await page("/status/accounts"))).toBeUndefined()
+    expect(subtitle(await page("/status/preferences"))).toContain("Kept in this browser only.")
+    expect(await page("/status/configure")).toContain("Everyone who signs in to LOSPOR, and the Status administrators.")
+  })
+
+  it("keeps the profile button on the brand's row: tabs and menus never wrap beside it", () => {
+    const html = render("maphub")
+    expect(html).toContain(".skin-head .tabs{flex-wrap:nowrap;")
+    expect(html).toContain("@media (max-width:1100px){.skin-head .tabs,.skin-head .menus{order:3;width:100%}.skin-head .profile{order:2}}")
+    expect(html).toContain(".skin-head .brand{white-space:nowrap}")
+  })
+
   it("shows availability over 24 hours, 7 days or 90 days", async () => {
     const { app, auth, db } = setup()
     db.recordObservation({ component: "web", label: "Clinical web", group: "clinical", status: "outage", code: "WEB_DOWN", checkedAt: NOW - 30 * 60_000 })

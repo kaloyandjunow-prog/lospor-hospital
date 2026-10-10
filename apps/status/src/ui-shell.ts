@@ -55,8 +55,12 @@ export type NavItem = {
   also?: readonly string[]
   en: string
   bg: string
+  /** Shown in lists of pages (index, Configure), not under the page's own heading. */
   descEn: string
   descBg: string
+  /** A fact the page itself does not state, shown under its heading. Rare. */
+  noteEn?: string
+  noteBg?: string
   audiences: readonly StatusAudience[]
 }
 
@@ -102,7 +106,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
 ]
 
 const EXTRA_PAGES: readonly NavItem[] = [
-  { id: "preferences", path: "/status/preferences", en: "Display settings", bg: "Настройки на изгледа", descEn: "Skin, light or dark, and language. Kept in this browser.", descBg: "Облик, светъл или тъмен режим и език. Пазят се в този браузър.", audiences: BOTH },
+  { id: "preferences", path: "/status/preferences", en: "Display settings", bg: "Настройки на изгледа", descEn: "Skin, light or dark, and language. Kept in this browser.", descBg: "Облик, светъл или тъмен режим и език. Пазят се в този браузър.", noteEn: "Kept in this browser only.", noteBg: "Пазят се само в този браузър.", audiences: BOTH },
   { id: "configure", path: "/status/configure", en: "Configure", bg: "Настройки", descEn: "Every setting, grouped by what it is for.", descBg: "Всички настройки, групирани по предназначение.", audiences: BOTH },
 ]
 
@@ -150,9 +154,9 @@ function profileMenu(locale: StatusLocale, audience: StatusAudience, languageFor
 function pageTitle(locale: StatusLocale, fallback: string): string {
   const found = currentItem()
   const title = found ? label(locale, found.item) : fallback
-  const desc = found ? (locale === "bg" ? found.item.descBg : found.item.descEn) : ""
+  const note = found ? (locale === "bg" ? found.item.noteBg : found.item.noteEn) : undefined
   const crumb = found?.group && found.group.items.length > 1 ? `<div class="crumb">${escapeHtml(label(locale, found.group))}</div>` : ""
-  return `<div class="skin-title">${crumb}<h1>${escapeHtml(title)}</h1>${desc ? `<p>${escapeHtml(desc)}</p>` : ""}</div>`
+  return `<div class="skin-title">${crumb}<h1>${escapeHtml(title)}</h1>${note ? `<p>${escapeHtml(note)}</p>` : ""}</div>`
 }
 
 /**
@@ -583,14 +587,19 @@ export const SKIN_STYLE = `
 @media (max-width:620px){.map{display:none}.map-list{display:block}}
 /* map hub */
 @media (max-width:760px){
-  .skin-head .tabs{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  .skin-head .menus{order:3;width:100%}
-  .skin-head .tabs::-webkit-scrollbar{display:none}
-  .skin-head .tabs a{flex:none;white-space:nowrap}
-  .skin-head .profile{order:2}
   .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .chips a{flex:none;white-space:nowrap}
 }
+/* The profile button stays top right on every screen. Up to 1100px the tabs
+   or menus take their own row under the brand; wider, they share its row and
+   the tabs scroll rather than wrap if they still do not fit. Menus never
+   scroll, since their lists would be clipped. */
+.skin-head .brand{white-space:nowrap}
+.skin-head .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.skin-head .tabs::-webkit-scrollbar{display:none}
+.skin-head .tabs a{flex:none;white-space:nowrap}
+@media (min-width:1101px){.skin-head:has(> .tabs){flex-wrap:nowrap}.skin-head .tabs{min-width:0}}
+@media (max-width:1100px){.skin-head .tabs,.skin-head .menus{order:3;width:100%}.skin-head .profile{order:2}}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
 .tabs a{border-radius:999px;padding:.28rem .85rem;font-size:.94rem;text-decoration:none;color:var(--muted)}
 .tabs a[aria-current=page]{background:var(--accent);color:var(--accent-fg);font-weight:650}
