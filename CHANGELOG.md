@@ -2,8 +2,9 @@
 
 ## [1.5.4] - 2026-10-10
 
-Hospital-only release: Core, API, Web and PWA stay 9.14.3, Browser 0.8.2. No
-clinical database migration; Status adds one query over data it already keeps.
+Vendors Core, API, Web and PWA 9.14.4 and Browser 0.8.3 (security updates
+only; the same fixes the appliance already ran, now upstream too). No clinical
+database migration; Status adds one query over data it already keeps.
 Rolling back to 1.5.3 restores the pre-update backup, as before.
 
 ### Added
@@ -46,9 +47,12 @@ Rolling back to 1.5.3 restores the pre-update backup, as before.
 
 ### Security
 
-- Research Browser on Next.js 16.3.8, as Web and API already were
+- Research Browser 0.8.3 on Next.js 16.3.8, as Web and API already were
   (GHSA-3w37-wq28-93x7, GHSA-4jqv-mc3x-m676, GHSA-39w2-rjm5-chcv,
   GHSA-f87g-xv8r-7p7x, GHSA-mcj8-r9mp-w47p, GHSA-cjq9-62q9-8jv4; high).
+- Upstream 9.14.4 and Browser 0.8.3 carry the dependency fixes this appliance
+  already had (Next.js, proxy-addr, sharp, source-map-js, shell-quote), so the
+  vendored trees match their upstream releases again.
 
 ## [1.5.3] - 2026-10-07
 

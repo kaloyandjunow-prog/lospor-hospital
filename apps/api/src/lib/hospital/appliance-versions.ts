@@ -25,9 +25,9 @@ export const APPLIANCE_MANIFEST_VERSIONS = {
   /** This appliance's own release, independent of the upstream it vendors. */
   hospital: "1.5.4",
   /** The vendored lospor-api. Must equal UPSTREAM_VERSIONS.sources.api.version. */
-  api: "9.14.3",
+  api: "9.14.4",
   /** The vendored lospor-core. Must equal UPSTREAM_VERSIONS.sources.core.version. */
-  core: "9.14.3",
+  core: "9.14.4",
   /** The appliance's own database shape, not an upstream version. */
   databaseSchema: "hospital-2",
 } as const
