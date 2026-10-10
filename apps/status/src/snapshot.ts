@@ -29,11 +29,42 @@ function countMap(value: unknown, allowed: readonly string[]): Record<string, nu
   return result
 }
 
+const COUNT_LIMIT = 1_000_000
+
+/** Totals only: three head counts and thirty days of case counts. Anything else is refused. */
+function parseActivity(value: unknown): ApplianceSnapshot["activity"] | null {
+  if (!isRecord(value) || !hasExactKeys(value, ["activeUsers", "activeClinical", "activeResearch", "days"])) return null
+  if (![value.activeUsers, value.activeClinical, value.activeResearch].every(count => finiteInteger(count, 0, COUNT_LIMIT))) return null
+  if (!Array.isArray(value.days) || value.days.length > 120) return null
+  const days: { day: string; started: number; finalized: number }[] = []
+  for (const day of value.days) {
+    if (!isRecord(day) || !hasExactKeys(day, ["day", "started", "finalized"])) return null
+    if (typeof day.day !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day.day)) return null
+    if (!finiteInteger(day.started, 0, COUNT_LIMIT) || !finiteInteger(day.finalized, 0, COUNT_LIMIT)) return null
+    days.push({ day: day.day, started: day.started, finalized: day.finalized })
+  }
+  return {
+    activeUsers: value.activeUsers as number,
+    activeClinical: value.activeClinical as number,
+    activeResearch: value.activeResearch as number,
+    days,
+  }
+}
+
+function parseIntegrations(value: unknown): ApplianceSnapshot["integrations"] | null {
+  if (!isRecord(value) || !hasExactKeys(value, ["ehr", "ai"])) return null
+  const { ehr, ai } = value
+  if (!isRecord(ehr) || !hasExactKeys(ehr, ["configured", "lastReceivedAt"]) || typeof ehr.configured !== "boolean"
+    || !nullableDate(ehr.lastReceivedAt)) return null
+  if (!isRecord(ai) || !hasExactKeys(ai, ["enabled"]) || typeof ai.enabled !== "boolean") return null
+  return { ehr: { configured: ehr.configured, lastReceivedAt: ehr.lastReceivedAt }, ai: { enabled: ai.enabled } }
+}
+
 export function parseApplianceSnapshot(value: unknown): ApplianceSnapshot | null {
   if (!isRecord(value) || !hasExactKeys(value, [
     "schemaVersion", "generatedAt", "versions", "operatorCredentialGeneration",
     "operatorCredentialIdentityProof", "email", "database", "research", "central",
-  ])) return null
+  ], ["activity", "integrations"])) return null
   if (value.schemaVersion !== 1 || !validIsoDate(value.generatedAt)
     || !finiteInteger(value.operatorCredentialGeneration, 0, 1_000_000)
     || (value.operatorCredentialIdentityProof !== null
@@ -78,6 +109,9 @@ export function parseApplianceSnapshot(value: unknown): ApplianceSnapshot | null
     || !nullableDate(central.lastDeliveryAt)) return null
   const deliveryCounts = countMap(central.deliveriesByStatus, CENTRAL_STATUSES)
   if (!deliveryCounts) return null
+  const activity = value.activity === undefined ? undefined : parseActivity(value.activity)
+  const integrations = value.integrations === undefined ? undefined : parseIntegrations(value.integrations)
+  if (activity === null || integrations === null) return null
 
   return {
     schemaVersion: 1,
@@ -124,6 +158,8 @@ export function parseApplianceSnapshot(value: unknown): ApplianceSnapshot | null
       lastCapabilitiesAt: central.lastCapabilitiesAt,
       lastDeliveryAt: central.lastDeliveryAt,
     },
+    ...(activity ? { activity } : {}),
+    ...(integrations ? { integrations } : {}),
   }
 }
 
