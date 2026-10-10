@@ -1,5 +1,6 @@
 // Status for the cross-app suite (1.5.5). Test only: never part of the Status
-// image, which is built from apps/status alone.
+// image, whose runtime holds only dist/, built from src/. Started by
+// apps/web/playwright.crossapp.config.ts, which passes every setting below.
 //
 // The real Status app, driving the real API through the internal control plane
 // with the same account-control token the e2e API is started with, so a spec
@@ -16,13 +17,12 @@ import { createServer } from "node:http"
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { createStatusApp } from "../../../status/src/app.js"
-import { AuthService } from "../../../status/src/auth.js"
-import type { StatusConfig } from "../../../status/src/config.js"
-import { StatusDatabase } from "../../../status/src/db.js"
-import { totpCode } from "../../../status/src/mfa.js"
-import { nodeRequestHandler } from "../../../status/src/node-server.js"
-import { STATUS_E2E_EMAIL, STATUS_E2E_PASSWORD, STATUS_E2E_PORT, STATUS_E2E_SESSION_FILE } from "./status-e2e"
+import { createStatusApp } from "../src/app.js"
+import { AuthService } from "../src/auth.js"
+import type { StatusConfig } from "../src/config.js"
+import { StatusDatabase } from "../src/db.js"
+import { totpCode } from "../src/mfa.js"
+import { nodeRequestHandler } from "../src/node-server.js"
 
 const required = (name: string): string => {
   const value = process.env[name]?.trim()
@@ -30,10 +30,12 @@ const required = (name: string): string => {
   return value
 }
 
-const port = STATUS_E2E_PORT
+const port = Number(required("STATUS_E2E_PORT"))
+const STATUS_E2E_EMAIL = required("STATUS_E2E_EMAIL")
+const STATUS_E2E_PASSWORD = required("STATUS_E2E_PASSWORD")
 const controlPlaneUrl = required("STATUS_E2E_CONTROL_PLANE_URL")
 const token = readFileSync(required("STATUS_E2E_TOKEN_FILE"), "utf8").trim()
-const sessionFile = STATUS_E2E_SESSION_FILE
+const sessionFile = required("STATUS_E2E_SESSION_FILE")
 
 const workspace = mkdtempSync(join(tmpdir(), "status-e2e-"))
 const dirs = ["state", "signals", "requests"].map(name => join(workspace, name))
@@ -55,7 +57,7 @@ const config = {
 
 const app = createStatusApp({ db, auth, config })
 
-async function main() {
+async function main(): Promise<void> {
   await auth.initialize(STATUS_E2E_EMAIL, STATUS_E2E_PASSWORD)
   const challenge = await auth.beginPasswordLogin({ email: STATUS_E2E_EMAIL, password: STATUS_E2E_PASSWORD, clientAddress: "127.0.0.1" })
   const login = auth.completeMfaLogin({ challengeToken: challenge.challengeToken, code: totpCode(challenge.manualKey!, Date.now()), clientAddress: "127.0.0.1" })

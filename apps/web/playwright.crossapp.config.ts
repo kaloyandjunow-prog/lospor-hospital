@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 import path from "path"
 import { cloudLegalDocumentsJson } from "./e2e/legal-documents"
-import { STATUS_E2E_BASE } from "./e2e/fixtures/status-e2e"
+import { STATUS_E2E_BASE, STATUS_E2E_EMAIL, STATUS_E2E_PASSWORD, STATUS_E2E_PORT, STATUS_E2E_SESSION_FILE } from "./e2e/fixtures/status-e2e"
 
 // One clinician, one case, two apps.
 //
@@ -163,7 +163,7 @@ export default defineConfig({
       // Status (1.5.5), so a spec can use the operator's own screens against
       // this API. Started from apps/status for its dependencies; see the
       // fixture for why the session is created there.
-      command: "npm exec -- tsx ../web/e2e/fixtures/status-e2e-server.ts",
+      command: "npm exec -- tsx e2e/status-e2e-server.ts",
       cwd: path.join(__dirname, "..", "status"),
       url: STATUS_E2E_BASE + "/status/login",
       reuseExistingServer: false,
@@ -171,6 +171,10 @@ export default defineConfig({
       env: {
         STATUS_E2E_CONTROL_PLANE_URL: e2eApiInternalUrl + "/v1/internal/hospital/control-plane",
         STATUS_E2E_TOKEN_FILE: accountControlTokenFile,
+        STATUS_E2E_PORT: String(STATUS_E2E_PORT),
+        STATUS_E2E_EMAIL,
+        STATUS_E2E_PASSWORD,
+        STATUS_E2E_SESSION_FILE,
       },
     },
   ],
