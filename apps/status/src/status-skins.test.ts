@@ -220,6 +220,27 @@ describe("pages the skins regroup", () => {
   })
 })
 
+describe("the PeriOp Laboratories logo", () => {
+  it("is served by Status itself and shown at the foot of every page and in About", async () => {
+    const { app, auth } = setup()
+    const logo = await app.request("/status/brand/periop-laboratories.png")
+    expect(logo.headers.get("content-type")).toBe("image/png")
+    expect(new Uint8Array(await logo.arrayBuffer()).slice(1, 4)).toEqual(new Uint8Array([0x50, 0x4e, 0x47]))
+    expect(logo.headers.get("content-security-policy")).toContain("img-src 'self'")
+    const login = await (await app.request("/status/")).text()
+    expect(login).toContain('src="/status/brand/periop-laboratories.png"')
+    const cookie = await signIn(auth)
+    for (const skin of STATUS_SKINS) {
+      const settings = await (await app.request("/status/preferences", { headers: headers({ cookie: `${cookie}; lospor_status_skin=${skin}` }) })).text()
+      expect(settings, skin).toContain('class="maker"')
+      expect(settings, skin).toContain('class="lospor-logo"')
+    }
+    const bulgarian = await (await app.request("/status/preferences", { headers: headers({ cookie: `${cookie}; lospor_status_locale=bg` }) })).text()
+    expect(bulgarian).toContain("Разработено от")
+    expect(bulgarian).toContain("За системата")
+  })
+})
+
 describe("the settings-index search script", () => {
   it("is served from Status itself, as the content policy requires", async () => {
     const { app } = setup()

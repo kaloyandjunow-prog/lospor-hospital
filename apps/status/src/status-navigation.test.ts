@@ -103,6 +103,7 @@ describe("the navigation registry", () => {
       "/status/admin-recover",
       "/status/admin-link.js",
       "/status/ui.js",
+      "/status/brand/periop-laboratories.png",
       "/status/preop-order.js",
       "/status/maintenance/support-bundle",
       "/status/maintenance/escrow/download",

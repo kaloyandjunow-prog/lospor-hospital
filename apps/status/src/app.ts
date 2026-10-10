@@ -15,6 +15,7 @@ import {
   readUpdateSignal,
 } from "./signals.js"
 import type { MaintenanceView, MedicationSearch, ReleaseView } from "./ui.js"
+import { PERIOP_LOGO_PNG } from "./brand.js"
 import { DEFAULT_SKIN, NAV_PATHS, STATUS_UI_SCRIPT, isLegacy, parseRange, parseSkin, parseTheme, withUi } from "./ui-shell.js"
 import {
   PREOP_ORDER_SCRIPT,
@@ -298,7 +299,7 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
 
 function securityHeaders(response: Response): void {
   response.headers.set("cache-control", NO_STORE)
-  response.headers.set("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+  response.headers.set("content-security-policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
   response.headers.set("referrer-policy", "no-referrer")
   response.headers.set("x-content-type-options", "nosniff")
   response.headers.set("x-frame-options", "DENY")
@@ -489,6 +490,11 @@ export function createStatusApp({
     })
     return context.redirect(returnTo, 303)
   })
+  app.get("/status/brand/periop-laboratories.png", context => context.body(
+    new Uint8Array(PERIOP_LOGO_PNG),
+    200,
+    { "content-type": "image/png", "cache-control": "public, max-age=86400" },
+  ))
   app.get("/status/ui.js", context => context.body(
     STATUS_UI_SCRIPT,
     200,

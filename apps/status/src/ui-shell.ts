@@ -165,7 +165,7 @@ export function skinHeader(locale: StatusLocale, audience: StatusAudience, langu
   const found = currentItem()
   const activeGroup = found?.group?.id ?? null
   const activeItem = found?.item.id ?? null
-  const brand = `<a class="brand" href="/status/">LOSPOR Status</a>`
+  const brand = `<a class="brand" href="/status/">${losporSymbol()}<span>LOSPOR Status</span></a>`
   const head = (nav = "") => `<header class="skin-head">${brand}${nav}${profileMenu(locale, audience, languageForm)}</header>`
   const chips = (group: NavGroup | undefined) => group && group.items.length > 1
     ? `<nav class="chips" aria-label="${escapeHtml(label(locale, group))}">${group.items.map(item => `<a href="${item.path}"${current(item.id === activeItem)}>${escapeHtml(label(locale, item))}</a>`).join("")}</nav>`
@@ -245,6 +245,17 @@ export const STATUS_UI_SCRIPT = `(() => {
 
 // ── display settings ─────────────────────────────────────────────────────────
 
+/** The LOSPOR symbol (apps/web/public/brand, transparent), in the page's text colour. */
+export function losporSymbol(): string {
+  return `<svg class="lospor-symbol" viewBox="170 60 380 720" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><path d="M380 70v58m-52 28c17-20 127-20 144 0"/><path d="M266 215c0-53 60-85 134-85s134 32 134 85v37c0 23-60 41-134 41s-134-18-134-41z"/><rect x="286" y="354" width="228" height="164" rx="23"/><rect x="309" y="377" width="162" height="108" rx="8"/><path d="M263 538h274v30H263z"/><path d="M288 568v153h224V568"/><path d="M266 653h268v39H266z"/><path d="M270 721h260v32H270z"/></g><ellipse cx="400" cy="252" rx="117" ry="39" style="fill:var(--brand)"/></svg>`
+}
+
+/** The LOSPOR horizontal logo (apps/web/public/brand), in the page's text colour. */
+export function losporLogo(label: string): string {
+  return `<svg class="lospor-logo" viewBox="0 0 760 180" role="img" aria-label="${escapeHtml(label)}"><g transform="translate(24 16) scale(.15)" fill="none" stroke="currentColor" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"><path d="M485 147v72m-68 38c23-28 167-28 190 0"/><path d="M337 334c0-69 78-111 175-111s175 42 175 111v48c0 30-78 54-175 54s-175-24-175-54z"/><path d="M344 354c20-30 88-50 168-50s148 20 168 50"/><rect x="359" y="516" width="306" height="177" rx="30"/><rect x="398" y="550" width="195" height="104" rx="12"/><circle cx="624" cy="627" r="18"/><path d="M337 722h350v42H337zM375 764v93h274v-93M351 856h322v44H351z"/><circle cx="410" cy="927" r="23"/><circle cx="614" cy="927" r="23"/><path d="M359 594h-45c-54 0-64 45-64 82 0 34 10 68 34 68s34-34 34-68c0-24-7-47-21-61"/><ellipse cx="512" cy="382" rx="153" ry="51" style="fill:var(--brand)" stroke="none"/><path d="M344 354c20-30 88-50 168-50s148 20 168 50"/></g><text x="142" y="126" fill="currentColor" font-family="Roboto, Arial, sans-serif" font-size="82" font-weight="700" letter-spacing="6">LOSPOR</text><text x="146" y="158" style="fill:var(--brand)" font-family="Roboto, Arial, sans-serif" font-size="18" font-weight="500" letter-spacing="2.2">LARGE OPEN SOURCE PERIOPERATIVE REGISTER</text></svg>`
+}
+
+
 const SKIN_TEXT: Record<StatusSkin, { en: string; bg: string; descEn: string; descBg: string }> = {
   maphub: { en: "Map hub (default)", bg: "Карта (по подразбиране)", descEn: "The map is the front door. Groups across the top, pages as chips.", descBg: "Картата е входът. Групите са отгоре, страниците — като бутони." },
   sidebar: { en: "Sidebar", bg: "Странично меню", descEn: "Every page in a fixed menu on the left.", descBg: "Всички страници в постоянно меню вляво." },
@@ -263,7 +274,8 @@ export function preferencesBody(locale: StatusLocale, saved: boolean): string {
       <h3 class="legacy-h">${localize(locale, "Legacy skin", "Класически облик")}</h3><div class="choices">${skinOption("legacy")}</div></section>
     <section class="section"><h2>${localize(locale, "Light or dark", "Светъл или тъмен")}</h2><div class="choices compact">${STATUS_THEMES.map(id => `<label class="choice${id === theme ? " on" : ""}"><input type="radio" name="theme" value="${id}"${id === theme ? " checked" : ""}><span><b>${escapeHtml(localize(locale, themeText[id][0], themeText[id][1]))}</b></span></label>`).join("")}</div></section>
     <section class="section"><h2>${localize(locale, "Language", "Език")}</h2><div class="choices compact">${([["bg", "Български"], ["en", "English"]] as const).map(([id, name]) => `<label class="choice${id === locale ? " on" : ""}"><input type="radio" name="locale" value="${id}"${id === locale ? " checked" : ""}><span><b lang="${id}">${name}</b></span></label>`).join("")}</div></section>
-    <button type="submit">${localize(locale, "Save", "Запазване")}</button></form>`
+    <button type="submit">${localize(locale, "Save", "Запазване")}</button></form>
+    <section class="section about" aria-labelledby="about-title"><h2 id="about-title">${localize(locale, "About", "За системата")}</h2><div class="about-card">${losporLogo("LOSPOR — Large Open Source Perioperative Register")}<p>${localize(locale, "LOSPOR Hospital, the on-site appliance of the Large Open Source Perioperative Register. Open source under the AGPL-3.0 licence.", "LOSPOR Hospital — болничната система на Large Open Source Perioperative Register. Отворен код под лиценз AGPL-3.0.")}</p><div class="about-maker"><span>${localize(locale, "Made by", "Разработено от")}</span><a class="maker-badge" href="https://lospor.org" rel="noreferrer"><img src="/status/brand/periop-laboratories.png" alt="PeriOp Laboratories" width="96" height="32"></a></div></div></section>`
 }
 
 // ── overview, services, configure ────────────────────────────────────────────
@@ -395,9 +407,9 @@ const SKIN_DARK = `--ink:#e6eaf4;--muted:#8f97ab;--line:#232a3b;--paper:#0b0e16;
 
 /** Dark colours for the legacy skin, and the tokens the old fixed colours now use. */
 export const THEME_STYLE = `
-:root{--field:#fff;--field-line:#aaa89f;--btn-bg:var(--ink);--btn-fg:#fff;--error-bg:#fff0f0;--error-fg:#711b22;--notice-bg:#effaf4;--notice-fg:#185735;--day-good:#69bd8d;--day-warn:#e9b361;--day-bad:#dd747b;--day-off:#d7d5ce}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${LEGACY_DARK}}}
-:root[data-theme="dark"]{${LEGACY_DARK}}
+:root{--brand:#c77c08;--field:#fff;--field-line:#aaa89f;--btn-bg:var(--ink);--btn-fg:#fff;--error-bg:#fff0f0;--error-fg:#711b22;--notice-bg:#effaf4;--notice-fg:#185735;--day-good:#69bd8d;--day-warn:#e9b361;--day-bad:#dd747b;--day-off:#d7d5ce}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${LEGACY_DARK};--brand:#f6ad2f}}
+:root[data-theme="dark"]{${LEGACY_DARK};--brand:#f6ad2f}
 input,select,textarea{background:var(--field);border-color:var(--field-line);color:var(--ink)}
 button{background:var(--btn-bg);color:var(--btn-fg)}
 .logout button,.language button,.preop-drag-handle{background:transparent;color:var(--ink)}
@@ -409,6 +421,10 @@ button.danger{background:var(--bad);color:#fff}
 .secret-card{background:var(--card)}
 .legacy-prefs{font-size:.85rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:.4rem .7rem}
 .legacy-prefs:hover{color:var(--ink)}
+.maker{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.5rem 1rem 2rem;font-size:.72rem;color:var(--muted)}
+.maker-badge{display:inline-flex;background:#fff;border-radius:8px;padding:.3rem .55rem;box-shadow:0 1px 2px rgba(0,0,0,.08);outline-offset:2px}
+.maker-badge img{display:block;height:22px;width:auto}
+@media print{.maker{display:none}}
 `
 
 /** Display settings, loaded under every skin so legacy can always switch back. */
@@ -420,6 +436,10 @@ export const PREFS_STYLE = `
 .choice input{width:auto;margin:.2rem 0 0;flex:none}
 .choice small{display:block;color:var(--muted);font-size:.8rem}
 .legacy-h{font-size:.85rem;color:var(--muted);margin:1rem 0 .5rem}
+.about-card{display:grid;gap:.8rem;justify-items:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;max-width:640px}
+.about-card p{margin:0;color:var(--muted);font-size:.9rem}
+.lospor-logo{display:block;width:min(320px,100%);height:auto;color:var(--ink)}
+.about-maker{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--muted)}
 .thumb{display:grid;grid-template-columns:1fr 2fr;grid-template-rows:6px 1fr;gap:3px;width:54px;height:40px;flex:none;border:1px solid var(--line);border-radius:6px;padding:3px;background:var(--sunk,var(--paper))}
 .thumb i{background:var(--line);border-radius:2px}.thumb i:first-child{grid-column:1/-1;background:var(--accent,var(--info))}
 .thumb-sidebar{grid-template-columns:1fr 3fr;grid-template-rows:1fr}.thumb-sidebar i:first-child{grid-column:auto}
@@ -439,7 +459,8 @@ export const SKIN_STYLE = `
 :root:not([data-skin="legacy"]) a{color:var(--accent)}
 :root:not([data-skin="legacy"]) .subnav{display:none}
 .skin-head{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;padding:1rem 0 .7rem}
-.skin-head .brand{font-weight:780;color:var(--ink);text-decoration:none;font-size:1.05rem;margin-right:.4rem}
+.skin-head .brand{font-weight:780;color:var(--ink);text-decoration:none;font-size:1.05rem;margin-right:.4rem;display:inline-flex;align-items:center;gap:.45rem}
+.lospor-symbol{width:1.15rem;height:2.2rem;flex:none}
 .skin-title{margin:.6rem 0 .2rem}
 .skin-title h1{font-size:1.45rem;letter-spacing:-.01em;margin:0}
 .skin-title p{margin:.2rem 0 0;color:var(--muted);max-width:75ch}

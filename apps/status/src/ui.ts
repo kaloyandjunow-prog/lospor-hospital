@@ -588,7 +588,7 @@ function statusHeader(
 }
 
 export function page(title: string, body: string, locale: StatusLocale, refresh = false): string {
-  return `<!doctype html><html lang="${locale}"${htmlAttributes()}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="15">' : ""}<title>${escapeHtml(title)}</title><style>${PAGE_STYLE}${THEME_STYLE}${PREFS_STYLE}${isLegacy() ? "" : SKIN_STYLE}</style></head><body>${body}</body></html>`
+  return `<!doctype html><html lang="${locale}"${htmlAttributes()}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="15">' : ""}<title>${escapeHtml(title)}</title><style>${PAGE_STYLE}${THEME_STYLE}${PREFS_STYLE}${isLegacy() ? "" : SKIN_STYLE}</style></head><body>${body}<div class="maker"><span>${localize(locale, "Made by", "Разработено от")}</span><a class="maker-badge" href="https://lospor.org" rel="noreferrer"><img src="/status/brand/periop-laboratories.png" alt="PeriOp Laboratories" width="96" height="32"></a></div></body></html>`
 }
 
 export function renderLogin(error: string | null, initialized: boolean, locale: StatusLocale = "bg"): string {
