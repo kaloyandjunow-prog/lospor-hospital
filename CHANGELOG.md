@@ -34,6 +34,11 @@ Rolling back to 1.5.3 restores the pre-update backup, as before.
   menus.
 - **Lists instead of boxes**: the small fact cards become plain two-column
   lists in the new skins.
+- **No repeated subtitles**: a page heading no longer has a line under it that
+  restates it. The descriptions stay in the page index and on Configure; only
+  Display settings keeps a note (kept in this browser only).
+- **Profile button stays top right** on every screen width: below 1100 px the
+  tabs or menus take their own row instead of pushing the button down.
 - **Clearer Bulgarian** across Status: half-English labels (manual/window,
   EHR worker, INN → МНН, commit), one unclear sentence, a grammar error, one
   name for "Site settings", and formal wording on every button.
