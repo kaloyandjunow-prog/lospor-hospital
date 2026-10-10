@@ -1,5 +1,39 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.4] - 2026-10-10
+
+Hospital-only release: Core, API, Web and PWA stay 9.14.3, Browser 0.8.2. No
+clinical database migration; Status adds one query over data it already keeps.
+Rolling back to 1.5.3 restores the pre-update backup, as before.
+
+### Added
+
+- **Status has skins, a light and a dark theme, and Display settings.** Under
+  the profile menu at the top right, each operator chooses a skin, light, dark
+  or like the computer, and Bulgarian or English. The choice is kept in that
+  browser. Five skins: *Map hub* (the default), *Sidebar*, *Inbox*, *Settings
+  index* and *Console*. *Legacy* keeps Status exactly as it looked before.
+- **An overview built around a map** of the appliance and everything it talks
+  to: phones and computers, the hospital system, LOSPOR Central, the AI
+  provider, backups and updates. Each box opens its page. Beside it: how many
+  people are using LOSPOR now, cases started and finalized per day for 30 days,
+  one to-do list, and going-live progress. Totals only; no person, patient or
+  case is shown.
+- **Services and events**: availability over 24 hours, 7 days or 90 days,
+  with the checks, incidents and events on the same page.
+
+### Changed
+
+- **Menus grouped by job** in the new skins: Overview, Services, Connections,
+  Clinical setup, People, Updates and backups. Hospital controls become one
+  page per job (Hospital system, Codes, Patient identification, Research
+  access, LOSPOR Central); related maintenance pages share a page; the host
+  agent shows on the Server page and wherever it is stopping a form. Every
+  page, form and check is the same as before; the legacy skin keeps the old
+  menus.
+- **Lists instead of boxes**: the small fact cards become plain two-column
+  lists in the new skins.
+
 ## [1.5.3] - 2026-10-07
 
 Vendors Core, API, Web and PWA 9.14.3; Browser stays 0.8.2. No database

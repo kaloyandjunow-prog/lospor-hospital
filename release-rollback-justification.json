@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.5.3",
+  "release": "1.5.4",
   "policy": "backup-required",
-  "justification": "Upstream 9.14.3: AI consent for every case, scan errors that name their cause, SpO2/EtCO2/low systolic warnings; retired Mistral models removed from Status. No schema change.",
+  "justification": "Status rebuild: five skins with the map hub as default, a legacy skin, light and dark, display settings; overview totals from the API snapshot. No clinical database migration.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-10-07"
+  "assessedAt": "2026-10-10"
 }
