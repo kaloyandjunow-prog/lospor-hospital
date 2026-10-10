@@ -33,6 +33,12 @@ Rolling back to 1.5.3 restores the pre-update backup, as before.
   menus.
 - **Lists instead of boxes**: the small fact cards become plain two-column
   lists in the new skins.
+- **Clearer Bulgarian** across Status: half-English labels (manual/window,
+  EHR worker, INN → МНН, commit), one unclear sentence, a grammar error, one
+  name for "Site settings", and formal wording on every button.
+- **LOSPOR and PeriOp Laboratories logos**: "Made by PeriOp Laboratories" at the
+  foot of every page, an About section in Display settings, and the LOSPOR
+  symbol in the header. Status now allows images from itself only.
 
 ### Security
 
