@@ -58,6 +58,12 @@ Rolling back to 1.5.3 restores the pre-update backup, as before.
 - Upstream 9.14.4 and Browser 0.8.3 carry the dependency fixes this appliance
   already had (Next.js, proxy-addr, sharp, source-map-js, shell-quote), so the
   vendored trees match their upstream releases again.
+- Gateway (Caddy) built with Go 1.26.9 and golang.org/x/net 0.60.0
+  (CVE-2026-78667, CVE-2026-78669, CVE-2026-97031; high).
+- Accepted until 2027-01-10: CVE-2026-88647 and CVE-2026-88648 (high) in
+  Debian 13's libgnutls30t64 in the database image, which has no fix yet.
+  PostgreSQL here uses OpenSSL and nothing left in the image uses GnuTLS; the
+  database has no port outside the appliance.
 
 ## [1.5.3] - 2026-10-07
 

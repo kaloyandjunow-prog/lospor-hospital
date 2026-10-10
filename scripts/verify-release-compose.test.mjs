@@ -99,7 +99,7 @@ describe("resolved release Compose contract", () => {
       NGINX_PWA_BASE_IMAGE: digest("nginx:1.30.4-alpine"),
       POSTGRES_BASE_IMAGE: digest("postgres:17.11-trixie"),
       CURL_BASE_IMAGE: digest("curlimages/curl:8.21.0"),
-      CADDY_BUILD_BASE_IMAGE: digest("golang:1.26.6-alpine3.24"),
+      CADDY_BUILD_BASE_IMAGE: digest("golang:1.26.9-alpine3.24"),
       CADDY_RUNTIME_BASE_IMAGE: digest("caddy:2.11.4-alpine"),
     }
     const publication = structuredClone(models.publication)

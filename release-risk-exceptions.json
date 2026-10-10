@@ -1,4 +1,21 @@
 {
   "schemaVersion": 1,
-  "exceptions": []
+  "exceptions": [
+    {
+      "expiresAt": "2027-01-10",
+      "image": "postgres",
+      "justification": "CVE-2026-88647 is reported by Trivy against libgnutls30t64 in the Debian 13 (trixie) PostgreSQL base with no fixed version available, so rebuilding cannot clear it. Accepted by the maintainer on 2026-10-10 for Hospital 1.5.4, on reachability rather than on any claim about the flaw itself. PostgreSQL in this image is built from source without LDAP and uses OpenSSL for TLS (infra/docker/postgres.Dockerfile), and the Debian packages that link GnuTLS here (libldap2, gnupg, apt) are removed from the runtime image, so libgnutls30t64 is left as an unused library. The service publishes no host port, sits only on the internal backend and monitoring networks, runs read_only with cap_drop ALL and no-new-privileges, and is addressed solely as postgres:5432 by other containers. Accepted for this release only, expiring in three months so it returns for review. Before renewing, re-check whether trixie has released a fixed gnutls28, or remove libgnutls30t64 from the image alongside the packages that used it.",
+      "package": "libgnutls30t64",
+      "release": "1.5.4",
+      "vulnerabilityId": "CVE-2026-88647"
+    },
+    {
+      "expiresAt": "2027-01-10",
+      "image": "postgres",
+      "justification": "Same package as the CVE-2026-88647 entry: CVE-2026-88648 in libgnutls30t64, likewise unfixed in Debian 13 (trixie). Accepted by the maintainer on 2026-10-10 for Hospital 1.5.4 on the same grounds: PostgreSQL is built without LDAP and uses OpenSSL, the packages that link GnuTLS (libldap2, gnupg, apt) are removed, and the database publishes no host port and is reachable only on the internal backend and monitoring networks. Accepted for this release only, expiring in three months so it returns for review. Before renewing, re-check whether trixie has released a fixed gnutls28, or remove libgnutls30t64 from the image.",
+      "package": "libgnutls30t64",
+      "release": "1.5.4",
+      "vulnerabilityId": "CVE-2026-88648"
+    }
+  ]
 }
