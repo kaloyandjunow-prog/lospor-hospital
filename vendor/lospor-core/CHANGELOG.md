@@ -1,5 +1,11 @@
 # Changelog - LOSPOR Core
 
+## [9.14.4] - 2026-10-10
+
+### Changed
+
+- Released with the 9.14.4 security set. No change to Core itself.
+
 ## [9.14.3] - 2026-10-07
 
 ### Changed

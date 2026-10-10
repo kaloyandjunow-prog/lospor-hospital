@@ -2110,6 +2110,38 @@ export class StatusDatabase {
     }
   }
 
+  /**
+   * The worst status in each slot of a recent window, per component (1.5.4).
+   *
+   * Read from the 5-minute samples Status already keeps for 30 days, for the
+   * overview's 24-hour and 7-day views; the 90-day view keeps using the daily
+   * history. A slot with no sample is "unknown", never assumed healthy.
+   */
+  availabilityWindow(components: readonly string[], now: number, windowMs: number, slotMs: number): Record<string, ComponentStatus[]> {
+    const slots = Math.round(windowMs / slotMs)
+    const start = now - slots * slotMs
+    const result: Record<string, ComponentStatus[]> = {}
+    for (const component of components) {
+      const row: ComponentStatus[] = Array.from({ length: slots }, () => "unknown")
+      try {
+        const samples = this.sqlite.prepare(`
+          SELECT checked_at, status FROM availability_samples WHERE component = ? AND checked_at >= ? AND checked_at < ?
+        `).all(component, start, now + 1) as Array<{ checked_at: number; status: ComponentStatus }>
+        const seen = new Set<number>()
+        for (const sample of samples) {
+          const index = Math.min(slots - 1, Math.max(0, Math.floor((sample.checked_at - start) / slotMs)))
+          const current = row[index]
+          if (!seen.has(index) || STATUS_RANK[sample.status] > STATUS_RANK[current]) row[index] = sample.status
+          seen.add(index)
+        }
+      } catch {
+        this.historyStorageHealthy = false
+      }
+      result[component] = row
+    }
+    return result
+  }
+
   private history(component: string, now: number): DayStatus[] {
     const days = new Map<string, ComponentStatus>()
     const dailyRows = this.sqlite.prepare(`

@@ -65,7 +65,7 @@ export function attentionItems(input: {
     add({ id: "certificate", level: "soon", en: "The HTTPS certificate expires within 30 days.", bg: "HTTPS сертификатът изтича до 30 дни.", href: OVERVIEW, actionEn: "Hospital IT: renew it", actionBg: "ИТ отдел: подновете го" })
   }
   if (status("host-backup") === "outage" || status("backup") === "outage") {
-    add({ id: "backup", level: "today", en: "Backups have stopped or cannot be verified.", bg: "Резервните копия са спрели или не могат да бъдат проверени.", href: `${MAINTENANCE}#maintenance-backups`, actionEn: "Back up now", actionBg: "Направи резервно копие сега" })
+    add({ id: "backup", level: "today", en: "Backups have stopped or cannot be verified.", bg: "Резервните копия са спрели или не могат да бъдат проверени.", href: `${MAINTENANCE}#maintenance-backups`, actionEn: "Back up now", actionBg: "Резервно копие сега" })
   }
   if (code("host-clock") === "HOST_CLOCK_UNSYNCHRONIZED") {
     add({ id: "clock", level: "today", en: "The server clock is not synchronized. Record times and certificates depend on it.", bg: "Часовникът на сървъра не е синхронизиран. От него зависят часовете в записите и сертификатите.", href: OVERVIEW, actionEn: "Hospital IT: check time synchronization", actionBg: "ИТ отдел: проверете синхронизацията на часовника" })

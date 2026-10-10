@@ -1,5 +1,16 @@
 # Changelog - LOSPOR Web App
 
+## [9.14.4] - 2026-10-10
+
+### Security
+
+- **Dependencies patched**: Next.js resolved to 16.3.8 (six high advisories,
+  including cache poisoning and server-side request forgery in image
+  optimisation), proxy-addr 2.0.8 (critical, GHSA-jqcg-44mw-7w3h), sharp 0.35.5
+  (GHSA-wq5f-xc86-pv6w), source-map-js 1.2.2 (GHSA-68fv-2mgg-jv7q), the MCP SDK
+  and js-yaml 4.3.2. In-range updates; no behaviour change. braces stays an
+  accepted exception in the service-worker build tooling only.
+
 ## [9.14.3] - 2026-10-07
 
 ### Fixed

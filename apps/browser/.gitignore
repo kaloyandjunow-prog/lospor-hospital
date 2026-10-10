@@ -8,3 +8,15 @@ test-results/
 .env.local
 *.log
 *.tsbuildinfo
+
+# Local secrets, logs, scratch and agent state
+.env.*
+!.env.example
+!.env.*.example
+.tmp-*
+.DS_Store
+Thumbs.db
+.claude/
+.codex/
+/AGENTS.md
+/CLAUDE.md

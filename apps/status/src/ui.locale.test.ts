@@ -47,12 +47,12 @@ describe("Status screen localization", () => {
 
   it("renders the complete login and dashboard shells in either language", () => {
     const bulgarianLogin = renderLogin(null, true, "bg")
-    expect(bulgarianLogin).toContain('<html lang="bg">')
+    expect(bulgarianLogin).toContain('<html lang="bg"')
     expect(bulgarianLogin).toContain("Имейл на системния администратор")
     expect(bulgarianLogin).toContain('name="locale" value="en"')
 
     const englishLogin = renderLogin(null, true, "en")
-    expect(englishLogin).toContain('<html lang="en">')
+    expect(englishLogin).toContain('<html lang="en"')
     expect(englishLogin).toContain("Appliance administrator email")
 
     expect(renderDashboard(EMPTY_DASHBOARD, "bg")).toContain("Безопасност и поддръжка")

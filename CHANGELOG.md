@@ -1,5 +1,59 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.4] - 2026-10-10
+
+Vendors Core, API, Web and PWA 9.14.4 and Browser 0.8.3 (security updates
+only; the same fixes the appliance already ran, now upstream too). No clinical
+database migration; Status adds one query over data it already keeps.
+Rolling back to 1.5.3 restores the pre-update backup, as before.
+
+### Added
+
+- **Status has skins, a light and a dark theme, and Display settings.** Under
+  the profile menu at the top right, each operator chooses a skin, light, dark
+  or like the computer, and Bulgarian or English. The choice is kept in that
+  browser. Five skins: *Map hub* (the default), *Sidebar*, *Inbox*, *Settings
+  index* and *Console*. *Legacy* keeps Status exactly as it looked before.
+- **An overview built around a map** of the appliance and everything it talks
+  to: phones and computers, the hospital system, LOSPOR Central, the AI
+  provider, backups and updates. Each box opens its page. Beside it: how many
+  people are using LOSPOR now, cases started and finalized per day for 30 days,
+  one to-do list, and going-live progress. Totals only; no person, patient or
+  case is shown.
+- **Services and events**: availability over 24 hours, 7 days or 90 days,
+  with the checks, incidents and events on the same page.
+
+### Changed
+
+- **Menus grouped by job** in the new skins: Overview, Services, Connections,
+  Clinical setup, People, Updates and backups. Hospital controls become one
+  page per job (Hospital system, Codes, Patient identification, Research
+  access, LOSPOR Central); related maintenance pages share a page; the host
+  agent shows on the Server page and wherever it is stopping a form. Every
+  page, form and check is the same as before; the legacy skin keeps the old
+  menus.
+- **Lists instead of boxes**: the small fact cards become plain two-column
+  lists in the new skins.
+- **Clearer Bulgarian** across Status: half-English labels (manual/window,
+  EHR worker, INN → МНН, commit), one unclear sentence, a grammar error, one
+  name for "Site settings", and formal wording on every button.
+- **Readable on every screen**: in the new skins text starts at 16 px (17 px on
+  phones and tablets) and nothing is smaller than about 13 px; buttons and links
+  are at least 44 px tall on touch screens; on a phone the map becomes a list and
+  the menu one row you can swipe.
+- **LOSPOR and PeriOp Laboratories logos**: "Made by PeriOp Laboratories" at the
+  foot of every page, an About section in Display settings, and the LOSPOR
+  symbol in the header. Status now allows images from itself only.
+
+### Security
+
+- Research Browser 0.8.3 on Next.js 16.3.8, as Web and API already were
+  (GHSA-3w37-wq28-93x7, GHSA-4jqv-mc3x-m676, GHSA-39w2-rjm5-chcv,
+  GHSA-f87g-xv8r-7p7x, GHSA-mcj8-r9mp-w47p, GHSA-cjq9-62q9-8jv4; high).
+- Upstream 9.14.4 and Browser 0.8.3 carry the dependency fixes this appliance
+  already had (Next.js, proxy-addr, sharp, source-map-js, shell-quote), so the
+  vendored trees match their upstream releases again.
+
 ## [1.5.3] - 2026-10-07
 
 Vendors Core, API, Web and PWA 9.14.3; Browser stays 0.8.2. No database

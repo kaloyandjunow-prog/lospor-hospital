@@ -130,7 +130,7 @@ export const EDITABLE_SETTINGS: readonly EditableSetting[] = [
   { key: "HOSPITAL_UPDATE_WINDOW_START", en: "Update window opens", bg: "Начало на прозореца за актуализации", kind: "time" },
   { key: "HOSPITAL_UPDATE_WINDOW_END", en: "Update window closes", bg: "Край на прозореца за актуализации", kind: "time" },
   { key: "HOSPITAL_UPDATE_TIMEZONE", en: "Update window time zone", bg: "Часова зона на прозореца за актуализации", kind: "timezone" },
-  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates (manual or window)", bg: "Рестартиране след актуализации на Ubuntu (manual или window)", kind: "reboot-policy" },
+  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates", bg: "Рестартиране след актуализации на Ubuntu", kind: "reboot-policy" },
 ]
 
 const EMAIL = /^[A-Za-z0-9.!#%&*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/

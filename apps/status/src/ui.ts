@@ -38,6 +38,7 @@ import { GO_LIVE_OWNERS, GO_LIVE_STAGES, type GoLiveCheck, type GoLiveSignoffVie
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
+import { PREFS_STYLE, SKIN_STYLE, THEME_STYLE, htmlAttributes, isLegacy, legacyProfileLink, NAV_PATHS, skinHeader, ui, availabilityStrips, configureBody, goLiveCard, overviewMap, preferencesBody, rangeSwitch, todoList, usageCard, verdictCard, type AvailabilityRange } from "./ui-shell.js"
 
 const STATUS_LABEL_EN: Record<ComponentStatus, string> = {
   operational: "Operational",
@@ -331,7 +332,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_RESTORE_LOCK_INVALID: "Записът за заключване при възстановяване е невалиден, небезопасен или не съответства на запазения си маркер.",
   HOST_ACTIVATION_LOCK_CLEAR: "Няма заключване за активиране на версия.",
   HOST_ACTIVATION_LOCK_PRESENT: "Има заключване за активиране на версия. Използвайте поддържаната команда за възстановяване на сървъра и никога не го премахвайте ръчно.",
-  HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е защитена директория, достъпна само за root.",
+  HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е в защитена директория, достъпна само за root.",
   UPDATE_SUPPLY_OFFLINE: "Избрани са актуализации без интернет. Версиите идват от проверен USB носител.",
   UPDATE_SUPPLY_CONNECTED: "Избрани са актуализации през интернет. Версиите се изтеглят от публичните издания в GitHub и се проверяват по подпис; не са нужни данни за достъп.",
   UPDATE_SUPPLY_MODE_INVALID: "Начинът на получаване на актуализации е невалиден; няма работещ канал за актуализации.",
@@ -490,19 +491,19 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   "status-history": "История на работоспособността",
 }
 
-function statusLabel(status: ComponentStatus, locale: StatusLocale): string {
+export function statusLabel(status: ComponentStatus, locale: StatusLocale): string {
   return (locale === "bg" ? STATUS_LABEL_BG : STATUS_LABEL_EN)[status]
 }
 
-function codeMessage(code: string, locale: StatusLocale, fallback: string): string {
+export function codeMessage(code: string, locale: StatusLocale, fallback: string): string {
   return (locale === "bg" ? CODE_MESSAGE_BG[code] : CODE_MESSAGE[code]) ?? fallback
 }
 
-function componentLabel(component: { component: string; label: string }, locale: StatusLocale): string {
+export function componentLabel(component: { component: string; label: string }, locale: StatusLocale): string {
   return locale === "bg" ? COMPONENT_LABEL_BG[component.component] ?? component.label : component.label
 }
 
-function utcDate(value: number, locale: StatusLocale): string {
+export function utcDate(value: number, locale: StatusLocale): string {
   return new Date(value).toLocaleString(locale === "bg" ? "bg-BG" : "en-GB", { timeZone: "UTC" })
 }
 
@@ -520,7 +521,7 @@ const PAGE_STYLE = `
 @media print{body{background:#fff}.no-print,.header-actions,.statusnav,.foot{display:none!important}.shell{width:100%}.secret-card{break-inside:avoid}.secret{font-size:10pt;min-height:9rem}}
 `
 
-function languageSwitcher(locale: StatusLocale, returnTo: string): string {
+export function languageSwitcher(locale: StatusLocale, returnTo: string): string {
   return `<form class="language" method="post" action="/status/language"><span class="language-label">${localize(locale, "Language", "Език")}</span><input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}"><button type="submit" name="locale" value="bg" lang="bg" aria-pressed="${locale === "bg"}">БГ</button><button type="submit" name="locale" value="en" lang="en" aria-pressed="${locale === "en"}">EN</button></form>`
 }
 
@@ -580,12 +581,14 @@ function statusHeader(
       return `<a href="${entry.path}"${current ? ' aria-current="page"' : ""}>${escapeHtml(locale === "bg" ? entry.bg : entry.en)}</a>`
     })
     .join("")
-  const actions = `<div class="header-actions">${languageSwitcher(locale, activePath)}<form class="logout" method="post" action="/status/logout"><button type="submit">${localize(locale, "Sign out", "Изход")}</button></form></div>`
+  const returnTo = NAV_PATHS.includes(ui().path) ? ui().path : activePath
+  if (!isLegacy()) return skinHeader(locale, audience, languageSwitcher(locale, returnTo), subbrand)
+  const actions = `<div class="header-actions">${legacyProfileLink(locale)}${languageSwitcher(locale, activePath)}<form class="logout" method="post" action="/status/logout"><button type="submit">${localize(locale, "Sign out", "Изход")}</button></form></div>`
   return `<header class="top"><div class="ident"><a class="brand" href="/status/">LOSPOR Hospital</a><div class="subbrand">${subbrand}</div></div><nav class="statusnav" aria-label="${localize(locale, "Appliance administration", "Управление на системата")}">${links}</nav>${actions}</header>`
 }
 
-function page(title: string, body: string, locale: StatusLocale, refresh = false): string {
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="15">' : ""}<title>${escapeHtml(title)}</title><style>${PAGE_STYLE}</style></head><body>${body}</body></html>`
+export function page(title: string, body: string, locale: StatusLocale, refresh = false): string {
+  return `<!doctype html><html lang="${locale}"${htmlAttributes()}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="15">' : ""}<title>${escapeHtml(title)}</title><style>${PAGE_STYLE}${THEME_STYLE}${PREFS_STYLE}${isLegacy() ? "" : SKIN_STYLE}</style></head><body>${body}<div class="maker"><span>${localize(locale, "Made by", "Разработено от")}</span><a class="maker-badge" href="https://lospor.org" rel="noreferrer"><img src="/status/brand/periop-laboratories.png" alt="PeriOp Laboratories" width="96" height="32"></a></div></body></html>`
 }
 
 export function renderLogin(error: string | null, initialized: boolean, locale: StatusLocale = "bg"): string {
@@ -642,7 +645,7 @@ export function renderMfaRecoveryCodes(codes: readonly string[], locale: StatusL
   )
 }
 
-function banner(components: ComponentView[], locale: StatusLocale): { className: string; symbol: string; text: string } {
+export function banner(components: ComponentView[], locale: StatusLocale): { className: string; symbol: string; text: string } {
   const byId = new Map(components.map(item => [item.component, item]))
   const isOut = (id: string) => byId.get(id)?.status === "outage"
   const major = isOut("api") || isOut("database") || isOut("proxy") || (isOut("web") && isOut("pwa"))
@@ -679,13 +682,13 @@ function group(data: DashboardData, name: ComponentView["group"], title: string,
   return `<section class="section" aria-labelledby="${name}-title"><h2 id="${name}-title">${escapeHtml(title)}</h2><div class="card">${components.length ? components.map(item => componentRow(item, data.histories[item.component], locale)).join("") : `<div class="empty">${localize(locale, "Checks are being established.", "Проверките още не са завършили.")}</div>`}</div></section>`
 }
 
-function incidentItem(incident: IncidentView, locale: StatusLocale): string {
+export function incidentItem(incident: IncidentView, locale: StatusLocale): string {
   const resolved = incident.resolvedAt !== null
   const fallback = localize(locale, "A service state changed.", "Състоянието на една от услугите се промени.")
   return `<li><strong>${escapeHtml(componentLabel(incident, locale))} — ${resolved ? localize(locale, "Resolved", "Отстранен") : localize(locale, "Active incident", "Активен инцидент")}</strong><div>${escapeHtml(codeMessage(incident.code, locale, fallback))}</div><time datetime="${new Date(incident.openedAt).toISOString()}">${localize(locale, "Started", "Начало")} ${utcDate(incident.openedAt, locale)} UTC${resolved ? ` · ${localize(locale, "resolved", "отстранен")} ${utcDate(incident.resolvedAt!, locale)} UTC` : ""}</time></li>`
 }
 
-function eventItem(event: OperationalEventView, locale: StatusLocale): string {
+export function eventItem(event: OperationalEventView, locale: StatusLocale): string {
   const severity = locale === "bg"
     ? { info: "информация", warning: "предупреждение", critical: "критично" }[event.severity]
     : event.severity
@@ -693,7 +696,7 @@ function eventItem(event: OperationalEventView, locale: StatusLocale): string {
   return `<li><span class="pill ${event.severity}">${escapeHtml(severity)}</span><strong> ${escapeHtml(message)}</strong><time datetime="${new Date(event.occurredAt).toISOString()}">${escapeHtml(event.producer)} · ${utcDate(event.occurredAt, locale)} UTC</time></li>`
 }
 
-function applianceFacts(data: DashboardData, locale: StatusLocale): string {
+export function applianceFacts(data: DashboardData, locale: StatusLocale): string {
   const snapshot = data.snapshot
   if (!snapshot) return `<div class="empty">${localize(locale, "Appliance details are not available yet.", "Данните за сървъра още не са налични.")}</div>`
   const stale = !data.snapshotReceivedAt || Date.now() - data.snapshotReceivedAt > 45_000
@@ -1126,6 +1129,9 @@ function dateFact(label: string, value: string | null, locale: StatusLocale): st
 // past to reach external AI. Each is now /status/control/<slug>: a real
 // address, linkable and bookmarked, and the POST endpoints are unchanged.
 export const HOSPITAL_CONTROL_SECTIONS = ["clinical", "ehr", "research", "ai"] as const
+/** Sections the 1.5.4 skins add, and the legacy page that holds each. */
+export const SKIN_CONTROL_SECTIONS = ["codes", "identity", "central"] as const
+const LEGACY_CONTROL_SECTION: Record<string, string> = { codes: "ehr", identity: "ehr", central: "research" }
 
 /**
  * Drag and button reordering for the preop profile editor, served from
@@ -1380,7 +1386,7 @@ export function renderControlPlane(
       ${textFact(localize(locale, "Bundled pediatric content release-reviewed", "Вграденото педиатрично съдържание е прегледано преди издаването"), boolWord(pediatricMode.releaseReviewed, locale))}
       ${textFact(localize(locale, "Bundled pediatric ruleset version", "Версия на вградените педиатрични правила"), pediatricMode.bundledRulesetVersion)}
       ${textFact(localize(locale, "Minimum client version", "Минимална версия на приложението"), pediatricMode.minimumClientVersion)}
-    </div><p>${localize(locale, "Pediatric charting is a fixed Hospital capability. Release review of bundled content, the selected database baseline, and the calculation policy are separate facts. Manual pediatric documentation remains available when calculated guidance is not ready or is turned off.", "Педиатричното документиране е постоянна функция на Hospital. Прегледът на вграденото съдържание, избраната базова конфигурация и правилата за изчисляване са отделни неща. Ръчното педиатрично документиране остава достъпно и когато изчислените насоки не са готови или са изключени.")}</p></div>` : ""
+    </div><p>${localize(locale, "Pediatric charting is a fixed Hospital capability. Release review of bundled content, the selected database baseline, and the calculation policy are separate facts. Manual pediatric documentation remains available when calculated guidance is not ready or is turned off.", "Педиатричното документиране е постоянна функция на болничната версия. Прегледът на вграденото съдържание, избраната базова конфигурация и правилата за изчисляване са отделни неща. Ръчното педиатрично документиране остава достъпно и когато изчислените насоки не са готови или са изключени.")}</p></div>` : ""
   const baselineFacts = guidance
     ? clinicalBaselineFacts("Adult calculation guidance", "Изчислени насоки — възрастни", guidance.adultEnabled, guidance.baselines.adult, locale)
       + clinicalBaselineFacts("Pediatric calculation guidance", "Изчислени насоки — деца", guidance.pediatricEnabled, guidance.baselines.pediatric, locale)
@@ -1479,7 +1485,7 @@ export function renderControlPlane(
     <form method="post" action="/status/control/ehr-transport/discover">
       <label>${localize(locale, "Look up a record number", "Търсене по номер на ИЗ")}<input name="identifier" maxlength="64" placeholder="${localize(locale, "a real record number", "реален номер на ИЗ")}"></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
-      <button type="submit">${localize(locale, "Ask the server", "Попитай сървъра")}</button>
+      <button type="submit">${localize(locale, "Ask the server", "Запитване към сървъра")}</button>
     </form>
     <form method="post" action="/status/control/ehr-transport/identifier-systems">${numberingOptions}
       <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерация за ИЗ №")}<input name="recordNumberSystem"${numberingList} maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
@@ -1502,7 +1508,7 @@ export function renderControlPlane(
     <div class="component"><h3>${localize(locale, "Where this appliance sends", "Накъде се свързва сървърът")}</h3>
     <p class="component-detail">${localize(locale,
       "The hospital FHIR base address and how this appliance identifies itself to it. Changing any of these clears the stored credential: a bearer token is not a client secret, and a secret issued for one authorisation server does not belong at another.",
-      "Базовият FHIR адрес на болницата и как сървърът се представя пред нея. Промяната на което и да е от тези полета изтрива запазените данни за достъп: bearer токенът не е клиентска тайна, а тайна, издадена за един сървър за оторизация, не важи за друг.")}</p>
+      "Базовият FHIR адрес на болницата и как сървърът се представя пред нея. Промяната на което и да е от тези полета изтрива запазените данни за достъп: постоянният токен не е клиентска тайна, а тайна, издадена от един сървър за оторизация, не бива да се използва при друг.")}</p>
     <form method="post" action="/status/control/ehr-transport/endpoint">
       <label>${localize(locale, "FHIR base address", "Базов FHIR адрес")}<input name="endpoint" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.endpoint ?? "")}" placeholder="https://fhir.hospital.example/r4"></label>
       <label>${localize(locale, "How this appliance authenticates", "Как се удостоверява сървърът")}<select name="authMode">
@@ -1535,7 +1541,7 @@ export function renderControlPlane(
       ${dateFact(localize(locale, "Last file read", "Последен прочетен файл"), folderHealth.lastReadAt, locale)}
       ${textFact(localize(locale, "Last 24 hours", "Последните 24 часа"), localize(locale, `${folderHealth.last24h.imported} staged, ${folderHealth.last24h.rejected} refused`, `${folderHealth.last24h.imported} приети за преглед, ${folderHealth.last24h.rejected} отказани`))}
     </div>
-    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака повече от десет минути. Файловете се четат всяка минута, след като не са се променяли 30 секунди; файл, който продължава да чака, все още се записва или EHR worker не работи.")}</p>` : ""}
+    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака повече от десет минути. Файловете се четат всяка минута, след като не са се променяли 30 секунди; файл, който продължава да чака, все още се записва или услугата за импорт от БИС не работи.")}</p>` : ""}
     ${folderHealth.recentRejections.length ? `<p>${localize(locale, "Latest refused files (each has its answer in results/):", "Последно отказани файлове (за всеки има отговор в results/):")}</p><ul>${folderHealth.recentRejections.map(entry => `<li><code>${escapeHtml(entry.file)}</code> — ${escapeHtml(folderRejectReason(entry.reason, locale))} — ${escapeHtml(utcDate(Date.parse(entry.at), locale))} UTC${""}</li>`).join("")}</ul>` : ""}`
     : `<div class="empty">${localize(locale, "The folder could not be read just now.", "Папката не можа да бъде прочетена в момента.")}</div>`}
     <p class="component-detail">${localize(locale,
@@ -1554,12 +1560,12 @@ export function renderControlPlane(
       <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
       <button type="submit"${ehrTransport.folderRequestsEnabled ? ` class="danger"` : ""}>${ehrTransport.folderRequestsEnabled
-        ? localize(locale, "Stop asking the hospital system", "Спри заявките към болничната система")
-        : localize(locale, "Start asking the hospital system", "Включи заявките към болничната система")}</button>
+        ? localize(locale, "Stop asking the hospital system", "Спиране на заявките към болничната система")
+        : localize(locale, "Start asking the hospital system", "Включване на заявките към болничната система")}</button>
     </form>
     <form method="post" action="/status/control/ehr-transport/check-file" enctype="multipart/form-data">
       <label>${localize(locale, "Check a file before it is dropped (nothing is imported)", "Проверка на файл преди поставянето му (нищо не се импортира)")}<input type="file" name="file" accept=".json,application/json" required></label>
-      <button type="submit">${localize(locale, "Check the file", "Провери файла")}</button>
+      <button type="submit">${localize(locale, "Check the file", "Проверка на файла")}</button>
     </form>
     ${fileCheck ? fileCheckHtml(fileCheck, locale) : ""}</div>
   ` : ""
@@ -1609,7 +1615,7 @@ export function renderControlPlane(
       ${textFact(escapeHtml(row.code), escapeHtml(row.test))}
       ${textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име"))}
       ${textFact(localize(locale, "Assumed unit", "Приета мерна единица"), row.assumedUnit ? escapeHtml(row.assumedUnit) : localize(locale, "none — read from each result", "няма — взема се от всеки резултат"))}
-      ${textFact(localize(locale, "Traffic", "Получавания"), escapeHtml(seenFact(row)))}
+      ${textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row)))}
       ${dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale)}
     </div><form method="post" action="/status/control/ehr-lab-codes/unmap">
       <input type="hidden" name="system" value="${escapeHtml(row.system)}">
@@ -1649,10 +1655,10 @@ export function renderControlPlane(
     return "<div class='component' id='medication-code-" + index + "'>" +
     "<p><strong>" + escapeHtml(row.code) + "</strong>" + (row.reportedLabel ? " — " + escapeHtml(row.reportedLabel) : "") + "</p>" +
     "<p class='component-detail'>" + (row.system ? escapeHtml(row.system) + " · " : "") + escapeHtml(seenFact(row)) + "</p>" +
-    "<form method='get' action='/status/control/ehr#medication-code-" + index + "'>" +
+    "<form method='get' action='" + (isLegacy() ? "/status/control/ehr" : "/status/control/codes") + "#medication-code-" + index + "'>" +
     "<input type='hidden' name='medicationSystem' value='" + escapeHtml(row.system) + "'>" +
     "<input type='hidden' name='medicationCode' value='" + escapeHtml(row.code) + "'>" +
-    "<label>" + localize(locale, "Search the medication list (name, INN or ATC code)", "Търсене в списъка с лекарства (име, INN или ATC код)") +
+    "<label>" + localize(locale, "Search the medication list (name, INN or ATC code)", "Търсене в списъка с лекарства (име, МНН или ATC код)") +
     "<input type='search' name='medicationSearch' minlength='2' maxlength='100' required value='" + escapeHtml(search?.query ?? "") + "'></label>" +
     "<button type='submit'>" + localize(locale, "Search", "Търсене") + "</button></form>" + searchNote +
     "<form method='post' action='/status/control/ehr-medication-codes/map'>" +
@@ -1667,8 +1673,8 @@ export function renderControlPlane(
     "<div class='component'><div class='facts'>" +
     textFact(escapeHtml(row.code), escapeHtml(row.drugName)) +
     textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име")) +
-    textFact(localize(locale, "INN / ATC", "INN / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "не е в каталога"))) +
-    textFact(localize(locale, "Traffic", "Получавания"), escapeHtml(seenFact(row))) +
+    textFact(localize(locale, "INN / ATC", "МНН / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "не е в каталога"))) +
+    textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row))) +
     dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
     "</div><form method='post' action='/status/control/ehr-medication-codes/unmap'>" +
     "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
@@ -1707,7 +1713,7 @@ export function renderControlPlane(
     "<div class=\"component\"><div class=\"facts\">" +
     textFact(escapeHtml(row.code), escapeHtml(vitalFieldName(row.field))) +
     textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име")) +
-    textFact(localize(locale, "Traffic", "Получавания"), escapeHtml(seenFact(row))) +
+    textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row))) +
     dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
     "</div><form method=\"post\" action=\"/status/control/ehr-vital-codes/unmap\">" +
     "<input type=\"hidden\" name=\"system\" value=\"" + escapeHtml(row.system) + "\">" +
@@ -1765,7 +1771,7 @@ export function renderControlPlane(
   const answeredSystems = (codeSystems?.answered ?? []).map(row => `
     <div class="component"><div class="facts">
       ${textFact(escapeHtml(row.system), escapeHtml(codeListName(row.list ?? "")))}
-      ${textFact(localize(locale, "Traffic", "Получавания"), codeSystemFacts(row))}
+      ${textFact(localize(locale, "Traffic", "Получени стойности"), codeSystemFacts(row))}
       ${dateFact(localize(locale, "Answered on", "Отговорено на"), row.answeredAt, locale)}
     </div><form method="post" action="/status/control/ehr-code-systems/answer">
       <input type="hidden" name="system" value="${escapeHtml(row.system)}">
@@ -1781,7 +1787,7 @@ export function renderControlPlane(
     ${answeredSystems || `<div class="empty">${localize(locale, "No addresses have been answered yet.", "Все още няма посочени адреси.")}</div>`}
   ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
 
-  const sections: { slug: typeof HOSPITAL_CONTROL_SECTIONS[number]; label: string; html: string }[] = [
+  const legacySections: { slug: string; label: string; html: string }[] = [
     {
       slug: "clinical",
       label: localize(locale, "Clinical guidance", "Клинични насоки"),
@@ -1814,7 +1820,30 @@ export function renderControlPlane(
       html: `<section class="section"><h2>${localize(locale, "External AI (Mistral)", "Външен ИИ (Mistral)")}</h2><div class="card">${externalAiControls}</div></section>`,
     },
   ]
-  const active = sections.find(entry => entry.slug === section) ?? sections[0]
+  // 1.5.4 skins give each job its own page; legacy keeps the four pages above.
+  const clinicalSection = legacySections.find(entry => entry.slug === "clinical")!
+  const aiSection = legacySections.find(entry => entry.slug === "ai")!
+  const skinSections: { slug: string; label: string; html: string }[] = [
+    clinicalSection,
+    { slug: "ehr", label: localize(locale, "Hospital system", "Болнична система"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },
+    { slug: "codes", label: localize(locale, "Codes", "Кодове"), html: `
+    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Medication code map", "Карта на лекарствените кодове")}</h2><div class="card">${medicationCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "PREOP vital-code map", "Карта на кодовете за предоперативни жизнени показатели")}</h2><div class="card">${vitalCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>` },
+    { slug: "identity", label: localize(locale, "Patient identification", "Идентификация на пациента"), html: `<section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Настройка за ЕГН")}</h2><div class="card">${patientIdentifierControls}</div></section>` },
+    { slug: "research", label: localize(locale, "Research access", "Достъп за изследвания"), html: `
+    <section class="section"><h2>${localize(locale, "Research grants", "Разрешения за изследвания")}</h2><div class="card"><div class="component">${grantForm}</div>${grantRows}</div></section>
+    <section class="section"><h2>${localize(locale, "Exact OMOP approvals", "Одобрение на конкретни OMOP набори")}</h2><div class="card">${omopRows}</div></section>` },
+    { slug: "central", label: "LOSPOR Central", html: `
+    <section class="section"><h2>${localize(locale, "Central transport (push-only)", "Изпращане към Central (само изходящо)")}</h2><div class="card"><div class="component"><p><strong>${localize(locale, "Disabled by default.", "Изключено по подразбиране.")}</strong> ${localize(locale, "Central cannot query or write this hospital database.", "Central не може да чете от болничната база данни и да записва в нея.")}</p>${certificateFacts}${transport}</div></div></section>
+    <section class="section"><h2>${localize(locale, "Central automatic clinical delivery", "Автоматично изпращане на клинични данни към Central")}</h2><div class="card"><div class="component">${policy}</div></div></section>
+    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Опашки, пакети и подписани потвърждения от Central")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, които чакат потвърждение за приемане")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "Queues", "Опашки")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>` },
+    aiSection,
+  ]
+  const sections = isLegacy() ? legacySections : skinSections
+  const requested = isLegacy() ? LEGACY_CONTROL_SECTION[section ?? ""] ?? section : section
+  const active = sections.find(entry => entry.slug === requested) ?? sections[0]
   const subnav = `<nav class="statusnav subnav" aria-label="${escapeHtml(localize(locale, "Hospital control sections", "Раздели на управлението"))}">${
     sections.map(entry => `<a href="/status/control/${entry.slug}"${entry.slug === active.slug ? ' aria-current="page"' : ""}>${escapeHtml(entry.label)}</a>`).join("")
   }</nav>`
@@ -1899,7 +1928,7 @@ function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocal
     ? localize(locale, "none", "няма")
     : vulnerabilities.exceptions.map(exception => `${exception.vulnerabilityId} (${exception.image}, ${localize(locale, "until", "до")} ${exception.expiresAt})`).join(", ")
   const facts = [
-    releaseFact(localize(locale, "Built from commit", "Изградена от commit"), dossier.commit.slice(0, 12)),
+    releaseFact(localize(locale, "Built from commit", "Изградена от версия на кода (commit)"), dossier.commit.slice(0, 12)),
     releaseFact(localize(locale, "Build run", "Номер на изграждането"), `${dossier.build.runId} / ${dossier.build.runAttempt}`),
     releaseFact(localize(locale, "Images", "Docker образи"), String(dossier.images)),
     releaseFact(localize(locale, "Software components listed", "Брой софтуерни компоненти"), String(dossier.sbomComponents)),
@@ -2380,6 +2409,13 @@ export const TIME_ZONES: readonly string[] = Object.freeze(
   ])].sort(),
 )
 
+/** Which maintenance sections share a page under the 1.5.4 skins. */
+const SKIN_MAINTENANCE_PAGES: Record<string, readonly string[]> = {
+  backups: ["backups", "offhost"], offhost: ["backups", "offhost"],
+  escrow: ["escrow", "rotation"], rotation: ["escrow", "rotation"],
+  support: ["support", "settings", "advanced"], settings: ["support", "settings", "advanced"], advanced: ["support", "settings", "advanced"],
+}
+
 export const MAINTENANCE_SECTIONS = [
   "backups", "offhost", "host-os", "escrow", "support", "rotation", "settings", "advanced",
 ] as const
@@ -2459,20 +2495,27 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
     sections.map(entry => `<a href="/status/maintenance/${entry.slug}"${entry.slug === active.slug ? ' aria-current="page"' : ""}>${escapeHtml(entry.label)}</a>`).join("")
   }</nav>`
 
-  // The agent's state stays on every section: it is one line, and it is the
-  // reason a form below it may be disabled.
+  // 1.5.4 skins put related sections on one page (each still has its own
+  // route, so every form returns where it was).
+  const skinPage = isLegacy() ? [active] : (SKIN_MAINTENANCE_PAGES[active.slug] ?? [active.slug])
+    .map(slug => sections.find(entry => entry.slug === slug))
+    .filter((entry): entry is (typeof sections)[number] => Boolean(entry))
+  // The agent's state stays on every section under the legacy skin: it is one
+  // line, and it is the reason a form below it may be disabled. The skins show
+  // it on the Server page, and on any page whose forms it is disabling.
+  const showAgent = isLegacy() || active.slug === "host-os" || Boolean(disabledReason)
   const agent = `<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section>`
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Резервни копия, проверки и настройки"))}<main>${notice}${error}${subnav}${agent}${active.html}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и я изпълнява; възстановяването върху работещата база и аварийното възстановяване се правят само от конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Резервни копия, проверки и настройки"))}<main>${notice}${error}${subnav}${showAgent ? agent : ""}${skinPage.map(entry => entry.html).join("")}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и я изпълнява; възстановяването върху работещата база и аварийното възстановяване се правят само от конзолата.")}</footer></div>`,
     locale,
   )
 }
 
 const OFFHOST_RESULTS: Record<string, { en: string; bg: string }> = {
   OFFHOST_COPY_ACKNOWLEDGED: { en: "copied and read back", bg: "копирано и проверено" },
-  OFFHOST_COPY_FAILED: { en: "failed, will retry", bg: "неуспешно, ще се опита пак" },
+  OFFHOST_COPY_FAILED: { en: "failed, will retry", bg: "неуспешно, ще има нов опит" },
   OFFHOST_BUSY: { en: "waited for another maintenance operation", bg: "изчака друга операция по поддръжка" },
   OFFHOST_CAPACITY_REFUSED: { en: "not enough free disk", bg: "няма достатъчно свободно място" },
   OFFHOST_ENCRYPT_FAILED: { en: "could not encrypt", bg: "шифроването не успя" },
@@ -2588,7 +2631,7 @@ function hostOsSection(
     boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
     verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
   }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на актуализациите сега"))}</div>`
-  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши актуализациите.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за актуализации, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, set the restart policy to window in Site settings.", "За да го прави системата сама в прозореца за актуализации, задайте рестартиране window в „Настройки на инсталацията“.")}</div>${actionFacts({
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши актуализациите.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за актуализации, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За да го прави системата сама, изберете „В прозореца за актуализации“ за рестартирането в „Настройки на инсталацията“.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a successful backup.", "Работещ агент на сървъра и успешно резервно копие."],
     outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: лекарите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът не се върне."],
     backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверено резервно копие; ако то не успее, сървърът не се рестартира."],
@@ -2852,6 +2895,85 @@ export function renderSettingsConfirm(
   return page(
     localize(locale, "Apply these settings?", "Да се приложат ли тези настройки?"),
     `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm settings change", "Потвърждаване на промяната")}</div></div></header><main><section class="section" aria-labelledby="settings-confirm"><h2 id="settings-confirm">${localize(locale, "These settings will change", "Тези настройки ще се променят")}</h2><div class="card">${rows}<div class="component">${networks}<p>${localize(locale, "Services whose settings change restart, usually for under a minute. The health check runs afterwards, and if it fails the previous settings are restored automatically.", "Услугите с променени настройки се рестартират, обикновено за по-малко от минута. След това се изпълнява проверка на системата и ако тя не успее, предишните настройки се връщат автоматично.")}</p><form method="post" action="/status/maintenance/settings/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("settings-password", locale)}<button type="submit">${localize(locale, "Apply these settings", "Прилагане на настройките")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    locale,
+  )
+}
+
+// ── 1.5.4 pages for the new skins ────────────────────────────────────────────
+
+export type ServiceWindow = { range: AvailabilityRange; statuses: Record<string, ComponentStatus[]> }
+
+function windowRows(data: DashboardData, window: ServiceWindow, locale: StatusLocale): { name: string; statuses: ComponentStatus[] }[] {
+  return data.components
+    .filter(component => component.component !== "status-history")
+    .map(component => ({
+      name: componentLabel(component, locale),
+      statuses: window.range === "90d"
+        ? (data.histories[component.component] ?? []).map(day => day.status)
+        : window.statuses[component.component] ?? [],
+    }))
+}
+
+/** The map overview: verdict, map, people using it now, one to-do list, going live. */
+export function renderOverview(
+  data: DashboardData,
+  attention: readonly AttentionItem[],
+  goLive: GoLiveView,
+  locale: StatusLocale,
+  audience: StatusNavAudience,
+  now = Date.now(),
+): string {
+  const state = banner(data.components, locale)
+  const checked = data.lastCheckedAt ? utcDate(data.lastCheckedAt, locale) : localize(locale, "not yet", "още няма проверка")
+  const today = attention.filter(item => item.level === "now" || item.level === "today").length
+  const todo = `<section class="card pad"><div class="sec-head"><h2>${localize(locale, "To do", "Задачи")}</h2></div>${todoList(attention, locale)}</section>`
+  const map = `<section class="card pad">${overviewMap(data, attention, locale, now)}</section>`
+  const side = `${usageCard(data, locale)}${goLiveCard(goLive, locale)}`
+  const body = ui().skin === "inbox"
+    ? `${todo}<div class="overview">${map}<div class="stack">${side}</div></div>`
+    : `<div class="overview">${map}<div class="stack">${todo}${side}</div></div>`
+  return page(
+    localize(locale, "Hospital appliance status", "Състояние на болничната система"),
+    `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>${verdictCard(state.className, state.text, today, checked, locale)}${body}</main><footer class="foot">${localize(locale, "Operational information only, no clinical record. Counts are totals; no person, patient or case is shown.", "Само работна информация, без клинични записи. Показват се само общи бройки: никой човек, пациент или случай.")}</footer></div>`,
+    locale,
+    true,
+  )
+}
+
+/** How each part has worked, over 24 hours, 7 days or 90 days, and what happened. */
+export function renderServices(data: DashboardData, window: ServiceWindow, locale: StatusLocale, audience: StatusNavAudience): string {
+  const fallback = localize(locale, "Operational state recorded by the appliance monitor.", "Работно състояние според наблюдението на сървъра.")
+  const checks = data.components.length
+    ? `<ul class="rows">${data.components.map(component => `<li class="component"><div class="component-head"><div><div class="component-name">${escapeHtml(componentLabel(component, locale))}</div><div class="component-detail">${escapeHtml(codeMessage(component.code, locale, fallback))}</div></div><div class="state ${component.status}">${statusLabel(component.status, locale)}</div></div></li>`).join("")}</ul>`
+    : `<div class="empty">${localize(locale, "Checks are being established.", "Проверките още не са завършили.")}</div>`
+  return page(
+    localize(locale, "Services and events", "Услуги и събития"),
+    `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>
+      <section class="section"><div class="sec-head"><h2>${localize(locale, "Availability", "Работоспособност")}</h2>${rangeSwitch(window.range, "/status/services", locale)}</div><div class="card pad">${availabilityStrips(windowRows(data, window, locale), window.range, locale)}</div></section>
+      <section class="section"><h2>${localize(locale, "Checks", "Проверки")}</h2><div class="card">${checks}</div></section>
+      <section class="section"><h2>${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section>
+      <section class="section"><h2>${localize(locale, "Recent operational events", "Последни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма събития, които изискват внимание.")}</div>`}</div></section>
+      <section class="section"><h2>${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section>
+    </main><footer class="foot">${localize(locale, "This monitor cannot report loss of power, Docker, the physical server or the hospital network.", "Тази страница не може да отчете спиране на тока, на Docker, на физическия сървър или на болничната мрежа.")}</footer></div>`,
+    locale,
+    true,
+  )
+}
+
+/** The inbox skin's index of every setting. */
+export function renderConfigure(locale: StatusLocale, audience: StatusNavAudience): string {
+  return page(
+    localize(locale, "Configure", "Настройки"),
+    `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>${configureBody(audience, locale)}</main></div>`,
+    locale,
+  )
+}
+
+/** Skin, theme and language, kept in this browser. */
+export function renderPreferences(locale: StatusLocale, audience: StatusNavAudience, saved = false): string {
+  return page(
+    localize(locale, "Display settings", "Настройки на изгледа"),
+    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Display settings", "Настройки на изгледа"))}<main>${preferencesBody(locale, saved)}</main></div>`,
     locale,
   )
 }

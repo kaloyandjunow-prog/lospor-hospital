@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Database
 
+## [0.8.3] - 2026-10-10
+
+### Security
+
+- **Next.js 16.3.8**, for six high advisories (GHSA-3w37-wq28-93x7,
+  GHSA-4jqv-mc3x-m676, GHSA-39w2-rjm5-chcv, GHSA-f87g-xv8r-7p7x,
+  GHSA-mcj8-r9mp-w47p, GHSA-cjq9-62q9-8jv4): cache poisoning of static pages,
+  information disclosure and server-side request forgery in image optimization.
+- **sharp 0.35.5** (GHSA-wq5f-xc86-pv6w) and **source-map-js** patched
+  (GHSA-68fv-2mgg-jv7q), as in the web app.
+
+### Changed
+
+- **Shared Core pin advanced to 9.14.3.** The research contract is unchanged;
+  Core adds Bulgarian descriptions to catalogue values.
+
 ## [0.8.2] - 2026-10-01
 
 ### Changed

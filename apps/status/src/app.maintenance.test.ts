@@ -433,12 +433,20 @@ describe("the overview's to-do list", () => {
     hostOs(stateDir, { rebootRequired: true, rebootRequiredSince: "2026-09-01T06:10:00Z" })
     withAdvanced(stateDir)
     const cookie = await signIn(auth)
-    const body = await (await app.request("/status/", { headers: headers({ cookie }) })).text()
+    const body = await (await app.request("/status/", { headers: headers({ cookie: `${cookie}; lospor_status_skin=legacy` }) })).text()
     expect(body).toContain("Needs attention today")
     expect(body).toContain("Ubuntu needs a server restart to finish installing updates.")
     expect(body).toContain('href="/status/maintenance#maintenance-host-os"')
     expect(body).toContain("No restore drill has been run from Status yet.")
     expect(body).toContain("1 advanced setting(s) differ from the defaults on this appliance.")
+
+    // The 1.5.4 overview lists the same items, and each link opens its own page.
+    const overview = await (await app.request("/status/", { headers: headers({ cookie }) })).text()
+    expect(overview).toContain("To do")
+    expect(overview).toContain("Ubuntu needs a server restart to finish installing updates.")
+    expect(overview).toContain('href="/status/maintenance/host-os"')
+    expect(overview).toContain("No restore drill has been run from Status yet.")
+    expect(overview).toContain("1 advanced setting(s) differ from the defaults on this appliance.")
   })
 })
 

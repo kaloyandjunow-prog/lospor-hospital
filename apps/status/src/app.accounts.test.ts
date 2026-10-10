@@ -172,7 +172,7 @@ describe("Status account workflows", () => {
     const response = await app.request("/status/accounts", { headers: { cookie } })
     const body = await response.text()
     expect(response.status).toBe(200)
-    expect(body).toContain('<html lang="bg">')
+    expect(body).toContain('<html lang="bg"')
     expect(body).toContain("Създаване на профил")
     // Scoped to the creation form's own select. A page-wide search for
     // value="ADMIN" also matches the role-change form on an existing account,

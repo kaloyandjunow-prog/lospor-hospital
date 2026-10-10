@@ -96,4 +96,15 @@ export type ApplianceSnapshot = {
     lastCapabilitiesAt: string | null
     lastDeliveryAt: string | null
   }
+  /** Totals only, for the overview (1.5.4). Absent from an older API. */
+  activity?: {
+    activeUsers: number
+    activeClinical: number
+    activeResearch: number
+    days: { day: string; started: number; finalized: number }[]
+  }
+  integrations?: {
+    ehr: { configured: boolean; lastReceivedAt: string | null }
+    ai: { enabled: boolean }
+  }
 }

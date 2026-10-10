@@ -139,5 +139,14 @@ describe("privacy-safe producer contracts", () => {
     }
     expect(parseApplianceSnapshot(snapshot)).toEqual(snapshot)
     expect(parseApplianceSnapshot({ ...snapshot, patientId: "must-not-cross-boundary" })).toBeNull()
+
+    // 1.5.4: optional totals for the overview. Totals only; anything more is refused.
+    const activity = { activeUsers: 14, activeClinical: 12, activeResearch: 2, days: [{ day: "2026-10-10", started: 4, finalized: 3 }] }
+    const integrations = { ehr: { configured: true, lastReceivedAt: "2026-10-10T12:00:00.000Z" }, ai: { enabled: false } }
+    expect(parseApplianceSnapshot({ ...snapshot, activity, integrations })).toEqual({ ...snapshot, activity, integrations })
+    expect(parseApplianceSnapshot({ ...snapshot, activity: { ...activity, users: ["maria.petrova"] } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, activity: { ...activity, days: [{ day: "2026-10-10", started: 4, finalized: 3, caseId: "c1" }] } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, activity: { ...activity, activeUsers: -1 } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, integrations: { ...integrations, ehr: { configured: true, lastReceivedAt: "yesterday" } } })).toBeNull()
   })
 })
