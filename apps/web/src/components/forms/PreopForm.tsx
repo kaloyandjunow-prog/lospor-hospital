@@ -55,8 +55,7 @@ import { PreopAnamnesisFields } from "@/components/forms/PreopAnamnesisFields"
 import { LabResultsSection } from "@/components/forms/sections/LabResultsSection"
 import { PreopQuestionList, type PreopPendingSuggestion, type PreopQuestionAnswer } from "@/components/forms/PreopQuestionList"
 import {
-  isPreopQuestionShown,
-  isPreopScoreAvailable,
+  isPreopQuestionShown, isPreopScoreAvailable, preopProfileForMode,
   PREOP_LEGACY_FIELD_BY_QUESTION,
   preopAnswerStates,
   type PreopAssessmentProfile,
@@ -75,7 +74,7 @@ type ProcedureSearchItem = { code: string; group?: string; description: string; 
 type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?: string }
 
 
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, onEhrAcceptedBeforeCase, submitting = false, submitError, onClinicalInput, preopProfile, focus }: {
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, onEhrAcceptedBeforeCase, submitting = false, submitError, onClinicalInput, preopProfile: profiles, focus }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
   onNameChange?: (name: string) => void
@@ -154,6 +153,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
            "clinicalMode", "ageValue", "ageUnit"])
   const isPediatric = clinicalMode === "PEDIATRIC"
   const preopMode = isPediatric ? "PEDIATRIC" : "ADULT"
+  const preopProfile = useMemo(() => preopProfileForMode(profiles, preopMode), [profiles, preopMode]) // adults' or children's
   const shown = (stableKey: string) => isPreopQuestionShown(preopProfile, stableKey, preopMode)
   const shownField = (field: string) => !QUESTION_OF_FIELD[field] || shown(QUESTION_OF_FIELD[field])
   const questionStates = preopAnswerStates(watch() as unknown as Record<string, unknown>)

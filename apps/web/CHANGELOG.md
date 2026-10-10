@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Web App
 
+## [9.14.5] - 2026-10-11
+
+### Changed
+
+- **Preoperative form follows the case's own profile**: adults and children
+  each have their own hospital profile, so the form shows the questions, the
+  order and the required marks of the profile for the case's mode, and
+  switches as soon as the mode is changed. On Core 9.14.5.
+
 ## [9.14.4] - 2026-10-10
 
 ### Security

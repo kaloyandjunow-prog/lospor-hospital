@@ -116,3 +116,31 @@ describe.each(["scroll", "tabs"] as const)("the preoperative form driven by the 
     expect(container.textContent).toContain(enMessages.preop.scoreUnavailable)
   })
 })
+
+describe("one profile for adults and one for children (9.14.5)", () => {
+  // A question asked of both, on for both, required for children only, and
+  // first in the children's order but last in the adults'.
+  const both = profile([
+    question("A_SHARED", { byMode: { ADULT: { enabled: true, required: false, sortOrder: 9 }, PEDIATRIC: { enabled: true, required: true, sortOrder: 0 } } }),
+    question("A_OTHER", { byMode: { ADULT: { enabled: true, required: false, sortOrder: 1 }, PEDIATRIC: { enabled: true, required: false, sortOrder: 5 } } }),
+  ])
+  const renderIn = (clinicalMode: "ADULT" | "PEDIATRIC") => render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      <PreopForm defaultValues={{ clinicalMode }} onSubmit={vi.fn()} onAutoSave={vi.fn()} layoutMode="scroll" preopProfile={both} />
+    </NextIntlClientProvider>,
+  )
+  const order = (container: HTMLElement) => Array.from(container.querySelectorAll("[data-testid^='preop-question-']"))
+    .map(element => element.getAttribute("data-testid")!.replace("preop-question-", ""))
+
+  it("follows the children's profile for a paediatric case", () => {
+    const { container, getByTestId } = renderIn("PEDIATRIC")
+    expect(getByTestId("preop-question-A_SHARED").textContent).toContain("*")
+    expect(order(container)).toEqual(["A_SHARED", "A_OTHER"])
+  })
+
+  it("follows the adults' profile for an adult case", () => {
+    const { container, getByTestId } = renderIn("ADULT")
+    expect(getByTestId("preop-question-A_SHARED").textContent).not.toContain("*")
+    expect(order(container)).toEqual(["A_OTHER", "A_SHARED"])
+  })
+})

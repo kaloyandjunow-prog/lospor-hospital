@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Core
 
+## [9.14.5] - 2026-10-11
+
+### Added
+
+- **Adult and paediatric preoperative profiles**: a profile question can carry
+  each population's own settings (`byMode`: on, required, order), and
+  `preopProfileForMode` gives the profile as one population sees it. Every
+  other preop helper works unchanged on the result; a profile from an older
+  server (no `byMode`) is returned as it is.
+
 ## [9.14.4] - 2026-10-10
 
 ### Changed

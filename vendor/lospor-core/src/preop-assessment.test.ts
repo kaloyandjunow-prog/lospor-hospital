@@ -5,6 +5,8 @@ import {
   isPreopQuestionShown,
   isPreopScoreAvailable,
   preopAnswerStates,
+  preopPopulationForMode,
+  preopProfileForMode,
   preopQuestionProgress,
   preopQuestionRows,
   type PreopAnswerState,
@@ -134,5 +136,48 @@ describe("baseline controls and scores follow the profile", () => {
     expect(hasDedicatedPreopControl("BASE_SMOKING")).toBe(true)
     expect(hasDedicatedPreopControl("BASE_SURGERY_URGENCY")).toBe(true)
     expect(hasDedicatedPreopControl("A1_RECENT_INFECTION")).toBe(false)
+  })
+})
+
+describe("one profile for adults and one for children (9.14.5)", () => {
+  const shared = question("A1_RECENT_INFECTION", {
+    byMode: { ADULT: { enabled: true, required: false, sortOrder: 0 }, PEDIATRIC: { enabled: true, required: true, sortOrder: 2 } },
+  })
+  const adultOnly = question("A2_EXERCISE_TOLERANCE", {
+    applicability: ["ADULT"],
+    byMode: { ADULT: { enabled: false, required: false, sortOrder: 1 } },
+  })
+  const childOnly = question("P2_HOME_OXYGEN_NIV", {
+    applicability: ["PEDIATRIC"],
+    byMode: { PEDIATRIC: { enabled: true, required: false, sortOrder: 0 } },
+  })
+  const both = profile([shared, adultOnly, childOnly])
+
+  it("gives each population its own on, required and order for a shared question", () => {
+    const adult = preopProfileForMode(both, "ADULT")!
+    const child = preopProfileForMode(both, "PEDIATRIC")!
+    expect(isPreopQuestionRequired(adult, "A1_RECENT_INFECTION", "ADULT")).toBe(false)
+    expect(isPreopQuestionRequired(child, "A1_RECENT_INFECTION", "PEDIATRIC")).toBe(true)
+    const keys = (p: typeof both, mode: string) => preopQuestionRows(p, "anamnesis", mode, new Map()).map(row => row.question.stableKey)
+    expect(keys(child, "PEDIATRIC")).toEqual(["P2_HOME_OXYGEN_NIV", "A1_RECENT_INFECTION"])
+    expect(keys(adult, "ADULT")).toEqual(["A1_RECENT_INFECTION"])
+  })
+
+  it("switches off a question the population is never asked", () => {
+    const adult = preopProfileForMode(both, "ADULT")!
+    expect(adult.questions.find(item => item.stableKey === "P2_HOME_OXYGEN_NIV")).toMatchObject({ enabled: false, required: false })
+  })
+
+  it("leaves a single profile from an older server, and an unknown mode, as they are", () => {
+    const legacy = profile([question("A1_RECENT_INFECTION", { required: true })])
+    expect(preopProfileForMode(legacy, "PEDIATRIC")).toBe(legacy)
+    expect(preopProfileForMode(both, null)).toBe(both)
+    expect(preopProfileForMode(null, "ADULT")).toBeNull()
+  })
+
+  it("treats anything but PEDIATRIC as the adult profile", () => {
+    expect(preopPopulationForMode("PEDIATRIC")).toBe("PEDIATRIC")
+    expect(preopPopulationForMode("ADULT")).toBe("ADULT")
+    expect(preopPopulationForMode(null)).toBe("ADULT")
   })
 })
