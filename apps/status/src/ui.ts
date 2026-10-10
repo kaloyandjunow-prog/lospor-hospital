@@ -332,7 +332,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_RESTORE_LOCK_INVALID: "Записът за заключване при възстановяване е невалиден, небезопасен или не съответства на запазения си маркер.",
   HOST_ACTIVATION_LOCK_CLEAR: "Няма заключване за активиране на версия.",
   HOST_ACTIVATION_LOCK_PRESENT: "Има заключване за активиране на версия. Използвайте поддържаната команда за възстановяване на сървъра и никога не го премахвайте ръчно.",
-  HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е защитена директория, достъпна само за root.",
+  HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е в защитена директория, достъпна само за root.",
   UPDATE_SUPPLY_OFFLINE: "Избрани са актуализации без интернет. Версиите идват от проверен USB носител.",
   UPDATE_SUPPLY_CONNECTED: "Избрани са актуализации през интернет. Версиите се изтеглят от публичните издания в GitHub и се проверяват по подпис; не са нужни данни за достъп.",
   UPDATE_SUPPLY_MODE_INVALID: "Начинът на получаване на актуализации е невалиден; няма работещ канал за актуализации.",
@@ -1386,7 +1386,7 @@ export function renderControlPlane(
       ${textFact(localize(locale, "Bundled pediatric content release-reviewed", "Вграденото педиатрично съдържание е прегледано преди издаването"), boolWord(pediatricMode.releaseReviewed, locale))}
       ${textFact(localize(locale, "Bundled pediatric ruleset version", "Версия на вградените педиатрични правила"), pediatricMode.bundledRulesetVersion)}
       ${textFact(localize(locale, "Minimum client version", "Минимална версия на приложението"), pediatricMode.minimumClientVersion)}
-    </div><p>${localize(locale, "Pediatric charting is a fixed Hospital capability. Release review of bundled content, the selected database baseline, and the calculation policy are separate facts. Manual pediatric documentation remains available when calculated guidance is not ready or is turned off.", "Педиатричното документиране е постоянна функция на Hospital. Прегледът на вграденото съдържание, избраната базова конфигурация и правилата за изчисляване са отделни неща. Ръчното педиатрично документиране остава достъпно и когато изчислените насоки не са готови или са изключени.")}</p></div>` : ""
+    </div><p>${localize(locale, "Pediatric charting is a fixed Hospital capability. Release review of bundled content, the selected database baseline, and the calculation policy are separate facts. Manual pediatric documentation remains available when calculated guidance is not ready or is turned off.", "Педиатричното документиране е постоянна функция на болничната версия. Прегледът на вграденото съдържание, избраната базова конфигурация и правилата за изчисляване са отделни неща. Ръчното педиатрично документиране остава достъпно и когато изчислените насоки не са готови или са изключени.")}</p></div>` : ""
   const baselineFacts = guidance
     ? clinicalBaselineFacts("Adult calculation guidance", "Изчислени насоки — възрастни", guidance.adultEnabled, guidance.baselines.adult, locale)
       + clinicalBaselineFacts("Pediatric calculation guidance", "Изчислени насоки — деца", guidance.pediatricEnabled, guidance.baselines.pediatric, locale)
@@ -1485,7 +1485,7 @@ export function renderControlPlane(
     <form method="post" action="/status/control/ehr-transport/discover">
       <label>${localize(locale, "Look up a record number", "Търсене по номер на ИЗ")}<input name="identifier" maxlength="64" placeholder="${localize(locale, "a real record number", "реален номер на ИЗ")}"></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
-      <button type="submit">${localize(locale, "Ask the server", "Попитай сървъра")}</button>
+      <button type="submit">${localize(locale, "Ask the server", "Запитване към сървъра")}</button>
     </form>
     <form method="post" action="/status/control/ehr-transport/identifier-systems">${numberingOptions}
       <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерация за ИЗ №")}<input name="recordNumberSystem"${numberingList} maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
@@ -1508,7 +1508,7 @@ export function renderControlPlane(
     <div class="component"><h3>${localize(locale, "Where this appliance sends", "Накъде се свързва сървърът")}</h3>
     <p class="component-detail">${localize(locale,
       "The hospital FHIR base address and how this appliance identifies itself to it. Changing any of these clears the stored credential: a bearer token is not a client secret, and a secret issued for one authorisation server does not belong at another.",
-      "Базовият FHIR адрес на болницата и как сървърът се представя пред нея. Промяната на което и да е от тези полета изтрива запазените данни за достъп: bearer токенът не е клиентска тайна, а тайна, издадена за един сървър за оторизация, не важи за друг.")}</p>
+      "Базовият FHIR адрес на болницата и как сървърът се представя пред нея. Промяната на което и да е от тези полета изтрива запазените данни за достъп: постоянният токен не е клиентска тайна, а тайна, издадена от един сървър за оторизация, не бива да се използва при друг.")}</p>
     <form method="post" action="/status/control/ehr-transport/endpoint">
       <label>${localize(locale, "FHIR base address", "Базов FHIR адрес")}<input name="endpoint" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.endpoint ?? "")}" placeholder="https://fhir.hospital.example/r4"></label>
       <label>${localize(locale, "How this appliance authenticates", "Как се удостоверява сървърът")}<select name="authMode">
@@ -1541,7 +1541,7 @@ export function renderControlPlane(
       ${dateFact(localize(locale, "Last file read", "Последен прочетен файл"), folderHealth.lastReadAt, locale)}
       ${textFact(localize(locale, "Last 24 hours", "Последните 24 часа"), localize(locale, `${folderHealth.last24h.imported} staged, ${folderHealth.last24h.rejected} refused`, `${folderHealth.last24h.imported} приети за преглед, ${folderHealth.last24h.rejected} отказани`))}
     </div>
-    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака повече от десет минути. Файловете се четат всяка минута, след като не са се променяли 30 секунди; файл, който продължава да чака, все още се записва или EHR worker не работи.")}</p>` : ""}
+    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака повече от десет минути. Файловете се четат всяка минута, след като не са се променяли 30 секунди; файл, който продължава да чака, все още се записва или услугата за импорт от БИС не работи.")}</p>` : ""}
     ${folderHealth.recentRejections.length ? `<p>${localize(locale, "Latest refused files (each has its answer in results/):", "Последно отказани файлове (за всеки има отговор в results/):")}</p><ul>${folderHealth.recentRejections.map(entry => `<li><code>${escapeHtml(entry.file)}</code> — ${escapeHtml(folderRejectReason(entry.reason, locale))} — ${escapeHtml(utcDate(Date.parse(entry.at), locale))} UTC${""}</li>`).join("")}</ul>` : ""}`
     : `<div class="empty">${localize(locale, "The folder could not be read just now.", "Папката не можа да бъде прочетена в момента.")}</div>`}
     <p class="component-detail">${localize(locale,
@@ -1560,12 +1560,12 @@ export function renderControlPlane(
       <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
       <button type="submit"${ehrTransport.folderRequestsEnabled ? ` class="danger"` : ""}>${ehrTransport.folderRequestsEnabled
-        ? localize(locale, "Stop asking the hospital system", "Спри заявките към болничната система")
-        : localize(locale, "Start asking the hospital system", "Включи заявките към болничната система")}</button>
+        ? localize(locale, "Stop asking the hospital system", "Спиране на заявките към болничната система")
+        : localize(locale, "Start asking the hospital system", "Включване на заявките към болничната система")}</button>
     </form>
     <form method="post" action="/status/control/ehr-transport/check-file" enctype="multipart/form-data">
       <label>${localize(locale, "Check a file before it is dropped (nothing is imported)", "Проверка на файл преди поставянето му (нищо не се импортира)")}<input type="file" name="file" accept=".json,application/json" required></label>
-      <button type="submit">${localize(locale, "Check the file", "Провери файла")}</button>
+      <button type="submit">${localize(locale, "Check the file", "Проверка на файла")}</button>
     </form>
     ${fileCheck ? fileCheckHtml(fileCheck, locale) : ""}</div>
   ` : ""
@@ -1615,7 +1615,7 @@ export function renderControlPlane(
       ${textFact(escapeHtml(row.code), escapeHtml(row.test))}
       ${textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име"))}
       ${textFact(localize(locale, "Assumed unit", "Приета мерна единица"), row.assumedUnit ? escapeHtml(row.assumedUnit) : localize(locale, "none — read from each result", "няма — взема се от всеки резултат"))}
-      ${textFact(localize(locale, "Traffic", "Получавания"), escapeHtml(seenFact(row)))}
+      ${textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row)))}
       ${dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale)}
     </div><form method="post" action="/status/control/ehr-lab-codes/unmap">
       <input type="hidden" name="system" value="${escapeHtml(row.system)}">
@@ -1658,7 +1658,7 @@ export function renderControlPlane(
     "<form method='get' action='" + (isLegacy() ? "/status/control/ehr" : "/status/control/codes") + "#medication-code-" + index + "'>" +
     "<input type='hidden' name='medicationSystem' value='" + escapeHtml(row.system) + "'>" +
     "<input type='hidden' name='medicationCode' value='" + escapeHtml(row.code) + "'>" +
-    "<label>" + localize(locale, "Search the medication list (name, INN or ATC code)", "Търсене в списъка с лекарства (име, INN или ATC код)") +
+    "<label>" + localize(locale, "Search the medication list (name, INN or ATC code)", "Търсене в списъка с лекарства (име, МНН или ATC код)") +
     "<input type='search' name='medicationSearch' minlength='2' maxlength='100' required value='" + escapeHtml(search?.query ?? "") + "'></label>" +
     "<button type='submit'>" + localize(locale, "Search", "Търсене") + "</button></form>" + searchNote +
     "<form method='post' action='/status/control/ehr-medication-codes/map'>" +
@@ -1673,8 +1673,8 @@ export function renderControlPlane(
     "<div class='component'><div class='facts'>" +
     textFact(escapeHtml(row.code), escapeHtml(row.drugName)) +
     textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име")) +
-    textFact(localize(locale, "INN / ATC", "INN / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "не е в каталога"))) +
-    textFact(localize(locale, "Traffic", "Получавания"), escapeHtml(seenFact(row))) +
+    textFact(localize(locale, "INN / ATC", "МНН / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "не е в каталога"))) +
+    textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row))) +
     dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
     "</div><form method='post' action='/status/control/ehr-medication-codes/unmap'>" +
     "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
@@ -1713,7 +1713,7 @@ export function renderControlPlane(
     "<div class=\"component\"><div class=\"facts\">" +
     textFact(escapeHtml(row.code), escapeHtml(vitalFieldName(row.field))) +
     textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име")) +
-    textFact(localize(locale, "Traffic", "Получавания"), escapeHtml(seenFact(row))) +
+    textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row))) +
     dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
     "</div><form method=\"post\" action=\"/status/control/ehr-vital-codes/unmap\">" +
     "<input type=\"hidden\" name=\"system\" value=\"" + escapeHtml(row.system) + "\">" +
@@ -1771,7 +1771,7 @@ export function renderControlPlane(
   const answeredSystems = (codeSystems?.answered ?? []).map(row => `
     <div class="component"><div class="facts">
       ${textFact(escapeHtml(row.system), escapeHtml(codeListName(row.list ?? "")))}
-      ${textFact(localize(locale, "Traffic", "Получавания"), codeSystemFacts(row))}
+      ${textFact(localize(locale, "Traffic", "Получени стойности"), codeSystemFacts(row))}
       ${dateFact(localize(locale, "Answered on", "Отговорено на"), row.answeredAt, locale)}
     </div><form method="post" action="/status/control/ehr-code-systems/answer">
       <input type="hidden" name="system" value="${escapeHtml(row.system)}">
@@ -1928,7 +1928,7 @@ function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocal
     ? localize(locale, "none", "няма")
     : vulnerabilities.exceptions.map(exception => `${exception.vulnerabilityId} (${exception.image}, ${localize(locale, "until", "до")} ${exception.expiresAt})`).join(", ")
   const facts = [
-    releaseFact(localize(locale, "Built from commit", "Изградена от commit"), dossier.commit.slice(0, 12)),
+    releaseFact(localize(locale, "Built from commit", "Изградена от версия на кода (commit)"), dossier.commit.slice(0, 12)),
     releaseFact(localize(locale, "Build run", "Номер на изграждането"), `${dossier.build.runId} / ${dossier.build.runAttempt}`),
     releaseFact(localize(locale, "Images", "Docker образи"), String(dossier.images)),
     releaseFact(localize(locale, "Software components listed", "Брой софтуерни компоненти"), String(dossier.sbomComponents)),
@@ -2515,7 +2515,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
 
 const OFFHOST_RESULTS: Record<string, { en: string; bg: string }> = {
   OFFHOST_COPY_ACKNOWLEDGED: { en: "copied and read back", bg: "копирано и проверено" },
-  OFFHOST_COPY_FAILED: { en: "failed, will retry", bg: "неуспешно, ще се опита пак" },
+  OFFHOST_COPY_FAILED: { en: "failed, will retry", bg: "неуспешно, ще има нов опит" },
   OFFHOST_BUSY: { en: "waited for another maintenance operation", bg: "изчака друга операция по поддръжка" },
   OFFHOST_CAPACITY_REFUSED: { en: "not enough free disk", bg: "няма достатъчно свободно място" },
   OFFHOST_ENCRYPT_FAILED: { en: "could not encrypt", bg: "шифроването не успя" },
@@ -2631,7 +2631,7 @@ function hostOsSection(
     boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
     verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
   }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на актуализациите сега"))}</div>`
-  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши актуализациите.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за актуализации, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, set the restart policy to window in Site settings.", "За да го прави системата сама в прозореца за актуализации, задайте рестартиране window в „Настройки на инсталацията“.")}</div>${actionFacts({
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши актуализациите.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за актуализации, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За да го прави системата сама, изберете „В прозореца за актуализации“ за рестартирането в „Настройки на инсталацията“.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a successful backup.", "Работещ агент на сървъра и успешно резервно копие."],
     outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: лекарите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът не се върне."],
     backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверено резервно копие; ако то не успее, сървърът не се рестартира."],
@@ -2934,7 +2934,7 @@ export function renderOverview(
     : `<div class="overview">${map}<div class="stack">${todo}${side}</div></div>`
   return page(
     localize(locale, "Hospital appliance status", "Състояние на болничната система"),
-    `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>${verdictCard(state.className, state.text, today, checked, locale)}${body}</main><footer class="foot">${localize(locale, "Operational information only, no clinical record. Counts are totals; no person, patient or case is shown.", "Само работна информация, без клинични записи. Броят е общ; не се показва човек, пациент или случай.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>${verdictCard(state.className, state.text, today, checked, locale)}${body}</main><footer class="foot">${localize(locale, "Operational information only, no clinical record. Counts are totals; no person, patient or case is shown.", "Само работна информация, без клинични записи. Показват се само общи бройки: никой човек, пациент или случай.")}</footer></div>`,
     locale,
     true,
   )

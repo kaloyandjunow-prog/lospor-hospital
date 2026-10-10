@@ -91,12 +91,12 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     { id: "accounts", path: "/status/accounts", en: "Accounts", bg: "Профили", descEn: "Everyone who signs in to LOSPOR, and the Status administrators.", descBg: "Всички, които влизат в LOSPOR, и администраторите на Status.", audiences: PASSWORD },
     { id: "research", path: "/status/control/research", en: "Research access", bg: "Достъп за изследвания", descEn: "Research grants and the exact OMOP exports approved.", descBg: "Разрешения за изследвания и одобрените OMOP набори.", audiences: PASSWORD },
   ] },
-  { id: "care", en: "Updates and backups", bg: "Актуализации и копия", items: [
+  { id: "care", en: "Updates and backups", bg: "Актуализации и резервни копия", items: [
     { id: "updates", path: "/status/release", en: "Updates", bg: "Актуализации", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
     { id: "backups", path: "/status/maintenance/backups", also: ["/status/maintenance", "/status/maintenance/offhost"], en: "Backups", bg: "Резервни копия", descEn: "Nightly copies, copies kept elsewhere, and restore drills.", descBg: "Нощни копия, копия извън сървъра и пробно възстановяване.", audiences: BOTH },
     { id: "server", path: "/status/maintenance/host-os", en: "Server", bg: "Сървър", descEn: "The Ubuntu server and the host agent that carries out maintenance.", descBg: "Сървърът с Ubuntu и агентът, който изпълнява поддръжката.", audiences: BOTH },
     { id: "security", path: "/status/maintenance/escrow", also: ["/status/maintenance/rotation"], en: "Security", bg: "Сигурност", descEn: "Installation secrets escrow and credential rotation.", descBg: "Копие на инсталационните тайни и смяна на данните за достъп.", audiences: BOTH },
-    { id: "support", path: "/status/maintenance/support", also: ["/status/maintenance/settings", "/status/maintenance/advanced"], en: "Support and settings", bg: "Поддръжка и настройки", descEn: "Support bundle, site settings and advanced settings.", descBg: "Пакет за поддръжка, настройки на обекта и разширени настройки.", audiences: BOTH },
+    { id: "support", path: "/status/maintenance/support", also: ["/status/maintenance/settings", "/status/maintenance/advanced"], en: "Support and settings", bg: "Поддръжка и настройки", descEn: "Support bundle, site settings and advanced settings.", descBg: "Пакет за поддръжка, настройки на инсталацията и разширени настройки.", audiences: BOTH },
     { id: "golive", path: "/status/go-live", en: "Going live", bg: "Пускане в работа", descEn: "Everything to check and sign before clinical use.", descBg: "Всичко, което трябва да се провери и подпише преди клинична употреба.", audiences: BOTH },
   ] },
 ]
@@ -186,7 +186,7 @@ export function skinHeader(locale: StatusLocale, audience: StatusAudience, langu
   if (skin === "inbox") {
     const intent = activeGroup === "overview" ? "inbox" : activeGroup === "services" ? "watch" : activeGroup === "people" ? "people" : "configure"
     const intents = [
-      ["inbox", "/status/", localize(locale, "Needs you", "За вас"), localize(locale, "things to do", "задачи")],
+      ["inbox", "/status/", localize(locale, "Needs you", "Чака ви"), localize(locale, "things to do", "задачи")],
       ["watch", "/status/services", localize(locale, "Watch", "Наблюдение"), localize(locale, "services and events", "услуги и събития")],
       ["configure", "/status/configure", localize(locale, "Configure", "Настройки"), localize(locale, "every setting", "всички настройки")],
       ...(audience === "password" ? [["people", "/status/accounts", localize(locale, "People", "Хора"), localize(locale, "accounts and access", "профили и достъп")]] : []),
@@ -318,10 +318,10 @@ type MapNode = { href: string; x: number; y: number; en: string; bg: string; sub
 function relative(iso: string | null, now: number, locale: StatusLocale): string {
   if (!iso) return localize(locale, "nothing received yet", "още нищо не е получено")
   const minutes = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000))
-  if (minutes < 60) return localize(locale, `last data ${minutes} min ago`, `данни преди ${minutes} мин`)
+  if (minutes < 60) return localize(locale, `last data ${minutes} min ago`, `получено преди ${minutes} мин`)
   const hours = Math.round(minutes / 60)
-  if (hours < 48) return localize(locale, `last data ${hours} h ago`, `данни преди ${hours} ч`)
-  return localize(locale, `last data ${Math.round(hours / 24)} days ago`, `данни преди ${Math.round(hours / 24)} дни`)
+  if (hours < 48) return localize(locale, `last data ${hours} h ago`, `получено преди ${hours} ч`)
+  return localize(locale, `last data ${Math.round(hours / 24)} days ago`, `получено преди ${Math.round(hours / 24)} дни`)
 }
 
 export function overviewMap(data: DashboardData, attention: readonly AttentionItem[], locale: StatusLocale, now: number): string {
@@ -340,7 +340,7 @@ export function overviewMap(data: DashboardData, attention: readonly AttentionIt
     { href: "/status/control/central", x: 545, y: 205, en: "LOSPOR Central", bg: "LOSPOR Central", sub: central ? (central.status === "not-configured" ? localize(locale, "not set up", "не е настроен") : localize(locale, `${snapshot?.central.casesWithUnacceptedChanges ?? 0} waiting`, `${snapshot?.central.casesWithUnacceptedChanges ?? 0} чакат`)) : localize(locale, "no data yet", "още няма данни"), state: (DOT[central?.status ?? "unknown"] ?? "off") as MapNode["state"] },
     { href: "/status/control/ai", x: 480, y: 320, en: "Mistral AI (EU)", bg: "Mistral AI (ЕС)", sub: ai ? (ai.enabled ? localize(locale, "switched on", "включен") : localize(locale, "switched off", "изключен")) : localize(locale, "no data yet", "още няма данни"), state: ai?.enabled ? "good" : "off" },
     { href: "/status/maintenance/backups", x: 145, y: 320, en: "Backups", bg: "Резервни копия", sub: ids.has("backup") || ids.has("offhost") || ids.has("drill") ? localize(locale, "needs attention", "изисква внимание") : localize(locale, "in order", "наред"), state: ids.has("backup") ? "bad" : ids.has("offhost") || ids.has("drill") ? "warn" : "good" },
-    { href: "/status/release", x: 100, y: 200, en: "Updates", bg: "Актуализации", sub: ids.has("agent") ? localize(locale, "agent not working", "агентът не работи") : attention.some(item => item.id === "release") ? localize(locale, "new release ready", "има нова версия") : localize(locale, "up to date", "актуална"), state: ids.has("agent") ? "bad" : attention.some(item => item.id === "release") ? "warn" : "good" },
+    { href: "/status/release", x: 100, y: 200, en: "Updates", bg: "Актуализации", sub: ids.has("agent") ? localize(locale, "agent not working", "агентът не работи") : attention.some(item => item.id === "release") ? localize(locale, "new release ready", "има нова версия") : localize(locale, "up to date", "няма нови версии"), state: ids.has("agent") ? "bad" : attention.some(item => item.id === "release") ? "warn" : "good" },
   ]
   const cx = 320, cy = 190
   const wires = nodes.map((node, index) => {

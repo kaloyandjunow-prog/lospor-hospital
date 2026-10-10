@@ -436,7 +436,7 @@ describe("Status Hospital control plane", () => {
     expect(ehr).toContain("Наблюдаваната папка не изисква данни за достъп")
 
     expect(clinical).toContain("Документиране на педиатрични случаи")
-    expect(clinical).toContain("постоянна функция на Hospital")
+    expect(clinical).toContain("постоянна функция на болничната версия")
     expect(clinical).toContain("pediatric-v2")
     expect(clinical).toContain("Готовност на базовата конфигурация")
     expect(clinical).toContain("Не е готово")
