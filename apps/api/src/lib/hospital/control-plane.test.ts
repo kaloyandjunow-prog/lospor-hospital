@@ -84,7 +84,10 @@ import {
   authenticationMaterialChanged,
   ehrTransportEndpointSchema,
   hospitalControlPlaneView,
+  preopProfileUpdateSchema,
+  updateHospitalPreopProfile,
 } from "./control-plane"
+import { BUNDLED_PREOP_QUESTIONS } from "@/lib/preop/catalog"
 
 describe("privacy-safe Central Status view", () => {
   beforeEach(() => {
@@ -492,5 +495,29 @@ describe("what invalidates a stored transport credential", () => {
   // to lose.
   it("treats a first configuration as changed", () => {
     expect(authenticationMaterialChanged(null, next({}))).toBe(true)
+  })
+})
+
+describe("a preoperative profile change from Status (1.5.5)", () => {
+  const listFor = (population: "ADULT" | "PEDIATRIC") => BUNDLED_PREOP_QUESTIONS
+    .filter(question => question.applicability.length === 0 || question.applicability.includes(population))
+    .map((question, sortOrder) => ({ stableKey: question.stableKey, enabled: true, required: false, sortOrder }))
+
+  it("must say which population it is for", () => {
+    expect(() => preopProfileUpdateSchema.parse({ questions: listFor("ADULT"), reason: "No population named here" })).toThrow()
+    expect(preopProfileUpdateSchema.parse({ population: "PEDIATRIC", questions: listFor("PEDIATRIC"), reason: "Children's profile change" }).population)
+      .toBe("PEDIATRIC")
+  })
+
+  it("lists exactly the questions that population is asked", async () => {
+    const children = listFor("PEDIATRIC")
+    const adultOnly = BUNDLED_PREOP_QUESTIONS.find(question => question.applicability.includes("ADULT") && !question.applicability.includes("PEDIATRIC"))!
+    await expect(updateHospitalPreopProfile({
+      population: "PEDIATRIC", reason: "Adds an adult-only question",
+      questions: [...children.slice(1), { stableKey: adultOnly.stableKey, enabled: true, required: false, sortOrder: 900 }],
+    })).rejects.toMatchObject({ code: "PREOP_PROFILE_CATALOG_INCOMPLETE" })
+    await expect(updateHospitalPreopProfile({
+      population: "ADULT", reason: "Sends the children's list as the adults'", questions: children,
+    })).rejects.toMatchObject({ code: "PREOP_PROFILE_CATALOG_INCOMPLETE" })
   })
 })

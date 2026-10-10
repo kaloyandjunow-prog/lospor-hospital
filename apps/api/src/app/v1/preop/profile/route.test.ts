@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: mocks.auth }))
 vi.mock("@/lib/preop/service", () => ({
   preparePreopProfile: vi.fn(async () => {}),
-  ensurePreopProfile: mocks.ensure,
-  serializePreopProfile: mocks.serialize,
+  ensurePreopProfiles: mocks.ensure,
+  serializePreopProfiles: mocks.serialize,
 }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -27,7 +27,7 @@ describe("preoperative profile read boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.auth.mockResolvedValue({ id: "user-1", role: "MEMBER" })
-    mocks.ensure.mockResolvedValue({ id: "profile-1" })
+    mocks.ensure.mockResolvedValue({ ADULT: { id: "profile-1" }, PEDIATRIC: { id: "profile-2" } })
     mocks.serialize.mockImplementation((value: unknown) => ({ serialized: value }))
   })
 
@@ -39,12 +39,12 @@ describe("preoperative profile read boundary", () => {
     expect(mocks.ensure).not.toHaveBeenCalled()
   })
 
-  it("returns the one appliance profile to any signed-in clinician", async () => {
+  it("returns both profiles, adult and paediatric, to any signed-in clinician", async () => {
     const { GET } = await import("./route")
     const response = await GET(request())
     expect(response.status).toBe(200)
     expect(mocks.ensure).toHaveBeenCalledWith(expect.anything(), "user-1")
-    await expect(response.json()).resolves.toEqual({ serialized: { id: "profile-1" } })
+    await expect(response.json()).resolves.toEqual({ serialized: { ADULT: { id: "profile-1" }, PEDIATRIC: { id: "profile-2" } } })
   })
 
   it("offers no write: operators change the profile from Status", async () => {

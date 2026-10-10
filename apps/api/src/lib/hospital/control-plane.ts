@@ -29,7 +29,7 @@ import { patientIdentifierControlView } from "./patient-identifier-policy"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
 import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
-import { ensurePreopProfiles, questionAppliesToPopulation, readPreopProfiles, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
+import { activePreopProfile, ensurePreopProfiles, questionAppliesToPopulation, readPreopProfiles, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
 import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
 import { ehrMedicationCodeMapView, ensureCatalogDrug } from "./ehr-medication-code-map"
 import {
@@ -1313,7 +1313,7 @@ export async function centralControlView() {
 
 export async function preoperativeControlView() {
   let profiles = await readPreopProfiles(prisma)
-  if (!profiles || profiles.PEDIATRIC.id === profiles.ADULT.id) {
+  if (!profiles || !await activePreopProfile(prisma, "PEDIATRIC")) {
     // A fresh appliance, or the first look after the 1.5.5 upgrade: create
     // what is missing (the children's profile as a copy of the existing one).
     profiles = await prisma.$transaction(async tx => {
