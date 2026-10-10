@@ -388,40 +388,50 @@ describe("Status Hospital control plane", () => {
     // which is a stronger net than the single page they used to share.
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    const [clinical, ehr, research, ai] = await Promise.all(
-      ["clinical", "ehr", "research", "ai"].map(async section => {
-        const response = await app.request(`/status/control/${section}`, { headers: { cookie } })
+    // 1.5.4: seven pages under the skins. The legacy skin's four are fetched too:
+    // both layouts must carry the whole surface.
+    const fetchAll = (sections: string[], skin: string) => Promise.all(
+      sections.map(async section => {
+        const response = await app.request(`/status/control/${section}`, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}` } })
         expect(response.status).toBe(200)
         return response.text()
       }),
     )
-    const all = clinical + ehr + research + ai
-    expect(all).toContain('<html lang="bg">')
+    const [clinical, ehr, codes, identity, research, central, ai] = await fetchAll(["clinical", "ehr", "codes", "identity", "research", "central", "ai"], "maphub")
+    const legacy = (await fetchAll(["clinical", "ehr", "research", "ai"], "legacy")).join("")
+    expect(legacy).toContain("Настройка за ЕГН")
+    expect(legacy).toContain("Карта на лабораторните кодове")
+    expect(legacy).toContain("Разрешения за изследвания")
+    expect(identity).toContain("Настройка за ЕГН")
+    expect(codes).toContain("Карта на лабораторните кодове")
+    expect(central).toContain("Изпращане към Central (само изходящо)")
+    const all = clinical + ehr + codes + identity + research + central + ai + legacy
+    expect(all).toContain('<html lang="bg"')
 
     expect(research).toContain("Одобрение на конкретни OMOP набори")
     expect(research).toContain(HASH)
     expect(research).toContain("Активен профил, който може да получи разрешение")
     expect(research).toContain("началник на отделение")
     expect(research).not.toContain("HEAD_OF_DEPT")
-    expect(research).toContain("Изключено по подразбиране")
-    expect(research).toContain("https://central.example.test")
-    expect(research).toContain("hospital-signing-key-1")
-    expect(research).toContain("Клиентският сертификат е валиден от")
-    expect(research).toContain("CA на Central е валиден до")
-    expect(research).toContain("central-encryption-key-1")
-    expect(research).toContain("Версии на манифеста, поддържани от Central")
-    expect(research).toContain("67_108_864".replaceAll("_", ""))
-    expect(research).toContain("4194304")
-    expect(research).toContain("Опашки: Нов опит: 1")
-    expect(research).toContain("#7 · Нов опит")
-    expect(research).not.toContain('{&quot;RETRY&quot;')
+    expect(central).toContain("Изключено по подразбиране")
+    expect(central).toContain("https://central.example.test")
+    expect(central).toContain("hospital-signing-key-1")
+    expect(central).toContain("Клиентският сертификат е валиден от")
+    expect(central).toContain("CA на Central е валиден до")
+    expect(central).toContain("central-encryption-key-1")
+    expect(central).toContain("Версии на манифеста, поддържани от Central")
+    expect(central).toContain("67_108_864".replaceAll("_", ""))
+    expect(central).toContain("4194304")
+    expect(central).toContain("Опашки: Нов опит: 1")
+    expect(central).toContain("#7 · Нов опит")
+    expect(central).not.toContain('{&quot;RETRY&quot;')
 
     expect(ai).toContain("Външен ИИ (Mistral)")
     expect(ai).toContain("Данните за достъп са настроени на")
     expect(ai).toContain('name="credential" type="password"')
 
-    expect(ehr).toContain("Настройка за ЕГН")
-    expect(ehr).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
+    expect(identity).toContain("Настройка за ЕГН")
+    expect(identity).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
     expect(ehr).toContain("Канал за импорт от БИС")
     expect(ehr).toContain("Наблюдаваната папка не изисква данни за достъп")
 
@@ -456,7 +466,7 @@ describe("Status Hospital control plane", () => {
     expect(all).not.toContain("patientName")
     expect(all).not.toContain("credentialCiphertext")
     expect(all).not.toContain("credentialAuthTag")
-    expect(controlPlane.get).toHaveBeenCalledTimes(4)
+    expect(controlPlane.get).toHaveBeenCalledTimes(11) // one read per page: seven skin pages, four legacy
   })
 
   it("saves the complete preoperative profile only after password confirmation", async () => {
@@ -637,9 +647,10 @@ describe("Status Hospital control plane", () => {
     const session = await passwordCookie(app, auth)
     const cookie = { cookie: `${session}; lospor_status_locale=en` }
     const research = await (await app.request("/status/control/research", { headers: cookie })).text()
+      + await (await app.request("/status/control/central", { headers: cookie })).text()
     const clinical = await (await app.request("/status/control/clinical", { headers: cookie })).text()
     const ai = await (await app.request("/status/control/ai", { headers: cookie })).text()
-    expect(research + clinical + ai).toContain('<html lang="en">')
+    expect(research + clinical + ai).toContain('<html lang="en"')
     expect(research).toContain("Exact OMOP approvals")
     expect(research).toContain("Central automatic clinical delivery")
     expect(research).toContain("every eligible finalized case is queued automatically")
@@ -1026,7 +1037,7 @@ describe("code-list addresses", () => {
   it("answers an address without a password, and shows what is waiting", async () => {
     const { app, auth, controlPlane } = setup()
     const session = await passwordCookie(app, auth)
-    const page = await app.request("/status/control/ehr", { headers: { cookie: `${session}; lospor_status_locale=en` } })
+    const page = await app.request("/status/control/codes", { headers: { cookie: `${session}; lospor_status_locale=en` } })
     const html = await page.text()
     expect(html).toContain("http://vendor.bg/lists/proc")
     expect(html).toContain("Лапароскопска холецистектомия")
@@ -1198,7 +1209,7 @@ describe("the medication code map", () => {
     const { app, auth, controlPlane } = setup()
     withMedicationCode(controlPlane)
     const session = await passwordCookie(app, auth)
-    const response = await app.request("/status/control/ehr?medicationSystem=urn%3Abg%3Ahis%3Aproducts&medicationCode=994&medicationSearch=amlo", {
+    const response = await app.request("/status/control/codes?medicationSystem=urn%3Abg%3Ahis%3Aproducts&medicationCode=994&medicationSearch=amlo", {
       headers: { cookie: `${session}; lospor_status_locale=en` },
     })
 
@@ -1215,9 +1226,9 @@ describe("the medication code map", () => {
     const { app, auth, controlPlane } = setup()
     withMedicationCode(controlPlane)
     const session = await passwordCookie(app, auth)
-    await app.request("/status/control/ehr?medicationCode=994&medicationSearch=a", { headers: { cookie: session } })
+    await app.request("/status/control/codes?medicationCode=994&medicationSearch=a", { headers: { cookie: session } })
     expect(controlPlane.searchMedications).not.toHaveBeenCalled()
-    const html = await (await app.request("/status/control/ehr?medicationCode=995&medicationSearch=amlo", { headers: { cookie: session } })).text()
+    const html = await (await app.request("/status/control/codes?medicationCode=995&medicationSearch=amlo", { headers: { cookie: session } })).text()
     expect(html).not.toContain("value='cl009:2208'")
   })
 
@@ -1226,10 +1237,17 @@ describe("the medication code map", () => {
     withMedicationCode(controlPlane)
     vi.mocked(controlPlane.searchMedications).mockRejectedValue(new Error("down"))
     const session = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/ehr?medicationSystem=urn%3Abg%3Ahis%3Aproducts&medicationCode=994&medicationSearch=amlo", {
+    const query = "medicationSystem=urn%3Abg%3Ahis%3Aproducts&medicationCode=994&medicationSearch=amlo"
+    const html = await (await app.request(`/status/control/codes?${query}`, {
       headers: { cookie: `${session}; lospor_status_locale=en` },
     })).text()
     expect(html).toContain("The search could not reach the hospital system.")
+    // The legacy skin keeps the medication map, and its search, on the EHR page.
+    const legacy = await (await app.request(`/status/control/ehr?${query}`, {
+      headers: { cookie: `${session}; lospor_status_locale=en; lospor_status_skin=legacy` },
+    })).text()
+    expect(legacy).toContain("The search could not reach the hospital system.")
+    expect(legacy).toContain("action='/status/control/ehr#medication-code-")
   })
 
   it("maps a code to a list product without a password", async () => {

@@ -20,6 +20,34 @@ visible БГ/EN control on login and on authenticated screens. The choice is kep
 in a Status-only cookie; Status has an independent operator identity and does
 not overwrite a clinician's language preference in the clinical applications.
 
+## Skins, menus and display settings
+
+From Hospital 1.5.4 each operator chooses how Status looks, under the profile
+menu at the top right → **Display settings**. The choice is kept in that
+browser's cookies, like the language.
+
+- **Skin.** *Map hub* (the default) opens on a map of the appliance and what it
+  talks to; each box opens its page. *Sidebar*, *Inbox*, *Settings index* and
+  *Console* arrange the same pages differently. *Legacy* is Status exactly as it
+  looked before 1.5.4.
+- **Light or dark**, or like the computer.
+- **Language**: Български or English.
+
+Every skin opens the same pages and sends the same forms; only navigation and
+layout differ. The new skins group the pages by job:
+
+| Group | Pages |
+| --- | --- |
+| Overview | The map, people using LOSPOR now, cases per day, one to-do list, going live |
+| Services | Availability over 24 hours, 7 days or 90 days; checks; incidents; events |
+| Connections | Hospital system, Codes, Terminology package, LOSPOR Central, AI assistance |
+| Clinical setup | Preoperative form and guidance, Patient identification (ЕГН policy) |
+| People | Accounts and Status administrators, Research access |
+| Updates and backups | Updates, Backups, Server, Security, Support and settings, Going live |
+
+"Using it now" counts people with a session active in the last ten minutes;
+cases per day are totals. Neither names a person, patient or case.
+
 ## What Status reports
 
 Seventeen checks, grouped as Status groups them. This table is the index: it

@@ -70,7 +70,7 @@ describe("status HTTP boundary", () => {
     const { app } = setup("bg")
     const response = await app.request("/status/login")
     const body = await response.text()
-    expect(body).toContain('<html lang="bg">')
+    expect(body).toContain('<html lang="bg"')
     expect(body).toContain("Имейл на системния администратор")
     expect(body).toContain('name="locale" value="en"')
     expect(body).not.toContain("Appliance administrator email")

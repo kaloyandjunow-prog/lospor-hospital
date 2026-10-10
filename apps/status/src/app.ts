@@ -15,12 +15,17 @@ import {
   readUpdateSignal,
 } from "./signals.js"
 import type { MaintenanceView, MedicationSearch, ReleaseView } from "./ui.js"
+import { DEFAULT_SKIN, NAV_PATHS, STATUS_UI_SCRIPT, isLegacy, parseRange, parseSkin, parseTheme, withUi } from "./ui-shell.js"
 import {
   PREOP_ORDER_SCRIPT,
   STATUS_NAV,
   renderAccounts,
   renderApplyConfirm,
   renderDashboard,
+  renderOverview,
+  renderServices,
+  renderConfigure,
+  renderPreferences,
   renderLogin,
   renderMfaLogin,
   renderMfaRecoveryCodes,
@@ -110,6 +115,9 @@ function windowDescription(locale: StatusLocale): string {
 
 const COOKIE_NAME = "lospor_status_session"
 const LOCALE_COOKIE_NAME = "lospor_status_locale"
+// Display choices (1.5.4), kept in this browser like the language.
+const SKIN_COOKIE_NAME = "lospor_status_skin"
+const THEME_COOKIE_NAME = "lospor_status_theme"
 const NO_STORE = "private, no-store, max-age=0"
 const STATUS_ADMIN_FRAGMENT_SCRIPT = `(() => {
   const fragment = location.hash.startsWith("#") ? location.hash.slice(1) : "";
@@ -126,6 +134,7 @@ const STATUS_ADMIN_FRAGMENT_SCRIPT = `(() => {
 // switch. /status/login is not navigation, so it is listed on its own.
 const LOCALE_RETURN_PATHS = new Set<string>([
   ...STATUS_NAV.map(entry => entry.path),
+  ...NAV_PATHS,
   "/status/login",
 ])
 
@@ -415,6 +424,12 @@ export function createStatusApp({
     securityHeaders(context.res)
   })
 
+  app.use("/status/*", (context, next) => withUi({
+    skin: parseSkin(getCookie(context, SKIN_COOKIE_NAME)) ?? DEFAULT_SKIN,
+    theme: parseTheme(getCookie(context, THEME_COOKIE_NAME)) ?? "system",
+    path: new URL(context.req.url).pathname,
+  }, next))
+
   app.get("/internal/health/live", context => {
     try {
       db.sqlite.prepare("SELECT 1").get()
@@ -474,6 +489,11 @@ export function createStatusApp({
     })
     return context.redirect(returnTo, 303)
   })
+  app.get("/status/ui.js", context => context.body(
+    STATUS_UI_SCRIPT,
+    200,
+    { "content-type": "text/javascript; charset=utf-8" },
+  ))
   app.get("/status/admin-link.js", context => context.body(
     STATUS_ADMIN_FRAGMENT_SCRIPT,
     200,
@@ -582,7 +602,58 @@ export function createStatusApp({
     ])
     const goLive = evaluateGoLive({ components: dashboard.components, terminology, networkLists: networkListsState(siteConfig), signoffs: db.listGoLiveSignoffs(), now: now() })
     const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, escrowDownloadedAt: db.latestOperationalEventAt("STATUS_SECRETS_ESCROW_DOWNLOADED"), now: now() })
-    return context.html(renderDashboard(dashboard, locale, kind, attention))
+    if (isLegacy()) return context.html(renderDashboard(dashboard, locale, kind, attention))
+    return context.html(renderOverview(dashboard, attention, goLive, locale, kind, now()))
+  })
+
+  app.get("/status/services", context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (isLegacy()) return context.redirect("/status/", 303)
+    const dashboard = db.getDashboard(now())
+    const range = parseRange(context.req.query("range"))
+    const components = dashboard.components.map(component => component.component)
+    const statuses = range === "24h"
+      ? db.availabilityWindow(components, now(), 24 * 3_600_000, 15 * 60_000)
+      : range === "7d" ? db.availabilityWindow(components, now(), 7 * 24 * 3_600_000, 3_600_000) : {}
+    return context.html(renderServices(dashboard, { range, statuses }, locale, kind))
+  })
+
+  app.get("/status/configure", context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (isLegacy()) return context.redirect("/status/control", 303)
+    return context.html(renderConfigure(locale, kind))
+  })
+
+  app.get("/status/preferences", context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    return context.html(renderPreferences(locale, kind, context.req.query("saved") === "1"))
+  })
+
+  app.post("/status/preferences", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    if (!auth.validateSessionKind(getCookie(context, COOKIE_NAME))) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    if (!Number.isFinite(contentLength) || contentLength > 1024) {
+      return context.text(localize(locale, "Invalid request", "Невалидна заявка"), 400)
+    }
+    const body = await context.req.parseBody().catch(() => ({}))
+    const record = isRecord(body) ? body : {}
+    const skin = parseSkin(record.skin)
+    const theme = parseTheme(record.theme)
+    const selectedLocale = typeof record.locale === "string" && ["bg", "en"].includes(record.locale) ? statusLocale(record.locale) : null
+    if (!skin || !theme || !selectedLocale) return context.text(localize(locale, "Invalid request", "Невалидна заявка"), 400)
+    const cookie = { path: "/status", httpOnly: true, secure: secureRequest(context), sameSite: "Strict" as const, maxAge: 365 * 24 * 60 * 60 }
+    setCookie(context, SKIN_COOKIE_NAME, skin, cookie)
+    setCookie(context, THEME_COOKIE_NAME, theme, cookie)
+    setCookie(context, LOCALE_COOKIE_NAME, selectedLocale, cookie)
+    return context.redirect("/status/preferences?saved=1", 303)
   })
 
   app.post("/status/login", async context => {
@@ -1315,7 +1386,7 @@ export function createStatusApp({
         "Влезте с администраторската парола, за да използвате управлението на болничната система.",
       ), undefined, "recovery", section), 403)
     }
-    const medicationSearch = section === "ehr" ? await medicationSearchFor(context) : undefined
+    const medicationSearch = section === "ehr" || section === "codes" ? await medicationSearchFor(context) : undefined
     return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch))
   }
   app.get("/status/control", context => controlGet(context))
@@ -1326,6 +1397,10 @@ export function createStatusApp({
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))
   app.get("/status/control/ai", context => controlGet(context, "ai"))
+  // 1.5.4 skins: one page per job. Under the legacy skin each shows the page that held it.
+  app.get("/status/control/codes", context => controlGet(context, "codes"))
+  app.get("/status/control/identity", context => controlGet(context, "identity"))
+  app.get("/status/control/central", context => controlGet(context, "central"))
 
   app.post("/status/control/research/grants", context => sensitiveControlAction(
     context,
@@ -1385,7 +1460,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "Central transport was configured, locked, and audited.", "Изпращането към Central е настроено, заключено и записано в одитния журнал."),
-    "research",
+    "central",
   ))
 
   app.post("/status/control/central/policy", context => sensitiveControlAction(
@@ -1402,14 +1477,14 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The separate Central clinical-export policy was saved and audited.", "Правилата за изпращане на клинични данни към Central са запазени и записани в одитния журнал."),
-    "research",
+    "central",
   ))
 
   app.post("/status/control/central/batches/:id/retry", context => sensitiveControlAction(
     context,
     body => controlPlane.retryCentralBatch(formId(context.req.param("id")), formText(body, "reason", 10, 1000)),
     locale => localize(locale, "The Central batch was queued for a controlled retry.", "Пакетът за Central е поставен в опашката за нов опит."),
-    "research",
+    "central",
   ))
 
   app.post("/status/control/guidance", context => sensitiveControlAction(
@@ -1510,7 +1585,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Настройката за ЕГН е запазена и записана в одитния журнал."),
-    "ehr",
+    "identity",
   ))
 
   app.post("/status/control/ehr-transport/policy", context => sensitiveControlAction(
@@ -1704,7 +1779,7 @@ export function createStatusApp({
       assumedUnit: formText(body, "assumedUnit", 0, 64) || null,
     }),
     locale => localize(locale, "The laboratory code was mapped and audited.", "Лабораторният код е съпоставен и записан в одитния журнал."),
-    "ehr",
+    "codes",
   ))
 
   app.post("/status/control/ehr-lab-codes/unmap", context => bulkControlAction(
@@ -1714,7 +1789,7 @@ export function createStatusApp({
       code: formText(body, "code", 1, 512),
     }),
     locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставянето е премахнато и записано в одитния журнал. Кодът се връща в списъка, който чака съпоставяне."),
-    "ehr",
+    "codes",
   ))
 
   app.post("/status/control/ehr-vital-codes/map", context => bulkControlAction(
@@ -1725,7 +1800,7 @@ export function createStatusApp({
       field: formText(body, "field", 1, 64),
     }),
     locale => localize(locale, "The vital code was mapped and audited.", "Кодът за жизнен показател е свързан и записан в одитния журнал."),
-    "ehr",
+    "codes",
   ))
 
   app.post("/status/control/ehr-vital-codes/unmap", context => bulkControlAction(
@@ -1735,7 +1810,7 @@ export function createStatusApp({
       code: formText(body, "code", 1, 512),
     }),
     locale => localize(locale, "The vital mapping was removed and audited. The code returns to the list waiting for an answer.", "Свързването на жизнения показател е премахнато и записано в одитния журнал. Кодът се връща в списъка, който чака съпоставяне."),
-    "ehr",
+    "codes",
   ))
 
   app.post("/status/control/ehr-medication-codes/map", context => bulkControlAction(
@@ -1746,7 +1821,7 @@ export function createStatusApp({
       catalogId: formCatalogId(formText(body, "catalogId", 1, 80)),
     }),
     locale => localize(locale, "The medication code was mapped and audited. Future imports will show the selected LOSPOR drug as the proposal.", "Лекарственият код е съпоставен и записан в одитния журнал. При бъдещи импорти избраното лекарство от LOSPOR ще се предлага автоматично."),
-    "ehr",
+    "codes",
   ))
 
   app.post("/status/control/ehr-medication-codes/unmap", context => bulkControlAction(
@@ -1756,7 +1831,7 @@ export function createStatusApp({
       code: formText(body, "code", 1, 512),
     }),
     locale => localize(locale, "The medication mapping was removed and audited. Existing cases are unchanged.", "Съпоставянето на лекарството е премахнато и записано в одитния журнал. Съществуващите случаи не са променени."),
-    "ehr",
+    "codes",
   ))
   app.post("/status/control/ehr-code-systems/answer", context => bulkControlAction(
     context,
@@ -1772,7 +1847,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The address was answered and audited. Codes from it are read that way from the next import.", "Адресът е посочен и записан в одитния журнал. Кодовете от него ще се четат така от следващия импорт."),
-    "ehr",
+    "codes",
   ))
 
   app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(

@@ -196,7 +196,7 @@ describe("Status administrator browser workflows", () => {
     const setupPage = await app.request("/status/admin-activate?locale=en")
     const setupBody = await setupPage.text()
     expect(setupPage.status).toBe(200)
-    expect(setupBody).toContain('<html lang="en">')
+    expect(setupBody).toContain('<html lang="en"')
     expect(setupBody).toContain('name="token"')
     expect(setupBody).toContain('src="/status/admin-link.js"')
     expect(setupBody).not.toContain(invitation.token)

@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
-import { HOSPITAL_CONTROL_SECTIONS, MAINTENANCE_SECTIONS, STATUS_NAV, renderTerminology, type TerminologyView } from "./ui.js"
+import { HOSPITAL_CONTROL_SECTIONS, MAINTENANCE_SECTIONS, SKIN_CONTROL_SECTIONS, STATUS_NAV, renderTerminology as renderAnySkin, type TerminologyView } from "./ui.js"
+import { NAV_PATHS, withUi } from "./ui-shell.js"
+
+// This header is the legacy skin's (1.5.4 kept it unchanged); the skins' own
+// navigation is tested in status-skins.test.ts.
+const renderTerminology: typeof renderAnySkin = (...args) =>
+  withUi({ skin: "legacy", theme: "system", path: "/status/terminology" }, () => renderAnySkin(...args))
 
 const view: TerminologyView = {
   state: null,
@@ -96,11 +102,12 @@ describe("the navigation registry", () => {
       "/status/admin-activate",
       "/status/admin-recover",
       "/status/admin-link.js",
+      "/status/ui.js",
       "/status/preop-order.js",
       "/status/maintenance/support-bundle",
       "/status/maintenance/escrow/download",
     ])
-    const navigational = new Set<string>(STATUS_NAV.map(entry => entry.path))
+    const navigational = new Set<string>([...STATUS_NAV.map(entry => entry.path), ...NAV_PATHS])
 
     // Sections of a page that is already in the header. They carry that page's
     // navigation and its sub-navigation, so they are accounted for by their
@@ -110,6 +117,7 @@ describe("the navigation registry", () => {
     const sections = new Set([
       ...MAINTENANCE_SECTIONS.map(slug => `/status/maintenance/${slug}`),
       ...HOSPITAL_CONTROL_SECTIONS.map(slug => `/status/control/${slug}`),
+      ...SKIN_CONTROL_SECTIONS.map(slug => `/status/control/${slug}`),
     ])
 
     const unaccounted = routes.filter(path =>
