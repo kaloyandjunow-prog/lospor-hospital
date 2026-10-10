@@ -37,6 +37,12 @@ back to 1.5.4 restores the pre-update backup.
 - **"Required" can be ticked as soon as "Enabled" is.** It used to stay greyed
   out until the question had been saved as enabled, so making a new question
   required took two saves.
+### Security
+
+- The two accepted findings in Debian 13's libgnutls30t64 (CVE-2026-88647,
+  CVE-2026-88648; no fix yet) are carried forward from 1.5.4 unchanged: no
+  image input changed. They still expire on 2027-01-10.
+
 ### Tested
 
 - A new cross-app test drives the real Status editor in a browser: it drags a
