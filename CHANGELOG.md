@@ -36,6 +36,10 @@ Rolling back to 1.5.3 restores the pre-update backup, as before.
 - **Clearer Bulgarian** across Status: half-English labels (manual/window,
   EHR worker, INN → МНН, commit), one unclear sentence, a grammar error, one
   name for "Site settings", and formal wording on every button.
+- **Readable on every screen**: in the new skins text starts at 16 px (17 px on
+  phones and tablets) and nothing is smaller than about 13 px; buttons and links
+  are at least 44 px tall on touch screens; on a phone the map becomes a list and
+  the menu one row you can swipe.
 - **LOSPOR and PeriOp Laboratories logos**: "Made by PeriOp Laboratories" at the
   foot of every page, an About section in Display settings, and the LOSPOR
   symbol in the header. Status now allows images from itself only.
