@@ -473,6 +473,7 @@ describe("Status Hospital control plane", () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
     const base = {
+      population: "ADULT",
       enabled_BASE_ALLERGIES: "true",
       order_BASE_ALLERGIES: "0",
       reason: "Enable the allergy question for the clinical intake",
@@ -492,6 +493,7 @@ describe("Status Hospital control plane", () => {
     })
     expect(accepted.status).toBe(200)
     expect(controlPlane.updatePreopProfile).toHaveBeenCalledWith({
+      population: "ADULT",
       reason: base.reason,
       questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
     })
@@ -505,6 +507,7 @@ describe("Status Hospital control plane", () => {
       method: "POST",
       headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
       body: new URLSearchParams({
+        population: "PEDIATRIC",
         required_BASE_ALLERGIES: "true",
         order_BASE_ALLERGIES: "0",
         reason: "Stop asking the allergy question for now",
@@ -513,45 +516,77 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(200)
     expect(controlPlane.updatePreopProfile).toHaveBeenCalledWith({
+      population: "PEDIATRIC",
       reason: "Stop asking the allergy question for now",
       questions: [{ stableKey: "BASE_ALLERGIES", enabled: false, required: false, sortOrder: 0 }],
     })
   })
 
-  it("renders every bundled question in active-profile order with drag and keyboard controls", async () => {
+  it("edits the adult and the children's profile apart, with baseline questions fixed in place", async () => {
     const { app, auth, controlPlane } = setup()
     const view = structuredClone(VIEW)
-    const base = view.preoperative.administration!.catalog[0]!
-    const middle = { ...base, stableKey: "A1_RECENT_INFECTION", labelEn: "Recent infection", labelBg: "Recent infection" }
-    const last = { ...base, stableKey: "P1_PREMATURITY_NICU", labelEn: "Prematurity or NICU admission", labelBg: "Prematurity or NICU admission" }
+    const base = { ...view.preoperative.administration!.catalog[0]!, applicability: [], fixedInForm: true }
+    const adultFirst = { ...base, stableKey: "A1_RECENT_INFECTION", labelEn: "Recent infection", labelBg: "Recent infection", applicability: ["ADULT"], fixedInForm: false }
+    const adultSecond = { ...base, stableKey: "A2_EXERCISE_TOLERANCE", labelEn: "Exercise tolerance", labelBg: "Exercise tolerance", applicability: ["ADULT"], fixedInForm: false }
+    const child = { ...base, stableKey: "P1_PREMATURITY_NICU", labelEn: "Prematurity or NICU admission", labelBg: "Prematurity or NICU admission", applicability: ["PEDIATRIC"], fixedInForm: false }
+    const profile = (id: string, questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }>) => ({
+      id, version: 5, catalogVersion: "1.5.5", status: "PUBLISHED", publishedAt: "2026-10-11T08:00:00.000Z", questions,
+    })
+    const adult = profile("profile-1", [
+      { stableKey: base.stableKey, enabled: true, required: false, sortOrder: 0 },
+      { stableKey: adultSecond.stableKey, enabled: true, required: false, sortOrder: 1 },
+      { stableKey: adultFirst.stableKey, enabled: false, required: false, sortOrder: 2 },
+    ])
+    const children = profile("profile-2", [
+      { stableKey: base.stableKey, enabled: true, required: true, sortOrder: 0 },
+      { stableKey: child.stableKey, enabled: true, required: true, sortOrder: 1 },
+    ])
     view.preoperative.administration = {
-      catalog: [base, middle, last],
-      activeProfile: {
-        id: "profile-2",
-        version: 5,
-        catalogVersion: "1.4.7",
-        status: "PUBLISHED",
-        publishedAt: "2026-08-22T08:00:00.000Z",
-        questions: [
-          { stableKey: last.stableKey, enabled: true, required: false, sortOrder: 0 },
-          { stableKey: base.stableKey, enabled: true, required: true, sortOrder: 1 },
-          { stableKey: middle.stableKey, enabled: false, required: false, sortOrder: 2 },
-        ],
-      },
+      catalog: [base, adultFirst, adultSecond, child],
+      activeProfile: adult,
+      activeProfiles: { ADULT: adult, PEDIATRIC: children },
     }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
     const response = await app.request("/status/control/clinical", { headers: { cookie } })
     expect(response.status).toBe(200)
     const html = await response.text()
-    expect((html.match(/<li class="preop-order-row"/g) ?? []).length).toBe(3)
-    expect(html.indexOf("data-stable-key=\"" + last.stableKey + "\"")).toBeLessThan(html.indexOf("data-stable-key=\"" + base.stableKey + "\""))
-    expect(html.indexOf("data-stable-key=\"" + base.stableKey + "\"")).toBeLessThan(html.indexOf("data-stable-key=\"" + middle.stableKey + "\""))
-    expect(html).toContain("type=\"checkbox\" name=\"required_" + middle.stableKey + "\"")
-    expect(html).toContain("type=\"checkbox\" name=\"required_" + middle.stableKey + "\" value=\"true\"  disabled")
-    expect(html).toContain("name=\"order_" + last.stableKey + "\"")
+    const section = (id: string) => html.slice(html.indexOf("id=\"" + id + "\""), html.indexOf("</section>", html.indexOf("id=\"" + id + "\"")))
+    const adults = section("preop-adults")
+    const kids = section("preop-children")
+    // Each list holds only that population's added questions, in its own order.
+    expect(adults).toContain("name=\"population\" value=\"ADULT\"")
+    expect((adults.match(/<li class="preop-order-row"/g) ?? []).length).toBe(2)
+    expect(adults.indexOf("data-stable-key=\"" + adultSecond.stableKey + "\"")).toBeLessThan(adults.indexOf("data-stable-key=\"" + adultFirst.stableKey + "\""))
+    expect(adults).not.toContain(child.stableKey)
+    expect(kids).toContain("name=\"population\" value=\"PEDIATRIC\"")
+    expect((kids.match(/<li class="preop-order-row"/g) ?? []).length).toBe(1)
+    expect(kids).not.toContain(adultFirst.stableKey)
+    // The baseline question is in both, not draggable, its order kept as it is.
+    for (const part of [adults, kids]) {
+      expect(part).not.toContain("data-stable-key=\"" + base.stableKey + "\"")
+      expect(part).toContain("type=\"hidden\" name=\"order_" + base.stableKey + "\" value=\"0\"")
+      expect(part).toContain("Постоянно място във формуляра")
+    }
+    // Required for children, not for adults.
+    expect(kids).toContain("name=\"required_" + base.stableKey + "\" value=\"true\" checked")
+    expect(adults).not.toContain("name=\"required_" + base.stableKey + "\" value=\"true\" checked")
+    expect(adults).toContain("type=\"checkbox\" name=\"required_" + adultFirst.stableKey + "\" value=\"true\"  disabled")
+    expect(adults).toContain("data-order-base=\"1000\"")
+    expect(html).toContain("action=\"/status/control/preop-profile#preop-children\"")
     expect(html).toContain("data-move=\"up\"")
-    expect(html).toContain("data-move=\"down\"")
+  })
+
+  it("refuses a profile save that does not say which population it is for", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/preop-profile", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ enabled_BASE_ALLERGIES: "true", order_BASE_ALLERGIES: "0", reason: "No population given here", password: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(400)
+    expect(controlPlane.updatePreopProfile).not.toHaveBeenCalled()
   })
 
   it("keeps recovery sessions away from every Hospital control", async () => {

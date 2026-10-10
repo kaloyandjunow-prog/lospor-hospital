@@ -18,6 +18,8 @@ export type PreopCatalogAdminQuestion = {
   labelEn: string
   labelBg: string
   requiredDefault: boolean
+  /** A baseline question drawn by its own control at a fixed place in the form (1.5.5). */
+  fixedInForm?: boolean
   allowUnknown: boolean
   allowNotApplicable: boolean
   conditionalRuleKey: string | null
@@ -42,9 +44,14 @@ export type PreopActiveProfileAdmin = {
   }>
 }
 
+export type PreopPopulation = "ADULT" | "PEDIATRIC"
+
 export type PreopAdministrationView = {
   catalog: PreopCatalogAdminQuestion[]
+  /** The adult profile; kept for a view from before 1.5.5. */
   activeProfile: PreopActiveProfileAdmin | null
+  /** One profile for adults and one for children (1.5.5). */
+  activeProfiles?: Record<PreopPopulation, PreopActiveProfileAdmin>
 }
 
 export type ResearchGrantInput = {
@@ -570,7 +577,7 @@ export interface ControlPlanePort {
    * null. No password, for the lab map's reason; audited.
    */
   answerEhrCodeSystem(input: { system: string; list: EhrCodeListAnswer | null }): Promise<void>
-  updatePreopProfile(input: { reason: string; questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }> }): Promise<void>
+  updatePreopProfile(input: { population: PreopPopulation; reason: string; questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }> }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -695,6 +702,7 @@ function preopAdministrationShape(value: unknown): value is PreopAdministrationV
     && text(entry.labelEn, 512)
     && text(entry.labelBg, 512)
     && typeof entry.requiredDefault === "boolean"
+    && (entry.fixedInForm === undefined || typeof entry.fixedInForm === "boolean")
     && typeof entry.allowUnknown === "boolean"
     && typeof entry.allowNotApplicable === "boolean"
     && nullableText(entry.conditionalRuleKey, 128)
@@ -705,18 +713,20 @@ function preopAdministrationShape(value: unknown): value is PreopAdministrationV
     && Array.isArray(entry.options)
     && entry.options.every(option)
   if (!value.catalog.every(question)) return false
-  if (value.activeProfile === null) return true
-  if (!isRecord(value.activeProfile) || !text(value.activeProfile.id, 128)
-    || !finiteInteger(value.activeProfile.version, 10_000)
-    || !text(value.activeProfile.catalogVersion, 64)
-    || !text(value.activeProfile.status, 32)
-    || !nullableIso(value.activeProfile.publishedAt)
-    || !Array.isArray(value.activeProfile.questions)) return false
-  return value.activeProfile.questions.every(entry => isRecord(entry)
-    && text(entry.stableKey, 128)
-    && typeof entry.enabled === "boolean"
-    && typeof entry.required === "boolean"
-    && finiteInteger(entry.sortOrder, 10_000))
+  const profile = (entry: unknown): boolean => isRecord(entry) && text(entry.id, 128)
+    && finiteInteger(entry.version, 10_000)
+    && text(entry.catalogVersion, 64)
+    && text(entry.status, 32)
+    && nullableIso(entry.publishedAt)
+    && Array.isArray(entry.questions)
+    && entry.questions.every(item => isRecord(item)
+      && text(item.stableKey, 128)
+      && typeof item.enabled === "boolean"
+      && typeof item.required === "boolean"
+      && finiteInteger(item.sortOrder, 10_000))
+  if (value.activeProfile !== null && !profile(value.activeProfile)) return false
+  if (value.activeProfiles === undefined) return true
+  return isRecord(value.activeProfiles) && profile(value.activeProfiles.ADULT) && profile(value.activeProfiles.PEDIATRIC)
 }
 
 function parseView(value: unknown): ControlPlaneView | null {

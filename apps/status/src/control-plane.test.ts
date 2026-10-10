@@ -637,12 +637,14 @@ describe("Status control-plane client", () => {
       fetcher,
     )
     await client.updatePreopProfile({
+      population: "ADULT",
       reason: "Enable the approved additional question set",
       questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
     })
     const [url, init] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(url).toBe("http://api:3002/v1/internal/hospital/control-plane/preop-profile")
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      population: "ADULT",
       reason: "Enable the approved additional question set",
       questions: [{ stableKey: "BASE_ALLERGIES", enabled: true, required: false, sortOrder: 0 }],
     })

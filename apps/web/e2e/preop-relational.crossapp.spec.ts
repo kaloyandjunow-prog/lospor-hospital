@@ -38,7 +38,20 @@ type ProfileQuestion = {
 }
 
 type Profile = {
-  questions: ProfileQuestion[]
+  questions: Array<ProfileQuestion & {
+    applicability?: string[]
+    byMode?: Partial<Record<"ADULT" | "PEDIATRIC", Omit<ProfileQuestion, "stableKey">>>
+  }>
+}
+
+/** The adult profile's own settings (1.5.5: adults and children each have one). */
+function adultQuestions(profile: Profile): ProfileQuestion[] {
+  return profile.questions
+    .filter(question => !question.applicability?.length || question.applicability.includes("ADULT"))
+    .map(question => ({
+      stableKey: question.stableKey,
+      ...(question.byMode?.ADULT ?? { enabled: question.enabled, required: question.required, sortOrder: question.sortOrder }),
+    }))
 }
 
 async function createCase(context: BrowserContext, suffix: string, diagnosis = "Laparoscopic cholelithiasis") {
@@ -101,7 +114,7 @@ async function saveProfile(questions: ProfileQuestion[]) {
   try {
     const response = await control.post("/v1/internal/hospital/control-plane/preop-profile", {
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      data: { questions, reason: "E2E: switch preoperative questions on and off" },
+      data: { population: "ADULT", questions, reason: "E2E: switch preoperative questions on and off" },
     })
     expect(response.ok(), await response.text()).toBeTruthy()
     return await response.json() as Profile
@@ -117,7 +130,7 @@ async function readProfile(api: APIRequestContext) {
 }
 
 function withEnabled(profile: Profile, keys: string[], enabled: boolean): ProfileQuestion[] {
-  return profile.questions.map(({ stableKey, enabled: current, required, sortOrder }) => ({
+  return adultQuestions(profile).map(({ stableKey, enabled: current, required, sortOrder }) => ({
     stableKey,
     enabled: keys.includes(stableKey) ? enabled : current,
     required: keys.includes(stableKey) && !enabled ? false : required,
@@ -126,7 +139,7 @@ function withEnabled(profile: Profile, keys: string[], enabled: boolean): Profil
 }
 
 function asSaved(profile: Profile): ProfileQuestion[] {
-  return profile.questions.map(({ stableKey, enabled, required, sortOrder }) => ({ stableKey, enabled, required, sortOrder }))
+  return adultQuestions(profile)
 }
 
 const A2 = "A2_REDUCED_EXERCISE_TOLERANCE"

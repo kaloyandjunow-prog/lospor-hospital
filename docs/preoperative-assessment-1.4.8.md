@@ -7,6 +7,18 @@ the Hospital release (1.4.8). Each appliance has one profile that says which of
 those questions its clinicians are asked. Status changes that profile in place;
 there is no second definition source and no profile versions.
 
+> **Since 1.5.5: one profile for adults and one for children.** A case follows
+> the profile of its mode, so a question asked of both (latex allergy, for
+> example) can be required for children and optional for adults. On the
+> upgrade the children's profile starts as a copy of the existing one, so
+> nothing changes until an administrator changes it. The editor has an
+> **Adults** and a **Children** view, each listing only the questions that
+> population is asked, and each saved on its own. Baseline questions keep their
+> fixed place in the form, next to the scores they feed: they are listed apart
+> and cannot be dragged, and the order applies to the added questions within
+> each form section. Before 1.5.5 the editor let a baseline question be dragged
+> although the form ignored its position.
+
 ## What an administrator can change
 
 From Status → Hospital controls → Clinical, an administrator can:
