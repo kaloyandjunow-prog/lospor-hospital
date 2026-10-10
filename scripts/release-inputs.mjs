@@ -7,7 +7,7 @@ const EXPECTED = Object.freeze({
   node: "node:24-alpine3.24",
   nginx: "nginx:1.30.4-alpine",
   postgres: "postgres:17.11-trixie",
-  caddyBuilder: "golang:1.26.6-alpine3.24",
+  caddyBuilder: "golang:1.26.9-alpine3.24",
   caddyRuntime: "caddy:2.11.4-alpine",
   curl: "curlimages/curl:8.21.0",
   trivy: "aquasec/trivy:0.74.0",

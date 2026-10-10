@@ -692,7 +692,7 @@ services:
       context: .
       dockerfile: infra/docker/caddy.Dockerfile
       args:
-        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.6-alpine3.24}
+        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.9-alpine3.24}
         CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.4-alpine}
     restart: unless-stopped
     environment:
@@ -735,7 +735,7 @@ services:
       context: .
       dockerfile: infra/docker/caddy.Dockerfile
       args:
-        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.6-alpine3.24}
+        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.9-alpine3.24}
         CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.4-alpine}
     restart: unless-stopped
     command: ["run", "--config", "/etc/caddy/AcmeProxyCaddyfile", "--adapter", "caddyfile"]
