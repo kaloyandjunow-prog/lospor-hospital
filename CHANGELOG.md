@@ -34,6 +34,12 @@ Rolling back to 1.5.3 restores the pre-update backup, as before.
 - **Lists instead of boxes**: the small fact cards become plain two-column
   lists in the new skins.
 
+### Security
+
+- Research Browser on Next.js 16.3.8, as Web and API already were
+  (GHSA-3w37-wq28-93x7, GHSA-4jqv-mc3x-m676, GHSA-39w2-rjm5-chcv,
+  GHSA-f87g-xv8r-7p7x, GHSA-mcj8-r9mp-w47p, GHSA-cjq9-62q9-8jv4; high).
+
 ## [1.5.3] - 2026-10-07
 
 Vendors Core, API, Web and PWA 9.14.3; Browser stays 0.8.2. No database
