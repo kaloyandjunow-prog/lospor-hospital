@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   isPreopQuestionShown,
   isPreopScoreAvailable,
   PREOP_LEGACY_FIELD_BY_QUESTION,
   preopAnswerStates,
+  preopProfileForMode,
   type PREOP_SCORE_INPUTS,
   type PreopAssessmentProfile,
 } from "@lospor/core/preop-assessment"
@@ -26,8 +27,10 @@ type FormAccess = {
 /**
  * The hospital's preoperative profile for this form: which questions are on,
  * in what order, which are required, and the case's pending suggestions.
+ * Adults and children each have their own profile (9.14.5); both arrive in one
+ * shape and the form follows the one for its current mode.
  *
- * The profile is appliance-wide, so it is fetched once and kept on the device:
+ * The profiles are appliance-wide, so they are fetched once and kept on the device:
  * offline, the form follows the last profile it saw rather than falling back
  * to showing everything. Before any profile has ever been seen the form keeps
  * the bundled baseline, which is what a fresh appliance starts with anyway.
@@ -43,9 +46,10 @@ export function usePreopProfile({
   values: Record<string, unknown>
   form: FormAccess
 }) {
-  const [profile, setProfile] = useState<PreopAssessmentProfile | null>(null)
+  const [profiles, setProfile] = useState<PreopAssessmentProfile | null>(null)
   const [suggestions, setSuggestions] = useState<PreopPendingSuggestion[]>([])
   const mode = pediatric ? "PEDIATRIC" : "ADULT"
+  const profile = useMemo(() => preopProfileForMode(profiles, mode) ?? null, [profiles, mode])
 
   useEffect(() => {
     let cancelled = false

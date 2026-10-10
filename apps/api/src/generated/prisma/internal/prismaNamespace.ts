@@ -8153,6 +8153,7 @@ export type PreopAnswerOptionScalarFieldEnum = (typeof PreopAnswerOptionScalarFi
 export const PreopAssessmentProfileScalarFieldEnum = {
   id: 'id',
   version: 'version',
+  population: 'population',
   catalogVersion: 'catalogVersion',
   status: 'status',
   publishedAt: 'publishedAt',

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 import path from "path"
 import { cloudLegalDocumentsJson } from "./e2e/legal-documents"
+import { STATUS_E2E_BASE, STATUS_E2E_EMAIL, STATUS_E2E_PASSWORD, STATUS_E2E_PORT, STATUS_E2E_SESSION_FILE } from "./e2e/fixtures/status-e2e"
 
 // One clinician, one case, two apps.
 //
@@ -124,6 +125,12 @@ export default defineConfig({
         HOSPITAL_PATIENT_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         HOSPITAL_EXPORT_PSEUDONYM_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         HOSPITAL_STATUS_ACCOUNT_CONTROL_TOKEN_FILE: accountControlTokenFile,
+        // The control-plane view Status reads (1.5.5) includes LOSPOR Central's
+        // state. Like the PostgreSQL suites, an appliance that has not enrolled:
+        // the key paths are configured and the files absent.
+        HOSPITAL_SITE_SIGNING_PRIVATE_KEY_FILE: "/run/secrets/site-signing-private.pem",
+        HOSPITAL_SITE_SIGNING_PUBLIC_KEY_FILE: "/run/secrets/site-signing-public.pem",
+        HOSPITAL_WORKER_TOKEN: "e2e-only-worker-token-not-for-production",
         HOSPITAL_REQUIRE_PATIENT_NUMBER: "true",
         OMOP_PSEUDONYM_SALT: "e2e-only-pseudonym-salt",
         NEXT_TELEMETRY_DISABLED: "1",
@@ -156,6 +163,24 @@ export default defineConfig({
       env: {
         PWA_PORT: String(e2ePwaPort),
         PWA_API_PROXY_TARGET: e2eApiInternalUrl,
+      },
+    },
+    {
+      // Status (1.5.5), so a spec can use the operator's own screens against
+      // this API. Started from apps/status for its dependencies; see the
+      // fixture for why the session is created there.
+      command: "npm exec -- tsx e2e/status-e2e-server.ts",
+      cwd: path.join(__dirname, "..", "status"),
+      url: STATUS_E2E_BASE + "/status/login",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        STATUS_E2E_CONTROL_PLANE_URL: e2eApiInternalUrl + "/v1/internal/hospital/control-plane",
+        STATUS_E2E_TOKEN_FILE: accountControlTokenFile,
+        STATUS_E2E_PORT: String(STATUS_E2E_PORT),
+        STATUS_E2E_EMAIL,
+        STATUS_E2E_PASSWORD,
+        STATUS_E2E_SESSION_FILE,
       },
     },
   ],

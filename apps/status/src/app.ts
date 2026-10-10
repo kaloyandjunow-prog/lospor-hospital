@@ -287,7 +287,8 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп до БИС не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете канала отново."],
     EHR_FOLDER_REQUESTS_NOT_ACTIVE: ["Requests to the hospital system work only over a watched folder. Choose the watched folder as the transport first. Nothing was changed.", "Заявките към болничната система работят само чрез наблюдавана папка. Първо изберете наблюдаваната папка като канал. Нищо не е променено."],
     EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като канал, преди да зададете данни за достъп. Наблюдаваната папка не изисква такива."],
-    PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question. Nothing was changed.", "Профилът за предоперативна оценка трябва да съдържа всички вградени въпроси. Нищо не е променено."],
+    PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question its population is asked. Nothing was changed.", "Профилът за предоперативна оценка трябва да съдържа всички вградени въпроси, които се задават на тази група. Нищо не е променено."],
+    PREOP_QUESTION_OTHER_POPULATION: ["A question that population is never asked cannot be in its profile. Nothing was changed.", "Въпрос, който не се задава на тази група, не може да е в нейния профил. Нищо не е променено."],
     DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
     DISABLED_QUESTION_CANNOT_BE_REQUIRED: ["A disabled preoperative question cannot be required. Nothing was changed.", "Изключен въпрос за предоперативна оценка не може да бъде задължителен. Нищо не е променено."],
     HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
@@ -1510,8 +1511,13 @@ export function createStatusApp({
       const view = await controlPlane.get()
       const catalog = view.preoperative.administration?.catalog
       if (!catalog || catalog.length === 0) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      // Adults and children each have their own profile (1.5.5); the form
+      // lists exactly the questions its population is asked.
+      const population = body.population === "PEDIATRIC" ? "PEDIATRIC" : body.population === "ADULT" ? "ADULT" : null
+      if (!population) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      const asked = catalog.filter(question => question.applicability.length === 0 || question.applicability.includes(population))
       const orders = new Set<number>()
-      const questions = catalog.map(question => {
+      const questions = asked.map(question => {
         const orderText = formText(body, `order_${question.stableKey}`, 1, 6)
         const sortOrder = Number(orderText)
         if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 10000 || orders.has(sortOrder)) {
@@ -1528,11 +1534,12 @@ export function createStatusApp({
         }
       })
       return controlPlane.updatePreopProfile({
+        population,
         questions,
         reason: formText(body, "reason", 10, 1000),
       })
     },
-    locale => localize(locale, "The preoperative profile was saved and audited. Cases pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
+    locale => localize(locale, "The preoperative profile was saved and audited. Cases of that population pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите от тази група получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
     "clinical",
   ))
 

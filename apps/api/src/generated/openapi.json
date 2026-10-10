@@ -2239,7 +2239,7 @@
     "/v1/preop/profile": {
       "get": {
         "operationId": "get_v1_preop_profile",
-        "summary": "Read the appliance-wide preoperative profile (which bundled questions are on, their order, and which are required)",
+        "summary": "Read the preoperative profiles, adult and paediatric, in one shape (which bundled questions are on for each population, their order, and which are required)",
         "tags": [
           "clinical"
         ],

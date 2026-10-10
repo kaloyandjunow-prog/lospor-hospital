@@ -13,11 +13,33 @@ export type PreopFormSection =
   | "labs"
   | "risk_scores"
 
-export type PreopProfileQuestion = {
-  stableKey: string
+/** The patient groups that each have their own profile (9.14.5). */
+export type PreopPopulation = "ADULT" | "PEDIATRIC"
+export const PREOP_POPULATIONS: readonly PreopPopulation[] = Object.freeze(["ADULT", "PEDIATRIC"])
+
+/** What one population's profile says about a question. */
+export type PreopProfileSettings = {
   enabled: boolean
   required: boolean
   sortOrder: number
+}
+
+export type PreopProfileQuestion = {
+  stableKey: string
+  /**
+   * The settings an older client reads: the adult profile's for a question
+   * adults are asked, the paediatric profile's for a children-only question.
+   * A current client reads `byMode` through preopProfileForMode instead.
+   */
+  enabled: boolean
+  required: boolean
+  sortOrder: number
+  /**
+   * Each population's own settings (9.14.5), absent for a population the
+   * question does not apply to. Absent altogether from an older server, which
+   * has one profile for both.
+   */
+  byMode?: Partial<Record<PreopPopulation, PreopProfileSettings>>
   /** Catalogue grouping, used as the sub-heading inside a form section. */
   section: string
   formSection: PreopFormSection
@@ -43,7 +65,11 @@ export type PreopProfileQuestion = {
   }>
 }
 
-/** The appliance's one profile: which bundled questions are on, their order, which are required. */
+/**
+ * Which bundled questions are on, their order, and which are required. The
+ * appliance keeps one profile for adults and one for children; the case read
+ * sends both in one shape (see `byMode`), and preopProfileForMode picks one.
+ */
 export type PreopAssessmentProfile = {
   id: string
   version: number
@@ -129,6 +155,36 @@ export function hasDedicatedPreopControl(stableKey: string): boolean {
 /** Whether a question belongs to a case of this clinical mode (unknown mode: every question). */
 export function preopQuestionAppliesToMode(applicability: readonly string[], mode: string | null | undefined): boolean {
   return applicability.length === 0 || !mode || applicability.includes(mode)
+}
+
+/** The population whose profile a case of this clinical mode follows. */
+export function preopPopulationForMode(mode: string | null | undefined): PreopPopulation {
+  return mode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT"
+}
+
+/**
+ * The profile as one population sees it: each question carries that
+ * population's settings, and a question the population is never asked is
+ * switched off. Every other helper here then works unchanged on the result.
+ *
+ * Returned as given when there is no profile, no mode, or the server predates
+ * per-population profiles (no `byMode`).
+ */
+export function preopProfileForMode<T extends Pick<PreopAssessmentProfile, "questions">>(
+  profile: T | null | undefined,
+  mode: string | null | undefined,
+): T | null | undefined {
+  if (!profile || !mode || !profile.questions.some(question => question.byMode)) return profile
+  const population = preopPopulationForMode(mode)
+  return {
+    ...profile,
+    questions: profile.questions.map(question => {
+      const settings = question.byMode?.[population]
+      return settings
+        ? { ...question, enabled: settings.enabled, required: settings.required, sortOrder: settings.sortOrder }
+        : { ...question, enabled: false, required: false }
+    }),
+  }
 }
 
 /**

@@ -46,12 +46,12 @@ const profile = (questions: PreopProfileQuestion[]): PreopAssessmentProfile => (
 
 type Answer = { stableKey: string; state: string; optionKey?: string | null }
 
-async function mount(caseId: string | null = "case-1") {
+async function mount(caseId: string | null = "case-1", pediatric = false) {
   let answers: Answer[] = []
   let hook!: ReturnType<typeof usePreopProfile>
   const form = { getAnswers: () => answers as never, setAnswers: (next: Answer[]) => { answers = next } }
   function Harness() {
-    hook = usePreopProfile({ caseId, pediatric: false, values: {}, form: form as never })
+    hook = usePreopProfile({ caseId, pediatric, values: {}, form: form as never })
     return null
   }
   await act(async () => { render(<Harness />) })
@@ -110,5 +110,20 @@ describe("the preop profile on the phone", () => {
     await act(async () => { await hook().reviewSuggestion("s1", "ACCEPTED") })
     expect(answers()).toEqual([{ stableKey: "A5", state: "YES", optionKey: "YES" }])
     expect(api.patched.every(path => path.endsWith("/preop-suggestions/s1"))).toBe(true)
+  })
+
+  it("follows the children's profile for a child and the adults' for an adult, from one download kept offline", async () => {
+    // Smoking: asked of adults, switched off for children (9.14.5).
+    api.profile = profile([question("BASE_SMOKING", {
+      byMode: { ADULT: { enabled: true, required: false, sortOrder: 0 }, PEDIATRIC: { enabled: false, required: false, sortOrder: 0 } },
+    })])
+    const adult = await mount("case-1", false)
+    expect(adult.hook().shownField("smoking")).toBe(true)
+    api.offline = true
+    const child = await mount("case-2", true)
+    expect(child.hook().shownField("smoking")).toBe(false)
+    expect(child.hook().scoreAvailable("APFEL")).toBe(false)
+    const adultOffline = await mount("case-3", false)
+    expect(adultOffline.hook().shownField("smoking")).toBe(true)
   })
 })
