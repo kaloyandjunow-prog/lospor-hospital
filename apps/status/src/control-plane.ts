@@ -91,7 +91,14 @@ export type ControlPlaneView = {
       role: "MEMBER" | "HEAD_OF_DEPT" | "ADMIN" | "RESEARCHER"
     }>
     institutions: Array<{ id: string; name: string }>
-    grants: Array<Omit<ResearchGrantInput, "expiryDays" | "supersedesGrantId"> & {
+    grants: Array<Omit<ResearchGrantInput, "expiryDays" | "supersedesGrantId" | "purpose"> & {
+      /**
+       * The API has sent whether a purpose was recorded, not its text, since
+       * Hospital 1.2.0; Status shows no research purpose. A view carrying the
+       * text (older API) is accepted too.
+       */
+      purposeRecorded?: boolean
+      purpose?: string
       id: string
       userName: string
       userEmail: string | null
@@ -763,7 +770,10 @@ function parseView(value: unknown): ControlPlaneView | null {
     if (!isRecord(grant) || !text(grant.id, 128) || !text(grant.userId, 128)
       || !text(grant.userName, 512) || !nullableText(grant.userEmail, 254)
       || !nullableText(grant.institutionId, 128) || !nullableText(grant.institutionName, 512)
-      || typeof grant.allInstitutions !== "boolean" || !text(grant.purpose, 500)
+      || typeof grant.allInstitutions !== "boolean"
+      // Until 1.5.5 this required the purpose text, which the API stopped
+      // sending in 1.2.0: one research grant made every Hospital control blank.
+      || !(typeof grant.purposeRecorded === "boolean" || text(grant.purpose, 500))
       || !["canQuery", "canInspectCases", "canExportCsv", "canExportJson", "canExportOmop", "canShare", "active"]
         .every(key => typeof grant[key] === "boolean")
       || !nullableIso(grant.expiresAt) || !nullableIso(grant.revokedAt)

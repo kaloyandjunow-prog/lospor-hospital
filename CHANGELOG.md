@@ -29,6 +29,11 @@ back to 1.5.4 restores the pre-update backup.
   questions are now listed apart as fixed in the form; switching them on or
   off and making them required works as before. The order applies to the
   added questions, within each form section.
+- **One research grant blanked every Hospital control in Status.** Since 1.2.0
+  the API has sent whether a grant's purpose was recorded rather than the
+  purpose itself (Status shows no research purpose), but Status still required
+  the text and rejected the whole controls page as an invalid response once
+  any grant existed. It now accepts it and shows the purpose as "recorded".
 - **"Required" can be ticked as soon as "Enabled" is.** It used to stay greyed
   out until the question had been saved as enabled, so making a new question
   required took two saves.

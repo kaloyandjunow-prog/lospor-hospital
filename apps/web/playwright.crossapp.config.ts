@@ -125,6 +125,12 @@ export default defineConfig({
         HOSPITAL_PATIENT_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         HOSPITAL_EXPORT_PSEUDONYM_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         HOSPITAL_STATUS_ACCOUNT_CONTROL_TOKEN_FILE: accountControlTokenFile,
+        // The control-plane view Status reads (1.5.5) includes LOSPOR Central's
+        // state. Like the PostgreSQL suites, an appliance that has not enrolled:
+        // the key paths are configured and the files absent.
+        HOSPITAL_SITE_SIGNING_PRIVATE_KEY_FILE: "/run/secrets/site-signing-private.pem",
+        HOSPITAL_SITE_SIGNING_PUBLIC_KEY_FILE: "/run/secrets/site-signing-public.pem",
+        HOSPITAL_WORKER_TOKEN: "e2e-only-worker-token-not-for-production",
         HOSPITAL_REQUIRE_PATIENT_NUMBER: "true",
         OMOP_PSEUDONYM_SALT: "e2e-only-pseudonym-salt",
         NEXT_TELEMETRY_DISABLED: "1",

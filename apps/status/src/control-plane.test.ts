@@ -244,6 +244,32 @@ describe("Status control-plane client", () => {
     )
   })
 
+  it("accepts a research grant as the API sends it: whether a purpose was recorded, not its text", async () => {
+    // Until 1.5.5 Status required the text, which the API stopped sending in
+    // 1.2.0, so a single grant left every Hospital control blank.
+    const withGrant = {
+      ...VIEW,
+      research: {
+        ...VIEW.research,
+        grants: [{
+          id: "grant-1", userId: "user-1", userName: "Doctor Test", userEmail: null,
+          institutionId: null, institutionName: null, allInstitutions: true,
+          canQuery: true, canInspectCases: false, canExportCsv: false, canExportJson: false, canExportOmop: false, canShare: false,
+          purposeRecorded: true,
+          expiresAt: null, revokedAt: null, supersededAt: null, supersededById: null, active: true,
+          createdAt: "2026-09-01T00:00:00.000Z",
+        }],
+      },
+    }
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(withGrant)) as unknown as typeof fetch,
+    )
+    await expect(client.get()).resolves.toMatchObject({ research: { grants: [{ id: "grant-1", purposeRecorded: true }] } })
+  })
+
   it("accepts username-only Hospital principals without inventing email addresses", async () => {
     const usernameOnly = {
       ...VIEW,
