@@ -1,5 +1,52 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.5] - 2026-10-11
+
+Vendors Core, API, Web and PWA 9.14.5; Browser stays 0.8.3. One clinical
+database migration (`20261010120000_preop_profile_per_population`), so going
+back to 1.5.4 restores the pre-update backup.
+
+### Added
+
+- **Separate preoperative questions for adults and children.** The appliance
+  now has one profile for adults and one for children. Each says which
+  questions are asked, in what order and which are required, so a question
+  asked of both (latex allergy, for example) can be required for children and
+  optional for adults. A case follows the profile of its mode, on the web and
+  on the phone, and switching a case's mode switches the questions at once.
+  On the update the children's profile starts as a copy of the existing one,
+  so nothing changes until an administrator changes it.
+- **Status edits each profile apart.** The preoperative questions page has an
+  *Adults* and a *Children* view, each listing only the questions that
+  population is asked, and each saved on its own with its own reason.
+
+### Fixed
+
+- **Moving a baseline question did nothing.** The editor let a baseline
+  question (heart arrhythmia, smoking and the other standard controls) be
+  dragged, but the form draws each of those at a fixed place, next to the
+  scores it feeds, so the new position was saved and ignored. Baseline
+  questions are now listed apart as fixed in the form; switching them on or
+  off and making them required works as before. The order applies to the
+  added questions, within each form section.
+- **"Required" can be ticked as soon as "Enabled" is.** It used to stay greyed
+  out until the question had been saved as enabled, so making a new question
+  required took two saves.
+### Tested
+
+- A new cross-app test drives the real Status editor in a browser: it drags a
+  children's question to the top, makes it required, then switches it off,
+  and after each step reads the web and the phone forms for a paediatric and
+  an adult case.
+
+### Upstream
+
+- Core 9.14.5: per-population profile settings and `preopProfileForMode`.
+- API 9.14.5: one preoperative profile per population; answers record the
+  profile they were given under.
+- Web 9.14.5 and PWA 9.14.5: the preoperative form follows the case's own
+  profile.
+
 ## [1.5.4] - 2026-10-10
 
 Vendors Core, API, Web and PWA 9.14.4 and Browser 0.8.3 (security updates
