@@ -1,5 +1,12 @@
 # Changelog - LOSPOR Mobile
 
+## [9.14.4] - 2026-10-10
+
+### Security
+
+- **Build tooling patched**: shell-quote 1.12.0 (critical, GHSA-pqg4-j6r4-53mv)
+  and source-map-js 1.2.2 (GHSA-68fv-2mgg-jv7q). No change to the app.
+
 ## [9.14.3] - 2026-10-07
 
 ### Fixed
