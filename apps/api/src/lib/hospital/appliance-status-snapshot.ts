@@ -7,7 +7,7 @@ import { normalizeEmail } from "@lospor/core/account"
 import { prisma } from "@/lib/prisma"
 import { APPLIANCE_MANIFEST_VERSIONS } from "@/lib/hospital/appliance-versions"
 import { isCentralDeliveryConfigured } from "@/lib/hospital/config"
-import { countCasesAwaitingCentralExport } from "@/lib/hospital/central-status"
+import { casesAwaitingCentralExport } from "@/lib/hospital/central-status"
 import { applianceActivity, applianceIntegrations } from "@/lib/hospital/appliance-activity"
 
 function declaredApplianceRelease(): string {
@@ -51,6 +51,25 @@ async function migrationState(): Promise<MigrationState> {
   }
 }
 
+const WEEK_MS = 7 * 24 * 60 * 60_000
+
+/** When someone was last made an administrator, within the last week (1.5.6). The first administrator, created at install, is expected and left out. */
+async function lastAdministratorAddedAt(now: number): Promise<string | null> {
+  try {
+    const [row] = await prisma.$queryRaw<Array<{ at: Date | null }>>`
+      SELECT MAX("createdAt") AS "at" FROM "AuditLog"
+      WHERE "createdAt" >= ${new Date(now - WEEK_MS)}
+        AND (
+          "action" = 'ADMIN_ACCOUNT_PROMOTE'
+          OR ("action" = 'ADMIN_ACCOUNT_AUTHORITY_CHANGE'
+            AND "detail"->>'role' = 'ADMIN' AND "detail"->>'previousRole' IS DISTINCT FROM 'ADMIN')
+        )`
+    return row?.at?.toISOString() ?? null
+  } catch {
+    return null
+  }
+}
+
 async function databaseSize(): Promise<{ state: "known" | "unknown"; bytes?: string }> {
   try {
     const [row] = await prisma.$queryRaw<Array<{ bytes: string }>>`
@@ -86,7 +105,7 @@ async function researchStorageCapacity(): Promise<{
   }
 }
 
-export async function applianceStatusSnapshot(operatorProofKey: string) {
+export async function applianceStatusSnapshot(operatorProofKey: string, now = Date.now()) {
   const installation = await prisma.hospitalInstallation.findUnique({
     where: { id: "local" },
     select: {
@@ -104,7 +123,7 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
   const institutionId = installation?.institutionId ?? null
   const [
     policy,
-    casesWithUnacceptedChanges,
+    awaitingCentral,
     deliveryCounts,
     researchCounts,
     migrations,
@@ -112,6 +131,8 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
     researchStorage,
     activity,
     integrations,
+    researchExportsFailed7d,
+    administratorAddedAt,
   ] = await Promise.all([
     institutionId
       ? prisma.centralExportPolicy.findUnique({
@@ -119,7 +140,7 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
           select: { enabled: true, approvedAt: true },
         })
       : null,
-    institutionId ? countCasesAwaitingCentralExport(institutionId) : 0,
+    institutionId ? casesAwaitingCentralExport(institutionId) : { count: 0, oldestSince: null },
     prisma.centralDeliveryBatch.groupBy({
       by: ["status"],
       _count: { _all: true },
@@ -131,8 +152,10 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
     migrationState(),
     databaseSize(),
     researchStorageCapacity(),
-    applianceActivity(),
-    applianceIntegrations(),
+    applianceActivity(now),
+    applianceIntegrations(now),
+    prisma.researchExport.count({ where: { status: "FAILED", createdAt: { gte: new Date(now - WEEK_MS) } } }),
+    lastAdministratorAddedAt(now),
   ])
 
   let centralCredentialsPresent = false
@@ -170,7 +193,7 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
         installation?.centralEnabled && installation.siteId && institutionId,
       ),
       exportPolicyApproved: Boolean(policy?.enabled && policy.approvedAt),
-      casesWithUnacceptedChanges,
+      casesWithUnacceptedChanges: awaitingCentral.count,
       deliveriesByStatus: Object.fromEntries(
         deliveryCounts.map(row => [row.status, row._count._all]),
       ),
@@ -181,5 +204,9 @@ export async function applianceStatusSnapshot(operatorProofKey: string) {
     // Optional: Status accepts a snapshot without them, so an older API still works.
     ...(activity ? { activity } : {}),
     ...(integrations ? { integrations } : {}),
+    // 1.5.6: what the overview map needs to tell a quiet fault from a quiet day.
+    centralOldestWaitingSince: awaitingCentral.oldestSince?.toISOString() ?? null,
+    researchExportsFailed7d,
+    lastAdministratorAddedAt: administratorAddedAt,
   }
 }

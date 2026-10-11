@@ -1,7 +1,9 @@
 import type { GoLiveView } from "./go-live.js"
 import type { HostOsSignal } from "./host-os.js"
 import { networkListsState, type MaintenanceAgentSignal, type OffhostSignal, type SiteConfigSignal } from "./maintenance.js"
-import type { ComponentView } from "./types.js"
+import { CENTRAL_WAIT_WARN_MS, EHR_QUIET_BAD_MS, EHR_QUIET_WARN_MS, NEW_ADMINISTRATOR_NOTICE_MS } from "./thresholds.js"
+import { failedResearchExports } from "./snapshot.js"
+import type { ApplianceSnapshot, ComponentView } from "./types.js"
 
 // "Needs attention today": the checks Status already makes, turned into things
 // to do. A component row says what is true; an item here says what a person
@@ -35,6 +37,8 @@ export function attentionItems(input: {
   goLive: GoLiveView | null
   /** When a secrets escrow copy was last downloaded from Status, if ever. */
   escrowDownloadedAt?: number | null
+  /** The appliance snapshot, for the connections the overview map draws (1.5.6). */
+  snapshot?: ApplianceSnapshot | null
   now: number
 }): AttentionItem[] {
   const byComponent = new Map(input.components.map(component => [component.component, component]))
@@ -150,5 +154,70 @@ export function attentionItems(input: {
     add({ id: "advanced", level: "note", en: `${overridden} advanced setting(s) differ from the defaults on this appliance.`, bg: `Разширени настройки, различни от стойностите по подразбиране: ${overridden}.`, href: `${MAINTENANCE}#maintenance-advanced`, actionEn: "See Advanced settings", actionBg: "Вижте „Разширени настройки“" })
   }
 
+  connectionItems(input.snapshot ?? null, byComponent, input.now).forEach(add)
+
   return items.sort((left, right) => LEVEL_ORDER[left.level] - LEVEL_ORDER[right.level])
+}
+
+const HOUR_MS = 60 * 60_000
+const quietFor = (ms: number): [string, string] => ms < 48 * HOUR_MS
+  ? [`${Math.round(ms / HOUR_MS)} hours`, `${Math.round(ms / HOUR_MS)} часа`]
+  : [`${Math.round(ms / DAY_MS)} days`, `${Math.round(ms / DAY_MS)} дни`]
+
+/**
+ * The connections the overview map draws (1.5.6). Each box that is amber or
+ * red there has its item here, at the same thresholds, so the map never shows
+ * a colour the to-do list cannot explain.
+ */
+function connectionItems(
+  snapshot: ApplianceSnapshot | null,
+  byComponent: ReadonlyMap<string, ComponentView>,
+  now: number,
+): AttentionItem[] {
+  const items: AttentionItem[] = []
+  const ehr = snapshot?.integrations?.ehr
+  if (ehr?.configured) {
+    const quiet = ehr.lastReceivedAt ? now - Date.parse(ehr.lastReceivedAt) : null
+    if (quiet === null) {
+      items.push({ id: "ehr-quiet", level: "soon", en: "Nothing has arrived from the hospital system since it was set up.", bg: "От болничната система още не е пристигнало нищо, откакто е настроена.", href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+    } else if (quiet > EHR_QUIET_WARN_MS) {
+      const [en, bg] = quietFor(quiet)
+      items.push({ id: "ehr-quiet", level: quiet > EHR_QUIET_BAD_MS ? "today" : "soon", en: `Nothing has arrived from the hospital system for ${en}. Laboratory results are not reaching the records.`, bg: `От болничната система не е пристигнало нищо от ${bg}. Лабораторните резултати не стигат до записите.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+    }
+    if (ehr.readFailures24h) {
+      items.push({ id: "ehr-reads", level: "today", en: `The hospital system could not be read ${ehr.readFailures24h} time(s) in the last 24 hours. Clinicians may see empty allergy or laboratory lists for those patients.`, bg: `Болничната система не можа да бъде прочетена ${ehr.readFailures24h} път(и) през последните 24 часа. Лекарите може да видят празни списъци с алергии или изследвания за тези пациенти.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+    }
+    if (ehr.unmappedCodes) {
+      items.push({ id: "ehr-unmapped", level: "soon", en: `${ehr.unmappedCodes} code(s) from the hospital system are not mapped, so their values are not brought into records.`, bg: `${ehr.unmappedCodes} код(а) от болничната система не са съпоставени, затова стойностите им не влизат в записите.`, href: "/status/control/codes", actionEn: "Map the codes", actionBg: "Съпоставете кодовете" })
+    }
+  }
+  const check = snapshot?.integrations?.ai.enabled ? snapshot.integrations.ai.check : undefined
+  if (check?.state === "key-refused") {
+    items.push({ id: "ai-check", level: "today", en: "Mistral refuses the API key, so lab scans and AI advice do not work.", bg: "Mistral отказва API ключа, затова сканирането на изследвания и съветите от ИИ не работят.", href: "/status/control/ai", actionEn: "Replace the key", actionBg: "Сменете ключа" })
+  } else if (check?.state === "unreachable") {
+    items.push({ id: "ai-check", level: "soon", en: "Mistral is not answering. Lab scans and AI advice wait until it does.", bg: "Mistral не отговаря. Сканирането на изследвания и съветите от ИИ чакат, докато отговори.", href: "/status/control/ai", actionEn: "See Mistral AI", actionBg: "Вижте „Mistral AI“" })
+  }
+  const update = byComponent.get("appliance-update")?.code
+  if (byComponent.get("update-supply")?.code !== "UPDATE_SUPPLY_OFFLINE"
+    && (update === "UPDATE_CHECK_FAILED" || update === "UPDATE_CHECK_NEVER_RUN" || update === "UPDATE_CHECK_STALE")) {
+    items.push({ id: "update-check", level: "soon", en: "The appliance cannot check for new releases, so it would not know about a security fix.", bg: "Системата не може да провери за нови версии и не би разбрала за поправка на сигурността.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Актуализации“" })
+  }
+  if (byComponent.get("browser")?.status === "outage") {
+    items.push({ id: "research-down", level: "today", en: "The Research website is not answering.", bg: "Сайтът за изследвания не отговаря.", href: OVERVIEW, actionEn: "Hospital IT: sudo losporctl status", actionBg: "ИТ отдел: sudo losporctl status" })
+  }
+  const failed = failedResearchExports(snapshot)
+  if (failed) {
+    items.push({ id: "exports-failed", level: "soon", en: `${failed} research export(s) failed this week. The researchers who asked for them have nothing to download.`, bg: `${failed} износ(а) за изследвания не успяха тази седмица. Изследователите, които са ги поискали, нямат какво да изтеглят.`, href: "/status/control/research", actionEn: "See Research", actionBg: "Вижте „Изследвания“" })
+  }
+  const since = snapshot?.centralOldestWaitingSince
+  if (since && (snapshot?.central.casesWithUnacceptedChanges ?? 0) > 0 && now - Date.parse(since) > CENTRAL_WAIT_WARN_MS) {
+    const [en, bg] = quietFor(now - Date.parse(since))
+    items.push({ id: "central-waiting", level: "soon", en: `A case has been waiting ${en} to be sent to LOSPOR Central.`, bg: `Случай чака ${bg} да бъде изпратен към LOSPOR Central.`, href: "/status/control/central", actionEn: "See LOSPOR Central", actionBg: "Вижте „LOSPOR Central“" })
+  }
+  const added = snapshot?.lastAdministratorAddedAt ? Date.parse(snapshot.lastAdministratorAddedAt) : null
+  if (added !== null && now - added <= NEW_ADMINISTRATOR_NOTICE_MS) {
+    const when = new Date(added).toISOString().slice(0, 16).replace("T", " ")
+    items.push({ id: "new-admin", level: "note", en: `Someone was made an administrator on ${when} UTC. If nobody at the hospital expected it, treat it as a security incident.`, bg: `На ${when} UTC някой е направен администратор. Ако никой в болницата не го е очаквал, третирайте го като инцидент със сигурността.`, href: "/status/accounts", actionEn: "See Accounts", actionBg: "Вижте „Профили“" })
+  }
+  return items
 }

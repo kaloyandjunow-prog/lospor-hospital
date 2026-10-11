@@ -148,5 +148,24 @@ describe("privacy-safe producer contracts", () => {
     expect(parseApplianceSnapshot({ ...snapshot, activity: { ...activity, days: [{ day: "2026-10-10", started: 4, finalized: 3, caseId: "c1" }] } })).toBeNull()
     expect(parseApplianceSnapshot({ ...snapshot, activity: { ...activity, activeUsers: -1 } })).toBeNull()
     expect(parseApplianceSnapshot({ ...snapshot, integrations: { ...integrations, ehr: { configured: true, lastReceivedAt: "yesterday" } } })).toBeNull()
+
+    // 1.5.6: what the overview map needs to tell a quiet fault from a quiet day. Counts and times only.
+    const connections = {
+      integrations: {
+        ehr: { configured: true, lastReceivedAt: "2026-10-10T12:00:00.000Z", readFailures24h: 2, unmappedCodes: 7 },
+        ai: { enabled: true, check: { state: "key-refused", checkedAt: "2026-10-10T12:30:00.000Z" } },
+      },
+      centralOldestWaitingSince: "2026-10-01T08:00:00.000Z",
+      researchExportsFailed7d: 1,
+      lastAdministratorAddedAt: null,
+    }
+    expect(parseApplianceSnapshot({ ...snapshot, ...connections })).toEqual({ ...snapshot, ...connections })
+    expect(parseApplianceSnapshot({ ...snapshot, ...connections, integrations: { ...connections.integrations, ai: { enabled: true, check: { state: "fine", checkedAt: "2026-10-10T12:30:00.000Z" } } } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, ...connections, integrations: { ...connections.integrations, ai: { enabled: true, check: { state: "ok", checkedAt: "2026-10-10T12:30:00.000Z", key: "sk-1" } } } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, ...connections, integrations: { ...connections.integrations, ehr: { ...connections.integrations.ehr, unmappedCodes: -1 } } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, ...connections, integrations: { ...connections.integrations, ehr: { ...connections.integrations.ehr, codes: ["718-7"] } } })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, centralOldestWaitingSince: "last week" })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, researchExportsFailed7d: 1.5 })).toBeNull()
+    expect(parseApplianceSnapshot({ ...snapshot, lastAdministratorAddedAt: "maria.petrova" })).toBeNull()
   })
 })

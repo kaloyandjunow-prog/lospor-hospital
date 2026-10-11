@@ -608,7 +608,7 @@ export function createStatusApp({
       readTerminologyAgentSignal(config.updateStateDir, now()),
     ])
     const goLive = evaluateGoLive({ components: dashboard.components, terminology, networkLists: networkListsState(siteConfig), signoffs: db.listGoLiveSignoffs(), now: now() })
-    const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, escrowDownloadedAt: db.latestOperationalEventAt("STATUS_SECRETS_ESCROW_DOWNLOADED"), now: now() })
+    const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, escrowDownloadedAt: db.latestOperationalEventAt("STATUS_SECRETS_ESCROW_DOWNLOADED"), snapshot: dashboard.snapshot, now: now() })
     if (isLegacy()) return context.html(renderDashboard(dashboard, locale, kind, attention))
     return context.html(renderOverview(dashboard, attention, goLive, locale, kind, now()))
   })

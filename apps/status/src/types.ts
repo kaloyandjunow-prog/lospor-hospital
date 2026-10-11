@@ -104,7 +104,24 @@ export type ApplianceSnapshot = {
     days: { day: string; started: number; finalized: number }[]
   }
   integrations?: {
-    ehr: { configured: boolean; lastReceivedAt: string | null }
-    ai: { enabled: boolean }
+    ehr: {
+      configured: boolean
+      lastReceivedAt: string | null
+      /** Imports in the last 24 hours with a group the hospital system did not serve (1.5.6). */
+      readFailures24h?: number
+      /** Codes that arrived and are mapped to nothing, so their values are not imported (1.5.6). */
+      unmappedCodes?: number
+    }
+    ai: {
+      enabled: boolean
+      /** The last hourly check of the Mistral key (1.5.6). Absent when AI is off or from an older API. */
+      check?: { state: "ok" | "key-refused" | "unreachable"; checkedAt: string }
+    }
   }
+  /** When the oldest case still waiting for Central started waiting (1.5.6). */
+  centralOldestWaitingSince?: string | null
+  /** Research exports that failed in the last seven days (1.5.6). */
+  researchExportsFailed7d?: number
+  /** When someone was last made an administrator, within the last week (1.5.6). Totals and times only. */
+  lastAdministratorAddedAt?: string | null
 }

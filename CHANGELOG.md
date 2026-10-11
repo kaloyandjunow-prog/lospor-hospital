@@ -1,5 +1,54 @@
 # Changelog - LOSPOR Hospital
 
+## [1.5.6] - 2026-10-11
+
+Vendors Core, API, Web and PWA 9.14.5; Browser stays 0.8.3. No database
+migration.
+
+### Changed
+
+- **The Status overview map is green only when a connection is known to
+  work.** Before, four boxes were green for being switched on or set up, so a
+  failure behind them did not show:
+  - *Hospital system* turns amber when nothing has arrived for 24 hours and red
+    after three days. It also turns amber when the hospital system could not
+    be read in the last day, or when codes arrived that are not mapped and so
+    are not brought into records.
+  - *Mistral AI (EU)* turns red when Mistral refuses the API key and amber when
+    Mistral does not answer. The appliance checks the key once an hour by
+    asking for Mistral's model list; no clinical data is sent. A replaced key
+    is checked at once.
+  - *Updates* says "cannot check for updates" when the appliance can no longer
+    ask for new releases, instead of "up to date". Sites that install updates
+    by hand are shown grey.
+  - *Backups* turns amber when copies are kept only on this server.
+  - *LOSPOR Central* shows how long the oldest case has been waiting, and turns
+    amber after two days.
+- **New on the map:** a *Research* box (red when the Research website does not
+  answer, amber when exports failed in the last week), and two dots in the
+  appliance box: *Gateway*, which receives every connection, and *Server*,
+  which covers disk space, the HTTPS certificate, the clock, host services and
+  database migrations. Each dot keeps its own colour.
+- **Every amber or red box has a to-do item** at the same threshold, with a
+  button to the page where it is fixed. A note also appears for a week when
+  someone is made an administrator, worded like the one for a downloaded
+  secrets copy.
+- Failed research exports count over the last week, not forever, so one old
+  failure no longer keeps the research row amber.
+
+### Security
+
+- The two accepted findings in Debian 13's libgnutls30t64 (CVE-2026-88647,
+  CVE-2026-88648; no fix yet) are carried forward from 1.5.5 unchanged and
+  accepted again by the maintainer for this release. They still expire on
+  2027-01-10.
+
+### Tested
+
+- The map and its to-do items in each state, the snapshot fields Status
+  accepts and refuses, the Mistral key check (no data sent, hourly, per key),
+  and the new database queries against PostgreSQL.
+
 ## [1.5.5] - 2026-10-11
 
 Vendors Core, API, Web and PWA 9.14.5; Browser stays 0.8.3. One clinical

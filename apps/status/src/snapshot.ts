@@ -54,17 +54,36 @@ function parseActivity(value: unknown): ApplianceSnapshot["activity"] | null {
 function parseIntegrations(value: unknown): ApplianceSnapshot["integrations"] | null {
   if (!isRecord(value) || !hasExactKeys(value, ["ehr", "ai"])) return null
   const { ehr, ai } = value
-  if (!isRecord(ehr) || !hasExactKeys(ehr, ["configured", "lastReceivedAt"]) || typeof ehr.configured !== "boolean"
-    || !nullableDate(ehr.lastReceivedAt)) return null
-  if (!isRecord(ai) || !hasExactKeys(ai, ["enabled"]) || typeof ai.enabled !== "boolean") return null
-  return { ehr: { configured: ehr.configured, lastReceivedAt: ehr.lastReceivedAt }, ai: { enabled: ai.enabled } }
+  if (!isRecord(ehr) || !hasExactKeys(ehr, ["configured", "lastReceivedAt"], ["readFailures24h", "unmappedCodes"])
+    || typeof ehr.configured !== "boolean" || !nullableDate(ehr.lastReceivedAt)
+    || (ehr.readFailures24h !== undefined && !finiteInteger(ehr.readFailures24h, 0, COUNT_LIMIT))
+    || (ehr.unmappedCodes !== undefined && !finiteInteger(ehr.unmappedCodes, 0, COUNT_LIMIT))) return null
+  if (!isRecord(ai) || !hasExactKeys(ai, ["enabled"], ["check"]) || typeof ai.enabled !== "boolean") return null
+  const check = ai.check
+  if (check !== undefined && (!isRecord(check) || !hasExactKeys(check, ["state", "checkedAt"])
+    || !["ok", "key-refused", "unreachable"].includes(String(check.state)) || !validIsoDate(check.checkedAt))) return null
+  return {
+    ehr: {
+      configured: ehr.configured,
+      lastReceivedAt: ehr.lastReceivedAt,
+      ...(ehr.readFailures24h === undefined ? {} : { readFailures24h: ehr.readFailures24h as number }),
+      ...(ehr.unmappedCodes === undefined ? {} : { unmappedCodes: ehr.unmappedCodes as number }),
+    },
+    ai: {
+      enabled: ai.enabled,
+      ...(isRecord(check) ? { check: { state: check.state as "ok" | "key-refused" | "unreachable", checkedAt: check.checkedAt as string } } : {}),
+    },
+  }
 }
 
 export function parseApplianceSnapshot(value: unknown): ApplianceSnapshot | null {
   if (!isRecord(value) || !hasExactKeys(value, [
     "schemaVersion", "generatedAt", "versions", "operatorCredentialGeneration",
     "operatorCredentialIdentityProof", "email", "database", "research", "central",
-  ], ["activity", "integrations"])) return null
+  ], ["activity", "integrations", "centralOldestWaitingSince", "researchExportsFailed7d", "lastAdministratorAddedAt"])) return null
+  if ((value.centralOldestWaitingSince !== undefined && !nullableDate(value.centralOldestWaitingSince))
+    || (value.researchExportsFailed7d !== undefined && !finiteInteger(value.researchExportsFailed7d, 0, COUNT_LIMIT))
+    || (value.lastAdministratorAddedAt !== undefined && !nullableDate(value.lastAdministratorAddedAt))) return null
   if (value.schemaVersion !== 1 || !validIsoDate(value.generatedAt)
     || !finiteInteger(value.operatorCredentialGeneration, 0, 1_000_000)
     || (value.operatorCredentialIdentityProof !== null
@@ -160,7 +179,15 @@ export function parseApplianceSnapshot(value: unknown): ApplianceSnapshot | null
     },
     ...(activity ? { activity } : {}),
     ...(integrations ? { integrations } : {}),
+    ...(value.centralOldestWaitingSince === undefined ? {} : { centralOldestWaitingSince: value.centralOldestWaitingSince as string | null }),
+    ...(value.researchExportsFailed7d === undefined ? {} : { researchExportsFailed7d: value.researchExportsFailed7d as number }),
+    ...(value.lastAdministratorAddedAt === undefined ? {} : { lastAdministratorAddedAt: value.lastAdministratorAddedAt as string | null }),
   }
+}
+
+/** Research exports that failed lately: the last week when the API says, otherwise every failure it holds (before 1.5.6). */
+export function failedResearchExports(snapshot: ApplianceSnapshot | null | undefined): number {
+  return snapshot?.researchExportsFailed7d ?? snapshot?.research.exportsByStatus.FAILED ?? 0
 }
 
 export function snapshotIsFresh(snapshot: ApplianceSnapshot, now = Date.now()): boolean {
@@ -186,7 +213,7 @@ export function snapshotObservations(snapshot: ApplianceSnapshot, now = Date.now
     : !snapshot.central.enrolled || !snapshot.central.exportPolicyApproved
       ? "degraded"
       : "operational"
-  const failedExports = snapshot.research.exportsByStatus.FAILED ?? 0
+  const failedExports = failedResearchExports(snapshot)
   return [
     {
       component: "migrations", label: "Database migrations", group: "safety",
