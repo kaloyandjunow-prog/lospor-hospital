@@ -1,9 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks"
-import type { ComponentStatus, ComponentView, DashboardData } from "./types.js"
+import type { ComponentStatus, DashboardData } from "./types.js"
 import { localize, type StatusLocale } from "./locale.js"
 import { escapeHtml } from "./util.js"
 import type { AttentionItem, AttentionLevel } from "./attention.js"
 import type { GoLiveView } from "./go-live.js"
+import { failedResearchExports } from "./snapshot.js"
+import { CENTRAL_WAIT_WARN_MS, EHR_QUIET_BAD_MS, EHR_QUIET_WARN_MS } from "./thresholds.js"
 
 /**
  * Skins, theme and navigation for Status (Hospital 1.5.4).
@@ -329,45 +331,150 @@ export function availabilityStrips(
   return `<div class="avail">${rows.map(row => `<div class="avail-row"><div class="avail-name"><span>${escapeHtml(row.name)}</span><b>${escapeHtml(percent(row.statuses))}</b></div><div class="strip" style="--n:${row.statuses.length}" role="img" aria-label="${escapeHtml(row.name)}: ${escapeHtml(percent(row.statuses))}">${row.statuses.map(status => `<i class="${DOT[status] ?? "off"}"></i>`).join("")}</div></div>`).join("")}<div class="axis" aria-hidden="true"><span>${localize(locale, from, fromBg)}</span><span>${localize(locale, unit, unitBg)}</span><span>${localize(locale, "now", "сега")}</span></div></div>`
 }
 
-type MapNode = { href: string; x: number; y: number; en: string; bg: string; sub: string; state: "good" | "warn" | "bad" | "off" }
+type MapState = "good" | "warn" | "bad" | "off"
+type MapNode = { href: string; x: number; y: number; en: string; bg: string; sub: string; state: MapState }
+
+const RANK: Record<MapState, number> = { off: 0, good: 1, warn: 2, bad: 3 }
+const worse = (left: MapState, right: MapState): MapState => RANK[right] > RANK[left] ? right : left
+const stateOf = (status: ComponentStatus | undefined): MapState => (DOT[status ?? "unknown"] ?? "off") as MapState
+
+/** "12 min", "5 h", "3 days": how long ago, in the words the map uses. */
+function span(ms: number, locale: StatusLocale): string {
+  const minutes = Math.max(0, Math.round(ms / 60_000))
+  if (minutes < 60) return localize(locale, `${minutes} min`, `${minutes} мин`)
+  const hours = Math.round(minutes / 60)
+  if (hours < 48) return localize(locale, `${hours} h`, `${hours} ч`)
+  return localize(locale, `${Math.round(hours / 24)} days`, `${Math.round(hours / 24)} дни`)
+}
 
 function relative(iso: string | null, now: number, locale: StatusLocale): string {
   if (!iso) return localize(locale, "nothing received yet", "още нищо не е получено")
-  const minutes = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000))
-  if (minutes < 60) return localize(locale, `last data ${minutes} min ago`, `получено преди ${minutes} мин`)
-  const hours = Math.round(minutes / 60)
-  if (hours < 48) return localize(locale, `last data ${hours} h ago`, `получено преди ${hours} ч`)
-  return localize(locale, `last data ${Math.round(hours / 24)} days ago`, `получено преди ${Math.round(hours / 24)} дни`)
+  const ago = span(now - Date.parse(iso), locale)
+  return localize(locale, `last data ${ago} ago`, `получено преди ${ago}`)
 }
 
-export function overviewMap(data: DashboardData, attention: readonly AttentionItem[], locale: StatusLocale, now: number): string {
+/**
+ * Each box on the map, with the colour it has earned.
+ *
+ * A box is green only when the thing it stands for is known to work. Before
+ * 1.5.6 four of them were green for being switched on or set up: a hospital
+ * feed silent for days, a refused Mistral key, an update route that could no
+ * longer ask, and backups that existed only on this server all looked fine.
+ */
+export function mapNodes(data: DashboardData, attention: readonly AttentionItem[], locale: StatusLocale, now: number): MapNode[] {
   const ids = new Set(attention.filter(item => item.level !== "note").map(item => item.id))
   const byId = new Map(data.components.map(item => [item.component, item]))
   const snapshot = data.snapshot
-  const clinical = ["web", "pwa", "api", "database", "proxy"].map(id => byId.get(id)).filter((item): item is ComponentView => Boolean(item))
-  const worst = clinical.some(item => item.status === "outage") ? "bad" : clinical.some(item => item.status === "degraded") ? "warn" : clinical.length && clinical.every(item => item.status === "operational") ? "good" : "off"
-  const central = byId.get("central")
+  const noData = { sub: localize(locale, "no data yet", "още няма данни"), state: "off" as const }
   const users = snapshot?.activity
   const ehr = snapshot?.integrations?.ehr
   const ai = snapshot?.integrations?.ai
-  const nodes: MapNode[] = [
-    { href: "/status/accounts", x: 120, y: 70, en: "Phones and computers", bg: "Телефони и компютри", sub: users ? localize(locale, `${users.activeUsers} using it now`, `${users.activeUsers} го използват сега`) : localize(locale, "no data yet", "още няма данни"), state: users ? "good" : "off" },
-    { href: "/status/control/ehr", x: 520, y: 70, en: "Hospital system", bg: "Болнична система", sub: ehr ? (ehr.configured ? relative(ehr.lastReceivedAt, now, locale) : localize(locale, "not set up", "не е настроена")) : localize(locale, "no data yet", "още няма данни"), state: ehr?.configured ? "good" : "off" },
-    { href: "/status/control/central", x: 545, y: 205, en: "LOSPOR Central", bg: "LOSPOR Central", sub: central ? (central.status === "not-configured" ? localize(locale, "not set up", "не е настроен") : localize(locale, `${snapshot?.central.casesWithUnacceptedChanges ?? 0} waiting`, `${snapshot?.central.casesWithUnacceptedChanges ?? 0} чакат`)) : localize(locale, "no data yet", "още няма данни"), state: (DOT[central?.status ?? "unknown"] ?? "off") as MapNode["state"] },
-    { href: "/status/control/ai", x: 480, y: 320, en: "Mistral AI (EU)", bg: "Mistral AI (ЕС)", sub: ai ? (ai.enabled ? localize(locale, "switched on", "включен") : localize(locale, "switched off", "изключен")) : localize(locale, "no data yet", "още няма данни"), state: ai?.enabled ? "good" : "off" },
-    { href: "/status/maintenance/backups", x: 145, y: 320, en: "Backups", bg: "Резервни копия", sub: ids.has("backup") || ids.has("offhost") || ids.has("drill") ? localize(locale, "needs attention", "изисква внимание") : localize(locale, "in order", "наред"), state: ids.has("backup") ? "bad" : ids.has("offhost") || ids.has("drill") ? "warn" : "good" },
-    { href: "/status/release", x: 100, y: 200, en: "Updates", bg: "Актуализации", sub: ids.has("agent") ? localize(locale, "agent not working", "агентът не работи") : attention.some(item => item.id === "release") ? localize(locale, "new release ready", "има нова версия") : localize(locale, "up to date", "няма нови версии"), state: ids.has("agent") ? "bad" : attention.some(item => item.id === "release") ? "warn" : "good" },
+  const central = byId.get("central")
+
+  const hospitalSystem = (): Pick<MapNode, "sub" | "state"> => {
+    if (!ehr) return noData
+    if (!ehr.configured) return { sub: localize(locale, "not set up", "не е настроена"), state: "off" }
+    if (!ehr.lastReceivedAt) return { sub: relative(null, now, locale), state: "warn" }
+    const quiet = now - Date.parse(ehr.lastReceivedAt)
+    const silent = localize(locale, `no data for ${span(quiet, locale)}`, `няма данни от ${span(quiet, locale)}`)
+    if (quiet > EHR_QUIET_BAD_MS) return { sub: silent, state: "bad" }
+    if (ehr.readFailures24h) return { sub: localize(locale, `${ehr.readFailures24h} failed reads in 24 h`, `${ehr.readFailures24h} неуспешни четения за 24 ч`), state: "warn" }
+    if (quiet > EHR_QUIET_WARN_MS) return { sub: silent, state: "warn" }
+    if (ehr.unmappedCodes) return { sub: localize(locale, `${ehr.unmappedCodes} codes not mapped`, `${ehr.unmappedCodes} несъпоставени кода`), state: "warn" }
+    return { sub: relative(ehr.lastReceivedAt, now, locale), state: "good" }
+  }
+
+  const mistral = (): Pick<MapNode, "sub" | "state"> => {
+    if (!ai) return noData
+    if (!ai.enabled) return { sub: localize(locale, "switched off", "изключен"), state: "off" }
+    if (ai.check?.state === "key-refused") return { sub: localize(locale, "Mistral refuses the key", "Mistral отказва ключа"), state: "bad" }
+    if (ai.check?.state === "unreachable") return { sub: localize(locale, "Mistral not answering", "Mistral не отговаря"), state: "warn" }
+    return { sub: localize(locale, "switched on, answering", "включен, отговаря"), state: "good" }
+  }
+
+  const centralBox = (): Pick<MapNode, "sub" | "state"> => {
+    if (!central) return noData
+    if (central.status === "not-configured") return { sub: localize(locale, "not set up", "не е настроен"), state: "off" }
+    const waiting = snapshot?.central.casesWithUnacceptedChanges ?? 0
+    const since = snapshot?.centralOldestWaitingSince
+    const oldest = waiting && since ? now - Date.parse(since) : 0
+    const sub = oldest
+      ? localize(locale, `${waiting} waiting, oldest ${span(oldest, locale)}`, `${waiting} чакат, най-старият ${span(oldest, locale)}`)
+      : localize(locale, `${waiting} waiting`, `${waiting} чакат`)
+    return { sub, state: worse(stateOf(central.status), oldest > CENTRAL_WAIT_WARN_MS ? "warn" : "good") }
+  }
+
+  const backups = (): Pick<MapNode, "sub" | "state"> => {
+    if (ids.has("backup")) return { sub: localize(locale, "backups stopped", "копията са спрели"), state: "bad" }
+    if (ids.has("offhost")) return { sub: localize(locale, "copies elsewhere failing", "копирането навън не успява"), state: "warn" }
+    if (byId.get("offhost-backup")?.code === "OFFHOST_BACKUP_NOT_CONFIGURED") return { sub: localize(locale, "only on this server", "само на този сървър"), state: "warn" }
+    if (ids.has("drill")) return { sub: localize(locale, "restore drill due", "предстои пробно възстановяване"), state: "warn" }
+    return { sub: localize(locale, "in order", "наред"), state: "good" }
+  }
+
+  const updates = (): Pick<MapNode, "sub" | "state"> => {
+    if (ids.has("agent")) return { sub: localize(locale, "agent not working", "агентът не работи"), state: "bad" }
+    if (byId.get("update-supply")?.code === "UPDATE_SUPPLY_OFFLINE") return { sub: localize(locale, "installed by hand", "инсталират се ръчно"), state: "off" }
+    const code = byId.get("appliance-update")?.code
+    if (code === "UPDATE_CHECK_FAILED" || code === "UPDATE_CHECK_NEVER_RUN" || code === "UPDATE_CHECK_STALE") return { sub: localize(locale, "cannot check for updates", "не може да провери"), state: "warn" }
+    if (attention.some(item => item.id === "release")) return { sub: localize(locale, "new release ready", "има нова версия"), state: "warn" }
+    return { sub: localize(locale, "up to date", "няма нови версии"), state: "good" }
+  }
+
+  const research = (): Pick<MapNode, "sub" | "state"> => {
+    const browser = byId.get("browser")
+    if (!browser) return noData
+    if (browser.status === "outage") return { sub: localize(locale, "not answering", "не отговаря"), state: "bad" }
+    const failed = failedResearchExports(snapshot)
+    if (failed) return { sub: localize(locale, `${failed} exports failed`, `${failed} неуспешни износа`), state: "warn" }
+    if (browser.status === "degraded") return { sub: localize(locale, "slow to answer", "отговаря бавно"), state: "warn" }
+    return { sub: localize(locale, "working", "работи"), state: stateOf(browser.status) }
+  }
+
+  return [
+    { href: "/status/accounts", x: 112, y: 62, en: "Phones and computers", bg: "Телефони и компютри", ...(users ? { sub: localize(locale, `${users.activeUsers} using it now`, `${users.activeUsers} го използват сега`), state: "good" as const } : noData) },
+    { href: "/status/release", x: 112, y: 200, en: "Updates", bg: "Актуализации", ...updates() },
+    { href: "/status/maintenance/backups", x: 112, y: 338, en: "Backups", bg: "Резервни копия", ...backups() },
+    { href: "/status/control/ehr", x: 568, y: 62, en: "Hospital system", bg: "Болнична система", ...hospitalSystem() },
+    { href: "/status/control/central", x: 568, y: 200, en: "LOSPOR Central", bg: "LOSPOR Central", ...centralBox() },
+    { href: "/status/control/ai", x: 568, y: 338, en: "Mistral AI (EU)", bg: "Mistral AI (ЕС)", ...mistral() },
+    { href: "/status/control/research", x: 340, y: 352, en: "Research", bg: "Изследвания", ...research() },
   ]
-  const cx = 320, cy = 190
+}
+
+/** The appliance's own parts, drawn as dots inside the centre box. "Server" is the host: disk, certificate, clock, services, database migrations. */
+function coreParts(data: DashboardData): { id: string; en: string; bg: string; state: MapState }[] {
+  const byId = new Map(data.components.map(item => [item.component, item]))
+  const part = (id: string) => stateOf(byId.get(id)?.status)
+  const host = ["host-storage", "host-certificate", "host-clock", "host-services", "migrations"]
+    .filter(id => byId.has(id)).map(part)
+  return [
+    { id: "web", en: "Web", bg: "Уеб", state: part("web") },
+    { id: "pwa", en: "Phone app", bg: "Приложение", state: part("pwa") },
+    { id: "api", en: "API", bg: "API", state: part("api") },
+    { id: "database", en: "Database", bg: "База данни", state: part("database") },
+    { id: "proxy", en: "Gateway", bg: "Шлюз", state: part("proxy") },
+    { id: "server", en: "Server", bg: "Сървър", state: host.length ? host.reduce(worse, "good") : "off" },
+  ]
+}
+
+export function overviewMap(data: DashboardData, attention: readonly AttentionItem[], locale: StatusLocale, now: number): string {
+  const parts = coreParts(data)
+  const known = parts.filter(item => item.state !== "off")
+  const worst: MapState = known.length ? known.map(item => item.state).reduce(worse, "good") : "off"
+  const nodes = mapNodes(data, attention, locale, now)
+  const cx = 340, cy = 196
   const wires = nodes.map((node, index) => {
-    const mx = (node.x + cx) / 2 + (node.y < cy ? -30 : 30), my = (node.y + cy) / 2, d = `M${node.x} ${node.y} Q${mx} ${my} ${cx} ${cy}`
+    const mx = (node.x + cx) / 2 + (node.y < cy ? -30 : node.y > cy ? 30 : 0), my = (node.y + cy) / 2, d = `M${node.x} ${node.y} Q${mx} ${my} ${cx} ${cy}`
     const traffic = node.state === "good" ? `<circle class="packet" r="3.5"><animateMotion dur="${(2.2 + index * .35).toFixed(2)}s" repeatCount="indefinite" path="${d}"/></circle>` : ""
     return `<path class="wire ${node.state}" d="${d}"/>${traffic}`
   }).join("")
-  const box = (node: MapNode) => `<a href="${node.href}" class="node ${node.state}"><rect x="${node.x - 86}" y="${node.y - 23}" width="172" height="46" rx="12"/><circle cx="${node.x - 71}" cy="${node.y - 6}" r="4.5"/><text x="${node.x - 61}" y="${node.y - 1}">${escapeHtml(label(locale, node))}</text><text class="sub" x="${node.x - 61}" y="${node.y + 14}">${escapeHtml(node.sub)}</text></a>`
-  const core = `<a href="/status/services" class="node core ${worst}"><rect x="${cx - 96}" y="${cy - 52}" width="192" height="104" rx="18"/><text x="${cx - 80}" y="${cy - 26}" class="strong">${localize(locale, "LOSPOR appliance", "Системата LOSPOR")}</text>${[["web", "Web", "Уеб"], ["pwa", "Phone app", "Приложение"], ["api", "API", "API"], ["database", "Database", "База данни"]].map(([id, en, bg], index) => `<circle class="${DOT[byId.get(id!)?.status ?? "unknown"]}" cx="${cx - 76 + (index % 2) * 92}" cy="${cy - 2 + Math.floor(index / 2) * 22}" r="4.5"/><text class="sub" x="${cx - 66 + (index % 2) * 92}" y="${cy + 2 + Math.floor(index / 2) * 22}">${escapeHtml(localize(locale, en!, bg!))}</text>`).join("")}</a>`
-  const list = `<ul class="map-list" aria-label="${localize(locale, "The appliance and its connections", "Системата и връзките ѝ")}">${[{ href: "/status/services", en: "LOSPOR appliance", bg: "Системата LOSPOR", sub: clinical.length ? localize(locale, "web, phone app, API, database", "уеб, приложение, API, база данни") : localize(locale, "no data yet", "още няма данни"), state: worst as MapNode["state"] }, ...nodes].map(node => `<li><a href="${node.href}"><span class="state-dot ${node.state}" aria-hidden="true"></span><span>${escapeHtml(label(locale, node))}</span><small>${escapeHtml(node.sub)}</small></a></li>`).join("")}</ul>`
-  return list + `<svg class="map" viewBox="0 0 640 380" role="group" aria-label="${localize(locale, "Map of the appliance and its connections. Each box opens its page.", "Карта на системата и връзките ѝ. Всяко поле отваря своята страница.")}">${wires}${core}${nodes.map(box).join("")}</svg>`
+  const box = (node: MapNode) => `<a href="${node.href}" class="node ${node.state}"><rect x="${node.x - 94}" y="${node.y - 23}" width="188" height="46" rx="12"/><circle cx="${node.x - 79}" cy="${node.y - 6}" r="4.5"/><text x="${node.x - 69}" y="${node.y - 1}">${escapeHtml(label(locale, node))}</text><text class="sub" x="${node.x - 69}" y="${node.y + 14}">${escapeHtml(node.sub)}</text></a>`
+  const dots = parts.map((item, index) => `<circle class="${item.state}" cx="${cx - 82 + (index % 2) * 96}" cy="${cy - 10 + Math.floor(index / 2) * 22}" r="4.5"/><text class="sub" x="${cx - 72 + (index % 2) * 96}" y="${cy - 6 + Math.floor(index / 2) * 22}">${escapeHtml(label(locale, item))}</text>`).join("")
+  const core = `<a href="/status/services" class="node core ${worst}"><rect x="${cx - 102}" y="${cy - 62}" width="204" height="124" rx="18"/><text x="${cx - 84}" y="${cy - 34}" class="strong">${localize(locale, "LOSPOR appliance", "Системата LOSPOR")}</text><g class="parts">${dots}</g></a>`
+  const coreSub = known.length ? parts.filter(item => item.state === "bad" || item.state === "warn").map(item => label(locale, item)).join(", ") || localize(locale, "all parts working", "всички части работят") : localize(locale, "no data yet", "още няма данни")
+  const list = `<ul class="map-list" aria-label="${localize(locale, "The appliance and its connections", "Системата и връзките ѝ")}">${[{ href: "/status/services", en: "LOSPOR appliance", bg: "Системата LOSPOR", sub: coreSub, state: worst }, ...nodes].map(node => `<li><a href="${node.href}"><span class="state-dot ${node.state}" aria-hidden="true"></span><span>${escapeHtml(label(locale, node))}</span><small>${escapeHtml(node.sub)}</small></a></li>`).join("")}</ul>`
+  return list + `<svg class="map" viewBox="0 0 680 400" role="group" aria-label="${localize(locale, "Map of the appliance and its connections. Each box opens its page.", "Карта на системата и връзките ѝ. Всяко поле отваря своята страница.")}">${wires}${core}${nodes.map(box).join("")}</svg>`
 }
 
 export function usageCard(data: DashboardData, locale: StatusLocale): string {
