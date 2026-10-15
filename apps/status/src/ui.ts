@@ -1259,6 +1259,7 @@ function renderPreopAdministration(
     PEDIATRIC_SAFETY: localize(locale, "Pediatric safety", "Педиатрична безопасност"),
     ADULT_ADDITIONS: localize(locale, "Adult additions", "Допълнителни въпроси за възрастни"),
     PEDIATRIC_ADDITIONS: localize(locale, "Pediatric additions", "Допълнителни въпроси за деца"),
+    SHARED_ADDITIONS: localize(locale, "Adults and children", "Възрастни и деца"),
   }[section] ?? section)
   const optionSummary = (question: PreopAdministrationView["catalog"][number]): string => question.options.length
     ? question.options.map(option => escapeHtml(locale === "bg" ? option.labelBg : option.labelEn)).join(" / ")
