@@ -77,6 +77,7 @@ import {
   verifyConfirmation,
 } from "./update-requests.js"
 import { constantTimeEqual, isRecord, safeJsonParse, sha256 } from "./util.js"
+import { applyScoreSwitches } from "./preop-score-switches.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -1535,7 +1536,8 @@ export function createStatusApp({
       })
       return controlPlane.updatePreopProfile({
         population,
-        questions,
+        // A score switch (Gupta) turns its questions on or off together.
+        questions: applyScoreSwitches(population, body, questions),
         reason: formText(body, "reason", 10, 1000),
       })
     },

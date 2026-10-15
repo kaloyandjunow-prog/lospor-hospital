@@ -577,6 +577,58 @@ describe("Status Hospital control plane", () => {
     expect(html).toContain("data-move=\"up\"")
   })
 
+  // Gupta needs two questions of its own. Each can be switched on alone, but
+  // the Gupta switch turns both on (and off) together.
+  it("offers a Gupta switch for adults that turns on every question it needs", async () => {
+    const { app, auth, controlPlane } = setup()
+    const view = structuredClone(VIEW)
+    const base = { ...view.preoperative.administration!.catalog[0]!, applicability: ["ADULT"], fixedInForm: false }
+    const functional = { ...base, stableKey: "A15_FUNCTIONAL_STATUS", labelEn: "Functional status", labelBg: "Функционален статус" }
+    const procedure = { ...base, stableKey: "A16_GUPTA_PROCEDURE_TYPE", labelEn: "Gupta procedure type", labelBg: "Вид операция" }
+    const adult = { id: "profile-1", version: 5, catalogVersion: "1.5.7", status: "PUBLISHED", publishedAt: "2026-10-15T08:00:00.000Z", questions: [
+      { stableKey: functional.stableKey, enabled: true, required: false, sortOrder: 1000 },
+      { stableKey: procedure.stableKey, enabled: false, required: false, sortOrder: 1001 },
+    ] }
+    view.preoperative.administration = { catalog: [functional, procedure], activeProfile: adult, activeProfiles: { ADULT: adult, PEDIATRIC: { ...adult, id: "profile-2", questions: [] } } }
+    vi.spyOn(controlPlane, "get").mockResolvedValue(view)
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    const adults = html.slice(html.indexOf("id=\"preop-adults\""), html.indexOf("</section>", html.indexOf("id=\"preop-adults\"")))
+    const kids = html.slice(html.indexOf("id=\"preop-children\""), html.indexOf("</section>", html.indexOf("id=\"preop-children\"")))
+    // Off while only one of its questions is on; the questions keep their own boxes.
+    expect(adults).toContain("name=\"score_GUPTA\" value=\"true\" data-score-switch=\"A15_FUNCTIONAL_STATUS A16_GUPTA_PROCEDURE_TYPE\" >")
+    expect(adults).toContain("Включването на Gupta включва и тези въпроси: Функционален статус · Вид операция")
+    expect(adults).toContain("name=\"enabled_A15_FUNCTIONAL_STATUS\" value=\"true\" checked")
+    expect(kids).not.toContain("score_GUPTA")
+    expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-switch")
+
+    const save = (fields: Record<string, string>) => app.request("/status/control/preop-profile", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        population: "ADULT", order_A15_FUNCTIONAL_STATUS: "1000", order_A16_GUPTA_PROCEDURE_TYPE: "1001",
+        reason: "Switch the Gupta cardiac risk on or off", password: "Initial password phrase1!", ...fields,
+      }),
+    })
+    expect((await save({ score_GUPTA: "true", score_GUPTA_was: "false" })).status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenLastCalledWith(expect.objectContaining({ questions: [
+      { stableKey: "A15_FUNCTIONAL_STATUS", enabled: true, required: false, sortOrder: 1000 },
+      { stableKey: "A16_GUPTA_PROCEDURE_TYPE", enabled: true, required: false, sortOrder: 1001 },
+    ] }))
+    // Unticking Gupta turns its questions off again, even with a box left ticked.
+    expect((await save({ score_GUPTA_was: "true", enabled_A15_FUNCTIONAL_STATUS: "true", required_A15_FUNCTIONAL_STATUS: "true" })).status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenLastCalledWith(expect.objectContaining({ questions: [
+      { stableKey: "A15_FUNCTIONAL_STATUS", enabled: false, required: false, sortOrder: 1000 },
+      { stableKey: "A16_GUPTA_PROCEDURE_TYPE", enabled: false, required: false, sortOrder: 1001 },
+    ] }))
+    // Without the switch a question is switched on by itself.
+    expect((await save({ enabled_A16_GUPTA_PROCEDURE_TYPE: "true" })).status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenLastCalledWith(expect.objectContaining({ questions: [
+      { stableKey: "A15_FUNCTIONAL_STATUS", enabled: false, required: false, sortOrder: 1000 },
+      { stableKey: "A16_GUPTA_PROCEDURE_TYPE", enabled: true, required: false, sortOrder: 1001 },
+    ] }))
+  })
+
   it("refuses a profile save that does not say which population it is for", async () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)

@@ -36,6 +36,7 @@ import type { HostOsSignal } from "./host-os.js"
 import type { ReleaseDossier } from "./release-dossier.js"
 import { GO_LIVE_OWNERS, GO_LIVE_STAGES, type GoLiveCheck, type GoLiveSignoffView, type GoLiveState, type GoLiveStep, type GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
+import { scoreSwitchesFor } from "./preop-score-switches.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
 import { PREFS_STYLE, SKIN_STYLE, THEME_STYLE, htmlAttributes, isLegacy, legacyProfileLink, NAV_PATHS, skinHeader, ui, availabilityStrips, configureBody, goLiveCard, overviewMap, preferencesBody, rangeSwitch, todoList, usageCard, verdictCard, type AvailabilityRange } from "./ui-shell.js"
@@ -1154,6 +1155,22 @@ export const PREOP_ORDER_SCRIPT = `(() => {
     required.disabled = !box.checked;
     if (!box.checked) required.checked = false;
   }));
+  // A score switch ticks or unticks every question it needs, and follows them:
+  // it reads as on only while all of them are.
+  document.querySelectorAll("input[data-score-switch]").forEach(score => {
+    const boxes = () => (score.getAttribute("data-score-switch") || "").split(" ").filter(Boolean)
+      .map(key => score.form?.querySelector('input[name="enabled_' + key + '"]')).filter(Boolean);
+    // Set every box before announcing any: each announcement re-reads all of
+    // them, and a half-set group would untick the switch mid-way.
+    score.addEventListener("change", () => {
+      const on = score.checked;
+      boxes().forEach(box => { box.checked = on; });
+      boxes().forEach(box => box.dispatchEvent(new Event("change")));
+    });
+    boxes().forEach(box => box.addEventListener("change", () => {
+      score.checked = boxes().every(item => item.checked);
+    }));
+  });
   document.querySelectorAll("[data-preop-order-list]").forEach(list => {
     const scope = list.closest("form") || document;
     const base = Number(list.getAttribute("data-order-base") || "0");
@@ -1268,6 +1285,17 @@ function renderPreopAdministration(
       (activeByKey.get(left.stableKey)?.sortOrder ?? 10_000 + (catalogIndex.get(left.stableKey) ?? 0))
       - (activeByKey.get(right.stableKey)?.sortOrder ?? 10_000 + (catalogIndex.get(right.stableKey) ?? 0))
     const fixed = asked.filter(question => question.fixedInForm)
+    const labelOf = (key: string) => {
+      const question = asked.find(item => item.stableKey === key)
+      return question ? (locale === "bg" ? question.labelBg : question.labelEn) : key
+    }
+    // A score that needs questions of its own: ticking it ticks them (the
+    // script does it at once, the server on save); each question can still be
+    // switched on alone. On exactly when all of its questions are.
+    const scoreSwitches = scoreSwitchesFor(population.id, new Set(asked.map(question => question.stableKey))).map(item => {
+      const on = item.questions.every(key => activeByKey.get(key)?.enabled === true)
+      return `<div class="component"><label class="check"><input type="checkbox" name="score_${escapeHtml(item.key)}" value="true" data-score-switch="${escapeHtml(item.questions.join(" "))}" ${on ? "checked" : ""}> <strong>${escapeHtml(locale === "bg" ? item.labelBg : item.labelEn)}</strong></label><input type="hidden" name="score_${escapeHtml(item.key)}_was" value="${on}"><div class="component-detail">${localize(locale, `Turning on ${escapeHtml(item.name)} turns on these as well`, `Включването на ${escapeHtml(item.name)} включва и тези въпроси`)}: ${item.questions.map(key => escapeHtml(labelOf(key))).join(" · ")}</div></div>`
+    }).join("")
     const movable = asked.filter(question => !question.fixedInForm).sort(byOrder)
     const enabledPill = (enabled: boolean) => `<span class="pill ${enabled ? "info" : "warning"}">${enabled ? localize(locale, "Enabled", "Включен") : localize(locale, "Disabled", "Изключен")}</span>`
     const orderRows = movable.map((question, index) => {
@@ -1296,7 +1324,7 @@ function renderPreopAdministration(
       .join("")
     const previewPanel = `<details class="component"><summary class="component-name">${localize(locale, "Preview the form in use", "Преглед на формуляра, както го виждат лекарите")}</summary><p class="component-detail">${localize(locale, "Read-only: the profile in use now. Changes above take effect once saved.", "Само за четене: профилът, който се използва в момента. Промените горе влизат в сила, след като ги запазите.")}</p><ol>${preview || `<li>${localize(locale, "No questions are enabled.", "Няма включени въпроси.")}</li>`}</ol></details>`
     const heading = (text: string) => `<h4 class="preop-group-heading">${text}</h4>`
-    return `<section class="preop-population" id="${population.anchor}"${population.id === "ADULT" ? " data-default" : ""}><div class="facts">${textFact(localize(locale, "Profile", "Профил"), population.label)}${textFact(localize(locale, "Questions asked", "Задавани въпроси"), String(asked.length))}</div><form method="post" action="/status/control/preop-profile#${population.anchor}"><input type="hidden" name="population" value="${population.id}">${orderPanel}${heading(localize(locale, "Added questions", "Допълнителни въпроси"))}${movable.map(card).join("")}${heading(localize(locale, "Baseline questions (fixed place in the form)", "Базови въпроси (постоянно място във формуляра)"))}${fixed.map(card).join("")}<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save the profile for", "Запазване на профила за")} ${population.label.toLowerCase()}</button></form>${previewPanel}</section>`
+    return `<section class="preop-population" id="${population.anchor}"${population.id === "ADULT" ? " data-default" : ""}><div class="facts">${textFact(localize(locale, "Profile", "Профил"), population.label)}${textFact(localize(locale, "Questions asked", "Задавани въпроси"), String(asked.length))}</div><form method="post" action="/status/control/preop-profile#${population.anchor}"><input type="hidden" name="population" value="${population.id}">${scoreSwitches}${orderPanel}${heading(localize(locale, "Added questions", "Допълнителни въпроси"))}${movable.map(card).join("")}${heading(localize(locale, "Baseline questions (fixed place in the form)", "Базови въпроси (постоянно място във формуляра)"))}${fixed.map(card).join("")}<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save the profile for", "Запазване на профила за")} ${population.label.toLowerCase()}</button></form>${previewPanel}</section>`
   }
 
   const switcher = `<nav class="preop-switch" aria-label="${localize(locale, "Profile", "Профил")}">${populations.map(population => `<a href="#${population.anchor}" data-population="${population.id}">${population.label}</a>`).join("")}</nav>`
