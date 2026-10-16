@@ -758,12 +758,14 @@ describe("the preop summary and consent through the control plane (1.6.0)", () =
   it("reads the settings and texts, and refuses a malformed block", async () => {
     expect((await clientFor(viewWith(documents)).client.get()).preoperative.documents?.templates.ADULT.title).toBe("Съгласие")
     await expect(clientFor(viewWith({ ...documents, consentEnabled: "yes" })).client.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+    expect((await clientFor(viewWith({ ...documents, layout: "D" })).client.get()).preoperative.documents?.layout).toBe("D")
+    await expect(clientFor(viewWith({ ...documents, layout: "Z" })).client.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
     await expect(clientFor(viewWith({ ...documents, templates: { ADULT: { ...text, sha256: "x" }, PEDIATRIC: text } })).client.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
   })
 
   it("sends the switches and a text to their own endpoints", async () => {
     const { fetcher, client } = clientFor({})
-    await client.updatePreopDocuments({ summaryEnabled: true, consentEnabled: false, reason: "Summary only for now" })
+    await client.updatePreopDocuments({ summaryEnabled: true, consentEnabled: false, layout: "A", reason: "Summary only for now" })
     await client.saveConsentTemplate({ population: "PEDIATRIC", title: "Съгласие", body: "Текст.", reason: "Текстът на болницата" })
     const calls = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls
     expect(calls.map(([url]) => String(url))).toEqual([

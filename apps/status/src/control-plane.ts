@@ -61,6 +61,14 @@ export type ConsentTextView = { version: number; title: string; body: string; sh
 
 export type ConsentHistoryEntry = { version: number; title: string; sha256: string; createdAt: string | null; changeReason: string | null }
 
+/** How the summary and the consent print (Core PREOP_DOCUMENT_LAYOUTS); B by default. */
+export const PREOP_DOCUMENT_LAYOUTS = ["A", "B", "C", "D", "E"] as const
+export type PreopDocumentLayout = typeof PREOP_DOCUMENT_LAYOUTS[number]
+
+export function isPreopDocumentLayout(value: unknown): value is PreopDocumentLayout {
+  return typeof value === "string" && (PREOP_DOCUMENT_LAYOUTS as readonly string[]).includes(value)
+}
+
 /**
  * The preop summary page and the written consent (1.6.0): both off unless
  * switched on here. Every save of a text is a new version; old versions stay
@@ -69,6 +77,8 @@ export type ConsentHistoryEntry = { version: number; title: string; sha256: stri
 export type PreopDocumentsView = {
   summaryEnabled: boolean
   consentEnabled: boolean
+  /** The print layout; absent from an API that predates the choice, which prints B. */
+  layout?: PreopDocumentLayout
   updatedAt: string | null
   /** What prints today: the latest saved text, or the bundled one (version 0). */
   templates: Record<ConsentPopulation, ConsentTextView>
@@ -613,7 +623,7 @@ export interface ControlPlanePort {
   answerEhrCodeSystem(input: { system: string; list: EhrCodeListAnswer | null }): Promise<void>
   updatePreopProfile(input: { population: PreopPopulation; reason: string; questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }> }): Promise<void>
   /** Switch the preop summary and the consent on or off; the consent needs the summary. */
-  updatePreopDocuments(input: { summaryEnabled: boolean; consentEnabled: boolean; reason: string }): Promise<void>
+  updatePreopDocuments(input: { summaryEnabled: boolean; consentEnabled: boolean; layout: PreopDocumentLayout; reason: string }): Promise<void>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -723,6 +733,7 @@ function clinicalBaseline(
 
 function preopDocumentsShape(value: unknown): value is PreopDocumentsView {
   if (!isRecord(value) || typeof value.summaryEnabled !== "boolean" || typeof value.consentEnabled !== "boolean") return false
+  if (value.layout !== undefined && !isPreopDocumentLayout(value.layout)) return false
   if (!nullableText(value.updatedAt, 64)) return false
   const populations = ["ADULT", "PEDIATRIC"] as const
   const sha = (entry: unknown) => typeof entry === "string" && /^[0-9a-f]{64}$/.test(entry)

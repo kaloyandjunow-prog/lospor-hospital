@@ -1619,6 +1619,7 @@ describe("the preop summary and consent (1.6.0)", () => {
   const documents = {
     summaryEnabled: true,
     consentEnabled: false,
+    layout: "C",
     updatedAt: "2026-10-16T08:00:00.000Z",
     templates: {
       ADULT: { version: 2, title: "Съгласие за възрастни", body: "## Обща анестезия\n\nТекст на болницата.", sha256: sha("a") },
@@ -1650,6 +1651,23 @@ describe("the preop summary and consent (1.6.0)", () => {
     expect(html).toContain("## Обща анестезия")
     expect(html).toContain("Нов текст от юристите")
     expect(html).toContain('data-testid="consent-history-PEDIATRIC"')
+    // The layout chosen, among all five, each explained; and the technique tags in the help.
+    expect(html).toMatch(/name="layout" value="C" checked/)
+    expect(html.match(/name="layout" value="[A-E]"/g)).toHaveLength(5)
+    expect(html).toContain("[general]")
+  })
+
+  it("saves the layout chosen, and B for anything else", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const layout of ["E", "Z"]) {
+      await app.request("/status/control/preop-documents", {
+        method: "POST",
+        headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams({ summaryEnabled: "true", consentEnabled: "true", layout, reason: "Hospital copy for parents", password: "Initial password phrase1!" }).toString(),
+      })
+    }
+    expect(vi.mocked(controlPlane.updatePreopDocuments).mock.calls.map(([input]) => input.layout)).toEqual(["E", "B"])
   })
 
   it("shows nothing for an API that predates it", async () => {
@@ -1668,7 +1686,7 @@ describe("the preop summary and consent (1.6.0)", () => {
       body: new URLSearchParams({ consentEnabled: "true", reason: "Consent without the summary", password: "Initial password phrase1!" }).toString(),
     })
     expect(response.status).toBe(200)
-    expect(controlPlane.updatePreopDocuments).toHaveBeenCalledWith({ summaryEnabled: false, consentEnabled: false, reason: "Consent without the summary" })
+    expect(controlPlane.updatePreopDocuments).toHaveBeenCalledWith({ summaryEnabled: false, consentEnabled: false, layout: "B", reason: "Consent without the summary" })
   })
 
   it("saves a long Bulgarian text, which is far over the usual form size", async () => {
