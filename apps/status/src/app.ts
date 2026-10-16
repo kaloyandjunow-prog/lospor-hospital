@@ -93,6 +93,7 @@ const EHR_CHECK_FILE_MAX_BYTES = 1024 * 1024
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
+  CONSENT_TEXT_MAX_LENGTH,
   EHR_CODE_LIST_ANSWERS,
   MEDICATION_CATALOG_ID,
   type ControlPlanePort,
@@ -291,6 +292,7 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     PREOP_PROFILE_CATALOG_INCOMPLETE: ["The preoperative profile must include every bundled question its population is asked. Nothing was changed.", "Профилът за предоперативна оценка трябва да съдържа всички вградени въпроси, които се задават на тази група. Нищо не е променено."],
     PREOP_QUESTION_OTHER_POPULATION: ["A question that population is never asked cannot be in its profile. Nothing was changed.", "Въпрос, който не се задава на тази група, не може да е в нейния профил. Нищо не е променено."],
     DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
+    CONSENT_TEXT_INVALID: ["The consent text was not saved: it is empty, too long, or names a field LOSPOR does not fill in. Nothing was changed.", "Текстът на съгласието не е запазен: празен е, твърде дълъг е или съдържа поле, което LOSPOR не попълва. Нищо не е променено."],
     DISABLED_QUESTION_CANNOT_BE_REQUIRED: ["A disabled preoperative question cannot be required. Nothing was changed.", "Изключен въпрос за предоперативна оценка не може да бъде задължителен. Нищо не е променено."],
     HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
     CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
@@ -1314,6 +1316,8 @@ export function createStatusApp({
     section?: string,
     /** Numberings a discovery returned, offered in the form it re-renders. */
     numberingsOf?: (result: T) => readonly string[],
+    /** A consent text is long, and Cyrillic triples in a form body. */
+    maximumBytes = 16_384,
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1327,7 +1331,7 @@ export function createStatusApp({
       ), undefined, section), 403)
     }
     const contentLength = Number(context.req.header("content-length") ?? "0")
-    if (!Number.isFinite(contentLength) || contentLength > 16_384) {
+    if (!Number.isFinite(contentLength) || contentLength > maximumBytes) {
       return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale), undefined, section), 400)
     }
     const parsed = await context.req.parseBody().catch(() => null)
@@ -1543,6 +1547,36 @@ export function createStatusApp({
     },
     locale => localize(locale, "The preoperative profile was saved and audited. Cases of that population pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите от тази група получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
     "clinical",
+  ))
+
+  app.post("/status/control/preop-documents", context => sensitiveControlAction(
+    context,
+    body => controlPlane.updatePreopDocuments({
+      summaryEnabled: formBoolean(body, "summaryEnabled"),
+      // The consent prints from the summary: it cannot be on without it.
+      consentEnabled: formBoolean(body, "summaryEnabled") && formBoolean(body, "consentEnabled"),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The preop summary and consent settings were saved and audited. They apply from each clinician's next preop.", "Настройките за предоперативно обобщение и съгласие са запазени и записани в одитния журнал. Важат от следващия предоперативен преглед на всеки лекар."),
+    "clinical",
+  ))
+
+  app.post("/status/control/consent-template", context => sensitiveControlAction(
+    context,
+    body => {
+      const population = body.population === "PEDIATRIC" ? "PEDIATRIC" : body.population === "ADULT" ? "ADULT" : null
+      if (!population) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      return controlPlane.saveConsentTemplate({
+        population,
+        title: formText(body, "title", 1, 200),
+        body: formText(body, "body", 1, CONSENT_TEXT_MAX_LENGTH),
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale, "The consent text was saved as a new version and audited. Sheets printed from now on carry it; earlier sheets keep the version they were printed with.", "Текстът на съгласието е запазен като нов вариант и записан в одитния журнал. Отпечатаните отсега нататък листове го съдържат; по-рано отпечатаните запазват своя вариант."),
+    "clinical",
+    undefined,
+    300_000,
   ))
 
   app.post("/status/control/external-ai/policy", context => sensitiveControlAction(

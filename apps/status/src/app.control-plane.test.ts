@@ -319,6 +319,8 @@ function setup() {
     searchMedications: vi.fn(async (query: string) => query === "amlo" ? [AMLODIPINE] : []),
     answerEhrCodeSystem: vi.fn(async () => {}),
     updatePreopProfile: vi.fn(async () => {}),
+    updatePreopDocuments: vi.fn(async () => {}),
+    saveConsentTemplate: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
     setEhrIdentifierSystems: vi.fn(async () => {}),
     discoverEhrTransport: vi.fn(async () => ({
@@ -1609,5 +1611,94 @@ describe("asking the hospital system over the folder (1.5.0)", () => {
       body: new URLSearchParams({ enabled: "true", reason: "Vendor answers request files", password: "wrong" }).toString(),
     })
     expect(controlPlane.setEhrFolderRequests).not.toHaveBeenCalled()
+  })
+})
+
+describe("the preop summary and consent (1.6.0)", () => {
+  const sha = (character: string) => character.repeat(64)
+  const documents = {
+    summaryEnabled: true,
+    consentEnabled: false,
+    updatedAt: "2026-10-16T08:00:00.000Z",
+    templates: {
+      ADULT: { version: 2, title: "Съгласие за възрастни", body: "## Обща анестезия\n\nТекст на болницата.", sha256: sha("a") },
+      PEDIATRIC: { version: 0, title: "Съгласие за деца", body: "Вграден текст.", sha256: sha("b") },
+    },
+    bundled: {
+      ADULT: { title: "Вградено за възрастни", body: "Вграден текст." },
+      PEDIATRIC: { title: "Вградено за деца", body: "Вграден текст." },
+    },
+    history: {
+      ADULT: [
+        { version: 2, title: "Съгласие за възрастни", sha256: sha("a"), createdAt: "2026-10-16T08:00:00.000Z", changeReason: "Нов текст от юристите" },
+        { version: 1, title: "Съгласие за възрастни", sha256: sha("c"), createdAt: "2026-10-15T08:00:00.000Z", changeReason: null },
+        { version: 0, title: "Вградено", sha256: sha("d"), createdAt: null, changeReason: null },
+      ],
+      PEDIATRIC: [{ version: 0, title: "Вградено", sha256: sha("b"), createdAt: null, changeReason: null }],
+    },
+  }
+  const withDocuments = () => ({ ...VIEW, preoperative: { ...VIEW.preoperative, documents } })
+
+  it("shows the switches, each population's text and its versions", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(withDocuments() as never)
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    expect(html).toContain('action="/status/control/preop-documents#preop-documents"')
+    expect(html).toMatch(/name="summaryEnabled" value="true" checked/)
+    expect(html).not.toMatch(/name="consentEnabled" value="true" checked/)
+    expect(html).toContain("## Обща анестезия")
+    expect(html).toContain("Нов текст от юристите")
+    expect(html).toContain('data-testid="consent-history-PEDIATRIC"')
+  })
+
+  it("shows nothing for an API that predates it", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    expect(html).not.toContain("/status/control/preop-documents")
+  })
+
+  it("keeps the consent off while the summary is off", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/preop-documents", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ consentEnabled: "true", reason: "Consent without the summary", password: "Initial password phrase1!" }).toString(),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.updatePreopDocuments).toHaveBeenCalledWith({ summaryEnabled: false, consentEnabled: false, reason: "Consent without the summary" })
+  })
+
+  it("saves a long Bulgarian text, which is far over the usual form size", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const body = "## Обща анестезия\n\n" + "Възможни усложнения са болка и гадене. ".repeat(300)
+    const form = new URLSearchParams({ population: "PEDIATRIC", title: "Съгласие за деца", body, reason: "Текстът на болницата", password: "Initial password phrase1!" }).toString()
+    expect(form.length).toBeGreaterThan(16_384)
+    const response = await app.request("/status/control/consent-template", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded", "content-length": String(Buffer.byteLength(form)) }),
+      body: form,
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.saveConsentTemplate).toHaveBeenCalledWith({ population: "PEDIATRIC", title: "Съгласие за деца", body: body.trim(), reason: "Текстът на болницата" })
+  })
+
+  it("saves nothing without the password, or for an unknown population", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const fields of [
+      { population: "ADULT", title: "T", body: "Текст", reason: "A reason long enough", password: "wrong" },
+      { population: "NEONATE", title: "T", body: "Текст", reason: "A reason long enough", password: "Initial password phrase1!" },
+    ]) {
+      await app.request("/status/control/consent-template", {
+        method: "POST",
+        headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams(fields).toString(),
+      })
+    }
+    expect(controlPlane.saveConsentTemplate).not.toHaveBeenCalled()
   })
 })

@@ -739,3 +739,37 @@ describe("the watched folder through the control plane (1.5.0)", () => {
     await expect(client({}).client.checkEhrFile({ content: "{}" })).rejects.toThrow()
   })
 })
+
+describe("the preop summary and consent through the control plane (1.6.0)", () => {
+  const sha = "a".repeat(64)
+  const text = { version: 0, title: "Съгласие", body: "Текст.", sha256: sha }
+  const documents = {
+    summaryEnabled: true, consentEnabled: true, updatedAt: null,
+    templates: { ADULT: text, PEDIATRIC: text },
+    bundled: { ADULT: { title: "Съгласие", body: "Текст." }, PEDIATRIC: { title: "Съгласие", body: "Текст." } },
+    history: { ADULT: [{ version: 0, title: "Съгласие", sha256: sha, createdAt: null, changeReason: null }], PEDIATRIC: [] },
+  }
+  const clientFor = (response: unknown) => {
+    const fetcher = vi.fn(async () => json(response)) as unknown as typeof fetch
+    return { fetcher, client: new ControlPlaneClient("http://api:3002/v1/internal/hospital/control-plane", "s".repeat(32), 1_000, fetcher) }
+  }
+  const viewWith = (value: unknown) => ({ ...VIEW, preoperative: { ...(VIEW as { preoperative?: object }).preoperative, scope: "APPLIANCE_WIDE", catalogVersion: "1.5.7", source: "BUNDLED_IMMUTABLE_CATALOG", profileAdministrationPath: "/v1/preop/profile", documents: value } })
+
+  it("reads the settings and texts, and refuses a malformed block", async () => {
+    expect((await clientFor(viewWith(documents)).client.get()).preoperative.documents?.templates.ADULT.title).toBe("Съгласие")
+    await expect(clientFor(viewWith({ ...documents, consentEnabled: "yes" })).client.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+    await expect(clientFor(viewWith({ ...documents, templates: { ADULT: { ...text, sha256: "x" }, PEDIATRIC: text } })).client.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+  })
+
+  it("sends the switches and a text to their own endpoints", async () => {
+    const { fetcher, client } = clientFor({})
+    await client.updatePreopDocuments({ summaryEnabled: true, consentEnabled: false, reason: "Summary only for now" })
+    await client.saveConsentTemplate({ population: "PEDIATRIC", title: "Съгласие", body: "Текст.", reason: "Текстът на болницата" })
+    const calls = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls.map(([url]) => String(url))).toEqual([
+      "http://api:3002/v1/internal/hospital/control-plane/preop-documents",
+      "http://api:3002/v1/internal/hospital/control-plane/consent-templates",
+    ])
+    expect(JSON.parse(String((calls[1]![1] as RequestInit).body))).toEqual({ population: "PEDIATRIC", title: "Съгласие", body: "Текст.", reason: "Текстът на болницата" })
+  })
+})

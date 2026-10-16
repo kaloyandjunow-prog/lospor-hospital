@@ -54,6 +54,32 @@ export type PreopAdministrationView = {
   activeProfiles?: Record<PreopPopulation, PreopActiveProfileAdmin>
 }
 
+/** Who a consent text is for: children under 14, or adults and 14 to 18. */
+export type ConsentPopulation = "ADULT" | "PEDIATRIC"
+
+export type ConsentTextView = { version: number; title: string; body: string; sha256: string }
+
+export type ConsentHistoryEntry = { version: number; title: string; sha256: string; createdAt: string | null; changeReason: string | null }
+
+/**
+ * The preop summary page and the written consent (1.6.0): both off unless
+ * switched on here. Every save of a text is a new version; old versions stay
+ * for the sheets that carried them. Absent from an older API.
+ */
+export type PreopDocumentsView = {
+  summaryEnabled: boolean
+  consentEnabled: boolean
+  updatedAt: string | null
+  /** What prints today: the latest saved text, or the bundled one (version 0). */
+  templates: Record<ConsentPopulation, ConsentTextView>
+  /** The bundled texts, to start again from. */
+  bundled: Record<ConsentPopulation, { title: string; body: string }>
+  history: Record<ConsentPopulation, ConsentHistoryEntry[]>
+}
+
+/** The longest consent text the API takes (Core CONSENT_TEXT_MAX_LENGTH). */
+export const CONSENT_TEXT_MAX_LENGTH = 40_000
+
 export type ResearchGrantInput = {
   userId: string
   institutionId: string | null
@@ -196,6 +222,7 @@ export type ControlPlaneView = {
     source: "BUNDLED_IMMUTABLE_CATALOG"
     profileAdministrationPath: string
     administration?: PreopAdministrationView
+    documents?: PreopDocumentsView
   }
   externalAi: {
     externalAiEnabled: boolean
@@ -585,6 +612,10 @@ export interface ControlPlanePort {
    */
   answerEhrCodeSystem(input: { system: string; list: EhrCodeListAnswer | null }): Promise<void>
   updatePreopProfile(input: { population: PreopPopulation; reason: string; questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }> }): Promise<void>
+  /** Switch the preop summary and the consent on or off; the consent needs the summary. */
+  updatePreopDocuments(input: { summaryEnabled: boolean; consentEnabled: boolean; reason: string }): Promise<void>
+  /** Save a consent text as its population's next version. */
+  saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -688,6 +719,22 @@ function clinicalBaseline(
     || !sameClinicalProfileCounts(selectedCounts, expectedCounts)
   )) return null
   return value as unknown as ClinicalBaselineReadiness
+}
+
+function preopDocumentsShape(value: unknown): value is PreopDocumentsView {
+  if (!isRecord(value) || typeof value.summaryEnabled !== "boolean" || typeof value.consentEnabled !== "boolean") return false
+  if (!nullableText(value.updatedAt, 64)) return false
+  const populations = ["ADULT", "PEDIATRIC"] as const
+  const sha = (entry: unknown) => typeof entry === "string" && /^[0-9a-f]{64}$/.test(entry)
+  const textView = (entry: unknown) => isRecord(entry) && finiteInteger(entry.version, 1_000_000) && text(entry.title, 200) && text(entry.body, CONSENT_TEXT_MAX_LENGTH) && sha(entry.sha256)
+  const bundledView = (entry: unknown) => isRecord(entry) && text(entry.title, 200) && text(entry.body, CONSENT_TEXT_MAX_LENGTH)
+  const historyEntry = (entry: unknown) => isRecord(entry) && finiteInteger(entry.version, 1_000_000) && text(entry.title, 200) && sha(entry.sha256) && nullableText(entry.createdAt, 64) && nullableText(entry.changeReason, 1000)
+  return isRecord(value.templates) && isRecord(value.bundled) && isRecord(value.history)
+    && populations.every(population => textView((value.templates as Record<string, unknown>)[population])
+      && bundledView((value.bundled as Record<string, unknown>)[population])
+      && Array.isArray((value.history as Record<string, unknown>)[population])
+      && ((value.history as Record<string, unknown[]>)[population]!).length <= 1000
+      && ((value.history as Record<string, unknown[]>)[population]!).every(historyEntry))
 }
 
 function preopAdministrationShape(value: unknown): value is PreopAdministrationView {
@@ -895,7 +942,8 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !text(value.preoperative.catalogVersion, 64)
     || value.preoperative.source !== "BUNDLED_IMMUTABLE_CATALOG"
     || !text(value.preoperative.profileAdministrationPath, 256)
-    || (value.preoperative.administration !== undefined && !preopAdministrationShape(value.preoperative.administration)))) return null
+    || (value.preoperative.administration !== undefined && !preopAdministrationShape(value.preoperative.administration))
+    || (value.preoperative.documents !== undefined && !preopDocumentsShape(value.preoperative.documents)))) return null
   return {
     ...value,
     preoperative: isRecord(value.preoperative) ? value.preoperative as ControlPlaneView["preoperative"] : {
@@ -1246,5 +1294,11 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updatePreopProfile(input: Parameters<ControlPlanePort["updatePreopProfile"]>[0]): Promise<void> {
     return this.mutate("/preop-profile", input)
+  }
+  updatePreopDocuments(input: Parameters<ControlPlanePort["updatePreopDocuments"]>[0]): Promise<void> {
+    return this.mutate("/preop-documents", input)
+  }
+  saveConsentTemplate(input: Parameters<ControlPlanePort["saveConsentTemplate"]>[0]): Promise<void> {
+    return this.mutate("/consent-templates", input)
   }
 }
