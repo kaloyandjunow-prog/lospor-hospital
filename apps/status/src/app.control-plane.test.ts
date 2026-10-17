@@ -602,7 +602,10 @@ describe("Status Hospital control plane", () => {
     expect(adults).toContain("Включването на Gupta включва и тези въпроси: Функционален статус · Вид операция")
     expect(adults).toContain("name=\"enabled_A15_FUNCTIONAL_STATUS\" value=\"true\" checked")
     expect(kids).not.toContain("score_GUPTA")
+    // Only one of the two on: Status says Gupta is not drawn anywhere.
+    expect(adults).toContain("data-testid=\"score-partial-GUPTA\">Включени са само част от тези въпроси, затова Gupta не се изчислява и не се показва никъде.")
     expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-switch")
+    expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-partial")
 
     const save = (fields: Record<string, string>) => app.request("/status/control/preop-profile", {
       method: "POST",
