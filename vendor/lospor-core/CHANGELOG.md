@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Core
 
+## [9.15.1] - 2026-10-19
+
+### Added
+
+- **Bulgarian for LOSPOR Hospital's own server messages**: patient links,
+  hospital-system imports, Status, the AI model check and the lab-mapping
+  codes. The appliance's apps translate them with the same table, and its API
+  test now finds none untranslated.
+
 ## [9.15.0] - 2026-10-19
 
 ### Added
