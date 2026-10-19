@@ -66,6 +66,19 @@ describe("every skin reaches every page", () => {
     for (const path of passwordPaths) expect(found, `${skin}: ${path}`).toContain(path)
   })
 
+  // Named, not read from NAV_GROUPS: dropping the menu entry must fail here.
+  it("links the preoperative form and calculated guidance in every skin and on Configure", async () => {
+    for (const skin of ["sidebar", "index", "console"] as const) {
+      expect(links(render(skin)), skin).toContain("/status/control/preop")
+      expect(links(render(skin)), skin).toContain("/status/control/clinical")
+    }
+    const { app, auth } = setup()
+    const cookie = `${await signIn(auth)}; lospor_status_skin=inbox`
+    const configure = await (await app.request("/status/configure", { headers: headers({ cookie }) })).text()
+    expect(configure).toContain('href="/status/control/preop"')
+    expect(configure).toContain("Preoperative form")
+  })
+
   it("map hub: every group is a tab, and the open group's pages are chips", () => {
     const html = render("maphub")
     for (const group of NAV_GROUPS) expect(links(html)).toContain(group.items[0]!.path)
