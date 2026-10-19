@@ -6,7 +6,7 @@ Hospital release е приемлив само след успешни automated 
 Linux appliance drill. Serverless демонстрацията не е част от упражнението.
 
 За клиничния кандидат 1.6.0 координираният набор е Core 9.15.1, а API, Web и PWA
-9.15.0; Browser е 0.8.3. Прегледайте и внесете промените в този ред: Core, Web,
+9.15.0; Browser е 0.9.0. Прегледайте и внесете промените в този ред: Core, Web,
 PWA, Browser, API. API е нарочно последен, защото маршрутите за финализиране
 използват общия Core договор. Локалните Hospital package overlay-и се запазват,
 а `UPSTREAM_VERSIONS.json` записва точните commit-и и commit-натите tree ID

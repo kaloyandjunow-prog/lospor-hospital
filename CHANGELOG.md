@@ -2,7 +2,7 @@
 
 ## [1.6.0] - 2026-10-19
 
-Vendors Core 9.15.1 and API, Web and PWA 9.15.0; Browser stays 0.8.3. Five
+Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.0. Five
 clinical database migrations (`20261015120000_asa_suggestion`,
 `20261016120000_preop_documents`, `20261016140000_preop_document_layouts`,
 `20261017120000_preop_planned_anaesthesia`,
@@ -49,6 +49,13 @@ pre-update backup.
   in Settings.
 - **Clinical rule sets v3.** They are installed beside v2 on the update, and
   the platform selection moves to v3 only where 1.2.0 made it.
+- **Research Browser 0.9.0:**
+  - cohort filters on the raw RCRI, Apfel, STOP-BANG, POVOC, COLDS and PAED
+    counts;
+  - scores read out of their maximum with the guideline band;
+  - a case shows the Gupta MICA risk and the PAED band;
+  - the overview shows, for each ASA suggestion rule, how often the
+    anaesthetists agreed.
 
 ### Changed
 
