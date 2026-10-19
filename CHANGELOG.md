@@ -1,6 +1,10 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased]
+## [1.6.1] - 2026-10-19
+
+Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.1. No database
+migration of its own; from 1.5.6 the update still runs the five 1.6.0
+migrations, so going back restores the pre-update backup.
 
 ### Changed
 
@@ -9,6 +13,11 @@
   written consent. They used to sit under calculated guidance, where nobody
   would look for them. Calculated guidance keeps the dose guidance and the rule
   baselines. The legacy skin keeps both on one page.
+
+### Upstream
+
+- **Browser 0.9.1:** risk score filters on Compare, the same raw RCRI, Apfel,
+  STOP-BANG, POVOC, COLDS and PAED counts as the cohort builder.
 
 ## [1.6.0] - 2026-10-19
 
