@@ -1,5 +1,11 @@
 # Changelog - LOSPOR Web App
 
+## [9.15.1] - 2026-10-20
+
+On Core 9.15.0. No web changes: this release keeps the web app on the same
+version as the API and the phone app, whose Start at sheet gained the start
+date (the web start already used the chosen date).
+
 ## [9.15.0] - 2026-10-19
 
 On Core 9.15.0.

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { AUDIT_ACTION_REGISTRY } from "@/lib/audit-actions"
+// The appliance's two audit screens: the page must pass both their readers.
+// Loaded at test time by a path tsc does not follow: the API image is built
+// from apps/api alone.
+type AuditReader = { parseAuditPage: (value: unknown) => unknown }
+const PHONE_READER = new URL("../../../../../../pwa/src/lib/audit-actions.ts", import.meta.url).href
+const WEB_READER = new URL("../../../../../../web/src/lib/audit-actions.ts", import.meta.url).href
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -51,6 +57,20 @@ describe("administrator audit history contract", () => {
       page: 0,
       pageSize: 50,
     })
+  })
+
+  // Without schemaVersion both screens rejected every page as unavailable
+  // (1.2.0 to 1.6.1). Neither the target id nor the detail leaves the API.
+  it("sends the versioned, privacy-safe page both appliance screens read", async () => {
+    const { GET } = await import("./route")
+    const response = await GET(new NextRequest("https://api.lospor.org/v1/admin/audit-logs"))
+    const page = JSON.parse(JSON.stringify(await response.json()))
+    const phone = await import(/* @vite-ignore */ PHONE_READER) as AuditReader
+    const web = await import(/* @vite-ignore */ WEB_READER) as AuditReader
+    expect(phone.parseAuditPage(page), "phone audit screen").not.toBeNull()
+    expect(web.parseAuditPage(page), "web audit screen").not.toBeNull()
+    expect(page.logs[0]).not.toHaveProperty("detail")
+    expect(page.logs[0]).not.toHaveProperty("entityId")
   })
 
   it("rejects unknown filter codes before querying audit rows", async () => {

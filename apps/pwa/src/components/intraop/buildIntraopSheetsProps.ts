@@ -66,6 +66,7 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   startAtInput: StartAtProps["value"]
   setStartAtOpen: (open: boolean) => void
   setStartAtInput: StartAtProps["onChange"]
+  startAtDay: Pick<StartAtProps, "dayKey" | "todayKey" | "onDayChange">
   startCaseAt: StartAtProps["onStart"]
   endCaseOpen: EndCaseProps["visible"]
   setEndCaseOpen: (open: boolean) => void
@@ -107,6 +108,7 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
     compOpen, setCompOpen, COMPLICATION_TC_TITLES, selectedComplications, compGroupExpanded,
     compSaving, toggleComplicationGroup, toggleComplication, setSelectedComplications,
     saveComplications, startAtOpen, startAtInput, setStartAtOpen, setStartAtInput, startCaseAt,
+    startAtDay,
     endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, endCaseDecisions, setEndCaseDecisions,
     finaliseCase, premedPickOpen, premedPickPhase, PREMED_LIBRARY, premedPickCat,
     premedPickDrug, premedPickDose, premedPickRoute, setPremedPickOpen, setPremedPickCat,
@@ -166,6 +168,7 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       value: startAtInput,
       onClose: () => setStartAtOpen(false),
       onChange: setStartAtInput,
+      ...startAtDay,
       onStart: startCaseAt,
     },
     endCase: {

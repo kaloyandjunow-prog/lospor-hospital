@@ -1,5 +1,32 @@
 # Changelog - LOSPOR Hospital
 
+## [1.6.2] - 2026-10-19
+
+Vendors Core 9.15.1, API, Web and PWA 9.15.1 and Browser 0.9.1. No database
+migration of its own; from 1.5.6 the update still runs the five 1.6.0
+migrations, so going back restores the pre-update backup.
+
+### Fixed
+
+- **Start at on the phone took only a time** (PWA 9.15.1). The intraop Start
+  at sheet placed the time on today, or yesterday when ahead of now, while the
+  Time tab steps the start date two weeks back. The sheet now has the same
+  date stepper.
+- **The preop summary and consent could not be switched on.** 1.6.0 shipped
+  their Status screens with nothing behind them in the API: the control view
+  carried no summary or consent settings, so Status hid the section, and the
+  two save routes it posts to did not exist. The view now carries the
+  switches, the layout, each population's text, the bundled texts and every
+  saved version, and both saves go through the control plane with an audit
+  row. A contract test runs the real view through Status's own check, and a
+  cross-app test switches both on in Status and opens the summary page.
+- **Audit logs said "unavailable" on the phone and web.** Since 1.2.0 both
+  appliance screens read a versioned, privacy-safe page, but the API sent
+  upstream's shape without the version, so every page was refused. The API
+  now sends that page: who did what, and when; the target id and the detail
+  stay in the database. A test runs the real page through both screens'
+  readers, and an overlay keeps a future vendor from undoing it.
+
 ## [1.6.1] - 2026-10-19
 
 Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.1. No database

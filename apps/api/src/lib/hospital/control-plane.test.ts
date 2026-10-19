@@ -32,6 +32,9 @@ vi.mock("@/lib/prisma", () => ({
     drug: { findMany: async () => [] },
     hospitalEhrCodeSystem: { findMany: async () => [] },
     preopAssessmentProfile: { findFirst: mocks.preopProfile },
+    // Nobody has touched the summary or consent: no policy row, bundled texts.
+    preopDocumentPolicy: { findUnique: async () => null },
+    consentTemplateVersion: { findFirst: async () => null, findMany: async () => [] },
   },
 }))
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -88,6 +91,10 @@ import {
   updateHospitalPreopProfile,
 } from "./control-plane"
 import { BUNDLED_PREOP_QUESTIONS } from "@/lib/preop/catalog"
+// Status, the consumer: the view must pass its own check. Loaded at test time
+// by a path tsc does not follow: the API image is built from apps/api alone.
+const STATUS_CONTROL_PLANE = new URL("../../../../status/src/control-plane.ts", import.meta.url).href
+const statusContract = () => import(/* @vite-ignore */ STATUS_CONTROL_PLANE) as Promise<{ preopDocumentsShape: (value: unknown) => boolean }>
 
 describe("privacy-safe Central Status view", () => {
   beforeEach(() => {
@@ -269,6 +276,10 @@ describe("privacy-safe Central Status view", () => {
     expect(mocks.baselines).toHaveBeenCalledOnce()
     expect(mocks.patientIdentifier).toHaveBeenCalledOnce()
     expect(mocks.ehrTransport).toHaveBeenCalledOnce()
+    // 1.6.0 shipped the Status screens with no documents in this view, so
+    // they never showed. Status's own check is the contract.
+    expect(view.preoperative.documents).toMatchObject({ summaryEnabled: false, consentEnabled: false, layout: "B", updatedAt: null })
+    expect((await statusContract()).preopDocumentsShape(view.preoperative.documents)).toBe(true)
     expect(JSON.stringify(view)).not.toContain("payload")
     expect(JSON.stringify(view)).not.toContain("sourceRefs")
     expect(JSON.stringify(view)).not.toContain("selectedById")

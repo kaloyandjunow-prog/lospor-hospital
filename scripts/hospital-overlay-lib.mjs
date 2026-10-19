@@ -86,6 +86,15 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     forbidden: ["renderRecordPdf"],
   },
   {
+    // The web and phone audit screens read a versioned, privacy-safe page;
+    // upstream's route sends neither the version nor a safe row (1.6.2).
+    id: "api.audit-logs-safe-page",
+    source: "api",
+    path: "apps/api/src/app/v1/admin/audit-logs/route.ts",
+    required: ["schemaVersion: 1"],
+    forbidden: ["detail:    l.detail", "entityId:  l.entityId"],
+  },
+  {
     // ...so a print link is how every sheet is printed, the preop summary and
     // consent included, with layout C's ticked techniques (1.6.0).
     id: "api.print-token-preop-summary",

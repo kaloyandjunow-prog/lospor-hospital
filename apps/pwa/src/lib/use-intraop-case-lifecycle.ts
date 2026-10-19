@@ -15,13 +15,13 @@ import { localTimeOf } from "@lospor/core/intraop-time"
 import { logAfterAttentionAnswer, useIntraopAttention } from "@/lib/use-intraop-attention"
 import { useCaseSaveState } from "@/lib/use-case-save-state"
 import { useResumeCountdown } from "@/lib/use-resume-countdown"
-import { promoteDraftCaseToInProgress, type IntraopTimingOverrides } from "@/lib/intraop-timing"
+import { promoteDraftCaseToInProgress, startAtDayProps, startInstantForEntry, type IntraopTimingOverrides } from "@/lib/intraop-timing"
 import {
   buildIntraopEndTiming,
   buildIntraopStartTiming,
   isValidTimeZone,
+  localDateKey,
   resolvedTimeZone,
-  startInstantForWallClock,
 } from "@lospor/core/intraop-time"
 import {
   evaluateIntraopReadiness,
@@ -121,6 +121,11 @@ export function useIntraopCaseLifecycle({
   const [endCaseOpen, setEndCaseOpen] = useState(false)
   const [startAtOpen, setStartAtOpen] = useState(false)
   const [startAtInput, setStartAtInput] = useState("")
+  // The day the Start at sheet places its time on; null is today (a time ahead
+  // of now then means yesterday). The Time tab has the same stepper.
+  const [startAtDayKey, setStartAtDayKey] = useState<string | null>(null)
+  const startAtZone = isValidTimeZone(caseTimezone) ? caseTimezone : resolvedTimeZone()
+  const startAtTodayKey = (startAtZone && localDateKey(serverNow(), startAtZone)) ?? serverNow().toISOString().slice(0, 10)
   const [endCaseDecisions, setEndCaseDecisions] = useState<Record<string, "stop" | "continue">>({})
   const [continuedPostopItems, setContinuedPostopItems] = useState<string[]>([])
   const [caseEnded, setCaseEnded] = useState(false)
@@ -162,7 +167,7 @@ export function useIntraopCaseLifecycle({
   async function startCaseAt(hhmm: string) {
     if (startRef.current) return
     const zone = isValidTimeZone(caseTimezone) ? caseTimezone : resolvedTimeZone()
-    const startDate = zone ? startInstantForWallClock(serverNow(), hhmm, zone) : null
+    const startDate = zone ? startInstantForEntry(serverNow(), hhmm, startAtDayKey, zone) : null
     const timing = startDate && zone ? buildIntraopStartTiming(startDate, zone) : null
     if (!startDate || !timing) return
     startRef.current = startDate
@@ -331,6 +336,9 @@ export function useIntraopCaseLifecycle({
     setStartAtOpen,
     startAtInput,
     setStartAtInput,
+    startAtDay: startAtDayProps(startAtDayKey, startAtTodayKey, setStartAtDayKey),
+    /** Opens the Start at sheet at this time, on today. */
+    openStartAt: (hhmm: string) => { setStartAtInput(hhmm); setStartAtDayKey(null); setStartAtOpen(true) },
     endCaseDecisions,
     setEndCaseDecisions,
     continuedPostopItems,
