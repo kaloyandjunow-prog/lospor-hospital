@@ -118,6 +118,14 @@ export const schema = z.object({
   coldsLungDisease: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
   coldsAirwayDevice: z.enum(["FACE_MASK_OR_NONE", "SUPRAGLOTTIC", "TRACHEAL_TUBE"]).optional(),
   coldsSurgery: z.enum(["NON_AIRWAY", "MINOR_AIRWAY", "MAJOR_AIRWAY"]).optional(),
+  // The anaesthesia planned at the preop visit (optional), in the intraop menus (Core preop-plan).
+  plannedAnaesthesia: z.object({
+    techniques: z.array(z.string()).optional(),
+    airwayDevices: z.array(z.string()).optional(),
+    airwayTools: z.array(z.string()).optional(),
+    vascularAccesses: z.array(z.object({ site: z.string() }).passthrough()).optional(),
+    postopVentilation: z.boolean().optional(),
+  }).optional(),
   pediatricFasting: z.array(z.object({
     category: z.enum([
       "CLEAR_FLUIDS",
@@ -125,9 +133,8 @@ export const schema = z.object({
       "INFANT_FORMULA_UNDER_1_YEAR",
       "SOLID_FOOD_OR_COW_MILK",
     ]),
-    lastIntakeAt: z.string().datetime().nullable(),
-    status: z.enum(["MET", "NOT_MET", "UNKNOWN"]).optional(),
-    requiredHours: z.number().nonnegative().optional(),
+    // Nil-by-mouth assignment: this intake stops so many hours before surgery.
+    hoursBefore: z.number().min(0).max(24),
     policyId: z.string(),
     policyVersion: z.string(),
   })).default([]),

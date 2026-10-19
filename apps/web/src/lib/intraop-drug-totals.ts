@@ -1,7 +1,11 @@
 import { calculateDrugTotals } from "@lospor/core/intraop-summary"
 import type { TimetableData } from "@/types/timetable"
 
-import { formatInfusionTotal, infusionLocalAnaestheticMg } from "@lospor/core/intraop-totals"
+import { deliveredInfusionVolumeMl, formatInfusionTotal, infusionLocalAnaestheticMg } from "@lospor/core/intraop-totals"
+import type { TciPatient } from "@lospor/core/tci"
+
+export { infusionsVolumeMl } from "@lospor/core/intraop-totals"
+export { tciPatientFrom } from "@lospor/core/tci"
 import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
 import { calcInfusionTotal, type WeightBasisMap } from "@/lib/infusion-calc"
 
@@ -21,6 +25,8 @@ export function computeLiveDrugTotals(
   calcTbw: number | null,
   infusionWeightBasis: WeightBasisMap,
   heightCm: number | null = null,
+  /** The patient a TCI infusion's model is worked out for (2026-10-18). */
+  tciPatient: TciPatient | null = null,
 ) {
   // Per-m² infusions need the body surface area (Mosteller), from the same
   // height and weight the record prints.
@@ -35,7 +41,7 @@ export function computeLiveDrugTotals(
   }))
 
   const infusionList = (timetable.infusions ?? []).map(inf => {
-    const total = calcInfusionTotal(inf, calcIbw, calcTbw, infusionWeightBasis, bodySurfaceAreaM2)
+    const total = calcInfusionTotal(inf, calcIbw, calcTbw, infusionWeightBasis, bodySurfaceAreaM2, tciPatient)
     const { amount, unit, weightUsed, weightBasis, bsaUsed } = total
     return {
       name: inf.name,
@@ -47,6 +53,10 @@ export function computeLiveDrugTotals(
       weightUsed,
       weightBasis,
       bsaUsed,
+      // Its millilitres, from the pump rates (or a TCI model); none when the syringe was skipped (2026-10-18).
+      volumeMl: inf.planned ? null : deliveredInfusionVolumeMl(inf, new Date(), tciPatient),
+      // A TCI infusion: the pump's total, the calculation, and why there may be neither.
+      ...(total.tci ? { tci: { calculated: total.tci.calculated, pump: total.tci.pump, unavailable: total.tci.unavailable, pumpNeedsStrength: total.tci.pumpNeedsStrength } } : {}),
     }
   })
 

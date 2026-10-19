@@ -94,10 +94,10 @@ describe("AdultClinicalRuleEditor", () => {
       />,
     )
 
-    expect(screen.getByRole("tab", { name: "IV · mg · default" })).toBeTruthy()
+    expect(screen.getByRole("tab", { name: "Intravenous · mg · default" })).toBeTruthy()
     expect((screen.getByLabelText("Amount unit") as HTMLSelectElement).value).toBe("MG")
 
-    fireEvent.click(screen.getByRole("tab", { name: "INFILTRATION · mL" }))
+    fireEvent.click(screen.getByRole("tab", { name: "Infiltration · mL" }))
     expect((screen.getByLabelText("Amount unit") as HTMLSelectElement).value).toBe("ML")
     expect((screen.getByLabelText("Concentration unit") as HTMLSelectElement).value).toBe("PERCENT")
     expect((screen.getByLabelText("Preselected concentration") as HTMLSelectElement).value).toBe("0.5%")

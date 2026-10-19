@@ -1,4 +1,11 @@
 import { format } from "date-fns"
+import {
+  endDayOffsetBetween,
+  endDayOffsetLabel,
+  formatDateKeyLong,
+  isValidTimeZone,
+  localDateKey,
+} from "@/lib/intraop-time"
 
 // Dates and durations on the printed record, in the record's language.
 //
@@ -22,6 +29,23 @@ export function printMonthYear(monthYear: string | null | undefined, locale: str
   return `${MONTHS[language(locale)][parseInt(month, 10) - 1] ?? ""} ${year}`
 }
 
+/**
+ * The day of the case: "16 Oct 2026" / "16.10.2026" from the stored start in
+ * the case's zone, the month alone for a case started before dates were kept.
+ */
+export function printCaseDate(
+  intraop: { startedAt?: string | Date | null; timezone?: string | null; monthYear?: string | null } | null | undefined,
+  locale: string,
+): string {
+  const start = intraop?.startedAt ? new Date(intraop.startedAt) : null
+  if (start && !Number.isNaN(start.getTime()) && isValidTimeZone(intraop?.timezone)) {
+    const key = localDateKey(start, intraop.timezone)
+    const text = key ? formatDateKeyLong(key, language(locale)) : null
+    if (text) return text
+  }
+  return printMonthYear(intraop?.monthYear, locale)
+}
+
 /** "0h 31m" / "0 ч 31 мин". */
 export function printDuration(minutes: number, locale: string): string {
   const hours = Math.floor(minutes / 60)
@@ -39,12 +63,19 @@ export function printTimeSpan(
   startTime: string | Date | null | undefined,
   endTime: string | Date | null | undefined,
   locale: string,
+  /** The stored instants: the duration comes from them, and an end on a later day says so. */
+  instants?: { startedAt?: string | Date | null; endedAt?: string | Date | null; timezone?: string | null } | null,
 ): string | null {
   if (!startTime || !endTime) return null
   const start = new Date(startTime), end = new Date(endTime)
-  const minutes = Math.round((end.getTime() - start.getTime()) / 60000)
+  const startedAt = instants?.startedAt ? new Date(instants.startedAt) : null
+  const endedAt = instants?.endedAt ? new Date(instants.endedAt) : null
+  const stored = startedAt && endedAt && !Number.isNaN(startedAt.getTime()) && !Number.isNaN(endedAt.getTime())
+  const minutes = Math.round(((stored ? endedAt : end).getTime() - (stored ? startedAt : start).getTime()) / 60000)
+  const offset = stored && isValidTimeZone(instants?.timezone) ? endDayOffsetBetween(startedAt, endedAt, instants.timezone) : null
+  const later = endDayOffsetLabel(offset, language(locale))
   const hhmm = (date: Date) => `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`
-  return `${hhmm(start)} → ${hhmm(end)} · ${printDuration(minutes, locale)}`
+  return `${hhmm(start)} → ${hhmm(end)}${later ? ` (${later})` : ""} · ${printDuration(minutes, locale)}`
 }
 
 const MONTHS_SHORT_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]

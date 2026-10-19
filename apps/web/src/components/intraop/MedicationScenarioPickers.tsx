@@ -3,6 +3,7 @@
 import { BOLUS_SCENARIOS, INFUSION_SCENARIOS, type ScenarioGroup } from "@lospor/core"
 import { ScenarioPicker, type BrowseCategory } from "./ScenarioPicker"
 import { AnchoredPopover } from "./AnchoredPopover"
+import { DRUG_GROUP_COLORS } from "@lospor/core/catalog"
 
 type Labels = {
   favourites: string
@@ -70,7 +71,7 @@ export function BolusScenarioPicker({
   )
 }
 
-type InfusionConfig = { units: string[] }
+type InfusionConfig = { units: string[]; group?: string }
 
 export function InfusionScenarioPicker({
   favourites,
@@ -83,23 +84,29 @@ export function InfusionScenarioPicker({
   visibleNames: Set<string>
   hiddenNames: Set<string>
 }) {
-  const category = "All infusions"
-  const color = "border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300"
-  const items = (names: Set<string>, manualEntryOnly: boolean) => Object.keys(configs)
-    .filter(name => names.has(name))
-    .sort()
-    .map(name => ({
-      name,
-      unit: configs[name]?.units[0],
-      ...(manualEntryOnly ? { manualEntryOnly: true } : {}),
-    }))
+  const fallbackColor = "border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300"
+  // Grouped as drugs are, in catalogue order and in the drug groups' colours;
+  // an infusion without a group (a hospital's own) goes under "Other".
+  const groups = (names: Set<string>, manualEntryOnly: boolean): BrowseCategory[] => {
+    const byGroup = new Map<string, BrowseCategory>()
+    for (const name of Object.keys(configs).filter(item => names.has(item))) {
+      const cat = configs[name]?.group ?? "Other"
+      if (!byGroup.has(cat)) byGroup.set(cat, { cat, color: DRUG_GROUP_COLORS[cat] ?? fallbackColor, items: [] })
+      byGroup.get(cat)!.items.push({
+        name,
+        unit: configs[name]?.units[0],
+        ...(manualEntryOnly ? { manualEntryOnly: true } : {}),
+      })
+    }
+    return [...byGroup.values()]
+  }
 
   return (
     <ScenarioPicker
       scenarios={INFUSION_SCENARIOS}
       favourites={favourites}
-      browse={[{ cat: category, color, items: items(visibleNames, false) }]}
-      searchOnly={[{ cat: category, color, items: items(hiddenNames, true) }]}
+      browse={groups(visibleNames, false)}
+      searchOnly={groups(hiddenNames, true)}
       {...shared}
     />
   )

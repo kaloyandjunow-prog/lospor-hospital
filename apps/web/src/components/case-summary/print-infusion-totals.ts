@@ -1,6 +1,7 @@
 import { useMemo } from "react"
-import { calcInfusionTotals, withInfusionInstants, type WeightBasisMap } from "@lospor/core/intraop-totals"
+import { calcInfusionTotals, deliveredInfusionVolumeMl, withInfusionInstants, type WeightBasisMap } from "@lospor/core/intraop-totals"
 import { intraopUnconfirmedStops } from "@lospor/core/intraop-commands"
+import { tciPatientFrom } from "@lospor/core/tci"
 import { parseLogEvents } from "@lospor/core/intraop-types"
 import { weightBasisMap } from "@lospor/core/option-library"
 import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
@@ -33,8 +34,14 @@ export function calcInfTotals(
     heightCm?: number | null
     endedAt?: string | Date | null
     weightBasis?: WeightBasisMap
+    /** For a TCI infusion's model (2026-10-18). */
+    ageYears?: number | null
+    ageValue?: number | null
+    ageUnit?: string | null
+    sex?: string | null
   } = {},
 ) {
+  const tci = tciPatientFrom({ ageYears: patient.ageYears, ageValue: patient.ageValue, ageUnit: patient.ageUnit, weightKg: patient.tbw, heightCm: patient.heightCm, sex: patient.sex })
   const infusions: TimetableInfusion[] = Array.isArray(timetable?.infusions) ? timetable.infusions : []
   const bsa = patient.heightCm && patient.tbw
     ? calculateMostellerBsa({ heightCm: patient.heightCm, weightKg: patient.tbw })
@@ -43,11 +50,18 @@ export function calcInfTotals(
   // written and may still show a stop as planned whose time has come.
   const log = parseLogEvents(Array.isArray(timetable?.log) ? timetable.log : [])
   const unconfirmed = new Set(intraopUnconfirmedStops(log, patient.endedAt ?? new Date()).map(event => event.infId))
+  const timed = withInfusionInstants(infusions, timetable?.log, patient.endedAt)
   return calcInfusionTotals(
-    withInfusionInstants(infusions, timetable?.log, patient.endedAt),
+    timed,
     patient.ibw ?? null,
     patient.tbw ?? null,
     patient.weightBasis,
     bsa?.available ? bsa.value.squareMetres : null,
-  ).map((total, index) => ({ ...total, stopUnconfirmed: unconfirmed.has(infusions[index].id) }))
+    tci,
+  ).map((total, index) => ({
+    ...total,
+    stopUnconfirmed: unconfirmed.has(infusions[index].id),
+    // Its millilitres from the pump rates or a TCI model; none when the syringe was skipped (2026-10-18).
+    volumeMl: deliveredInfusionVolumeMl(timed[index]!, patient.endedAt ?? new Date(), tci),
+  }))
 }

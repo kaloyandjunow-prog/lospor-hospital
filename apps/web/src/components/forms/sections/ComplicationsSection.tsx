@@ -5,7 +5,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { ComplicationsPicker, ALL_COMPLICATIONS } from "@/components/intraop/ComplicationsPicker"
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 import type { IntraopLogEvent } from "@/components/IntraopTimetable"
+import { useLocale } from "next-intl"
 import { describeIntraopEvent } from "@lospor/core/intraop-summary"
+import { resolveIntraopEventLabel } from "@lospor/core/clinical-display"
 import { groupLabsByDraw, labDrawSummary, type LabResult } from "@lospor/core/labs"
 
 export function ComplicationsSection({ t, control, watch, eventLog, labResults = [], onDeleteEvent }: {
@@ -17,6 +19,7 @@ export function ComplicationsSection({ t, control, watch, eventLog, labResults =
   labResults?: LabResult[]
   onDeleteEvent?: (id: string) => void
 }) {
+  const locale = useLocale()
   const draws = groupLabsByDraw(labResults).filter(draw => draw.takenAt)
   const entries = [
     ...(eventLog ?? []).map(ev => ({ kind: "event" as const, ts: ev.ts ?? "", ev })),
@@ -70,7 +73,10 @@ export function ComplicationsSection({ t, control, watch, eventLog, labResults =
               }
               const ev = entry.ev
               const hhmm = hhmmOf(entry.ts)
-              const descriptor = describeIntraopEvent(ev)
+              // The log in the reader’s language: fixed words from core, a clinical
+              // event by its catalogue name (saved in English), as the PWA does.
+              const described = describeIntraopEvent(ev, { language: locale })
+              const descriptor = ev.type === "clinical_event" ? { ...described, text: resolveIntraopEventLabel(described.text, locale === "bg" ? "bg" : "en") } : described
               // Auto-filled vitals are copies, not readings: the log says so.
               const text = ev.autoFilled ? `${descriptor.text} · ${t("intraop.timelineRules.autoFilledTag")}` : descriptor.text
               const { color } = descriptor

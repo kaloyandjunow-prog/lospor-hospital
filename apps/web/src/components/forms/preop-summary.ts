@@ -1,3 +1,5 @@
+import type { PediatricFastingCategory } from "@lospor/core/pediatric"
+
 /**
  * The slice of the preoperative assessment the intraoperative screen shows.
  *
@@ -30,4 +32,6 @@ export type PreopSummary = {
   diagnosis?: string | null
   plannedProcedure?: string | null
   emergencySurgery?: boolean | null
+  /** The child's nil-by-mouth assignment, read as clock times once surgery starts. */
+  pediatricFasting?: { category: PediatricFastingCategory; hoursBefore: number }[] | null
 }

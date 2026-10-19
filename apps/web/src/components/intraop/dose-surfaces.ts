@@ -146,6 +146,8 @@ export function createDoseSurfaces({
       formulation: undefined,
       calculation: undefined,
       calculationUnavailableReason: "NO_AUTOFILL",
+      // Guidance off: no limit derived from a strength either.
+      doseLimit: undefined,
       ...(Object.hasOwn(surface, "suggestedRate") ? { suggestedRate: undefined } : {}),
       ...(Object.hasOwn(surface, "manualEntryOnly") ? { manualEntryOnly: true } : {}),
       ...(Object.hasOwn(surface, "advisory") ? { advisory: null } : {}),

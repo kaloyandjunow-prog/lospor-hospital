@@ -1,3 +1,4 @@
+import { serverMessage } from "@/lib/server-message"
 /**
  * Account actions a signed-in user can take from the settings menu.
  *
@@ -23,7 +24,7 @@ export async function downloadPersonalExport(
   const response = await fetchImpl("/api/user/export", { cache: "no-store" })
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { error?: string }
-    throw new Error(body.error || fallbackErrorMessage)
+    throw new Error(body.error ? serverMessage(body.error) : fallbackErrorMessage)
   }
 
   // The server names the file; the header is the only place it does. A missing

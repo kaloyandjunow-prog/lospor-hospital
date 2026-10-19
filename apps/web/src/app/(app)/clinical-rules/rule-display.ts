@@ -4,6 +4,8 @@ import type {
   ClinicalRuleMode,
   ClinicalRulePayload,
 } from "@lospor/core/clinical-rules"
+import { displayClinicalCode } from "@/lib/clinical-display"
+import { ruleCodeLabel, ruleRouteLabel, ruleRoutesLabel } from "@/components/clinical-rules/rule-code-labels"
 import { CLINICAL_RULES_PAGE_COPY as COPY } from "@/components/clinical-rules/page-copy"
 
 /**
@@ -34,6 +36,12 @@ export function statusLabel(status: string, copy: typeof COPY.en | typeof COPY.b
 
 export function ruleLabel(payload: ClinicalRulePayload, bg: boolean) {
   const label = bg && payload.labelBg ? payload.labelBg : payload.labelEn
+  // Words, not stored codes, in the reader's language (2026-10-18).
+  const locale = bg ? "bg" : "en"
+  const word = (code: string) => ruleCodeLabel("word", code, locale)
+  const category = (value: string | null | undefined, fallback: string) =>
+    value ? displayClinicalCode("optionGroup", value, locale, { label: value }) : word(fallback)
+  const routes = (list: readonly string[]) => ruleRoutesLabel(list, locale)
   if (
     payload.kind === "ADULT_DRUG_PROFILE"
     || payload.kind === "ADULT_INFUSION_PROFILE"
@@ -41,46 +49,46 @@ export function ruleLabel(payload: ClinicalRulePayload, bg: boolean) {
   ) {
     return {
       label,
-      detail: `${payload.kind.replace("ADULT_", "").replace("_PROFILE", "")} · ${payload.profile.unit ?? ""} · ${payload.profile.routes.join(", ")}`,
+      detail: `${word(payload.kind.replace("ADULT_", "").replace("_PROFILE", ""))} · ${payload.profile.unit ?? ""} · ${routes(payload.profile.routes)}`,
     }
   }
   if (payload.kind === "PEDIATRIC_DRUG_PROFILE" && !payload.profile) {
     return {
       label,
-      detail: `${payload.category ?? "Drug"} / ${payload.availability} / ${payload.manualUnit ?? "direct entry"}`,
+      detail: `${category(payload.category, "DRUG")} / ${ruleCodeLabel("availability", payload.availability, locale)} / ${payload.manualUnit ?? word("DIRECT_ENTRY")}`,
     }
   }
   if (payload.kind === "PEDIATRIC_DRUG_DOSE") {
     return {
       label,
-      detail: `${payload.indication} · ${payload.route} · ${payload.doseUnit}`,
+      detail: `${payload.indication} · ${ruleRouteLabel(payload.route, locale)} · ${payload.doseUnit}`,
     }
   }
   if (payload.kind === "PEDIATRIC_DRUG_PROFILE" && payload.profile) {
     return {
       label,
-      detail: `${payload.category ?? "Drug"} · ${payload.profile.unit ?? ""} · ${payload.profile.routes.join(", ")}`,
+      detail: `${category(payload.category, "DRUG")} · ${payload.profile.unit ?? ""} · ${routes(payload.profile.routes)}`,
     }
   }
   if (payload.kind === "PEDIATRIC_FLUID_PROFILE") {
     return {
       label,
-      detail: `Fluid · ${payload.category ?? "Fluid"} · ${payload.profile.unit ?? ""} · ${payload.profile.routes.join(", ")}`,
+      detail: `${word("FLUID")} · ${category(payload.category, "FLUID")} · ${payload.profile.unit ?? ""} · ${routes(payload.profile.routes)}`,
     }
   }
   if (payload.kind === "PEDIATRIC_INFUSION_PROFILE") {
     const surface = payload.profile
-      ? `${payload.profile.unit ?? payload.manualUnit ?? ""} · ${payload.profile.routes.join(", ")}`
-      : payload.manualUnit ?? "direct entry"
+      ? `${payload.profile.unit ?? payload.manualUnit ?? ""} · ${routes(payload.profile.routes)}`
+      : payload.manualUnit ?? word("DIRECT_ENTRY")
     return {
       label,
-      detail: `Infusion · ${payload.disposition} · ${surface}`,
+      detail: `${word("INFUSION")} · ${ruleCodeLabel("availability", payload.disposition, locale)} · ${surface}`,
     }
   }
   if (payload.kind === "PEDIATRIC_DRUG_POLICY") {
     return {
       label,
-      detail: `DRUG POLICY · ${payload.disposition} · ${payload.reviewStatus}`,
+      detail: `${word("DRUG_POLICY")} · ${ruleCodeLabel("policyDisposition", payload.disposition, locale)} · ${ruleCodeLabel("reviewStatus", payload.reviewStatus, locale)}`,
     }
   }
   return { label, detail: payload.kind }

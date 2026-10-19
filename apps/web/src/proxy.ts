@@ -78,7 +78,8 @@ export default function proxy(req: NextRequest) {
     })
   }
   if (
-    /^\/cases\/[^/]+\/print$/.test(req.nextUrl.pathname) &&
+    // The record and the preop summary print in headless Chrome with a token.
+    /^\/cases\/[^/]+\/(?:preop-summary\/)?print$/.test(req.nextUrl.pathname) &&
     req.nextUrl.searchParams.has("print_token")
   ) {
     return NextResponse.next()

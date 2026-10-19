@@ -107,8 +107,8 @@ describe("PediatricDrugProfileSetEditor", () => {
     expect(screen.getByText("Band 1")).toBeTruthy()
     expect(screen.getByText("Band 2")).toBeTruthy()
     expect(screen.getByTestId("dose-profile-editor").textContent).toBe("mg")
-    expect(screen.getAllByRole("button", { name: "AUTO" })[0]?.getAttribute("aria-pressed")).toBe("true")
-    expect(screen.getAllByRole("button", { name: "LOCAL" })[1]?.getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getAllByRole("button", { name: "Automatic" })[0]?.getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getAllByRole("button", { name: "Local policy" })[1]?.getAttribute("aria-pressed")).toBe("true")
 
     fireEvent.click(screen.getByRole("button", { name: "Save drug profile" }))
 
@@ -146,7 +146,7 @@ describe("PediatricDrugProfileSetEditor", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: "LOCAL" }).getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getByRole("button", { name: "Local policy" }).getAttribute("aria-pressed")).toBe("true")
     fireEvent.click(screen.getByRole("button", { name: "Save drug profile" }))
     expect(onSubmit).toHaveBeenCalledWith(
       "Vancomycin",

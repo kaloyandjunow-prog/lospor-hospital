@@ -176,7 +176,7 @@ describe("ClinicalRuleEditor", () => {
     expect((screen.getByLabelText("medication") as HTMLSelectElement).disabled).toBe(true)
     expect((screen.getByLabelText("ageMin") as HTMLInputElement).disabled).toBe(true)
     expect((screen.getByLabelText("ageMax") as HTMLInputElement).disabled).toBe(true)
-    expect(screen.getByRole("tab", { name: "IV · mg · default" })).toBeTruthy()
+    expect(screen.getByRole("tab", { name: "Intravenous · mg · default" })).toBeTruthy()
     expect(screen.getByText("Advanced profile (read only)")).toBeTruthy()
     expect(screen.queryByRole("textbox", { name: /advanced profile/i })).toBeNull()
   })

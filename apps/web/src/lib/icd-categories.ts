@@ -4,7 +4,7 @@ import {
   type BodySystem,
 } from "@lospor/core/preop"
 
-export { suggestASAFromTags, type ASASuggestion } from "@lospor/core/asa"
+export { asaReasonLabel, suggestASAFromTags, type ASASuggestion } from "@lospor/core/asa"
 export type { BodySystem }
 
 // Styling remains web-owned; the clinical classification and order are Core.

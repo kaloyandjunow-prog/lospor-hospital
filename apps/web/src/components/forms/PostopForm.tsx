@@ -16,7 +16,7 @@ import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { useOptionLibrary, useRange } from "@/hooks/useOptionLibrary"
-import { displayOption } from "@/lib/clinical-display"
+import { displayOption, displayPaedBand, toClinicalLocale } from "@/lib/clinical-display"
 import {
   aldreteBand,
   aldreteTotal as calculateAldreteTotal,
@@ -361,7 +361,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
                 <Controller name="paedScore" control={control} render={({ field }) => (
                   <NumberStepper value={field.value} onChange={field.onChange} min={0} max={20} step={1} showSlider />
                 )} />
-                <p className="text-xs text-slate-400">{t("pediatric.paedOptional")}</p>
+                <p className="text-xs text-slate-400">{watch("paedScore") != null ? displayPaedBand(Number(watch("paedScore")), toClinicalLocale(locale)).label : t("pediatric.paedOptional")}</p>
               </div>
             </div>
           ) : (

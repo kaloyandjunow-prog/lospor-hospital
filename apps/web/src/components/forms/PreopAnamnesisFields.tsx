@@ -165,11 +165,11 @@ export function PreopAnamnesisFields({
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("preop.rcriTitle")}</p>
         <p className="text-xs text-slate-400">{t("preop.rcriHint")}</p>
         {([
-          { id:"rcriIschemicHeart", label:"Ischaemic heart disease (history of MI, positive stress test, use of nitrates, ECG Q waves)" },
-          { id:"rcriCHF",           label:"Congestive heart failure (pulmonary oedema, PND, S3, bilateral crackles, CXR redistribution)" },
-          { id:"rcriCVD",           label:"Cerebrovascular disease (history of TIA or stroke)" },
-          { id:"rcriInsulinDM",     label:"Insulin-dependent diabetes mellitus" },
-          { id:"rcriCreatinine",    label:"Creatinine > 177 µmol/L (> 2.0 mg/dL)" },
+          { id:"rcriIschemicHeart", labelKey:"preop.factor.rcriIschemicHeart" },
+          { id:"rcriCHF",           labelKey:"preop.factor.rcriCHF" },
+          { id:"rcriCVD",           labelKey:"preop.factor.rcriCVD" },
+          { id:"rcriInsulinDM",     labelKey:"preop.factor.rcriInsulinDM" },
+          { id:"rcriCreatinine",    labelKey:"preop.factor.rcriCreatinine" },
         ] as const).filter(item => shownField(item.id)).map(item => {
           const suggested = rcriSuggested[item.id as keyof typeof rcriSuggested]
           const checked = !!watch(item.id)
@@ -179,7 +179,7 @@ export function PreopAnamnesisFields({
                 <ClinicalYesNo id={item.id} value={field.value ?? null} onChange={field.onChange} className="mt-0.5" />
               )} />
               <div>
-                <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{item.label}</Label>
+                <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{t(item.labelKey)}</Label>
                 {suggested && !checked && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">{t("preop.suggestedReviewConfirm")}</p>
                 )}
@@ -196,14 +196,14 @@ export function PreopAnamnesisFields({
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("preop.apfelTitle")}</p>
         <p className="text-xs text-slate-400">{t("preop.apfelHint")}</p>
         {([
-          { id:"apfelPONVHistory",   label:"History of PONV or motion sickness" },
-          { id:"apfelPostopOpioids", label:"Postoperative opioids planned" },
+          { id:"apfelPONVHistory",   labelKey:"preop.factor.apfelPONVHistory" },
+          { id:"apfelPostopOpioids", labelKey:"preop.factor.apfelPostopOpioids" },
         ] as const).filter(item => shownField(item.id)).map(item => (
           <div key={item.id} className="flex items-center gap-2">
             <Controller name={item.id} control={control} render={({ field }) => (
               <ClinicalYesNo id={item.id} value={field.value ?? null} onChange={field.onChange} />
             )} />
-            <Label htmlFor={item.id} className="font-normal cursor-pointer">{item.label}</Label>
+            <Label htmlFor={item.id} className="font-normal cursor-pointer">{t(item.labelKey)}</Label>
           </div>
         ))}
       </div>
@@ -215,11 +215,11 @@ export function PreopAnamnesisFields({
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("preop.stopBangTitle")}</p>
         <p className="text-xs text-slate-400">{t("preop.stopBangHint")}</p>
         {([
-          { id:"stopbangSnoring",  label:"Snoring — do you snore loudly?" },
-          { id:"stopbangTired",    label:"Tired — often feel tired, fatigued, or sleepy during daytime?" },
-          { id:"stopbangObserved", label:"Observed — has anyone observed you stop breathing during sleep?" },
-          { id:"stopbangBP",       label:"Pressure — do you have or are you being treated for high blood pressure?" },
-          { id:"stopbangNeck",     label:"Neck circumference > 40 cm" },
+          { id:"stopbangSnoring",  labelKey:"preop.factor.stopbangSnoring" },
+          { id:"stopbangTired",    labelKey:"preop.factor.stopbangTired" },
+          { id:"stopbangObserved", labelKey:"preop.factor.stopbangObserved" },
+          { id:"stopbangBP",       labelKey:"preop.factor.stopbangBP" },
+          { id:"stopbangNeck",     labelKey:"preop.factor.stopbangNeck" },
         ] as const).filter(item => shownField(item.id)).map(item => {
           const suggested = item.id === "stopbangBP" && stopBangBPSuggested
           const checked = !!watch(item.id)
@@ -229,7 +229,7 @@ export function PreopAnamnesisFields({
                 <ClinicalYesNo id={item.id} value={field.value ?? null} onChange={field.onChange} className="mt-0.5" />
               )} />
               <div>
-                <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{item.label}</Label>
+                <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{t(item.labelKey)}</Label>
                 {suggested && !checked && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">{t("preop.suggestedReviewConfirm")}</p>
                 )}

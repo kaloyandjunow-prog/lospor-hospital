@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl"
 import {
+  isPreopChoiceQuestion,
   preopQuestionProgress,
   preopQuestionRows,
   type PreopAnswerState,
@@ -38,23 +39,29 @@ export function PreopQuestionList({
   formSection,
   mode,
   states,
+  optionKeys,
   onAnswer,
   suggestions = [],
   onReviewSuggestion,
   className,
+  ageYears,
 }: {
   profile: Pick<PreopAssessmentProfile, "questions"> | null | undefined
   formSection: PreopFormSection
   mode: "ADULT" | "PEDIATRIC"
   states: ReadonlyMap<string, PreopAnswerState>
+  /** The option an answered choice question holds (preopAnswerOptionKeys). */
+  optionKeys?: ReadonlyMap<string, string>
   onAnswer: (stableKey: string, answer: PreopQuestionAnswer | null) => void
   suggestions?: readonly PreopPendingSuggestion[]
   onReviewSuggestion?: (suggestionId: string, status: "ACCEPTED" | "REJECTED") => void
   className?: string
+  /** The case's age; a question asked only from an age is left off younger patients. */
+  ageYears?: number | null
 }) {
   const t = useTranslations()
   const locale = useLocale()
-  const rows = preopQuestionRows(profile, formSection, mode, states)
+  const rows = preopQuestionRows(profile, formSection, mode, states, ageYears)
   if (rows.length === 0) return null
   const progress = preopQuestionProgress(rows, states)
   const label = (question: PreopProfileQuestion) => locale === "bg" ? question.labelBg : question.labelEn
@@ -93,6 +100,7 @@ export function PreopQuestionList({
                 className={cn("flex items-start gap-2", depth === 1 && "ml-6 border-l pl-3")}
                 data-testid={`preop-question-${question.stableKey}`}
               >
+                {isPreopChoiceQuestion(question) ? null : (
                 <div className="flex flex-col gap-1">
                   <ClinicalYesNo
                     id={`preop-question-${question.stableKey}`}
@@ -117,11 +125,26 @@ export function PreopQuestionList({
                     </div>
                   )}
                 </div>
-                <div className="min-w-0">
+                )}
+                <div className={cn("min-w-0", isPreopChoiceQuestion(question) && "flex-1")}>
                   <label id={`preop-question-${question.stableKey}-label`} htmlFor={`preop-question-${question.stableKey}`} className="text-sm leading-snug">
                     {label(question)}
                     {question.required && <span className="ml-0.5 text-destructive" aria-label={t("common.required")}>*</span>}
                   </label>
+                  {isPreopChoiceQuestion(question) && (
+                    // Not yes/no: one of the question's own options, stored as YES + option key.
+                    <select
+                      id={`preop-question-${question.stableKey}`}
+                      value={state === "YES" ? optionKeys?.get(question.stableKey) ?? "" : ""}
+                      onChange={event => onAnswer(question.stableKey, event.target.value ? { stableKey: question.stableKey, state: "YES", optionKey: event.target.value } : null)}
+                      className="mt-1 block w-full max-w-md rounded-md border border-input bg-background px-2 py-1 text-sm"
+                    >
+                      <option value="">{t("preop.choose")}</option>
+                      {question.options.map(option => (
+                        <option key={option.key} value={option.key}>{locale === "bg" ? option.labelBg : option.labelEn}</option>
+                      ))}
+                    </select>
+                  )}
                   {pending && onReviewSuggestion && (
                     <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
                       {t("preop.suggestionFromRecord", { answer: pending.proposedState === "NO" ? t("common.no") : t("common.yes") })}

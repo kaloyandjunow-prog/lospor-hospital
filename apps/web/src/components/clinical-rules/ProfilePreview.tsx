@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react"
 import { useLocale } from "next-intl"
+import { localAnaestheticFormulationLabel } from "@lospor/core/catalog"
+import { ruleRouteLabel } from "./rule-code-labels"
 import { Pencil } from "lucide-react"
 import { resolveDrugSelectionSurface } from "@lospor/core/drug-selection"
 import type { DoseProfile } from "@lospor/core/catalog"
@@ -160,7 +162,7 @@ export function ProfilePreview({
     <div className="space-y-2 rounded-lg border border-slate-300 bg-white p-3 dark:border-[#3a3a3a] dark:bg-[#1c1c1c]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-          {copy.preview} — {route}
+          {copy.preview} — {ruleRouteLabel(route, locale)}
         </p>
         <label className="flex items-center gap-1.5 text-xs text-slate-500">
           {copy.samplePatient}
@@ -305,7 +307,7 @@ export function ProfilePreview({
                     : "border-slate-300 text-slate-600 dark:border-[#3a3a3a] dark:text-slate-300"
                 }`}
               >
-                {option}
+                {localAnaestheticFormulationLabel(option, locale)}
               </span>
             ))}
           </div>

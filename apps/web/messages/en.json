@@ -277,26 +277,16 @@
     },
     "select": "Select",
     "coldsScore": "COLDS score",
-    "fasting": "Pediatric fasting",
     "fastingCategories": {
       "CLEAR_FLUIDS": "Clear fluids",
       "BREAST_MILK": "Breast milk",
       "INFANT_FORMULA_UNDER_1_YEAR": "Infant formula under 1 year",
       "SOLID_FOOD_OR_COW_MILK": "Solid food or cow's milk"
     },
-    "fastingStatus": {
-      "MET": "Requirement met",
-      "NOT_MET": "Requirement not met",
-      "UNKNOWN": "Not assessed"
-    },
     "calculators": "Pediatric calculations",
     "bsa": "Body surface area",
     "maintenanceFluid": "Maintenance fluid",
     "resuscitation": "Resuscitation",
-    "profilesUnavailable": "Pediatric equipment, ventilation, blood-volume, local-anaesthetic and medication recommendations remain unavailable until their profiles are clinically reviewed and approved.",
-    "accepted": "Recorded",
-    "accept": "Accept and record",
-    "saveFirst": "Save the case first",
     "manualDoseOnly": "No reviewed pediatric dose profile is available. Enter the administered dose manually and verify it independently.",
     "postopPain": "Pediatric pain assessment",
     "recommendedPainScale": "Suggested scale for the patient's ability: {scale}",
@@ -304,7 +294,22 @@
     "canUseNumbers": "Can use a numeric scale",
     "painScore": "Pain score",
     "paedScore": "PAED score",
-    "paedOptional": "Optional emergence-delirium assessment, 0-20."
+    "paedOptional": "Optional emergence-delirium assessment, 0-20.",
+    "intraopReference": "Paediatric reference",
+    "bsaValue": "{value} m²",
+    "maintenanceDaily": "{daily} ml/day · {hourly} ml/h",
+    "maintenanceRange": "{min}–{max} ml/day (newborn, by day of life)",
+    "shockLine": "Shock {first} J (4 J/kg); from the 5th shock up to {escalated} J (8 J/kg, max 360 J)",
+    "adrenalineLine": "Adrenaline {mcg} mcg IV/IO every 3–5 min (max 1 mg)",
+    "amiodaroneLine": "Amiodarone {first} mg after the 3rd shock, {second} mg after the 5th",
+    "referenceSources": "Mosteller · NICE NG29 · RCUK 2025",
+    "npoTitle": "Nil-by-mouth assignment",
+    "npoHint": "How many hours before surgery each intake stops. The times follow from the start of surgery.",
+    "npoUsePolicy": "Assign APAGBI 2023 hours",
+    "npoHoursBefore": "h before surgery",
+    "npoBelowMinimum": "Shorter than the APAGBI minimum of {hours} h",
+    "npoStopBy": "{category}: by {time} ({hours} h before)",
+    "npoPreviousDay": "the day before"
   },
   "common": {
     "appName": "LOSPOR",
@@ -855,6 +860,13 @@
     "defaultMonitoringDesc": "Monitors pre-selected for new cases",
     "vitalsChart": "Vitals chart",
     "vitalsChartDesc": "Start expanded by default",
+    "bulgarianNames": "Bulgarian names",
+    "bulgarianNamesDesc": "When the language is Bulgarian, show these lists in Bulgarian. Off: their international (English) names. Records do not change.",
+    "bulgarianNamesPremed": "Premedication",
+    "bulgarianNamesDrugs": "Intraoperative drugs",
+    "bulgarianNamesInfusions": "Infusions",
+    "bulgarianNamesAgents": "Inhalational agents",
+    "bulgarianNamesFluids": "Fluids and blood products",
     "autoFillVitals": "Auto-fill vitals",
     "autoFillVitalsDesc": "When the clock advances to a new column, automatically copy the previous EtCO₂, Temperature and SpO₂ values into the new cell.",
     "autoFillBP": "Auto-fill BP & HR",
@@ -1121,6 +1133,9 @@
     "asaSuggested": "Suggested",
     "asaReview": "review and confirm",
     "scoresNote": "GUPTA, RCRI, Apfel and STOP-BANG scores are calculated automatically from your entries.",
+    "plannedAnaesthesia": "Planned anaesthesia",
+    "plannedAnaesthesiaHint": "Optional. Prints on the summary; the consent per technique (layout C) starts with the sections this plan needs ticked.",
+    "plannedPostopVentilation": "Ventilation after the operation",
     "continueIntraop": "Continue to Intraoperative",
     "timetable": {
       "caseFinished": "Case finished",
@@ -1164,6 +1179,20 @@
     "apfelHint": "Female sex and non-smoker status are derived from demographics and habits above.",
     "stopBangTitle": "STOP-BANG — OSA screening",
     "stopBangHint": "BMI > 35, age > 50, and male sex are derived automatically.",
+    "factor": {
+      "rcriIschemicHeart": "Ischaemic heart disease (history of MI, positive stress test, use of nitrates, ECG Q waves)",
+      "rcriCHF": "Congestive heart failure (pulmonary oedema, PND, S3, bilateral crackles, CXR redistribution)",
+      "rcriCVD": "Cerebrovascular disease (history of TIA or stroke)",
+      "rcriInsulinDM": "Insulin-dependent diabetes mellitus",
+      "rcriCreatinine": "Creatinine > 177 µmol/L (> 2.0 mg/dL)",
+      "apfelPONVHistory": "History of PONV or motion sickness",
+      "apfelPostopOpioids": "Postoperative opioids planned",
+      "stopbangSnoring": "Snoring — do you snore loudly?",
+      "stopbangTired": "Tired — often feel tired, fatigued, or sleepy during daytime?",
+      "stopbangObserved": "Observed — has anyone observed you stop breathing during sleep?",
+      "stopbangBP": "Pressure — do you have or are you being treated for high blood pressure?",
+      "stopbangNeck": "Neck circumference > 40 cm"
+    },
     "asaRequired": "ASA class is required.",
     "emergencyAsaSuffix": "🚨 Emergency surgery — ASA class will be suffixed with E",
     "calculatedRiskScores": "Calculated Risk Scores",
@@ -1188,6 +1217,19 @@
     "aiUnavailable": "The AI advisor is not available on this installation.",
     "criteriaAnswered": "{answered} of {total} criteria answered — unanswered ones do not count toward this score",
     "questionsAnswered": "{answered} of {total} answered",
+    "choose": "Choose…",
+    "gupta": {
+      "title": "Gupta cardiac risk (MICA)",
+      "note": "Myocardial infarction or cardiac arrest within 30 days. Age, ASA and creatinine are taken from the form.",
+      "missing": "Needs: {inputs}",
+      "age": "adult age",
+      "asa": "ASA I–V",
+      "functionalStatus": "functional status",
+      "procedureType": "procedure type",
+      "creatinineUnknown": "No creatinine result: counted as unknown.",
+      "suggested": "Suggested from the planned procedure: {type}",
+      "use": "Use"
+    },
     "notApplicable": "N/A",
     "suggestionFromRecord": "From the record: {answer}?",
     "suggestionAccept": "Accept",
@@ -1203,6 +1245,7 @@
       "PEDIATRIC_RISK": "Pediatric risk",
       "PEDIATRIC_SAFETY": "Pediatric safety",
       "ADULT_ADDITIONS": "Adult history",
+      "SHARED_ADDITIONS": "Additional history",
       "PEDIATRIC_ADDITIONS": "Pediatric history"
     }
   },
@@ -1324,6 +1367,7 @@
         "insertionDepth": "~{value} cm insertion depth",
         "cuffedPair": "{cuffed} cuffed / {uncuffed} uncuffed",
         "smallerCuffed": "{value} cuffed (0.5 mm smaller)",
+        "smallerHalf": "{value} (0.5 smaller)",
         "prepareSmaller": "Prepare 0.5 mm smaller than the clinically planned ETT"
       }
     },
@@ -1494,11 +1538,18 @@
       "infusions": "Infusions",
       "bolusDrugs": "Bolus drugs",
       "doseCount": "{count, plural, one {# dose} other {# doses}}",
-      "fluidBalance": "Fluid balance"
+      "fluidBalance": "Fluid balance",
+      "tciPump": "(from the pump; the model calculates {calculated} {unit})",
+      "tciCalculated": "(calculated by the TCI model)",
+      "tciPumpNeedsStrength": "(the pump total is in mL but no syringe strength was recorded, so the model's amount is used)",
+      "tciNeedsPatient": "TCI total needs the patient's age, weight, height and sex",
+      "tciModelUnusable": "this TCI model cannot be used for this patient"
     },
     "crystalloids": "Crystalloids (mL)",
     "colloids": "Colloids (mL)",
     "bloodTransfusion": "Blood products transfusion (mL)",
+    "drugInfusions": "Drug infusions (mL)",
+    "totalIn": "Total in (mL)",
     "urineOutput": "Urine output (mL)",
     "bloodLoss": "Estimated blood loss (mL)",
     "complicationsSection": "Complications & Event Log",
@@ -1543,7 +1594,10 @@
         "pediatricDesc": "Sevoflurane induction · Face mask",
         "awakeFoiLabel": "Awake Fiberoptic",
         "awakeFoiDesc": "FOI · Topical LA · Oral ETT"
-      }
+      },
+      "startDate": "Start date",
+      "endDate": "End date",
+      "longerThanDay": "Longer than 24 hours: check the end date"
     },
     "offlineLibrary": "⚠ Offline reference list — some option lists may be out of date",
     "offlineLibraryAsOf": "{message} (as of {date})",
@@ -1583,6 +1637,9 @@
       "removeResult": "Remove laboratory result"
     },
     "timetable": {
+      "vitalBp": "BP",
+      "vitalHr": "HR",
+      "vitalTemp": "Temp",
       "vitalBpSys": "BP Sys",
       "vitalBpDia": "BP Dia",
       "caseFinished": "Case finished",

@@ -5,6 +5,7 @@
 // wizard just calls it on load and on save.
 
 import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
+import { normalizePlannedAnaesthesia } from "@lospor/core/preop-plan"
 import type { PreopData } from "@/components/forms/PreopForm"
 import type { IntraopData } from "@/components/forms/IntraopForm"
 import type { PostopData } from "@/components/forms/PostopForm"
@@ -15,6 +16,7 @@ import { localTimeOf } from "@/lib/intraop-time"
 import { observedFetch } from "@/lib/intraop-clock"
 import type { CaseDetail } from "@/types/case-detail"
 import { plannedProcedureText } from "@lospor/core/procedure-codes"
+import { serverMessage } from "@/lib/server-message"
 
 type FormPreopAnswerState = "YES" | "NO" | "UNKNOWN" | "NOT_APPLICABLE"
 
@@ -57,7 +59,7 @@ export async function fetchCaseRecord(id: string): Promise<CaseDetail> {
   const response = await observedFetch(`/api/cases/${id}`)
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw Object.assign(new Error(body.error ?? `Request failed (${response.status})`), { status: response.status })
+    throw Object.assign(new Error(serverMessage(body.error ?? `Request failed (${response.status})`)), { status: response.status })
   }
   return response.json() as Promise<CaseDetail>
 }
@@ -218,11 +220,9 @@ export function dbPreopToForm(
     coldsAirwayDevice:              p.coldsAirwayDevice              as PreopData["coldsAirwayDevice"],
     coldsSurgery:                   p.coldsSurgery                   as PreopData["coldsSurgery"],
     pediatricFasting: Array.isArray(p.pediatricFasting)
-      ? p.pediatricFasting.map(row => ({
-          ...row,
-          status: row.status ?? "UNKNOWN",
-        })) as PreopData["pediatricFasting"]
+      ? p.pediatricFasting as PreopData["pediatricFasting"]
       : [],
+    plannedAnaesthesia: normalizePlannedAnaesthesia(p.plannedAnaesthesia),
 
     // Free text. Both are stored columns that the shared CaseDetailPreop DTO
     // does not spell out, so they arrive through its index signature.
@@ -328,6 +328,7 @@ export function preopSummaryForIntraop(preop: PreopData): PreopSummary {
     diagnosis:             preop.diagnoses?.map(d => d.label).join("; ") || null,
     plannedProcedure:      plannedProcedureText(preop.procedures) || null,
     emergencySurgery:      preop.emergencySurgery ?? null,
+    pediatricFasting:      preop.pediatricFasting ?? null,
   }
 }
 

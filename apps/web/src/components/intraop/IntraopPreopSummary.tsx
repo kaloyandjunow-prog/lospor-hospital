@@ -1,11 +1,13 @@
 "use client"
 
 import { useMemo } from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
+import { vitalAbbreviations } from "@lospor/core/intraop-summary"
 import { calcABW } from "@/lib/scores"
 import { getMedicationWarnings } from "@/lib/risk-derivation"
 import { allergyRecords, uncheckedAllergies } from "@lospor/core/allergy-drug-check"
 import type { PreopSummary } from "@/components/forms/preop-summary"
+import { PediatricIntraopReference } from "./PediatricIntraopReference"
 
 /**
  * The preoperative assessment, condensed, at the top of the intraoperative
@@ -13,12 +15,16 @@ import type { PreopSummary } from "@/components/forms/preop-summary"
  *
  * Split out of IntraopForm, which is at its size budget.
  */
-export function IntraopPreopSummary({ preop, ibw: calcIbw, isPediatric }: {
+export function IntraopPreopSummary({ preop, ibw: calcIbw, isPediatric, surgeryStart, timezone }: {
   preop: PreopSummary
   ibw: number | null
   isPediatric: boolean
+  /** The stored start of surgery, for the nil-by-mouth clock times. */
+  surgeryStart?: string | Date | null
+  timezone?: string | null
 }) {
   const t = useTranslations()
+  const locale = useLocale()
   const medicationWarnings = useMemo(() => getMedicationWarnings(preop.currentMedications ?? []), [preop.currentMedications])
   // A typed allergy the drug check cannot read is named, so silence is not taken for a pass (1.5.0).
   const unchecked = uncheckedAllergies(allergyRecords(preop))
@@ -51,8 +57,8 @@ export function IntraopPreopSummary({ preop, ibw: calcIbw, isPediatric }: {
         })()}
         {(preop.bpSystolic || preop.heartRate || preop.spO2) && (
           <span className="text-slate-600 dark:text-slate-300">
-            {preop.bpSystolic && preop.bpDiastolic ? `BP ${preop.bpSystolic}/${preop.bpDiastolic}` : ""}
-            {preop.heartRate ? ` · HR ${preop.heartRate}` : ""}
+            {preop.bpSystolic && preop.bpDiastolic ? `${vitalAbbreviations(locale).bp} ${preop.bpSystolic}/${preop.bpDiastolic}` : ""}
+            {preop.heartRate ? ` · ${vitalAbbreviations(locale).hr} ${preop.heartRate}` : ""}
             {preop.spO2 ? ` · SpO₂ ${preop.spO2}%` : ""}
           </span>
         )}
@@ -83,10 +89,11 @@ export function IntraopPreopSummary({ preop, ibw: calcIbw, isPediatric }: {
       {medicationWarnings.length > 0 && (
         <div className="pt-1 space-y-0.5">
           {medicationWarnings.map(w => (
-            <p key={w.key} className="text-sm font-semibold text-orange-700 dark:text-orange-400">⚠ {w.label}</p>
+            <p key={w.key} className="text-sm font-semibold text-orange-700 dark:text-orange-400">⚠ {locale === "bg" ? w.labelBg : w.label}</p>
           ))}
         </div>
       )}
+      {isPediatric && <PediatricIntraopReference preop={preop} surgeryStart={surgeryStart} timezone={timezone} />}
     </div>
   )
 }

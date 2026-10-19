@@ -79,7 +79,7 @@ export function FluidDoseFields({
         quickValues={fluidEntryMode === "VOLUME" ? fp.quickDoses : undefined}
         concentrationOptions={fluidConcentrations}
         concentration={fp.concentration}
-        concentrationUnit="%"
+        concentrationUnit="%" concentrationName={fp.name}
         onConcentrationChange={concentration => setFp(current => {
           if (!current) return current
           if (!guidanceEnabled) {

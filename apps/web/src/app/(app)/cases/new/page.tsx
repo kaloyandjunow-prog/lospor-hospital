@@ -7,6 +7,7 @@ import type { PreopAssessmentProfile } from "@lospor/core/preop-assessment"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
+import { usePreopDocumentSettings } from "@/lib/use-preop-documents"
 import { PreopForm, type PreopData } from "@/components/forms/PreopForm"
 import { IntraopForm, type IntraopData } from "@/components/forms/IntraopForm"
 import { type TimetableData } from "@/components/IntraopTimetable"
@@ -37,7 +38,7 @@ import {
 } from "@lospor/core/sync"
 import { onOutboxChange } from "@/lib/case-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
-import { blockedSaveMessage, withBlockedPreopRejection } from "@/lib/blocked-save-message"
+import { blockedSaveMessage, failedSaveMessage, withBlockedPreopRejection } from "@/lib/blocked-save-message"
 import { randomId } from "@/lib/random-id"
 import { CaseProgress } from "./CaseProgress"
 import { CaseEditorHeader, type CaseSaveStatus } from "./CaseEditorHeader"
@@ -55,6 +56,7 @@ type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }
 
 export default function NewCasePage() {
   const router       = useRouter()
+  const preopDocuments = usePreopDocumentSettings() // summary between preop and intraop, when on
   const searchParams = useSearchParams()
   const t = useTranslations()
   const STEPS = [t("case.steps.preop"), t("case.steps.intraop"), t("case.steps.postop"), t("case.steps.summary")]
@@ -305,9 +307,7 @@ export default function NewCasePage() {
             break
           }
           const issue = readBlockedSaveIssue(body)
-          if (!issue) throw new Error(
-            typeof body.error === "string" ? body.error : `Save failed (HTTP ${res.status})`,
-          )
+          if (!issue) throw new Error(failedSaveMessage(body, res.status))
           firstBlocked ??= issue
           const before = Object.keys(acceptedPayload).length
           for (const key of issue.blockedKeys) delete acceptedPayload[key]
@@ -503,6 +503,7 @@ export default function NewCasePage() {
       () => caseIdRef.current,
     )
     if (!accepted) return
+    if (preopDocuments.summaryEnabled && caseIdRef.current) { router.push(`/cases/${caseIdRef.current}/preop-summary`); return }
     setStep(1); window.scrollTo(0, 0)
   }
 

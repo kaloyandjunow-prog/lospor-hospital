@@ -4,6 +4,7 @@ import type { Viewport } from "next"
 import { PrintPageClient } from "@/components/case-summary/PrintPageClient"
 import type { CaseDetail } from "@/types/case-detail"
 import { loginUrlForCallback } from "@/lib/safe-navigation"
+import { bulgarianNamesFromParam } from "@/lib/bulgarian-names-web"
 
 export const viewport: Viewport = { colorScheme: "only light" }
 
@@ -12,7 +13,7 @@ export default async function PrintCasePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ print_token?: string; pdf?: string }>
+  searchParams?: Promise<{ print_token?: string; pdf?: string; names?: string }>
 }) {
   const { id } = await params
   const values = await searchParams
@@ -42,6 +43,8 @@ export default async function PrintCasePage({
       initialData={initialData}
       autoPrint={tokenMode && !pdfMode}
       printToken={tokenMode ? printToken : undefined}
+      // A PDF rendered by the server carries the requester's switches here.
+      bulgarianNames={bulgarianNamesFromParam(values?.names)}
     />
   )
 }

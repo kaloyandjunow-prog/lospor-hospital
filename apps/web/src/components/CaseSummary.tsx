@@ -43,7 +43,7 @@ function formatBmi(bmi: number): string {
 import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { formatInfusionTotal } from "@lospor/core/intraop-totals"
-import { printGeneratedDate, printMonthYear, printTimeSpan } from "@/components/case-summary/print-format"
+import { printCaseDate, printGeneratedDate, printTimeSpan } from "@/components/case-summary/print-format"
 
 // ── Enum label maps ───────────────────────────────────────────────────────────
 function deviceLabel(i: CaseDetailIntraop | null | undefined, locale: string): string {
@@ -269,10 +269,10 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const colHHMM = (col: number) => sharedColToHHMM(col, i?.startTime)
 
   const activeMonitors = MON.filter(m => i?.[m.f]).map(m => displayClinicalCode("option:MONITORING", m.f, locale))
-  const dateStr = printMonthYear(i?.monthYear, locale)
+  const dateStr = printCaseDate(i, locale)
   const drugTotals     = calcDrugTotals(timetable)
   // Per-kg infusions on the patient's own weight; the sheet used none (9.12.3).
-  const infTotals      = calcInfTotals(timetable, { ibw: ibwResolution.available ? ibwResolution.roundedKg : null, tbw: p?.weightKg, heightCm: p?.heightCm, endedAt: i?.endedAt, weightBasis: infusionWeightBasis })
+  const infTotals      = calcInfTotals(timetable, { ibw: ibwResolution.available ? ibwResolution.roundedKg : null, tbw: p?.weightKg, heightCm: p?.heightCm, endedAt: i?.endedAt, weightBasis: infusionWeightBasis, ageYears: p?.ageYears, ageValue: p?.ageValue, ageUnit: p?.ageUnit, sex: p?.sex })
   const drugLog        = buildDrugLog(timetable, i?.startTime, i?.timezone)
 
   // Continues onto its own sheets rather than capping: a result not shown can
@@ -289,7 +289,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   // the continuation sheet was dropping it.
   const patientLine = [p?.ageYears != null ? `${p.ageYears}${ageSuffix}` : "", p?.sex ? sexLabel(p.sex) : ""].filter(Boolean).join(" · ")
 
-  const timeSpan = printTimeSpan(i?.startTime, i?.endTime, locale)
+  const timeSpan = printTimeSpan(i?.startTime, i?.endTime, locale, i)
 
   // A recovery nobody has scored yet is not a zero. Defaulting the missing
   // total to 0 banded every un-assessed patient "not ready" in alarm red — the
@@ -480,7 +480,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                 {[
                   { label: L.fluidCrystalloid, value: i?.crystalloidsMl },
                   { label: L.fluidColloid, value: i?.colloidsMl },
-                  { label: L.fluidBlood, value: i?.bloodMl },
+                  { label: L.fluidBlood, value: i?.bloodMl }, { label: L.fluidInfusions, value: (i as { infusionsMl?: number | null } | null | undefined)?.infusionsMl },
                   { label: L.fluidUrine,  value: i?.urineMl },
                   { label: L.fluidBloodLoss, value: i?.bloodLossMl },
                 ].map(({ label, value }) => (
@@ -511,7 +511,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   <span className="font-bold">{L.totalsLbl}:</span>{" "}
                   {[
                     ...drugTotals.map(d => `${displayClinicalCode("option:INTRAOP_DRUG", d.name, locale, { label: d.name })} ${d.total} ${d.unit}`),
-                    ...infTotals.map(d => `${displayClinicalCode("option:INTRAOP_INFUSION", d.name, locale, { label: d.name })} ${formatInfusionTotal(d)}${d.stopUnconfirmed ? L.stopUnconfirmedNote : ""}`),
+                    ...infTotals.map(d => `${displayClinicalCode("option:INTRAOP_INFUSION", d.name, locale, { label: d.name })} ${formatInfusionTotal(d)}${d.volumeMl != null ? ` · ${d.volumeMl} mL` : ""}${d.stopUnconfirmed ? L.stopUnconfirmedNote : ""}`),
                   ].join(" · ")}
                 </p>
               )}
@@ -642,7 +642,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             {/* Risk scores + preop vitals */}
             <div className="border border-slate-200 rounded-lg p-2 bg-white">
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1">{L.riskScores.toUpperCase()}</p>
-              <F label="ASA"       value={p?.asaScore ? `Class ${p.asaScore}${p.emergencySurgery ? "E" : ""}` : null} />
+              <F label="ASA"       value={p?.asaScore ? `${L.asaClass} ${p.asaScore}${p.emergencySurgery ? "E" : ""}` : null} />
               {p?.rcriScore  != null && <F label="RCRI"      value={`${p.rcriScore} / 6 — ${displayRcriRisk(p.rcriScore, bandLocale).label}`} />}
               {p?.apfelScore != null && <F label="Apfel"     value={`${p.apfelScore} / 4 — ${displayApfelRisk(p.apfelScore, bandLocale).label}`} />}
               {p?.stopBangScore != null && <F label="STOP-BANG" value={`${p.stopBangScore} / 8 — ${displayStopBangRisk(p.stopBangScore, bandLocale).label}`} />}

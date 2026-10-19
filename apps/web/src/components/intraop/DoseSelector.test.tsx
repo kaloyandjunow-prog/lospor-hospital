@@ -83,11 +83,24 @@ describe("DoseSelector", () => {
     )
 
     fireEvent.click(screen.getByRole("button", { name: "Other" }))
+    // Opens on the drug's own strength, as a slider, the pills and a number.
+    expect(onConcentrationChange).toHaveBeenLastCalledWith("1 mg/mL")
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Custom concentration mg/mL" }), {
+      target: { value: "1.5" },
+    })
+    expect(onConcentrationChange).toHaveBeenLastCalledWith("1.5 mg/mL")
+
+    // Outside the drug's range (half to twice its strengths): said, and not passed on.
     fireEvent.change(screen.getByRole("spinbutton", { name: "Custom concentration mg/mL" }), {
       target: { value: "2.5" },
     })
+    expect(screen.getByRole("alert").textContent).toBe("Enter a strength from 0.5 to 2 mg/mL.")
+    expect(onConcentrationChange).toHaveBeenLastCalledWith(undefined)
 
-    expect(onConcentrationChange).toHaveBeenLastCalledWith("2.5mg/mL")
+    // Leaving the box brings it to the maximum, and says so.
+    fireEvent.blur(screen.getByRole("spinbutton", { name: "Custom concentration mg/mL" }))
+    expect(screen.getByRole("status").textContent).toBe("Lowered to the maximum, 2 mg/mL.")
+    expect(onConcentrationChange).toHaveBeenLastCalledWith("2 mg/mL")
   })
 
   it("keeps manual numeric entry independent from the slider maximum", () => {

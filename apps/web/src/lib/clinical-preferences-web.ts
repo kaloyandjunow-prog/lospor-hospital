@@ -8,8 +8,8 @@ import {
   type ClinicalPreferences,
   type ClinicalPreferencesPatch,
 } from "@lospor/core/clinical-preferences"
-
-const SNAPSHOT_KEY = "losporClinicalPreferencesV1"
+import { setBulgarianNameSwitches } from "@lospor/core/display"
+import { CLINICAL_PREFERENCES_SNAPSHOT_KEY as SNAPSHOT_KEY } from "./bulgarian-names-web"
 const DIRTY_KEY = "losporClinicalPreferencesDirtyV1"
 const LEGACY_KEYS = [
   "heightUnit",
@@ -80,6 +80,7 @@ export function writeWebClinicalPreferences(
   if (typeof window === "undefined") return
   const normalized = normalizeClinicalPreferences(preferences)
   localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(normalized))
+  setBulgarianNameSwitches(normalized.bulgarianNames)
   const values: Record<string, string> = {
     heightUnit: normalized.units.height,
     weightUnit: normalized.units.weight,

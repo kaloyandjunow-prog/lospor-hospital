@@ -1,6 +1,7 @@
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { displayClinicalCode, displayNamedOption } from "@/lib/clinical-display"
 import type { LibraryOption } from "@/hooks/useOptionLibrary"
+import { useBulgarianNamesVersion } from "@/hooks/useBulgarianNamesVersion"
 
 /**
  * Clinical naming for the intraoperative timetable.
@@ -55,22 +56,18 @@ export function useIntraopDisplay({
   infusionOptions,
   agentOptions,
 }: IntraopDisplayInput): IntraopDisplay {
-  const displayDrugName = useCallback(
-    (name: string) => displayNamedOption("INTRAOP_DRUG", drugOptions, name, locale),
-    [drugOptions, locale],
-  )
-  const displayFluidName = useCallback(
-    (name: string) => displayNamedOption("INTRAOP_FLUID", fluidOptions, name, locale),
-    [fluidOptions, locale],
-  )
-  const displayInfusionName = useCallback(
-    (name: string) => displayNamedOption("INTRAOP_INFUSION", infusionOptions, name, locale),
-    [infusionOptions, locale],
-  )
-  const displayAgentName = useCallback(
-    (name: string) => displayNamedOption("INHALATIONAL_AGENT", agentOptions, name, locale),
-    [agentOptions, locale],
-  )
+  // The Bulgarian-name switches (Settings → UI) change these four names without
+  // changing the locale, so they are rebuilt whenever a switch changes; memos
+  // that hold names (lane titles) then follow.
+  const namesVersion = useBulgarianNamesVersion()
+  const { displayDrugName, displayFluidName, displayInfusionName, displayAgentName } = useMemo(() => ({
+    displayDrugName: (name: string) => displayNamedOption("INTRAOP_DRUG", drugOptions, name, locale),
+    displayFluidName: (name: string) => displayNamedOption("INTRAOP_FLUID", fluidOptions, name, locale),
+    displayInfusionName: (name: string) => displayNamedOption("INTRAOP_INFUSION", infusionOptions, name, locale),
+    displayAgentName: (name: string) => displayNamedOption("INHALATIONAL_AGENT", agentOptions, name, locale),
+  // namesVersion is the switches, read inside displayNamedOption; the rule cannot see that.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [agentOptions, drugOptions, fluidOptions, infusionOptions, locale, namesVersion])
   const displayEventName = useCallback(
     (event: { code: string; label: string; labelBg: string | null }) => displayClinicalCode(
       "option:INTRAOP_EVENT",

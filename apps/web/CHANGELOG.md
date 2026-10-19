@@ -1,5 +1,93 @@
 # Changelog - LOSPOR Web App
 
+## [9.15.0] - 2026-10-19
+
+On Core 9.15.0.
+
+### Added
+
+- **Target-controlled infusions.**
+  - **Start:** propofol, remifentanil, sufentanil and alfentanil start as
+    **Rate** or **TCI**. TCI asks for the model, Cp or Ce, Eleveld's opioid
+    switch, the syringe and the target. A model that cannot apply to the
+    patient is greyed out with the reason.
+  - **Preview:** what the pump will give in the first 10 minutes and per hour
+    is shown before the start.
+  - **Change:** opens **New target**.
+  - **Pump total:** the infusion's menu takes the pump's own total on the
+    stop, or after it, and that total counts.
+  - **On the chart:** the bar shows its target and model and a dashed line
+    for the predicted concentration.
+  - **Totals:** the totals, End case, the record and the print say whether
+    each total came from the pump or the model.
+- **Infusions with both rates.**
+  - **Syringe:** a syringe step with the hospital's presets, or Other with an
+    amount and a volume.
+  - **Units:** the drug's unit, its other dose unit, or mL/hr, with the value
+    carried across and the other rate read out. Both rates are saved.
+  - **Totals:** each infusion's mL, "Drug infusions" and "Total in". The
+    print adds each infusion's mL.
+- **Children's local anaesthetic infusions** in mL/kg/hr. The slider's
+  maximum and pills follow the % picked, the pump rate and dose are read out,
+  and the pump rate can be typed.
+- **Other strengths with sliders.** A local anaesthetic, fluid or mg/mL
+  strength typed with Other gets a slider, pills and the drug's range. A
+  number outside the range is brought to the limit, and the screen says so.
+- **Every refusal is said.** Start Infusion, the rate-change dialog and
+  Administer say why they are off: no rate or dose, no strength, or no
+  formulation.
+- **Preop summary page and printable consent**, when a hospital switches them
+  on.
+  - **Flow:** Continue in preop goes to the summary. From there you keep the
+    case or hand it over, print, or start intraop.
+  - **Print:** the A4 print and PDF come in the hospital's layout, A to E.
+    Every layout lists the whole questionnaire with every answer.
+  - **Consent:** carries the signers that чл. 87 asks for.
+  - **Print record:** printing records the text version and fingerprint on
+    the case.
+- **Planned anaesthesia** on the risk tab, in the intraop menus. It prints on
+  the summary, fills the consent's planned-anaesthesia line, and starts
+  layout C.
+- **Gupta MICA card** beside the risk scores, shown where the hospital
+  switched on both its questions. It names a missing input, counts a missing
+  creatinine as "unknown", and offers the procedure type the planned
+  procedure suggests. Choice questions are asked with their own options.
+- **ASA suggestion** shown until a class is chosen, and only on evidence, with
+  its reasons in the clinician's language.
+- **Paediatric fasting as nil-by-mouth assignments**: the APAGBI minimums in
+  one tap, a shorter assignment flagged, and clock times in intraop once
+  surgery has started.
+- **A date beside the start and end of surgery.**
+  - **Stepper:** a day stepper (‹ Today ›), with the start up to 14 days back
+    and the end up to 2 days after the start.
+  - **Replaces:** the month/year dropdowns and the next-day tick.
+  - **Long cases:** a case longer than 24 hours shows a warning.
+  - **On the record:** the record shows the day of the case.
+- **Bulgarian names for drugs, infusions, agents and fluids**: five switches
+  in Settings, saved with the account. They apply on the chart, in the
+  allergy warning and on the printed record.
+
+### Changed
+
+- **Paediatric calculations** (BSA, maintenance fluid, resuscitation) moved
+  from preop to the intraop preop summary.
+- **Score cards take their colour from the score's own band.** Apfel follows
+  the PONV consensus bands. The RCRI, Apfel and STOP-BANG questions are
+  translated.
+- **Bulgarian screens.** Titles read "Оценка по ASA" and "Модифицирана скала
+  на Алдрет". The abbreviations АН / СЧ / ДЧ / Темп. are used. Server
+  messages, the event log, warnings and the clinical-rule codes are shown in
+  the page language.
+- **Infusion menu** grouped like the drugs.
+
+### Fixed
+
+- "Cannot be calculated" no longer shows for a route without a weight-based
+  dose (intrathecal morphine).
+- A local anaesthetic bolus needs its strength, as on the phone.
+
+## [9.14.5] - 2026-10-11
+
 ## [9.14.5] - 2026-10-11
 
 ### Changed

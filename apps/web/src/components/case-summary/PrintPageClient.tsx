@@ -6,6 +6,7 @@ import { ArrowLeft, Printer } from "lucide-react"
 import { useLocale } from "next-intl"
 import { CaseSummary } from "@/components/CaseSummary"
 import type { CaseDetail } from "@/types/case-detail"
+import { setBulgarianNameSwitches, type BulgarianNameSwitches } from "@lospor/core/display"
 
 const TXT = {
   en: {
@@ -30,12 +31,15 @@ const STAGE_W = 1123
 // The dedicated printable HTML surface. It has one honest action: open the
 // browser's print dialog. Any PDF file is created by the user's browser/device,
 // not by the Hospital API.
-export function PrintPageClient({ caseId, initialData, autoPrint }: {
+export function PrintPageClient({ caseId, initialData, autoPrint, bulgarianNames }: {
   caseId: string
   initialData: CaseDetail
   autoPrint?: boolean
   printToken?: string
+  /** The requester's Bulgarian-name switches, for a PDF the server renders (no stored preferences there). */
+  bulgarianNames?: BulgarianNameSwitches | null
 }) {
+  if (bulgarianNames) setBulgarianNameSwitches(bulgarianNames)
   const locale = useLocale()
   const T = locale === "bg" ? TXT.bg : TXT.en
 
