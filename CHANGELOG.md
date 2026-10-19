@@ -1,6 +1,10 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased]
+## [1.6.2] - 2026-10-19
+
+Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.1. No database
+migration of its own; from 1.5.6 the update still runs the five 1.6.0
+migrations, so going back restores the pre-update backup.
 
 ### Fixed
 
