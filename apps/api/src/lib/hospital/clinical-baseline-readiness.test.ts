@@ -5,7 +5,9 @@ import {
 } from "@lospor/core/clinical-rules"
 import {
   createLosporAdultV2Draft,
+  createLosporAdultV3Draft,
   createLosporPediatricV2Draft,
+  createLosporPediatricV3Draft,
 } from "@lospor/core/platform-clinical-drafts"
 import type { ClinicalBaselineSelection } from "./clinical-baseline-readiness"
 
@@ -13,8 +15,11 @@ vi.mock("server-only", () => ({}))
 
 function canonicalSelection(
   mode: "ADULT" | "PEDIATRIC",
+  version: 2 | 3 = 2,
 ): ClinicalBaselineSelection {
-  const draft = mode === "ADULT" ? createLosporAdultV2Draft() : createLosporPediatricV2Draft()
+  const draft = version === 3
+    ? (mode === "ADULT" ? createLosporAdultV3Draft() : createLosporPediatricV3Draft())
+    : (mode === "ADULT" ? createLosporAdultV2Draft() : createLosporPediatricV2Draft())
   return {
     preset: {
       id: draft.id,
@@ -40,11 +45,11 @@ function clone(selection: ClinicalBaselineSelection): ClinicalBaselineSelection 
 }
 
 describe("Hospital selected clinical baseline readiness", () => {
-  it("pins exact source-controlled v2 identities, digests, and profile counts", async () => {
+  it("pins exact source-controlled v3 identities, digests, and profile counts", async () => {
     const { expectedHospitalClinicalBaseline } = await import("./clinical-baseline-readiness")
     for (const mode of ["ADULT", "PEDIATRIC"] as const) {
       const expected = expectedHospitalClinicalBaseline(mode)
-      expect(expected.version).toBe(2)
+      expect(expected.version).toBe(3)
       expect(expected.digestSha256).toMatch(/^[a-f0-9]{64}$/)
       expect(expected.ruleCount).toBeGreaterThan(0)
       expect(expected.profileCounts.total).toBe(expected.ruleCount)
@@ -64,11 +69,13 @@ describe("Hospital selected clinical baseline readiness", () => {
     })
   })
 
-  it.each(["ADULT", "PEDIATRIC"] as const)(
-    "accepts only the exact published %s v2 source snapshot",
-    async mode => {
+  // v3 is what the 1.6.0 update installs and selects; v2 stays selected where
+  // v3 could not be. Both are release-owned and both are ready, exactly.
+  it.each([["ADULT", 3], ["PEDIATRIC", 3], ["ADULT", 2], ["PEDIATRIC", 2]] as const)(
+    "accepts only the exact published %s v%i source snapshot",
+    async (mode, version) => {
       const { assessHospitalClinicalBaselineSelection } = await import("./clinical-baseline-readiness")
-      const result = assessHospitalClinicalBaselineSelection(mode, canonicalSelection(mode))
+      const result = assessHospitalClinicalBaselineSelection(mode, canonicalSelection(mode, version))
       expect(result).toMatchObject({
         mode,
         baselineReady: true,
@@ -76,7 +83,7 @@ describe("Hospital selected clinical baseline readiness", () => {
         selected: {
           presetId: result.expected.presetId,
           key: result.expected.key,
-          version: 2,
+          version,
           status: "PUBLISHED",
           digestSha256: result.expected.digestSha256,
           ruleCount: result.expected.ruleCount,
@@ -179,5 +186,14 @@ describe("Hospital selected clinical baseline readiness", () => {
     expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({
       where: { clinicalMode: "ADULT" },
     }))
+  })
+})
+
+describe("the baselines an update installs are the ones readiness accepts (1.6.0)", () => {
+  it("names the v3 presets the bundled v3 provisioner installs", async () => {
+    const { expectedHospitalClinicalBaseline } = await import("./clinical-baseline-readiness")
+    const { BUNDLED_BASELINE_V3_PRESET_IDS } = await import("@/lib/clinical-rules/bundled-baseline-v3")
+    const accepted = new Set((["ADULT", "PEDIATRIC"] as const).map(mode => expectedHospitalClinicalBaseline(mode).presetId))
+    expect(accepted).toEqual(new Set(BUNDLED_BASELINE_V3_PRESET_IDS))
   })
 })

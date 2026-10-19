@@ -49,6 +49,8 @@ pre-update backup.
   in Settings.
 - **Clinical rule sets v3.** They are installed beside v2 on the update, and
   the platform selection moves to v3 only where 1.2.0 made it.
+  Clinical guidance readiness accepts v3 exactly, and v2 where it stays
+  selected, so adult and paediatric guidance stay on after the update.
 - **Research Browser 0.9.0:**
   - cohort filters on the raw RCRI, Apfel, STOP-BANG, POVOC, COLDS and PAED
     counts;
