@@ -9,13 +9,17 @@ import type {
 } from "@lospor/core/research"
 import { apiJson } from "@/lib/client-api"
 import { formatOptionalResearchCount } from "@/lib/research-disclosure"
+import {
+  EMPTY_SCORE_FILTERS, SCORE_FILTER_FIELDS, scoreFilterScale, scoreFiltersFromForm,
+  type ScoreFilterForm,
+} from "@/lib/score-filters"
 import { useLocale } from "./locale-provider"
 import { ClinicalMultiSelect } from "./clinical-multi-select"
 import { ClinicalSearchSelect } from "./clinical-search-select"
 
 const ASA_OPTIONS = ["I", "II", "III", "IV", "V", "VI"].map(code => ({ code, label: `ASA ${code}` }))
 
-type Side = {
+type Side = ScoreFilterForm & {
   label: string
   from: string
   to: string
@@ -27,6 +31,7 @@ type Side = {
 }
 
 const initial = (label: string): Side => ({
+  ...EMPTY_SCORE_FILTERS,
   label,
   from: "",
   to: "",
@@ -37,7 +42,14 @@ const initial = (label: string): Side => ({
   emergency: "",
 })
 
-function cohort(side: Side): ResearchCohortDefinition {
+function scoreNumber(value: string) {
+  if (!value.trim()) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+/** One side of the comparison, with the same score filters as the cohort builder. */
+export function compareCohort(side: Side): ResearchCohortDefinition {
   return {
     version: 1,
     filters: {
@@ -51,9 +63,12 @@ function cohort(side: Side): ResearchCohortDefinition {
       ...(side.diagnosis ? { diagnosisCodes: side.diagnosis.split(",").map(item => item.trim()).filter(Boolean) } : {}),
       ...(side.procedure ? { procedureCodes: side.procedure.split(",").map(item => item.trim()).filter(Boolean) } : {}),
       ...(side.emergency ? { emergency: side.emergency === "true" } : {}),
+      ...scoreFiltersFromForm(side, scoreNumber),
     },
   }
 }
+
+export const initialCompareSide = initial
 
 export function CompareCohorts() {
   const { locale, message } = useLocale()
@@ -70,8 +85,8 @@ export function CompareCohorts() {
       setResult(await apiJson<ResearchComparisonResponse>("/research/compare", {
         method: "POST",
         body: JSON.stringify({
-          left: cohort(left),
-          right: cohort(right),
+          left: compareCohort(left),
+          right: compareCohort(right),
           metrics: [
             "caseCount",
             "pediatricRate",
@@ -205,6 +220,14 @@ function SideEditor({
             <option value="">{message("any")}</option><option value="true">{message("emergency")}</option><option value="false">{message("elective")}</option>
           </select>
         </Field>
+        {SCORE_FILTER_FIELDS.map(field => (
+          <Field key={field} label={`${clinicalDisplayLabel("researchField", field, locale)} (${scoreFilterScale(field)})`}>
+            <span className="range-pair">
+              <input className="input" inputMode="numeric" aria-label={message("rangeFrom")} placeholder={message("rangeFrom")} value={side[`${field}Min`]} onChange={e => update(`${field}Min`, e.target.value)} />
+              <input className="input" inputMode="numeric" aria-label={message("rangeTo")} placeholder={message("rangeTo")} value={side[`${field}Max`]} onChange={e => update(`${field}Max`, e.target.value)} />
+            </span>
+          </Field>
+        ))}
       </div>
     </div>
   )

@@ -1,5 +1,12 @@
 # Changelog - LOSPOR Database
 
+## [0.9.1] - 2026-10-19
+
+### Added
+
+- **Risk score filters on Compare.** Each side filters on the raw RCRI,
+  Apfel, STOP-BANG, POVOC, COLDS and PAED counts, as the cohort builder does.
+
 ## [0.9.0] - 2026-10-19
 
 ### Added
