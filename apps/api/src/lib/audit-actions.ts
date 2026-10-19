@@ -91,6 +91,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "CASE_EVENT_ADD", category: "CASE", labels: { bg: "Добавено събитие към случай", en: "Case event added" } },
   { code: "CASE_EVENT_DELETE", category: "CASE", labels: { bg: "Изтрито събитие от случай", en: "Case event deleted" } },
   { code: "CASE_EVENT_EDIT", category: "CASE", labels: { bg: "Редактирано събитие в случай", en: "Case event edited" } },
+  { code: "CASE_CONSENT_PRINTED", category: "CASE", labels: { bg: "Отпечатано информирано съгласие", en: "Informed consent printed" } },
   { code: "CASE_FINALIZED", category: "CASE", labels: { bg: "Финализиран случай", en: "Case finalised" } },
   { code: "CASE_PATIENT_LINK_CORRECTED", category: "CASE", labels: { bg: "Коригирана връзка на пациент", en: "Patient link corrected" } },
   { code: "CASE_SUBMITTED_FOR_REVIEW", category: "CASE", labels: { bg: "Случаят е предаден за преглед", en: "Case submitted for review" } },
@@ -105,6 +106,8 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "RELATIONAL_SYNC_FAILED", category: "CASE", labels: { bg: "Неуспешна синхронизация на данните за случай", en: "Case data synchronisation failed" } },
 
   { code: "CLINICAL_BUNDLED_BASELINE_PROVISION", category: "CLINICAL_RULES", labels: { bg: "Инсталиран базов набор от клинични правила", en: "Bundled clinical baseline installed" } },
+  { code: "PREOP_DOCUMENTS_POLICY_UPDATE", category: "CLINICAL_RULES", labels: { bg: "Променени настройки за предоперативно обобщение и съгласие", en: "Preop summary and consent settings changed" } },
+  { code: "CONSENT_TEMPLATE_SAVE", category: "CLINICAL_RULES", labels: { bg: "Запазен нов вариант на текста на информираното съгласие", en: "New version of the informed consent text saved" } },
   { code: "CLINICAL_RULESET_CREATE", category: "CLINICAL_RULES", labels: { bg: "Създаден набор от клинични правила", en: "Clinical ruleset created" } },
   { code: "CLINICAL_RULESET_DEV_RESET", category: "CLINICAL_RULES", labels: { bg: "Нулирани клинични правила за разработка", en: "Development clinical rules reset" } },
   { code: "CLINICAL_RULESET_PEDIATRIC_DRUG_REPLACE", category: "CLINICAL_RULES", labels: { bg: "Заменени педиатрични лекарствени профили", en: "Pediatric medication profiles replaced" } },

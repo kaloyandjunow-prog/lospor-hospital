@@ -93,6 +93,9 @@ export const ModelName = {
   PreopQuestionDefinition: 'PreopQuestionDefinition',
   PreopAnswerOption: 'PreopAnswerOption',
   PreopAssessmentProfile: 'PreopAssessmentProfile',
+  PreopDocumentPolicy: 'PreopDocumentPolicy',
+  ConsentTemplateVersion: 'ConsentTemplateVersion',
+  CaseConsentPrint: 'CaseConsentPrint',
   PreopProfileQuestion: 'PreopProfileQuestion',
   PreopAssessmentAnswer: 'PreopAssessmentAnswer',
   PreopAssessmentSuggestion: 'PreopAssessmentSuggestion',
@@ -799,6 +802,9 @@ export const PreoperativeAssessmentScalarFieldEnum = {
   cormackLehane: 'cormackLehane',
   airwayUnobtainable: 'airwayUnobtainable',
   asaScore: 'asaScore',
+  asaSuggestedScore: 'asaSuggestedScore',
+  asaSuggestionReasons: 'asaSuggestionReasons',
+  asaSuggestionRulesVersion: 'asaSuggestionRulesVersion',
   elective: 'elective',
   emergencySurgery: 'emergencySurgery',
   highRiskSurgery: 'highRiskSurgery',
@@ -832,6 +838,7 @@ export const PreoperativeAssessmentScalarFieldEnum = {
   coldsAirwayDevice: 'coldsAirwayDevice',
   coldsSurgery: 'coldsSurgery',
   pediatricFasting: 'pediatricFasting',
+  plannedAnaesthesia: 'plannedAnaesthesia',
   labResults: 'labResults',
   aiOptIn: 'aiOptIn',
   createdAt: 'createdAt',
@@ -894,6 +901,50 @@ export const PreopAssessmentProfileScalarFieldEnum = {
 } as const
 
 export type PreopAssessmentProfileScalarFieldEnum = (typeof PreopAssessmentProfileScalarFieldEnum)[keyof typeof PreopAssessmentProfileScalarFieldEnum]
+
+
+export const PreopDocumentPolicyScalarFieldEnum = {
+  id: 'id',
+  summaryEnabled: 'summaryEnabled',
+  consentEnabled: 'consentEnabled',
+  layout: 'layout',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PreopDocumentPolicyScalarFieldEnum = (typeof PreopDocumentPolicyScalarFieldEnum)[keyof typeof PreopDocumentPolicyScalarFieldEnum]
+
+
+export const ConsentTemplateVersionScalarFieldEnum = {
+  id: 'id',
+  population: 'population',
+  version: 'version',
+  title: 'title',
+  body: 'body',
+  sha256: 'sha256',
+  createdById: 'createdById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt'
+} as const
+
+export type ConsentTemplateVersionScalarFieldEnum = (typeof ConsentTemplateVersionScalarFieldEnum)[keyof typeof ConsentTemplateVersionScalarFieldEnum]
+
+
+export const CaseConsentPrintScalarFieldEnum = {
+  id: 'id',
+  caseId: 'caseId',
+  population: 'population',
+  templateVersion: 'templateVersion',
+  templateVersionId: 'templateVersionId',
+  bodySha256: 'bodySha256',
+  layout: 'layout',
+  techniques: 'techniques',
+  printedById: 'printedById',
+  printedAt: 'printedAt'
+} as const
+
+export type CaseConsentPrintScalarFieldEnum = (typeof CaseConsentPrintScalarFieldEnum)[keyof typeof CaseConsentPrintScalarFieldEnum]
 
 
 export const PreopProfileQuestionScalarFieldEnum = {
@@ -1024,6 +1075,7 @@ export const IntraoperativeRecordScalarFieldEnum = {
   crystalloidsMl: 'crystalloidsMl',
   colloidsMl: 'colloidsMl',
   bloodMl: 'bloodMl',
+  infusionsMl: 'infusionsMl',
   bloodProductsNote: 'bloodProductsNote',
   urineMl: 'urineMl',
   bloodLossMl: 'bloodLossMl',

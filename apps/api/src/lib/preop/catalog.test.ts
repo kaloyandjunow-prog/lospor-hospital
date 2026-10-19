@@ -27,10 +27,13 @@ describe("bundled preoperative catalog", () => {
     ]))
   })
   it("keeps the complete approved baseline and population catalog represented", () => {
-    expect(BUNDLED_PREOP_QUESTIONS).toHaveLength(75)
-    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("ADULT"))).toHaveLength(32)
-    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("PEDIATRIC"))).toHaveLength(18)
-    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.length === 0)).toHaveLength(25)
+    expect(BUNDLED_PREOP_QUESTIONS).toHaveLength(82)
+    // 1.6.0 (Core 9.15.0) added previous ICU stay, alcohol use with two
+    // follow-ups, a child's recent vaccination and Gupta's two inputs, and asks
+    // bleeding and transfusion of children too.
+    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("ADULT"))).toHaveLength(27)
+    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("PEDIATRIC"))).toHaveLength(19)
+    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.length === 0)).toHaveLength(36)
     expect(BUNDLED_PREOP_QUESTIONS.every(question => question.options.every(option =>
       option.key !== "NOT_ASSESSED" && option.key !== "UNKNOWN",
     ))).toBe(true)
@@ -38,8 +41,12 @@ describe("bundled preoperative catalog", () => {
       .toEqual(["ELECTIVE", "EMERGENCY"])
     expect(bundledQuestion("BASE_SURGERY_RISK")?.options.map(option => option.key))
       .toEqual(["LOW", "HIGH"])
+    // Gupta's functional status and procedure type carry the model's own options.
+    expect(bundledQuestion("A15_FUNCTIONAL_STATUS")?.options.map(option => option.key))
+      .toEqual(["INDEPENDENT", "PARTIALLY_DEPENDENT", "TOTALLY_DEPENDENT"])
+    expect(bundledQuestion("A16_GUPTA_PROCEDURE_TYPE")?.options).toHaveLength(21)
     expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.answerType === "CHOICE")
-      .filter(question => !["BASE_SURGERY_URGENCY", "BASE_SURGERY_RISK"].includes(question.stableKey))
+      .filter(question => !["BASE_SURGERY_URGENCY", "BASE_SURGERY_RISK", "A15_FUNCTIONAL_STATUS", "A16_GUPTA_PROCEDURE_TYPE"].includes(question.stableKey))
       .every(question => question.options.map(option => option.key).sort().join(",") === "NO,YES"))
       .toBe(true)
   })

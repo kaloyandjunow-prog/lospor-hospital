@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { SignJWT } from "jose"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
+import { parseConsentTechniques } from "@lospor/core/preop-documents"
 
 function secret() {
   const value = process.env.LOSPOR_AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
@@ -16,6 +17,9 @@ function secret() {
 // app to open the printable HTML record in the device browser. Hospital 1.0.0
 // does not generate a PDF on the server; the browser owns printing and any
 // optional "Save as PDF" action.
+//
+// `doc: "preop-summary"` links the preop summary (and consent) page instead,
+// with layout C's ticked techniques as known technique keys only (1.6.0).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -54,13 +58,20 @@ export async function POST(
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 })
   }
 
-  const requestBody = await req.json().catch(() => null) as { lang?: unknown } | null
+  const requestBody = await req.json().catch(() => null) as { lang?: unknown; doc?: unknown; techniques?: unknown } | null
   const lang = requestBody?.lang === "bg" || requestBody?.lang === "en"
     ? requestBody.lang
     : null
+  const preopSummary = requestBody?.doc === "preop-summary"
   const query = new URLSearchParams({ print_token: token })
   if (lang) query.set("lang", lang)
-  const url = `${base.replace(/\/$/, "")}/cases/${encodeURIComponent(id)}/print?${query.toString()}`
+  // Sent even when empty: "nothing ticked" must not fall back to the planned anaesthesia.
+  if (preopSummary && Array.isArray(requestBody?.techniques)) {
+    const raw = requestBody.techniques.filter((item): item is string => typeof item === "string").join(",")
+    query.set("techniques", parseConsentTechniques(raw).join(","))
+  }
+  const page = preopSummary ? "preop-summary/print" : "print"
+  const url = `${base.replace(/\/$/, "")}/cases/${encodeURIComponent(id)}/${page}?${query.toString()}`
 
   return NextResponse.json({ token, url, format: "html", action: "print" })
 }
