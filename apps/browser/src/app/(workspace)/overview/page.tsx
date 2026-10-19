@@ -9,6 +9,7 @@ import { PageHeading } from "@/components/page-heading"
 import { MetricCard } from "@/components/metric-card"
 import { DistributionChart } from "@/components/distribution-chart"
 import { CasesTable } from "@/components/cases-table"
+import { AsaAgreementPanel } from "@/components/asa-agreement-panel"
 import { formatResearchCount } from "@/lib/research-disclosure"
 import { messages, type TranslationKey } from "@/lib/i18n"
 import { currentLocale } from "@/lib/server-locale"
@@ -99,6 +100,7 @@ export default async function OverviewPage() {
           </div>
         </div>
       </section>
+      <AsaAgreementPanel rows={query.asaAgreement} locale={locale} />
       {recent && (
         <section className="panel" style={{ marginTop: 14 }}>
           <div className="panel-header">

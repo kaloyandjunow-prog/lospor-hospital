@@ -29,6 +29,10 @@ import { ClinicalSearchSelect } from "./clinical-search-select"
 import { DistributionChart } from "./distribution-chart"
 import { MetricCard } from "./metric-card"
 import { useLocale } from "./locale-provider"
+import {
+  EMPTY_SCORE_FILTERS, SCORE_FILTER_FIELDS, scoreFilterScale, scoreFiltersFromForm, scoreFiltersToForm,
+  type ScoreFilterForm,
+} from "@/lib/score-filters"
 
 const ASA_CLASSES = ["I", "II", "III", "IV", "V", "VI"] as const
 const MAPPING_STATUSES = ["MAPPED", "MANUALLY_CURATED", "REJECTED", "SOURCE_ONLY", "UNMAPPED"] as const
@@ -75,9 +79,10 @@ export type FormState = {
   disposition: string
   mappingStatus: string
   completeness: string
-}
+} & ScoreFilterForm
 
 const EMPTY: FormState = {
+  ...EMPTY_SCORE_FILTERS,
   status: "COMPLETE",
   from: "",
   to: "",
@@ -123,7 +128,7 @@ const EMPTY: FormState = {
 
 const EDITABLE_FILTER_KEYS: ReadonlyArray<keyof ResearchCohortDefinition["filters"]> = [
   "statuses", "clinicalModes", "finalized", "ageDays", "ageYears", "bmi",
-  "durationMinutes", "aldreteTotal", "painScore", "sex", "asa", "emergency",
+  "durationMinutes", "aldreteTotal", "painScore", ...SCORE_FILTER_FIELDS, "sex", "asa", "emergency",
   "highRisk", "ponv", "diagnosisCodes", "diagnosisText", "comorbidityCodes",
   "comorbidityText", "procedureCodes", "procedureText", "procedureGroups",
   "techniques", "positions", "airwayDevices", "monitoring", "medications",
@@ -211,6 +216,7 @@ export function formFromCohort(definition: ResearchCohortDefinition): FormState 
     aldreteMax: formNumber(filters.aldreteTotal?.max),
     painMin: formNumber(filters.painScore?.min),
     painMax: formNumber(filters.painScore?.max),
+    ...scoreFiltersToForm(filters),
     sex: formList(filters.sex),
     asa: formList(filters.asa),
     emergency: formBoolean(filters.emergency),
@@ -292,6 +298,7 @@ export function buildCohort(
         ...(painMin !== undefined ? { min: painMin } : {}),
         ...(painMax !== undefined ? { max: painMax } : {}),
       } } : {}),
+      ...scoreFiltersFromForm(form, number),
       ...(form.sex ? { sex: list(form.sex) } : {}),
       ...(form.asa ? { asa: list(form.asa) } : {}),
       ...(form.emergency ? { emergency: form.emergency === "true" } : {}),
@@ -562,6 +569,14 @@ export function CohortBuilder({
             <Field label={message("aldreteTo")}> <input className="input" inputMode="decimal" value={form.aldreteMax} onChange={e => set("aldreteMax", e.target.value)} /></Field>
             <Field label={message("painScoreFrom")}> <input className="input" inputMode="decimal" value={form.painMin} onChange={e => set("painMin", e.target.value)} /></Field>
             <Field label={message("painScoreTo")}> <input className="input" inputMode="decimal" value={form.painMax} onChange={e => set("painMax", e.target.value)} /></Field>
+            {SCORE_FILTER_FIELDS.map(field => (
+              <Field key={field} label={`${clinicalDisplayLabel("researchField", field, locale)} (${scoreFilterScale(field)})`}>
+                <span className="range-pair">
+                  <input className="input" inputMode="numeric" aria-label={message("rangeFrom")} placeholder={message("rangeFrom")} value={form[`${field}Min`]} onChange={e => set(`${field}Min`, e.target.value)} />
+                  <input className="input" inputMode="numeric" aria-label={message("rangeTo")} placeholder={message("rangeTo")} value={form[`${field}Max`]} onChange={e => set(`${field}Max`, e.target.value)} />
+                </span>
+              </Field>
+            ))}
             <Field label={message("sex")}> 
               <ClinicalMultiSelect
                 value={form.sex}
