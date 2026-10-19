@@ -7,6 +7,7 @@ import {
   type BlockedSaveIssue,
   type RejectedField,
 } from "@lospor/core/sync"
+import { serverMessage } from "@/lib/server-message"
 
 type ApiFetch = (path: string, init?: ApiRequestInit) => Promise<Response>
 type ExpectedOwner = { userId: string; institutionId: string }
@@ -113,7 +114,7 @@ export async function postPreopServerCase(
           ok: false,
           status: res.status,
           body,
-          message: typeof body.error === "string" ? body.error : `Save failed (HTTP ${res.status})`,
+          message: serverMessage(typeof body.error === "string" ? body.error : `Save failed (HTTP ${res.status})`),
         }
       }
 
@@ -127,7 +128,7 @@ export async function postPreopServerCase(
           ? (body.preop as { syncRevision: number }).syncRevision
           : null
       if (typeof body.id !== "string") {
-        return { ok: false, status: res.status, body, message: "Save failed: server returned no case ID" }
+        return { ok: false, status: res.status, body, message: serverMessage("Save failed: server returned no case ID") }
       }
       const rejectedFields = Array.isArray(body.rejectedFields)
         ? body.rejectedFields.flatMap(field => {
@@ -149,7 +150,7 @@ export async function postPreopServerCase(
         ...(rejectedFields.length > 0 ? { rejectedFields } : {}),
       }
     }
-    return { ok: false, message: "Save failed: too many blocked fields" }
+    return { ok: false, message: serverMessage("Save failed: too many blocked fields") }
   } catch (error) {
     return {
       ok: false,

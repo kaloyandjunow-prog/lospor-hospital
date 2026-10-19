@@ -186,8 +186,6 @@ describe("user-visible localization inventory", () => {
   it("keeps named scores, standard abbreviations, drugs, units, and codes unchanged", () => {
     for (const key of [
       "abwLabel",
-      "aldreteScore",
-      "asaPhysicalStatus",
       "bmiLabel",
       "ibwLabel",
       "ponvLabel",
@@ -202,7 +200,10 @@ describe("user-visible localization inventory", () => {
     ] as const) {
       expect(CLINICAL_STRINGS.bg[key], key).toBe(CLINICAL_STRINGS.en[key])
     }
-    expect(STRINGS.bg.aldreteLabel).toBe("Aldrete")
+    expect(STRINGS.bg.aldreteLabel).toBe("Алдрет")
+    // The section titles are Bulgarian (decided 2026-10-18); the score names inside stay.
+    expect(CLINICAL_STRINGS.bg.asaPhysicalStatus).toBe("Оценка по ASA")
+    expect(CLINICAL_STRINGS.bg.aldreteScore).toBe("Модифицирана скала на Алдрет")
 
     const lockedTokensByKey = {
       apfelSection: ["Apfel"],
@@ -213,8 +214,9 @@ describe("user-visible localization inventory", () => {
       eventToPACU: ["PACU"],
       familyAnesthesiaHint: ["MH", "suxamethonium"],
       heightCm: ["cm"],
-      hviAlertHR: ["HR", "bpm"],
-      hviAlertResp: ["SpO₂", "RR", "/min"],
+      // Vital abbreviations are Bulgarian on Bulgarian screens (decided 2026-10-18).
+      hviAlertHR: ["СЧ", "/мин"],
+      hviAlertResp: ["SpO₂", "ДЧ", "/мин"],
       hviDVT_LMWH: ["DVT", "LMWH"],
       hviECG: ["ECG"],
       hviFluidPlan: ["IV"],

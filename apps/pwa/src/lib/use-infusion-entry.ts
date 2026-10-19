@@ -4,7 +4,9 @@ import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
 import { DEFAULT_INFUSION_WEIGHT_BASIS, infusionCalculationBasis, type WeightBasisMap } from "@lospor/core/intraop-totals"
 import { uid } from "@/lib/intraop-log-event"
+import type { InfusionRecord } from "@lospor/core/infusion-entry"
 import type { DrugFormulation, ActiveInfusion } from "@/lib/intraop-log-event"
+import type { PumpTotalUnit } from "@lospor/core/intraop-types"
 
 type InfusionOption = { name: string; unit: string; color: string }
 type CodedIdentity = { drugId?: string; atcCode?: string; inn?: string }
@@ -56,14 +58,22 @@ export function useInfusionEntry(
     setInfOpen(true)
   }
 
-  function confirmInfusion() {
-    if (!infDrug || !infRate) return
+  /**
+   * Both rates are recorded (2026-10-18): `record` is what the sheet worked out
+   * from the value, the unit it was entered in and the syringe -- the dose rate,
+   * the pump rate and the weight. Without one, the box's value in the drug's unit.
+   */
+  function confirmInfusion(record?: InfusionRecord) {
+    // A TCI start carries its target in the record; the Rate box may be empty (2026-10-19).
+    if (!infDrug || (!record && !infRate)) return
     const codes = infusionCodes[infDrug.name]
     const inf: ActiveInfusion = {
-      infId: uid(), name: infDrug.name, rate: infRate, unit: infDrug.unit, color: infDrug.color,
+      infId: uid(), name: infDrug.name, rate: record ? String(record.rate) : infRate, unit: record?.unit ?? infDrug.unit, color: infDrug.color,
       concentration: infConcentration, formulation: infFormulation, route: infRoute,
       drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
       ...provenanceFromRule(infRule),
+      // A target-controlled infusion: the rate is its target (2026-10-18).
+      ...(record?.tci ? { tciModel: record.tci.model, tciSite: record.tci.site, tciOpioids: record.tci.opioids } : {}),
     }
     // Close the sheet synchronously; the allergy check answers at once when
     // nothing clashes. Only a given infusion is shown running and saved, so a
@@ -82,6 +92,9 @@ export function useInfusionEntry(
         clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
         clinicalPresetScope: inf.clinicalPresetScope,
         calculationBasis: infusionCalculationBasis(inf.name, weightBasis),
+        ...(record?.volumeRateMlPerHour != null ? { volumeRateMlPerHour: record.volumeRateMlPerHour } : {}),
+        ...(record?.calculationWeightKg != null ? { calculationWeightKg: record.calculationWeightKg } : {}),
+        ...(inf.tciModel ? { tciModel: inf.tciModel, tciSite: inf.tciSite, tciOpioids: inf.tciOpioids } : {}),
       })
     })
   }
@@ -90,25 +103,31 @@ export function useInfusionEntry(
   async function stopInfusion(
     inf: ActiveInfusion,
     rowTs?: string | null,
-    options: { exactTs?: string; endCaseStop?: boolean } = {},
+    options: { exactTs?: string; endCaseStop?: boolean; pump?: { value: number; unit: PumpTotalUnit } } = {},
   ) {
     setActiveInfusions(prev => prev.filter(x => x.infId !== inf.infId))
     await save({
       type: "infusion_stop", infId: inf.infId, name: inf.name, color: inf.color,
       ...(options.endCaseStop ? { endCaseStop: true } : {}),
+      // A TCI stop may carry the pump's own total, which then counts (2026-10-18).
+      ...(options.pump ? { pumpTotal: options.pump.value, pumpTotalUnit: options.pump.unit } : {}),
     }, options.exactTs ?? atRow(rowTs))
   }
 
-  function changeRate(inf: ActiveInfusion, rate: string, concentration?: string) {
-    setActiveInfusions(prev => prev.map(x => x.infId === inf.infId ? { ...x, rate, concentration: concentration ?? x.concentration } : x))
+  function changeRate(inf: ActiveInfusion, enteredRate: string, concentration?: string, record?: InfusionRecord) {
+    const rate = record ? String(record.rate) : enteredRate
+    const unit = record?.unit ?? inf.unit
+    setActiveInfusions(prev => prev.map(x => x.infId === inf.infId ? { ...x, rate, unit, concentration: concentration ?? x.concentration } : x))
     const atTs = infActTs
     setInfActOpen(false); setInfActTgt(null); setInfActRate(""); setInfActConcentration(undefined); setInfActTs(null)
     // Stamp the rate change at the timetable column the user was editing (infActTs)
     // so the split lands there, not at wall-clock "now". Falls back to now when
     // opened without a column context (real-time charting).
     void save({
-      type: "infusion_rate", infId: inf.infId, name: inf.name, rate, unit: inf.unit,
+      type: "infusion_rate", infId: inf.infId, name: inf.name, rate, unit,
       color: inf.color, concentration: concentration ?? inf.concentration,
+      ...(record?.volumeRateMlPerHour != null ? { volumeRateMlPerHour: record.volumeRateMlPerHour } : {}),
+      ...(record?.calculationWeightKg != null ? { calculationWeightKg: record.calculationWeightKg } : {}),
       clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
       clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
       clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,

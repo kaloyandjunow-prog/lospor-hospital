@@ -104,6 +104,30 @@ describe("manual medication event provenance", () => {
     })
   })
 
+  it("records both rates of an infusion, start and change (2026-10-18)", () => {
+    const save = vi.fn(async () => ({ ...savedEvent, type: "infusion_start" } as LogEvent))
+    const setActiveInfusions = vi.fn()
+    let entry: ReturnType<typeof useInfusionEntry> | undefined
+    function Harness() {
+      entry = useInfusionEntry(save, () => {}, setActiveInfusions)
+      return null
+    }
+    render(<Harness />)
+    act(() => {
+      entry?.setInfDrug({ name: "Norepinephrine / Noradrenaline", unit: "mcg/kg/min", color: "#a855f7" })
+      entry?.setInfRate("5.25")
+      entry?.setInfConcentration("4 mg/50 mL")
+    })
+    // Entered as the pump rate; the sheet worked out the dose rate.
+    act(() => entry?.confirmInfusion({ rate: 0.1, unit: "mcg/kg/min", volumeRateMlPerHour: 5.25, calculationWeightKg: 70 }))
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      type: "infusion_start", rate: "0.1", unit: "mcg/kg/min", concentration: "4 mg/50 mL", volumeRateMlPerHour: 5.25, calculationWeightKg: 70,
+    }))
+    const running = (setActiveInfusions.mock.calls[0]?.[0] as (previous: unknown[]) => Array<Record<string, unknown>>)([])[0] as never
+    act(() => entry?.changeRate(running, "7", undefined, { rate: 7, unit: "mcg/min", volumeRateMlPerHour: 5.25 }))
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ type: "infusion_rate", rate: "7", unit: "mcg/min", volumeRateMlPerHour: 5.25 }), expect.anything())
+  })
+
   it("records the institution's weight basis on the start event (9.12.3)", () => {
     const save = vi.fn(async () => ({ ...savedEvent, type: "infusion_start" } as LogEvent))
     let entry: ReturnType<typeof useInfusionEntry> | undefined

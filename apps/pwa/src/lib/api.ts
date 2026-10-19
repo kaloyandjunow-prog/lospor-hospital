@@ -16,6 +16,7 @@ import {
   type AdministratorMfaCompletion,
   type LoginResult,
 } from "./administrator-mfa"
+import { serverMessage } from "@/lib/server-message"
 
 const IS_WEB_SESSION = Platform.OS === "web"
 
@@ -44,6 +45,8 @@ const TOKEN_KEY = "lospor_access_token"
 const authExpiredListeners = new Set<() => void>()
 
 export class ApiError extends Error {
+  /** The message as the server (or the fallback) wrote it, in English; `message` is in the app's language. */
+  sourceMessage: string
   constructor(
     message: string,
     public status: number,
@@ -51,7 +54,8 @@ export class ApiError extends Error {
     public serverVersion?: Record<string, unknown>,
     public details?: Record<string, unknown>,
   ) {
-    super(message)
+    super(serverMessage(message))
+    this.sourceMessage = message
     this.name = "ApiError"
   }
 }
@@ -568,7 +572,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   })
   const body = await res.json().catch(() => ({}))
   if (!res.ok && res.status !== 202) {
-    throw new Error(body.error ?? "Password reset failed.")
+    throw new Error(serverMessage(body.error ?? "Password reset failed."))
   }
   return { ok: true, devResetUrl: body.devResetUrl }
 }
@@ -581,7 +585,7 @@ export async function confirmPasswordReset(token: string, password: string): Pro
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? "Password reset failed.")
+    throw new Error(serverMessage(body.error ?? "Password reset failed."))
   }
 }
 

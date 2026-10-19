@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react"
 import { buildEventLabel, localizedClinicalEventText } from "@/lib/intraop-event-label"
-import { localizedOptions } from "@/lib/clinical-display"
+import { displayClinicalCode, localizedOptions } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import { buildTechniqueTree, techniqueDisplayLabel } from "@/lib/intraop-technique"
@@ -16,6 +16,7 @@ import type {
 } from "@lospor/core/clinical-rules"
 import type { PediatricAgeInput } from "@lospor/core/pediatric"
 import type { ActiveClinicalPreset } from "@/lib/hidden-clinical-options"
+import { displayedEventName } from "@lospor/core/display"
 
 export function useIntraopOptionSets(
   adultDoseProfiles: readonly AdultDoseProfileRule[] = [],
@@ -27,7 +28,7 @@ export function useIntraopOptionSets(
   activePreset: ActiveClinicalPreset = null,
   prospectiveGuidanceEnabled = false,
 ) {
-  const { language, tc } = usePreferences()
+  const { language, tc, bulgarianNames } = usePreferences()
   const intraopOptions = useIntraopOptions(
     adultDoseProfiles,
     pediatricDrugProfiles,
@@ -69,12 +70,14 @@ export function useIntraopOptionSets(
   const eventNames = useMemo(() => CLINICAL_EVENT_CATS.flatMap(cat => cat.events), [CLINICAL_EVENT_CATS])
   const writtenByApp = useMemo(() => ({ "Anaesthesia start": tc("evAnaesthesiaStart") }), [tc])
   const eventLabel = useCallback((ev: LogEvent, prevVital?: LogEvent): { text: string; color: string; sub?: string } => {
-    const built = buildEventLabel(ev, prevVital, { drugColor, clinicalEventColor })
+    // Drugs, infusions, fluids and agents by the names the reader chose (Settings → UI).
+    const shown = ev.name ? { ...ev, name: displayedEventName(ev.type, ev.name, language, bulgarianNames) } : ev
+    const built = buildEventLabel(shown, prevVital, { drugColor, clinicalEventColor, language, drugCategoryLabel: category => displayClinicalCode("optionGroup", category, language, { label: category }) })
     const label = ev.type === "clinical_event"
       ? { ...built, text: localizedClinicalEventText(built.text, language, eventNames, writtenByApp) }
       : built
     return ev.autoFilled ? { ...label, text: `${label.text} · ${autoFilledTag}` } : label
-  }, [autoFilledTag, clinicalEventColor, drugColor, eventNames, language, writtenByApp])
+  }, [autoFilledTag, bulgarianNames, clinicalEventColor, drugColor, eventNames, language, writtenByApp])
 
   const techniqueLabel = useCallback((value: string): string =>
     techniqueDisplayLabel(value, TECHNIQUE_TREE),

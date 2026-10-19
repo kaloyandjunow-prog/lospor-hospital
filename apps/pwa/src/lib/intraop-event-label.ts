@@ -7,6 +7,9 @@ export type EventLabel = { text: string; color: string; sub?: string }
 export type EventLabelColors = {
   drugColor: (name: string) => string
   clinicalEventColor: (label: string) => string
+  /** The fixed words of the log in the reader’s language (core describeIntraopEvent). */
+  language?: string
+  drugCategoryLabel?: (category: string) => string
 }
 
 export function buildEventLabel(
@@ -19,6 +22,8 @@ export function buildEventLabel(
     trend: trendArrow,
     drugColor: colors.drugColor,
     clinicalEventColor: colors.clinicalEventColor,
+    language: colors.language,
+    drugCategoryLabel: colors.drugCategoryLabel,
   })
   return {
     text: descriptor.text,

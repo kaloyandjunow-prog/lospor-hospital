@@ -20,6 +20,7 @@ import {
 } from "@/i18n/locale"
 import { STRINGS } from "@/i18n/strings"
 import { useAuth } from "@/lib/auth-context"
+import { setServerMessageLanguage } from "@/lib/server-message"
 import {
   loadAuthenticatedLocale,
   saveAuthenticatedLocale,
@@ -35,65 +36,17 @@ import {
   DEFAULT_CLINICAL_PREFERENCES,
   type ClinicalPreferences,
   type ClinicalPreferencesPatch,
-  type DefaultMonitoring,
 } from "@lospor/core/clinical-preferences"
-import type { AutoFillVitalsPreferences } from "@lospor/core/intraop-vitals"
+import { setBulgarianNameSwitches } from "@lospor/core/display"
 
 export type { AppLanguage } from "@/i18n/locale"
-export type HeightUnit = "cm" | "in"
-export type WeightUnit = "kg" | "lb"
-export type TemperatureUnit = "C" | "F"
-export type Etco2Unit = "mmHg" | "kPa"
-// Entry unit for central venous pressure. Display only: the stored and exported
-// value is mmHg whichever is chosen.
-export type CvpUnit = "cmH2O" | "mmHg"
+export type { HeightUnit, WeightUnit, TemperatureUnit, Etco2Unit, CvpUnit } from "./preferences-context-types"
+import type { ClinicalStringsMap, PreferencesContextValue, TranslationKey } from "./preferences-context-types"
 
 const PRE_AUTH_LANGUAGE_KEY = "lospor_pre_auth_locale_v1"
 const LEGACY_LANGUAGE_KEY = "lospor_language"
 const THEME_KEY = "lospor_theme"
 const PREOP_LAYOUT_KEY = "lospor_preop_layout"
-
-type TranslationKey = keyof typeof STRINGS.en
-type ClinicalStringsMap = Record<ClinicalStringKey, string>
-
-type PreferencesContextValue = {
-  language: AppLanguage
-  theme: ColorScheme
-  /** A colour written for dark, as the current theme shows it (see @/theme/shade). */
-  shade: (hex: string) => string
-  preopLayout: "sections" | "scroll"
-  heightUnit: HeightUnit
-  weightUnit: WeightUnit
-  temperatureUnit: TemperatureUnit
-  etco2Unit: Etco2Unit
-  cvpUnit: CvpUnit
-  defaultMonitoring: DefaultMonitoring
-  autoFillVitalsPreferences: AutoFillVitalsPreferences
-  intraopFavouriteDrugs: string[]
-  intraopFavouriteInfusions: string[]
-  localeReady: boolean
-  clinicalPreferencesReady: boolean
-  setLanguage: (language: AppLanguage) => Promise<void>
-  selectLoginLanguage: (language: AppLanguage) => Promise<void>
-  /** The language pressed on the login screen, if one was: only that is sent with the login. */
-  explicitLoginLanguage: () => AppLanguage | null
-  completeLoginLocaleSync: () => Promise<void>
-  setTheme: (theme: ColorScheme) => Promise<void>
-  setPreopLayout: (layout: "sections" | "scroll") => Promise<void>
-  setHeightUnit: (unit: HeightUnit) => Promise<void>
-  setWeightUnit: (unit: WeightUnit) => Promise<void>
-  setTemperatureUnit: (unit: TemperatureUnit) => Promise<void>
-  setEtco2Unit: (unit: Etco2Unit) => Promise<void>
-  setCvpUnit: (unit: CvpUnit) => Promise<void>
-  setDefaultMonitoring: (value: DefaultMonitoring) => Promise<void>
-  setAutoFillVitalsPreferences: (
-    value: Partial<AutoFillVitalsPreferences>,
-  ) => Promise<void>
-  setIntraopFavouriteDrugs: (values: string[]) => Promise<void>
-  setIntraopFavouriteInfusions: (values: string[]) => Promise<void>
-  t: (key: TranslationKey) => string
-  tc: (key: ClinicalStringKey) => string
-}
 
 export type { ClinicalStringKey, TranslationKey }
 
@@ -109,6 +62,8 @@ export function PreferencesProvider({
 }) {
   const { state: authState } = useAuth()
   const [language, setLanguageState] = useState<AppLanguage>(initialLanguage)
+  // Messages made outside React (API errors, autosave) follow the same language.
+  useEffect(() => { setServerMessageLanguage(language) }, [language])
   const [localeReady, setLocaleReady] = useState(false)
   const [theme, setThemeState] = useState<ColorScheme>("dark")
   const [preopLayout, setPreopLayoutState] =
@@ -132,6 +87,8 @@ export function PreferencesProvider({
 
   const applyClinicalPreferences = useCallback((value: ClinicalPreferences) => {
     clinicalRef.current = value
+    // Before the redraw, so every name drawn with these preferences follows the switches.
+    setBulgarianNameSwitches(value.bulgarianNames)
     setClinicalPreferences(value)
   }, [])
 
@@ -334,6 +291,7 @@ export function PreferencesProvider({
     autoFillVitalsPreferences: clinicalPreferences.autoFillVitals,
     intraopFavouriteDrugs: clinicalPreferences.intraopFavouriteDrugs,
     intraopFavouriteInfusions: clinicalPreferences.intraopFavouriteInfusions,
+    bulgarianNames: clinicalPreferences.bulgarianNames,
     localeReady,
     clinicalPreferencesReady,
     setLanguage,
@@ -356,6 +314,7 @@ export function PreferencesProvider({
       patchClinical({ intraopFavouriteDrugs }),
     setIntraopFavouriteInfusions: intraopFavouriteInfusions =>
       patchClinical({ intraopFavouriteInfusions }),
+    setBulgarianNames: bulgarianNames => patchClinical({ bulgarianNames }),
     t: key => STRINGS[language][key] ?? STRINGS.en[key],
     tc: key =>
       (CLINICAL_STRINGS[language] as ClinicalStringsMap)[key]

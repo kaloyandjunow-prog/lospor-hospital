@@ -76,7 +76,7 @@ const COPY: Record<"en" | "bg", Record<ReadinessKind, string>> = {
     missing_fluids: "Няма инфузии в картата",
     missing_complication_documentation: "Усложнения (или „няма“)",
     missing_postop: "Няма следоперативен запис",
-    missing_aldrete: "Скала Aldrete, всички компоненти",
+    missing_aldrete: "Скала Алдрет, всички компоненти",
     missing_disposition: "Къде отива пациентът след възстановяването",
     unacknowledged_allergy_conflict: "Приложен медикамент съвпада със записана алергия",
     other: "Друго, което сървърът изисква",

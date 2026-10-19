@@ -31,6 +31,7 @@ import {
 } from "@lospor/core/intraop-totals"
 import { MONITORING } from "@lospor/core/catalog"
 import { displayClinicalCode, displayOptionPath, toClinicalLocale } from "@/lib/clinical-display"
+import type { TciPatient } from "@lospor/core/tci"
 
 export type LabResult = LabResultDto
 export type Comorbidity = ClinicalTagDto
@@ -219,8 +220,10 @@ export function calcInfusionTotals(
   tbw: number | null,
   weightBasis: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
   bodySurfaceAreaM2: number | null = null,
+  /** For a TCI infusion's model (2026-10-18). */
+  tciPatient: TciPatient | null = null,
 ) {
-  return calculateInfusionTotals(infusions, ibw, tbw, weightBasis, bodySurfaceAreaM2)
+  return calculateInfusionTotals(infusions, ibw, tbw, weightBasis, bodySurfaceAreaM2, tciPatient)
 }
 
 export function formatAirway(intraop: CaseData["intraop"], locale: string): string {

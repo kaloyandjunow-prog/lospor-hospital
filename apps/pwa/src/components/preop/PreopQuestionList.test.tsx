@@ -128,3 +128,16 @@ describe("suggestions from the record", () => {
     expect(render2({ A12: "NO" })).not.toContain("preopSuggestionAccept")
   })
 })
+
+describe("questions asked from an age", () => {
+  it("leaves the alcohol question off a child under 14 and asks it from 14", () => {
+    const alcohol = [question("S2_ALCOHOL_USE", { minAgeYears: 14 })]
+    const at = (ageYears: number | null) => rowIds(render(
+      <PreopQuestionList profile={{ questions: alcohol }} formSection="anamnesis" mode="PEDIATRIC" states={new Map()}
+        onAnswer={vi.fn()} tc={tc as never} language="en" ageYears={ageYears} />,
+    ))
+    expect(at(9)).toEqual([])
+    expect(at(14).length).toBeGreaterThan(0)
+    expect(at(null).length).toBeGreaterThan(0)
+  })
+})

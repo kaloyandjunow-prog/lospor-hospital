@@ -16,6 +16,7 @@ import {
 } from "@/components/intraop/buildIntraopTabContentProps"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import { buildRowSummary } from "@/lib/intraop-running"
+import { usePreferences } from "@/lib/preferences-context"
 import { useStableRenderModel } from "@/lib/use-stable-render-model"
 
 const MemoizedIntraopTabContentHost = memo(IntraopTabContentHost)
@@ -27,10 +28,12 @@ type IntraopRenderSurfaceProps = IntraopTabContentBuilderProps
 
 export function IntraopRenderSurface(props: IntraopRenderSurfaceProps) {
   const { screenWidth, tabSwipeResponder, eventLabel } = props
+  // Vital abbreviations in the reader’s language (АН / СЧ in Bulgarian).
+  const { language } = usePreferences()
   const logEventText = useCallback((event: LogEvent) => eventLabel(event).text, [eventLabel])
   const logBuildSummary = useCallback(
-    (vital: VitalsEntry | undefined, rowEvents: LogEvent[]) => buildRowSummary(vital, rowEvents, logEventText),
-    [logEventText],
+    (vital: VitalsEntry | undefined, rowEvents: LogEvent[]) => buildRowSummary(vital, rowEvents, logEventText, language),
+    [language, logEventText],
   )
   // Timed so a slow switch can be attributed to a specific step rather than to
   // "the render". `Profiler` supplies React's own measure of each subtree.

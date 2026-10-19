@@ -3,7 +3,9 @@ import { View, Text, TouchableOpacity, type LayoutChangeEvent, type ScrollView }
 import { useMemo } from "react"
 import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
-import { displayClinicalCode } from "@/lib/clinical-display"
+import { displayClinicalCode, toClinicalLocale } from "@/lib/clinical-display"
+import { displayPaedBand } from "@lospor/core/risk-band-display"
+import { riskColor } from "@/lib/case-detail-summary"
 import { aldreteBand, handoverGroups } from "@lospor/core/postop"
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -131,6 +133,15 @@ export function NRSRow({ value, onChange, max = 10 }: {
       })}
     </View>
   )
+}
+
+/** The PAED band under the score (Sikich & Lerman >= 10; > 12 more specific). */
+export function PaedBand({ score }: { score: number | null | undefined }) {
+  const { language } = usePreferences()
+  useThemeRefresh()
+  if (score == null) return null
+  const band = displayPaedBand(score, toClinicalLocale(language))
+  return <Text style={{ color: riskColor(band.severity), fontSize: 12, fontWeight: "700", marginTop: 6 }}>{band.label}</Text>
 }
 
 // Disposition pill picker

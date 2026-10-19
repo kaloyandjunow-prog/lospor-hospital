@@ -1,2 +1,2 @@
-export { suggestASAFromTags, type ASASuggestion } from "@lospor/core/asa"
+export { asaReasonLabel, suggestASAFromTags, type ASASuggestion } from "@lospor/core/asa"
 

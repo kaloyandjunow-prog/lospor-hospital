@@ -1,7 +1,9 @@
+import { tciPatientFrom, type TciPatient } from "@lospor/core/tci"
 import type {
   ClinicalMode,
   PediatricAgeInput,
   PediatricAgeUnit,
+  PediatricFastingCategory,
 } from "@lospor/core/pediatric"
 
 export { useAllergyCheck } from "@/lib/use-allergy-check"
@@ -23,6 +25,8 @@ export type IntraopPreopSummary = {
   currentMedications?: { label: string; atcCode?: string }[]
   allergies?: boolean | null
   allergyDetails?: unknown
+  /** The child's nil-by-mouth assignment, read as clock times once surgery starts. */
+  pediatricFasting?: { category: PediatricFastingCategory; hoursBefore: number }[]
 }
 
 function numberOrUndefined(value: unknown): number | undefined {
@@ -54,6 +58,11 @@ export function buildIntraopPreopSummary(
     // For the allergy check when a drug is given (1.5.0).
     allergies: typeof pd.allergies === "boolean" ? pd.allergies : null,
     allergyDetails: pd.allergyDetails,
+    pediatricFasting: Array.isArray(pd.pediatricFasting)
+      ? (pd.pediatricFasting as { category?: unknown; hoursBefore?: unknown }[])
+        .filter((row): row is { category: PediatricFastingCategory; hoursBefore: number } =>
+          typeof row?.category === "string" && typeof row.hoursBefore === "number")
+      : undefined,
   }
 }
 export function pediatricAgeFromPreop(
@@ -74,4 +83,9 @@ export function pediatricAgeFromPreop(
     return { value: preop.age, unit: "YEARS" }
   }
   return null
+}
+/** The patient a TCI model is worked out for; null when age, weight, height or sex is missing (2026-10-18). */
+export function tciPatientFromPreop(preop: IntraopPreopSummary | null | undefined): TciPatient | null {
+  if (!preop) return null
+  return tciPatientFrom({ ageYears: preop.age, ageValue: preop.ageValue, ageUnit: preop.ageUnit, weightKg: preop.weight, heightCm: preop.height, sex: preop.sex })
 }

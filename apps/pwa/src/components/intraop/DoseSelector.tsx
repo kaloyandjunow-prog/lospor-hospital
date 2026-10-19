@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { View, Text, TextInput, TouchableOpacity } from "react-native"
 import {
   administrationRouteLabel,
@@ -16,6 +16,8 @@ import { VitalStepper } from "@/components/VitalStepper"
 import { usePreferences } from "@/lib/preferences-context"
 import type { DrugFormulation } from "@/lib/intraop-log-event"
 import { FeedbackPressable } from "./FeedbackPressable"
+import { StrengthCustomField } from "./StrengthCustomField"
+import { localAnaestheticFormulationLabel } from "@lospor/core/catalog"
 import { useShade } from "@/theme/shade"
 
 // One reused dose-entry block for drugs (bolus), infusions, fluids, and agents.
@@ -59,8 +61,14 @@ export type DoseSelectorProps = {
   onRouteChange?: (r: string) => void
 
   concentrationOptions?: string[]
+  /** The heading over the strengths: "Concentration" by default, "Syringe" for an infusion. */
+  concentrationLabel?: string
+  /** Shown for Other instead of the typed box: an infusion's syringe fields. */
+  customConcentrationContent?: ReactNode
   concentration?: string
   concentrationUnit?: string
+  /** The drug or fluid, for the range of a strength typed with Other. */
+  concentrationName?: string
   onConcentrationChange?: (c: string | undefined) => void
   customConcentration?: string
   onCustomConcentrationChange?: (value: string | undefined) => void
@@ -74,6 +82,8 @@ export type DoseSelectorProps = {
   confirmLabel?: string
   onConfirm?: () => void
   confirmDisabled?: boolean
+  /** Why the confirm is off, shown above it: nothing is refused in silence. */
+  confirmBlockedReason?: string
 }
 
 export function DoseSelector({
@@ -83,10 +93,10 @@ export function DoseSelector({
   value, onValueChange, min, max, manualMax, step = 1, precision: precisionProp, valuePlaceholder = "Value", manualEntryOnly = false,
   units, unit, onUnitChange, unitSuffix,
   routes, route, onRouteChange,
-  concentrationOptions, concentration, concentrationUnit, onConcentrationChange,
+  concentrationOptions, concentrationLabel, customConcentrationContent, concentration, concentrationUnit, concentrationName, onConcentrationChange,
   customConcentration, onCustomConcentrationChange,
   formulationOptions, formulation, onFormulationChange,
-  confirmLabel, onConfirm, confirmDisabled,
+  confirmLabel, onConfirm, confirmDisabled, confirmBlockedReason,
 }: DoseSelectorProps) {
   const shade = useShade()
   const { language, tc } = usePreferences()
@@ -158,9 +168,8 @@ export function DoseSelector({
   const customConcentrationActive = customConcentration !== undefined
   const showConcentration = !!concentrationUnit || concentrationValues.length > 0
 
-  function formulationLabel(value: DrugFormulation): string {
-    return value.charAt(0) + value.slice(1).toLowerCase()
-  }
+  // Baricity by name in the reader's language (it was English in Bulgarian).
+  const formulationLabel = (value: DrugFormulation) => localAnaestheticFormulationLabel(value, language)
 
   return (
     <View>
@@ -168,7 +177,7 @@ export function DoseSelector({
 
       {showConcentration && (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseConcentration")}</Text>
+          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{concentrationLabel ?? tc("doseConcentration")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {visibleConcentrations.map((c, index) => (
               <TouchableOpacity
@@ -225,17 +234,8 @@ export function DoseSelector({
               </TouchableOpacity>
             </View>
           ) : null}
-          {customConcentrationActive ? (
-            <TextInput
-              testID="concentration-custom-input"
-              value={customConcentration}
-              onChangeText={onCustomConcentrationChange}
-              placeholder={tc("doseCustomConcentration")}
-              placeholderTextColor={shade("#475569")}
-              autoFocus
-              style={{ marginTop: 8, backgroundColor: shade("#111820"), color: shade("#e2e8f0"), borderRadius: 9,
-                borderWidth: 1, borderColor: shade("#0ea5e955"), paddingHorizontal: 11, paddingVertical: 8 }}
-            />
+          {customConcentrationActive && customConcentrationContent ? customConcentrationContent : customConcentrationActive && onCustomConcentrationChange ? (
+            <StrengthCustomField name={concentrationName} unit={concentrationUnit} options={concentrationValues} color={shade("#0ea5e9")} onChange={onCustomConcentrationChange} />
           ) : null}
         </View>
       )}
@@ -372,6 +372,9 @@ export function DoseSelector({
 
       {extraHint && <Text style={{ color: shade("#f59e0b"), fontSize: 11, marginBottom: 14 }}>{extraHint}</Text>}
 
+      {confirmLabel && onConfirm && confirmDisabled && confirmBlockedReason ? (
+        <Text testID="dose-confirm-blocked" accessibilityRole="alert" style={{ color: shade("#f87171"), fontSize: 12, fontWeight: "600", marginBottom: 8 }}>{confirmBlockedReason}</Text>
+      ) : null}
       {confirmLabel && onConfirm && (
         <FeedbackPressable onPress={onConfirm} disabled={confirmDisabled}
           style={{ backgroundColor: confirmDisabled ? shade("#1e2d40") : color, borderRadius: 14, padding: 18, alignItems: "center" }}>

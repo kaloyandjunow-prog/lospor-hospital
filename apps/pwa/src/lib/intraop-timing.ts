@@ -13,6 +13,12 @@ export type IntraopTimingOverrides = {
   endedAt?: IntraopEndTiming["endedAt"] | null
   timezone?: string
   endTimeNextDay?: boolean
+  /** The case month, taken from the start date. */
+  monthYear?: string
+  /** A start date the clinician stepped to (YYYY-MM-DD); absent = today's rule. */
+  startDayKey?: string
+  /** Days from the start's date to the end's, when the clinician stepped it. */
+  endDayOffset?: number
 }
 
 // Re-exported: the stored format is core's, shared with web.
@@ -73,7 +79,7 @@ export function buildIntraopTimingPatch(
   overrides: IntraopTimingOverrides = {},
 ): Record<string, string | boolean | null> {
   const patch: Record<string, string | boolean | null> = {
-    monthYear: current.monthYear || null,
+    monthYear: (overrides.monthYear ?? current.monthYear) || null,
     startTime: (overrides?.startTime ?? current.startTime) || null,
     endTime: (overrides?.endTime ?? current.endTime) || null,
     endTimeNextDay: overrides.endTimeNextDay ?? current.endTimeNextDay,

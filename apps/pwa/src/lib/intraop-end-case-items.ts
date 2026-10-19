@@ -2,6 +2,7 @@ import type { RunningAgent } from "./use-intraop-running-state"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion } from "./intraop-log-event"
 import { calculatedFluidVolumeMl, fluidEntryModeOf, fluidEntryValueLabel } from "./fluid-entry"
 import type { EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
+import { TCI_DRUG_SPECS, TCI_MODEL_DRUG } from "@lospor/core/tci"
 
 export type EndCaseRunningItem = {
   key: string
@@ -13,10 +14,11 @@ export type EndCaseRunningItem = {
     mode: "VOLUME" | "RATE"
     atEnd: (endTs: string) => number
   }
+  pumpTotal?: { amountUnit: "mg" | "mcg" }
 }
 
 /** A stop made at End case: at the end time, marked so Resume can offer to remove it. */
-export type EndCaseStopOptions = { exactTs?: string; endCaseStop?: boolean }
+export type EndCaseStopOptions = { exactTs?: string; endCaseStop?: boolean; pump?: EndCaseStopContext["pump"] }
 
 type BuildEndCaseRunningItemsInput = {
   activeAgents: RunningAgent[]
@@ -84,7 +86,9 @@ export function buildEndCaseRunningItems({
     label: infusion.name,
     sublabel: `${infusion.rate} ${infusion.unit} - ${labels.infusion}`,
     color: infusion.color,
-    onStop: (context?: EndCaseStopContext) => stopInfusion(infusion, null, atEnd(context)),
+    // A TCI infusion: the pump's own total may be entered on this stop (2026-10-19).
+    ...(infusion.tciModel ? { pumpTotal: { amountUnit: TCI_DRUG_SPECS[TCI_MODEL_DRUG[infusion.tciModel]].units.amount } } : {}),
+    onStop: (context?: EndCaseStopContext) => stopInfusion(infusion, null, { ...atEnd(context), ...(context?.pump ? { pump: context.pump } : {}) }),
   })))
   items.push(...activeFluids.map(fluid => ({
     key: `fluid-${fluid.fluidId}`,

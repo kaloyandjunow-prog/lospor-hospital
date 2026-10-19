@@ -1,7 +1,7 @@
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
 /** What a failed scan request said: an ApiError, or a raw response read into the same shape. */
-export type ScanFailure = { status?: number; code?: string; message?: string }
+export type ScanFailure = { status?: number; code?: string; message?: string; sourceMessage?: string }
 
 /**
  * The message for a failed lab or monitor scan (9.14.3).
@@ -15,7 +15,7 @@ export function aiScanFailureKey(failure: ScanFailure | unknown, fallback: Clini
   const f = (failure && typeof failure === "object" ? failure : {}) as ScanFailure
   const status = typeof f.status === "number" ? f.status : undefined
   if (status === 0 || f.code === "NETWORK") return "aiScanOffline"
-  if (status === 403 && /not enabled/i.test(f.message ?? "")) return "aiScanNeedsConsent"
+  if (status === 403 && /not enabled/i.test(f.sourceMessage ?? f.message ?? "")) return "aiScanNeedsConsent"
   if (status === 413) return "aiScanImageTooLarge"
   if (status === 400) return "aiScanImageFormat"
   if (status === 429) return "aiScanTooMany"

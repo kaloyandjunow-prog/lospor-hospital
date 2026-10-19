@@ -382,7 +382,9 @@ describe("DrugSheet conflict is stated and still recordable", () => {
     expect(alerts.length, "the conflict was not stated anywhere on screen").toBeGreaterThan(0)
     expect(alerts[0].props.accessibilityRole).toBe("alert")
 
+    expect(tree.root.findAllByProps({ testID: "dose-confirm-blocked" }).length, "Add was off with no reason given").toBeGreaterThan(0)
     act(() => tree.root.findByProps({ testID: "dose-manual-input" }).props.onChangeText("0.4"))
+    expect(tree.root.findAllByProps({ testID: "dose-confirm-blocked" })).toHaveLength(0)
 
     const confirm = tree.root.findByProps({ testID: "drug-sheet-confirm" })
     expect(confirm.props.disabled, "a typed dose could not be confirmed").toBe(false)

@@ -9,11 +9,15 @@ import {
   type IntraopPreopSummary,
 } from "@/lib/intraop-preop-summary"
 import { useShade } from "@/theme/shade"
+import { PediatricIntraopReference } from "@/components/intraop/PediatricIntraopReference"
 
 export function EquipmentTab({
-  preop,
+  preop, surgeryStart, caseTimezone,
 }: {
   preop: IntraopPreopSummary | null
+  /** The stored start of surgery, for the nil-by-mouth clock times. */
+  surgeryStart?: Date | null
+  caseTimezone?: string | null
 }) {
   const shade = useShade()
   const { tc, language } = usePreferences()
@@ -62,7 +66,7 @@ export function EquipmentTab({
         <View style={{ backgroundColor:shade("#2a1410"), borderRadius:14, borderWidth:1, borderColor:shade("#7c2d12"),
           padding:14, marginBottom:16, gap:4 }}>
           {medicationWarnings.map(w => (
-            <Text key={w.key} style={{ color:shade("#fb923c"), fontSize:13, fontWeight:"700" }}>⚠ {w.label}</Text>
+            <Text key={w.key} style={{ color:shade("#fb923c"), fontSize:13, fontWeight:"700" }}>⚠ {language === "bg" ? w.labelBg : w.label}</Text>
           ))}
         </View>
       )}
@@ -83,6 +87,8 @@ export function EquipmentTab({
             {preop?.height != null && <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("heightPlaceholder")} <Text style={{ color:shade("#f8fafc"), fontWeight:"700" }}>{preop.height} cm</Text></Text>}
             {preop?.sex    != null && <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("sexLabel")} <Text style={{ color:shade("#f8fafc"), fontWeight:"700" }}>{preop.sex === "MALE" ? tc("sexMale") : preop.sex === "FEMALE" ? tc("sexFemale") : preop.sex}</Text></Text>}
           </View>
+
+          {pediatricMode && preop ? <PediatricIntraopReference preop={preop} language={language} surgeryStart={surgeryStart} timezone={caseTimezone} /> : null}
 
           {cats.map((cat, ci) => (
             <View key={cat.cat} style={{ marginBottom: ci < cats.length - 1 ? 16 : 0 }}>

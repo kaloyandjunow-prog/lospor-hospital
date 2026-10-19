@@ -1,8 +1,10 @@
 import { useState } from "react"
 import { Text, TextInput, TouchableOpacity, View } from "react-native"
 import type { IntraopAttentionAction, IntraopAttentionKind } from "@lospor/core/intraop-attention"
+import type { PumpTotalUnit } from "@lospor/core/intraop-types"
 import { AttentionAnswers } from "./AttentionAnswers"
 import { Sheet } from "./Sheet"
+import { PumpTotalField } from "./TciSheetFields"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
@@ -10,6 +12,8 @@ import { useShade } from "@/theme/shade"
 export type EndCaseStopContext = {
   endTs: string
   administeredVolumeMl?: number
+  /** A TCI infusion: the pump's own total, when entered (2026-10-19). */
+  pump?: { value: number; unit: PumpTotalUnit }
 }
 
 export type EndCaseCleanupItem = {
@@ -22,6 +26,8 @@ export type EndCaseCleanupItem = {
     mode: "VOLUME" | "RATE"
     atEnd: (endTs: string) => number
   }
+  /** A TCI infusion takes the pump's total on its stop, as the action sheet does. */
+  pumpTotal?: { amountUnit: "mg" | "mcg" }
 }
 
 /** An entry dated after the end (a planned item): it must be resolved before finalising. */
@@ -61,6 +67,7 @@ export function EndCaseSheet({
   const shade = useShade()
   const { tc } = usePreferences()
   const [fluidActualVolumes, setFluidActualVolumes] = useState<Record<string, string>>({})
+  const [pumpTotals, setPumpTotals] = useState<Record<string, EndCaseStopContext["pump"]>>({})
   const allDecided = items.length === 0 || items.every(item => !!decisions[item.key])
   const endedFluidVolumesValid = items.every(item => {
     if (!decisions[item.key] || !item.fluidVolume) return true
@@ -72,6 +79,7 @@ export function EndCaseSheet({
 
   function close() {
     setFluidActualVolumes({})
+    setPumpTotals({})
     onClose()
   }
 
@@ -107,6 +115,12 @@ export function EndCaseSheet({
                     paddingVertical:9, borderWidth:1, borderColor:item.color+"55", fontSize:16 }}
                 />
                 <Text style={{ color:shade("#64748b"), fontSize:10, marginTop:4 }}>mL</Text>
+              </View>
+            ) : null}
+            {dec === "stop" && item.pumpTotal ? (
+              <View style={{ marginBottom:10 }}>
+                <PumpTotalField key={item.key} amountUnit={item.pumpTotal.amountUnit} color={item.color}
+                  onChange={pump => setPumpTotals(current => ({ ...current, [item.key]: pump }))} />
               </View>
             ) : null}
             <View style={{ flexDirection:"row", gap:8 }}>
@@ -156,7 +170,7 @@ export function EndCaseSheet({
             // Only items marked "stop" get a stop, at the end time. Items continued
             // postoperatively keep running; the chart and every total stop at the end.
             await Promise.all(items.filter(item => decisions[item.key] === "stop").map(item => {
-              if (!item.fluidVolume) return item.onStop({ endTs })
+              if (!item.fluidVolume) return item.onStop({ endTs, ...(pumpTotals[item.key] ? { pump: pumpTotals[item.key] } : {}) })
               const edited = fluidActualVolumes[item.key]
               const administeredVolumeMl = edited === undefined
                 ? item.fluidVolume.atEnd(endTs)
@@ -167,6 +181,7 @@ export function EndCaseSheet({
               .filter(item => decisions[item.key] === "continue")
               .map(item => `${item.label} (${item.sublabel})`)
             setFluidActualVolumes({})
+            setPumpTotals({})
             onFinalize(continued, endTs)
           }}
           style={{ marginTop:8, backgroundColor:canFinalize ? shade("#1a2e1a") : shade("#1c1c1c"), borderRadius:12,

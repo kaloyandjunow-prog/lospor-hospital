@@ -69,16 +69,18 @@ describe("fluid total helpers", () => {
       crystalloids: 751,
       colloids: 100,
       blood: 300,
+      infusions: 0,
     })
   })
 
   it("builds stable keys and nullable API patches", () => {
-    const totals = { crystalloids: 500, colloids: 0, blood: 200 }
-    expect(fluidTotalsKey(totals)).toBe("500|0|200")
+    const totals = { crystalloids: 500, colloids: 0, blood: 200, infusions: 12 }
+    expect(fluidTotalsKey(totals)).toBe("500|0|200|12")
     expect(fluidTotalsPatch(totals)).toEqual({
       crystalloidsMl: 500,
       colloidsMl: null,
       bloodMl: 200,
+      infusionsMl: 12,
     })
   })
 })

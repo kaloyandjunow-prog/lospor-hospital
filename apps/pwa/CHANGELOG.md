@@ -1,5 +1,66 @@
 # Changelog - LOSPOR Mobile
 
+## [9.15.0] - 2026-10-19
+
+On Core 9.15.0.
+
+### Added
+
+- **Target-controlled infusions.**
+  - **Start:** the infusion sheet offers **Rate** or **TCI** for propofol,
+    remifentanil, sufentanil and alfentanil, with the same choices as the web:
+    model, Cp or Ce, Eleveld's opioid switch, syringe, target and preview.
+  - **Change and stop:** the action sheet changes the target and takes the
+    pump's own total on **Stop**. **End case** takes it too.
+  - **Timetable:** a tapped row reads "Propofol Ce 4 mcg/mL ≈3.6", the
+    target and the predicted value.
+  - **Totals:** totals say whether they came from the pump or the model.
+- **Infusions with both rates.**
+  - **Syringe:** syringe pills, or Other with amount and volume sliders.
+  - **Units:** the drug's unit, its other dose unit, or mL/hr, with the other
+    rate read out. Both rates are saved.
+  - **Fluid status:** shows each infusion's mL, Drug infusions and Total in.
+    A running infusion row shows its unit.
+- **Children's local anaesthetic infusions** in mL/kg/hr, limited by the
+  strength picked, with the pump rate read out and a mL/hr unit switch.
+- **Other strengths with sliders**, and every refusal said. A number typed
+  past a field's limit is brought to the limit, and the field says so.
+  Numbers show without trailing zeros (0.5).
+- **Preop summary screen**, when a hospital switches it on. Start intraop,
+  hand over, print the summary and consent as an A4 PDF in the hospital's
+  layout, or go back to edit preop. With layout C, tick the planned
+  techniques before printing. Offline, the flow stays preop to intraop.
+- **Planned anaesthesia** in the risk section, using the intraop technique
+  and line tabs.
+- **Gupta MICA card**, choice questions and the PAED band, as on the web.
+- **ASA suggestion** shown until a class is chosen, only on evidence, and in
+  the clinician's language. A child's suggestion no longer applies the adult
+  BMI rule.
+- **Paediatric fasting as nil-by-mouth assignments**, with clock times in
+  intraop once surgery has started.
+- **A date beside the start and end of surgery** (‹ Today ›), as on the web.
+  The case month comes from the start date, and the duration from the stored
+  instants.
+- **Bulgarian names for drugs, infusions, agents and fluids** (Settings → UI).
+
+### Changed
+
+- **Case-detail chart**: each infusion, agent and fluid has its own row. Ones
+  running together used to cover each other.
+- **Paediatric calculations** moved to the intraop Equipment tab.
+- **Score badges take their colour from each score's own band.**
+- **Bulgarian screens**: "Оценка по ASA", "Модифицирана скала на Алдрет",
+  АН / СЧ / ДЧ / Темп., server messages, the event log, warnings and preop
+  summaries in Bulgarian.
+
+### Fixed
+
+- Case detail BMI showed every digit; it is now rounded to one decimal.
+- Case detail showed "undefinedundefined" for a line without a size.
+- The adult risk questions appeared twice when Gupta was on.
+
+## [9.14.5] - 2026-10-11
+
 ## [9.14.5] - 2026-10-11
 
 ### Changed

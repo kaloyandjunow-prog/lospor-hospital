@@ -18,14 +18,13 @@ export function panelSvgWidth(nCols: number, colW: number): number {
   return LBL + nCols * colW
 }
 
-// Vitals row labels, matching the printed record. Standard clinical
-// abbreviations and units stay language-invariant; only surrounding row names
-// such as Drugs and Time are translated.
+// Vitals row labels, matching the printed record: Bulgarian uses АН / СЧ /
+// Темп. (2026-10-18); SpO₂ and EtCO₂ read the same in both languages.
 const VITAL_LABELS = {
   en: { bp: "BP", hr: "HR", spo2: "SpO₂", etco2: "EtCO₂", temp: "Temp",
         sbp: "SBP", dbp: "DBP", units: "mmHg/bpm", drugs: "Drugs", time: "Time" },
-  bg: { bp: "BP", hr: "HR", spo2: "SpO₂", etco2: "EtCO₂", temp: "Temp",
-        sbp: "SBP", dbp: "DBP", units: "mmHg/bpm", drugs: "Медикаменти", time: "Час" },
+  bg: { bp: "АН", hr: "СЧ", spo2: "SpO₂", etco2: "EtCO₂", temp: "Темп",
+        sbp: "САН", dbp: "ДАН", units: "mmHg/удм", drugs: "Медикаменти", time: "Час" },
 } as const
 
 export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW, theme, lang = "en" }: {

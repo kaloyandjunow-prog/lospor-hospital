@@ -23,6 +23,9 @@ const text: PreopSectionOverviewText = {
   mallampatiRequired: "mallampati required",
   labsHint: "labs hint",
   asaRequired: "asa required",
+  age: "{age}y", sexMale: "M", sexFemale: "F", comorbidityCount: "{count} comorbidities",
+  medicationCount: "{count} medications", resultCount: "{count} results",
+  allergy: "Allergy", smoker: "Smoker", familyHistory: "Family hx", bp: "BP", hr: "HR",
 }
 
 describe("preop section overview", () => {
@@ -67,5 +70,19 @@ describe("preop section overview", () => {
 
     expect(items.find((item) => item.key === "exam")?.done).toBe(true)
     expect(items.find((item) => item.key === "airway")?.done).toBe(true)
+  })
+})
+
+describe("preop section overview wording (2026-10-18)", () => {
+  it("names the sex and counts in the reader's words, never the stored code", () => {
+    const bg = { ...text, age: "{age} г.", sexFemale: "Ж", comorbidityCount: "Придружаващи заболявания: {count}", allergy: "Алергия", smoker: "Пушач" }
+    const items = buildPreopSectionItems({
+      ageYears: 67, sex: "FEMALE", weightKg: 88, allergies: true, smoking: true,
+      comorbidities: [{ label: "I10" }, { label: "E11" }],
+    } as never, labels, bg)
+    const summary = (key: string) => items.find(item => item.key === key)?.summary
+    expect(summary("patient")).toBe("67 г. · Ж · 88 kg")
+    expect(summary("history")).toBe("Придружаващи заболявания: 2")
+    expect(summary("anamnesis")).toBe("Алергия · Пушач")
   })
 })
