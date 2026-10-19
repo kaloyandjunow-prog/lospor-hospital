@@ -1,5 +1,18 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+### Fixed
+
+- **The preop summary and consent could not be switched on.** 1.6.0 shipped
+  their Status screens with nothing behind them in the API: the control view
+  carried no summary or consent settings, so Status hid the section, and the
+  two save routes it posts to did not exist. The view now carries the
+  switches, the layout, each population's text, the bundled texts and every
+  saved version, and both saves go through the control plane with an audit
+  row. A contract test runs the real view through Status's own check, and a
+  cross-app test switches both on in Status and opens the summary page.
+
 ## [1.6.1] - 2026-10-19
 
 Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.1. No database

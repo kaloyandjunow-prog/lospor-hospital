@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => ({
   ehrTransportPolicy: vi.fn(),
   ehrTransportCredentialReplace: vi.fn(),
   ehrTransportCredentialRemove: vi.fn(),
+  preopDocuments: vi.fn(),
+  consentSave: vi.fn(),
 }))
 
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -49,6 +51,8 @@ vi.mock("@/lib/hospital/control-plane", async importOriginal => ({
   setEhrTransportPolicy: mocks.ehrTransportPolicy,
   replaceEhrTransportCredential: mocks.ehrTransportCredentialReplace,
   removeEhrTransportCredential: mocks.ehrTransportCredentialRemove,
+  updateHospitalPreopDocuments: mocks.preopDocuments,
+  saveHospitalConsentTemplate: mocks.consentSave,
 }))
 vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 
@@ -388,5 +392,31 @@ describe("private Status Hospital control-plane routes", () => {
       expect(refused.status).toBe(400)
     }
     expect(mocks.externalAiModels).not.toHaveBeenCalled()
+  })
+
+  // 1.6.2: Status posted to both since 1.6.0 and neither existed.
+  it("switches the preop summary and consent through their own endpoint", async () => {
+    const { POST } = await import("@/app/v1/internal/hospital/control-plane/preop-documents/route")
+    const input = { summaryEnabled: true, consentEnabled: true, layout: "C", reason: "Consent goes live on Monday" }
+    const response = await POST(request("/v1/internal/hospital/control-plane/preop-documents", input))
+    expect(response.status).toBe(201)
+    expect(mocks.preopDocuments).toHaveBeenCalledWith(input)
+    const refused = await POST(request("/v1/internal/hospital/control-plane/preop-documents", { ...input, layout: "Z" }))
+    expect(refused.status).toBe(400)
+    expect(mocks.preopDocuments).toHaveBeenCalledOnce()
+  })
+
+  it("saves a consent text through its own endpoint and refuses an invalid one", async () => {
+    const { POST } = await import("@/app/v1/internal/hospital/control-plane/consent-templates/route")
+    const { PreopDocumentsContractError } = await import("@/lib/preop/documents")
+    const input = { population: "PEDIATRIC", title: "Съгласие", body: "## Обща анестезия [general]", reason: "Text from the legal team" }
+    mocks.consentSave.mockResolvedValueOnce({ population: "PEDIATRIC", version: 1 })
+    const response = await POST(request("/v1/internal/hospital/control-plane/consent-templates", input))
+    expect(response.status).toBe(201)
+    expect(mocks.consentSave).toHaveBeenCalledWith(input)
+    mocks.consentSave.mockRejectedValueOnce(new PreopDocumentsContractError("CONSENT_TEXT_INVALID", ["field"]))
+    const refused = await POST(request("/v1/internal/hospital/control-plane/consent-templates", input))
+    expect(refused.status).toBe(400)
+    expect(await refused.json()).toMatchObject({ code: "CONSENT_TEXT_INVALID" })
   })
 })

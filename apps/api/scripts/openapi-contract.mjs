@@ -1897,6 +1897,24 @@ add("POST", "/v1/internal/hospital/control-plane/preop-profile", "Publish a new 
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/preop-documents", "Switch the preop summary page and written consent and choose the print layout from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/consent-templates", "Save a population consent text as its next version from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/research/grants", "Issue or supersede an immutable granular research grant", {
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalResearchGrantControlRequest")),

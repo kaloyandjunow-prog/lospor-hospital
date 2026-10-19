@@ -7,6 +7,7 @@ import {
 } from "./account-control-http"
 import { HospitalControlPlaneError } from "./control-plane"
 import { PreopContractError } from "@/lib/preop/service"
+import { PreopDocumentsContractError } from "@/lib/preop/documents"
 import { EhrTransportPolicyError } from "./ehr-transport-policy"
 import { ExternalAiPolicyError } from "./external-ai-policy"
 import { HospitalResearchControlError } from "./research-control"
@@ -16,6 +17,7 @@ export { ACCOUNT_CONTROL_HEADERS, authorizeAccountControl, boundedJson }
 export function controlPlaneError(error: unknown): NextResponse {
   const code = error instanceof HospitalControlPlaneError
     || error instanceof PreopContractError
+    || error instanceof PreopDocumentsContractError
     || error instanceof ExternalAiPolicyError
     || error instanceof EhrTransportPolicyError
     || error instanceof HospitalResearchControlError

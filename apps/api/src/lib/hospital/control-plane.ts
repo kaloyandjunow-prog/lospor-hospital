@@ -31,6 +31,22 @@ import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
 import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
 import { activePreopProfile, ensurePreopProfiles, questionAppliesToPopulation, readPreopProfiles, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
 import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
+import {
+  BUNDLED_CONSENT_TEMPLATES,
+  CONSENT_POPULATIONS,
+  CONSENT_TEXT_MAX_LENGTH,
+  CONSENT_TITLE_MAX_LENGTH,
+  effectivePreopDocumentSettings,
+  PREOP_DOCUMENT_LAYOUTS,
+  type ConsentPopulation,
+  type PreopDocumentLayout,
+} from "@lospor/core/preop-documents"
+import {
+  consentTemplateHistory,
+  currentConsentTemplates,
+  saveConsentTemplate,
+  updatePreopDocumentPolicy,
+} from "@/lib/preop/documents"
 import { ehrMedicationCodeMapView, ensureCatalogDrug } from "./ehr-medication-code-map"
 import {
   approveHospitalOmopExport,
@@ -394,6 +410,20 @@ export const preopProfileUpdateSchema = z.object({
   /** Adults and children each have their own profile (1.5.5). */
   population: z.enum(["ADULT", "PEDIATRIC"]),
   questions: z.array(preopProfileQuestionSchema).min(1).max(BUNDLED_PREOP_QUESTIONS.length),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const preopDocumentsUpdateSchema = z.object({
+  summaryEnabled: z.boolean(),
+  consentEnabled: z.boolean(),
+  layout: z.enum(PREOP_DOCUMENT_LAYOUTS),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const consentTemplateSaveSchema = z.object({
+  population: z.enum(["ADULT", "PEDIATRIC"]),
+  title: z.string().trim().min(1).max(CONSENT_TITLE_MAX_LENGTH),
+  body: z.string().min(1).max(CONSENT_TEXT_MAX_LENGTH),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -1311,6 +1341,49 @@ export async function centralControlView() {
   }
 }
 
+/**
+ * The preop summary and consent as Status edits them (1.6.2): the switches and
+ * layout, the text each population prints today, the bundled texts to start
+ * again from, and every saved version. 1.6.0 shipped the Status screens with
+ * none of this in the view, so they never appeared.
+ */
+async function preopDocumentsControlView() {
+  const row = await prisma.preopDocumentPolicy.findUnique({ where: { id: "local" } })
+  const settings = effectivePreopDocumentSettings(row ? { ...row, layout: row.layout as PreopDocumentLayout } : null)
+  const [templates, ...histories] = await Promise.all([
+    currentConsentTemplates(prisma),
+    ...CONSENT_POPULATIONS.map(population => consentTemplateHistory(prisma, population)),
+  ])
+  const byPopulation = <T>(pick: (population: ConsentPopulation, index: number) => T) =>
+    Object.fromEntries(CONSENT_POPULATIONS.map((population, index) => [population, pick(population, index)])) as Record<ConsentPopulation, T>
+  return {
+    ...settings,
+    updatedAt: row?.updatedAt.toISOString() ?? null,
+    templates: byPopulation(population => {
+      const { version, title, body, sha256 } = templates[population]
+      return { version, title, body, sha256 }
+    }),
+    bundled: byPopulation(population => ({ ...BUNDLED_CONSENT_TEMPLATES[population] })),
+    history: byPopulation((_, index) => histories[index]!),
+  }
+}
+
+export async function updateHospitalPreopDocuments(input: z.infer<typeof preopDocumentsUpdateSchema>) {
+  const parsed = preopDocumentsUpdateSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    await updatePreopDocumentPolicy(tx, actor.id, parsed)
+  }, serializableTransaction)
+}
+
+export async function saveHospitalConsentTemplate(input: z.infer<typeof consentTemplateSaveSchema>) {
+  const parsed = consentTemplateSaveSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    return saveConsentTemplate(tx, actor.id, parsed)
+  }, serializableTransaction)
+}
+
 export async function preoperativeControlView() {
   let profiles = await readPreopProfiles(prisma)
   if (!profiles || !await activePreopProfile(prisma, "PEDIATRIC")) {
@@ -1326,6 +1399,7 @@ export async function preoperativeControlView() {
     catalogVersion: PREOP_CATALOG_VERSION,
     source: "BUNDLED_IMMUTABLE_CATALOG" as const,
     profileAdministrationPath: "/v1/preop/profile",
+    documents: await preopDocumentsControlView(),
     administration: {
       catalog: BUNDLED_PREOP_QUESTIONS.map(question => ({
         ...question,

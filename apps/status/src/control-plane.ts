@@ -731,7 +731,8 @@ function clinicalBaseline(
   return value as unknown as ClinicalBaselineReadiness
 }
 
-function preopDocumentsShape(value: unknown): value is PreopDocumentsView {
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function preopDocumentsShape(value: unknown): value is PreopDocumentsView {
   if (!isRecord(value) || typeof value.summaryEnabled !== "boolean" || typeof value.consentEnabled !== "boolean") return false
   if (value.layout !== undefined && !isPreopDocumentLayout(value.layout)) return false
   if (!nullableText(value.updatedAt, 64)) return false
