@@ -58,7 +58,8 @@
     "hospital:baseline-readiness": "tsx --conditions=react-server scripts/report-hospital-clinical-baselines.ts",
     "report:event-concepts": "tsx scripts/resolve-event-concepts.ts",
     "resolve:event-concepts": "tsx scripts/resolve-event-concepts.ts --apply",
-    "clinical-rules:inspect-bundled-baselines": "tsx scripts/inspect-bundled-baseline-state.ts"
+    "clinical-rules:inspect-bundled-baselines": "tsx scripts/inspect-bundled-baseline-state.ts",
+    "clinical-rules:install-v3": "tsx scripts/install-v3-platform-baselines.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
