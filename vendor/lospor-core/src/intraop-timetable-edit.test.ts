@@ -123,3 +123,28 @@ describe("End case stops", () => {
     expect(projectIntraopEvents(next, { start, openThrough: now }).infusions[0]).toMatchObject({ endCaseStop: true })
   })
 })
+
+describe("a TCI infusion edited on the chart (2026-10-18)", () => {
+  const tciLog: LogEvent[] = [
+    { id: "t1", ts: at(0), type: "infusion_start", infId: "tci", name: "Propofol", rate: "4", unit: "mcg/mL", tciModel: "SCHNIDER", tciSite: "EFFECT", color: "#111" },
+    { id: "t2", ts: at(40), type: "infusion_stop", infId: "tci" },
+  ]
+  const tciEdit = (change: (chart: TimetableData) => TimetableData) => {
+    const before = projectIntraopEvents(tciLog, { start, openThrough: now })
+    const after = change(JSON.parse(JSON.stringify(before)) as TimetableData)
+    return timetableEditToEventOps({ log: tciLog, before, after, chartStart: start, now, newId: () => `new-${++n}` })
+  }
+
+  it("a pump total entered after the stop updates that stop, and nothing else", () => {
+    const ops = tciEdit(chart => ({ ...chart, infusions: chart.infusions.map(inf => ({ ...inf, pumpTotal: 55, pumpTotalUnit: "mL" as const })) }))
+    expect(ops.add).toEqual([])
+    expect(ops.remove).toEqual([])
+    expect(ops.update).toEqual([expect.objectContaining({ id: "t2", pumpTotal: 55, pumpTotalUnit: "mL" })])
+  })
+
+  it("a target change keeps the model on the start and adds the change", () => {
+    const ops = tciEdit(chart => ({ ...chart, infusions: chart.infusions.map(inf => ({ ...inf, rateChanges: [{ col: 4, rate: 3, unit: "mcg/mL" }] })) }))
+    expect(ops.add).toEqual([expect.objectContaining({ type: "infusion_rate", infId: "tci", rate: "3", unit: "mcg/mL", ts: at(20) })])
+    expect(ops.update).toEqual([])
+  })
+})

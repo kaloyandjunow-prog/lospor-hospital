@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { createPediatricDrugProfileV2Payloads } from "./pediatric-drug-profiles-v2"
+import { createPediatricDrugProfileV3Payloads } from "./pediatric-drug-profiles-v3"
 import { pediatricDrugProfilesFromRules } from "./clinical-rules"
 import { applicablePediatricDrugProfiles } from "./clinical-rules/selection"
 
@@ -16,15 +17,18 @@ import { applicablePediatricDrugProfiles } from "./clinical-rules/selection"
  * So this checks the ruleset, not the code. Every band edge is probed, since
  * an overlap can only begin or end at one.
  */
-describe("the platform paediatric ruleset", () => {
-  const rules = createPediatricDrugProfileV2Payloads().map((payload, index) => ({
+describe.each([
+  ["v2", () => createPediatricDrugProfileV2Payloads(undefined, "v2")],
+  ["v3", () => createPediatricDrugProfileV3Payloads()],
+] as const)("the platform paediatric ruleset %s", (edition, build) => {
+  const rules = build().map((payload, index) => ({
     ruleKey: `platform.${index}`,
     ruleVersion: "1",
     payload,
     sourceIds: [],
     sourceRefs: [],
     origin: "PLATFORM" as const,
-    presetId: "lospor-pediatrics-v2",
+    presetId: `lospor-pediatrics-${edition}`,
     scope: "PLATFORM" as const,
   }))
   const profiles = pediatricDrugProfilesFromRules(rules as never)
@@ -34,7 +38,7 @@ describe("the platform paediatric ruleset", () => {
   })
 
   it("never puts two bands on the same child", () => {
-    const weights = [null, 0.5, 1, 3, 5, 10, 20, 40, 70]
+    const weights = [null, 0.5, 1, 3, 5, 10, 15, 20, 40, 70]
     const byDrug = new Map<string, typeof profiles>()
     for (const profile of profiles) {
       const key = profile.medicationKey

@@ -2,10 +2,12 @@ import {
   apfelRiskBand,
   rcriRiskBand,
   stopBangRiskBand,
+  paedRiskBand,
   type RiskBand,
   type RiskSeverity,
 } from "./risk"
 import { resolveClinicalDisplay } from "./display"
+import { guptaRiskBand } from "./gupta"
 import type { ClinicalLocale } from "./display"
 
 /**
@@ -70,4 +72,18 @@ export function displayApfelRisk(score: number, locale: ClinicalLocale): Display
 
 export function displayStopBangRisk(score: number, locale: ClinicalLocale): DisplayedRiskBand {
   return display(stopBangRiskBand(score), OSA_BAND_CODE, locale)
+}
+
+/** PAED with its band: "Emergence delirium likely". The score itself is shown beside it. */
+export function displayPaedBand(score: number, locale: ClinicalLocale): DisplayedRiskBand {
+  const band = paedRiskBand(score)
+  const label = resolveClinicalDisplay("riskBand", band.key, locale).label
+  return { label, band: label, severity: band.severity }
+}
+
+/** Gupta MICA as a percentage with its band: "1.8% · Elevated". */
+export function displayGuptaRisk(percent: number, locale: ClinicalLocale): DisplayedRiskBand {
+  const band = guptaRiskBand(percent)
+  const word = resolveClinicalDisplay("riskBand", band.key, locale).label
+  return { label: `${percent}% · ${word}`, band: word, incidence: `${percent}%`, severity: band.severity }
 }

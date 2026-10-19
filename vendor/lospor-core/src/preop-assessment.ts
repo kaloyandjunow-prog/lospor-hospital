@@ -45,6 +45,8 @@ export type PreopProfileQuestion = {
   formSection: PreopFormSection
   /** Follow-ups: the question whose YES shows this one. */
   parentKey: string | null
+  /** Asked only from this age in years (alcohol from 14); null or absent for every age. */
+  minAgeYears?: number | null
   labelEn: string
   labelBg: string
   answerType: "BOOLEAN" | "CHOICE" | "NUMBER" | "TEXT" | "DATE"
@@ -157,6 +159,11 @@ export function preopQuestionAppliesToMode(applicability: readonly string[], mod
   return applicability.length === 0 || !mode || applicability.includes(mode)
 }
 
+/** Whether a question is asked at this age (unknown age: asked, so nothing is hidden by a missing field). */
+export function preopQuestionAppliesToAge(minAgeYears: number | null | undefined, ageYears: number | null | undefined): boolean {
+  return minAgeYears == null || ageYears == null || ageYears >= minAgeYears
+}
+
 /** The population whose profile a case of this clinical mode follows. */
 export function preopPopulationForMode(mode: string | null | undefined): PreopPopulation {
   return mode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT"
@@ -196,11 +203,13 @@ export function isPreopQuestionShown(
   profile: Pick<PreopAssessmentProfile, "questions"> | null | undefined,
   stableKey: string,
   mode: string | null | undefined,
+  ageYears?: number | null,
 ): boolean {
   if (!profile) return true
   const question = profile.questions.find(item => item.stableKey === stableKey)
   if (!question) return true
   return question.enabled && preopQuestionAppliesToMode(question.applicability, mode)
+    && preopQuestionAppliesToAge(question.minAgeYears, ageYears)
 }
 
 /** Whether a question is required on this case's form. */
@@ -208,9 +217,10 @@ export function isPreopQuestionRequired(
   profile: Pick<PreopAssessmentProfile, "questions"> | null | undefined,
   stableKey: string,
   mode: string | null | undefined,
+  ageYears?: number | null,
 ): boolean {
   const question = profile?.questions.find(item => item.stableKey === stableKey)
-  return Boolean(question?.required && isPreopQuestionShown(profile, stableKey, mode))
+  return Boolean(question?.required && isPreopQuestionShown(profile, stableKey, mode, ageYears))
 }
 
 /**
@@ -252,9 +262,11 @@ export function preopQuestionRows(
   formSection: PreopFormSection,
   mode: string | null | undefined,
   states: ReadonlyMap<string, PreopAnswerState>,
+  ageYears?: number | null,
 ): PreopQuestionRow[] {
   if (!profile) return []
   const shown = (question: PreopProfileQuestion) => question.enabled && preopQuestionAppliesToMode(question.applicability, mode)
+    && preopQuestionAppliesToAge(question.minAgeYears, ageYears)
   const ordered = [...profile.questions].sort((left, right) => left.sortOrder - right.sortOrder)
   const children = new Map<string, PreopProfileQuestion[]>()
   for (const question of ordered) {
@@ -292,6 +304,17 @@ export function preopQuestionProgress(rows: readonly PreopQuestionRow[], states:
   return { answered, total: rows.length }
 }
 
+/**
+ * Baseline questions the forms show adults only: the RCRI, Apfel and
+ * STOP-BANG factors sit in a block both apps leave off a child's form,
+ * though the catalogue applies them to every case.
+ */
+export const PREOP_ADULT_FORM_ONLY_QUESTIONS: ReadonlySet<string> = new Set([
+  "BASE_RCRI_ISCHEMIC_HEART", "BASE_RCRI_CHF", "BASE_RCRI_CVD", "BASE_RCRI_INSULIN_DM", "BASE_RCRI_CREATININE",
+  "BASE_APFEL_PONV_HISTORY", "BASE_APFEL_POSTOP_OPIOIDS",
+  "BASE_STOPBANG_SNORING", "BASE_STOPBANG_TIRED", "BASE_STOPBANG_OBSERVED", "BASE_STOPBANG_BP", "BASE_STOPBANG_NECK",
+])
+
 /** The questions each score is computed from. */
 export const PREOP_SCORE_INPUTS: Readonly<Record<"RCRI" | "APFEL" | "STOPBANG" | "POVOC", readonly string[]>> = Object.freeze({
   RCRI: ["BASE_SURGERY_RISK", "BASE_RCRI_ISCHEMIC_HEART", "BASE_RCRI_CHF", "BASE_RCRI_CVD", "BASE_RCRI_INSULIN_DM", "BASE_RCRI_CREATININE"],
@@ -311,4 +334,37 @@ export function isPreopScoreAvailable(
 ): boolean {
   if (!profile) return true
   return PREOP_SCORE_INPUTS[score].every(key => profile.questions.find(item => item.stableKey === key)?.enabled !== false)
+}
+
+/**
+ * A catalogue question answered by picking one of its own options rather than
+ * yes or no -- Gupta's functional status and procedure type. The answer is
+ * stored as state YES with the option's key, the same as surgery urgency.
+ */
+export function isPreopChoiceQuestion(question: Pick<PreopProfileQuestion, "options">): boolean {
+  const keys = question.options.map(option => option.key)
+  return keys.length > 0 && !(keys.length === 2 && keys.includes("YES") && keys.includes("NO"))
+}
+
+/** The option each answered choice question holds, from the form's preopAnswers. */
+export function preopAnswerOptionKeys(values: Record<string, unknown>): Map<string, string> {
+  const options = new Map<string, string>()
+  const answers = Array.isArray(values.preopAnswers) ? values.preopAnswers : []
+  for (const answer of answers) {
+    if (answer && typeof answer === "object" && typeof answer.stableKey === "string" && typeof answer.optionKey === "string") {
+      options.set(answer.stableKey, answer.optionKey)
+    }
+  }
+  return options
+}
+
+/**
+ * Gupta is optional: shown only where the operator switched on both of its
+ * questions for this population. Unlike the baseline scores, a profile that
+ * says nothing about them means off.
+ */
+export function isGuptaEnabled(profile: Pick<PreopAssessmentProfile, "questions"> | null | undefined): boolean {
+  if (!profile) return false
+  return ["A15_FUNCTIONAL_STATUS", "A16_GUPTA_PROCEDURE_TYPE"]
+    .every(key => profile.questions.find(item => item.stableKey === key)?.enabled === true)
 }

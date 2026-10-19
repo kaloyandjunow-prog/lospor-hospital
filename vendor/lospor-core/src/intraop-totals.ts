@@ -5,6 +5,9 @@ import {
   type FluidEntryMode,
   type FluidRateChangeInput,
 } from "./intraop-fluids"
+import { infusionVolumeMl, type InfusionVolumeLike } from "./infusion-volume"
+import { tciTotal, type TciModel, type TciPatient, type TciSite, type TciTotal } from "./tci"
+import type { PumpTotalUnit } from "./intraop-types"
 
 export type TimedFluid = {
   id: string
@@ -23,6 +26,83 @@ export type FluidTotals = {
   crystalloids: number
   colloids: number
   blood: number
+  /**
+   * Millilitres given through drug infusions, counted in the fluid balance
+   * for every patient (2026-10-18). Only infusions whose pump rate is known
+   * for their whole run count; a skipped syringe step adds nothing.
+   */
+  infusions: number
+}
+
+/** All fluid in: the categories and the drug infusions. */
+export function totalFluidsInMl(totals: FluidTotals): number {
+  return totals.crystalloids + totals.colloids + totals.blood + totals.infusions
+}
+
+/** An infusion's volume fields, and a TCI infusion's targets (2026-10-18). */
+export type DeliveredInfusionLike = Omit<InfusionVolumeLike, "rateChanges"> & {
+  name?: string
+  rate?: number | string
+  rateChanges?: { ts?: string; planned?: boolean; volumeRateMlPerHour?: number; rate?: number | string }[]
+  tciModel?: TciModel
+  tciSite?: TciSite
+  tciOpioids?: boolean
+  concentration?: string
+  pumpTotal?: number
+  pumpTotalUnit?: PumpTotalUnit
+}
+
+/**
+ * The millilitres an infusion has given: its pump rates over time, or for a
+ * target-controlled infusion the model's amount (or the pump's own total)
+ * over the syringe strength -- which needs the patient. Null when unknown.
+ */
+export function deliveredInfusionVolumeMl(
+  infusion: DeliveredInfusionLike,
+  asOf: Date | string | number = new Date(),
+  tciPatient: TciPatient | null = null,
+): number | null {
+  if (!infusion.tciModel) return infusionVolumeMl(infusion, asOf)
+  if (infusion.planned) return 0
+  const startMs = infusion.startTs ? Date.parse(infusion.startTs) : NaN
+  const endMs = infusion.endTs ? Date.parse(infusion.endTs) : new Date(asOf).getTime()
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
+  const changes = (infusion.rateChanges ?? []).filter(change => !change.planned && change.ts && Date.parse(change.ts) <= endMs)
+  const targets = [
+    { atMs: startMs, target: numericRate(infusion.rate ?? 0) },
+    ...changes.map(change => ({ atMs: Date.parse(change.ts!), target: numericRate(change.rate ?? 0) })),
+  ]
+  return tciTotal(infusion as DeliveredInfusionLike & { tciModel: TciModel }, targets, endMs, tciPatient).volumeMl
+}
+
+/** Each drug's infused millilitres, as infusionVolumesByName, TCI included. */
+export function deliveredInfusionVolumesByName(
+  infusions: readonly (DeliveredInfusionLike & { name: string })[],
+  asOf: Date | string | number = new Date(),
+  tciPatient: TciPatient | null = null,
+): Map<string, number | null> {
+  const byName = new Map<string, number | null>()
+  for (const infusion of infusions) {
+    if (infusion.planned) continue
+    const volume = deliveredInfusionVolumeMl(infusion, asOf, tciPatient)
+    const sum = byName.has(infusion.name) ? byName.get(infusion.name)! : 0
+    byName.set(infusion.name, sum == null || volume == null ? null : Math.round((sum + volume) * 10) / 10)
+  }
+  return byName
+}
+
+/** Whole millilitres of the drug infusions that have a known volume. */
+export function infusionsVolumeMl(
+  infusions: readonly DeliveredInfusionLike[] | undefined,
+  asOf: Date | string | number = new Date(),
+  tciPatient: TciPatient | null = null,
+): number {
+  let total = 0
+  for (const infusion of infusions ?? []) {
+    const volume = deliveredInfusionVolumeMl(infusion, asOf, tciPatient)
+    if (volume != null && volume > 0) total += volume
+  }
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.round(total))
 }
 
 /** The fields a delivered-volume total needs; TimetableFluid satisfies it. */
@@ -60,8 +140,13 @@ export function newChartFluidsWithTimestamps<TData extends TimetableLike>(
     }))
 }
 
-export function calculateFluidTotals(fluids: TimedFluid[] | undefined): FluidTotals {
-  const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0 }
+export function calculateFluidTotals(
+  fluids: TimedFluid[] | undefined,
+  infusions?: readonly DeliveredInfusionLike[],
+  asOf: Date | string | number = new Date(),
+  tciPatient: TciPatient | null = null,
+): FluidTotals {
+  const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0, infusions: infusionsVolumeMl(infusions, asOf, tciPatient) }
   for (const fluid of fluids ?? []) {
     if (fluid.planned) continue
     const parsed = Number(fluid.volume)
@@ -95,8 +180,10 @@ export function calculateFluidTotals(fluids: TimedFluid[] | undefined): FluidTot
 export function calculateDeliveredFluidTotals(
   fluids: DeliveredFluidLike[] | undefined,
   asOf: Date | string | number = new Date(),
+  infusions?: readonly DeliveredInfusionLike[],
+  tciPatient: TciPatient | null = null,
 ): FluidTotals {
-  const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0 }
+  const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0, infusions: infusionsVolumeMl(infusions, asOf, tciPatient) }
   for (const fluid of fluids ?? []) {
     if (fluid.planned) continue
     const delivered = calculateFluidVolumeMl({
@@ -123,7 +210,7 @@ export function calculateDeliveredFluidTotals(
 }
 
 export function fluidTotalsKey(totals: FluidTotals): string {
-  return `${totals.crystalloids}|${totals.colloids}|${totals.blood}`
+  return `${totals.crystalloids}|${totals.colloids}|${totals.blood}|${totals.infusions}`
 }
 
 export function fluidTotalsPatch(totals: FluidTotals): Record<string, number | null> {
@@ -131,6 +218,7 @@ export function fluidTotalsPatch(totals: FluidTotals): Record<string, number | n
     crystalloidsMl: totals.crystalloids || null,
     colloidsMl: totals.colloids || null,
     bloodMl: totals.blood || null,
+    infusionsMl: totals.infusions || null,
   }
 }
 
@@ -207,6 +295,13 @@ export type TimetableInfusionLike = {
   calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
   /** Drafted for a future time: nothing has been given yet. */
   planned?: boolean
+  /** A target-controlled infusion: `rate` and the changes are targets (2026-10-18). */
+  tciModel?: TciModel
+  tciSite?: TciSite
+  tciOpioids?: boolean
+  concentration?: string
+  pumpTotal?: number
+  pumpTotalUnit?: PumpTotalUnit
 }
 
 export type InfusionTotal = {
@@ -235,6 +330,8 @@ export type InfusionTotal = {
    * from mg/hr to mL/hr has two totals, and adding them would be wrong.
    */
   others: { amount: number; unit: string }[]
+  /** A TCI infusion: the model's calculation, the pump's figure, and why there may be none. */
+  tci?: TciTotal
 }
 
 function numericRate(rate: number | string): number {
@@ -275,6 +372,8 @@ export function calcInfusionTotal(
   tbw: number | null = null,
   weightBasisMap: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
   bodySurfaceAreaM2: number | null = null,
+  /** The patient a TCI model is worked out for; without it a TCI total cannot be made. */
+  tciPatient: TciPatient | null = null,
 ): InfusionTotal {
   // The basis recorded on the start event wins: a library edited after the
   // infusion was given does not change what it was given on (9.12.3).
@@ -322,6 +421,20 @@ export function calcInfusionTotal(
         ...changes.map(change => change.col * COLUMN_MS),
         (infusion.endCol + 1) * COLUMN_MS,
       ]
+
+  // A target-controlled infusion: the targets in force from each boundary,
+  // run through its model (or the pump's own total).
+  if (infusion.tciModel) {
+    const targets = [numericRate(infusion.rate), ...changes.map(change => numericRate(change.rate))]
+      .map((target, index) => ({ atMs: boundaries[index], target }))
+    const tci = tciTotal(infusion as TimetableInfusionLike & { tciModel: TciModel }, infusion.planned ? [] : targets, boundaries[boundaries.length - 1], tciPatient)
+    return {
+      amount: infusion.planned ? 0 : tci.amount ?? 0,
+      unit: tci.units.amount,
+      weightUsed: null, weightBasis: null, basisFallback: false, bsaUsed: null,
+      weightMissing: false, others: [], tci,
+    }
+  }
 
   const segments = [
     { rate: numericRate(infusion.rate), unit: parseRateUnit(infusion.unit) },
@@ -392,9 +505,10 @@ export function calcInfusionTotals<TInfusion extends TimetableInfusionLike>(
   tbw: number | null,
   weightBasisMap: WeightBasisMap = DEFAULT_INFUSION_WEIGHT_BASIS,
   bodySurfaceAreaM2: number | null = null,
+  tciPatient: TciPatient | null = null,
 ): (InfusionTotal & { name: string; total: number })[] {
   return infusions.map(infusion => {
-    const total = calcInfusionTotal(infusion, ibw, tbw, weightBasisMap, bodySurfaceAreaM2)
+    const total = calcInfusionTotal(infusion, ibw, tbw, weightBasisMap, bodySurfaceAreaM2, tciPatient)
     return { ...total, name: infusion.name, total: total.amount }
   })
 }

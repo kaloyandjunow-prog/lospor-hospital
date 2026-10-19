@@ -362,10 +362,11 @@ describe("clinical rule payloads", () => {
   it("builds the complete canonical adult platform payload", () => {
     const payloads = createLosporAdultRulePayloads()
     expect(LOSPOR_ADULT_RULESET_KEY).toBe("LOSPOR_ADULTS")
-    expect(payloads).toHaveLength(251)
+    // The live catalogues: 251 as released in 1.2.0, plus plain Ringer and 15 infusions (2026-10-18).
+    expect(payloads).toHaveLength(267)
     expect(payloads.filter(item => item.kind === "ADULT_DRUG_PROFILE")).toHaveLength(181)
-    expect(payloads.filter(item => item.kind === "ADULT_INFUSION_PROFILE")).toHaveLength(48)
-    expect(payloads.filter(item => item.kind === "ADULT_FLUID_PROFILE")).toHaveLength(22)
+    expect(payloads.filter(item => item.kind === "ADULT_INFUSION_PROFILE")).toHaveLength(63)
+    expect(payloads.filter(item => item.kind === "ADULT_FLUID_PROFILE")).toHaveLength(23)
 
     for (const payload of payloads) expect(validateClinicalRulePayload(payload).valid).toBe(true)
 

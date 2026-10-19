@@ -263,6 +263,7 @@ export function projectIntraopEvents(
       const entry: ActiveInfusionEntry = {
         startCol: col,
         event,
+        initialEvent: event,
         initialRate: event.rate ?? "0",
         rateChanges: [],
       }
@@ -289,6 +290,7 @@ export function projectIntraopEvents(
           ...(event.concentration !== undefined
             ? { concentration: event.concentration }
             : {}),
+          ...(event.volumeRateMlPerHour != null ? { volumeRateMlPerHour: event.volumeRateMlPerHour } : {}),
           ...(future ? { planned: true } : {}),
         })
         if (future) continue
@@ -308,7 +310,11 @@ export function projectIntraopEvents(
           active.plannedStopCol ??= col
           active.stopEventId ??= event.id
         } else {
-          infusions.push({ ...infusionSegment(event.infId, active, col, true, event.ts), ...appliedStopRefs(event) })
+          infusions.push({
+            ...infusionSegment(event.infId, active, col, true, event.ts), ...appliedStopRefs(event),
+            // The pump's own total, entered on the stop (TCI, 2026-10-18).
+            ...(event.pumpTotal != null && event.pumpTotalUnit ? { pumpTotal: event.pumpTotal, pumpTotalUnit: event.pumpTotalUnit } : {}),
+          })
           activeInfusions.delete(event.infId)
         }
       }
@@ -571,6 +577,8 @@ export function asOfInstant(context: Pick<IntraopProjectionContext, "endedAt" | 
 
 type ActiveInfusionEntry = {
   startCol: number
+  /** The start event as saved; `event` follows the rate changes. */
+  initialEvent: LogEvent
   event: LogEvent
   initialRate: string
   rateChanges: NonNullable<TimetableInfusion["rateChanges"]>
@@ -637,6 +645,7 @@ function infusionSegment(
   active: {
     startCol: number
     event: LogEvent
+    initialEvent: LogEvent
     initialRate: string
     rateChanges: NonNullable<TimetableInfusion["rateChanges"]>
   },
@@ -652,6 +661,11 @@ function infusionSegment(
     startTs: active.event.ts,
     ...(endTs ? { endTs } : {}),
     ...(active.event.calculationBasis ? { calculationBasis: active.event.calculationBasis } : {}),
+    ...(active.initialEvent.calculationWeightKg != null ? { calculationWeightKg: active.initialEvent.calculationWeightKg } : {}),
+    ...(active.initialEvent.volumeRateMlPerHour != null ? { volumeRateMlPerHour: active.initialEvent.volumeRateMlPerHour } : {}),
+    ...(active.initialEvent.tciModel ? { tciModel: active.initialEvent.tciModel } : {}),
+    ...(active.initialEvent.tciSite ? { tciSite: active.initialEvent.tciSite } : {}),
+    ...(active.initialEvent.tciOpioids != null ? { tciOpioids: active.initialEvent.tciOpioids } : {}),
     name: active.event.name ?? "",
     rate: finiteNumber(active.initialRate),
     unit: active.event.unit ?? "",
@@ -851,6 +865,7 @@ export function reverseProjectIntraop(
       clinicalPresetId: infusion.clinicalPresetId,
       clinicalPresetVersion: infusion.clinicalPresetVersion,
       clinicalPresetScope: infusion.clinicalPresetScope,
+      ...(infusion.tciModel ? { tciModel: infusion.tciModel, tciSite: infusion.tciSite, tciOpioids: infusion.tciOpioids } : {}),
     }))
     for (const change of infusion.rateChanges ?? []) {
       events.push(create({
@@ -867,6 +882,7 @@ export function reverseProjectIntraop(
         type: "infusion_stop",
         ts: timestampFor(infusion.endCol),
         infId: infusion.id,
+        ...(infusion.pumpTotal != null && infusion.pumpTotalUnit ? { pumpTotal: infusion.pumpTotal, pumpTotalUnit: infusion.pumpTotalUnit } : {}),
       }))
     }
   }
@@ -1016,6 +1032,7 @@ export function rebuildIntraopActiveState(
         clinicalPresetId: event.clinicalPresetId,
         clinicalPresetVersion: event.clinicalPresetVersion,
         clinicalPresetScope: event.clinicalPresetScope,
+        ...(event.tciModel ? { tciModel: event.tciModel, tciSite: event.tciSite, tciOpioids: event.tciOpioids } : {}),
       })
     } else if (event.type === "infusion_rate" && event.infId) {
       const active = infusions.get(event.infId)

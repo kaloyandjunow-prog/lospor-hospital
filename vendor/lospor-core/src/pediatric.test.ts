@@ -4,13 +4,16 @@ import {
   calculateColds,
   calculatePovoc,
   classifyPediatricVital,
-  evaluatePediatricFasting,
+  fastingDeadline,
+  isFastingAssignmentBelowMinimum,
+  policyFastingAssignments,
   getPediatricVitalReference,
   normalizePediatricAge,
   pediatricAgeToApproximateDays,
   recommendPediatricPainScale,
   requiresPediatricModeDecision,
   validateClinicalModeAge,
+  fastingClockTimes
 } from "./pediatric"
 import {
   calculateMostellerBsa,
@@ -18,6 +21,7 @@ import {
   calculatePediatricMaintenanceFluid,
   calculatePediatricLocalAnaestheticLimit,
   calculateRcukPediatricResuscitation,
+  pediatricIntraopReference,
 } from "./pediatric-calculators"
 import {
   resolvePediatricDoseSuggestion,
@@ -72,15 +76,24 @@ describe("pediatric reference rules", () => {
     })).toMatchObject({ score: 14, advisoryOnly: true })
   })
 
-  it("selects pain scales by ability and checks versioned fasting policy", () => {
+  it("selects pain scales by ability", () => {
     expect(recommendPediatricPainScale({ ageYears: 2, canSelfReport: false }).scale).toBe("FLACC")
     expect(recommendPediatricPainScale({ ageYears: 5, canSelfReport: true }).scale).toBe("FPS_R")
-    expect(evaluatePediatricFasting({
-      category: "CLEAR_FLUIDS",
-      lastIntakeAt: "2026-07-29T08:00:00Z",
-      assessmentAt: "2026-07-29T09:00:00Z",
-      policy: APAGBI_FASTING_POLICY_2023,
-    }).status).toBe("MET")
+  })
+
+  // Nil-by-mouth is an instruction in hours before surgery, not a last-intake
+  // time judged against the moment of the preop visit.
+  it("assigns fasting in hours before surgery, starting from APAGBI 2023", () => {
+    expect(policyFastingAssignments(APAGBI_FASTING_POLICY_2023).map(row => [row.category, row.hoursBefore])).toEqual([
+      ["CLEAR_FLUIDS", 1], ["BREAST_MILK", 3], ["INFANT_FORMULA_UNDER_1_YEAR", 4], ["SOLID_FOOD_OR_COW_MILK", 6],
+    ])
+    expect(isFastingAssignmentBelowMinimum({ category: "SOLID_FOOD_OR_COW_MILK", hoursBefore: 4 })).toBe(true)
+    expect(isFastingAssignmentBelowMinimum({ category: "CLEAR_FLUIDS", hoursBefore: 2 })).toBe(false)
+  })
+
+  it("turns an assignment into a clock time once surgery has started", () => {
+    expect(fastingDeadline("2026-10-16T08:30:00Z", 6)?.toISOString()).toBe("2026-10-16T02:30:00.000Z")
+    expect(fastingDeadline("not a date", 6)).toBeNull()
   })
 })
 
@@ -105,6 +118,7 @@ describe("pediatric calculators", () => {
       available: true,
       value: {
         shockJoules: 160,
+        escalatedShockJoules: 320,
         adrenalineMicrograms: 400,
         amiodaroneFirstDoseMilligrams: 200,
         amiodaroneSecondDoseMilligrams: 150,
@@ -166,4 +180,43 @@ describe("pediatric dose profiles", () => {
     })
   })
 
+})
+
+describe("the paediatric reference shown in intraop", () => {
+  // RCUK 2025: 1st shock 4 J/kg; from the 5th shock up to 8 J/kg, max 360 J.
+  it("escalates the shock from the 5th and never passes 360 J", () => {
+    expect(calculateRcukPediatricResuscitation({ weightKg: 24 })).toMatchObject({ value: { shockJoules: 96, escalatedShockJoules: 192 } })
+    expect(calculateRcukPediatricResuscitation({ weightKg: 100 })).toMatchObject({ value: { shockJoules: 360, escalatedShockJoules: 360 } })
+  })
+
+  it("works out BSA, maintenance fluid and resuscitation from the record", () => {
+    const reference = pediatricIntraopReference({ weightKg: 24, heightCm: 122, age: { value: 7, unit: "YEARS" } })
+    expect(reference.bsaSquareMetres).toBe(0.9018)
+    expect(reference.maintenance).toMatchObject({ dailyMl: 1580, hourlyMl: 65.8 })
+    expect(reference.resuscitation).toMatchObject({ adrenalineMicrograms: 240, amiodaroneFirstDoseMilligrams: 120 })
+  })
+
+  it("leaves out what the record cannot support yet", () => {
+    expect(pediatricIntraopReference({ weightKg: null, heightCm: 122 })).toMatchObject({ bsaSquareMetres: null, maintenance: null, resuscitation: null })
+  })
+})
+
+describe("nil-by-mouth assignments as clock times", () => {
+  it("reads each assignment back from the start of surgery in the case's zone", () => {
+    // Surgery at 08:30 in Sofia (05:30 UTC).
+    const rows = fastingClockTimes(
+      [{ category: "SOLID_FOOD_OR_COW_MILK", hoursBefore: 6 }, { category: "CLEAR_FLUIDS", hoursBefore: 1 }, { category: "BREAST_MILK", hoursBefore: 10 }],
+      "2026-10-16T05:30:00Z", "Europe/Sofia",
+    )
+    expect(rows).toEqual([
+      { category: "CLEAR_FLUIDS", hoursBefore: 1, clock: "07:30", previousDay: false },
+      { category: "SOLID_FOOD_OR_COW_MILK", hoursBefore: 6, clock: "02:30", previousDay: false },
+      { category: "BREAST_MILK", hoursBefore: 10, clock: "22:30", previousDay: true },
+    ])
+  })
+
+  it("has nothing to show before surgery starts", () => {
+    expect(fastingClockTimes([{ category: "CLEAR_FLUIDS", hoursBefore: 1 }], null, "Europe/Sofia")).toEqual([])
+    expect(fastingClockTimes([], "2026-10-16T05:30:00Z", "Europe/Sofia")).toEqual([])
+  })
 })

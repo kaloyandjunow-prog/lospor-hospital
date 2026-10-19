@@ -212,6 +212,8 @@ function segmentLifecycle<S extends { startEventId?: string; stopEventId?: strin
     add: (change: RateChange) => Omit<LogEvent, "id" | "ts">
     patch: (change: RateChange) => Partial<LogEvent>
   },
+  /** What the stop carries besides its time (a TCI pump total), when it changed. */
+  stopPatch?: Partial<LogEvent>,
 ) {
   const moved = before.startCol !== after.startCol
   w.update(after.startEventId, { ...startPatch, ...(moved ? { ts: w.stamp(after.startCol) } : {}) })
@@ -226,8 +228,8 @@ function segmentLifecycle<S extends { startEventId?: string; stopEventId?: strin
     w.remove(before.stopEventId)
   } else if (!wasStopped && nowStopped) {
     w.add({ ...stop(), ...(after.endCaseStop ? { endCaseStop: true } : {}), ts: w.stamp(Math.max(afterEnd, after.startCol)) })
-  } else if (wasStopped && nowStopped && beforeEnd !== afterEnd) {
-    w.update(before.stopEventId, { ts: w.stamp(Math.max(afterEnd, after.startCol)) })
+  } else if (wasStopped && nowStopped && (beforeEnd !== afterEnd || stopPatch)) {
+    w.update(before.stopEventId, { ...stopPatch, ...(beforeEnd !== afterEnd ? { ts: w.stamp(Math.max(afterEnd, after.startCol)) } : {}) })
   }
 
   if (changes) {
@@ -249,6 +251,8 @@ function infusionStart(item: TimetableInfusion): Partial<LogEvent> {
     infId: item.id, name: item.name, rate: String(item.rate), unit: item.unit, color: item.color,
     concentration: item.concentration, formulation: item.formulation, drugRoute: item.route,
     drugId: item.drugId, atcCode: item.atcCode, inn: item.inn, allergyAck: item.allergyAck, calculationBasis: item.calculationBasis,
+    calculationWeightKg: item.calculationWeightKg, volumeRateMlPerHour: item.volumeRateMlPerHour,
+    tciModel: item.tciModel, tciSite: item.tciSite, tciOpioids: item.tciOpioids,
     clinicalRuleKey: item.clinicalRuleKey, clinicalRuleVersion: item.clinicalRuleVersion,
     clinicalRuleSourceIds: item.clinicalRuleSourceIds, clinicalPresetId: item.clinicalPresetId,
     clinicalPresetVersion: item.clinicalPresetVersion, clinicalPresetScope: item.clinicalPresetScope,
@@ -259,10 +263,14 @@ function infusions(context: TimetableEditContext, w: Writers) {
   const { pairs, gone } = matchByRef(context.before.infusions ?? [], context.after.infusions ?? [], item => item.startEventId)
   for (const item of gone) removeSegment(w, item, item.rateChanges)
   for (const { before, after } of pairs) {
-    const stop = () => ({ type: "infusion_stop" as const, infId: after.id, name: after.name, color: after.color })
+    // A stop moved on the chart keeps the pump total entered on it.
+    const stop = () => ({
+      type: "infusion_stop" as const, infId: after.id, name: after.name, color: after.color,
+      ...(after.pumpTotal != null && after.pumpTotalUnit ? { pumpTotal: after.pumpTotal, pumpTotalUnit: after.pumpTotalUnit } : {}),
+    })
     const changeOf = (change: RateChange) => {
       const rate = change as NonNullable<TimetableInfusion["rateChanges"]>[number]
-      return { rate: String(rate.rate), unit: rate.unit, concentration: rate.concentration }
+      return { rate: String(rate.rate), unit: rate.unit, concentration: rate.concentration, volumeRateMlPerHour: rate.volumeRateMlPerHour }
     }
     if (!before) {
       w.add({ type: "infusion_start", ts: w.stamp(after.startCol), ...infusionStart(after) })
@@ -276,7 +284,9 @@ function infusions(context: TimetableEditContext, w: Writers) {
       after: after.rateChanges ?? [],
       add: change => ({ type: "infusion_rate", infId: after.id, name: after.name, ...changeOf(change) }),
       patch: changeOf,
-    })
+    }, before.pumpTotal !== after.pumpTotal || before.pumpTotalUnit !== after.pumpTotalUnit
+      ? { pumpTotal: after.pumpTotal, pumpTotalUnit: after.pumpTotalUnit }
+      : undefined)
   }
 }
 

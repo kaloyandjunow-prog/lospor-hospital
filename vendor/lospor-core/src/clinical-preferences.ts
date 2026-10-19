@@ -2,6 +2,11 @@ import {
   normalizeAutoFillVitalsPreferences,
   type AutoFillVitalsPreferences,
 } from "./intraop-vitals"
+import {
+  BULGARIAN_NAME_SWITCH_KEYS,
+  NO_BULGARIAN_NAMES,
+  type BulgarianNameSwitches,
+} from "./display/bulgarian-names"
 
 export const CLINICAL_PREFERENCES_VERSION = 1
 export const MAX_INTRAOP_FAVOURITES = 8
@@ -28,6 +33,8 @@ export type ClinicalPreferences = {
   autoFillVitals: AutoFillVitalsPreferences
   intraopFavouriteDrugs: string[]
   intraopFavouriteInfusions: string[]
+  /** Which catalogues a Bulgarian reader sees in Bulgarian (Settings → UI). Display only. */
+  bulgarianNames: BulgarianNameSwitches
 }
 
 export type ClinicalPreferencesPatch = {
@@ -37,6 +44,7 @@ export type ClinicalPreferencesPatch = {
   autoFillVitals?: Partial<AutoFillVitalsPreferences>
   intraopFavouriteDrugs?: string[]
   intraopFavouriteInfusions?: string[]
+  bulgarianNames?: Partial<BulgarianNameSwitches>
 }
 
 export const DEFAULT_CLINICAL_PREFERENCES: ClinicalPreferences = {
@@ -54,6 +62,7 @@ export const DEFAULT_CLINICAL_PREFERENCES: ClinicalPreferences = {
   autoFillVitals: normalizeAutoFillVitalsPreferences({}),
   intraopFavouriteDrugs: [],
   intraopFavouriteInfusions: [],
+  bulgarianNames: { ...NO_BULGARIAN_NAMES },
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -115,6 +124,13 @@ export function parseClinicalPreferencesPatch(value: unknown): ClinicalPreferenc
   if (drugs) patch.intraopFavouriteDrugs = drugs
   const infusions = favourites(input.intraopFavouriteInfusions)
   if (infusions) patch.intraopFavouriteInfusions = infusions
+
+  const namesInput = record(input.bulgarianNames)
+  const names: Partial<BulgarianNameSwitches> = {}
+  for (const key of BULGARIAN_NAME_SWITCH_KEYS) {
+    if (typeof namesInput[key] === "boolean") names[key] = namesInput[key]
+  }
+  if (Object.keys(names).length) patch.bulgarianNames = names
   return patch
 }
 
@@ -130,6 +146,7 @@ export function normalizeClinicalPreferences(value: unknown): ClinicalPreference
     }),
     intraopFavouriteDrugs: patch.intraopFavouriteDrugs ?? [],
     intraopFavouriteInfusions: patch.intraopFavouriteInfusions ?? [],
+    bulgarianNames: { ...NO_BULGARIAN_NAMES, ...patch.bulgarianNames },
   }
 }
 
@@ -149,6 +166,7 @@ export function mergeClinicalPreferences(
       server.intraopFavouriteDrugs ?? device.intraopFavouriteDrugs,
     intraopFavouriteInfusions:
       server.intraopFavouriteInfusions ?? device.intraopFavouriteInfusions,
+    bulgarianNames: { ...device.bulgarianNames, ...server.bulgarianNames },
   })
 }
 
@@ -163,6 +181,7 @@ export function applyClinicalPreferencesPatch(
     ...patch,
     units: { ...current.units, ...patch.units },
     autoFillVitals: { ...current.autoFillVitals, ...patch.autoFillVitals },
+    bulgarianNames: { ...current.bulgarianNames, ...patch.bulgarianNames },
   })
 }
 
@@ -189,6 +208,9 @@ export function combineClinicalPreferencesPatches(
     }
     if (patch.intraopFavouriteInfusions !== undefined) {
       combined.intraopFavouriteInfusions = patch.intraopFavouriteInfusions
+    }
+    if (patch.bulgarianNames) {
+      combined.bulgarianNames = { ...combined.bulgarianNames, ...patch.bulgarianNames }
     }
   }
   return combined

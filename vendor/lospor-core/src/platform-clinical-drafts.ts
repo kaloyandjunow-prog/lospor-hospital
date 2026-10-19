@@ -13,6 +13,8 @@ export {
   LOSPOR_PEDIATRIC_RULESET_VERSION,
   LOSPOR_PEDIATRIC_V2_RULESET_VERSION,
   LOSPOR_ADULT_V2_RULESET_VERSION,
+  LOSPOR_ADULT_V3_RULESET_VERSION,
+  LOSPOR_PEDIATRIC_V3_RULESET_VERSION,
   PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE,
   clinicalDraftRuleKeys,
   type ClinicalRuleSeed,
@@ -22,6 +24,7 @@ export {
 export {
   createLosporPediatricPlatformDraft,
   createLosporPediatricV2Draft,
+  createLosporPediatricV3Draft,
 } from "./platform-drafts/pediatric"
 
-export { createLosporAdultV2Draft } from "./platform-drafts/adult"
+export { createLosporAdultV2Draft, createLosporAdultV3Draft } from "./platform-drafts/adult"

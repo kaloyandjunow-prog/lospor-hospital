@@ -28,4 +28,22 @@ describe("summary timetable model", () => {
     expect(gas?.segments[1]?.text).toContain("1 L/min")
     expect(model.hasData).toBe(true)
   })
+
+  it("gives each infusion, agent and fluid its own row, so ones running together do not hide each other", () => {
+    const model = buildSummaryTimetableModel({
+      infusions: [
+        { startCol: 1, endCol: 9, name: "Propofol", rate: 4, unit: "mcg/mL", tciModel: "SCHNIDER", tciSite: "EFFECT" },
+        { startCol: 1, endCol: 12, name: "Remifentanil", rate: 0.15, unit: "mcg/kg/min" },
+      ],
+      fluids: [{ startCol: 0, endCol: 5, name: "Ringer", volume: "500" }, { startCol: 2, endCol: 6, name: "Gelofusine", volume: "500" }],
+      gasSettings: [{ startCol: 0, endCol: 1, fgf: 2 }, { startCol: 2, endCol: 9, fgf: 1 }],
+    })
+    const rows = (kind: string) => model.lanes.filter(lane => lane.kind === kind)
+    expect(rows("infusion").map(lane => lane.segments.map(segment => segment.text))).toEqual([
+      ["Propofol Ce 4 mcg/mL · Schnider"], ["Remifentanil 0.15 mcg/kg/min"],
+    ])
+    expect(rows("fluid").map(lane => lane.segments[0]!.code)).toEqual(["Ringer", "Gelofusine"])
+    expect(rows("gas")).toHaveLength(1)
+    expect(rows("gas")[0]!.segments).toHaveLength(2)
+  })
 })

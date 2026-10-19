@@ -1,5 +1,6 @@
 import type {
   DoseCalc,
+  DoseLimit,
   DoseProfile,
   LocalAnaestheticFormulation,
   RouteMode,
@@ -47,6 +48,8 @@ export type DrugSelectionSurface = {
   concentrationUnit?: string
   formulationOptions: LocalAnaestheticFormulation[]
   formulation?: LocalAnaestheticFormulation
+  /** A volume route whose limit is a dose; see volume-dose.ts. */
+  doseLimit?: DoseLimit
   calculation?: DrugDoseCalculationAudit
   calculationUnavailableReason?:
     | "MISSING_TBW"
@@ -245,6 +248,7 @@ export function resolveDrugSelectionSurface(input: {
     concentrationUnit: routeProfile?.concentrationUnit ?? profile.concentrationUnit,
     formulationOptions: [...formulationOptions],
     formulation,
+    ...(routeProfile?.doseLimit ? { doseLimit: { ...routeProfile.doseLimit } } : {}),
   }
 }
 

@@ -134,7 +134,8 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
       "unit": "mL",
       "concentrationOptions": [
         "10%",
-        "15%"
+        "15%",
+        "20%"
       ],
       "suggestedVolume": 50
     }
@@ -230,6 +231,25 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Ringer's acetate",
+    "atcCode": "B05BB01",
+    "category": "Crystalloids",
+    "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
+    "profile": {
+      "min": 0,
+      "max": 2000,
+      "step": 100,
+      "quickValues": [
+        250,
+        500,
+        1000,
+        2000
+      ],
+      "unit": "mL",
+      "suggestedVolume": 500
+    }
+  },
+  {
+    "name": "Ringer's solution",
     "atcCode": "B05BB01",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
@@ -451,3 +471,4 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
     }
   }
 ]
+

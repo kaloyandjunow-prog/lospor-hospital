@@ -1,6 +1,7 @@
 import {
   DRUG_CATALOG,
   parseDoseProfile,
+  REGIONAL_ADJUVANT_ROUTES,
   type DoseCalc,
   type DoseProfile,
   type DoseProfileInput,
@@ -14,13 +15,13 @@ import {
 } from "./clinical-rules"
 
 const DAY = 1
-const WEEK = 7 * DAY
-const MONTH = 30.436875 * DAY
-const YEAR = 365.2425 * DAY
+export const WEEK = 7 * DAY
+export const MONTH = 30.436875 * DAY
+export const YEAR = 365.2425 * DAY
 
 export const PEDIATRIC_DRUG_PROFILE_END_DAYS = 18 * YEAR
 
-type BandSeed = {
+export type BandSeed = {
   availability: DrugProfileAvailability
   minimumAgeDays?: number
   maximumAgeDaysExclusive?: number
@@ -49,7 +50,7 @@ type SimpleSurface = {
   hint?: string
 }
 
-type RouteSurface = {
+export type RouteSurface = {
   routes: string[]
   unit: string
   max: number
@@ -161,7 +162,7 @@ const ACTUAL_WEIGHT_DRUGS = new Set([
   "Naloxone",
 ])
 
-function simpleSurface(input: SimpleSurface): DoseProfile {
+export function simpleSurface(input: SimpleSurface): DoseProfile {
   return parseDoseProfile("Pediatric drug", "bolus", {
     min: 0,
     max: input.max,
@@ -187,7 +188,7 @@ function simpleSurface(input: SimpleSurface): DoseProfile {
   })
 }
 
-function routeSurface(routes: Record<string, RouteSurface>, defaultRoute?: string): DoseProfile {
+export function routeSurface(routes: Record<string, RouteSurface>, defaultRoute?: string): DoseProfile {
   const routeNames = Object.keys(routes)
   const routeModes = Object.fromEntries(Object.entries(routes).map(([route, surface]) => [
     route,
@@ -211,7 +212,7 @@ function routeSurface(routes: Record<string, RouteSurface>, defaultRoute?: strin
   })
 }
 
-function withoutSuggestions(profile: DoseProfile): DoseProfile {
+export function withoutSuggestions(profile: DoseProfile): DoseProfile {
   return {
     ...profile,
     quickValues: [],
@@ -227,11 +228,76 @@ function withoutSuggestions(profile: DoseProfile): DoseProfile {
   }
 }
 
-function adultSurface(entry: DrugCatalogEntry): DoseProfile {
-  return parseDoseProfile(entry.name, "bolus", entry.profile)
+/** Which rule set a band is built for: v3 adds the caudal routes below. */
+export type Edition = "v2" | "v3"
+
+/** The adult surface, without the regional routes whose doses are adult ones. */
+export function adultSurface(entry: DrugCatalogEntry): DoseProfile {
+  const adultOnly = new Set(REGIONAL_ADJUVANT_ROUTES[entry.name] ?? [])
+  if (!adultOnly.size) return parseDoseProfile(entry.name, "bolus", entry.profile)
+  const profile = entry.profile as unknown as { routes?: string[]; routeModes?: Record<string, unknown> }
+  return parseDoseProfile(entry.name, "bolus", {
+    ...entry.profile,
+    routes: (profile.routes ?? []).filter(route => !adultOnly.has(route)),
+    ...(profile.routeModes
+      ? { routeModes: Object.fromEntries(Object.entries(profile.routeModes).filter(([route]) => !adultOnly.has(route))) }
+      : {}),
+  })
 }
 
-function approvedAutoSurface(entry: DrugCatalogEntry): DoseProfile {
+/**
+ * Caudal (epidural) adjuvants for children, from v3 (2026-10-18), suggested at
+ * the lower end of the approved per-kg range. Clonidine already has them.
+ */
+const PEDIATRIC_V3_CAUDAL: Readonly<Record<string, RouteSurface>> = {
+  "Morphine": { routes: ["EPIDURAL"], unit: "mcg", max: 1500, step: 10, quickValues: [50, 100, 200, 300, 500, 750, 1000], calculation: { perKg: 20, basis: "IBW", roundTo: 10, cap: 1000 } },
+  "Ketamine": { routes: ["EPIDURAL"], unit: "mg", max: 25, step: 0.25, quickValues: [1, 2.5, 5, 7.5, 10, 15], calculation: { perKg: 0.25, basis: "IBW", roundTo: 0.25, cap: 25 } },
+  // Manual in children: entered, never suggested.
+  "Dexmedetomidine": { routes: ["EPIDURAL"], unit: "mcg", max: 50, step: 0.5 },
+}
+
+/** A surface with one more route of its own; a single-mode surface becomes one mode per route first. */
+function withRoute(profile: DoseProfile, route: string, surface: RouteSurface): DoseProfile {
+  const existing = profile.routeModes ?? Object.fromEntries(profile.routes.map(name => [name, {
+    min: profile.min ?? 0,
+    max: profile.max ?? surface.max,
+    step: profile.step ?? surface.step,
+    quickValues: [...profile.quickValues],
+    unit: profile.unit ?? surface.unit,
+    weightBasis: profile.weightBasis,
+    doseCalc: profile.doseCalcByRoute?.[name] ?? profile.doseCalc,
+    concentrationOptions: profile.concentrationOptions,
+    concentrationUnit: profile.concentrationUnit,
+    defaultConcentration: profile.defaultConcentration,
+  } satisfies RouteModeInput]))
+  return parseDoseProfile("Pediatric drug", "bolus", {
+    routes: [...profile.routes, route],
+    defaultRoute: profile.defaultRoute ?? profile.routes[0],
+    routeModes: {
+      ...existing,
+      [route]: {
+        min: 0,
+        max: surface.max,
+        step: surface.step,
+        quickValues: surface.quickValues ?? [],
+        unit: surface.unit,
+        weightBasis: surface.calculation?.basis ?? "none",
+        doseCalc: surface.calculation,
+      } satisfies RouteModeInput,
+    },
+  })
+}
+
+function withCaudal(entry: DrugCatalogEntry, profile: DoseProfile, edition: Edition): DoseProfile {
+  const caudal = edition === "v3" ? PEDIATRIC_V3_CAUDAL[entry.name] : undefined
+  return caudal ? withRoute(profile, "EPIDURAL", caudal) : profile
+}
+
+function approvedAutoSurface(entry: DrugCatalogEntry, edition: Edition): DoseProfile {
+  return withCaudal(entry, approvedSurface(entry), edition)
+}
+
+function approvedSurface(entry: DrugCatalogEntry): DoseProfile {
   const exact = PEDIATRIC_V2_EXACT_AUTO_SURFACES[entry.name]
   if (exact) return exact()
   // All entries reaching this fallback were approved as AUTO. Retain the
@@ -416,7 +482,7 @@ function availabilityFor(entry: DrugCatalogEntry): DrugProfileAvailability {
   return "AUTO"
 }
 
-function defaultBand(entry: DrugCatalogEntry): BandSeed {
+export function defaultBand(entry: DrugCatalogEntry, edition: Edition): BandSeed {
   const availability = availabilityFor(entry)
   if (availability === "HIDDEN") return { availability, profile: null }
   if (availability === "LOCAL") {
@@ -429,13 +495,13 @@ function defaultBand(entry: DrugCatalogEntry): BandSeed {
   if (availability === "MANUAL") {
     return {
       availability,
-      profile: withoutSuggestions(adultSurface(entry)),
+      profile: withoutSuggestions(withCaudal(entry, adultSurface(entry), edition)),
     }
   }
   return {
     availability,
     minimumAgeDays: AUTO_MINIMUM_AGE_DAYS[entry.name] ?? 0,
-    profile: approvedAutoSurface(entry),
+    profile: approvedAutoSurface(entry, edition),
   }
 }
 
@@ -490,7 +556,7 @@ const AUTO_MINIMUM_AGE_DAYS: Readonly<Record<string, number>> = {
   "Verapamil": YEAR,
 }
 
-function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
+export function specialBands(entry: DrugCatalogEntry, edition: Edition): BandSeed[] | null {
   if (entry.name === "Chlorphenamine / Chlorpheniramine") {
     return [
       { availability: "MANUAL", maximumAgeDaysExclusive: MONTH, profile: withoutSuggestions(adultSurface(entry)) },
@@ -500,7 +566,7 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
         maximumAgeDaysExclusive: YEAR,
         profile: simpleSurface({ routes: ["IV", "IM", "SC"], unit: "mg", max: 20, step: 0.1, quickValues: [2.5, 5, 10, 20], perKg: 0.25, roundTo: 0.1, cap: 20, concentrationOptions: ["1 mg/mL", "10 mg/mL"], concentrationUnit: "MG_PER_ML", defaultConcentration: "1 mg/mL" }),
       },
-      { ...defaultBand(entry), minimumAgeDays: YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: YEAR },
     ]
   }
   if (entry.name === "Fosaprepitant") {
@@ -526,7 +592,7 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
     return [
       { availability: "AUTO", maximumAgeDaysExclusive: YEAR, profile: simpleSurface({ routes: ["IV", "IM"], unit: "mg", max: 200, step: 5, quickValues: [25, 50, 100, 200], flat: 25, roundTo: 5, cap: 25 }) },
       { availability: "AUTO", minimumAgeDays: YEAR, maximumAgeDaysExclusive: 6 * YEAR, profile: simpleSurface({ routes: ["IV", "IM"], unit: "mg", max: 200, step: 5, quickValues: [25, 50, 100, 200], flat: 50, roundTo: 5, cap: 50 }) },
-      { ...defaultBand(entry), minimumAgeDays: 6 * YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: 6 * YEAR },
     ]
   }
   if (entry.name === "Ibuprofen") {
@@ -535,27 +601,27 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
       { availability: "MANUAL", maximumAgeDaysExclusive: 3 * MONTH, profile: manual },
       { availability: "MANUAL", minimumAgeDays: 3 * MONTH, maximumWeightKg: 5, maximumWeightInclusive: true, profile: manual },
       { availability: "AUTO", minimumAgeDays: 3 * MONTH, maximumAgeDaysExclusive: 6 * MONTH, minimumWeightKg: 5, minimumWeightInclusive: false, profile: simpleSurface({ routes: ["IV", "PO", "PR"], unit: "mg", max: 400, step: 5, quickValues: [50, 100, 200, 400], perKg: 10, roundTo: 5, cap: 100 }) },
-      { ...defaultBand(entry), minimumAgeDays: 6 * MONTH, minimumWeightKg: 5, minimumWeightInclusive: false },
+      { ...defaultBand(entry, edition), minimumAgeDays: 6 * MONTH, minimumWeightKg: 5, minimumWeightInclusive: false },
     ]
   }
   if (entry.name === "Mivacurium") {
     return [
       { availability: "MANUAL", maximumAgeDaysExclusive: 2 * MONTH, profile: withoutSuggestions(adultSurface(entry)) },
       { availability: "AUTO", minimumAgeDays: 2 * MONTH, maximumAgeDaysExclusive: 7 * MONTH, profile: simpleSurface({ routes: ["IV"], unit: "mg", max: 20, step: 0.1, quickValues: [0.2, 0.5, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20], perKg: 0.15, roundTo: 0.1 }) },
-      { ...defaultBand(entry), minimumAgeDays: 7 * MONTH },
+      { ...defaultBand(entry, edition), minimumAgeDays: 7 * MONTH },
     ]
   }
   if (entry.name === "Morphine") {
     return [
       { availability: "AUTO", maximumAgeDaysExclusive: MONTH, profile: simpleSurface({ routes: ["IV"], unit: "mg", max: 1, step: 0.01, quickValues: [0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 1], perKg: 0.025, roundTo: 0.01 }) },
       { availability: "AUTO", minimumAgeDays: MONTH, maximumAgeDaysExclusive: YEAR, profile: simpleSurface({ routes: ["IV"], unit: "mg", max: 2, step: 0.05, quickValues: [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2], perKg: 0.05, roundTo: 0.05 }) },
-      { ...defaultBand(entry), minimumAgeDays: YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: YEAR },
     ]
   }
   if (entry.name === "Pancuronium") {
     return [
       { availability: "AUTO", maximumAgeDaysExclusive: 4 * WEEK, profile: simpleSurface({ routes: ["IV"], unit: "mg", max: 10, step: 0.01, quickValues: [0.1, 0.2, 0.5, 1, 2, 5, 10], perKg: 0.04, roundTo: 0.01, cap: 10 }) },
-      { ...defaultBand(entry), minimumAgeDays: 4 * WEEK },
+      { ...defaultBand(entry, edition), minimumAgeDays: 4 * WEEK },
     ]
   }
   if (entry.name === "Paracetamol / Acetaminophen") {
@@ -572,7 +638,7 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
   if (entry.name === "Propranolol") {
     return [
       { availability: "AUTO", maximumAgeDaysExclusive: YEAR, profile: simpleSurface({ routes: ["IV"], unit: "mg", max: 3, step: 0.01, quickValues: [0.05, 0.1, 0.2, 0.5, 1], perKg: 0.01, roundTo: 0.01, cap: 1 }) },
-      { ...defaultBand(entry), minimumAgeDays: YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: YEAR },
     ]
   }
   if (entry.name === "Sildenafil") {
@@ -589,13 +655,13 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
     return [
       { availability: "MANUAL", maximumAgeDaysExclusive: 4 * WEEK, profile: withoutSuggestions(adultSurface(entry)) },
       { availability: "AUTO", minimumAgeDays: 4 * WEEK, maximumAgeDaysExclusive: YEAR, profile: infant },
-      { ...defaultBand(entry), minimumAgeDays: YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: YEAR },
     ]
   }
   if (entry.name === "Terbutaline") {
     return [
       { availability: "MANUAL", maximumAgeDaysExclusive: 2 * YEAR, profile: withoutSuggestions(adultSurface(entry)) },
-      { ...defaultBand(entry), minimumAgeDays: 2 * YEAR, maximumAgeDaysExclusive: 16 * YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: 2 * YEAR, maximumAgeDaysExclusive: 16 * YEAR },
       { availability: "AUTO", minimumAgeDays: 16 * YEAR, profile: simpleSurface({ routes: ["SC"], unit: "mg", max: 0.3, step: 0.01, quickValues: [0.05, 0.1, 0.2, 0.25, 0.3], flat: 0.25, roundTo: 0.01, cap: 0.25 }) },
     ]
   }
@@ -603,7 +669,7 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
     return [
       { availability: "HIDDEN", maximumAgeDaysExclusive: 6 * MONTH, profile: null },
       { availability: "MANUAL", minimumAgeDays: 6 * MONTH, maximumAgeDaysExclusive: YEAR, profile: withoutSuggestions(adultSurface(entry)) },
-      { ...defaultBand(entry), minimumAgeDays: YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: YEAR },
     ]
   }
   if (entry.name === "Daptomycin") {
@@ -615,7 +681,7 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
   if (entry.name === "Metoclopramide") {
     return [
       { availability: "HIDDEN", maximumAgeDaysExclusive: YEAR, profile: null },
-      defaultBand(entry),
+      defaultBand(entry, edition),
     ]
   }
   if (entry.name === "Metamizole") {
@@ -629,7 +695,7 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
         profile: null,
       },
       {
-        ...defaultBand(entry),
+        ...defaultBand(entry, edition),
         minimumAgeDays: 3 * MONTH,
         minimumWeightKg: 5,
         minimumWeightInclusive: true,
@@ -645,25 +711,25 @@ function specialBands(entry: DrugCatalogEntry): BandSeed[] | null {
   if (entry.name === "Tramadol") {
     return [
       { availability: "HIDDEN", maximumAgeDaysExclusive: YEAR, profile: null },
-      { ...defaultBand(entry), minimumAgeDays: YEAR },
+      { ...defaultBand(entry, edition), minimumAgeDays: YEAR },
     ]
   }
   if (entry.name === "Tetracaine / Amethocaine") {
     return [
       { availability: "HIDDEN", maximumAgeDaysExclusive: MONTH, profile: null },
-      { ...defaultBand(entry), minimumAgeDays: MONTH },
+      { ...defaultBand(entry, edition), minimumAgeDays: MONTH },
     ]
   }
   if (entry.name === "Verapamil") {
     return [
       { availability: "HIDDEN", maximumAgeDaysExclusive: YEAR, profile: null },
-      defaultBand(entry),
+      defaultBand(entry, edition),
     ]
   }
   return null
 }
 
-function profilePayload(entry: DrugCatalogEntry, band: BandSeed): PediatricDrugProfileRulePayload {
+export function profilePayload(entry: DrugCatalogEntry, band: BandSeed): PediatricDrugProfileRulePayload {
   const candidate = {
     kind: "PEDIATRIC_DRUG_PROFILE",
     medicationKey: entry.name,
@@ -693,9 +759,13 @@ function profilePayload(entry: DrugCatalogEntry, band: BandSeed): PediatricDrugP
   return parsed.value
 }
 
-export function createPediatricDrugProfileV2Payloads(): PediatricDrugProfileRulePayload[] {
-  return DRUG_CATALOG.flatMap(entry => (
-    specialBands(entry) ?? [defaultBand(entry)]
+/** The drug profile bands for every catalogue drug; a released baseline passes its own catalogue. */
+export function createPediatricDrugProfileV2Payloads(
+  drugs: readonly DrugCatalogEntry[] = DRUG_CATALOG,
+  edition: Edition = "v3",
+): PediatricDrugProfileRulePayload[] {
+  return drugs.flatMap(entry => (
+    specialBands(entry, edition) ?? [defaultBand(entry, edition)]
   ).map(band => profilePayload(entry, band)))
 }
 

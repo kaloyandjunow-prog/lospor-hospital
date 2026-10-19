@@ -17,6 +17,8 @@ export const LOSPOR_PEDIATRIC_RULESET_NAME = "LOSPOR Pediatric Rules" as const
 export const LOSPOR_PEDIATRIC_RULESET_VERSION = 1 as const
 export const LOSPOR_PEDIATRIC_V2_RULESET_VERSION = 2 as const
 export const LOSPOR_ADULT_V2_RULESET_VERSION = 2 as const
+export const LOSPOR_PEDIATRIC_V3_RULESET_VERSION = 3 as const
+export const LOSPOR_ADULT_V3_RULESET_VERSION = 3 as const
 
 export const PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE = 18 * 365.2425
 

@@ -111,6 +111,13 @@ export type ResearchCohortFilters = {
   durationMinutes?: ResearchNumberRange
   aldreteTotal?: ResearchNumberRange
   painScore?: ResearchNumberRange
+  /** Raw score counts, the same values the record stores (see research-scores.ts). */
+  rcri?: ResearchNumberRange
+  apfel?: ResearchNumberRange
+  stopBang?: ResearchNumberRange
+  povoc?: ResearchNumberRange
+  colds?: ResearchNumberRange
+  paedScore?: ResearchNumberRange
   sex?: string[]
   asa?: string[]
   emergency?: boolean
@@ -305,6 +312,8 @@ export type ResearchQueryResponse = {
   cases: ResearchCaseSummary[]
   /** @deprecated Use the inspection-authorized case query endpoint. */
   pagination: ResearchPagination | null
+  /** Agreement with the ASA suggestion, per deciding rule (absent from an older server). */
+  asaAgreement?: ResearchAsaAgreementRow[]
   generatedAt: string
 }
 
@@ -530,6 +539,12 @@ export function normalizeResearchCohort(
       durationMinutes: cleanRange(filters.durationMinutes),
       aldreteTotal: cleanRange(filters.aldreteTotal),
       painScore: cleanRange(filters.painScore),
+      rcri: cleanRange(filters.rcri),
+      apfel: cleanRange(filters.apfel),
+      stopBang: cleanRange(filters.stopBang),
+      povoc: cleanRange(filters.povoc),
+      colds: cleanRange(filters.colds),
+      paedScore: cleanRange(filters.paedScore),
       sex: cleanStrings(filters.sex),
       asa: cleanStrings(filters.asa),
       emergency: filters.emergency,
@@ -659,4 +674,64 @@ export function activeResearchFilterCount(definition: ResearchCohortDefinition):
     if (value && typeof value === "object") return Object.values(value).some(item => item !== undefined)
     return value !== undefined
   }).length
+}
+
+const ASA_ORDER = ["I", "II", "III", "IV", "V", "VI"] as const
+
+/**
+ * How often anaesthetists chose the class an ASA suggestion rule proposed,
+ * per rule. Each saved preop stores the suggestion's deciding rules (the
+ * reasons of the winning class only) beside the class chosen, so a rule is
+ * judged on the cases it decided, not on every case it happened to match.
+ */
+export type ResearchAsaAgreementRow = {
+  reasonCode: string
+  suggested: string
+  cases: number | null
+  agreed: number | null
+  choseLower: number | null
+  choseHigher: number | null
+  suppressed: boolean
+}
+
+export function asaAgreementByRule(
+  rows: ReadonlyArray<{ suggested: string | null; reasons: readonly string[]; chosen: string | null }>,
+): ResearchAsaAgreementRow[] {
+  const byRule = new Map<string, { suggested: string; agreed: number; lower: number; higher: number }>()
+  for (const row of rows) {
+    if (!row.suggested || !row.chosen) continue
+    const suggested = ASA_ORDER.indexOf(row.suggested as typeof ASA_ORDER[number])
+    const chosen = ASA_ORDER.indexOf(row.chosen as typeof ASA_ORDER[number])
+    if (suggested < 0 || chosen < 0) continue
+    for (const reasonCode of new Set(row.reasons)) {
+      const entry = byRule.get(reasonCode) ?? { suggested: row.suggested, agreed: 0, lower: 0, higher: 0 }
+      if (chosen === suggested) entry.agreed += 1
+      else if (chosen < suggested) entry.lower += 1
+      else entry.higher += 1
+      byRule.set(reasonCode, entry)
+    }
+  }
+  return [...byRule.entries()].map(([reasonCode, entry]) => {
+    const cases = entry.agreed + entry.lower + entry.higher
+    // A small rule, or a small part of one, is hidden; and with one part
+    // hidden the next smallest goes too, so it cannot be worked back from the
+    // total.
+    const parts = { agreed: entry.agreed, choseLower: entry.lower, choseHigher: entry.higher }
+    const hidden = new Set(Object.entries(parts).filter(([, count]) => shouldSuppressResearchCell(count)).map(([key]) => key))
+    if (hidden.size > 0) {
+      const next = Object.entries(parts).filter(([key, count]) => !hidden.has(key) && count > 0).sort((a, b) => a[1] - b[1])[0]
+      if (next) hidden.add(next[0])
+    }
+    const whole = shouldSuppressResearchCell(cases)
+    const shown = (key: keyof typeof parts) => whole || hidden.has(key) ? null : parts[key]
+    return {
+      reasonCode,
+      suggested: entry.suggested,
+      cases: whole ? null : cases,
+      agreed: shown("agreed"),
+      choseLower: shown("choseLower"),
+      choseHigher: shown("choseHigher"),
+      suppressed: whole || hidden.size > 0,
+    }
+  }).sort((left, right) => (right.cases ?? -1) - (left.cases ?? -1))
 }

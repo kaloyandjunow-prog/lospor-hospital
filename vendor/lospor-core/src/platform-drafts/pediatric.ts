@@ -1,4 +1,13 @@
-import { DRUG_CATALOG } from "../catalog"
+import {
+  DRUG_CATALOG,
+  drugCatalogAtRelease120,
+  FLUID_CATALOG,
+  fluidCatalogAtRelease120,
+  INFUSION_CATALOG,
+  infusionCatalogAtRelease120,
+  type DrugCatalogEntry,
+  type FluidCatalogEntry,
+} from "../catalog"
 import {
   validateClinicalRulePayload,
   type PediatricDrugPolicyRulePayload,
@@ -10,15 +19,16 @@ import {
   isBloodProductFluid,
   isMaintenanceCompatibleFluid,
 } from "../intraop-fluids"
-import { FLUID_CATALOG } from "../catalog"
 import { PEDIATRIC_SOURCE_REFERENCES } from "../pediatric"
 import { createPediatricInfusionProfileSeeds } from "../pediatric-infusion-profiles"
 import { createPediatricDrugProfileV2Payloads } from "../pediatric-drug-profiles-v2"
+import { createPediatricDrugProfileV3Payloads } from "../pediatric-drug-profiles-v3"
 import {
   LOSPOR_PEDIATRIC_RULESET_KEY,
   LOSPOR_PEDIATRIC_RULESET_NAME,
   LOSPOR_PEDIATRIC_RULESET_VERSION,
   LOSPOR_PEDIATRIC_V2_RULESET_VERSION,
+  LOSPOR_PEDIATRIC_V3_RULESET_VERSION,
   PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE,
   type ClinicalRuleSeed,
   type DrugPolicyOverride,
@@ -454,8 +464,8 @@ function parsedPediatricFluidProfile(
  * carry a 4/2/1 calculation marker; special fluids remain manual in Rate mode
  * and blood products remain volume-only.
  */
-function pediatricFluidSeeds(): ClinicalRuleSeed[] {
-  return FLUID_CATALOG.map(entry => {
+function pediatricFluidSeeds(fluids: readonly FluidCatalogEntry[] = FLUID_CATALOG): ClinicalRuleSeed[] {
+  return fluids.map(entry => {
     const identity = {
       name: entry.name,
       category: entry.category,
@@ -502,12 +512,13 @@ function pediatricFluidSeeds(): ClinicalRuleSeed[] {
 // validation itself is unaffected -- this was a superseded helper, not a gap.
 
 export function createLosporPediatricPlatformDraft(): PlatformClinicalDraft {
-  const drugPolicies = DRUG_CATALOG.map(policySeedForDrug)
+  // v1 is history, superseded by v2 in 1.2.0: built from the catalogues as they were then.
+  const drugPolicies = drugCatalogAtRelease120().map(policySeedForDrug)
   const rules = [
     ...drugPolicies,
     ...pediatricAutofillSeeds(),
-    ...createPediatricInfusionProfileSeeds(),
-    ...pediatricFluidSeeds(),
+    ...createPediatricInfusionProfileSeeds(infusionCatalogAtRelease120(), "v2"),
+    ...pediatricFluidSeeds(fluidCatalogAtRelease120()),
   ]
   const pending = drugPolicies.filter(seed =>
     seed.payload.kind === "PEDIATRIC_DRUG_POLICY"
@@ -535,17 +546,32 @@ export function createLosporPediatricPlatformDraft(): PlatformClinicalDraft {
  * surface, and legacy policy/dose rows cannot diverge from the runtime model.
  * Pediatric infusion and fluid behavior is copied unchanged from v1.
  */
-export function createLosporPediatricV2Draft(): PlatformClinicalDraft {
+/** The v2-model rules (full drug profiles, infusion matrix, fluids) built from the given catalogues. */
+function pediatricProfileRules(
+  drugs: readonly DrugCatalogEntry[],
+  infusions: readonly { name: string }[],
+  fluids: readonly FluidCatalogEntry[],
+  edition: "v2" | "v3",
+): ClinicalRuleSeed[] {
   const sourceRefsByMedication = new Map(
-    DRUG_CATALOG.map(entry => {
+    drugs.map(entry => {
       const policy = policySeedForDrug(entry)
       return [entry.name, policy.sourceRefs] as const
     }),
   )
-  const drugProfiles = createPediatricDrugProfileV2Payloads().map(payload => ({
+  const payloads = edition === "v3" ? createPediatricDrugProfileV3Payloads(drugs) : createPediatricDrugProfileV2Payloads(drugs, edition)
+  const drugProfiles = payloads.map(payload => ({
     payload,
     sourceRefs: [...(sourceRefsByMedication.get(payload.medicationKey) ?? [])],
   }))
+  return [
+    ...drugProfiles,
+    ...createPediatricInfusionProfileSeeds(infusions, edition),
+    ...pediatricFluidSeeds(fluids),
+  ]
+}
+
+export function createLosporPediatricV2Draft(): PlatformClinicalDraft {
   return {
     id: "lospor-pediatrics-v2",
     key: LOSPOR_PEDIATRIC_RULESET_KEY,
@@ -555,10 +581,25 @@ export function createLosporPediatricV2Draft(): PlatformClinicalDraft {
     version: LOSPOR_PEDIATRIC_V2_RULESET_VERSION,
     publishable: true,
     blockers: [],
-    rules: [
-      ...drugProfiles,
-      ...createPediatricInfusionProfileSeeds(),
-      ...pediatricFluidSeeds(),
-    ],
+    // As released in 1.2.0; see release-1-2-0.ts.
+    rules: pediatricProfileRules(drugCatalogAtRelease120(), infusionCatalogAtRelease120(), fluidCatalogAtRelease120(), "v2"),
+  }
+}
+
+/**
+ * Pediatric v3: the v2 model over the current catalogues -- drugs in their
+ * corrected groups, plain Ringer and mannitol 20% (2026-10-18).
+ */
+export function createLosporPediatricV3Draft(): PlatformClinicalDraft {
+  return {
+    id: "lospor-pediatrics-v3",
+    key: LOSPOR_PEDIATRIC_RULESET_KEY,
+    name: "LOSPOR pediatric drugs profile",
+    description: "Pediatric v2 rules over the current catalogues: drugs in their corrected pharmacological groups (with the colour of the group), plain Ringer added, and mannitol offered at 10, 15 and 20%. Every paediatric drug and infusion band that offered no suggestion now suggests a dose or starting rate with a slider range and quick pills; antimicrobials get a range only and protamine a range without a dose. Bands with no paediatric use are hidden for children only: ibuprofen under 3 months, fosaprepitant under 6 months, chlorphenamine and the propofol infusion under 1 month, nimodipine under 1 month, IM diazepam, obstetric drugs under 12 years, spinal-catheter infusions and lidocaine neuraxial infusions. Spinal doses follow weight. Fluid behaviour is unchanged from v2. Institution and personal rulesets may override the platform layer through the normal hierarchy.",
+    clinicalMode: "PEDIATRIC",
+    version: LOSPOR_PEDIATRIC_V3_RULESET_VERSION,
+    publishable: true,
+    blockers: [],
+    rules: pediatricProfileRules(DRUG_CATALOG, INFUSION_CATALOG, FLUID_CATALOG, "v3"),
   }
 }

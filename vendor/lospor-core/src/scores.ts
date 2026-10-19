@@ -62,26 +62,8 @@ export function calcRCRI(input: {
   ].filter(Boolean).length
 }
 
-export function calcGupta(input: {
-  asa: number
-  age: number
-  functionalStatus: number
-  creatinine: number
-  procedureRisk: number
-}): number {
-  const intercept = -5.25
-  let logit = intercept
-  logit += 0.01 * input.age
-  if (input.asa === 2) logit += 0.61
-  else if (input.asa === 3) logit += 1.37
-  else if (input.asa >= 4) logit += 2.1
-  if (input.functionalStatus === 2) logit += 0.43
-  else if (input.functionalStatus === 3) logit += 0.91
-  if (input.creatinine > 1.5) logit += 0.36 * (input.creatinine - 1.5)
-  if (input.procedureRisk === 3) logit += 0.76
-  const prob = 1 / (1 + Math.exp(-logit))
-  return Math.round(prob * 1000) / 10
-}
+// Gupta MICA lives in gupta.ts. The calcGupta that was here used invented
+// coefficients and was never called.
 
 export function calcAldreteTotal(components: (number | null | undefined)[]): number {
   return components.reduce<number>((sum, v) => sum + (v ?? 0), 0)

@@ -99,6 +99,8 @@ export type DoseCalcRule = {
 export type DoseCalcEntry = DoseCalcRule & {
   hint: string
   byRoute?: Record<string, DoseCalcRule>
+  /** Routes with dose settings of their own: these never take the drug-wide calculation or hint. */
+  ownRoutes?: string[]
 }
 
 export type NumberRange = { min: number; max: number; step: number }
@@ -335,8 +337,14 @@ export function doseCalcMap(options: LibraryOption[]): Record<string, DoseCalcEn
     }
     const hasByRoute = Object.keys(byRoute).length > 0
     const hint = metadataString(metadata, "hint") ?? ""
+    const ownRoutes = routeModes ? Object.keys(routeModes) : []
     if (doseCalc || hint || hasByRoute) {
-      map[option.label] = { hint, ...doseCalc, ...(hasByRoute ? { byRoute } : {}) }
+      map[option.label] = {
+        hint,
+        ...doseCalc,
+        ...(hasByRoute ? { byRoute } : {}),
+        ...(ownRoutes.length ? { ownRoutes } : {}),
+      }
     }
   }
   return map

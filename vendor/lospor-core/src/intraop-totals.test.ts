@@ -7,6 +7,7 @@ import {
   infusionLocalAnaestheticMg,
   localAnaestheticMg,
   parseLocalAnaestheticPercent,
+  totalFluidsInMl,
 } from "./intraop-totals"
 
 describe("delivered fluid totals", () => {
@@ -51,7 +52,7 @@ describe("delivered fluid totals", () => {
       { category: "Blood products", volume: "250", fluidEntryMode: "VOLUME", bagVolumeMl: 250 },
     ], halfAnHourLater)
 
-    expect(totals).toEqual({ crystalloids: 500, colloids: 0, blood: 250 })
+    expect(totals).toEqual({ crystalloids: 500, colloids: 0, blood: 250, infusions: 0 })
   })
 })
 
@@ -83,11 +84,30 @@ describe("canonical fluid totals", () => {
       { id: "c", volume: "99.5", category: "Blood products", startCol: 2 },
       { id: "invalid", volume: "-10", category: "Colloids", startCol: 3 },
     ])
-    expect(totals).toEqual({ crystalloids: 20, colloids: 0, blood: 100 })
+    expect(totals).toEqual({ crystalloids: 20, colloids: 0, blood: 100, infusions: 0 })
     expect(fluidTotalsPatch(totals)).toEqual({
       crystalloidsMl: 20,
       colloidsMl: null,
       bloodMl: 100,
+      infusionsMl: null,
     })
+  })
+})
+
+describe("drug infusions in the fluid balance (2026-10-18)", () => {
+  const infusions = [
+    // 5.25 mL/hr for an hour, then 10.5 for half an hour: 10.5 mL.
+    { startTs: "2026-10-18T10:00:00.000Z", endTs: "2026-10-18T11:30:00.000Z", volumeRateMlPerHour: 5.25, rateChanges: [{ ts: "2026-10-18T11:00:00.000Z", volumeRateMlPerHour: 10.5 }] },
+    // Syringe skipped: no pump rate, adds nothing.
+    { startTs: "2026-10-18T10:00:00.000Z", endTs: "2026-10-18T11:00:00.000Z" },
+    // Still running: 12 mL/hr for 30 minutes so far.
+    { startTs: "2026-10-18T11:00:00.000Z", volumeRateMlPerHour: 12 },
+  ]
+  it("adds the infusions with a known volume, to whole mL, beside the fluids", () => {
+    const totals = calculateDeliveredFluidTotals([], "2026-10-18T11:30:00.000Z", infusions)
+    expect(totals).toEqual({ crystalloids: 0, colloids: 0, blood: 0, infusions: 17 })
+    expect(totalFluidsInMl({ ...totals, crystalloids: 500 })).toBe(517)
+    expect(fluidTotalsPatch(totals).infusionsMl).toBe(17)
+    expect(calculateFluidTotals([], infusions, "2026-10-18T11:30:00.000Z").infusions).toBe(17)
   })
 })

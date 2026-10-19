@@ -18,6 +18,7 @@ import {
 import { normalizeOptionCode } from "../option-aliases"
 import { STATIC_CLINICAL_DISPLAY_TERMS } from "./terms"
 import { clinicalDisplayReviewStatus } from "./review"
+import { catalogDisplayNames } from "./bulgarian-names"
 import type {
   BulgarianDisplaySource,
   ClinicalDisplayDomain,
@@ -28,6 +29,7 @@ import type {
 } from "./types"
 
 export * from "./types"
+export * from "./bulgarian-names"
 export { STATIC_CLINICAL_DISPLAY_TERMS } from "./terms"
 export {
   APPROVED_CLINICAL_DISPLAY_TERMS,
@@ -243,8 +245,10 @@ export function resolveClinicalDisplay(
           || candidate.labelBg?.toLocaleLowerCase("bg") === sourceCode.toLocaleLowerCase("bg"),
         )
       if (option) {
-        const labelEn = clean(option.label) ?? option.value
-        const labelBg = clean(option.labelBg) ?? clean(dynamic.labelBg) ?? labelEn
+        // Drugs, infusions, agents and fluids: the reader's switches decide the names.
+        const switched = catalogDisplayNames(category, option.label)
+        const labelEn = switched?.en ?? clean(option.label) ?? option.value
+        const labelBg = switched?.bg ?? clean(option.labelBg) ?? clean(dynamic.labelBg) ?? labelEn
         const descriptionEn = clean(option.description) ?? clean(dynamic.descriptionEn) ?? clean(dynamic.description)
         const descriptionBg = clean(dynamic.descriptionBg)
           ?? catalogDescriptionBg(category, option.value)
@@ -262,7 +266,7 @@ export function resolveClinicalDisplay(
               : {}),
           known: true,
           reviewStatus: clinicalDisplayReviewStatus(domain, option.value),
-          bgSource: bgSource(labelEn, option.labelBg ?? dynamic.labelBg),
+          bgSource: switched ? bgSource(labelEn, labelBg) : bgSource(labelEn, option.labelBg ?? dynamic.labelBg),
         }
       }
     }

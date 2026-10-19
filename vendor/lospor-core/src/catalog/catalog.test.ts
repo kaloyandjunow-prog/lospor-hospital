@@ -147,3 +147,14 @@ describe("option-library catalogs are valid dose profiles", () => {
     }
   })
 })
+
+describe("drug group colours", () => {
+  it("gives every drug and infusion group a colour on both apps", async () => {
+    const { DRUG_GROUP_COLORS, drugGroupColorHex, DRUG_CATALOG, INFUSION_CATALOG } = await import("./index")
+    const groups = new Set([...DRUG_CATALOG.map(entry => entry.category), ...INFUSION_CATALOG.map(entry => entry.category)])
+    for (const group of groups) {
+      expect(DRUG_GROUP_COLORS[group], group).toBeTruthy()
+      expect(drugGroupColorHex(group), group).toMatch(/^#[0-9a-f]{6}$/)
+    }
+  })
+})
