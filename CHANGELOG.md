@@ -16,6 +16,12 @@ migrations, so going back restores the pre-update backup.
   saved version, and both saves go through the control plane with an audit
   row. A contract test runs the real view through Status's own check, and a
   cross-app test switches both on in Status and opens the summary page.
+- **Audit logs said "unavailable" on the phone and web.** Since 1.2.0 both
+  appliance screens read a versioned, privacy-safe page, but the API sent
+  upstream's shape without the version, so every page was refused. The API
+  now sends that page: who did what, and when; the target id and the detail
+  stay in the database. A test runs the real page through both screens'
+  readers, and an overlay keeps a future vendor from undoing it.
 
 ## [1.6.1] - 2026-10-19
 

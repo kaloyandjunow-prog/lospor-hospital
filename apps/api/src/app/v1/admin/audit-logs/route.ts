@@ -51,16 +51,19 @@ export async function GET(req: NextRequest) {
     { name: principal.displayName },
   ]))
 
+  // Hospital: the appliance's web and phone audit screens read a versioned,
+  // privacy-safe page (parseAuditPage): who did what, and when. The raw target
+  // id and detail stay in the database. Upstream's shape, without
+  // schemaVersion, made both screens show "audit logs unavailable" since 1.2.0.
   const rows = logs.map(l => ({
     id:        l.id,
     createdAt: l.createdAt,
     action:    l.action,
-    entityId:  l.entityId,
-    detail:    l.detail,
     user:      userMap[l.userId] ?? technicalPrincipalMap[l.userId] ?? { name: l.userId },
   }))
 
   return NextResponse.json({
+    schemaVersion: 1,
     logs: rows,
     total,
     page,
