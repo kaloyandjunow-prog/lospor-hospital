@@ -66,7 +66,7 @@ async function openStatusEditor(browser: Browser): Promise<Page> {
     { name: "lospor_status_locale", value: "en", url: STATUS_E2E_BASE },
   ])
   const page = await context.newPage()
-  await page.goto("/status/control/clinical#preop-children")
+  await page.goto("/status/control/preop#preop-children")
   await expect(page.locator("#preop-children")).toBeVisible()
   return page
 }
@@ -111,7 +111,7 @@ test.describe("adult and children's preoperative profiles, edited in Status", ()
     const adults = status.locator("#preop-adults")
     try {
       // Baseline questions are fixed in the form: listed, but not draggable.
-      await status.goto("/status/control/clinical#preop-adults")
+      await status.goto("/status/control/preop#preop-adults")
       await expect(adults.locator(`[data-preop-order-row][data-stable-key="${ARRHYTHMIA}"]`)).toHaveCount(0)
       await expect(adults.locator(`input[type="hidden"][name="order_${ARRHYTHMIA}"]`)).toHaveCount(1)
       await expect(adults.locator("[data-preop-order-row]").first()).toBeVisible()
@@ -119,7 +119,7 @@ test.describe("adult and children's preoperative profiles, edited in Status", ()
       await expect(adults.locator(`[data-stable-key="${OXYGEN}"]`)).toHaveCount(0)
 
       // 1. Switch both on and drag "home oxygen" above "prematurity".
-      await status.goto("/status/control/clinical#preop-children")
+      await status.goto("/status/control/preop#preop-children")
       await children.locator(`input[name="enabled_${PREMATURITY}"]`).check()
       await children.locator(`input[name="enabled_${OXYGEN}"]`).check()
       // Onto the prematurity row itself: other children's questions (since 1.6.0,
@@ -152,7 +152,7 @@ test.describe("adult and children's preoperative profiles, edited in Status", ()
       expect(await drawnOrder(phone.page, "P")).toEqual([OXYGEN, PREMATURITY])
 
       // 2. Make it required, and latex allergy required for children only.
-      await status.goto("/status/control/clinical#preop-children")
+      await status.goto("/status/control/preop#preop-children")
       await children.locator(`input[name="required_${OXYGEN}"]`).check()
       await children.locator(`input[name="enabled_${LATEX}"]`).check()
       await children.locator(`input[name="required_${LATEX}"]`).check()
@@ -166,7 +166,7 @@ test.describe("adult and children's preoperative profiles, edited in Status", ()
       await expect(webForm.getByTestId(`preop-question-${OXYGEN}`)).toContainText("*")
 
       // 3. Switch it off: "Required" clears with it, and both apps stop asking.
-      await status.goto("/status/control/clinical#preop-children")
+      await status.goto("/status/control/preop#preop-children")
       await children.locator(`input[name="enabled_${OXYGEN}"]`).uncheck()
       await expect(children.locator(`input[name="required_${OXYGEN}"]`)).toBeDisabled()
       await save(children, "E2E: stop asking children about home oxygen")

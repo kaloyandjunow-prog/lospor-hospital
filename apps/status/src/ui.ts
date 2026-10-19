@@ -1133,7 +1133,7 @@ function dateFact(label: string, value: string | null, locale: StatusLocale): st
 export const HOSPITAL_CONTROL_SECTIONS = ["clinical", "ehr", "research", "ai"] as const
 /** Sections the 1.5.4 skins add, and the legacy page that holds each. */
 export const SKIN_CONTROL_SECTIONS = ["codes", "identity", "central"] as const
-const LEGACY_CONTROL_SECTION: Record<string, string> = { codes: "ehr", identity: "ehr", central: "research" }
+const LEGACY_CONTROL_SECTION: Record<string, string> = { codes: "ehr", identity: "ehr", central: "research", preop: "clinical" }
 
 /**
  * Drag and button reordering for the preop profile editor, served from
@@ -1456,7 +1456,10 @@ export function renderControlPlane(
     : ""
   const preoperativePanel = preoperative ? `<div class="component"><h3>${localize(locale, "Preoperative assessment contract", "Правила за предоперативната оценка")}</h3><div class="facts">${textFact(localize(locale, "Profile scope", "Обхват на профила"), preoperative.scope)}${textFact(localize(locale, "Bundled catalog", "Вграден каталог"), preoperative.catalogVersion)}${textFact(localize(locale, "Catalog source", "Източник на каталога"), preoperative.source)}${textFact(localize(locale, "Clinical administration API", "API за клинично администриране"), preoperative.profileAdministrationPath)}</div><p>${localize(locale, "Questions are bundled and cannot be edited. The appliance has one profile for adults and one for children; administrators switch questions on or off, set their order and mark them required, and every case follows the profile of its mode from its next load.", "Въпросите са вградени и не могат да се редактират. Сървърът има профил за възрастни и профил за деца: администраторите включват и изключват въпроси, задават реда им и ги отбелязват като задължителни, а всеки случай следва профила на своя режим от следващото си отваряне.")}</p></div>` : ""
   const preopAdministration = preoperative ? `${renderPreopAdministration(preoperative, locale)}${renderPreopDocuments(preoperative.documents, locale)}` : ""
-  const guidanceForm = guidance ? `${preoperativePanel}${preopAdministration}${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
+  // The preop questions, summary and consent have their own page (1.6.1);
+  // the legacy skin keeps them above the guidance, where they always were.
+  const preopPage = `${preoperativePanel}${preopAdministration}`
+  const guidancePolicy = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
 
   const externalAi = view?.externalAi
   const externalAiCapability = externalAi
@@ -1854,7 +1857,7 @@ export function renderControlPlane(
     {
       slug: "clinical",
       label: localize(locale, "Clinical guidance", "Клинични насоки"),
-      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidanceForm}</div></section>`,
+      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${preopPage}${guidancePolicy}` : ""}</div></section>`,
     },
     {
       slug: "ehr",
@@ -1887,7 +1890,8 @@ export function renderControlPlane(
   const clinicalSection = legacySections.find(entry => entry.slug === "clinical")!
   const aiSection = legacySections.find(entry => entry.slug === "ai")!
   const skinSections: { slug: string; label: string; html: string }[] = [
-    clinicalSection,
+    { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2>${localize(locale, "Questions, summary and consent", "Въпроси, обобщение и съгласие")}</h2><div class="card">${preopPage}</div></section>` },
+    { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}</div></section>` },
     { slug: "ehr", label: localize(locale, "Hospital system", "Болнична система"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },
     { slug: "codes", label: localize(locale, "Codes", "Кодове"), html: `
     <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>

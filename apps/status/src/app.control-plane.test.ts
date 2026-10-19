@@ -390,7 +390,7 @@ describe("Status Hospital control plane", () => {
     // which is a stronger net than the single page they used to share.
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    // 1.5.4: seven pages under the skins. The legacy skin's four are fetched too:
+    // 1.5.4: seven pages under the skins (eight since 1.6.1, the preop form). The legacy skin's four are fetched too:
     // both layouts must carry the whole surface.
     const fetchAll = (sections: string[], skin: string) => Promise.all(
       sections.map(async section => {
@@ -399,15 +399,17 @@ describe("Status Hospital control plane", () => {
         return response.text()
       }),
     )
-    const [clinical, ehr, codes, identity, research, central, ai] = await fetchAll(["clinical", "ehr", "codes", "identity", "research", "central", "ai"], "maphub")
+    const [preop, clinical, ehr, codes, identity, research, central, ai] = await fetchAll(["preop", "clinical", "ehr", "codes", "identity", "research", "central", "ai"], "maphub")
     const legacy = (await fetchAll(["clinical", "ehr", "research", "ai"], "legacy")).join("")
     expect(legacy).toContain("Настройка за ЕГН")
     expect(legacy).toContain("Карта на лабораторните кодове")
     expect(legacy).toContain("Разрешения за изследвания")
+    // Legacy keeps the preop editor on its clinical page.
+    expect(legacy).toContain("data-preop-order-list")
     expect(identity).toContain("Настройка за ЕГН")
     expect(codes).toContain("Карта на лабораторните кодове")
     expect(central).toContain("Изпращане към Central (само изходящо)")
-    const all = clinical + ehr + codes + identity + research + central + ai + legacy
+    const all = preop + clinical + ehr + codes + identity + research + central + ai + legacy
     expect(all).toContain('<html lang="bg"')
 
     expect(research).toContain("Одобрение на конкретни OMOP набори")
@@ -448,14 +450,17 @@ describe("Status Hospital control plane", () => {
     expect(clinical).not.toContain("PUBLISHED")
     expect(clinical).toContain(ADULT_BASELINE_HASH)
     expect(clinical).toContain(PEDIATRIC_BASELINE_HASH)
-    expect(clinical).toContain("data-preop-order-list")
-    expect(clinical).toContain("data-preop-order-row")
-    expect(clinical).toContain('draggable="true"')
-    expect(clinical).toContain('data-move="up"')
-    expect(clinical).toContain('data-move="down"')
+    // The preop editor has its own page; the guidance page no longer holds it.
+    expect(clinical).not.toContain("data-preop-order-list")
+    expect(preop).not.toContain("Готовност на базовата конфигурация")
+    expect(preop).toContain("data-preop-order-list")
+    expect(preop).toContain("data-preop-order-row")
+    expect(preop).toContain('draggable="true"')
+    expect(preop).toContain('data-move="up"')
+    expect(preop).toContain('data-move="down"')
     // Status sends script-src 'self': an inline <script> is blocked by the
     // browser, which left drag and the arrow buttons doing nothing.
-    expect(clinical).toContain('<script src="/status/preop-order.js" defer></script>')
+    expect(preop).toContain('<script src="/status/preop-order.js" defer></script>')
     expect(clinical).not.toMatch(/<script>\(\(\) =>/)
     const script = await app.request("/status/preop-order.js")
     expect(script.status).toBe(200)
@@ -468,7 +473,7 @@ describe("Status Hospital control plane", () => {
     expect(all).not.toContain("patientName")
     expect(all).not.toContain("credentialCiphertext")
     expect(all).not.toContain("credentialAuthTag")
-    expect(controlPlane.get).toHaveBeenCalledTimes(11) // one read per page: seven skin pages, four legacy
+    expect(controlPlane.get).toHaveBeenCalledTimes(12) // one read per page: eight skin pages, four legacy
   })
 
   it("saves the complete preoperative profile only after password confirmation", async () => {
@@ -550,7 +555,7 @@ describe("Status Hospital control plane", () => {
     }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
-    const response = await app.request("/status/control/clinical", { headers: { cookie } })
+    const response = await app.request("/status/control/preop", { headers: { cookie } })
     expect(response.status).toBe(200)
     const html = await response.text()
     const section = (id: string) => html.slice(html.indexOf("id=\"" + id + "\""), html.indexOf("</section>", html.indexOf("id=\"" + id + "\"")))
@@ -594,7 +599,7 @@ describe("Status Hospital control plane", () => {
     view.preoperative.administration = { catalog: [functional, procedure], activeProfile: adult, activeProfiles: { ADULT: adult, PEDIATRIC: { ...adult, id: "profile-2", questions: [] } } }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
     const adults = html.slice(html.indexOf("id=\"preop-adults\""), html.indexOf("</section>", html.indexOf("id=\"preop-adults\"")))
     const kids = html.slice(html.indexOf("id=\"preop-children\""), html.indexOf("</section>", html.indexOf("id=\"preop-children\"")))
     // Off while only one of its questions is on; the questions keep their own boxes.
@@ -1647,7 +1652,7 @@ describe("the preop summary and consent (1.6.0)", () => {
     const { app, auth, controlPlane } = setup()
     vi.mocked(controlPlane.get).mockResolvedValue(withDocuments() as never)
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
     expect(html).toContain('action="/status/control/preop-documents#preop-documents"')
     expect(html).toMatch(/name="summaryEnabled" value="true" checked/)
     expect(html).not.toMatch(/name="consentEnabled" value="true" checked/)
@@ -1676,7 +1681,7 @@ describe("the preop summary and consent (1.6.0)", () => {
   it("shows nothing for an API that predates it", async () => {
     const { app, auth } = setup()
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
     expect(html).not.toContain("/status/control/preop-documents")
   })
 

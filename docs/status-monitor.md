@@ -41,7 +41,7 @@ layout differ. The new skins group the pages by job:
 | Overview | The map, people using LOSPOR now, cases per day, one to-do list, going live |
 | Services | Availability over 24 hours, 7 days or 90 days; checks; incidents; events |
 | Connections | Hospital system, Codes, Terminology package, LOSPOR Central, AI assistance |
-| Clinical setup | Preoperative form and guidance, Patient identification (ЕГН policy) |
+| Clinical setup | Preoperative form (questions, summary page, written consent), Calculated guidance, Patient identification (ЕГН policy) |
 | People | Accounts and Status administrators, Research access |
 | Updates and backups | Updates, Backups, Server, Security, Support and settings, Going live |
 
