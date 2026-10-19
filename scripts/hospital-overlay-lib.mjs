@@ -76,6 +76,38 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     required: ["verifyPrintTokenClaims", "deliveryId", "finalizationId"],
   },
   {
+    // The appliance makes no server PDF: there is no headless Chrome on it.
+    // Upstream's PDF route renders the record and, from 9.15.0, the preop
+    // summary; here it answers 410 and the browser prints the HTML page.
+    id: "api.pdf-route-printable-html-only",
+    source: "api",
+    path: "apps/api/src/app/v1/cases/[id]/pdf/route.ts",
+    required: ["PRINTABLE_HTML_ONLY", "status: 410"],
+    forbidden: ["renderRecordPdf"],
+  },
+  {
+    // ...so a print link is how every sheet is printed, the preop summary and
+    // consent included, with layout C's ticked techniques (1.6.0).
+    id: "api.print-token-preop-summary",
+    source: "api",
+    path: "apps/api/src/app/v1/cases/[id]/print-token/route.ts",
+    required: ["preop-summary/print", "parseConsentTechniques", 'format: "html"'],
+  },
+  {
+    id: "web.preop-summary-print-html-only",
+    source: "web",
+    path: "apps/web/src/components/preop-summary/PreopSummaryPrintClient.tsx",
+    required: ["window.print()"],
+    forbidden: ["/pdf?doc=preop-summary", "FileDown"],
+  },
+  {
+    id: "pwa.print-opens-printable-html",
+    source: "pwa",
+    path: "apps/pwa/src/lib/print-case.ts",
+    required: ["/print-token", "Linking.openURL", "preop-summary"],
+    forbidden: ["FileSystem.downloadAsync", "/pdf?"],
+  },
+  {
     id: "api.operator-status-route",
     source: "api",
     path: "apps/api/src/app/internal/appliance-status/route.ts",
