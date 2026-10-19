@@ -3,12 +3,18 @@ import { colors, useShade } from "@/theme/colors"
 import { Sheet } from "./Sheet"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
+import { DayStepper } from "@/components/DayStepper"
+import { shiftDateKey } from "@lospor/core/intraop-time"
 
 type Props = {
   visible: boolean
   value: string
   onClose: () => void
   onChange: (value: string) => void
+  /** The day the time goes on (YYYY-MM-DD), up to two weeks back, as on the Time tab. */
+  dayKey: string
+  todayKey: string
+  onDayChange: (key: string) => void
   onStart: (value: string) => void
 }
 
@@ -18,15 +24,17 @@ function formatStartInput(value: string): string {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
-export function StartAtSheet({ visible, value, onClose, onChange, onStart }: Props) {
+export function StartAtSheet({ visible, value, onClose, onChange, dayKey, todayKey, onDayChange, onStart }: Props) {
   const shade = useShade()
-  const { tc } = usePreferences()
+  const { tc, language } = usePreferences()
   const canStart = value.length >= 5
   return (
     <Sheet visible={visible} onClose={onClose} title={tc("startAtTitle")}>
       <Text style={{ color:colors.textSecondary, fontSize:13, marginBottom:16 }}>
         {tc("startAtInstructions")}
       </Text>
+      <DayStepper value={dayKey} onChange={onDayChange} todayKey={todayKey} min={shiftDateKey(todayKey, -14)} max={todayKey}
+        language={language} label={tc("timingStartDate")} testID="intraop-start-at-day" />
       <Text style={{ color:colors.textMuted, fontSize:10, fontWeight:"700", letterSpacing:1.1,
         textTransform:"uppercase", marginBottom:8 }}>{tc("startTimeLabel")}</Text>
       <TextInput

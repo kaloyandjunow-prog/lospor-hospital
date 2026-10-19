@@ -2,18 +2,15 @@ import { useState, type Dispatch, type MutableRefObject, type SetStateAction } f
 import type { VascularEntry } from "@/lib/intraop-types"
 import type { MonitoringOption } from "@/lib/intraop-option-mappers"
 import { buildMonitoringSelectionPatch, buildTechniqueMonitoringUpdate } from "@/lib/intraop-monitoring-defaults"
-import { buildIntraopTimingPatch, type IntraopTimingOverrides } from "@/lib/intraop-timing"
+import { buildIntraopTimingPatch, startInstantForEntry, type IntraopTimingOverrides } from "@/lib/intraop-timing"
 import {
   buildIntraopEndTiming,
   buildIntraopStartTiming,
   defaultEndDayOffset,
   endInstantForWallClock,
-  instantFromDateKey,
   isValidTimeZone,
-  localDateKey,
   monthYearOf,
   resolvedTimeZone,
-  startInstantForWallClock,
 } from "@lospor/core/intraop-time"
 
 type CaseInfoState = {
@@ -77,10 +74,7 @@ export function useIntraopSectionSaves({
       if ("startTime" in overrides && overrides.startTime && !overrides.startedAt && zone) {
         // Left at today, a start time keeps the old rule (ahead of now means
         // yesterday); a stepped date places the time on that date.
-        const todayKey = localDateKey(new Date(), zone)
-        const instant = overrides.startDayKey && overrides.startDayKey !== todayKey
-          ? instantFromDateKey(overrides.startDayKey, overrides.startTime, zone)
-          : startInstantForWallClock(new Date(), overrides.startTime, zone)
+        const instant = startInstantForEntry(new Date(), overrides.startTime, overrides.startDayKey, zone)
         const timing = instant ? buildIntraopStartTiming(instant, zone) : null
         const monthYear = instant ? monthYearOf(instant, zone) : null
         if (timing) Object.assign(enriched, timing, monthYear ? { monthYear } : {})

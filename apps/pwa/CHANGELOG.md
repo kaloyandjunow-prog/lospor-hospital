@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Mobile
 
+## [9.15.1] - 2026-10-20
+
+On Core 9.15.0.
+
+### Fixed
+
+- **Start at took only a time.** The intraop Start at sheet placed HH:MM on
+  today, or yesterday when ahead of now, while the Time tab steps the start
+  date two weeks back. The sheet now has the same date stepper, and both use
+  one rule: left at today, a time ahead of now means yesterday; a stepped day
+  places the time on that day.
+
 ## [9.15.0] - 2026-10-19
 
 On Core 9.15.0.
