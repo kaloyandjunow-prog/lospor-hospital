@@ -122,10 +122,15 @@ test.describe("adult and children's preoperative profiles, edited in Status", ()
       await status.goto("/status/control/clinical#preop-children")
       await children.locator(`input[name="enabled_${PREMATURITY}"]`).check()
       await children.locator(`input[name="enabled_${OXYGEN}"]`).check()
+      // Onto the prematurity row itself: other children's questions (since 1.6.0,
+      // a previous ICU stay) may come first in the list.
       const rows = children.locator("[data-preop-order-row]")
       await children.locator(`[data-preop-order-row][data-stable-key="${OXYGEN}"] [data-drag-handle]`)
-        .dragTo(rows.first())
-      await expect(rows.first()).toHaveAttribute("data-stable-key", OXYGEN)
+        .dragTo(children.locator(`[data-preop-order-row][data-stable-key="${PREMATURITY}"]`))
+      await expect.poll(async () => {
+        const keys = await rows.evaluateAll(elements => elements.map(element => element.getAttribute("data-stable-key")))
+        return keys.indexOf(OXYGEN) < keys.indexOf(PREMATURITY)
+      }).toBe(true)
       await save(children, "E2E: ask children about home oxygen first")
 
       let profile = await readProfile(web.request)
