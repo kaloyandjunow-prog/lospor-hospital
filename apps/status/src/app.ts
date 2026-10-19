@@ -1406,6 +1406,7 @@ export function createStatusApp({
   // One address per section, written as literals rather than a loop so the
   // navigation registry test, which scans this file for registered status
   // paths, can still see them.
+  app.get("/status/control/preop", context => controlGet(context, "preop"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))
@@ -1547,7 +1548,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The preoperative profile was saved and audited. Cases of that population pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите от тази група получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
-    "clinical",
+    "preop",
   ))
 
   app.post("/status/control/preop-documents", context => sensitiveControlAction(
@@ -1560,7 +1561,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The preop summary and consent settings were saved and audited. They apply from each clinician's next preop.", "Настройките за предоперативно обобщение и съгласие са запазени и записани в одитния журнал. Важат от следващия предоперативен преглед на всеки лекар."),
-    "clinical",
+    "preop",
   ))
 
   app.post("/status/control/consent-template", context => sensitiveControlAction(
@@ -1576,7 +1577,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The consent text was saved as a new version and audited. Sheets printed from now on carry it; earlier sheets keep the version they were printed with.", "Текстът на съгласието е запазен като нов вариант и записан в одитния журнал. Отпечатаните отсега нататък листове го съдържат; по-рано отпечатаните запазват своя вариант."),
-    "clinical",
+    "preop",
     undefined,
     300_000,
   ))

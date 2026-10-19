@@ -90,7 +90,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     { id: "ai", path: "/status/control/ai", en: "AI assistance", bg: "Помощ от ИИ", descEn: "Mistral (EU) for lab and monitor scans and adult advice.", descBg: "Mistral (ЕС) за сканиране на изследвания и монитор и за съвети при възрастни.", audiences: PASSWORD },
   ] },
   { id: "clinical", en: "Clinical setup", bg: "Клинични настройки", items: [
-    { id: "preop", path: "/status/control/clinical", en: "Preoperative form and guidance", bg: "Предоперативна форма и насоки", descEn: "Which preoperative questions are asked, and the calculated guidance.", descBg: "Кои предоперативни въпроси се задават и изчислените насоки.", audiences: PASSWORD },
+    { id: "preop", path: "/status/control/preop", en: "Preoperative form", bg: "Предоперативна форма", descEn: "Which preoperative questions are asked, the summary page and the written consent.", descBg: "Кои предоперативни въпроси се задават, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
+    { id: "guidance", path: "/status/control/clinical", en: "Calculated guidance", bg: "Изчислени насоки", descEn: "Dose guidance for adults and children, and the rule baselines it uses.", descBg: "Насоки за дозиране при възрастни и деца и базовите правила, на които се основават.", audiences: PASSWORD },
     { id: "identity", path: "/status/control/identity", en: "Patient identification", bg: "Идентификация на пациента", descEn: "Which number identifies a patient on screens and printouts.", descBg: "Кой номер идентифицира пациента на екрана и в разпечатките.", audiences: PASSWORD },
   ] },
   { id: "people", en: "People", bg: "Хора", items: [

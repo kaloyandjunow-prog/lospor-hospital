@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+### Changed
+
+- **The preop form has its own page in Status.** Clinical setup → Preoperative
+  form holds the question profiles, the Gupta switch, the summary page and the
+  written consent. They used to sit under calculated guidance, where nobody
+  would look for them. Calculated guidance keeps the dose guidance and the rule
+  baselines. The legacy skin keeps both on one page.
+
 ## [1.6.0] - 2026-10-19
 
 Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.0. Five
