@@ -32,8 +32,8 @@ const DRUG_CONCEPTS: Record<string, number | Record<string, number>> = {
   "Albumin 5%": 42925127,
   "Albumin 20%": 42481519,
   "Albumin 25%": 36890659,
-  // mannitol 100 and 150 mg/mL
-  "Mannitol": { "10": 42482029, "15": 36883846 },
+  // mannitol 100, 150 and 200 mg/mL
+  "Mannitol": { "10": 42482029, "15": 36883846, "20": 42481409 },
   // soybean oil 200 mg/mL
   "Lipid emulsion 20%": 19023521,
   // sodium chloride 2.25, 4.5, 9, 30 and 200 mg/mL
@@ -47,6 +47,9 @@ const DRUG_CONCEPTS: Record<string, number | Record<string, number>> = {
   // sodium acetate 3.4 / sodium chloride 6 mg/mL. OMOP has no acetated Ringer's
   // without magnesium; this is the nearest.
   "Ringer's acetate": 36887858,
+  // calcium chloride 0.33 / potassium chloride 0.3 / sodium chloride 8.6 mg/mL:
+  // plain Ringer as sold in Bulgaria
+  "Ringer's solution": 968982,
   // glucose 50 mg/mL
   "Dextrose 5% (D5W)": 19076324,
   // glucose 50 / sodium chloride 9 mg/mL

@@ -81,8 +81,8 @@ const TOURS: Record<TourId, { en: StepDef[]; bg: StepDef[] }> = {
       { element: "[data-tour='postop-submit']",     popover: { title: "Complete case →",   description: "All done! Click here to finalise the case and generate the printable anaesthesia protocol.", side: "top" } },
     ],
     bg: [
-      { popover: { title: "Следоперативно събуждане 🏥", description: "Документирайте възстановяването — скала на Aldrete, жизнени показатели, извеждане и препоръки." } },
-      { element: "[data-tour='postop-aldrete']",    popover: { title: "Скала на Aldrete",   description: "Оценете двигателна активност, дишане, кръвообращение, съзнание и SpO₂. Общ резултат ≥ 9 = готовност за извеждане.", side: "bottom" } },
+      { popover: { title: "Следоперативно събуждане 🏥", description: "Документирайте възстановяването — скала на Алдрет, жизнени показатели, извеждане и препоръки." } },
+      { element: "[data-tour='postop-aldrete']",    popover: { title: "Скала на Алдрет",   description: "Оценете двигателна активност, дишане, кръвообращение, съзнание и SpO₂. Общ резултат ≥ 9 = готовност за извеждане.", side: "bottom" } },
       { element: "[data-tour='postop-recovery']",   popover: { title: "Жизнени показатели", description: "Температура, болкова скала NRS (0–10), ПОНВ и престой в залата за събуждане.", side: "right" } },
       { element: "[data-tour='postop-disposition']",popover: { title: "Извежда се към",     description: "Накъде се извежда пациентът — отделение, зала за събуждане или ИТО?", side: "right" } },
       { element: "[data-tour='postop-handover']",   popover: { title: "Препоръки",          description: "Отбележете стандартните препоръки за пациента. Те се отпечатват в пълен текст в протокола.", side: "right" } },

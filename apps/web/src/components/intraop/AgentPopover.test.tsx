@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AgentPopover } from "./AgentPopover"
 
+vi.mock("next-intl", () => ({ useLocale: () => "en" }))
 vi.mock("./ui-copy", () => ({
   useIntraopUiCopy: () => ({
     apply: "Apply",

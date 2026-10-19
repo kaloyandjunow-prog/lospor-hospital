@@ -46,10 +46,11 @@ describe("a figure nobody recorded is not zero", () => {
   })
 
   it("reports computed totals as recorded, including a genuine zero", () => {
-    const result = header({ fluidTotals: { crystalloids: 1500, colloids: 0, blood: 0 } })
+    const result = header({ fluidTotals: { crystalloids: 1500, colloids: 0, blood: 0, infusions: 42 } })
 
     expect(result.fluids.crystalloids).toEqual({ recorded: true, value: 1500, unit: "mL" })
     expect(result.fluids.colloids).toEqual({ recorded: true, value: 0, unit: "mL" })
+    expect(result.fluids.infusions).toEqual({ recorded: true, value: 42, unit: "mL" })
   })
 
   it("treats a non-finite number as unrecorded rather than sending NaN", () => {

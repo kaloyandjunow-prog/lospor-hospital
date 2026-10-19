@@ -33,8 +33,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Propofol",
     "atcCode": "N01AX10",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Intravenous hypnotics / general anesthetics",
+    "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
       "min": 0,
       "max": 500,
@@ -89,8 +89,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Ketamine",
     "atcCode": "N01AX03",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Intravenous hypnotics / general anesthetics",
+    "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
       "min": 0,
       "max": 250,
@@ -183,8 +183,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Thiopental / Thiopentone",
     "atcCode": "N01AF03",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Intravenous hypnotics / general anesthetics",
+    "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
       "min": 0,
       "max": 1000,
@@ -239,8 +239,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Midazolam",
     "atcCode": "N05CD08",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Sedatives / anxiolytics / alpha-2 agonists",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
       "min": 0,
       "max": 15,
@@ -286,8 +286,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Diazepam",
     "atcCode": "N05BA01",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Sedatives / anxiolytics / alpha-2 agonists",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
       "min": 0,
       "max": 20,
@@ -316,8 +316,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Lorazepam",
     "atcCode": "N05BA06",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Sedatives / anxiolytics / alpha-2 agonists",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
       "min": 0,
       "max": 4,
@@ -370,27 +370,46 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Dexmedetomidine",
     "atcCode": "N05CM18",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Sedatives / anxiolytics / alpha-2 agonists",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
-      "min": 0,
-      "max": 200,
-      "step": 5,
-      "quickValues": [
-        25,
-        50,
-        75,
-        100,
-        150
-      ],
-      "unit": "mcg",
       "routes": [
-        "IV"
+        "IV",
+        "Peripheral nerve block"
       ],
-      "doseCalc": {
-        "perKg": 1,
-        "basis": "IBW",
-        "roundTo": 5
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 200,
+          "step": 5,
+          "quickValues": [
+            25,
+            50,
+            75,
+            100,
+            150
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "perKg": 1,
+            "basis": "IBW",
+            "roundTo": 5
+          }
+        },
+        "Peripheral nerve block": {
+          "mode": "dose",
+          "min": 0,
+          "max": 150,
+          "step": 5,
+          "quickValues": [
+            25,
+            50,
+            75,
+            100
+          ],
+          "unit": "mcg"
+        }
       },
       "hint": "1 mcg/kg IBW (loading dose)"
     }
@@ -398,28 +417,94 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Clonidine",
     "atcCode": "C02AC01",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Sedatives / anxiolytics / alpha-2 agonists",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
-      "min": 0,
-      "max": 300,
-      "step": 25,
-      "quickValues": [
-        50,
-        75,
-        100,
-        150,
-        200
-      ],
-      "unit": "mcg",
       "routes": [
         "IV",
-        "PO"
+        "PO",
+        "IT",
+        "PD",
+        "Peripheral nerve block"
       ],
-      "doseCalc": {
-        "perKg": 2,
-        "basis": "IBW",
-        "roundTo": 25
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 300,
+          "step": 25,
+          "quickValues": [
+            50,
+            75,
+            100,
+            150,
+            200
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "perKg": 2,
+            "basis": "IBW",
+            "roundTo": 25
+          }
+        },
+        "PO": {
+          "mode": "dose",
+          "min": 0,
+          "max": 300,
+          "step": 25,
+          "quickValues": [
+            50,
+            75,
+            100,
+            150,
+            200
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "perKg": 2,
+            "basis": "IBW",
+            "roundTo": 25
+          }
+        },
+        "IT": {
+          "mode": "dose",
+          "min": 0,
+          "max": 150,
+          "step": 5,
+          "quickValues": [
+            15,
+            30,
+            45,
+            75
+          ],
+          "unit": "mcg"
+        },
+        "PD": {
+          "mode": "dose",
+          "min": 0,
+          "max": 300,
+          "step": 5,
+          "quickValues": [
+            75,
+            100,
+            150
+          ],
+          "unit": "mcg"
+        },
+        "Peripheral nerve block": {
+          "mode": "dose",
+          "min": 0,
+          "max": 200,
+          "step": 5,
+          "quickValues": [
+            30,
+            50,
+            75,
+            100,
+            150
+          ],
+          "unit": "mcg"
+        }
       },
       "hint": "2 mcg/kg IBW"
     }
@@ -478,8 +563,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Promethazine",
     "atcCode": "R06AD02",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Antiemetics / prokinetics",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 25,
@@ -504,27 +589,77 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Fentanyl",
     "atcCode": "N01AH01",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Opioid analgesics",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
-      "min": 0,
-      "max": 500,
-      "step": 10,
-      "quickValues": [
-        10,
-        25,
-        50,
-        200
-      ],
-      "unit": "mcg",
       "routes": [
         "IV",
-        "IM"
+        "IM",
+        "IT",
+        "PD"
       ],
-      "doseCalc": {
-        "perKg": 1.5,
-        "basis": "IBW",
-        "roundTo": 25
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 500,
+          "step": 10,
+          "quickValues": [
+            10,
+            25,
+            50,
+            200
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "perKg": 1.5,
+            "basis": "IBW",
+            "roundTo": 25
+          }
+        },
+        "IM": {
+          "mode": "dose",
+          "min": 0,
+          "max": 500,
+          "step": 10,
+          "quickValues": [
+            10,
+            25,
+            50,
+            200
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "perKg": 1.5,
+            "basis": "IBW",
+            "roundTo": 25
+          }
+        },
+        "IT": {
+          "mode": "dose",
+          "min": 0,
+          "max": 50,
+          "step": 2.5,
+          "quickValues": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "unit": "mcg"
+        },
+        "PD": {
+          "mode": "dose",
+          "min": 0,
+          "max": 200,
+          "step": 5,
+          "quickValues": [
+            50,
+            75,
+            100
+          ],
+          "unit": "mcg"
+        }
       },
       "hint": "1.5 mcg/kg IBW"
     }
@@ -532,27 +667,60 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Sufentanil",
     "atcCode": "N01AH03",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Opioid analgesics",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
-      "min": 0,
-      "max": 50,
-      "step": 1,
-      "quickValues": [
-        5,
-        10,
-        15,
-        25,
-        40
-      ],
-      "unit": "mcg",
       "routes": [
-        "IV"
+        "IV",
+        "IT",
+        "PD"
       ],
-      "doseCalc": {
-        "perKg": 0.2,
-        "basis": "IBW",
-        "roundTo": 2.5
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "quickValues": [
+            5,
+            10,
+            15,
+            25,
+            40
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "perKg": 0.2,
+            "basis": "IBW",
+            "roundTo": 2.5
+          }
+        },
+        "IT": {
+          "mode": "dose",
+          "min": 0,
+          "max": 20,
+          "step": 0.5,
+          "quickValues": [
+            2.5,
+            5,
+            7.5,
+            10
+          ],
+          "unit": "mcg"
+        },
+        "PD": {
+          "mode": "dose",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "quickValues": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "unit": "mcg"
+        }
       },
       "hint": "0.2 mcg/kg IBW"
     }
@@ -616,28 +784,80 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Morphine",
     "atcCode": "N02AA01",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Opioid analgesics",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
-      "min": 0,
-      "max": 60,
-      "step": 1,
-      "quickValues": [
-        2,
-        4,
-        5,
-        10,
-        15
-      ],
-      "unit": "mg",
       "routes": [
         "IV",
-        "IM"
+        "IM",
+        "IT",
+        "PD"
       ],
-      "doseCalc": {
-        "perKg": 0.1,
-        "basis": "IBW",
-        "roundTo": 1
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "quickValues": [
+            2,
+            4,
+            5,
+            10,
+            15
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "perKg": 0.1,
+            "basis": "IBW",
+            "roundTo": 1
+          }
+        },
+        "IM": {
+          "mode": "dose",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "quickValues": [
+            2,
+            4,
+            5,
+            10,
+            15
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "perKg": 0.1,
+            "basis": "IBW",
+            "roundTo": 1
+          }
+        },
+        "IT": {
+          "mode": "dose",
+          "min": 0,
+          "max": 300,
+          "step": 5,
+          "quickValues": [
+            50,
+            100,
+            150,
+            200
+          ],
+          "unit": "mcg"
+        },
+        "PD": {
+          "mode": "dose",
+          "min": 0,
+          "max": 6,
+          "step": 0.5,
+          "quickValues": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "unit": "mg"
+        }
       },
       "hint": "0.1 mg/kg IBW"
     }
@@ -648,25 +868,75 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
-      "min": 0,
-      "max": 4,
-      "step": 0.1,
-      "quickValues": [
-        0.2,
-        0.4,
-        0.5,
-        1,
-        2
-      ],
-      "unit": "mg",
       "routes": [
         "IV",
-        "IM"
+        "IM",
+        "IT",
+        "PD"
       ],
-      "doseCalc": {
-        "perKg": 0.015,
-        "basis": "IBW",
-        "roundTo": 0.1
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 4,
+          "step": 0.1,
+          "quickValues": [
+            0.2,
+            0.4,
+            0.5,
+            1,
+            2
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "perKg": 0.015,
+            "basis": "IBW",
+            "roundTo": 0.1
+          }
+        },
+        "IM": {
+          "mode": "dose",
+          "min": 0,
+          "max": 4,
+          "step": 0.1,
+          "quickValues": [
+            0.2,
+            0.4,
+            0.5,
+            1,
+            2
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "perKg": 0.015,
+            "basis": "IBW",
+            "roundTo": 0.1
+          }
+        },
+        "IT": {
+          "mode": "dose",
+          "min": 0,
+          "max": 200,
+          "step": 5,
+          "quickValues": [
+            50,
+            75,
+            100
+          ],
+          "unit": "mcg"
+        },
+        "PD": {
+          "mode": "dose",
+          "min": 0,
+          "max": 2,
+          "step": 0.1,
+          "quickValues": [
+            0.5,
+            1,
+            1.5
+          ],
+          "unit": "mg"
+        }
       },
       "hint": "0.015 mg/kg IBW"
     }
@@ -836,26 +1106,75 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Buprenorphine",
     "atcCode": "N02AE01",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Opioid analgesics",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
-      "min": 0,
-      "max": 600,
-      "step": 50,
-      "quickValues": [
-        150,
-        300,
-        450,
-        600
-      ],
-      "unit": "mcg",
       "routes": [
         "IV",
         "IM",
-        "SL"
+        "SL",
+        "Peripheral nerve block"
       ],
-      "doseCalc": {
-        "flat": 300
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 600,
+          "step": 50,
+          "quickValues": [
+            150,
+            300,
+            450,
+            600
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "flat": 300
+          }
+        },
+        "IM": {
+          "mode": "dose",
+          "min": 0,
+          "max": 600,
+          "step": 50,
+          "quickValues": [
+            150,
+            300,
+            450,
+            600
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "flat": 300
+          }
+        },
+        "SL": {
+          "mode": "dose",
+          "min": 0,
+          "max": 600,
+          "step": 50,
+          "quickValues": [
+            150,
+            300,
+            450,
+            600
+          ],
+          "unit": "mcg",
+          "doseCalc": {
+            "flat": 300
+          }
+        },
+        "Peripheral nerve block": {
+          "mode": "dose",
+          "min": 0,
+          "max": 400,
+          "step": 25,
+          "quickValues": [
+            150,
+            300
+          ],
+          "unit": "mcg"
+        }
       },
       "hint": "300 mcg"
     }
@@ -863,27 +1182,76 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Diamorphine",
     "atcCode": "N07BC06",
-    "category": "Regional anesthesia adjuvants",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Opioid analgesics",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
-      "min": 0,
-      "max": 10,
-      "step": 0.5,
-      "quickValues": [
-        1,
-        2.5,
-        5,
-        7.5
-      ],
-      "unit": "mg",
       "routes": [
         "IV",
-        "IM"
+        "IM",
+        "IT",
+        "PD"
       ],
-      "doseCalc": {
-        "perKg": 0.05,
-        "basis": "IBW",
-        "roundTo": 0.5
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 10,
+          "step": 0.5,
+          "quickValues": [
+            1,
+            2.5,
+            5,
+            7.5
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "perKg": 0.05,
+            "basis": "IBW",
+            "roundTo": 0.5
+          }
+        },
+        "IM": {
+          "mode": "dose",
+          "min": 0,
+          "max": 10,
+          "step": 0.5,
+          "quickValues": [
+            1,
+            2.5,
+            5,
+            7.5
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "perKg": 0.05,
+            "basis": "IBW",
+            "roundTo": 0.5
+          }
+        },
+        "IT": {
+          "mode": "dose",
+          "min": 0,
+          "max": 500,
+          "step": 25,
+          "quickValues": [
+            250,
+            300,
+            400
+          ],
+          "unit": "mcg"
+        },
+        "PD": {
+          "mode": "dose",
+          "min": 0,
+          "max": 5,
+          "step": 0.5,
+          "quickValues": [
+            2,
+            2.5,
+            3
+          ],
+          "unit": "mg"
+        }
       },
       "hint": "0.05 mg/kg IBW"
     }
@@ -916,8 +1284,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Metamizole",
     "atcCode": "N02BB02",
-    "category": "Other",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Non-opioid analgesics / analgesic adjuncts",
+    "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
       "min": 0,
       "max": 2500,
@@ -1158,8 +1526,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Magnesium sulfate",
     "atcCode": "A12CC02",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Non-opioid analgesics / analgesic adjuncts",
+    "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
       "min": 0,
       "max": 4000,
@@ -1185,8 +1553,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Lidocaine",
     "atcCode": "N01BB02",
-    "category": "Other",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Local/regional anesthetics",
+    "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
       "routes": [
         "IV",
@@ -1305,8 +1673,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Succinylcholine / Suxamethonium",
     "atcCode": "M03AB01",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Neuromuscular blocking drugs",
+    "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
       "min": 0,
       "max": 200,
@@ -1332,8 +1700,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Rocuronium",
     "atcCode": "M03AC09",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Neuromuscular blocking drugs",
+    "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
       "min": 0,
       "max": 100,
@@ -1524,8 +1892,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Sugammadex",
     "atcCode": "V03AB35",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Neuromuscular reversal / anticholinergics",
+    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
       "min": 0,
       "max": 800,
@@ -1551,8 +1919,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Neostigmine",
     "atcCode": "N07AA01",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Neuromuscular reversal / anticholinergics",
+    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
       "min": 0,
       "max": 5,
@@ -1578,8 +1946,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Glycopyrrolate",
     "atcCode": "A03AB02",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Neuromuscular reversal / anticholinergics",
+    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
       "min": 0,
       "max": 1,
@@ -1605,8 +1973,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Atropine",
     "atcCode": "A03BA01",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Neuromuscular reversal / anticholinergics",
+    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
       "min": 0,
       "max": 3,
@@ -1630,8 +1998,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Scopolamine / Hyoscine",
     "atcCode": "A04AD01",
-    "category": "Antiemetics / prokinetics",
-    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+    "category": "Neuromuscular reversal / anticholinergics",
+    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
       "min": 0,
       "max": 0.6,
@@ -1952,8 +2320,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Tetracaine / Amethocaine",
     "atcCode": "N01BA03",
-    "category": "Topical airway / nasal / ENT agents",
-    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+    "category": "Local/regional anesthetics",
+    "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
       "mode": "concentration",
       "min": 0,
@@ -2014,8 +2382,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Norepinephrine / Noradrenaline",
     "atcCode": "C01CA03",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
+    "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
       "min": 0,
       "max": 20,
@@ -2039,8 +2407,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Epinephrine / Adrenaline",
     "atcCode": "C01CA24",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
+    "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
       "min": 0,
       "max": 1000,
@@ -2115,8 +2483,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Vasopressin",
     "atcCode": "H01BA01",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
+    "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
       "min": 0,
       "max": 4,
@@ -2164,8 +2532,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Methylene blue",
     "atcCode": "V03AB17",
-    "category": "Miscellaneous perioperative adjuncts",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
+    "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
       "min": 0,
       "max": 200,
@@ -2268,8 +2636,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Glucagon",
     "atcCode": "H04AA01",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Endocrine / metabolic / electrolytes",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 5,
@@ -2292,8 +2660,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Calcium chloride",
     "atcCode": "A12AA07",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Endocrine / metabolic / electrolytes",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 2000,
@@ -2317,8 +2685,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Calcium gluconate",
     "atcCode": "A12AA03",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Endocrine / metabolic / electrolytes",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 3000,
@@ -2366,8 +2734,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Nitroglycerin / Glyceryl trinitrate",
     "atcCode": "C01DA02",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Vasoactive drugs - antihypertensives / vasodilators",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
       "min": 0,
       "max": 200,
@@ -2419,8 +2787,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Labetalol",
     "atcCode": "C07AG01",
-    "category": "Antiarrhythmics / cardiac rate control",
-    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
+    "category": "Vasoactive drugs - antihypertensives / vasodilators",
+    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
       "min": 0,
       "max": 100,
@@ -2470,8 +2838,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Propranolol",
     "atcCode": "C07AA05",
-    "category": "Vasoactive drugs - antihypertensives / vasodilators",
-    "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+    "category": "Antiarrhythmics / cardiac rate control",
+    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
       "min": 0,
       "max": 5,
@@ -2545,8 +2913,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Adenosine",
     "atcCode": "C01EB10",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Antiarrhythmics / cardiac rate control",
+    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
       "min": 0,
       "max": 18,
@@ -2569,8 +2937,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Amiodarone",
     "atcCode": "C01BD01",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Antiarrhythmics / cardiac rate control",
+    "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
       "min": 0,
       "max": 300,
@@ -2645,8 +3013,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Ondansetron",
     "atcCode": "A04AA01",
-    "category": "Acid suppression / aspiration prophylaxis / GI adjuncts",
-    "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
+    "category": "Antiemetics / prokinetics",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 8,
@@ -2736,24 +3104,42 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Dexamethasone",
     "atcCode": "H02AB02",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Antiemetics / prokinetics",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
-      "min": 0,
-      "max": 12,
-      "step": 2,
-      "quickValues": [
-        4,
-        8,
-        10,
-        12
-      ],
-      "unit": "mg",
       "routes": [
-        "IV"
+        "IV",
+        "Peripheral nerve block"
       ],
-      "doseCalc": {
-        "flat": 8
+      "routeModes": {
+        "IV": {
+          "mode": "dose",
+          "min": 0,
+          "max": 12,
+          "step": 2,
+          "quickValues": [
+            4,
+            8,
+            10,
+            12
+          ],
+          "unit": "mg",
+          "doseCalc": {
+            "flat": 8
+          }
+        },
+        "Peripheral nerve block": {
+          "mode": "dose",
+          "min": 0,
+          "max": 8,
+          "step": 1,
+          "quickValues": [
+            2,
+            4,
+            8
+          ],
+          "unit": "mg"
+        }
       },
       "hint": "8 mg"
     }
@@ -2761,8 +3147,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Metoclopramide",
     "atcCode": "A03FA01",
-    "category": "Acid suppression / aspiration prophylaxis / GI adjuncts",
-    "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
+    "category": "Antiemetics / prokinetics",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 10,
@@ -2855,8 +3241,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Octreotide",
     "atcCode": "H01CB02",
-    "category": "Endocrine / metabolic / electrolytes",
-    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+    "category": "Acid suppression / aspiration prophylaxis / GI adjuncts",
+    "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {
       "min": 0,
       "max": 100,
@@ -3830,8 +4216,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Protamine",
     "atcCode": "V03AB14",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Hemostasis / anticoagulation / transfusion pharmacology",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
       "min": 0,
       "max": 100,
@@ -3878,8 +4264,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Tranexamic acid",
     "atcCode": "B02AA02",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Hemostasis / anticoagulation / transfusion pharmacology",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
       "min": 0,
       "max": 2000,
@@ -3902,8 +4288,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Desmopressin",
     "atcCode": "H01BA02",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Hemostasis / anticoagulation / transfusion pharmacology",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
       "min": 0,
       "max": 40,
@@ -3978,8 +4364,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Prothrombin complex concentrate 4-factor",
     "atcCode": "B02BD01",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Hemostasis / anticoagulation / transfusion pharmacology",
+    "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
       "min": 0,
       "max": 3000,
@@ -4158,8 +4544,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Methylergometrine",
     "atcCode": "G02AB01",
-    "category": "Other",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Obstetric uterotonics / tocolytics",
+    "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
       "min": 0,
       "max": 0.5,
@@ -4232,8 +4618,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Terbutaline",
     "atcCode": "R03CC03",
-    "category": "Respiratory drugs / bronchodilators",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Obstetric uterotonics / tocolytics",
+    "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
       "min": 0,
       "max": 0.5,
@@ -4332,8 +4718,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Sodium bicarbonate",
     "atcCode": "B05XA02",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Endocrine / metabolic / electrolytes",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 100,
@@ -4432,8 +4818,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Sodium chloride hypertonic (3%)",
     "atcCode": "B05BB01",
-    "category": "Other",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Neuro / ICP / anticonvulsants",
+    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
       "min": 0,
       "max": 500,
@@ -4457,8 +4843,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Furosemide",
     "atcCode": "C03CA01",
-    "category": "Neuro / ICP / anticonvulsants",
-    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
+    "category": "Endocrine / metabolic / electrolytes",
+    "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
       "min": 0,
       "max": 100,
@@ -4482,8 +4868,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Salbutamol / Albuterol",
     "atcCode": "R03AC02",
-    "category": "Anaphylaxis / allergy adjuncts",
-    "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
+    "category": "Respiratory drugs / bronchodilators",
+    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
       "min": 0,
       "max": 500,
@@ -4556,8 +4942,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Acetylcysteine",
     "atcCode": "R05CB01",
-    "category": "Topical airway / nasal / ENT agents",
-    "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+    "category": "Respiratory drugs / bronchodilators",
+    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
       "min": 0,
       "max": 10000,
@@ -4707,24 +5093,58 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Hyaluronidase",
     "atcCode": "B06AA03",
-    "category": "Emergency drugs / antidotes / rescue agents",
-    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
+    "category": "Local/regional anesthetics",
+    "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
-      "min": 0,
-      "max": 1500,
-      "step": 150,
-      "quickValues": [
-        150,
-        750,
-        1500
-      ],
-      "unit": "IU",
       "routes": [
         "SC",
-        "Local infiltration"
+        "Local infiltration",
+        "Peripheral nerve block"
       ],
-      "doseCalc": {
-        "flat": 150
+      "routeModes": {
+        "SC": {
+          "mode": "dose",
+          "min": 0,
+          "max": 1500,
+          "step": 150,
+          "quickValues": [
+            150,
+            750,
+            1500
+          ],
+          "unit": "IU",
+          "doseCalc": {
+            "flat": 150
+          }
+        },
+        "Local infiltration": {
+          "mode": "dose",
+          "min": 0,
+          "max": 1500,
+          "step": 150,
+          "quickValues": [
+            150,
+            750,
+            1500
+          ],
+          "unit": "IU",
+          "doseCalc": {
+            "flat": 150
+          }
+        },
+        "Peripheral nerve block": {
+          "mode": "dose",
+          "min": 0,
+          "max": 300,
+          "step": 15,
+          "quickValues": [
+            15,
+            30,
+            75,
+            150
+          ],
+          "unit": "IU"
+        }
       },
       "hint": "150 IU"
     }
@@ -4811,8 +5231,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Valproic acid",
     "atcCode": "N03AG01",
-    "category": "Other",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Neuro / ICP / anticonvulsants",
+    "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
       "min": 0,
       "max": 3000,
@@ -4861,8 +5281,8 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Galantamine",
     "atcCode": "N06DA04",
-    "category": "Other",
-    "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+    "category": "Emergency drugs / antidotes / rescue agents",
+    "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
       "min": 0,
       "max": 50,

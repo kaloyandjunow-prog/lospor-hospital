@@ -7,7 +7,8 @@ import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 
 type DrugTotals = {
   bolusList: { name: string; total: number; unit: string; count: number; mgTotal: number | null }[]
-  infusionList: { name: string; total: number; unit: string; display: string; mgTotal: number | null; weightUsed: number | null; weightBasis: "IBW" | "TBW" | "none" | null }[]
+  infusionList: { name: string; total: number; unit: string; display: string; mgTotal: number | null; weightUsed: number | null; weightBasis: "IBW" | "TBW" | "none" | null; volumeMl?: number | null
+    tci?: { calculated: number | null; pump: number | null; unavailable?: "patient" | "model"; pumpNeedsStrength?: true } }[]
   weightNote: string | null
 }
 
@@ -39,6 +40,15 @@ export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, pro
               {row.mgTotal !== null && (
                 <span className="text-[11px] text-slate-400 dark:text-slate-500">({row.mgTotal} mg)</span>
               )}
+              {row.volumeMl != null && <span className="text-[11px] text-slate-400 dark:text-slate-500">· {row.volumeMl} mL</span>}
+              {row.tci && (
+                <span data-testid="tci-total-note" className="text-[11px] text-slate-400 dark:text-slate-500">
+                  {row.tci.pump != null
+                    ? t("intraop.totals.tciPump", { calculated: row.tci.calculated ?? "—", unit: row.unit })
+                    : row.tci.pumpNeedsStrength ? t("intraop.totals.tciPumpNeedsStrength")
+                    : row.tci.calculated != null ? t("intraop.totals.tciCalculated") : t(row.tci.unavailable === "patient" ? "intraop.totals.tciNeedsPatient" : "intraop.totals.tciModelUnusable")}
+                </span>
+              )}
             </div>
           ))}
           {liveDrugTotals.weightNote && (
@@ -69,6 +79,7 @@ export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, pro
             { label: t("intraop.crystalloids"), field: "crystalloidsMl" as const },
             { label: t("intraop.colloids"),     field: "colloidsMl"     as const },
             { label: t("intraop.bloodTransfusion"), field: "bloodMl"   as const },
+            { label: t("intraop.drugInfusions"), field: "infusionsMl" as const },
           ] as const).map(({ label, field }) => (
             <div key={field} className="space-y-1">
               <Label>{label}</Label>
@@ -77,6 +88,12 @@ export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, pro
               </div>
             </div>
           ))}
+          <div className="space-y-1">
+            <Label>{t("intraop.totalIn")}</Label>
+            <div className="flex h-9 items-center rounded-md border border-slate-100 dark:border-[#2e2e2e] bg-slate-50 dark:bg-[#1e1e1e] px-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {(["crystalloidsMl", "colloidsMl", "bloodMl", "infusionsMl"] as const).reduce((sum, field) => sum + (Number(watch(field)) || 0), 0)} mL
+            </div>
+          </div>
           {watch("urinaryCatheter") && (
             <div className="space-y-1 sm:col-span-3">
               <Label>{t("intraop.urineOutput")}</Label>

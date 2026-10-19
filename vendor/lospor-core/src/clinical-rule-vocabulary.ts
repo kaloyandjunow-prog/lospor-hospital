@@ -260,6 +260,7 @@ function canonicalRouteMode(mode: RouteMode): RouteMode {
       ? [...mode.formulationOptions]
       : undefined,
     prepStrength: mode.prepStrength ? { ...mode.prepStrength } : undefined,
+    doseLimit: mode.doseLimit ? { ...mode.doseLimit } : undefined,
   }
 }
 

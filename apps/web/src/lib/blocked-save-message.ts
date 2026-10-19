@@ -6,6 +6,7 @@ import {
 } from "@lospor/core/blocked-save-copy"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import { PREOP_ANSWER_REFUSED } from "./preop-answer-refusal"
+import { serverMessage } from "./server-message"
 
 /**
  * This app's words for a save the server refused and a retry cannot fix.
@@ -78,4 +79,9 @@ export function withBlockedPreopRejection(
     : blockedIssue.field
   if (PREOP_REJECTION_FIELDS.has(field)) rejections.set(field, message(blockedIssue))
   return rejections
+}
+
+/** A failed save the server did not explain as a blocked field: its own message, or the status, in the page's language. */
+export function failedSaveMessage(body: Record<string, unknown>, status: number): string {
+  return serverMessage(typeof body.error === "string" ? body.error : `Save failed (HTTP ${status})`)
 }

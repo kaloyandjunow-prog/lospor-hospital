@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { ScrollView, Text, TouchableOpacity, View } from "react-native"
 
+import { Stack } from "expo-router"
 import { AppHeader } from "@/components/AppHeader"
 import { formatMessage } from "@/i18n/locale"
 import { autosaveNetworkState } from "@/lib/autosave-manager"
@@ -89,6 +90,8 @@ export default function DiagnosticsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* The app header names the screen; the router’s own showed the file name. */}
+      <Stack.Screen options={{ headerShown: false }} />
       <AppHeader title={t("diagnosticsTitle")} showNewCase={false} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
         <Card title={t("diagnosticsSaving")}>

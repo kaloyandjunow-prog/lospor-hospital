@@ -101,6 +101,7 @@ const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
     crystalloidsMl: { min: 0, max: 50_000, integer: true },
     colloidsMl: { min: 0, max: 20_000, integer: true },
     bloodMl: { min: 0, max: 20_000, integer: true },
+    infusionsMl: { min: 0, max: 20_000, integer: true },
     urineMl: { min: 0, max: 20_000, integer: true },
     bloodLossMl: { min: 0, max: 20_000, integer: true },
     // The three monitoring values. Each is bound to its modality flag and is
@@ -500,7 +501,7 @@ export function evaluateIntraopReadiness(
       || ["drug", "infusion_start", "agent_start"].some(type => eventTypes.has(type))
     const hasFluids = hasArray("fluids")
       || ["fluid_start", "fluid_bolus"].some(type => eventTypes.has(type))
-      || ["crystalloidsMl", "colloidsMl", "bloodMl"].some(field =>
+      || ["crystalloidsMl", "colloidsMl", "bloodMl", "infusionsMl"].some(field =>
         typeof intraop[field] === "number" && Number(intraop[field]) > 0,
       )
     if (!hasAirway) warning("missing_airway_documentation", "intraop.airwayDevices")

@@ -21,6 +21,7 @@ import { FluidPickerPopover } from "@/components/intraop/FluidPickerPopover"
 import { DoseEditPopover } from "@/components/intraop/DoseEditPopover"
 import { baseInfusionName } from "@/components/intraop/infusion-naming"
 import { InfusionMenuPopover } from "@/components/intraop/InfusionMenuPopover"
+import { tciPumpTotal } from "@/components/intraop/TciLaneOverlay"
 import { columnForWallClock } from "@lospor/core/timetable"
 import { AgentLane, GasSettingsLane } from "@/components/intraop/TimetableGasLanes"
 import { ClinicalEventsLane, DrugLane } from "@/components/intraop/TimetablePointLanes"
@@ -30,13 +31,17 @@ import { TimetableVitalsRows } from "@/components/intraop/TimetableVitalsRows"
 import { TimetableTimeHeader } from "@/components/intraop/TimetableTimeHeader"
 import { useTimetableDrag } from "@/components/intraop/use-timetable-drag"
 import { DosingFlyout } from "@/components/intraop/DosingFlyout"
+import { flyoutInfusion } from "@/components/intraop/flyout-infusion"
+import { TciPatientContext } from "@/components/intraop/tci-patient-context"
+import { tciPatientFrom } from "@lospor/core/tci"
 import { createDoseSurfaces } from "@/components/intraop/dose-surfaces"
 import {
-  DEFAULT_INF, infusionCalculationBasis,
+  DEFAULT_INF,
   buildDrugFlyoutState,
   buildFluidFlyoutState,
 } from "@/components/intraop/flyout-state"
-import { RateChangeDialog } from "@/components/intraop/RateChangeDialog"
+import { RateChangeDialog, type RateChangeState } from "@/components/intraop/RateChangeDialog"
+import { rateDialogChange, rateDialogSurface, type InfusionRecord } from "@/components/intraop/rate-dialog-surface"
 import { computeRowGeometry } from "@/components/intraop/timetable-row-geometry"
 import {
   selId,
@@ -228,6 +233,7 @@ export function IntraopTimetable({
   const uiCopy = useIntraopUiCopy()
   const isBg = locale.startsWith("bg")
   const isPediatric = clinicalMode === "PEDIATRIC"
+  const tciPatient = useMemo(() => tciPatientFrom({ ageValue: pediatricAgeValue, ageUnit: pediatricAgeUnit, weightKg: tbw, heightCm: patientHeightCm, sex: patientSex }), [pediatricAgeValue, pediatricAgeUnit, tbw, patientHeightCm, patientSex])
   const pediatricAge = useMemo(
     () => isPediatric && pediatricAgeValue != null && pediatricAgeUnit
       ? { value: pediatricAgeValue, unit: pediatricAgeUnit }
@@ -432,15 +438,8 @@ export function IntraopTimetable({
   const [infPicker, setInfPicker]     = useState<{ ci: number; rect: DOMRect } | null>(null)
   // Infusion context menu + rate-change dialog
   const [infMenu, setInfMenu] = useState<{ segId: string; name: string; color: string; rect: DOMRect; stopped?: boolean; fromPillCol?: number } | null>(null)
-  const [rateDialog, setRateDialog] = useState<{
-    segId: string; name: string; rate: number; unit: string
-    units: string[]; rateMin: number; rateMax: number; rateStep: number
-    color: string; rect: DOMRect; step: "rate" | "time"
-    timeH: string; timeM: string
-    editFromCol?: number
-    concentration?: string  // local anaesthetic infusions only — editable mid-run
-    baseDrugName?: string   // drug name without the concentration suffix, for LA_CONCENTRATIONS lookup
-  } | null>(null)
+  // baseDrugName: the drug name without the concentration suffix, for LA_CONCENTRATIONS lookup.
+  const [rateDialog, setRateDialog] = useState<(RateChangeState & { segId: string; rect: DOMRect; baseDrugName?: string }) | null>(null)
   // Timetable layout mode
   const [layout, setLayout] = useState<"expand" | "scroll">(() =>
     typeof window !== "undefined"
@@ -709,17 +708,10 @@ export function IntraopTimetable({
     setFp(null)
     if (!conflict) addFluidDirect(pending, fp.col)
   }
-  function fpCommitInfusion() {
+  function fpCommitInfusion(record?: InfusionRecord) {
     if (!fp) return
-    const cfg  = INFUSION_CONFIGS[fp.name] ?? DEFAULT_INF
-    const conc = fp.concentration ? ` ${fp.concentration}` : ""
-    const displayName = fp.name + conc
-    const id   = `${fp.name}-${fp.col}-${uid()}`
-    const lib = infusionLibOpts.find(o => o.label === fp.name)
-    const ruleAudit = {
-      ...clinicalProvenance(fp), calculationBasis: infusionCalculationBasis(fp.name, INFUSION_WEIGHT_BASIS),
-    }
-    onChange({ ...data, infusions: [...(data.infusions??[]), { id, name:displayName, rate:fp.rate, unit:fp.rateUnit, startCol:fp.col, endCol:fp.col, color:cfg.color, concentration: fp.concentration, formulation: fp.formulation, route: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, ...ruleAudit }] })
+    const infusion = flyoutInfusion({ fp, record, id: `${fp.name}-${fp.col}-${uid()}`, configs: INFUSION_CONFIGS, libraryOptions: infusionLibOpts, weightBasis: INFUSION_WEIGHT_BASIS })
+    onChange({ ...data, infusions: [...(data.infusions??[]), infusion] })
     setFp(null)
   }
 
@@ -1016,7 +1008,7 @@ export function IntraopTimetable({
   const { removeDrug } = useDrugHandlers(data, onChange)
 
   // ── Infusions ────────────────────────────────────────────────────────────────
-  const { removeInfusion, extendInfusion, extendInfusionLeft, restoreInfusion, applyInfRateChange } =
+  const { removeInfusion, extendInfusion, setInfusionPumpTotal, extendInfusionLeft, restoreInfusion, applyInfRateChange } =
     useInfusionHandlers(data, onChange, dataRef, onChangeRef, nowCol)
 
   /**
@@ -1657,7 +1649,7 @@ export function IntraopTimetable({
   }
 
   return (
-    <>
+    <TciPatientContext.Provider value={tciPatient}>
     <div className="space-y-3">
       {/* Chart toggle + layout toggle on same row */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -1670,8 +1662,8 @@ export function IntraopTimetable({
           {chartOpen ? uiCopy.timetable.hideChart : uiCopy.timetable.showChart}
           {chartOpen && (
             <span className="flex items-center gap-2 ml-1 text-[10px] font-normal opacity-70">
-              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-red-400 rounded" />BP</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-green-500 rounded" />HR</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-red-400 rounded" />{t("intraop.timetable.vitalBp")}</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-green-500 rounded" />{t("intraop.timetable.vitalHr")}</span>
               <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-cyan-500 rounded" />SpO2</span>
               <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-amber-500 rounded" />EtCO2</span>
             </span>
@@ -1956,6 +1948,7 @@ export function IntraopTimetable({
         name={displayInfusionName(infMenu.name) + (infMenu.fromPillCol != null && nowCol != null && infMenu.fromPillCol > nowCol ? ` · ${t("intraop.timetable.plannedAt", { time: times[infMenu.fromPillCol] })}` : "")}
         color={infMenu.color}
         stopped={!!infMenu.stopped}
+        pumpTotal={tciPumpTotal((data.infusions ?? []).find(i => i.id === infMenu.segId), pump => { setInfusionPumpTotal(infMenu.segId, pump); setInfMenu(null) })}
         onChangeRate={() => {
           const seg = (data.infusions ?? []).find(i => i.id === infMenu.segId)
           if (!seg) { setInfMenu(null); return }
@@ -1969,18 +1962,15 @@ export function IntraopTimetable({
             : { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
           setRateDialog({
             segId: seg.id, name: baseDrugName, rate: Number(cur.rate) || 0, unit: cur.unit,
-            units: cfg.units,
-            rateMin: prospectiveGuidanceEnabled ? cfg.min : 0,
-            rateMax: prospectiveGuidanceEnabled ? cfg.max : 100_000,
-            rateStep: prospectiveGuidanceEnabled ? cfg.step : 0.1,
+            route: seg.route, ...rateDialogSurface({ name: baseDrugName, route: seg.route, runningUnit: cur.unit, cfg, guidance: prospectiveGuidanceEnabled, isPediatric, doseSurfaces, weights: { tbw, ibw, basis: INFUSION_WEIGHT_BASIS }, tciModel: seg.tciModel }),
             color: infMenu.color, rect: infMenu.rect, step: "rate", timeH: "", timeM: "",
             editFromCol: pillCol, concentration: cur.concentration, baseDrugName,
           })
           setInfMenu(null)
         }}
-        onDiscontinue={() => {
+        onDiscontinue={pump => {
           setHoverDiscontinue(null)
-          extendInfusion(infMenu.segId, Math.max(nowCol ?? 0, infMenu.fromPillCol ?? 0))
+          extendInfusion(infMenu.segId, Math.max(nowCol ?? 0, infMenu.fromPillCol ?? 0), pump)
           setInfMenu(null)
         }}
         onRestore={() => { restoreInfusion(infMenu.segId); setInfMenu(null) }}
@@ -1993,13 +1983,14 @@ export function IntraopTimetable({
         state={rateDialog}
         displayName={displayInfusionName(rateDialog.name) + (rateDialog.editFromCol != null && nowCol != null && rateDialog.editFromCol > nowCol ? ` · ${t("intraop.timetable.plannedAt", { time: times[rateDialog.editFromCol] })}` : "")}
         concentrations={prospectiveGuidanceEnabled
-          ? LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name]
+          ? rateDialog.concentrationOptions ?? LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name]
           : undefined}
         weightBasis={(() => {
-          const basis = INFUSION_WEIGHT_BASIS[rateDialog.name]
-          if (!basis || !rateDialog.unit?.includes("/kg/")) return null
+          const basis = isPediatric ? "TBW" : INFUSION_WEIGHT_BASIS[rateDialog.name] // children: actual weight
+          if (!basis || basis === "none" || !rateDialog.unit?.includes("/kg/")) return null
           return { basis, weightKg: basis === "TBW" ? tbw ?? null : ibw ?? null }
         })()}
+        offerSyringes={prospectiveGuidanceEnabled}
         hours={Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))}
         minutes={Array.from(
           { length: 60 / INTERVAL },
@@ -2013,7 +2004,7 @@ export function IntraopTimetable({
         onPatch={patch => setRateDialog(d => d ? { ...d, ...patch } : d)}
         onApply={() => {
           const col = rateDialog.editFromCol !== undefined ? rateDialog.editFromCol : nowCol ?? 0
-          applyInfRateChange(rateDialog.segId, rateDialog.editFromCol ?? null, col, rateDialog.rate, rateDialog.unit, rateDialog.concentration)
+          applyInfRateChange(rateDialog.segId, rateDialog.editFromCol ?? null, col, rateDialogChange(rateDialog))
           setRateDialog(null)
         }}
         onConfirmTime={() => {
@@ -2023,7 +2014,7 @@ export function IntraopTimetable({
             intervalMinutes: INTERVAL,
             columnCount: colCount,
           })
-          applyInfRateChange(rateDialog.segId, null, changeCol, rateDialog.rate, rateDialog.unit, rateDialog.concentration)
+          applyInfRateChange(rateDialog.segId, null, changeCol, rateDialogChange(rateDialog))
           setRateDialog(null)
         }}
         onDismiss={() => setRateDialog(null)}
@@ -2231,6 +2222,6 @@ export function IntraopTimetable({
         document.body
       )
     })()}
-    </>
+    </TciPatientContext.Provider>
   )
 }

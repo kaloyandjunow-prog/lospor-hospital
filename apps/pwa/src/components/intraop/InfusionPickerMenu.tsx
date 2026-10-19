@@ -1,11 +1,15 @@
+import { useState } from "react"
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { drugGroupColorHex } from "@lospor/core/catalog"
+import { displayClinicalCode } from "@/lib/clinical-display"
+import { usePreferences } from "@/lib/preferences-context"
 import type { ScenarioGroup } from "@lospor/core"
 import { MedicationPickerPill } from "@/components/intraop/MedicationPickerPill"
 import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
 
-export type InfusionPickerOption = { name: string; unit: string; color: string }
+export type InfusionPickerOption = { name: string; unit: string; color: string; group?: string }
 export type InfusionPickerResult = InfusionPickerOption & {
   searchOnly: SearchOnlyMedicationOption | null
 }
@@ -54,6 +58,12 @@ export function InfusionPickerMenu({
   onOpenBrowse: () => void
 }) {
   const shade = useShade()
+  const { language } = usePreferences()
+  // Browsing opens on the groups (as drugs do); a group then lists its infusions.
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const groupOf = (drug: InfusionPickerOption) => drug.group ?? "Other"
+  const groupLabel = (group: string) => displayClinicalCode("optionGroup", group, language, { label: group })
+  const groupColor = (group: string) => shade(drugGroupColorHex(group) ?? "#64748b")
   if (mode === "scenario" && scenario) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -103,7 +113,7 @@ export function InfusionPickerMenu({
   if (mode === "browse") {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
-        <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
+        <TouchableOpacity onPress={() => openGroup && !query.trim() ? setOpenGroup(null) : (setOpenGroup(null), onBackHome())} style={{ marginBottom:14 }}>
           <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
         <TextInput
@@ -116,19 +126,29 @@ export function InfusionPickerMenu({
             borderWidth:1, borderColor:shade("#1e2d40"), marginBottom:14 }}
         />
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
-          {filtered.map(drug => (
-            <MedicationPickerPill
-              key={drug.name}
-              label={infusionLabel(drug.name)}
-              sublabel={drug.searchOnly
-                ? `${drug.unit} · ${tc("dsSearchOnlyManualBadge")}`
-                : drug.unit}
-              color={drug.color}
-              onPress={() => drug.searchOnly
-                ? onSelectSearchOnly(drug.searchOnly)
-                : onSelectRoutine(drug)}
-            />
-          ))}
+          {query.trim() || openGroup ? filtered
+            .filter(drug => query.trim() || groupOf(drug) === openGroup)
+            .map(drug => (
+              <MedicationPickerPill
+                key={drug.name}
+                label={infusionLabel(drug.name)}
+                sublabel={drug.searchOnly
+                  ? `${drug.unit} · ${tc("dsSearchOnlyManualBadge")}`
+                  : drug.unit}
+                color={drug.color}
+                onPress={() => drug.searchOnly
+                  ? onSelectSearchOnly(drug.searchOnly)
+                  : onSelectRoutine(drug)}
+              />
+            )) : [...new Set(filtered.map(groupOf))].map(group => (
+              <MedicationPickerPill
+                key={group}
+                label={groupLabel(group)}
+                sublabel={`${filtered.filter(drug => groupOf(drug) === group).length} ${tc("dsInfusionCountLabel")}`}
+                color={groupColor(group)}
+                onPress={() => setOpenGroup(group)}
+              />
+            ))}
         </View>
       </ScrollView>
     )

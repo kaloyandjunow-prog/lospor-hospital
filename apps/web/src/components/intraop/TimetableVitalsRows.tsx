@@ -53,7 +53,8 @@ export type VitalRowDef = (typeof VITAL_ROW_DEFS)[number]
 
 // Rows whose names are words rather than international abbreviations, said in
 // the screen's language (АН сист / АН диас); HR, SpO₂ and the rest stay as read.
-const TRANSLATED_ROW_LABELS: Partial<Record<string, string>> = { systolic: "vitalBpSys", diastolic: "vitalBpDia" }
+// Bulgarian screens name these АН / СЧ / Темп. (2026-10-18); SpO₂ and EtCO₂ read the same.
+const TRANSLATED_ROW_LABELS: Partial<Record<string, string>> = { systolic: "vitalBpSys", diastolic: "vitalBpDia", heartRate: "vitalHr", temp: "vitalTemp" }
 
 export type VitalsPopupRequest = {
   col: number
@@ -145,7 +146,7 @@ export function TimetableVitalsRows({
           // opens there rather than at a population default.
           defaultVal: lastVitalBefore(col, row.key) ?? row.defaultVal,
           defaultIsPriorReading: lastVitalBefore(col, row.key) != null,
-          label: row.label,
+          label: TRANSLATED_ROW_LABELS[row.key] ? t(TRANSLATED_ROW_LABELS[row.key]!) : row.label,
           unit: row.unit,
           color: row.color,
           rect,

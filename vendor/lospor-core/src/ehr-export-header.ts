@@ -52,6 +52,8 @@ export type EhrCodedHeader = {
     crystalloids: EhrQuantity
     colloids: EhrQuantity
     blood: EhrQuantity
+    /** Millilitres given through drug infusions (2026-10-18). */
+    infusions: EhrQuantity
     urine: EhrQuantity
     bloodLoss: EhrQuantity
   }
@@ -149,6 +151,7 @@ export function buildCodedHeader(input: {
       crystalloids: fluids ? quantity(fluids.crystalloids, "mL") : quantity(null, "mL"),
       colloids: fluids ? quantity(fluids.colloids, "mL") : quantity(null, "mL"),
       blood: fluids ? quantity(fluids.blood, "mL") : quantity(null, "mL"),
+      infusions: fluids ? quantity(fluids.infusions ?? 0, "mL") : quantity(null, "mL"),
       urine: quantity(intraop.urineMl, "mL"),
       bloodLoss: quantity(intraop.bloodLossMl, "mL"),
     },

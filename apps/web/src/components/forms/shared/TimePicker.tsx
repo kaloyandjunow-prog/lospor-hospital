@@ -1,10 +1,12 @@
 "use client"
 import React, { useRef, useEffect } from "react"
+import { useIntraopUiCopy } from "@/components/intraop/ui-copy"
 
 // 24h, 1-min interval time picker used across the intraop form's timing fields.
 export const TimePicker = React.forwardRef<HTMLSelectElement, { value?: string; onChange: (v: string) => void }>(
   function TimePicker({ value, onChange }, ref) {
   // pendingRef tracks the latest HH:MM including rapid changes before React re-renders
+  const copy = useIntraopUiCopy()
   const pendingRef = useRef(value || "")
   useEffect(() => { pendingRef.current = value || "" }, [value])
 
@@ -21,7 +23,7 @@ export const TimePicker = React.forwardRef<HTMLSelectElement, { value?: string; 
         const next = `${e.target.value}:${cur[1] || "00"}`
         pendingRef.current = next; onChange(next)
       }}>
-        <option value="">HH</option>
+        <option value="">{copy.hourPlaceholder}</option>
         {hours.map(hh => <option key={hh} value={hh}>{hh}</option>)}
       </select>
       <span className="text-slate-500 font-bold">:</span>
@@ -30,7 +32,7 @@ export const TimePicker = React.forwardRef<HTMLSelectElement, { value?: string; 
         const next = `${cur[0] || "00"}:${e.target.value}`
         pendingRef.current = next; onChange(next)
       }}>
-        <option value="">MM</option>
+        <option value="">{copy.minutePlaceholder}</option>
         {mins.map(mm => <option key={mm} value={mm}>{mm}</option>)}
       </select>
     </div>

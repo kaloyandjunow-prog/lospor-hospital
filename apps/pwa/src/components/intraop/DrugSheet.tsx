@@ -33,6 +33,8 @@ import {
 } from "@/components/intraop/DrugPickerMenu"
 import { fallbackRange, type DoseCalc, type DoseSurface, type Range } from "@/components/intraop/drug-sheet-types"
 import { createDrugDraftBuilders } from "@/components/intraop/drug-sheet-drafts"
+import { customStrengthLabel } from "@lospor/core/strength-entry"
+import { doseConfirmProblem } from "@lospor/core/infusion-entry"
 
 type DrugOption = DrugPickerOption
 type DrugCat = DrugPickerCategory
@@ -384,28 +386,18 @@ export function DrugSheet({
   // A conflict is stated, not enforced: no dose is autofilled and no rule is
   // credited, but a hand-entered dose can still be confirmed. Disabling confirm
   // instead left a live dose field above a button that could never enable.
-  const confirmDisabled = !drugDose
-    || (!!activeConcentrations?.length && !drugConcentration)
-    || (!!activeFormulations?.length && !drugFormulation)
-    || (!searchOnlySelection && pediatricMode && !structuredPediatricSurface && pediatricProfilesForDrug.length > 1 && !selectedPediatricProfile)
-  const footer = drugPick ? (
-    <FeedbackPressable
-      testID="drug-sheet-confirm"
-      accessibilityState={{ disabled: confirmDisabled }}
-      onPress={onConfirm}
-      disabled={confirmDisabled}
-      style={{
-        backgroundColor: confirmDisabled ? shade("#1e2d40") : drugCat?.color ?? shade("#3b82f6"),
-        borderRadius: 14,
-        padding: 18,
-        alignItems: "center",
-      }}
-    >
+  // Why Add is off, said above it (core doseConfirmProblem), never refused in silence.
+  const blocked = doseConfirmProblem({ dose: drugDose, strengthMissing: !!activeConcentrations?.length && !drugConcentration, formulationMissing: !!activeFormulations?.length && !drugFormulation })
+  const confirmDisabled = !!blocked || (!searchOnlySelection && pediatricMode && !structuredPediatricSurface && pediatricProfilesForDrug.length > 1 && !selectedPediatricProfile)
+  const footer = drugPick ? (<View>
+    {blocked ? <Text testID="dose-confirm-blocked" accessibilityRole="alert" style={{ color: shade("#f87171"), fontSize: 12, fontWeight: "600", marginBottom: 8 }}>{tc(blocked === "dose" ? "doseNeedsDose" : blocked === "strength" ? "infusionNeedsStrength" : "infusionNeedsFormulation")}</Text> : null}
+    <FeedbackPressable testID="drug-sheet-confirm" accessibilityState={{ disabled: confirmDisabled }} onPress={onConfirm} disabled={confirmDisabled}
+      style={{ backgroundColor: confirmDisabled ? shade("#1e2d40") : drugCat?.color ?? shade("#3b82f6"), borderRadius: 14, padding: 18, alignItems: "center" }}>
       <Text style={{ color: shade("#fff"), fontSize: 16, fontWeight: "700" }}>
         {tc("dsAdd")} {drugLabel(drugPick.name)} {drugDose} {activeUnit}
       </Text>
     </FeedbackPressable>
-  ) : undefined
+  </View>) : undefined
 
   return (
     <Sheet visible={visible} onClose={onClose}
@@ -458,7 +450,7 @@ export function DrugSheet({
               valuePlaceholder={`${tc("dsCustomUnit")} ${activeUnit}`}
               unitSuffix={activeUnit}
               routes={activeRoutes} route={activeRoute} onRouteChange={changeRoute}
-              concentrationOptions={activeConcentrations}
+              concentrationOptions={activeConcentrations} concentrationName={drugPick?.name}
               concentrationUnit={searchOnlySelection ? undefined : structuredPediatricSurface?.concentrationUnit}
               concentration={drugConcentration}
               onConcentrationChange={value => replaceSelection({
@@ -474,9 +466,7 @@ export function DrugSheet({
                 pick: drugPick,
                 dose: drugDose,
                 route: activeRoute,
-                concentration: value?.trim()
-                  ? `${value.trim()}${structuredPediatricSurface?.concentrationUnit === "PERCENT" ? "%" : ""}`
-                  : undefined,
+                concentration: customStrengthLabel(value, structuredPediatricSurface?.concentrationUnit),
                 customConcentration: value,
                 formulation: drugFormulation,
                 rule: drugRule,

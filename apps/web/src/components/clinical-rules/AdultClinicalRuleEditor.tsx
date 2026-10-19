@@ -22,6 +22,8 @@ import {
   normalizeFluidRuntimeProfile,
 } from "./DoseProfileEditor"
 import { useClinicalRuleUiCopy } from "./ui-copy"
+import { ruleCodeLabel } from "./rule-code-labels"
+import { useLocale } from "next-intl"
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100"
 const labelClass = "grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300"
@@ -83,6 +85,7 @@ export function AdultClinicalRuleEditor({
   onCancel: () => void
 }) {
   const copy = useClinicalRuleUiCopy()
+  const locale = useLocale()
   const [dose, setDose] = useState(() => dosePayload(initial))
   const [error, setError] = useState("")
 
@@ -176,7 +179,7 @@ export function AdultClinicalRuleEditor({
                 ? "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300"
                 : "border-slate-300 text-slate-500 dark:border-[#404040]"}`}
             >
-              {availability}
+              {ruleCodeLabel("availability", availability, locale)}
             </button>
           ))}
         </div>

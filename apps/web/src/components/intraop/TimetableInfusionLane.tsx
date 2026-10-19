@@ -2,6 +2,7 @@
 
 import { runsOnAt } from "@lospor/core/intraop-summary"
 import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
+import { TciCellLine, tciLaneLabel, useTciLanePredictions } from "./TciLaneOverlay"
 import { SaveMark } from "./SaveMark"
 import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { DiscontinuePrompt } from "./DiscontinuePrompt"
@@ -47,6 +48,9 @@ export type RatePillMove = {
   fromCol: number
   rate: number
   unit: string
+  /** Carried with the change when it is slid: both rates stay together (2026-10-18). */
+  concentration?: string
+  volumeRateMlPerHour?: number
 }
 
 export type InfusionMenuRequest = {
@@ -86,7 +90,7 @@ export type InfusionLaneProps = {
 
   extendInfusion: (id: string, toCol: number) => void
   extendInfusionLeft: (id: string, toCol: number) => void
-  applyInfRateChange: (infId: string, fromCol: number | null, toCol: number, rate: number, unit: string) => void
+  applyInfRateChange: (infId: string, fromCol: number | null, toCol: number, change: { rate: number; unit: string; concentration?: string; volumeRateMlPerHour?: number }) => void
   /** Commit a whole-bar move; the owner decides move versus delete-prompt. */
   onMoveBar: (move: InfusionBarMove, toCol: number) => void
   onOpenMenu: (request: InfusionMenuRequest) => void
@@ -124,6 +128,8 @@ export function InfusionLane({
   const { movingInf, movingInfCol, movingRatePill, extendingInf, extInfHover, extendingInfLeft, extInfLeftHover } = drag
   const isBusyMovingBar = movingInf !== null && segments.some(s => s.id === movingInf.id)
   const isBusyMovingPill = movingRatePill !== null && segments.some(s => s.id === movingRatePill.infId)
+  // A TCI bar shows its target and the predicted concentration line (2026-10-18).
+  const tciPredictions = useTciLanePredictions(segments)
 
   return (
     <div
@@ -135,7 +141,7 @@ export function InfusionLane({
         style={{ width: labelWidth, minWidth: labelWidth }}
         className="flex flex-col items-end justify-end pr-2 pb-1.5 gap-0 select-none shrink-0"
       >
-        <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color }}>{drugName}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color }}>{displayInfusionName(drugName)}</span>
         <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">{copy.infusion.laneKind}</span>
       </div>
       {rowCols.map(ci => {
@@ -207,7 +213,7 @@ export function InfusionLane({
                 e.preventDefault()
                 // Only lands where an infusion is running; fromCol null keeps
                 // the original change in place rather than moving it.
-                if (seg) applyInfRateChange(movingRatePill!.infId, null, ci, movingRatePill!.rate, movingRatePill!.unit)
+                if (seg) applyInfRateChange(movingRatePill!.infId, null, ci, movingRatePill!)
                 dragActions.ratePillEnd()
               }
             }}
@@ -272,7 +278,7 @@ export function InfusionLane({
                       onDragStart={e => {
                         e.stopPropagation()
                         const rc = sortedChanges.find(r => r.col === ci)!
-                        dragActions.ratePillStart({ infId: seg.id, fromCol: ci, rate: Number(rc.rate) || 0, unit: rc.unit })
+                        dragActions.ratePillStart({ infId: seg.id, fromCol: ci, rate: Number(rc.rate) || 0, unit: rc.unit, concentration: rc.concentration, volumeRateMlPerHour: rc.volumeRateMlPerHour })
                       }}
                       onDragEnd={() => dragActions.ratePillEnd()}
                       onClick={e => e.stopPropagation()}
@@ -283,9 +289,10 @@ export function InfusionLane({
                       className="text-[8px] font-bold whitespace-nowrap truncate leading-none"
                       style={{ color, paddingLeft: isRateChangeCol ? 10 : 5 }}
                     >
-                      {curRate} {curUnit}
+                      {tciLaneLabel(seg, curRate, curUnit, ci === seg.startCol) ?? `${curRate} ${curUnit}`}
                     </span>
                   )}
+                  <TciCellLine seg={seg} column={ci} prediction={tciPredictions.get(seg.id)} color={color} />
                 </div>
               )
             })()}

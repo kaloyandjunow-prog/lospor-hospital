@@ -1,3 +1,4 @@
+import { serverMessage } from "@/lib/server-message"
 // Web / PWA notifications (default resolution; Metro picks notifications.native.ts
 // on device, TypeScript resolves this file). expo-notifications does NOT support
 // web, so the PWA uses the browser Notification API + the registered service worker.
@@ -14,7 +15,7 @@ function hasNotifications(): boolean {
 // aren't silent (the iOS case is the common one).
 export async function getStatus(): Promise<NotifStatus> {
   if (typeof window === "undefined") {
-    return { supported: false, permission: "unsupported", reason: "Notifications aren't available here." }
+    return { supported: false, permission: "unsupported", reason: serverMessage("Notifications aren't available here.") }
   }
   // The decisive signal: a non-secure origin (plain http:// over a LAN IP) makes the
   // browser block notifications AND service workers, even though the API may exist.

@@ -113,6 +113,9 @@ export function EquipmentSuggestions(props: Props) {
     if (pair) return t("intraop.equipment.text.cuffedPair", { cuffed: pair[1], uncuffed: pair[2] })
     const smaller = /^(.+) cuffed \(0\.5 mm smaller\)$/.exec(value)
     if (smaller) return t("intraop.equipment.text.smallerCuffed", { value: smaller[1] })
+    // The difficult-airway size, as the PWA translates it (it read "(0.5 smaller)" in Bulgarian).
+    const half = /^(.+) \(0\.5 smaller\)$/.exec(value)
+    if (half) return t("intraop.equipment.text.smallerHalf", { value: half[1] })
     return value
   }
 

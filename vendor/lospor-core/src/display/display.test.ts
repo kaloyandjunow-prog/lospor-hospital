@@ -92,13 +92,13 @@ describe("clinical display registry", () => {
     expect(clinicalDisplayLabel("option:HANDOVER_ITEM", "PONV_GI", "bg"))
       .toBe("Постоперативно гадене и повръщане (ПОГП) и стомашно-чревна система")
     expect(clinicalDisplayLabel("optionGroup", "Acid suppression / aspiration prophylaxis / GI adjuncts", "en"))
-      .toBe("Gastrointestinal / antiemetic medications")
+      .toBe("Gastrointestinal medications")
     expect(clinicalDisplayLabel("optionGroup", "Anaphylaxis / allergy adjuncts", "bg"))
       .toBe("Медикаменти при анафилаксия / алергични реакции")
     expect(clinicalDisplayLabel("optionGroup", "Hemostasis / anticoagulation / transfusion pharmacology", "bg"))
       .toBe("Хемостаза / антикоагулация / тромболиза")
     expect(clinicalDisplayLabel("optionGroup", "Obstetric uterotonics / tocolytics", "en"))
-      .toBe("Obstetric uterotonics")
+      .toBe("Obstetric uterotonics / tocolytics")
     expect(clinicalDisplayLabel("optionGroup", "Miscellaneous perioperative adjuncts", "bg"))
       .toBe("Други периоперативни адюванти")
     expect(clinicalDisplayLabel("optionGroup", "Vasoactive drugs - inotropes / inodilators", "bg"))
@@ -129,8 +129,8 @@ describe("clinical display registry", () => {
       ),
     )
     // 282: intranasal dexmedetomidine joined the premedication catalogue (283),
-    // ranitidine was retired everywhere in 1.4.9.
-    expect(medicationTerms).toHaveLength(282)
+    // ranitidine was retired everywhere in 1.4.9; 297 with the 15 infusions of 2026-10-18.
+    expect(medicationTerms).toHaveLength(297)
     for (const term of medicationTerms) {
       expect(term.label.bg).toBe(term.label.en)
       expect(term.bgSource).toBe("international")
@@ -141,7 +141,7 @@ describe("clinical display registry", () => {
         term.domain as typeof INTERNATIONAL_FLUID_DISPLAY_DOMAINS[number],
       ),
     )
-    expect(fluidTerms).toHaveLength(22)
+    expect(fluidTerms).toHaveLength(23)
     for (const term of fluidTerms) {
       expect(term.label.bg).toBe(term.label.en)
       expect(term.bgSource).toBe("international")
@@ -175,8 +175,12 @@ describe("clinical display registry", () => {
     // OMOP concept exists for either) minus Blood glucose/Blood gas analysis
     // (removed from monitoring's Others group), plus the seven risk-score
     // bands, which moved here from two per-app copy tables that had drifted;
-    // 965 once ranitidine was retired (1.4.9).
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(965)
+    // 965 once ranitidine was retired (1.4.9); 970 with the five Aldrete
+    // subscores the research record now carries beside their total; 975 with the
+    // Gupta risk field and its "elevated" band, and the three PAED bands; 976
+    // with plain Ringer; 977 with the neuromuscular reversal group; 992 with
+    // the 15 infusions of 2026-10-18.
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(993)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

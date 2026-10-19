@@ -23,7 +23,7 @@ import { WatchingOverlay } from "@/components/WatchingOverlay"
 import { usePreferences } from "@/lib/preferences-context"
 import { useRangeSpec } from "@/lib/use-option-library"
 import { normaliseHandoverCodes, postopFormSchema, type PostopFormData as FormData, type PostopFormInput as FormInput } from "@/lib/postop-form-schema"
-import { DispositionPicker, Field, HandoverChecklist, NRSRow, RecoverySummary, ScoreRow, SectionHeader, usePostopFocusScroll } from "@/components/postop/PostopFormSections"
+import { DispositionPicker, Field, HandoverChecklist, NRSRow, PaedBand, RecoverySummary, ScoreRow, SectionHeader, usePostopFocusScroll } from "@/components/postop/PostopFormSections"
 import { canonicalizePostopPatch } from "@lospor/core/case-payloads"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import {
@@ -497,7 +497,7 @@ export default function PostopFormScreen() {
                 <Controller
                   control={control}
                   name="paedScore"
-                  render={({ field: { onChange, value } }) => <NRSRow value={value} onChange={onChange} max={20} />}
+                  render={({ field: { onChange, value } }) => <><NRSRow value={value} onChange={onChange} max={20} /><PaedBand score={value} /></>}
                 />
               </Field>
             </View>

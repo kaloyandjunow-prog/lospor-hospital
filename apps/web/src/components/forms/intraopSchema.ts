@@ -98,6 +98,7 @@ export const schema = z.object({
   crystalloidsMl:    intraopNumber("crystalloidsMl").nullable().optional(),
   colloidsMl:        intraopNumber("colloidsMl").nullable().optional(),
   bloodMl:           intraopNumber("bloodMl").nullable().optional(),
+  infusionsMl:       intraopNumber("infusionsMl").nullable().optional(),
   urineMl:           intraopNumber("urineMl").nullable().optional(),
   // nullable, not merely optional — the same reason ageYears is. Blood loss is
   // clinician-entered, and "not recorded" must stay distinct from a recorded

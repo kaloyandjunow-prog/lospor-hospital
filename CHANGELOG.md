@@ -1,5 +1,97 @@
 # Changelog - LOSPOR Hospital
 
+## [1.6.0] - 2026-10-19
+
+Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.0. Five
+clinical database migrations (`20261015120000_asa_suggestion`,
+`20261016120000_preop_documents`, `20261016140000_preop_document_layouts`,
+`20261017120000_preop_planned_anaesthesia`,
+`20261018120000_intraop_infusions_ml`), so going back to 1.5.6 restores the
+pre-update backup.
+
+### Added
+
+- **Target-controlled infusions.** Propofol, remifentanil, sufentanil and
+  alfentanil can run as TCI on the web and the phone.
+  - **Setting up:** the model (Marsh, Schnider, Eleveld, Paedfusor, Kataria;
+    Minto, Eleveld; Gepts; Maitre), Cp or Ce, the syringe and the target.
+  - **Totals:** worked out from the model and the patient's age, weight,
+    height and sex. The pump's own total, when entered, counts instead.
+  - **Research export:** keeps the model, every target and both totals.
+- **Both rates of an infusion.**
+  - **Syringe:** a syringe step, or Other with an amount and a volume.
+  - **Rates:** the dose rate and the pump rate (mL/hr) are both recorded.
+  - **Fluid balance:** drug-infusion millilitres count in it, on screen, on
+    the record and in the EHR header.
+  - **Children's local anaesthetic infusions:** entered in mL/kg/hr, limited
+    by dose for each age band.
+- **Preop summary and written consent**, both off until switched on.
+  - **Where:** on the preoperative form page in Status.
+  - **Print layouts:** five, A to E.
+  - **Consent texts:** two, for adults and 14–18, and for children under 14.
+    They are versioned, each print records the text, and they are edited in
+    Status with the technique tags for layouts C and D.
+  - **On the appliance:** the summary and consent print as a printable HTML
+    page in the browser, like the record. The appliance makes no server PDF.
+- **Preoperative assessment:**
+  - **Gupta:** a Gupta MICA cardiac risk card. Status has one switch that
+    turns on both of its questions, and says when only one is on.
+  - **ASA:** the ASA suggestion, stored beside the class chosen.
+  - **Planned anaesthesia.**
+  - **Children's fasting:** nil-by-mouth hours for each intake (APAGBI 2023
+    in one tap). The consent's fasting list follows them.
+  - **New catalogue questions:** previous ICU stay, alcohol use from 14, and
+    a child's vaccination in the last 2 weeks. The catalogue has 82 questions
+    in all, the new ones off by default.
+- **Calendar dates** beside the start and end of surgery. The record shows the
+  day of the case.
+- **Bulgarian names** for drugs, infusions, agents and fluids: five switches
+  in Settings.
+- **Clinical rule sets v3.** They are installed beside v2 on the update, and
+  the platform selection moves to v3 only where 1.2.0 made it.
+  Clinical guidance readiness accepts v3 exactly, and v2 where it stays
+  selected, so adult and paediatric guidance stay on after the update.
+- **Research Browser 0.9.0:**
+  - cohort filters on the raw RCRI, Apfel, STOP-BANG, POVOC, COLDS and PAED
+    counts;
+  - scores read out of their maximum with the guideline band;
+  - a case shows the Gupta MICA risk and the PAED band;
+  - the overview shows, for each ASA suggestion rule, how often the
+    anaesthetists agreed.
+
+### Changed
+
+- **Research export on the theatre's clock.** Dates are the local date and
+  times the local time with its offset, in the case's zone. A case begun
+  after midnight was dated the day before.
+- **Bulgarian for the appliance's own messages** (patient links,
+  hospital-system imports, Status, the AI model check), from Core 9.15.1.
+- **Apfel bands** follow the PONV consensus guidelines. The POVOC risk and
+  Gupta are derived on export, not stored.
+
+### Security
+
+- **The two accepted findings in Debian 13's libgnutls30t64**
+  (CVE-2026-88647, CVE-2026-88648) are fixed, not carried forward.
+  - **Why it could go:** the library was unused once LDAP, gnupg and apt were
+    removed, because PostgreSQL here uses OpenSSL. Debian still has no fixed
+    package.
+  - **The fix:** it is removed from the postgres image, and the build fails
+    if the package, the library file, or a library that needs it remains.
+  - **Exceptions:** the release no longer needs any risk exception.
+- **The base image's throwaway snakeoil key and certificate** (from Debian's
+  ssl-cert) are removed from the postgres image. Nothing used them.
+
+### Tested
+
+- **Postgres image:** the hardened-image suite on Ubuntu 24.04, PostgreSQL
+  start and the cross-base upgrade included.
+- **Trivy 0.74.0:** zero CRITICAL and zero HIGH, and no secrets.
+- **Upstream 9.15.0:** CI, including the web, phone and cross-app end-to-end
+  suites.
+- **Appliance:** the printable-HTML preop summary, held by four new overlay
+  checks.
+
 ## [1.5.6] - 2026-10-11
 
 Vendors Core, API, Web and PWA 9.14.5; Browser stays 0.8.3. No database

@@ -480,3 +480,6 @@ tbody tr:hover { background: #f8faf9; }
   .metrics-grid, .filter-grid { grid-template-columns: 1fr; }
   .topbar-scope { max-width: 48vw; }
 }
+
+/* A score filter: from and to side by side, one field. */
+.range-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }

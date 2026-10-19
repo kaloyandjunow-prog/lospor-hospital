@@ -5,11 +5,14 @@ import { weightBasisMap } from "@lospor/core/option-library"
 import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
 import { useOptionLibrary } from "@/lib/use-option-library"
 import { parseLogEvents } from "@lospor/core/intraop-types"
+import { endDayOffsetBetween, endDayOffsetLabel, formatDateKeyLong, isValidTimeZone, localDateKey } from "@lospor/core/intraop-time"
 import { View, Text } from "react-native"
 import { colors, withAlpha, useShade } from "@/theme/colors"
 import { usePreferences, type ClinicalStringKey, type TranslationKey } from "@/lib/preferences-context"
 import { displayClinicalCode, displayOptionEntry, displayOptionPath } from "@/lib/clinical-display"
 import { SummaryCard, InfoRow, Chip, ChipRow, Divider } from "./CaseDetailPrimitives"
+import { tciPatientFrom } from "@lospor/core/tci"
+import { tciTotalNote } from "@/components/intraop/TciSheetFields"
 import {
   MONITOR_MAP,
   airwayToolLabel,
@@ -119,6 +122,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
   const infusionTotals = calcInfusionTotals(
     timetableInfusions, summaryIBW, summaryTBW, weightBasisMap(infusionLibrary),
     summaryBsa?.available ? summaryBsa.value.squareMetres : null,
+    tciPatientFrom(preop ?? {}),
   )
   const infWeightNote = (() => {
     const weighted = infusionTotals.filter(r => r.weightUsed != null)
@@ -144,9 +148,16 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
     .map(mode => displayClinicalCode("ventilationMode", mode, language))
     .join(" + ")
 
+  const zone = isValidTimeZone(intraop.timezone) ? intraop.timezone : null
+  const startedAt = intraop.startedAt ? new Date(intraop.startedAt) : null
+  const endedAt = intraop.endedAt ? new Date(intraop.endedAt) : null
+  const startKey = startedAt && zone && !Number.isNaN(startedAt.getTime()) ? localDateKey(startedAt, zone) : null
+  const caseDate = (startKey && formatDateKeyLong(startKey, language === "bg" ? "bg" : "en")) || intraop.monthYear || null
   let timingStr = ""
   if (intraop.startTime && intraop.endTime) {
     timingStr = `${formatTimeHHMM(intraop.startTime)} → ${formatTimeHHMM(intraop.endTime)}`
+    const later = endDayOffsetLabel(startedAt && endedAt && zone ? endDayOffsetBetween(startedAt, endedAt, zone) : null, language === "bg" ? "bg" : "en")
+    if (later) timingStr += ` (${later})`
     if (intraop.durationMinutes) timingStr += `  ·  ${formatDuration(intraop.durationMinutes)}`
   } else if (intraop.durationMinutes) {
     timingStr = formatDuration(intraop.durationMinutes)
@@ -198,7 +209,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       )}
 
       {timingStr ? <InfoRow label={tc("summaryDuration")} value={timingStr} /> : null}
-      {intraop.monthYear ? <InfoRow label={tc("summaryDate")} value={intraop.monthYear} /> : null}
+      {caseDate ? <InfoRow label={tc("summaryDate")} value={caseDate} /> : null}
 
       <Divider />
 
@@ -243,7 +254,9 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
               const preexisting = va.preexisting
                 ? ` (${displayClinicalCode("clinicalAttribute", "preexisting", language)})`
                 : ""
-              const lbl = `${site} ${va.size}${va.sizeUnit}${va.lumens ? ` ${va.lumens}L` : ""}${preexisting}`
+              // A line without a recorded size is named alone (it read "undefinedundefined").
+              const size = va.size != null && va.size !== "" ? ` ${va.size}${va.sizeUnit ?? ""}` : ""
+              const lbl = `${site}${size}${va.lumens ? ` ${va.lumens}L` : ""}${preexisting}`
               return <Chip key={`va-${i}`} label={lbl} color={colors.textSecondary} />
             })}
           </ChipRow>
@@ -280,7 +293,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
             <View key={`it-${i}`} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.border, "66") }}>
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{displayClinicalCode("option:INTRAOP_INFUSION", d.name, language, { label: d.name })}</Text>
               <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "700" }}>
-                {formatInfusionTotal(d)}
+                {formatInfusionTotal(d)}{d.tci ? ` ${tciTotalNote(d.tci, d.unit, tc)}` : ""}
                 {d.weightUsed != null ? <Text style={{ color: colors.warning, fontSize: 10 }}> ≈</Text> : null}
               </Text>
             </View>
@@ -329,6 +342,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
           { labelKey: "summaryCrystalloid" as ClinicalStringKey, value: intraop.crystalloidsMl ?? 0, color: colors.primary },
           { labelKey: "summaryColloid" as ClinicalStringKey, value: intraop.colloidsMl ?? 0, color: shade("#38bdf8") },
           { labelKey: "summaryBlood" as ClinicalStringKey, value: intraop.bloodMl ?? 0, color: colors.danger },
+          { labelKey: "summaryInfusions" as ClinicalStringKey, value: intraop.infusionsMl ?? 0, color: shade("#a855f7") },
           { labelKey: "summaryUrineOut" as ClinicalStringKey, value: intraop.urineMl ?? 0, color: shade("#2dd4bf") },
         ]).map(item => (
           <View key={item.labelKey} style={{

@@ -9,6 +9,7 @@ import {
 import { MOBILE_DRUG_CAT_COLOR, MOBILE_FLUID_CAT_COLOR, MOBILE_AGENT_COLOR } from "@/lib/intraop-constants"
 import { metadataString } from "@lospor/core/option-contracts"
 import { weightBasisMap } from "@lospor/core/option-library"
+import { drugGroupColorHex } from "@lospor/core/catalog"
 import type { WeightBasisMap } from "@lospor/core/intraop-totals"
 import {
   applyAdultDoseProfilesToOptions,
@@ -129,7 +130,8 @@ export function useIntraopOptions(
   const DRUG_CATS = useMemo(
     () => groupDrugCategories(
       visibleClinicalOptions(drugLibOpts),
-      cat => MOBILE_DRUG_CAT_COLOR[cat] ?? shade("#64748b"),
+      // The group's colour, as the web shows it.
+      cat => shade(drugGroupColorHex(cat) ?? MOBILE_DRUG_CAT_COLOR[cat] ?? "#64748b"),
     ),
     [drugLibOpts, shade],
   )
@@ -148,6 +150,7 @@ export function useIntraopOptions(
         ?? metadataString(o.metadata, "defaultUnit")
         ?? "mcg/kg/min",
       color: o.color ?? shade("#64748b"),
+      group: o.group ?? undefined,
     })),
   [infusionLibOpts, searchOnlyInfusionNames, shade])
   // Per-kg infusion totals must use the basis the institution configured, not

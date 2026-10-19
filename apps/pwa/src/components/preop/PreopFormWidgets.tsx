@@ -1,98 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Modal, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native"
-import { colors, withAlpha, shadeLive as shade } from "@/theme/colors"
+import { colors, withAlpha } from "@/theme/colors"
 import type { ClinicalNumberChange } from "@/lib/clinical-number-entry"
 import { hapticKey, hapticTick } from "@/lib/haptic"
 import { useOptionLibrary } from "@/lib/use-option-library"
 import { displayOption } from "@/lib/clinical-display"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
-import type { ASASuggestion } from "@/lib/preop-asa-suggestion"
 import {
   getIcd10BodySystem,
   ICD10_BODY_SYSTEM_ORDER,
   type BodySystem,
 } from "@lospor/core/preop"
 import { metadataString } from "@lospor/core/option-contracts"
-import {
-  apfelRiskLabel as apfelRiskBandLabel,
-  rcriRiskLabel as rcriRiskBandLabel,
-  stopBangRiskLabel as stopBangRiskBandLabel,
-} from "@/lib/case-detail-summary"
 
 function impact() {
   hapticTick()
 }
 
-const ASA_OPTS: { v: "I"|"II"|"III"|"IV"|"V"|"VI"; color: string }[] = [
-  { v: "I",   color: "#22c55e" },
-  { v: "II",  color: "#84cc16" },
-  { v: "III", color: "#f59e0b" },
-  { v: "IV",  color: "#f97316" },
-  { v: "V",   color: "#ef4444" },
-  { v: "VI",  color: "#64748b" },
-]
 
-export function AsaPicker({
-  value,
-  onChange,
-  emergencySurgery,
-  suggestion,
-  labelSuggested,
-  labelSuggestedReview,
-  labelEmergencySuffix,
-}: {
-  value?: string
-  onChange: (v: string) => void
-  emergencySurgery: boolean
-  suggestion: ASASuggestion | null
-  labelSuggested: string
-  labelSuggestedReview: string
-  labelEmergencySuffix: string
-}) {
-  return (
-    <View style={{ gap: 8 }}>
-      {suggestion && (
-        <View style={{ backgroundColor: withAlpha(shade("#3b82f6"), "15"), borderRadius: 12, borderWidth: 1, borderColor: withAlpha(shade("#3b82f6"), "40"), paddingHorizontal: 12, paddingVertical: 10, gap: 4 }}>
-          <Text style={{ color: shade("#60a5fa"), fontSize: 13, fontWeight: "800" }}>
-            {labelSuggested} {suggestion.cls} {labelSuggestedReview}
-          </Text>
-          {suggestion.reasons.map((r) => (
-            <Text key={r} style={{ color: shade("#60a5fa"), fontSize: 12, opacity: 0.85 }}>• {r}</Text>
-          ))}
-        </View>
-      )}
-      {emergencySurgery && (
-        <View style={{ backgroundColor: withAlpha(colors.danger, "10"), borderRadius: 10, borderWidth: 1, borderColor: withAlpha(colors.danger, "40"), paddingHorizontal: 12, paddingVertical: 8 }}>
-          <Text style={{ color: colors.danger, fontSize: 12, fontWeight: "700" }}>{labelEmergencySuffix}</Text>
-        </View>
-      )}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {ASA_OPTS.map(({ v, color }) => {
-          const selected = value === v
-          const displayLabel = emergencySurgery && v !== "VI" ? `${v}E` : v
-          return (
-            <Pressable
-              key={v}
-              onPress={() => { impact(); onChange(value === v ? "" : v) }}
-              style={{
-                flex: 1, minWidth: 52, minHeight: 56,
-                alignItems: "center", justifyContent: "center",
-                borderRadius: 14, borderCurve: "continuous",
-                borderWidth: selected ? 2 : 1,
-                borderColor: selected ? color : colors.border,
-                backgroundColor: selected ? withAlpha(color, "22") : colors.surface,
-              }}
-            >
-              <Text style={{ color: selected ? color : colors.textSecondary, fontSize: 15, fontWeight: "900", letterSpacing: -0.3 }}>
-                {displayLabel}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
-    </View>
-  )
-}
+export { AsaPicker } from "./AsaPicker"
 
 export function SegmentButton({ label, selected, onPress, flex = 1, disabled = false }: {
   label: string
@@ -206,15 +132,7 @@ export function BloodGrid({ bloodType, rhFactor, onChange }: {
 // clinical word. This file used to carry its own table with the same
 // thresholds, so the preop form and the case summary could describe the same
 // score differently.
-export function rcriRiskLabel(s: number, locale: string) {
-  return rcriRiskBandLabel(s, locale).label
-}
-export function apfelRiskLabel(s: number, locale: string) {
-  return apfelRiskBandLabel(s, locale).label
-}
-export function stopBangRiskLabel(s: number, locale: string) {
-  return stopBangRiskBandLabel(s, locale).label
-}
+export { apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/case-detail-summary"
 
 const BODY_SYSTEM_TC: Record<string, ClinicalStringKey> = {
   "Cardiovascular":             "sysCardiovascular",
@@ -289,6 +207,7 @@ export function ComorbiditiesBySystem({ items, onRemove }: { items: { label: str
 }
 
 export { ScoreBadge } from "./ScoreBadge"
+export { GuptaRiskCard } from "./GuptaRiskCard"
 
 export function MetricBadge({ label, value, unit, tone = colors.primary }: { label: string; value: string; unit: string; tone?: string }) {
   return (

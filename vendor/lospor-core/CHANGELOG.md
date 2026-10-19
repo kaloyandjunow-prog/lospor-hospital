@@ -1,5 +1,156 @@
 # Changelog - LOSPOR Core
 
+## [9.15.1] - 2026-10-19
+
+### Added
+
+- **Bulgarian for LOSPOR Hospital's own server messages**: patient links,
+  hospital-system imports, Status, the AI model check and the lab-mapping
+  codes. The appliance's apps translate them with the same table, and its API
+  test now finds none untranslated.
+
+## [9.15.0] - 2026-10-19
+
+### Added
+
+- **Target-controlled infusions** (`tci`, `tci-models`, `tci-simulate`).
+  - **Models:** for propofol, Marsh, Schnider, Eleveld, Paedfusor and Kataria.
+    For remifentanil, Minto and Eleveld. Gepts for sufentanil and Maitre for
+    alfentanil.
+  - **Parameters** come from the published equations. They were cross-checked
+    against STANPUMP, VitalDB tivatci, simtiva, opentiva, PyTCI, Propofol
+    Dreams and the GALENO sheets. Where implementations disagree, the majority
+    is followed, and each choice is noted beside the value.
+  - **Effect site:** Marsh uses the modified ke0 of 1.2/min. Paedfusor and
+    Kataria take Muñoz's ke0. Eleveld propofol is arterial, with an opioid
+    switch (on by default).
+  - **Simulator:** the model is solved exactly in 10-second steps. It targets
+    plasma (Jacobs) or the effect site (Shafer–Gregg), and the pump is limited
+    to 1200 mL/h at the syringe strength.
+  - **Which models apply:** `tciModelsFor` gives the children's list under 16.
+  - **Problems:** `tciModelProblems` reports a model that cannot apply, because
+    the James lean body mass turns over (Schnider, Minto) or a volume or rate
+    constant comes out at zero or below (Kataria's V2 in an infant). It also
+    reports a patient outside the population the model was built on.
+  - **Helpers:** the patient comes from the preop record (`tciPatientFrom`).
+    `tciTotal` gives the calculated amount, the pump's own total and the volume.
+    Also `tciPrediction`, `tciPreview` (first 10 minutes and the hourly rate),
+    `tciTargetText` ("Ce 4 mcg/mL · Schnider"), and `tciPointsUpTo`, a
+    bisection so an infusion that runs for weeks stays quick.
+- **TCI in the intraoperative record.**
+  - **Events:** `infusion_start` carries `tciModel`, `tciSite` and
+    `tciOpioids`, with the target as its rate. `infusion_stop` may carry
+    `pumpTotal` and `pumpTotalUnit` (mL, mg or mcg), and a pump total entered
+    after the stop updates the stop event.
+  - **Totals:** totals, delivered volume and the fluid balance take the
+    patient. The pump's total, when it can be converted, counts instead of the
+    calculation. A total in mL with no recorded strength says so
+    (`pumpNeedsStrength`).
+  - **Timetable:** running rows carry the predicted Cp or Ce.
+- **Both rates of an infusion** (`infusion-volume`, `infusion-entry`).
+  - **Syringes:** syringe presets for each infusion, and conversion between
+    the dose rate and the pump rate.
+  - **Entry:** the units a rate may be entered in are the drug's own, with or
+    without per kg, and mL/hr. Each unit has its own slider.
+  - **What is saved:** the record carries both rates (`volumeRateMlPerHour`
+    and the weight).
+  - **Volume:** the mL infused counts in the fluid balance
+    (`FluidTotals.infusions`).
+  - **Other:** a syringe typed with Other gets amount and volume fields
+    (`customSyringeFields`).
+  - **Why not:** `infusionConfirmProblem` and `doseConfirmProblem` say why a
+    start, a rate change or a bolus is held back.
+- **Local anaesthetic infusions for children** in mL/kg/hr, limited by dose
+  per age band: 0.2 mg/kg/hr under 3 months, 0.3 to 1 year and 0.4 from
+  1 year. `volume-dose` turns the strength into the slider's maximum and
+  suggestion, the pump rate and the dose.
+- **Strength typed with Other** (`strength-entry`). A % or mg/mL gets a
+  clinical range for named local anaesthetics and fluids, or a range drawn
+  from the drug's own strengths, with pills and a prefill. A number outside
+  the range is refused.
+- **Gupta MICA** (`gupta`), the published model (Circulation 2011).
+  - **Inputs:** age, ASA I–V, functional status in three levels, creatinine
+    above 1.5 mg/dL (unknown without a result), and 21 procedure types.
+  - **Procedure type:** suggested from the planned procedure groups, the
+    riskiest one winning.
+  - **Band:** 1 % or more reads "elevated".
+  - **Removed:** the invented `calcGupta` in `scores.ts`.
+- **ASA suggestion.**
+  - **Rules:** 54 WHO ICD-10 rules plus the BMI rules, a rule-table version,
+    and Bulgarian names.
+  - **Agreement:** `asaAgreementByRule` counts agreement for each rule, hiding
+    small groups.
+  - **No evidence, no suggestion:** nothing is suggested when nothing is coded
+    and the BMI is unremarkable, which used to give ASA I.
+  - **Rule changes:**
+    - I21 (acute MI) moves from III to IV.
+    - Z86.7 moves from III to II.
+    - E66.9 and the US-only J45.5 are removed.
+    - K25–K27 (ulcers) are added.
+- **Paediatric fasting as nil-by-mouth assignments**: hours before surgery for
+  each intake. The APAGBI 2023 minimums are 1, 3, 4 and 6 hours, and a shorter
+  assignment is flagged. Includes `fastingDeadline` and `fastingClockTimes`.
+- **Paediatric intraop reference**: BSA, maintenance fluid and resuscitation
+  doses worked out from the record. The shock dose follows RCUK 2025: 4 J/kg,
+  rising to 8 J/kg from the 5th shock, never above 360 J.
+- **Calendar dates for surgery** (`intraop-time`), all in the case's zone.
+  - **Date keys:** `localDateKey`, `instantFromDateKey`, `shiftDateKey` and
+    `daysBetweenDateKeys`.
+  - **End day:** `defaultEndDayOffset`, `earliestEndDateKey` and
+    `endDayOffsetBetween`.
+  - **Month and labels:** `monthYearOf`, the day stepper's words, and
+    `formatDateKeyLong`.
+  - **End instant:** `endInstantForWallClock` takes a day offset.
+- **Preop documents** (`preop-documents`).
+  - **Consent texts:** two bundled Bulgarian texts (under 14, and 14 to 18 or
+    adult), in a plain-text format with headings, lists, bold and case fields.
+  - **Signers:** who signs by age, under Закон за здравето чл. 87.
+  - **Layouts:** five print layouts, A to E.
+  - **Technique tags:** a heading may carry a tag ("## Обща анестезия
+    [general]") for layouts C and D.
+  - **Fasting:** the consent's fasting list follows the child's assignment.
+  - **Questionnaire:** the summary prints the whole questionnaire with every
+    answer.
+- **Planned anaesthesia** (`preop-plan`), in the intraoperative record's
+  menus: techniques, airway devices and instruments, lines, and ventilation
+  after the operation. Catalogue questions may carry `minAgeYears`.
+- **Research scores shown as raw counts** out of their maximum, with the
+  published band at display time. PAED gets bands: under 10 none, 10–12
+  possible, over 12 likely. Research cohort filters cover the raw RCRI,
+  Apfel, STOP-BANG, POVOC, COLDS and PAED counts.
+- **Bulgarian names**:
+  - for every premedication, intraoperative drug, infusion and inhalational
+    agent, and display names for fluids;
+  - one switch per catalogue in the clinical preferences (records keep the
+    catalogue name);
+  - `server-messages`, a Bulgarian table for the API's messages;
+  - the event log, medication warnings, local anaesthetic baricity and the
+    vital abbreviations (АН / СЧ / ДЧ / Темп.) in the reader's language;
+  - Алдрет in Bulgarian terms.
+- **Infusions added**: midazolam, remimazolam, clonidine, thiopental,
+  morphine, urapidil, methylene blue, tranexamic acid, potassium chloride,
+  calcium gluconate and chloride, sodium bicarbonate, hydrocortisone,
+  pantoprazole and somatostatin. Also epidural fentanyl, plain Ringer's
+  solution and mannitol 20 %.
+- **Clinical rule sets v3** (adult 267 rules, paediatric 367).
+  - **Drug groups:** drugs are regrouped by their primary use.
+  - **Adjuvants:** own intrathecal, epidural and perineural doses.
+  - **Paediatric bands:** a suggestion, a range and pills for every band.
+  - **Hidden for children:** some drugs are hidden for children only.
+  - **Units:** amiodarone is given in mg/hr.
+  - **v2 unchanged:** the fingerprinted v2 baselines are built from the
+    catalogues as released (`release-1-2-0`).
+
+### Changed
+
+- **Apfel bands follow the PONV consensus** (Gan 2025): about 10, 20, 40, 60
+  and 80 % for 0–4 factors, with 0 low, 1–2 medium and 3+ high. One factor
+  read "Low (< 10 %)".
+- **Case-summary chart**: each infusion, agent and fluid has its own row, as
+  on the printed record. Gas and position keep one row each.
+
+## [9.14.5] - 2026-10-11
+
 ## [9.14.5] - 2026-10-11
 
 ### Added

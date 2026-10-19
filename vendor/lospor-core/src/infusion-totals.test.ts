@@ -10,8 +10,9 @@ import {
   infusionCalculationBasis,
   withInfusionInstants,
 } from "./intraop-totals"
+import { infusionVolumeMl } from "./infusion-volume"
 import { timetableEditToEventOps } from "./intraop-timetable-edit"
-import type { LogEvent, TimetableData } from "./intraop-types"
+import { parseLogEvents, type LogEvent, type TimetableData } from "./intraop-types"
 
 // Infusion totals as they are printed and shown (9.12.3). Each case below was
 // a wrong number on the printed protocol or a screen before.
@@ -213,5 +214,35 @@ describe("infusion totals per m² of body surface", () => {
   it("accept m2 written without the superscript", () => {
     const plain = { ...perM2, unit: "mg/m2/hr" }
     expect(calcInfusionTotal(plain, 70, 80, {}, 2).amount).toBe(30)
+  })
+})
+
+describe("both rates of an infusion (2026-10-18)", () => {
+  const log: LogEvent[] = [
+    { id: "s", ts: at(0), type: "infusion_start", infId: "i", name: "Norepinephrine / Noradrenaline", rate: "0.1", unit: "mcg/kg/min", concentration: "4 mg/50 mL", calculationWeightKg: 70, volumeRateMlPerHour: 5.25 },
+    { id: "r", ts: at(60), type: "infusion_rate", infId: "i", rate: "0.2", unit: "mcg/kg/min", volumeRateMlPerHour: 10.5 },
+    { id: "e", ts: at(90), type: "infusion_stop", infId: "i" },
+  ]
+  it("keeps the pump rate when events are read back from storage", () => {
+    expect(parseLogEvents(JSON.parse(JSON.stringify(log)))).toEqual(log)
+  })
+
+  it("carries the pump rate and weight onto the chart and gives the millilitres", () => {
+    const [bar] = chartOf(log).infusions
+    expect(bar).toMatchObject({ volumeRateMlPerHour: 5.25, calculationWeightKg: 70, unit: "mcg/kg/min" })
+    expect(bar?.rateChanges?.[0]).toMatchObject({ volumeRateMlPerHour: 10.5 })
+    expect(infusionVolumeMl(bar!)).toBe(10.5)
+  })
+
+  it("keeps both through an edit of the chart on the web", () => {
+    const before = projectIntraopEvents(log, { start, openThrough: at(120) })
+    const after = JSON.parse(JSON.stringify(before)) as TimetableData
+    after.infusions = after.infusions.map(bar => ({ ...bar, rateChanges: bar.rateChanges?.map(change => ({ ...change, rate: 0.3, volumeRateMlPerHour: 15.75 })) }))
+    const ops = timetableEditToEventOps({ log, before, after, chartStart: start, now: at(120), newId: () => "n" })
+    expect([...ops.add, ...ops.update].find(event => event.type === "infusion_rate")).toMatchObject({ rate: "0.3", volumeRateMlPerHour: 15.75 })
+    const moved = JSON.parse(JSON.stringify(before)) as TimetableData
+    moved.infusions = moved.infusions.map(bar => ({ ...bar, startCol: 1 }))
+    const start2 = [...timetableEditToEventOps({ log, before, after: moved, chartStart: start, now: at(120), newId: () => "n" }).update].find(event => event.type === "infusion_start")
+    expect(start2).toMatchObject({ volumeRateMlPerHour: 5.25, calculationWeightKg: 70 })
   })
 })

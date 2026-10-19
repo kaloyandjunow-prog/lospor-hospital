@@ -11,6 +11,7 @@ import type { LABELS } from "@/components/case-summary/labels"
 import { finalizeErrorMessage } from "@/components/case-summary/finalize-error"
 import { caseReadiness, readinessFromRefusal, type CaseReadiness } from "@lospor/core/case-readiness"
 import { ReadinessPanel } from "@/components/case-summary/ReadinessPanel"
+import { serverMessage } from "@/lib/server-message"
 
 type Labels = (typeof LABELS)["en" | "bg"]
 
@@ -133,7 +134,7 @@ export function ReviewBar({
       const res = await fetch(`/api/cases/${caseId}/unfinalize`, { method: "POST" })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        alert(typeof body?.error === "string" ? body.error : L.unfinalizeFailed)
+        alert(typeof body?.error === "string" ? serverMessage(body.error) : L.unfinalizeFailed)
         return
       }
       onUnfinalized()

@@ -10,6 +10,8 @@ import type {
 import { INTRAOP_COLUMN_MINUTES } from "./intraop-engine"
 import { localTimeOf } from "./intraop-time"
 import { segmentEventIds } from "./intraop-save-state"
+import { POSITIONS } from "./catalog/position"
+import { tciPointsUpTo, tciPrediction, type TciModel, type TciPatient, type TciSite } from "./tci"
 
 export type DrugTotal = {
   name: string
@@ -56,7 +58,11 @@ export type RunningItemMarks = {
 export type RunningItem = RunningItemMarks & (
   | { kind: "agent"; id: string; name: string; color: string }
   | { kind: "gas"; id: string; fgf: number; fio2: number; color: string }
-  | { kind: "infusion"; id: string; name: string; rate: NumericText; unit: string; color: string }
+  | {
+      kind: "infusion"; id: string; name: string; rate: NumericText; unit: string; color: string
+      /** A TCI infusion: its model and site, and the predicted Cp or Ce at the row's end (2026-10-18). */
+      tci?: { model: TciModel; site: TciSite; predicted?: number }
+    }
   | {
       kind: "fluid"
       id: string
@@ -135,6 +141,10 @@ export type SemanticEventDescriptor = {
 }
 
 export type EventDescriptorOptions = {
+  /** The reader's language for the fixed words of the log (2026-10-18); English by default. */
+  language?: string
+  /** A drug's category in the reader's language (the apps' own group labels). */
+  drugCategoryLabel?: (category: string) => string
   drugColor?: (name: string) => string
   clinicalEventColor?: (label: string) => string
   previousVital?: SemanticLogEvent
@@ -178,17 +188,71 @@ export function normalizeGasSettings(
   }
 }
 
+/**
+ * Vital-sign abbreviations on screen (2026-10-18): Bulgarian screens use the
+ * printed record's АН / СЧ / ДЧ / Темп.; SpO₂ and EtCO₂ read the same in both.
+ */
+export const VITAL_ABBREVIATIONS = {
+  en: { bp: "BP", hr: "HR", rr: "RR", temp: "Temp", tempShort: "T", sbp: "SBP", dbp: "DBP", perMinute: "/min", bpm: "bpm" },
+  bg: { bp: "АН", hr: "СЧ", rr: "ДЧ", temp: "Темп.", tempShort: "Т", sbp: "САН", dbp: "ДАН", perMinute: "/мин", bpm: "уд/мин" },
+} as const
+
+export function vitalAbbreviations(language?: string | null): (typeof VITAL_ABBREVIATIONS)["en" | "bg"] {
+  return VITAL_ABBREVIATIONS[language?.toLowerCase().startsWith("bg") ? "bg" : "en"]
+}
+
+// The log's fixed words. Names (drugs, fluids, agents) and standard
+// abbreviations stay as recorded; the words around them follow the reader.
+const EVENT_WORDS = {
+  en: {
+    event: "Event", infusion: "Infusion", infusionStarted: "Infusion started", rateChanged: "Rate changed",
+    stopped: (name: string) => `${name} stopped`, fluid: "Fluid", fluidRateStarted: "Fluid rate started",
+    fluidRateChanged: "Fluid rate changed", complete: (name: string) => `${name} complete`, agent: "Agent",
+    on: (name: string) => `${name} on`, off: (name: string) => `${name} off`, volatile: "Volatile",
+    gasStarted: "Gas settings started", gasChanged: "Gas settings changed", gasStopped: "Gas settings stopped",
+    gasSettings: "Gas settings", positionChanged: "Position changed", position: "Position",
+    phaseChanged: "Phase changed", casePhase: "Case phase",
+  },
+  bg: {
+    event: "Събитие", infusion: "Инфузия", infusionStarted: "Начало на инфузия", rateChanged: "Промяна на скоростта",
+    stopped: (name: string) => `${name} — спряна`, fluid: "Течност", fluidRateStarted: "Начало на вливане със скорост",
+    fluidRateChanged: "Промяна на скоростта на течност", complete: (name: string) => `${name} — вливането приключи`, agent: "Анестетик",
+    on: (name: string) => `${name} — включен`, off: (name: string) => `${name} — изключен`, volatile: "Инхалационен анестетик",
+    gasStarted: "Свеж газ — начало", gasChanged: "Свеж газ — промяна", gasStopped: "Свеж газ — спрян",
+    gasSettings: "Свеж газ", positionChanged: "Промяна на позицията", position: "Позиция",
+    phaseChanged: "Промяна на етапа", casePhase: "Етап",
+  },
+} as const
+
+// Case phases, recorded on older charts only (no screen offers them now).
+const PHASE_NAMES_BG: Readonly<Record<string, string>> = {
+  induction: "Увод", maintenance: "Поддържане", emergence: "Събуждане", recovery: "Възстановяване",
+}
+
+function phaseName(value: string | undefined, language: "en" | "bg"): string | undefined {
+  if (!value || language !== "bg") return value
+  return PHASE_NAMES_BG[value.toLowerCase()] ?? value
+}
+
+function positionName(value: string | undefined, language: "en" | "bg"): string | undefined {
+  if (!value) return undefined
+  const entry = POSITIONS.find(position => position.v === value || position.label === value)
+  return entry ? (language === "bg" ? entry.labelBg : entry.label) : value
+}
+
 export function describeIntraopEvent(
   event: SemanticLogEvent,
   options: EventDescriptorOptions = {},
 ): SemanticEventDescriptor {
+  const language = options.language?.toLowerCase().startsWith("bg") ? "bg" : "en"
+  const w = EVENT_WORDS[language]
   switch (event.type) {
     case "drug":
       return {
         key: "drug",
         text: `${event.name ?? ""} ${event.dose ?? ""} ${event.unit ?? ""}`.trim(),
         color: event.color ?? options.drugColor?.(event.name ?? "") ?? "#3b82f6",
-        ...(event.category ? { sub: event.category } : {}),
+        ...(event.category ? { sub: options.drugCategoryLabel?.(event.category) ?? event.category } : {}),
       }
     case "vital": {
       const parts: string[] = []
@@ -197,11 +261,11 @@ export function describeIntraopEvent(
         options.trend?.(current, prior) ?? ""
       if (event.systolic != null && event.diastolic != null) {
         parts.push(
-          `BP ${event.systolic}${trend(event.systolic, previous?.systolic)}/${event.diastolic}`,
+          `${vitalAbbreviations(language).bp} ${event.systolic}${trend(event.systolic, previous?.systolic)}/${event.diastolic}`,
         )
       }
       if (event.heartRate != null) {
-        parts.push(`HR ${event.heartRate}${trend(event.heartRate, previous?.heartRate)}`)
+        parts.push(`${vitalAbbreviations(language).hr} ${event.heartRate}${trend(event.heartRate, previous?.heartRate)}`)
       }
       if (event.spO2 != null) {
         parts.push(`SpO2 ${event.spO2}%${trend(event.spO2, previous?.spO2)}`)
@@ -216,7 +280,7 @@ export function describeIntraopEvent(
       return { key: "vital", text: parts.join("  "), color: "#22c55e" }
     }
     case "clinical_event": {
-      const label = event.label ?? "Event"
+      const label = event.label ?? w.event
       return {
         key: "clinical_event",
         text: label,
@@ -230,21 +294,21 @@ export function describeIntraopEvent(
         key: "infusion_started",
         text: `${event.name ?? ""} ${event.rate ?? ""} ${event.unit ?? ""}`.trim(),
         color: event.color ?? "#6366f1",
-        sub: "Infusion started",
+        sub: w.infusionStarted,
       }
     case "infusion_rate":
       return {
         key: "infusion_rate_changed",
         text: `${event.name ?? ""} \u2192 ${event.rate ?? ""} ${event.unit ?? ""}`.trim(),
         color: event.color ?? "#6366f1",
-        sub: "Rate changed",
+        sub: w.rateChanged,
       }
     case "infusion_stop":
       return {
         key: "infusion_stopped",
-        text: `${event.name ?? "Infusion"} stopped`,
+        text: w.stopped(event.name ?? w.infusion),
         color: "#64748b",
-        sub: "Infusion",
+        sub: w.infusion,
       }
     case "fluid_start":
       if (event.fluidEntryMode === "RATE") {
@@ -252,44 +316,44 @@ export function describeIntraopEvent(
           key: "fluid_started",
           text: `${event.name ?? ""} ${event.rate ?? ""} ${event.unit ?? "mL/h"}`.trim(),
           color: event.color ?? "#06b6d4",
-          sub: "Fluid rate started",
+          sub: w.fluidRateStarted,
         }
       }
       return {
         key: "fluid_started",
         text: `${event.name ?? ""} ${event.bagVolumeMl ?? event.volume ?? ""} mL`.trim(),
         color: event.color ?? "#06b6d4",
-        sub: "Fluid",
+        sub: w.fluid,
       }
     case "fluid_rate":
       return {
         key: "fluid_rate_changed",
-        text: `${event.name ?? "Fluid"} → ${event.rate ?? ""} ${event.unit ?? "mL/h"}`.trim(),
+        text: `${event.name ?? w.fluid} → ${event.rate ?? ""} ${event.unit ?? "mL/h"}`.trim(),
         color: event.color ?? "#06b6d4",
-        sub: "Fluid rate changed",
+        sub: w.fluidRateChanged,
       }
     case "fluid_end":
       return {
         key: "fluid_completed",
         text: event.administeredVolumeMl != null
-          ? `${event.name ?? "Fluid"} complete · ${event.administeredVolumeMl} mL`
-          : `${event.name ?? "Fluid"} complete`,
+          ? `${w.complete(event.name ?? w.fluid)} · ${event.administeredVolumeMl} mL`
+          : w.complete(event.name ?? w.fluid),
         color: "#64748b",
-        sub: "Fluid",
+        sub: w.fluid,
       }
     case "agent_start":
       return {
         key: "agent_started",
-        text: event.value ? `${event.name ?? "Agent"} ${event.value}%` : `${event.name ?? "Agent"} on`,
+        text: event.value ? `${event.name ?? w.agent} ${event.value}%` : w.on(event.name ?? w.agent),
         color: event.color ?? "#a855f7",
-        sub: "Volatile",
+        sub: w.volatile,
       }
     case "agent_stop":
       return {
         key: "agent_stopped",
-        text: `${event.name ?? "Agent"} off`,
+        text: w.off(event.name ?? w.agent),
         color: "#64748b",
-        sub: "Volatile",
+        sub: w.volatile,
       }
     case "gas_start":
     case "gas_change":
@@ -303,33 +367,35 @@ export function describeIntraopEvent(
           fiN2O: event.fiN2O,
         }),
         color: "#6366f1",
-        sub: event.type === "gas_start" ? "Gas settings started" : "Gas settings changed",
+        sub: event.type === "gas_start" ? w.gasStarted : w.gasChanged,
       }
     case "gas_stop":
       return {
         key: "gas_stopped",
-        text: "Gas settings stopped",
+        text: w.gasStopped,
         color: "#64748b",
-        sub: "Gas settings",
+        sub: w.gasSettings,
       }
     case "position_change":
       return {
         key: "position_changed",
-        text: event.label ?? event.value ?? "Position changed",
+        // The position is recorded in `name` (the engine writes it there); the
+        // log named only "Position changed" before 2026-10-18.
+        text: positionName(event.label ?? event.value ?? event.name, language) ?? w.positionChanged,
         color: event.color ?? "#0ea5e9",
-        sub: "Position",
+        sub: w.position,
       }
     case "phase_change":
       return {
         key: "phase_changed",
-        text: event.label ?? event.value ?? "Phase changed",
+        text: phaseName(event.label ?? event.value ?? event.name, language) ?? w.phaseChanged,
         color: event.color ?? "#64748b",
-        sub: "Case phase",
+        sub: w.casePhase,
       }
     default:
       return {
         key: "event",
-        text: event.label ?? event.type ?? "Event",
+        text: event.label ?? event.type ?? w.event,
         color: event.color ?? "#64748b",
       }
   }
@@ -418,7 +484,35 @@ export function fluidRateAtColumn(
  * Never for a record, a summary or an ended case -- an item continued into
  * recovery does not run on in the chart after the end.
  */
-export type RunningItemsOptions = { projectRunning?: boolean }
+export type RunningItemsOptions = {
+  projectRunning?: boolean
+  /** The patient a TCI infusion's prediction is worked out for. */
+  tciPatient?: TciPatient | null
+}
+
+/** A TCI infusion's predicted concentration (at its site) at the end of each column it covers. */
+function tciPredictedByColumn(infusion: TimetableData["infusions"][number], patient: TciPatient | null | undefined): Map<number, number> {
+  const out = new Map<number, number>()
+  if (!infusion.tciModel || !patient || !infusion.startTs || infusion.planned) return out
+  const columnMs = INTRAOP_COLUMN_MINUTES * 60_000
+  const startMs = Date.parse(infusion.startTs)
+  const firstColumn = Math.floor(startMs / columnMs) * columnMs
+  const lastEnd = firstColumn + (infusion.endCol - infusion.startCol + 1) * columnMs
+  const endMs = infusion.endTs ? Date.parse(infusion.endTs) : lastEnd
+  const changes = [
+    { atMs: startMs, target: Number(infusion.rate) || 0 },
+    ...(infusion.rateChanges ?? []).filter(change => !change.planned && change.ts).map(change => ({ atMs: Date.parse(change.ts!), target: Number(change.rate) || 0 })),
+  ].filter(change => change.atMs <= endMs)
+  const points = tciPrediction({ ...infusion, tciModel: infusion.tciModel }, changes, endMs, patient)
+  if (!points.length) return out
+  for (let column = infusion.startCol; column <= infusion.endCol; column += 1) {
+    const at = Math.min(firstColumn + (column - infusion.startCol + 1) * columnMs, endMs)
+    const point = points[Math.max(0, tciPointsUpTo(points, at) - 1)]
+    const value = infusion.tciSite === "PLASMA" ? point.cp : point.ce
+    out.set(column, Number(value.toPrecision(2)))
+  }
+  return out
+}
 
 export function runningItemsAt(
   timetable: TimetableData,
@@ -486,6 +580,7 @@ export function runningItemsByColumn(
   }
 
   for (const infusion of timetable.infusions) {
+    const predicted = tciPredictedByColumn(infusion, options.tciPatient)
     const allChanges = [...(infusion.rateChanges ?? [])].sort((a, b) => a.col - b.col)
     const inForce = allChanges.filter(change => !change.planned)
     for (const column of columns) {
@@ -506,6 +601,7 @@ export function runningItemsByColumn(
         unit: latest?.unit ?? infusion.unit,
         color: infusion.color ?? "#3b82f6",
         eventIds: segmentEventIds(infusion),
+        ...(infusion.tciModel ? { tci: { model: infusion.tciModel, site: infusion.tciSite ?? "EFFECT", ...(predicted.has(column) ? { predicted: predicted.get(column) } : {}) } } : {}),
         ...marks,
       })
     }
@@ -636,16 +732,17 @@ export function naturalTimetableColumnCount(
   return Math.max(Math.max(...columns) + 1, minimumColumns) + trailingColumns
 }
 
-export function vitalSummaryParts(vital?: VitalsEntry): string[] {
+export function vitalSummaryParts(vital?: VitalsEntry, language?: string): string[] {
   if (!vital) return []
+  const a = vitalAbbreviations(language)
   const parts: string[] = []
   if (vital.systolic != null && vital.diastolic != null) {
     parts.push(`${vital.systolic}/${vital.diastolic}`)
   }
-  if (vital.heartRate != null) parts.push(`HR ${vital.heartRate}`)
+  if (vital.heartRate != null) parts.push(`${a.hr} ${vital.heartRate}`)
   if (vital.spO2 != null) parts.push(`SpO2 ${vital.spO2}`)
   if (vital.etco2 != null) parts.push(`CO2 ${vital.etco2}`)
-  if (vital.temp != null) parts.push(`T ${vital.temp}\u00b0C`)
+  if (vital.temp != null) parts.push(`${a.tempShort} ${vital.temp}\u00b0C`)
   if (vital.bis != null) parts.push(`BIS ${vital.bis}`)
   if (vital.tofRatio != null) parts.push(`TOF ${vital.tofRatio}`)
   if (vital.cvp != null) parts.push(`CVP ${vital.cvp}`)
@@ -656,15 +753,17 @@ export function buildRowSummary(
   vital: VitalsEntry | undefined,
   rowEvents: LogEvent[],
   labelOf: (event: LogEvent) => string,
+  language?: string,
 ): RowSummary {
+  const a = vitalAbbreviations(language)
   const criticalParts: string[] = []
   const normalParts: string[] = []
   if (vital?.systolic != null) {
-    const value = `BP ${vital.systolic}/${vital.diastolic ?? "?"}`
+    const value = `${a.bp} ${vital.systolic}/${vital.diastolic ?? "?"}`
     ;(vital.systolic < 90 ? criticalParts : normalParts).push(value)
   }
   if (vital?.heartRate != null) {
-    const value = `HR ${vital.heartRate}`
+    const value = `${a.hr} ${vital.heartRate}`
     ;(vital.heartRate < 50 || vital.heartRate > 130 ? criticalParts : normalParts).push(value)
   }
   if (vital?.spO2 != null) {
@@ -672,7 +771,7 @@ export function buildRowSummary(
     ;(vital.spO2 < 95 ? criticalParts : normalParts).push(value)
   }
   if (vital?.temp != null) {
-    const value = `T ${vital.temp}`
+    const value = `${a.tempShort} ${vital.temp}`
     ;(vital.temp < 35 ? criticalParts : normalParts).push(value)
   }
   if (vital?.etco2 != null) normalParts.push(`CO2 ${vital.etco2}`)

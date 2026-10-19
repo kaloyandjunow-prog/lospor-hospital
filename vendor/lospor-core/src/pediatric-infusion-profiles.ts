@@ -457,7 +457,217 @@ const definitions: readonly Definition[] = [
       { minimumAgeDays: age.months(1), maximumAgeDaysExclusive: PEDIATRIC_END, minimumWeightKg: 70, minimumWeightInclusive: true, disposition: "AUTO", profile: surface({ min: 0, max: 2, step: 0.1, unit: "mg/hr", quickValues: [1, 2], suggestedRate: 1, weightBasis: "none" }), advisory: "Central line only; off-label/PICU profile. Hard absolute maximum 2 mg/hr." },
     ],
   },
+  // Added 2026-10-18. Manual where a per-kg rate is recorded without a
+  // suggestion; local where paediatric use is unestablished or protocol-bound.
+  { itemKey: "Midazolam", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 0.3, step: 0.01, unit: "mg/kg/hr" }), { manualEntryOnly: true })] },
+  { itemKey: "Remimazolam", sourceRefs: [], bands: [allAges("LOCAL", null, { manualUnit: "mg/kg/hr", manualEntryOnly: true, advisory: "Not authorised for children; institution or personal protocol required." })] },
+  { itemKey: "Clonidine", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 2, step: 0.1, unit: "mcg/kg/hr" }), { manualEntryOnly: true })] },
+  { itemKey: "Thiopental / Thiopentone", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 5, step: 0.5, unit: "mg/kg/hr" }), { manualEntryOnly: true })] },
+  { itemKey: "Morphine", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 60, step: 1, unit: "mcg/kg/hr" }), { manualEntryOnly: true, advisory: "Neonates and infants need a lower rate and respiratory monitoring." })] },
+  { itemKey: "Urapidil", sourceRefs: [], bands: [allAges("LOCAL", null, { manualUnit: "mg/hr", manualEntryOnly: true, advisory: "Paediatric dosing is not established; local protocol required." })] },
+  { itemKey: "Methylene blue", sourceRefs: [], bands: [allAges("LOCAL", null, { manualUnit: "mg/kg/hr", manualEntryOnly: true, advisory: "Local protocol required." })] },
+  { itemKey: "Tranexamic acid", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 10, step: 0.5, unit: "mg/kg/hr" }), { manualEntryOnly: true })] },
+  { itemKey: "Potassium chloride", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 0.5, step: 0.01, unit: "mmol/kg/hr" }), { manualEntryOnly: true, advisory: "Check the maximum rate for the line (peripheral or central)." })] },
+  { itemKey: "Calcium gluconate", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 20, step: 0.5, unit: "mg/kg/hr" }), { manualEntryOnly: true })] },
+  { itemKey: "Calcium chloride", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 20, step: 0.5, unit: "mg/kg/hr" }), { manualEntryOnly: true, advisory: "Central line preferred." })] },
+  { itemKey: "Sodium bicarbonate", sourceRefs: [], bands: [allAges("MANUAL", surface({ min: 0, max: 1, step: 0.05, unit: "mEq/kg/hr" }), { manualEntryOnly: true })] },
+  { itemKey: "Hydrocortisone", sourceRefs: [], bands: [allAges("LOCAL", null, { manualUnit: "mg/hr", manualEntryOnly: true, advisory: "Dose by body surface area or local protocol." })] },
+  { itemKey: "Pantoprazole", sourceRefs: [], bands: [allAges("LOCAL", null, { manualUnit: "mg/hr", manualEntryOnly: true, advisory: "Local protocol required." })] },
+  { itemKey: "Somatostatin", sourceRefs: [], bands: [allAges("LOCAL", null, { manualUnit: "mcg/hr", manualEntryOnly: true, advisory: "Local protocol required." })] },
 ]
+
+/**
+ * Paediatric v3 (2026-10-18): every band that offered no starting rate now
+ * suggests one, and bands with no paediatric use are hidden -- in children
+ * only. v2 is released and fingerprinted, so these apply only to v3.
+ */
+type Edition = "v2" | "v3"
+
+/** The band suggesting `rate`; a routed profile suggests it on IV. */
+function autoBand(band: ProfileBand, rate: number, changes: Partial<SurfaceInput> = {}): ProfileBand {
+  const profile = band.profile
+  if (!profile) throw new Error("A suggested rate needs a profile")
+  const routeModes = profile.routeModes
+  return {
+    ...band,
+    disposition: "AUTO",
+    manualEntryOnly: false,
+    routineSuggestion: true,
+    ...(band.routeDispositions?.IV ? { routeDispositions: { ...band.routeDispositions, IV: "AUTO" as const } } : {}),
+    profile: routeModes?.IV
+      ? { ...profile, routeModes: { ...routeModes, IV: { ...routeModes.IV, ...changes, suggestedRate: rate } } }
+      : { ...profile, ...changes, suggestedRate: rate },
+  }
+}
+
+const hiddenBand = (band: ProfileBand): ProfileBand => ({
+  ...band,
+  disposition: "HIDDEN",
+  profile: null,
+  routeDispositions: {},
+  routeManualEntryOnly: {},
+  manualEntryOnly: true,
+  routineSuggestion: false,
+  manualUnit: null,
+})
+
+/** The band without routes children do not get (spinal-catheter and lidocaine neuraxial infusions). */
+function withoutRoutes(band: ProfileBand, drop: readonly string[]): ProfileBand {
+  const profile = band.profile
+  if (!profile?.routeModes) return band
+  const keep = <T,>(record?: Record<string, T>) => record
+    ? Object.fromEntries(Object.entries(record).filter(([route]) => !drop.includes(route)))
+    : record
+  const routes = (profile.routes ?? []).filter(route => !drop.includes(route))
+  return {
+    ...band,
+    profile: {
+      ...profile,
+      routes,
+      defaultRoute: profile.defaultRoute && routes.includes(profile.defaultRoute) ? profile.defaultRoute : routes[0],
+      routeModes: keep(profile.routeModes),
+    },
+    routeDispositions: keep(band.routeDispositions),
+    routeManualEntryOnly: keep(band.routeManualEntryOnly),
+  }
+}
+
+type BandChange = (bands: readonly ProfileBand[]) => ProfileBand[]
+
+/** The first band (the youngest children) suggesting `rate`. */
+const youngest = (rate: number): BandChange => bands => bands.map((band, index) => index === 0 ? autoBand(band, rate) : band)
+/** Every band suggesting `rate`, with the changed range or pills. */
+const everyBand = (rate: number, changes: Partial<SurfaceInput> = {}): BandChange => bands => bands.map(band => autoBand(band, rate, changes))
+/** One band for all ages from a new surface. */
+const replaced = (input: SurfaceInput): BandChange => bands => [allAges("AUTO", surface(input), { advisory: bands[0]?.advisory ?? null })]
+/** Split at `at`: younger children start at `young`, older at `old`. */
+const splitAt = (at: number, young: number, old: number, changes: Partial<SurfaceInput> = {}): BandChange => bands => {
+  const band = bands[0]!
+  return [
+    { ...autoBand(band, young, changes), maximumAgeDaysExclusive: at },
+    { ...autoBand(band, old, changes), minimumAgeDays: at },
+  ]
+}
+/**
+ * Epidural and perineural local anaesthetic infusions for children: set in
+ * mL/kg/hr at a chosen strength, limited by dose (mg/kg/hr) for the age, so
+ * the slider maximum and suggestion follow the % picked (volume-dose.ts).
+ * Neonates 0.2, infants 0.3, from 1 year 0.4 mg/kg/hr (ESRA/APA). No
+ * spinal-catheter infusions in children.
+ */
+const LA_AGE_LIMITS = [
+  { from: 0, to: age.weeks(4), max: 0.2, suggested: 0.15, advisory: "Neonate: limit the infusion to 48 hours." },
+  { from: age.weeks(4), to: age.months(3), max: 0.2, suggested: 0.15, advisory: "Under 3 months: limit the infusion to 48 hours." },
+  { from: age.months(3), to: age.years(1), max: 0.3, suggested: 0.25, advisory: null },
+  { from: age.years(1), to: PEDIATRIC_END, max: 0.4, suggested: 0.3, advisory: null },
+] as const
+
+const laVolumeBands = (concentrationOptions: string[]): BandChange => bands => LA_AGE_LIMITS.map(limit => {
+  const route = (): RouteModeInput => ({
+    mode: "concentration-rate",
+    min: 0,
+    max: 0.5,
+    step: 0.01,
+    quickValues: [0.05, 0.1, 0.15, 0.2, 0.3, 0.4],
+    unit: "mL/kg/hr",
+    weightBasis: "TBW",
+    concentrationOptions,
+    concentrationUnit: "PERCENT",
+    defaultConcentration: "0.1%",
+    // At the default 0.1% (1 mg/mL) the suggested dose is the same number in mL/kg/hr.
+    suggestedRate: limit.suggested,
+    doseLimit: { unit: "mg/kg/hr", max: limit.max, suggested: limit.suggested },
+  })
+  return {
+    minimumAgeDays: limit.from,
+    maximumAgeDaysExclusive: limit.to,
+    disposition: "AUTO",
+    profile: routed("EPIDURAL", { EPIDURAL: route(), PERINEURAL: route() }),
+    routeDispositions: { EPIDURAL: "AUTO", PERINEURAL: "AUTO" },
+    routeManualEntryOnly: {},
+    manualEntryOnly: false,
+    routineSuggestion: true,
+    advisory: limit.advisory ?? bands[0]?.advisory ?? null,
+  }
+})
+const firstHidden: BandChange = bands => bands.map((band, index) => index === 0 ? hiddenBand(band) : band)
+
+const V3_INFUSION_OVERRIDES: Readonly<Record<string, BandChange>> = {
+  // Not licensed under 1 month: hidden there.
+  "Propofol": firstHidden,
+  "Ketamine": youngest(0.5),
+  "Esketamine": everyBand(0.25, { quickValues: [0.1, 0.25, 0.5, 1, 2] }),
+  "Dexmedetomidine": youngest(0.2),
+  "Fentanyl": youngest(1),
+  "Sufentanil": everyBand(0.2, { quickValues: [0.1, 0.2, 0.3, 0.5, 1] }),
+  "Remifentanil": youngest(0.25),
+  "Alfentanil": youngest(1),
+  // In mg/kg/hr from v3 (2026-10-18): the syringes are grams of magnesium
+  // sulfate, which do not convert to mmol, so a mmol rate had no pump rate.
+  "Magnesium sulfate": bands => bands.map(band => ({
+    ...band,
+    disposition: "AUTO",
+    manualEntryOnly: false,
+    profile: surface({ min: 0, max: 60, step: 1, unit: "mg/kg/hr", quickValues: [5, 10, 20, 30, 50], suggestedRate: 10, routes: ["IV", "INTRAOSSEOUS"] }),
+  })),
+  "Lidocaine": bands => bands.map((band, index) => {
+    const intravenous = withoutRoutes(band, ["EPIDURAL", "PERINEURAL", "INTRATHECAL"])
+    return index === 0 ? autoBand(intravenous, 1) : intravenous
+  }),
+  "Bupivacaine": laVolumeBands(["0.1%", "0.125%", "0.2%", "0.25%"]),
+  "Levobupivacaine": laVolumeBands(["0.1%", "0.125%", "0.2%", "0.25%"]),
+  "Ropivacaine": laVolumeBands(["0.1%", "0.2%"]),
+  "Rocuronium": youngest(0.3),
+  "Vecuronium": youngest(0.05),
+  "Cisatracurium": youngest(0.1),
+  "Atracurium": youngest(0.4),
+  "Mivacurium": youngest(8),
+  "Phenylephrine": youngest(0.2),
+  "Metaraminol": youngest(0.1),
+  "Vasopressin": youngest(0.02),
+  "Milrinone": youngest(0.25),
+  "Nitroglycerin / Glyceryl trinitrate": youngest(0.5),
+  "Nicardipine": youngest(0.5),
+  "Esmolol": youngest(50),
+  "Labetalol": youngest(0.5),
+  "Amiodarone": youngest(5),
+  "Octreotide": youngest(1),
+  "Angiotensin II": replaced({ min: 0, max: 80, step: 0.5, unit: "ng/kg/min", quickValues: [5, 10, 20, 40], suggestedRate: 10 }),
+  "Clevidipine": replaced({ min: 0, max: 5, step: 0.05, unit: "mcg/kg/min", quickValues: [0.25, 0.5, 1, 2, 3], suggestedRate: 0.5 }),
+  "Iloprost": replaced({ min: 0, max: 10, step: 0.1, unit: "ng/kg/min", quickValues: [0.5, 1, 2, 5], suggestedRate: 1 }),
+  "Diltiazem": bands => bands.map(band => band.disposition === "HIDDEN" ? band : autoBand(band, 0.1, { quickValues: [0.05, 0.1, 0.15, 0.2] })),
+  "Unfractionated heparin": splitAt(age.years(1), 28, 20),
+  "Bivalirudin": everyBand(0.125, { max: 2.5, quickValues: [0.05, 0.125, 0.25, 0.5, 1] }),
+  "Argatroban": everyBand(0.75),
+  // Obstetric context only: adolescents.
+  "Oxytocin": bands => [
+    { ...hiddenBand(bands[0]!), maximumAgeDaysExclusive: age.years(12) },
+    { ...allAges("AUTO", surface({ min: 0, max: 40, step: 1, unit: "IU/hr", quickValues: [5, 10, 20, 40], suggestedRate: 10 }), { advisory: bands[0]?.advisory ?? null }), minimumAgeDays: age.years(12) },
+  ],
+  "Aminophylline": bands => bands.map((band, index) => index === 0 ? autoBand(band, 0.2, { max: 0.5, quickValues: [0.1, 0.2, 0.3, 0.5] }) : band),
+  // No neonatal use.
+  "Nimodipine": firstHidden,
+  "Midazolam": splitAt(age.months(1), 0.03, 0.05, { quickValues: [0.02, 0.05, 0.1, 0.15, 0.2] }),
+  "Remimazolam": replaced({ min: 0, max: 3, step: 0.1, unit: "mg/kg/hr", quickValues: [0.5, 1, 1.5, 2, 3], suggestedRate: 1 }),
+  "Clonidine": everyBand(0.5, { quickValues: [0.25, 0.5, 1, 1.5, 2] }),
+  "Thiopental / Thiopentone": everyBand(2, { quickValues: [1, 2, 3, 4, 5] }),
+  "Morphine": splitAt(age.months(1), 10, 20, { quickValues: [5, 10, 20, 30, 40] }),
+  "Urapidil": replaced({ min: 0, max: 3.5, step: 0.1, unit: "mg/kg/hr", quickValues: [0.5, 1, 2, 3], suggestedRate: 1 }),
+  "Methylene blue": replaced({ min: 0, max: 2, step: 0.05, unit: "mg/kg/hr", quickValues: [0.25, 0.5, 1, 2], suggestedRate: 0.5 }),
+  "Tranexamic acid": everyBand(2, { quickValues: [1, 2, 5, 10] }),
+  "Potassium chloride": everyBand(0.1, { quickValues: [0.05, 0.1, 0.2, 0.3] }),
+  "Calcium gluconate": everyBand(10, { quickValues: [5, 10, 15, 20] }),
+  "Calcium chloride": everyBand(5, { quickValues: [2.5, 5, 10, 15, 20] }),
+  "Sodium bicarbonate": everyBand(0.5, { quickValues: [0.1, 0.25, 0.5, 1] }),
+  "Hydrocortisone": replaced({ min: 0, max: 0.5, step: 0.01, unit: "mg/kg/hr", quickValues: [0.05, 0.1, 0.2], suggestedRate: 0.1 }),
+  "Pantoprazole": replaced({ min: 0, max: 0.3, step: 0.01, unit: "mg/kg/hr", quickValues: [0.05, 0.1, 0.2], suggestedRate: 0.1 }),
+  "Somatostatin": replaced({ min: 0, max: 10, step: 0.5, unit: "mcg/kg/hr", quickValues: [1, 2, 3.5, 5], suggestedRate: 3.5 }),
+}
+
+function bandsFor(definition: Definition, edition: Edition): readonly ProfileBand[] {
+  const override = edition === "v3" ? V3_INFUSION_OVERRIDES[definition.itemKey] : undefined
+  return override ? override(definition.bands) : definition.bands
+}
 
 function checkedPayload(
   itemKey: string,
@@ -496,19 +706,30 @@ function checkedPayload(
   return parsed.value
 }
 
-export function createPediatricInfusionProfileSeeds(): PediatricInfusionProfileSeed[] {
-  const canonicalNames = new Set(INFUSION_CATALOG.map(entry => entry.name))
-  const definedNames = new Set(definitions.map(definition => definition.itemKey))
-  const missing = [...canonicalNames].filter(name => !definedNames.has(name))
-  const unknown = [...definedNames].filter(name => !canonicalNames.has(name))
-  if (missing.length || unknown.length || definitions.length !== INFUSION_CATALOG.length) {
-    throw new Error(`Pediatric infusion catalog mismatch; missing=${missing.join(",")}; unknown=${unknown.join(",")}`)
+/**
+ * The paediatric infusion rules for a catalogue: every infusion in it must have
+ * a definition. A released baseline passes its own catalogue (release-1-2-0.ts).
+ */
+export function createPediatricInfusionProfileSeeds(
+  catalog: readonly { name: string }[] = INFUSION_CATALOG,
+  edition: Edition = "v3",
+): PediatricInfusionProfileSeed[] {
+  const canonicalNames = new Set(catalog.map(entry => entry.name))
+  const allDefined = new Set(definitions.map(definition => definition.itemKey))
+  const missing = [...canonicalNames].filter(name => !allDefined.has(name))
+  const unknown = INFUSION_CATALOG.map(entry => entry.name).filter(name => !allDefined.has(name))
+  const extra = [...allDefined].filter(name => !INFUSION_CATALOG.some(entry => entry.name === name))
+  if (missing.length || unknown.length || extra.length || definitions.length !== INFUSION_CATALOG.length) {
+    throw new Error(`Pediatric infusion catalog mismatch; missing=${missing.join(",")}; unknown=${[...unknown, ...extra].join(",")}`)
   }
-  return definitions.flatMap(definition => definition.bands.map(band => ({
+  return definitions.filter(definition => canonicalNames.has(definition.itemKey)).flatMap(definition => bandsFor(definition, edition).map(band => ({
     payload: checkedPayload(definition.itemKey, band),
     sourceRefs: [...definition.sourceRefs],
   })))
 }
+
+/** The infusions whose paediatric bands differ in v3. */
+export const PEDIATRIC_V3_INFUSION_OVERRIDES = Object.keys(V3_INFUSION_OVERRIDES)
 
 export const PEDIATRIC_INFUSION_PROFILE_ITEM_COUNT = definitions.length
 export const PEDIATRIC_INFUSION_PROFILE_RULE_COUNT = definitions.reduce(

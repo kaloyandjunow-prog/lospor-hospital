@@ -376,7 +376,7 @@ export default function IntraopLiveScreen() {
     caseEndTime,
     caseEndNextDay,
     caseTimezone,
-    startRef,
+    startRef, endedAtRef, setCaseMonthYear,
   })
 
   const {
@@ -709,7 +709,7 @@ export default function IntraopLiveScreen() {
           pediatricRulesError: clinicalRulesError, techPath, setTechPath, TECHNIQUE_TREE, techniques, setTechniques,
           saveTechniques, techniqueLabel, otherTechText, setOtherTechText, caseMonthYear,
           setCaseMonthYear, caseStartTime, setCaseStartTime, caseEndTime, setCaseEndTime,
-          caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming, positions, setPositions,
+          caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming, endedAtRef, caseTimezone, positions, setPositions,
           savePositions, fieldSaving, POSITIONS_LIST, monitoring, setMonitoring, saveMonitoring,
           MONITORING_OPTS, advMonOpen, setAdvMonOpen, awTools, setAwTools, awClGrade,
           setAwClGrade, awDevices, setAwDevices, awLmaSize, setAwLmaSize, awOralTubeSize,

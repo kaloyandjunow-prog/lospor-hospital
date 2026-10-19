@@ -7,12 +7,13 @@ import { totalsProvisional } from "@lospor/core/intraop-save-state"
 // to string, while a live timetable's rate is NumericText. Core accepts both.
 import {
   calcInfusionTotals,
-  calculateDeliveredFluidTotals,
+  calculateDeliveredFluidTotals, deliveredInfusionVolumesByName,
   formatInfusionTotal,
   infusionLocalAnaestheticMg,
   type WeightBasisMap,
 } from "@lospor/core/intraop-totals"
 import { formatComplications } from "@/lib/intraop-complications"
+import { tciPatientFromPreop } from "@/lib/intraop-preop-summary"; import { tciTotalNote } from "@/components/intraop/TciSheetFields"
 import { timeAtCol } from "@/lib/intraop-projection"
 import { buildRowSummary } from "@/lib/intraop-running"
 import { confirmAction } from "@/lib/notify"
@@ -55,6 +56,7 @@ export type IntraopTabContentBuilderProps = {
   activeAgents: LogProps["activeAgents"]
   activeGas: LogProps["activeGas"]
   startRef: MutableRefObject<Date | null>
+  endedAtRef: MutableRefObject<Date | null>; caseTimezone: string | null
   isWatching: LogProps["isWatching"]
   verticalTimetableRef: LogProps["listRef"]
   undoLastEvent: LogProps["onUndo"]
@@ -193,7 +195,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     techPath, setTechPath,
     TECHNIQUE_TREE, techniques, setTechniques, saveTechniques, techniqueLabel, otherTechText,
     setOtherTechText, caseMonthYear, setCaseMonthYear, caseStartTime, setCaseStartTime,
-    caseEndTime, setCaseEndTime, caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming,
+    caseEndTime, setCaseEndTime, caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming, endedAtRef, caseTimezone,
     positions, setPositions, savePositions, fieldSaving, POSITIONS_LIST, monitoring,
     setMonitoring, saveMonitoring, MONITORING_OPTS, advMonOpen, setAdvMonOpen, awTools,
     setAwTools, awClGrade, setAwClGrade, awDevices, setAwDevices, awLmaSize, setAwLmaSize,
@@ -237,7 +239,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       activeFluids,
       activeAgents,
       activeGas,
-      started: !!startRef.current, projectRunning: !caseEnded,
+      started: !!startRef.current, projectRunning: !caseEnded, tciPatient: tciPatientFromPreop(preop),
       isWatching,
       listRef: verticalTimetableRef,
       onUndo: undoLastEvent,
@@ -264,7 +266,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     } }
 
     case "equipment": return { tab, content: {
-      preop,
+      preop, surgeryStart: startRef.current, caseTimezone,
     } }
 
     case "technique": return { tab, content: {
@@ -291,8 +293,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       caseEndNextDay,
       setCaseEndNextDay,
       timingSaving,
-      saveTiming,
-      startRef,
+      saveTiming, startRef, endedAtRef, caseTimezone,
       tc,
     } }
 
@@ -345,7 +346,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     // computed only while this tab is shown.
     case "fluids": return { tab, content: (() => {
       const infusionRows = calcInfusionTotals(
-        timetable.infusions ?? [], caseIbw, caseTbw, infusionWeightBasis, caseBsa,
+        timetable.infusions ?? [], caseIbw, caseTbw, infusionWeightBasis, caseBsa, tciPatientFromPreop(preop),
       )
       const weighted = infusionRows.filter(row => row.weightUsed != null)
       const ibwUsed = weighted.some(row => row.weightBasis === "IBW") ? caseIbw : null
@@ -355,23 +356,21 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       if (tbwUsed != null) weightParts.push(`TBW ${Math.round(tbwUsed * 10) / 10} kg`)
       const bsaUsed = infusionRows.find(row => row.bsaUsed != null)?.bsaUsed
       if (bsaUsed != null) weightParts.push(`BSA ${bsaUsed} m²`)
-      // Delivered volume, not the stored `volume` string: that field is only
-      // written when a fluid is stopped, so a running crystalloid would read
-      // as 0 while it is actually going in.
-      const fluidTotals = calculateDeliveredFluidTotals(timetable.fluids)
+      // Delivered volume, not the stored `volume` (written only when a fluid stops, so a running one read 0).
+      // Infusions count in the balance by their pump rates, each drug's mL beside its amount (2026-10-18).
+      const fluidTotals = calculateDeliveredFluidTotals(timetable.fluids, new Date(), timetable.infusions ?? [], tciPatientFromPreop(preop))
+      const volumeByName = deliveredInfusionVolumesByName(timetable.infusions ?? [], new Date(), tciPatientFromPreop(preop))
       return {
         infusionTotals: infusionRows.map(row => ({
           ...row,
           mgTotal: infusionLocalAnaestheticMg(row.name, row.total, row.unit),
           // Per kg without a weight, both totals of a unit switch, and which
           // weight was used when the drug's own could not be (9.12.3).
-          display: formatInfusionTotal(row),
+          display: [formatInfusionTotal(row), volumeByName.get(row.name) != null ? `${volumeByName.get(row.name)} mL` : null, row.tci ? tciTotalNote(row.tci, row.unit, tc) : null].filter(Boolean).join(" · "),
         })),
         bolusTotals: calculateDrugTotals(timetable), provisional: !!attention?.saveState && totalsProvisional(timetable, attention.saveState),
         weightNote: weightParts.length ? `† ${weightParts.join(" / ")}` : null,
-        crystalloidsMl: fluidTotals.crystalloids,
-        colloidsMl: fluidTotals.colloids,
-        bloodMl: fluidTotals.blood,
+        crystalloidsMl: fluidTotals.crystalloids, colloidsMl: fluidTotals.colloids, bloodMl: fluidTotals.blood, infusionsMl: fluidTotals.infusions,
         urinaryCatheter: monitoring.includes("urinaryCatheter"),
         urineMl,
         setUrineMl,

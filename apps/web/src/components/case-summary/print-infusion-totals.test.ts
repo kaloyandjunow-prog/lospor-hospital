@@ -45,3 +45,20 @@ describe("printed infusion totals", () => {
     expect(formatInfusionTotal(remifentanil)).toBe("2.5 mcg/kg")
   })
 })
+
+describe("printed infused millilitres (2026-10-18)", () => {
+  it("come from the pump rates, also on a chart saved before instants", () => {
+    const withPump: LogEvent[] = [
+      { ...log[0]!, concentration: "1000 mcg/50 mL", volumeRateMlPerHour: 22.5, calculationWeightKg: 75 },
+      log[1]!,
+    ]
+    const chart = projectIntraopEvents(withPump, { start: "2026-09-27T14:40:00.000Z", endedAt: at(31) })
+    const saved = { ...chart, infusions: chart.infusions.map(({ startTs: _start, endTs: _end, ...bar }) => bar), log: withPump }
+    // 22.5 mL/hr for 25 minutes.
+    expect(calcInfTotals(saved, { ibw: 75, tbw: 85, endedAt: at(31) })[0]?.volumeMl).toBe(9.4)
+  })
+
+  it("are absent when the syringe step was skipped", () => {
+    expect(calcInfTotals(savedChart(), { ibw: 75, tbw: 85, endedAt: at(31) })[0]?.volumeMl).toBeNull()
+  })
+})

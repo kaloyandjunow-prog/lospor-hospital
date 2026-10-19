@@ -7,6 +7,7 @@ import {
   preopAnswerStates,
   preopPopulationForMode,
   preopProfileForMode,
+  preopQuestionAppliesToAge,
   preopQuestionProgress,
   preopQuestionRows,
   type PreopAnswerState,
@@ -179,5 +180,30 @@ describe("one profile for adults and one for children (9.14.5)", () => {
     expect(preopPopulationForMode("PEDIATRIC")).toBe("PEDIATRIC")
     expect(preopPopulationForMode("ADULT")).toBe("ADULT")
     expect(preopPopulationForMode(null)).toBe("ADULT")
+  })
+})
+
+describe("questions asked from an age", () => {
+  const alcohol = question("S2_ALCOHOL_USE", { minAgeYears: 14 })
+  const child = { questions: [alcohol, question("S2_ALCOHOL_HEAVY", { minAgeYears: 14, parentKey: "S2_ALCOHOL_USE" })] }
+  const keys = (ageYears: number | null | undefined) => preopQuestionRows(child, "anamnesis", "PEDIATRIC", new Map([["S2_ALCOHOL_USE", "YES"]]), ageYears).map(row => row.question.stableKey)
+
+  it("leaves the question and its follow-ups off a younger patient", () => {
+    expect(keys(9)).toEqual([])
+    expect(keys(14)).toEqual(["S2_ALCOHOL_USE", "S2_ALCOHOL_HEAVY"])
+    expect(keys(15.5)).toEqual(["S2_ALCOHOL_USE", "S2_ALCOHOL_HEAVY"])
+  })
+
+  it("asks it while the age is not yet known", () => {
+    expect(keys(null)).toEqual(["S2_ALCOHOL_USE", "S2_ALCOHOL_HEAVY"])
+    expect(keys(undefined)).toEqual(["S2_ALCOHOL_USE", "S2_ALCOHOL_HEAVY"])
+    expect(preopQuestionAppliesToAge(undefined, 3)).toBe(true)
+  })
+
+  it("is not required below the age", () => {
+    const required = { questions: [{ ...alcohol, required: true }] }
+    expect(isPreopQuestionRequired(required, "S2_ALCOHOL_USE", "PEDIATRIC", 10)).toBe(false)
+    expect(isPreopQuestionRequired(required, "S2_ALCOHOL_USE", "PEDIATRIC", 16)).toBe(true)
+    expect(isPreopQuestionShown(required, "S2_ALCOHOL_USE", "ADULT", 40)).toBe(true)
   })
 })

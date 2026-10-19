@@ -45,27 +45,31 @@ export type PediatricPreopLabels = {
   nonAirway: string
   minorAirway: string
   majorAirway: string
-  fasting: string
-  hoursSinceIntake: string
+  npoTitle: string
+  npoHint: string
+  npoUsePolicy: string
+  npoHoursBefore: string
+  npoBelowMinimum: string
+  npoStopBy: string
+  npoPreviousDay: string
   clearFluids: string
   breastMilk: string
   formula: string
   solids: string
-  met: string
-  notMet: string
-  unknown: string
-  calculators: string
   bsa: string
   maintenanceFluid: string
   resuscitation: string
-  accept: string
-  accepted: string
-  saveFirst: string
-  profilesUnavailable: string
   ruleset: string
+  /** The intraop reference; {placeholders} are filled where it is drawn. */
+  intraopReference: string
+  maintenanceDaily: string
+  maintenanceRange: string
+  shockLine: string
+  adrenalineLine: string
+  amiodaroneLine: string
+  referenceSources: string
   yes: string
   no: string
-  calculationFailed: string
 }
 
 export const PEDIATRIC_PREOP_LABELS: Record<"en" | "bg", PediatricPreopLabels> = {
@@ -116,27 +120,30 @@ export const PEDIATRIC_PREOP_LABELS: Record<"en" | "bg", PediatricPreopLabels> =
     nonAirway: "Non-airway surgery",
     minorAirway: "Minor airway surgery",
     majorAirway: "Major airway surgery",
-    fasting: "Pediatric fasting",
-    hoursSinceIntake: "Hours since last intake",
+    npoTitle: "Nil-by-mouth assignment",
+    npoHint: "How many hours before surgery each intake stops. The times follow from the start of surgery.",
+    npoUsePolicy: "Assign APAGBI 2023 hours",
+    npoHoursBefore: "h before surgery",
+    npoBelowMinimum: "Shorter than the APAGBI minimum of {hours} h",
+    npoStopBy: "{category}: by {time} ({hours} h before)",
+    npoPreviousDay: "the day before",
     clearFluids: "Clear fluids",
     breastMilk: "Breast milk",
     formula: "Infant formula under 1 year",
     solids: "Solid food or cow milk",
-    met: "Met",
-    notMet: "Not met",
-    unknown: "Unknown",
-    calculators: "Pediatric calculators",
     bsa: "BSA (Mosteller)",
     maintenanceFluid: "Maintenance fluid",
     resuscitation: "Resuscitation reference",
-    accept: "Accept result",
-    accepted: "Accepted",
-    saveFirst: "Save case first",
-    profilesUnavailable: "Equipment, ventilation, blood-volume, local-anaesthetic and dose suggestions remain unavailable until their clinical profiles are reviewed and approved.",
     ruleset: "Ruleset",
+    intraopReference: "Paediatric reference",
+    maintenanceDaily: "{daily} ml/day · {hourly} ml/h",
+    maintenanceRange: "{min}–{max} ml/day (newborn, by day of life)",
+    shockLine: "Shock {first} J (4 J/kg); from the 5th shock up to {escalated} J (8 J/kg, max 360 J)",
+    adrenalineLine: "Adrenaline {mcg} mcg IV/IO every 3–5 min (max 1 mg)",
+    amiodaroneLine: "Amiodarone {first} mg after the 3rd shock, {second} mg after the 5th",
+    referenceSources: "Mosteller · NICE NG29 · RCUK 2025",
     yes: "Yes",
     no: "No",
-    calculationFailed: "Could not record the accepted calculation.",
   },
   bg: {
     mode: "Клиничен режим",
@@ -185,26 +192,29 @@ export const PEDIATRIC_PREOP_LABELS: Record<"en" | "bg", PediatricPreopLabels> =
     nonAirway: "Операция извън дихателните пътища",
     minorAirway: "Малка операция на дихателните пътища",
     majorAirway: "Голяма операция на дихателните пътища",
-    fasting: "Предоперативно гладуване при деца",
-    hoursSinceIntake: "Часове от последния прием",
+    npoTitle: "Предписание за гладуване",
+    npoHint: "Колко часа преди операцията се спира всеки прием. Часовете се изчисляват от началото на операцията.",
+    npoUsePolicy: "Попълни часовете по APAGBI 2023",
+    npoHoursBefore: "ч преди операцията",
+    npoBelowMinimum: "По-кратко от минимума по APAGBI от {hours} ч",
+    npoStopBy: "{category}: до {time} ({hours} ч преди)",
+    npoPreviousDay: "предния ден",
     clearFluids: "Бистри течности",
     breastMilk: "Кърма",
     formula: "Мляко за кърмачета под 1 година",
     solids: "Твърда храна или краве мляко",
-    met: "Изпълнено",
-    notMet: "Не е изпълнено",
-    unknown: "Неизвестно",
-    calculators: "Педиатрични калкулатори",
     bsa: "BSA (Mosteller)",
     maintenanceFluid: "Поддържаща скорост на инфузия на течности",
     resuscitation: "Референтни стойности за ресусцитация",
-    accept: "Приеми резултата",
-    accepted: "Прието",
-    saveFirst: "Първо запази случая",
-    profilesUnavailable: "Препоръките за оборудване, вентилация, кръвен обем, локални анестетици и дози на медикаменти остават недостъпни, докато клиничните им профили не бъдат прегледани и одобрени.",
     ruleset: "Версия на правилата",
+    intraopReference: "Педиатрична справка",
+    maintenanceDaily: "{daily} ml/ден · {hourly} ml/ч",
+    maintenanceRange: "{min}–{max} ml/ден (новородено, според деня от живота)",
+    shockLine: "Дефибрилация {first} J (4 J/kg); от 5-ия шок до {escalated} J (8 J/kg, макс. 360 J)",
+    adrenalineLine: "Адреналин {mcg} mcg i.v./i.o. на всеки 3–5 мин (макс. 1 mg)",
+    amiodaroneLine: "Амиодарон {first} mg след 3-ия шок, {second} mg след 5-ия",
+    referenceSources: "Mosteller · NICE NG29 · RCUK 2025",
     yes: "Да",
     no: "Не",
-    calculationFailed: "Приетото изчисление не можа да бъде записано.",
   },
 }

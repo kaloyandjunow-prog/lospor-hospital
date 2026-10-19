@@ -4,14 +4,24 @@ import { useLocale } from "next-intl"
 import { Controller, type Control, type UseFormWatch, type UseFormSetValue, type UseFormGetValues } from "react-hook-form"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { TimePicker } from "@/components/forms/shared/TimePicker"
+import { DayStepper } from "@/components/forms/shared/DayStepper"
 import { Label } from "@/components/ui/label"
 import type { IntraopFormFields, IntraopData } from "@/components/forms/IntraopForm"
 import {
   buildIntraopEndTiming,
   buildIntraopStartTiming,
+  daysBetweenDateKeys,
+  defaultEndDayOffset,
+  durationMinutesBetween,
+  earliestEndDateKey,
   endInstantForWallClock,
+  formatDateKeyShort,
+  instantFromDateKey,
   isValidTimeZone,
+  localDateKey,
+  monthYearOf,
   resolvedTimeZone,
+  shiftDateKey,
   startInstantForWallClock,
 } from "@/lib/intraop-time"
 import { AIRWAY_DEVICES_WITH_SUBOPTIONS } from "@lospor/core/intraop"
@@ -97,6 +107,14 @@ export function TimelineSection({
   const [startAtInput, setStartAtInput]       = useState("")
   const startHourRef = useRef<HTMLSelectElement>(null)
   const endHourRef   = useRef<HTMLSelectElement>(null)
+  // The start and end dates. Left at "Today", a typed start time keeps the
+  // long-standing rule (a time ahead of now means yesterday); a stepped date
+  // places the time on that date. The end date follows the start, the next
+  // day when the end clock time is earlier, until the clinician steps it.
+  const [startDayKey, setStartDayKey] = useState<string | null>(null)
+  const [endDayTouched, setEndDayTouched] = useState(false)
+  const dateLocale = locale === "bg" ? "bg" : "en"
+  const formatDay = (key: string) => formatDateKeyShort(key, dateLocale) ?? key
 
   function caseZone(): string | null {
     const saved = getValues("timezone")
@@ -107,38 +125,67 @@ export function TimelineSection({
     onAutoSave?.({ ...getValues(), ...overrides })
   }
 
+  const zoneNow = caseZone()
+  const todayKey = (zoneNow && localDateKey(new Date(), zoneNow)) ?? new Date().toISOString().slice(0, 10)
+  // Watched, not read once: the dates beside the times redraw when either changes.
+  const watchedStart = watch("startedAt")
+  const watchedEnd = watch("endedAt")
+  const savedStart = watchedStart ? new Date(watchedStart) : null
+  const savedStartKey = savedStart && zoneNow ? localDateKey(savedStart, zoneNow) : null
+  const savedEnd = watchedEnd ? new Date(watchedEnd) : null
+  const savedEndKey = savedEnd && zoneNow ? localDateKey(savedEnd, zoneNow) : null
+  const chosenStartKey = startDayKey ?? todayKey
+
   function applyStartInstant(instant: Date) {
     const zone = caseZone()
     const timing = zone ? buildIntraopStartTiming(instant, zone) : null
-    if (!timing) return
+    if (!timing || !zone) return
+    // The case month is the start's month, no longer entered on its own.
+    const monthYear = monthYearOf(instant, zone) ?? undefined
     setValue("startTime", timing.startTime)
     setValue("startedAt", timing.startedAt)
     setValue("timezone", timing.timezone)
+    if (monthYear) setValue("monthYear", monthYear)
     setTimeErrors(e => ({ ...e, startTime: false }))
-    saveFormNow(timing)
+    saveFormNow({ ...timing, ...(monthYear ? { monthYear } : {}) })
   }
 
   function applyStartWallClock(hhmm: string) {
     const zone = caseZone()
-    const instant = zone ? startInstantForWallClock(new Date(), hhmm, zone) : null
+    if (!zone) return
+    const instant = chosenStartKey === todayKey
+      ? startInstantForWallClock(new Date(), hhmm, zone)
+      : instantFromDateKey(chosenStartKey, hhmm, zone)
     if (instant) applyStartInstant(instant)
   }
 
-  function applyEndWallClock(hhmm: string, nextDay = !!getValues("endTimeNextDay")) {
+  function applyEndWallClock(hhmm: string, dayOffset?: number) {
     const zone = caseZone()
     const startedAt = getValues("startedAt")
     const start = startedAt ? new Date(startedAt) : null
-    const instant = zone && start && !Number.isNaN(start.getTime())
-      ? endInstantForWallClock(start, hhmm, zone, nextDay)
-      : null
+    const validStart = zone && start && !Number.isNaN(start.getTime()) ? start : null
+    const offset = dayOffset
+      ?? (endDayTouched && savedStartKey && savedEndKey ? daysBetweenDateKeys(savedStartKey, savedEndKey) ?? 0 : null)
+      ?? (validStart && zone ? defaultEndDayOffset(validStart, hhmm, zone) : 0)
+    const instant = validStart && zone ? endInstantForWallClock(validStart, hhmm, zone, offset) : null
     const timing = instant && zone ? buildIntraopEndTiming(instant, zone) : null
     setValue("endTime", hhmm)
+    setValue("endTimeNextDay", offset > 0)
     if (timing) {
       setValue("endedAt", timing.endedAt)
       setValue("timezone", timing.timezone)
     }
     setTimeErrors(e => ({ ...e, endTime: false }))
-    saveFormNow(timing ?? { endTime: hhmm })
+    saveFormNow({ ...(timing ?? { endTime: hhmm }), endTimeNextDay: offset > 0 })
+  }
+
+  function stepEndDay(key: string) {
+    if (!savedStartKey) return
+    const offset = daysBetweenDateKeys(savedStartKey, key)
+    if (offset == null || offset < 0) return
+    setEndDayTouched(true)
+    const endTime = getValues("endTime")
+    if (endTime) applyEndWallClock(endTime, offset)
   }
 
   function applyTemplate(tpl: Template) {
@@ -185,41 +232,19 @@ export function TimelineSection({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="space-y-1">
-          <Label>{t("intraop.date")}</Label>
-          <Controller name="monthYear" control={control} render={({ field }) => {
-            const MONTHS = Array.from({ length: 12 }, (_, index) => new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2024, index, 1)))
-            const currentYear = new Date().getFullYear()
-            const years = Array.from({ length: 11 }, (_, i) => currentYear - i)
-            const [selYear, selMonth] = field.value?.split("-") ?? ["", ""]
-            return (
-              <div className="flex gap-2">
-                <select value={selMonth ?? ""}
-                  onChange={e => field.onChange(selYear ? `${selYear}-${e.target.value}` : "")}
-                  className="flex-1 h-9 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-[#1c1c1c] dark:border-[#3a3a3a] dark:text-slate-100">
-                  <option value="">{t("intraop.timeline.month")}</option>
-                  {MONTHS.map((m, i) => <option key={m} value={String(i + 1).padStart(2, "0")}>{m}</option>)}
-                </select>
-                <select value={selYear ?? ""}
-                  onChange={e => field.onChange(selMonth ? `${e.target.value}-${selMonth}` : "")}
-                  className="w-28 h-9 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-[#1c1c1c] dark:border-[#3a3a3a] dark:text-slate-100">
-                  <option value="">{t("intraop.timeline.year")}</option>
-                  {years.map(y => <option key={y} value={String(y)}>{y}</option>)}
-                </select>
-              </div>
-            )
-          }} />
-        </div>
-        {/* Start time + START CASE */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Start date + time + START CASE */}
         <div className="space-y-1">
           <Label className={timeErrors.startTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.startTime")} {timeErrors.startTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
           <div className={`flex items-center gap-2 ${timeErrors.startTime ? "ring-2 ring-red-400 rounded-lg p-0.5" : ""}`}>
             <Controller name="startTime" control={control} render={({ field }) => (
               field.value
                 // Once start time is set the field is locked — show as read-only badge
-                ? <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] font-mono">{field.value} <span className="text-[10px] font-normal text-slate-400 ml-1">{t("intraop.timeline.locked")}</span></span>
-                : <TimePicker ref={startHourRef} value={field.value} onChange={applyStartWallClock} />
+                ? <span data-testid="intraop-start-locked" className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] font-mono">{savedStartKey ? `${formatDay(savedStartKey)} · ` : ""}{field.value} <span className="text-[10px] font-normal text-slate-400 ml-1">{t("intraop.timeline.locked")}</span></span>
+                : <>
+                    <DayStepper value={chosenStartKey} onChange={setStartDayKey} todayKey={todayKey} min={shiftDateKey(todayKey, -14)} max={todayKey} locale={dateLocale} label={t("intraop.timeline.startDate")} testId="intraop-start-day" />
+                    <TimePicker ref={startHourRef} value={field.value} onChange={applyStartWallClock} />
+                  </>
             )} />
             {!watch("startTime") && !watch("endTime") && (
               <button type="button"
@@ -287,22 +312,18 @@ export function TimelineSection({
         <div className="space-y-1">
           <Label className={timeErrors.endTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.endTime")} {timeErrors.endTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
           <div className={`flex items-center gap-2 flex-wrap ${timeErrors.endTime ? "ring-2 ring-red-400 rounded-lg p-0.5" : ""}`}>
-            {/* Crosses midnight toggle */}
-            <Controller name="endTimeNextDay" control={control} render={({ field }) => (
-              <button type="button"
-                onClick={() => {
-                  const nextDay = !field.value
-                  field.onChange(nextDay)
-                  const endTime = getValues("endTime")
-                  if (endTime) applyEndWallClock(endTime, nextDay)
-                }}
-                className={`text-xs px-2 py-1 rounded border transition-colors whitespace-nowrap
-                  ${field.value
-                    ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 text-amber-700 dark:text-amber-300"
-                    : "border-slate-200 dark:border-[#3a3a3a] text-slate-400 hover:border-slate-400"}`}>
-                {t("intraop.timeline.nextDay")}
-              </button>
-            )} />
+            {/* The end date: the start's, the next day when the end time is earlier. */}
+            <DayStepper
+              value={savedEndKey ?? savedStartKey ?? todayKey}
+              onChange={stepEndDay}
+              todayKey={todayKey}
+              min={savedStart && zoneNow && watch("endTime") ? earliestEndDateKey(savedStart, watch("endTime")!, zoneNow) : savedStartKey}
+              max={savedStartKey ? shiftDateKey(savedStartKey, 2) : null}
+              locale={dateLocale}
+              label={t("intraop.timeline.endDate")}
+              disabled={!savedStartKey || !watch("endTime")}
+              testId="intraop-end-day"
+            />
             <Controller name="endTime" control={control} render={({ field }) => (
               <TimePicker ref={endHourRef} value={field.value} onChange={applyEndWallClock} />
             )} />
@@ -314,6 +335,9 @@ export function TimelineSection({
               </button>
             )}
           </div>
+          {(durationMinutesBetween(savedStart, savedEnd) ?? 0) > 24 * 60 && (
+            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400" data-testid="intraop-longer-than-day">{t("intraop.timeline.longerThanDay")}</p>
+          )}
           {!watch("endTime") && showEndPrompt && (
             <div className="mt-1 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-3 flex gap-2">
               <Controller name="endTime" control={control} render={({ field }) => (
@@ -323,10 +347,8 @@ export function TimelineSection({
                     const zone = caseZone()
                     const timing = zone ? buildIntraopEndTiming(now, zone) : null
                     const endTime = timing?.endTime ?? nowHHMM()
-                    const startTime = getValues("startTime") || "00:00"
-                    const [sh, sm] = startTime.split(":").map(Number)
-                    const [eh, em] = endTime.split(":").map(Number)
-                    const nextDay = eh * 60 + em < sh * 60 + sm
+                    const endKey = zone ? localDateKey(now, zone) : null
+                    const nextDay = !!savedStartKey && !!endKey && (daysBetweenDateKeys(savedStartKey, endKey) ?? 0) > 0
                     field.onChange(endTime)
                     setValue("endTimeNextDay", nextDay)
                     if (timing) {

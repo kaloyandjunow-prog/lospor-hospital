@@ -35,7 +35,7 @@ import { useAuth } from "@/lib/auth-context"
 import { usePreopFormOpen } from "@/lib/preop-open-forms"
 import { buildPreopPayload } from "@/lib/preop-payload"
 import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
-import { buildPreopSectionItems } from "@/lib/preop-section-overview"
+import { buildPreopSectionItems, preopOverviewText } from "@/lib/preop-section-overview"
 import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
 import { autosaveDelayMs, isDiscreteTapChange } from "@/lib/preop-autosave-cadence"
@@ -48,7 +48,8 @@ import { recordEhrDecisions } from "@/lib/ehr-import"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { applyEhrImportToForm, toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
-import { monthYearForDate } from "@/lib/intraop-timing"
+import { startIntraop } from "@/lib/start-intraop"
+import { usePreopDocumentSettings } from "@/lib/preop-documents"
 import { ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
@@ -82,13 +83,12 @@ import {
   ComorbiditiesBySystem,
   ManualLabPanel,
   MetricBadge,
-  ScoreBadge,
+  GuptaRiskCard,
   SegmentedSelect,
   VitalNumber,
-  apfelRiskLabel,
-  rcriRiskLabel,
-  stopBangRiskLabel,
 } from "@/components/preop/PreopFormWidgets"
+import { PlannedAnaesthesiaSection } from "@/components/preop/PlannedAnaesthesiaSection"
+import { AdultScoreBadges } from "@/components/preop/AdultScoreBadges"
 import {
   PediatricModeAgeFields,
   PediatricRiskAndCalculators,
@@ -104,6 +104,7 @@ function impact() {
 
 export default function NewCaseScreen() {
   const router = useRouter()
+  const preopDocuments = usePreopDocumentSettings()
   const { continue: continueId, localId: localIdParam, focus } = useLocalSearchParams<{ continue?: string; localId?: string; focus?: string }>()
   const insets = useSafeAreaInsets()
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
@@ -265,7 +266,7 @@ export default function NewCaseScreen() {
     apfelPONVHistory, apfelPostopOpioids, rcriInputs, stopbangInputs,
   })
   const RCRI_HINT = tc("suggestionReviewHint")
-  const asaSuggestion = suggestASAFromTags(comorbidities ?? [], bmi)
+  const asaSuggestion = suggestASAFromTags(comorbidities ?? [], pediatricMode ? null : bmi) // no BMI rule for children, as on web and the server
   const ibwResolution = useMemo(() => resolveIdealBodyWeight({
     clinicalMode: pediatricMode ? "PEDIATRIC" : "ADULT",
     heightCm,
@@ -480,7 +481,7 @@ export default function NewCaseScreen() {
   // useWatch re-renders on every field change on native and web (watch(callback) is unreliable on Expo web).
   const _allFormValues = useWatch({ control })
   const preopProfile = usePreopProfile({ caseId, pediatric: pediatricMode, values: _allFormValues as Record<string, unknown>, form: { getAnswers: () => getValues("preopAnswers") ?? [], setAnswers: answers => setValue("preopAnswers", answers, { shouldDirty: true }) } })
-  const questionList = (formSection: PreopFormSection) => <PreopQuestionList profile={preopProfile.profile} formSection={formSection} mode={preopProfile.mode} states={preopProfile.states} onAnswer={preopProfile.answerQuestion} suggestions={preopProfile.suggestions} onReviewSuggestion={preopProfile.reviewSuggestion} tc={tc} language={language} />
+  const questionList = (formSection: PreopFormSection) => <PreopQuestionList profile={preopProfile.profile} formSection={formSection} mode={preopProfile.mode} ageYears={preopProfile.ageYears} states={preopProfile.states} optionKeys={preopProfile.optionKeys} onAnswer={preopProfile.answerQuestion} suggestions={preopProfile.suggestions} onReviewSuggestion={preopProfile.reviewSuggestion} tc={tc} language={language} />
   // Previous snapshot so the effect can tell WHAT changed: a tap on a toggle/
   // pill (boolean value) saves near-instantly; typing keeps the long pause.
   const prevFormValuesRef = useRef<Record<string, unknown> | null>(null)
@@ -917,13 +918,9 @@ export default function NewCaseScreen() {
       }
       const missingRequired = await fetchMissingRequiredPreop(id)
       if (missingRequired.length > 0) return void notify(tc("requiredFieldsMissing"), missingRequiredPreopMessage(missingRequired, language, tc("completeBeforeProceeding")))
-      const transition = await autosaveManager.saveSection(
-        id,
-        "intraop",
-        { monthYear: monthYearForDate(new Date()) },
-        { partial: true },
-      )
-      if (!canProgressAfterSave(transition.result, { caseExistedBeforeSave: true }).canProgress) {
+      // A hospital that uses the preop summary gets it between preop and intraop.
+      if (preopDocuments.summaryEnabled) { await clearLocalDraft(); return void router.replace(`/(app)/cases/preop-summary/${id}`) }
+      if (!(await startIntraop(id))) {
         await persistLocalDraft(getValues())
         notify(
           tc("savePendingTitle"),
@@ -942,17 +939,7 @@ export default function NewCaseScreen() {
   }
 
   function computeSectionItems() {
-    return buildPreopSectionItems(getValues(), SECTION_LABELS, {
-      patientHint: tc("overviewPatientHint"),
-      diagnosisAndProcedure: tc("diagnosisAndProcedure"),
-      comorbidities: tc("overviewComorbidities"),
-      meds: tc("overviewMeds"),
-      flags: tc("overviewFlags"),
-      vitalsRequired: tc("overviewVitalsReq"),
-      mallampatiRequired: tc("overviewMallampatiReq"),
-      labsHint: tc("overviewLabsHint"),
-      asaRequired: tc("overviewASAReq"),
-    })
+    return buildPreopSectionItems(getValues(), SECTION_LABELS, preopOverviewText(tc))
   }
 
   const blockedField =
@@ -1343,21 +1330,18 @@ export default function NewCaseScreen() {
                     value={field.value}
                     onChange={(v) => field.onChange(v || undefined)}
                     emergencySurgery={!!emergencySurgery}
-                    suggestion={asaSuggestion}
+                    suggestion={asaSuggestion} bmi={pediatricMode ? null : bmi}
                     labelSuggested={tc("asaSuggested")}
                     labelSuggestedReview={tc("asaSuggestedReview")}
                     labelEmergencySuffix={tc("emergencySuffix")}
                   />
                 )} />
               </Field>
-              {!pediatricMode ? (
-                <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                  <ScoreBadge label="RCRI" score={rcriScore} max={6} riskLabel={rcriRiskLabel(rcriScore, language)} unavailable={preopProfile.scoreAvailable("RCRI") ? undefined : tc("preopScoreUnavailable")} />
-                  <ScoreBadge label="Apfel" score={apfelScore} max={4} riskLabel={apfelRiskLabel(apfelScore, language)} unavailable={preopProfile.scoreAvailable("APFEL") ? undefined : tc("preopScoreUnavailable")} />
-                  <ScoreBadge label="STOP-BANG" score={stopBangScore} max={8} riskLabel={stopBangRiskLabel(stopBangScore, language)} unavailable={preopProfile.scoreAvailable("STOPBANG") ? undefined : tc("preopScoreUnavailable")} />
-                </View>
-              ) : (
-                <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} caseId={caseId} isShown={preopProfile.shownField} />
+              <Controller control={control} name="plannedAnaesthesia" render={({ field }) => <PlannedAnaesthesiaSection value={field.value} onChange={field.onChange} language={language} tc={tc} />} />
+              {!pediatricMode ? (<>
+                <AdultScoreBadges rcriScore={rcriScore} apfelScore={apfelScore} stopBangScore={stopBangScore} available={preopProfile.scoreAvailable} language={language} tc={tc} />{questionList("risk_scores")}<GuptaRiskCard profile={preopProfile.profile} values={preopProfile.values} onAnswer={preopProfile.answerQuestion} tc={tc} language={language} />
+              </>) : (
+                <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} isShown={preopProfile.shownField} />
               )}
               {clinicalAi.clinicalAdvice.enabled || clinicalAi.labImageExtraction.enabled || clinicalAi.monitorOcr.enabled ? (
                 <Controller control={control} name="aiOptIn" render={({ field }) => (
@@ -1376,7 +1360,7 @@ export default function NewCaseScreen() {
               {!pediatricMode && !clinicalAi.clinicalAdvice.enabled ? (
                 <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>{tc(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}</Text>
               ) : null}
-              {questionList("risk_scores")}
+              {pediatricMode ? questionList("risk_scores") : null /* adults: drawn above the Gupta card */}
             </SectionCard>
 
             <PrimaryButton label={tc("continueIntraop")} onPress={handleSubmit(onSubmit, onInvalid)} loading={saving} />

@@ -302,4 +302,16 @@ describe("display stages, options, and clinical preferences", () => {
       autoFillVitals: { enabled: true, includeBloodPressure: true },
     })
   })
+
+  it("keeps each Bulgarian-name switch separately, off unless set", () => {
+    expect(normalizeClinicalPreferences({}).bulgarianNames)
+      .toEqual({ premed: false, drugs: false, infusions: false, agents: false, fluids: false })
+    const on = applyClinicalPreferencesPatch({}, { bulgarianNames: { drugs: true, fluids: "yes" } })
+    expect(on.bulgarianNames).toEqual({ premed: false, drugs: true, infusions: false, agents: false, fluids: false })
+    expect(applyClinicalPreferencesPatch(on, { bulgarianNames: { agents: true } }).bulgarianNames.drugs).toBe(true)
+    expect(mergeClinicalPreferences({ bulgarianNames: { drugs: false } }, { bulgarianNames: { drugs: true, premed: true } }).bulgarianNames)
+      .toEqual({ premed: true, drugs: false, infusions: false, agents: false, fluids: false })
+    expect(combineClinicalPreferencesPatches({ bulgarianNames: { drugs: true } }, { bulgarianNames: { fluids: true } }))
+      .toEqual({ bulgarianNames: { drugs: true, fluids: true } })
+  })
 })

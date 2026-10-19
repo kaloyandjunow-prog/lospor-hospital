@@ -1,3 +1,4 @@
+import { normalizeAdministrationRoute } from "./clinical-rule-vocabulary"
 import { resolveIdealBodyWeight } from "./ideal-body-weight"
 import type { ClinicalMode, PediatricAgeInput } from "./pediatric"
 
@@ -13,7 +14,12 @@ export type DoseRule = {
 export type DoseEntry = DoseRule & {
   hint?: string
   byRoute?: Record<string, DoseRule>
+  /** Routes with dose settings of their own (see doseCalcMap). */
+  ownRoutes?: string[]
 }
+
+const sameRoute = (left: string, right: string) =>
+  left === right || (normalizeAdministrationRoute(left) ?? left) === (normalizeAdministrationRoute(right) ?? right)
 
 export type Patient = {
   weightKg?: number | null
@@ -51,9 +57,19 @@ export function suggestedDoseFromWeights(
   ibw: number | null,
   tbw: number | null,
 ): { dose: string; hint: string } {
-  const hint = entry?.hint ?? ""
-  if (!entry) return { dose: "", hint }
-  const dc: DoseRule = route && entry.byRoute?.[route] ? entry.byRoute[route] : entry
+  if (!entry) return { dose: "", hint: "" }
+  const routeRule = route
+    ? Object.entries(entry.byRoute ?? {}).find(([candidate]) => sameRoute(candidate, route))?.[1]
+    : undefined
+  // A route with settings of its own and no calculation (intrathecal morphine,
+  // say) gets neither the drug-wide calculation nor its hint: both describe
+  // another route, and a suggestion in the wrong order of magnitude is worse
+  // than none.
+  if (route && !routeRule && entry.ownRoutes?.some(candidate => sameRoute(candidate, route))) {
+    return { dose: "", hint: "" }
+  }
+  const hint = entry.hint ?? ""
+  const dc: DoseRule = routeRule ?? entry
   if (dc.flat !== undefined) return { dose: String(dc.flat), hint }
   if (dc.perKg !== undefined) {
     const w = dosingWeightKg(dc.basis, ibw, tbw, dc.capAtActualWeight ?? true)

@@ -3,6 +3,7 @@ import { View, Text } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences, type ClinicalStringKey, type TranslationKey } from "@/lib/preferences-context"
 import { SummaryCard, InfoRow, Chip, ChipRow, Divider } from "./CaseDetailPrimitives"
+import { vitalAbbreviations } from "@lospor/core/intraop-summary"
 import {
   asaColor,
   apfelRiskLabel,
@@ -51,13 +52,15 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
   const apfelResult = preop.apfelScore != null ? apfelRiskLabel(preop.apfelScore, language) : null
   const stopBangResult = preop.stopBangScore != null ? stopBangRiskLabel(preop.stopBangScore, language) : null
 
+  // АН / СЧ / Темп. / ДЧ on a Bulgarian screen, as the printed record.
+  const ab = vitalAbbreviations(language)
   const vitals: string[] = []
-  if (preop.bpSystolic != null && preop.bpDiastolic != null) vitals.push(`BP ${preop.bpSystolic}/${preop.bpDiastolic}`)
-  else if (preop.bpSystolic != null) vitals.push(`SBP ${preop.bpSystolic}`)
-  if (preop.heartRate != null) vitals.push(`HR ${preop.heartRate}`)
+  if (preop.bpSystolic != null && preop.bpDiastolic != null) vitals.push(`${ab.bp} ${preop.bpSystolic}/${preop.bpDiastolic}`)
+  else if (preop.bpSystolic != null) vitals.push(`${ab.sbp} ${preop.bpSystolic}`)
+  if (preop.heartRate != null) vitals.push(`${ab.hr} ${preop.heartRate}`)
   if (preop.spO2 != null) vitals.push(`SpO₂ ${preop.spO2}%`)
-  if (preop.temperature != null) vitals.push(`Temp ${preop.temperature}°C`)
-  if (preop.respiratoryRate != null) vitals.push(`RR ${preop.respiratoryRate}/min`)
+  if (preop.temperature != null) vitals.push(`${ab.temp} ${preop.temperature}°C`)
+  if (preop.respiratoryRate != null) vitals.push(`${ab.rr} ${preop.respiratoryRate}${ab.perMinute}`)
 
   // How much of each score was actually asked. The calculators count an
   // unasked criterion as absent -- deliberately -- so a bare number and a
@@ -104,7 +107,7 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
           <InfoRow label={tc("summarySex")} value={sexLabel ?? null} />
           <InfoRow label={tc("summaryHeight")} value={preop.heightCm != null ? `${preop.heightCm} cm` : null} />
           <InfoRow label={tc("summaryWeight")} value={preop.weightKg != null ? `${preop.weightKg} kg` : null} />
-          <InfoRow label={tc("summaryBMI")} value={bmi != null ? `${bmi} kg/m²` : null} />
+          <InfoRow label={tc("summaryBMI")} value={bmi != null ? `${Math.round(bmi * 10) / 10} kg/m²` : null} />
           {showIBW && ibw != null && (
             <InfoRow label={tc("summaryIBW")} value={`${ibw} kg`} valueColor={colors.warning} />
           )}

@@ -9,6 +9,7 @@ import {
   type CaseData,
 } from "@/lib/case-detail-summary"
 import { aldreteBand, aldreteTotal } from "@lospor/core/postop"
+import { vitalAbbreviations } from "@lospor/core/intraop-summary"
 
 type AldreteCriterion = {
   field: keyof NonNullable<CaseData["postop"]>
@@ -101,7 +102,7 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
             <Text style={{ color: colors.danger, fontSize: 16, fontWeight: "800" }}>
               {postop.recoveryBpSystolic}/{postop.recoveryBpDiastolic}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>BP mmHg</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).bp} mmHg</Text>
           </View>
         )}
         {postop.recoveryHeartRate != null && (
@@ -112,7 +113,7 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
             borderRadius: 10, padding: 8, alignItems: "center",
           }}>
             <Text style={{ color: colors.success, fontSize: 16, fontWeight: "800" }}>{postop.recoveryHeartRate}</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>HR bpm</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).hr} {vitalAbbreviations(language).bpm}</Text>
           </View>
         )}
         {postop.recoverySpO2 != null && (
@@ -136,7 +137,7 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
             <Text style={{ color: colors.temp, fontSize: 16, fontWeight: "800" }}>
               {postop.temperatureCelsius}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>Temp °C</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).temp} °C</Text>
           </View>
         )}
         {postop.painScoreNRS != null && (

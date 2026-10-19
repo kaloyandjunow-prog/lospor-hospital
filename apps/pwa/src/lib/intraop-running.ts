@@ -1,9 +1,11 @@
+import type { TciPatient } from "@lospor/core/tci"
 import type { TimetableData, VitalsEntry } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import {
   buildRowSummary as buildCoreRowSummary,
   runningItemsAt as coreRunningItemsAt,
   runningItemsByColumn,
+  vitalAbbreviations,
   vitalSummaryParts,
   type RunningItem as CoreRunningItem,
 } from "@lospor/core/intraop-summary"
@@ -27,8 +29,13 @@ export type RunningItem = {
   eventIds?: string[]
 }
 
-function presentRunningItem(item: CoreRunningItem): RunningItem {
-  const presented = presentRunningLabel(item)
+/** How a running agent, infusion or fluid is named in its row; the stored name by default. */
+export type RunningNameOf = (kind: "agent" | "infusion" | "fluid", name: string) => string
+
+const storedName: RunningNameOf = (_kind, name) => name
+
+function presentRunningItem(item: CoreRunningItem, nameOf: RunningNameOf = storedName): RunningItem {
+  const presented = presentRunningLabel(item, nameOf)
   if (item.planned) presented.planned = true
   if (item.plannedStop) presented.plannedStop = true
   if (item.plannedChange) presented.plannedChange = true
@@ -39,9 +46,9 @@ function presentRunningItem(item: CoreRunningItem): RunningItem {
   return presented
 }
 
-function presentRunningLabel(item: CoreRunningItem): RunningItem {
+function presentRunningLabel(item: CoreRunningItem, nameOf: RunningNameOf): RunningItem {
   if (item.kind === "agent") {
-    return { id: item.id, label: item.name, color: item.color }
+    return { id: item.id, label: nameOf("agent", item.name), color: item.color }
   }
   if (item.kind === "gas") {
     return {
@@ -53,20 +60,24 @@ function presentRunningLabel(item: CoreRunningItem): RunningItem {
   if (item.kind === "infusion") {
     return {
       id: item.id,
-      label: `${item.name} ${item.rate}`,
+      // With its unit: "0.208" alone could be any of mL/kg/hr, mg/hr or mcg/kg/min. A TCI
+      // infusion shows its site and target, and the predicted value at this row (≈, 2026-10-18).
+      label: item.tci
+        ? [nameOf("infusion", item.name), item.tci.site === "PLASMA" ? "Cp" : "Ce", item.rate, item.unit, item.tci.predicted != null ? `≈${item.tci.predicted}` : null].filter(Boolean).join(" ")
+        : [nameOf("infusion", item.name), item.rate, item.unit].filter(Boolean).join(" "),
       color: item.color,
     }
   }
   if (item.fluidEntryMode === "RATE") {
     return {
       id: item.id,
-      label: `${item.name} ${item.rate} ${item.unit}`,
+      label: `${nameOf("fluid", item.name)} ${item.rate} ${item.unit}`,
       color: item.color,
     }
   }
   return {
     id: item.id,
-    label: `${item.name} ${item.volume}mL`,
+    label: `${nameOf("fluid", item.name)} ${item.volume}mL`,
     color: item.color,
   }
 }
@@ -75,7 +86,7 @@ export function runningItemsAt(
   timetable: TimetableData,
   col: number,
 ): RunningItem[] {
-  return coreRunningItemsAt(timetable, col).map(presentRunningItem)
+  return coreRunningItemsAt(timetable, col).map(item => presentRunningItem(item))
 }
 
 export function runningItemsByCol(
@@ -83,19 +94,19 @@ export function runningItemsByCol(
   cols: number[],
   // The live chart of a case not yet ended: running items also show in the
   // rows after now, where a change can be planned on them (Core, 9.13.1).
-  options: { projectRunning?: boolean } = {},
+  options: { projectRunning?: boolean; nameOf?: RunningNameOf; tciPatient?: TciPatient | null } = {},
 ): Map<number, RunningItem[]> {
   const coreRows = runningItemsByColumn(timetable, cols, options)
   return new Map(
     [...coreRows].map(([col, items]) => [
       col,
-      items.map(presentRunningItem),
+      items.map(item => presentRunningItem(item, options.nameOf)),
     ]),
   )
 }
 
-export function vitalSummary(vital?: VitalsEntry): string {
-  return vitalSummaryParts(vital).join("  ")
+export function vitalSummary(vital?: VitalsEntry, language?: string): string {
+  return vitalSummaryParts(vital, language).join("  ")
 }
 
 export type RowSummary = {
@@ -110,12 +121,14 @@ export function buildRowSummary(
   vital: VitalsEntry | undefined,
   rowEvents: LogEvent[],
   labelOf: (event: LogEvent) => string,
+  language?: string,
 ): RowSummary {
-  const summary = buildCoreRowSummary(vital, rowEvents, labelOf)
+  const summary = buildCoreRowSummary(vital, rowEvents, labelOf, language)
+  const bpPrefix = `${vitalAbbreviations(language).bp} `
   return {
     criticalParts: summary.criticalParts,
     normalParts: summary.normalParts.map(part =>
-      part.startsWith("BP ") ? part.slice(3) : part,
+      part.startsWith(bpPrefix) ? part.slice(bpPrefix.length) : part,
     ),
     drugParts: summary.eventParts,
     hasCritical: summary.hasCritical,

@@ -31,6 +31,7 @@ import {
   isCaseFinalizedDatabaseError,
   withLockedCaseTransaction,
 } from "@/lib/clinical-transaction"
+import { preopAgeInYears } from "@lospor/core/preop-documents"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
 import { requiresPediatricModeDecision } from "@lospor/core/pediatric"
@@ -163,7 +164,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     capabilities: caseCapabilitiesForUser(user, record),
     patientReference: record.patientLink,
     preopProfile,
-    preopRequiredMissing: missingRequiredPreopQuestions(profiles?.[populationForMode(record.clinicalMode)], record.preop?.assessmentAnswers, record.clinicalMode),
+    preopRequiredMissing: missingRequiredPreopQuestions(profiles?.[populationForMode(record.clinicalMode)], record.preop?.assessmentAnswers, record.clinicalMode, preopAgeInYears(record.preop)),
   } as unknown as Serialized<CaseDetail>
 
   // Extending open infusion/fluid/agent bars to "now" on read used to happen here,

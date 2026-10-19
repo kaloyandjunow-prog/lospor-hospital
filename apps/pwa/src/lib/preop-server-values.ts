@@ -1,6 +1,7 @@
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
+import { normalizePlannedAnaesthesia } from "@lospor/core/preop-plan"
 
 type Tag = { label: string; code?: string; sub?: string; inn?: string; atcCode?: string }
 
@@ -202,6 +203,7 @@ export function valuesFromServerPreop(
     coldsAirwayDevice: p.coldsAirwayDevice ?? undefined,
     coldsSurgery: p.coldsSurgery ?? undefined,
     pediatricFasting: Array.isArray(p.pediatricFasting) ? p.pediatricFasting : [],
+    plannedAnaesthesia: normalizePlannedAnaesthesia(p.plannedAnaesthesia),
     // teamNotes and notes are two different fields the clinician can fill in
     // separately; falling back to one when the other is empty merges them and
     // shows a note under a heading nobody wrote it under.

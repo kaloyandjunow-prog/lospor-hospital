@@ -126,4 +126,16 @@ describe("buildEndCaseRunningItems", () => {
     expect(hasEndCaseRunningItems({ ...base, activeInfusions: [{ infId: "i1", name: "Propofol", rate: "10", unit: "mg/kg/h", color: "#111" }] })).toBe(true)
     expect(hasEndCaseRunningItems({ ...base, activeFluids: [{ fluidId: "f1", name: "Ringer", volume: "500", color: "#222" }] })).toBe(true)
   })
+
+  it("offers a TCI infusion the pump total and passes it to the stop (2026-10-19)", () => {
+    const infusion: ActiveInfusion = { infId: "inf-r", name: "Remifentanil", rate: "3", unit: "ng/mL", color: "#111", tciModel: "MINTO", tciSite: "EFFECT" }
+    const stopInfusion = vi.fn()
+    const [item] = buildEndCaseRunningItems({
+      activeAgents: [], activeGas: null, activeInfusions: [infusion], activeFluids: [],
+      stopAgent: vi.fn(), stopGasSettings: vi.fn(), stopInfusion, stopFluid: vi.fn(),
+    })
+    expect(item!.pumpTotal).toEqual({ amountUnit: "mcg" })
+    void item!.onStop({ endTs: "2026-10-19T10:00:00.000Z", pump: { value: 4200, unit: "mcg" } })
+    expect(stopInfusion).toHaveBeenCalledWith(infusion, null, { exactTs: "2026-10-19T10:00:00.000Z", endCaseStop: true, pump: { value: 4200, unit: "mcg" } })
+  })
 })

@@ -57,11 +57,10 @@ export type IntraopKeyEventsDto = Record<string, unknown> & {
   log?: IntraopKeyEventDto[]
 }
 
+/** A nil-by-mouth assignment: stop this intake so many hours before surgery. */
 export type PediatricFastingDto = {
   category: string
-  lastIntakeAt: string | null
-  status?: "MET" | "NOT_MET" | "UNKNOWN"
-  requiredHours?: number
+  hoursBefore: number
   policyId: string
   policyVersion: string
 }
@@ -185,6 +184,8 @@ export type CaseDetailPreopDto = Record<string, unknown> & {
   coldsAirwayDevice?: string | null
   coldsSurgery?: string | null
   pediatricFasting?: PediatricFastingDto[] | null
+  /** The anaesthesia planned at the preop visit (optional): Core preop-plan PlannedAnaesthesia. */
+  plannedAnaesthesia?: Record<string, unknown> | null
   labResults: LabResultDto[] | null
   aiOptIn: boolean
   createdAt: string
@@ -278,6 +279,8 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   crystalloidsMl: number | null
   colloidsMl: number | null
   bloodMl: number | null
+  /** Millilitres given through drug infusions (2026-10-18); absent on older records. */
+  infusionsMl?: number | null
   bloodProductsNote: string | null
   urineMl: number | null
   bloodLossMl: number | null

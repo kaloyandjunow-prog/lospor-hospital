@@ -10,7 +10,7 @@ import { appendComplications } from "@/lib/append-complications"
 import { totalsProvisional } from "@lospor/core/intraop-save-state"
 import { adultPremedDoseForRoute } from "@lospor/core/premedication"
 import type { IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
-import { computeLiveDrugTotals } from "@/lib/intraop-drug-totals"
+import { computeLiveDrugTotals, infusionsVolumeMl, tciPatientFrom } from "@/lib/intraop-drug-totals"
 import { buildIntraopSubmission, intraopEndCaseValuesNow, intraopTimeErrors } from "@/lib/intraop-submit"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
@@ -244,8 +244,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
 
   // Arithmetic, not interface — see @/lib/intraop-drug-totals.
   const liveDrugTotals = useMemo(
-    () => computeLiveDrugTotals(timetable, calcIbw, calcTbw, infusionWeightBasis, preop?.heightCm ?? null),
-    [calcIbw, calcTbw, infusionWeightBasis, preop?.heightCm, timetable])
+    () => computeLiveDrugTotals(timetable, calcIbw, calcTbw, infusionWeightBasis, preop?.heightCm ?? null, tciPatientFrom(preop ?? {})),
+    [calcIbw, calcTbw, infusionWeightBasis, preop, timetable])
 
   // Auto-calculate fluid totals from the one canonical delivered-volume path.
   // Running rate entries advance against the real clock; bag entries retain
@@ -264,17 +264,17 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       }
       setValue("crystalloidsMl", crystalloids || undefined)
       setValue("colloidsMl",     colloids     || undefined)
-      setValue("bloodMl",        blood        || undefined)
+      setValue("bloodMl",        blood        || undefined); setValue("infusionsMl", infusionsVolumeMl(timetable.infusions, asOf, tciPatientFrom(preop ?? {})) || undefined)
     }
 
     updateFluidTotals()
     const hasRunningRate = (timetable.fluids ?? []).some(
       fluid => fluid.fluidEntryMode === "RATE" && !fluid.stopped,
-    )
+    ) || (timetable.infusions ?? []).some(infusion => !infusion.stopped && (infusion.volumeRateMlPerHour != null || !!infusion.tciModel))
     if (!hasRunningRate) return
     const timer = window.setInterval(updateFluidTotals, 30_000)
     return () => window.clearInterval(timer)
-  }, [setValue, timetable.fluids])
+  }, [preop, setValue, timetable.fluids, timetable.infusions])
 
   // Smart monitoring defaults — fire once when technique first selected
   const watchedTechniques = useWatch({ control, name: "techniques" })
@@ -498,7 +498,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       {(() => {
         const tabOverview = (<>
 
-      {preop ? <IntraopPreopSummary preop={preop} ibw={calcIbw} isPediatric={isPediatric} /> : null}
+      {preop ? <IntraopPreopSummary preop={preop} ibw={calcIbw} isPediatric={isPediatric} surgeryStart={timelineStartedAt} timezone={timelineZone} /> : null}
       {/* Equipment suggestions */}
       {preop && isPediatric ? (
         <EquipmentSuggestions

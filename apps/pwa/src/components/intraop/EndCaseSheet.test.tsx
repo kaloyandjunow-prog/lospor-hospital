@@ -2,6 +2,9 @@ import React from "react"
 import { act } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 
+vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
+vi.mock("expo-haptics", () => ({}))
+vi.mock("@/components/VitalStepper", () => ({ VitalStepper: () => null }))
 vi.mock("@/lib/preferences-context", () => ({
   usePreferences: () => ({ tc: (key: string) => key }),
 }))
@@ -12,6 +15,7 @@ import {
   type EndCaseCleanupItem,
   type EndCaseStopContext,
 } from "./EndCaseSheet"
+import { PumpTotalField } from "./TciSheetFields"
 
 function renderSheet(items: EndCaseCleanupItem[], onFinalize = vi.fn()) {
   const decisions = Object.fromEntries(items.map(item => [item.key, "stop" as const]))
@@ -138,5 +142,14 @@ describe("EndCaseSheet fluid cleanup", () => {
     // An unconfirmed stop is answered with its own two answers (9.13.0).
     act(() => { tree.root.findByProps({ testID:"attention-still-running-stop-1" }).props.onPress() })
     expect(onResolveAfterEnd).toHaveBeenCalledWith("stop-1", "still_running")
+  })
+
+  it("sends the pump total a TCI infusion was stopped with (2026-10-19)", async () => {
+    const stopInfusion = vi.fn(async (_context?: EndCaseStopContext) => {})
+    const { tree } = renderSheet([{ key: "inf-p", label: "Propofol", sublabel: "Ce 4 mcg/mL - infusion", color: "#3b82f6", pumpTotal: { amountUnit: "mg" }, onStop: stopInfusion }])
+    const field = tree.root.findByType(PumpTotalField)
+    act(() => field.props.onChange({ value: 61.5, unit: "mL" }))
+    await act(async () => { await tree.root.findByProps({ testID: "end-case-finalize" }).props.onPress() })
+    expect(stopInfusion).toHaveBeenCalledWith({ endTs: expect.any(String), pump: { value: 61.5, unit: "mL" } })
   })
 })

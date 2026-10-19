@@ -23,9 +23,7 @@ import type {
   ClinicalRulesWorkbenchDto,
   PediatricDrugProfileRulePayload,
 } from "@lospor/core/clinical-rules"
-import {
-  AdultClinicalRuleEditor,
-} from "@/components/clinical-rules/AdultClinicalRuleEditor"
+import { AdultClinicalRuleEditor } from "@/components/clinical-rules/AdultClinicalRuleEditor"
 import {
   ClinicalRuleEditor,
   type ClinicalRuleDrugOption,
@@ -52,6 +50,7 @@ import {
   scopeLabel,
   statusLabel,
 } from "./rule-display"
+import { serverMessage } from "@/lib/server-message"
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100"
 
@@ -187,7 +186,7 @@ export default function ClinicalRulesPage() {
         cache: "no-store",
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error ?? copy.actionFailed)
+      if (!response.ok) throw new Error(body.error ? serverMessage(body.error) : copy.actionFailed)
       const received = body as WorkbenchData
       const next: WorkbenchData = {
         ...received,
@@ -328,7 +327,7 @@ export default function ClinicalRulesPage() {
             .filter((message: unknown): message is string => typeof message === "string" && !!message)
             .join(" ")
           : ""
-        throw new Error([result.error ?? copy.actionFailed, detail].filter(Boolean).join(" — "))
+        throw new Error([result.error ? serverMessage(result.error) : copy.actionFailed, detail].filter(Boolean).join(" — "))
       }
       const preferred = body.action === "create-ruleset" && typeof result.id === "string"
         ? result.id

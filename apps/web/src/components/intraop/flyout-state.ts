@@ -231,6 +231,7 @@ export function buildDrugFlyoutState({
       ? pediatricSurface?.manualEntryOnly ?? true
       : pediatricInfusionSurface?.manualEntryOnly,
     advisory: pediatricInfusionSurface?.advisory ?? undefined,
+    doseLimit: pediatricInfusionSurface?.doseLimit,
     calculationBasis: pediatricAudit?.calculationBasis ?? adultAudit?.calculationBasis,
     calculationWeightKg: pediatricAudit?.calculationWeightKg ?? adultAudit?.calculationWeightKg,
     calculationMethod: pediatricAudit?.calculationMethod ?? adultAudit?.calculationMethod,

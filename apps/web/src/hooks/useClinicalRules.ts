@@ -10,6 +10,7 @@ import {
   evaluateClinicalBaseline,
   type ClinicalBaselineFailure,
 } from "@lospor/core/clinical-baseline-safety"
+import { serverMessage } from "@/lib/server-message"
 
 const USER_KEY = "lospor:clinical-rules:last-user"
 const CACHE_ROOT = "lospor:clinical-rules:"
@@ -73,7 +74,7 @@ function repository(cacheKey: string, mode: ClinicalRuleMode) {
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(body.error ?? "Clinical rules unavailable")
+        throw new Error(serverMessage(body.error ?? "Clinical rules unavailable"))
       }
       return evaluateClinicalBaseline(body, mode).bundle
     },
@@ -136,7 +137,7 @@ export function useClinicalRules(mode: ClinicalRuleMode, enabled = true) {
             snapshot: null,
             prospectiveGuidanceEnabled: false,
             baselineFailure: "MISSING",
-            error: reason instanceof Error ? reason.message : "Clinical rules unavailable",
+            error: reason instanceof Error ? reason.message : serverMessage("Clinical rules unavailable"),
           })
         }
       })

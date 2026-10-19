@@ -31,7 +31,7 @@ export type FluidStatusTotalRow = {
  */
 export function FluidStatusTab({
   infusionTotals, bolusTotals, weightNote,
-  crystalloidsMl, colloidsMl, bloodMl,
+  crystalloidsMl, colloidsMl, bloodMl, infusionsMl = null,
   urinaryCatheter,
   urineMl, setUrineMl,
   bloodLossMl, setBloodLossMl,
@@ -44,6 +44,8 @@ export function FluidStatusTab({
   crystalloidsMl: number | null
   colloidsMl: number | null
   bloodMl: number | null
+  /** Millilitres through drug infusions with a known pump rate (2026-10-18). */
+  infusionsMl?: number | null
   urinaryCatheter: boolean
   // Both are persisted when the tab is left, the same way premedication is,
   // so there is no save control here.
@@ -60,6 +62,9 @@ export function FluidStatusTab({
     { label: tc("crystalloidsLabel"), value: crystalloidsMl, color: shade("#22d3ee") },
     { label: tc("colloidsLabel"),     value: colloidsMl,     color: shade("#a78bfa") },
     { label: tc("bloodProductsLabel"), value: bloodMl,       color: shade("#fb7185") },
+    { label: tc("drugInfusionsLabel"), value: infusionsMl,   color: shade("#a855f7") },
+    { label: tc("totalInLabel"), value: [crystalloidsMl, colloidsMl, bloodMl, infusionsMl].every(value => value == null)
+      ? null : [crystalloidsMl, colloidsMl, bloodMl, infusionsMl].reduce<number>((sum, value) => sum + (value ?? 0), 0), color: shade("#e2e8f0") },
   ]
 
   return (

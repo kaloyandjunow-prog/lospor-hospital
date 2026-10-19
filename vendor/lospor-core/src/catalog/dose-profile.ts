@@ -45,6 +45,20 @@ export type PrepStrength = {
   mL: number
 }
 
+/**
+ * The safe limit of a volume rate given as a dose rate. A local anaesthetic
+ * infusion is set in volume (mL/kg/hr, mL/hr) because the volume decides the
+ * spread, but what is safe is the dose, and the dose depends on the strength
+ * chosen. The slider maximum and the suggested volume are worked out from the
+ * chosen % (see volume-dose.ts), so one limit holds whatever the strength.
+ */
+export type DoseLimit = {
+  /** The dose-rate unit of max and suggested: "mg/kg/hr" for a mL/kg/hr route, "mg/hr" for mL/hr. */
+  unit: string
+  max: number
+  suggested?: number
+}
+
 export type RouteMode = {
   mode: DoseModeKind
   min: number
@@ -64,6 +78,7 @@ export type RouteMode = {
   suggestedVolume?: number
   suggestedRate?: number
   prepStrength?: PrepStrength
+  doseLimit?: DoseLimit
 }
 
 export type RouteModeInput = Omit<RouteMode, "mode" | "quickValues" | "weightBasis"> & {
@@ -274,6 +289,22 @@ function parsePrepStrength(
   }
 }
 
+function parseDoseLimit(
+  value: unknown,
+  name: string,
+  kind: DoseKind,
+  path: string,
+): DoseLimit | undefined {
+  if (value == null) return undefined
+  if (typeof value !== "object" || Array.isArray(value)) fail(name, kind, path, "must be an object")
+  const record = value as Record<string, unknown>
+  if (typeof record.unit !== "string" || !record.unit.trim()) fail(name, kind, `${path}.unit`, "must not be empty")
+  const max = finiteNumber(record.max, name, kind, `${path}.max`, true)
+  const suggested = optionalNumber(record.suggested, name, kind, `${path}.suggested`)
+  if (suggested != null && suggested > max) fail(name, kind, `${path}.suggested`, "must not exceed max")
+  return { unit: record.unit, max, ...(suggested == null ? {} : { suggested }) }
+}
+
 function parseFluidRate(
   value: unknown,
   name: string,
@@ -386,6 +417,7 @@ function parseRouteMode(
     suggestedVolume: optionalNumber(record.suggestedVolume, name, kind, `${path}.suggestedVolume`),
     suggestedRate: optionalNumber(record.suggestedRate, name, kind, `${path}.suggestedRate`),
     prepStrength: parsePrepStrength(record.prepStrength, name, kind, `${path}.prepStrength`),
+    doseLimit: parseDoseLimit(record.doseLimit, name, kind, `${path}.doseLimit`),
   }
 }
 
@@ -540,4 +572,16 @@ export function parseDoseProfile(name: string, kind: DoseKind, raw: unknown): Do
     defaultFluidEntryMode,
     fluidRate,
   }
+}
+
+const FORMULATION_LABELS: Readonly<Record<LocalAnaestheticFormulation, readonly [en: string, bg: string]>> = {
+  HYPOBARIC: ["Hypobaric", "Хипобаричен"],
+  ISOBARIC: ["Isobaric", "Изобаричен"],
+  HYPERBARIC: ["Hyperbaric", "Хипербаричен"],
+}
+
+/** A local anaesthetic's baricity by name, in the reader's language (2026-10-18). */
+export function localAnaestheticFormulationLabel(value: string, locale: string): string {
+  const entry = FORMULATION_LABELS[value as LocalAnaestheticFormulation]
+  return entry ? entry[locale.startsWith("bg") ? 1 : 0] : value
 }

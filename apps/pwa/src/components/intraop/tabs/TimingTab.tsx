@@ -1,12 +1,24 @@
 import { View, Text, ScrollView, TextInput, TouchableOpacity } from "react-native"
-import type { RefObject } from "react"
+import { useState, type RefObject } from "react"
+import {
+  daysBetweenDateKeys,
+  durationMinutesBetween,
+  earliestEndDateKey,
+  formatDateKeyShort,
+  isValidTimeZone,
+  localDateKey,
+  resolvedTimeZone,
+  shiftDateKey,
+} from "@lospor/core/intraop-time"
+import { DayStepper } from "@/components/DayStepper"
+import { usePreferences } from "@/lib/preferences-context"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import type { IntraopTimingOverrides } from "@/lib/intraop-timing"
 import { useShade } from "@/theme/shade"
 
 export function TimingTab({
-  caseMonthYear, setCaseMonthYear, caseStartTime, setCaseStartTime, caseEndTime, setCaseEndTime,
-  caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming, startRef, tc,
+  caseStartTime, setCaseStartTime, caseEndTime, setCaseEndTime,
+  caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming, startRef, endedAtRef, caseTimezone, tc,
 }: {
   caseMonthYear: string
   setCaseMonthYear: (v: string) => void
@@ -19,12 +31,30 @@ export function TimingTab({
   timingSaving: boolean
   saveTiming: (overrides?: IntraopTimingOverrides) => void
   startRef: RefObject<Date | null>
+  /** The stored end, to show its date. */
+  endedAtRef?: RefObject<Date | null>
+  caseTimezone?: string | null
   tc: (key: ClinicalStringKey) => string
 }) {
   const shade = useShade()
+  const { language } = usePreferences()
+  // Dates in the case's zone. Left at "Today", a typed start keeps the old
+  // rule (a time ahead of now means yesterday); a stepped date places it on
+  // that date. The end follows the start, the next day when its clock time
+  // is earlier, until the end's own stepper moves it.
+  const zone = isValidTimeZone(caseTimezone) ? caseTimezone : resolvedTimeZone()
+  const todayKey = (zone && localDateKey(new Date(), zone)) ?? new Date().toISOString().slice(0, 10)
+  const [startDayKey, setStartDayKey] = useState(todayKey)
+  const startKey = startRef.current && zone ? localDateKey(startRef.current, zone) : null
+  const endKey = endedAtRef?.current && zone ? localDateKey(endedAtRef.current, zone) : null
+  const formatDay = (key: string) => formatDateKeyShort(key, language === "bg" ? "bg" : "en") ?? key
   // Compute duration from caseStartTime / caseEndTime strings (HH:MM)
   let durationStr = ""
-  if (caseStartTime && caseEndTime) {
+  const storedMinutes = startRef.current && endedAtRef?.current ? durationMinutesBetween(startRef.current, endedAtRef.current) : null
+  if (storedMinutes != null && storedMinutes > 0) {
+    const h = Math.floor(storedMinutes / 60); const m = storedMinutes % 60
+    durationStr = h > 0 ? `${h} ${tc("hoursShort")} ${m} ${tc("minutesShort")}` : `${m} ${tc("minutesShort")}`
+  } else if (caseStartTime && caseEndTime) {
     const [sh, sm] = caseStartTime.split(":").map(Number)
     const [eh, em] = caseEndTime.split(":").map(Number)
     if (!isNaN(sh) && !isNaN(sm) && !isNaN(eh) && !isNaN(em)) {
@@ -42,29 +72,20 @@ export function TimingTab({
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
 
-      {/* Month/Year */}
-      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
-        textTransform:"uppercase", marginBottom:8 }}>{tc("caseMonthYear")}</Text>
-      <TextInput
-        style={{ backgroundColor:shade("#111111"), color:shade("#f8fafc"), borderRadius:10, padding:12,
-          fontSize:16, borderWidth:1, borderColor:shade("#2a3a4a"), marginBottom:18 }}
-        placeholder={tc("timingMonthPlaceholder")}
-        placeholderTextColor={shade("#475569")}
-        value={caseMonthYear}
-        onChangeText={setCaseMonthYear}
-        onBlur={() => saveTiming()}
-      />
-
       {/* Start time */}
       <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:8 }}>{tc("anesthesiaStartTime")}</Text>
+      {!startRef.current ? (
+        <DayStepper value={startDayKey} onChange={setStartDayKey} todayKey={todayKey} min={shiftDateKey(todayKey, -14)} max={todayKey}
+          language={language} label={tc("timingStartDate")} testID="intraop-start-day" />
+      ) : null}
       <View style={{ flexDirection:"row", gap:10, marginBottom:8 }}>
         {startRef.current ? (
           // Locked — once case has started the start time cannot be changed
           <View style={{ flex:1, backgroundColor:shade("#0a0f1a"), borderRadius:10, padding:12,
             borderWidth:1, borderColor:shade("#1e2d40"), alignItems:"center", flexDirection:"row", gap:8 }}>
             <Text style={{ flex:1, color:shade("#f8fafc"), fontSize:22, fontWeight:"700",
-              fontVariant:["tabular-nums"], textAlign:"center" }}>{caseStartTime}</Text>
+              fontVariant:["tabular-nums"], textAlign:"center" }} testID="intraop-start-locked">{startKey ? `${formatDay(startKey)} · ` : ""}{caseStartTime}</Text>
             <Text style={{ color:shade("#475569"), fontSize:10, fontWeight:"700" }}>{tc("timingLocked")}</Text>
           </View>
         ) : (
@@ -77,10 +98,10 @@ export function TimingTab({
               placeholderTextColor={shade("#475569")}
               value={caseStartTime}
               onChangeText={setCaseStartTime}
-              onBlur={() => saveTiming({ startTime: caseStartTime })}
+              onBlur={() => saveTiming({ startTime: caseStartTime, startDayKey })}
             />
             <TouchableOpacity
-              onPress={() => { setCaseStartTime(nowHHMM); saveTiming({ startTime: nowHHMM }) }}
+              onPress={() => { setStartDayKey(todayKey); setCaseStartTime(nowHHMM); saveTiming({ startTime: nowHHMM }) }}
               style={{ paddingHorizontal:14, paddingVertical:12, borderRadius:10,
                 backgroundColor:shade("#1e3a5f"), borderWidth:1, borderColor:shade("#3b82f644"),
                 justifyContent:"center" }}>
@@ -106,10 +127,10 @@ export function TimingTab({
         />
         <TouchableOpacity
           onPress={() => {
-            const nextDay = !!caseStartTime && nowHHMM < caseStartTime
+            const offset = startKey ? Math.max(0, daysBetweenDateKeys(startKey, todayKey) ?? 0) : 0
             setCaseEndTime(nowHHMM)
-            if (nextDay !== caseEndNextDay) setCaseEndNextDay(() => nextDay)
-            saveTiming({ endTime: nowHHMM, endTimeNextDay: nextDay })
+            if ((offset > 0) !== caseEndNextDay) setCaseEndNextDay(() => offset > 0)
+            saveTiming({ endTime: nowHHMM, endDayOffset: offset })
           }}
           style={{ paddingHorizontal:14, paddingVertical:12, borderRadius:10,
             backgroundColor:shade("#1e3a5f"), borderWidth:1, borderColor:shade("#3b82f644"),
@@ -118,27 +139,27 @@ export function TimingTab({
         </TouchableOpacity>
       </View>
 
-      {/* Next day toggle */}
-      <TouchableOpacity
-        onPress={() => {
-          const nextDay = !caseEndNextDay
-          setCaseEndNextDay(() => nextDay)
-          saveTiming({ endTimeNextDay: nextDay })
+      {/* The end date: the start's, the next day when the end time is earlier. */}
+      <DayStepper
+        value={endKey ?? startKey ?? todayKey}
+        onChange={key => {
+          const offset = startKey ? daysBetweenDateKeys(startKey, key) : null
+          if (offset == null || offset < 0 || !caseEndTime) return
+          setCaseEndNextDay(() => offset > 0)
+          saveTiming({ endTime: caseEndTime, endDayOffset: offset })
         }}
-        style={{ flexDirection:"row", alignItems:"center", gap:10, marginBottom:20,
-          paddingHorizontal:14, paddingVertical:10, borderRadius:10,
-          backgroundColor: caseEndNextDay ? shade("#1e3a5f") : shade("#111111"),
-          borderWidth:1, borderColor: caseEndNextDay ? shade("#3b82f6") : shade("#2a3a4a") }}>
-        <View style={{ width:20, height:20, borderRadius:4,
-          backgroundColor: caseEndNextDay ? shade("#3b82f6") : "transparent",
-          borderWidth: caseEndNextDay ? 0 : 1.5, borderColor:shade("#475569"),
-          alignItems:"center", justifyContent:"center" }}>
-          {caseEndNextDay && <Text style={{ color:shade("#fff"), fontSize:11, fontWeight:"900" }}>✓</Text>}
-        </View>
-        <Text style={{ color: caseEndNextDay ? shade("#93c5fd") : shade("#64748b"), fontSize:13, fontWeight:"600" }}>
-          {tc("endTimeNextDay")}
-        </Text>
-      </TouchableOpacity>
+        todayKey={todayKey}
+        min={startRef.current && zone && caseEndTime ? earliestEndDateKey(startRef.current, caseEndTime, zone) : startKey}
+        max={startKey ? shiftDateKey(startKey, 2) : null}
+        language={language}
+        label={tc("timingEndDate")}
+        disabled={!startKey || !caseEndTime}
+        testID="intraop-end-day"
+      />
+
+      {storedMinutes != null && storedMinutes > 24 * 60 ? (
+        <Text testID="intraop-longer-than-day" style={{ color:shade("#fbbf24"), fontSize:12, fontWeight:"800", marginBottom:12 }}>{tc("timingLongerThanDay")}</Text>
+      ) : null}
 
       {/* Duration */}
       {durationStr ? (

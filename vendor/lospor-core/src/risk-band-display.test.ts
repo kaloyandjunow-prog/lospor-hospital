@@ -44,6 +44,22 @@ describe("showing a clinician what a risk score means", () => {
     expect(displayStopBangRisk(3, "bg").label).toBe("Междинен риск от ОСА")
   })
 
+  /**
+   * Fifth Consensus Guidelines for PONV (Gan 2025): about 10/20/40/60/80% for
+   * 0-4 factors; 0 is low, 1-2 medium, 3+ high. One factor used to read
+   * "Low (< 10%)".
+   */
+  it("bands Apfel the way the PONV consensus guideline does", () => {
+    expect([0, 1, 2, 3, 4].map((score) => displayApfelRisk(score, "en").label)).toEqual([
+      "Low (~ 10%)",
+      "Moderate (~ 20%)",
+      "Moderate (~ 40%)",
+      "High (~ 60%)",
+      "High (~ 80%)",
+    ])
+    expect([0, 1, 2, 3, 4].map((score) => apfelRiskBand(score).severity)).toEqual(["low", "mid", "mid", "high", "high"])
+  })
+
   it("carries the severity through for the colour a client gives it", () => {
     expect(displayRcriRisk(0, "en").severity).toBe("low")
     expect(displayRcriRisk(2, "en").severity).toBe("mid")

@@ -8,6 +8,7 @@ import {
   type AllergyMatchLevel,
 } from "@lospor/core/allergy-drug-check"
 import type { AllergyAck } from "@lospor/core/intraop-types"
+import { displayClinicalCode } from "@/lib/clinical-display"
 
 type Dose = { name: string; atcCode?: string; inn?: string; allergyAck?: AllergyAck[] }
 type Chart = { drugs: Dose[]; infusions?: Dose[] }
@@ -33,15 +34,19 @@ const TEXT = {
 
 const STRONG: ReadonlySet<AllergyMatchLevel> = new Set(["same_substance", "same_class"])
 
-type Hit = { dose: Dose; conflicts: AllergyConflict[] }
+type Hit = { dose: Dose; conflicts: AllergyConflict[]; kind: "drug" | "infusion" }
 
 /** The doses this change adds that clash with a recorded allergy and carry no acknowledgement. */
 export function newAllergyHits(allergies: ReturnType<typeof allergyRecords>, prev: Chart, next: Chart): Hit[] {
   if (allergies.length === 0) return []
   const before = new Set<Dose>([...prev.drugs, ...(prev.infusions ?? [])])
-  return [...next.drugs, ...(next.infusions ?? [])]
-    .filter(dose => !before.has(dose) && !dose.allergyAck?.length)
-    .map(dose => ({ dose, conflicts: allergyConflicts(allergies, dose) }))
+  const tagged = [
+    ...next.drugs.map(dose => ({ dose, kind: "drug" as const })),
+    ...(next.infusions ?? []).map(dose => ({ dose, kind: "infusion" as const })),
+  ]
+  return tagged
+    .filter(({ dose }) => !before.has(dose) && !dose.allergyAck?.length)
+    .map(({ dose, kind }) => ({ dose, kind, conflicts: allergyConflicts(allergies, dose) }))
     .filter(hit => hit.conflicts.length > 0)
 }
 
@@ -99,7 +104,7 @@ export function useAllergyGate({ preop, locale, ready = true }: {
                   : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/50 dark:bg-amber-950/40 dark:text-amber-200"
               }`}
             >
-              <strong>{hit.dose.name}</strong> — {conflict.allergy}
+              <strong>{displayClinicalCode(hit.kind === "drug" ? "option:INTRAOP_DRUG" : "option:INTRAOP_INFUSION", hit.dose.name, locale, { label: hit.dose.name })}</strong> — {conflict.allergy}
               {conflict.source === "ehr" ? ` (${text.fromEhr})` : ""}
               <span className="block text-xs font-semibold">{text.level[conflict.level]}</span>
             </li>

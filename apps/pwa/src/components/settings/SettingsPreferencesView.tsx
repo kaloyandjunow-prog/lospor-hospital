@@ -17,6 +17,7 @@ import { legalDocumentUrl } from "@/lib/legal-links"
 import { FavouritePicker } from "@/components/SettingsPickers"
 import { NotificationsCard } from "./NotificationsCard"
 import { DiagnosticsCard, type DiagState } from "./DiagnosticsCard"
+import { BulgarianNamesCard } from "./BulgarianNamesCard"
 
 /**
  * Split out of settings.tsx: theme/units/automation/notifications/privacy/
@@ -165,6 +166,8 @@ export function SettingsPreferencesView({
             last
           />
         </Card>
+        <View style={{ height: 12 }} />
+        <BulgarianNamesCard />
 
         {/* -- Units of measurement ------------------------------------------------
             Display-only preferences — the database always stores the canonical

@@ -1,7 +1,7 @@
 "use client"
 
 import { useLocale, useTranslations } from "next-intl"
-import { displayApfelRisk, displayRcriRisk, displayStopBangRisk } from "@lospor/core/risk-band-display"
+import { displayApfelRisk, displayRcriRisk, displayStopBangRisk, type DisplayedRiskBand } from "@lospor/core/risk-band-display"
 import { toClinicalLocale } from "@/lib/clinical-display"
 
 /**
@@ -34,11 +34,16 @@ type Card = {
   unavailable: boolean
 }
 
-function toneFor(score: number, amber: number, red: number): string {
-  if (score >= red) return "text-red-500"
-  if (score >= amber) return "text-amber-500"
-  return "text-emerald-600"
+// The colour follows the band core gives the score, so it cannot disagree
+// with the words beside it. Cut-offs kept here per card left Apfel 1 green
+// after the PONV guideline made it medium.
+const TONE: Record<DisplayedRiskBand["severity"], string> = {
+  low: "text-emerald-600",
+  mid: "text-amber-500",
+  high: "text-red-500",
 }
+
+const shown = (band: DisplayedRiskBand) => ({ label: band.label, tone: TONE[band.severity] })
 
 export function RiskScoreCards({
   rcriScore, apfelScore, stopBangScore,
@@ -64,17 +69,17 @@ export function RiskScoreCards({
   const cards: Card[] = [
     {
       titleKey: "preop.rcriShort", score: rcriScore, max: 6,
-      label: displayRcriRisk(rcriScore, bandLocale).label, tone: toneFor(rcriScore, 2, 3),
+      ...shown(displayRcriRisk(rcriScore, bandLocale)),
       answered: rcriAnswered, criteria: 5, unavailable: !!unavailable.rcri,
     },
     {
       titleKey: "preop.apfelShort", score: apfelScore, max: 4,
-      label: displayApfelRisk(apfelScore, bandLocale).label, tone: toneFor(apfelScore, 2, 3),
+      ...shown(displayApfelRisk(apfelScore, bandLocale)),
       answered: apfelAnswered, criteria: 3, unavailable: !!unavailable.apfel,
     },
     {
       titleKey: "preop.stopBangShort", score: stopBangScore, max: 8,
-      label: displayStopBangRisk(stopBangScore, bandLocale).label, tone: toneFor(stopBangScore, 3, 5),
+      ...shown(displayStopBangRisk(stopBangScore, bandLocale)),
       answered: stopBangAnswered, criteria: 5, unavailable: !!unavailable.stopBang,
     },
   ]
@@ -113,3 +118,4 @@ export function RiskScoreCards({
     </div>
   )
 }
+export { GuptaRiskCard } from "./GuptaRiskCard"

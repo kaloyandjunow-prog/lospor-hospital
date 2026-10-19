@@ -6,8 +6,12 @@ import { buildIntraopTimingPatch, type IntraopTimingOverrides } from "@/lib/intr
 import {
   buildIntraopEndTiming,
   buildIntraopStartTiming,
+  defaultEndDayOffset,
   endInstantForWallClock,
+  instantFromDateKey,
   isValidTimeZone,
+  localDateKey,
+  monthYearOf,
   resolvedTimeZone,
   startInstantForWallClock,
 } from "@lospor/core/intraop-time"
@@ -35,6 +39,10 @@ type UseIntraopSectionSavesArgs = {
   caseEndNextDay: boolean
   caseTimezone: string | null
   startRef: MutableRefObject<Date | null>
+  /** The stored end, so the Timing tab can show its date. */
+  endedAtRef?: MutableRefObject<Date | null>
+  /** Keeps the screen's case month in step with the start date it was taken from. */
+  setCaseMonthYear?: (monthYear: string) => void
 }
 
 export function useIntraopSectionSaves({
@@ -49,6 +57,8 @@ export function useIntraopSectionSaves({
   caseEndNextDay,
   caseTimezone,
   startRef,
+  endedAtRef,
+  setCaseMonthYear,
 }: UseIntraopSectionSavesArgs) {
   const [timingSaving, setTimingSaving] = useState(false)
   const [fieldSaving, setFieldSaving] = useState<string | null>(null)
@@ -65,19 +75,26 @@ export function useIntraopSectionSaves({
       const enriched: IntraopTimingOverrides = { ...overrides }
 
       if ("startTime" in overrides && overrides.startTime && !overrides.startedAt && zone) {
-        const instant = startInstantForWallClock(new Date(), overrides.startTime, zone)
+        // Left at today, a start time keeps the old rule (ahead of now means
+        // yesterday); a stepped date places the time on that date.
+        const todayKey = localDateKey(new Date(), zone)
+        const instant = overrides.startDayKey && overrides.startDayKey !== todayKey
+          ? instantFromDateKey(overrides.startDayKey, overrides.startTime, zone)
+          : startInstantForWallClock(new Date(), overrides.startTime, zone)
         const timing = instant ? buildIntraopStartTiming(instant, zone) : null
-        if (timing) Object.assign(enriched, timing)
+        const monthYear = instant ? monthYearOf(instant, zone) : null
+        if (timing) Object.assign(enriched, timing, monthYear ? { monthYear } : {})
+        if (timing && monthYear) setCaseMonthYear?.(monthYear)
       }
       if ("endTime" in overrides && overrides.endTime && !overrides.endedAt && zone && startRef.current) {
-        const instant = endInstantForWallClock(
-          startRef.current,
-          overrides.endTime,
-          zone,
-          overrides.endTimeNextDay ?? caseEndNextDay,
-        )
+        // A stepped end date wins; otherwise the end follows the start's date,
+        // the next day when its clock time is earlier.
+        const offset = overrides.endDayOffset
+          ?? (overrides.endTimeNextDay != null ? (overrides.endTimeNextDay ? 1 : 0) : defaultEndDayOffset(startRef.current, overrides.endTime, zone))
+        const instant = endInstantForWallClock(startRef.current, overrides.endTime, zone, offset)
         const timing = instant ? buildIntraopEndTiming(instant, zone) : null
-        if (timing) Object.assign(enriched, timing)
+        if (timing) Object.assign(enriched, timing, { endTimeNextDay: offset > 0 })
+        if (instant && endedAtRef) endedAtRef.current = instant
       }
 
       await patchIntraopSection(buildIntraopTimingPatch({

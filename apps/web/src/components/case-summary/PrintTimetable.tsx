@@ -2,9 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import {
-  buildDrugLogEntries, eventClockTimes,
-  calculateDrugTotals,
-  naturalTimetableColumnCount,
+  buildDrugLogEntries, eventClockTimes, calculateDrugTotals, naturalTimetableColumnCount,
 } from "@lospor/core/intraop-summary"
 import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
 import { clinicalDisplayLabel, formatClinicalGasMixLabel, type ClinicalLocale } from "@lospor/core/display"
@@ -15,6 +13,7 @@ import type {
   TimetableData, VitalKey,
 } from "@/types/timetable"
 import { CHART_STR, type ChartStr } from "./print-timetable-copy"
+import { tciTargetText } from "@lospor/core/tci"
 
 function colToHHMM(col: number, startISO?: string | null) {
   return sharedColToHHMM(col, startISO)
@@ -352,7 +351,7 @@ function buildSVG(
   agents.forEach(a => laneBar(S.agent, a.startCol ?? 0, a.endCol ?? a.startCol ?? 0, "#0d9488",
     `${laneCodeLabel("agent", a.name, locale)}${a.percent != null ? ` ${a.percent} vol%` : ""}`.trim()))
   infusions.forEach(f => laneBar(S.infusion, f.startCol ?? 0, f.endCol ?? f.startCol ?? 0, "#2563eb",
-    `${laneCodeLabel("infusion", f.name, locale)} ${f.rate ?? ""} ${f.unit ?? ""}`.trim()))
+    `${laneCodeLabel("infusion", f.name, locale)} ${tciTargetText(f) ?? `${f.rate ?? ""} ${f.unit ?? ""}`}`.trim()))
   gas.forEach(g => laneBar(S.gas, g.startCol ?? 0, g.endCol ?? g.startCol ?? 0, "#0284c7", gasText(g, locale)))
   fluids.forEach(f => laneBar(S.fluids, f.startCol ?? 0, f.endCol ?? f.startCol ?? 0, "#0ea5e9",
     `${laneCodeLabel("fluid", f.name, locale)}${f.volume ? ` ${f.volume} mL` : ""}`.trim()))

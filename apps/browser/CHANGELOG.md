@@ -1,5 +1,27 @@
 # Changelog - LOSPOR Database
 
+## [0.9.0] - 2026-10-19
+
+### Added
+
+- **Cohort filters on the risk scores.** The cohort builder filters on the
+  raw RCRI, Apfel, STOP-BANG, POVOC, COLDS and PAED counts, each with its
+  scale beside it.
+- **Gupta MICA risk and the PAED band** on a case: "1.8% · Elevated", and
+  PAED with its emergence-delirium band.
+- **ASA suggestion agreement for each rule**, on the overview. For each rule
+  that decided an ASA suggestion it shows the cases, how often anaesthetists
+  chose the suggested class, and how often a lower or higher one. Groups under
+  five are shown as <5, and each rule is named in the reader's language.
+
+### Changed
+
+- **Scores read as their raw count out of their maximum**, with the
+  guideline's band and risk where the score has one ("3 / 4 · High
+  (~ 60%)", "2 / 4 · 30%"). Mean Aldrete and pain read out of 10.
+- **Shared Core pin advanced to 9.15.1**, for the research contract of API
+  9.15.0. Research dates and times now arrive on the theatre's clock.
+
 ## [0.8.3] - 2026-10-10
 
 ### Security

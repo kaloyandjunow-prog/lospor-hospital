@@ -9,6 +9,7 @@
 // needs a real dev/production build for actual notification delivery.
 import Constants, { AppOwnership } from "expo-constants"
 import { Platform } from "react-native"
+import { serverMessage } from "@/lib/server-message"
 
 export type ReminderHandle = string | number | null
 export type NotifPermission = "granted" | "denied" | "default" | "unsupported"
@@ -39,7 +40,7 @@ function loadModule(): NotificationsModule | null {
 
 export async function getStatus(): Promise<NotifStatus> {
   const Notifications = loadModule()
-  if (!Notifications) return { supported: false, permission: "unsupported", reason: UNSUPPORTED_REASON }
+  if (!Notifications) return { supported: false, permission: "unsupported", reason: serverMessage(UNSUPPORTED_REASON) }
   try {
     const p = await Notifications.getPermissionsAsync()
     return {

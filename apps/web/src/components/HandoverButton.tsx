@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { UserCheck, Loader2, Check, ChevronDown } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { serverMessage } from "@/lib/server-message"
 
 interface Colleague { id: string; name: string; title: string; role: string }
 
@@ -116,7 +117,7 @@ export function HandoverButton({
     // only reading is that the button is broken.
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      setError(body?.error ?? t("transfer.failed"))
+      setError(body?.error ? serverMessage(body.error) : t("transfer.failed"))
       return
     }
     const data = await res.json()

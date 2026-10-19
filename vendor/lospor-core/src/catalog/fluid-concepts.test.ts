@@ -6,7 +6,7 @@ const drug = (conceptId: number) => ({ table: "drug", conceptId })
 
 describe("intraopFluidConcept", () => {
   it("codes every catalogue fluid at its default strength", () => {
-    // Mannitol offers two strengths and preselects neither, so it needs one.
+    // Mannitol offers three strengths and preselects neither, so it needs one.
     const uncoded = FLUID_CATALOG
       .filter(entry => !intraopFluidConcept({ name: entry.name, category: entry.category }))
       .map(entry => entry.name)
@@ -18,6 +18,7 @@ describe("intraopFluidConcept", () => {
     expect(intraopFluidConcept({ name: "Lactated Ringer's / Hartmann's" })).toEqual(drug(43027244))
     expect(intraopFluidConcept({ name: "Plasma-Lyte" })).toEqual(drug(19131116))
     expect(intraopFluidConcept({ name: "Ringer's acetate" })).toEqual(drug(36887858))
+    expect(intraopFluidConcept({ name: "Ringer's solution" })).toEqual(drug(968982))
     expect(intraopFluidConcept({ name: "Dextrose 5% in 0.45% saline (D5 1/2NS)" })).toEqual(drug(42481294))
   })
 
@@ -28,6 +29,7 @@ describe("intraopFluidConcept", () => {
     expect(intraopFluidConcept({ name: "HES" })).toEqual(drug(40161356))
     expect(intraopFluidConcept({ name: "HES", concentration: "6%" })).toEqual(drug(43012054))
     expect(intraopFluidConcept({ name: "Mannitol", concentration: "15%" })).toEqual(drug(36883846))
+    expect(intraopFluidConcept({ name: "Mannitol", concentration: "20%" })).toEqual(drug(42481409))
     expect(intraopFluidConcept({ name: "Albumin 20%" })).toEqual(drug(42481519))
     // A strength the table has no concept for is not rounded to one it has.
     expect(intraopFluidConcept({ name: "Saline", concentration: "7.5%" })).toBeUndefined()
@@ -54,6 +56,6 @@ describe("intraopFluidConcept", () => {
 
   it("lists each concept once", () => {
     expect(new Set(INTRAOP_FLUID_CONCEPT_IDS).size).toBe(INTRAOP_FLUID_CONCEPT_IDS.length)
-    expect(INTRAOP_FLUID_CONCEPT_IDS).toHaveLength(33)
+    expect(INTRAOP_FLUID_CONCEPT_IDS).toHaveLength(35)
   })
 })

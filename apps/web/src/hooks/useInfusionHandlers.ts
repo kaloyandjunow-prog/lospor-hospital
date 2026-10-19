@@ -1,5 +1,6 @@
 import type { RefObject } from "react"
 import type { TimetableData, TimetableInfusion } from "@/components/IntraopTimetable"
+import type { PumpTotalUnit } from "@lospor/core/intraop-types"
 
 // Infusions have the heaviest lifecycle of any domain in this file: start →
 // rate-change (any number of times) → extend/retract either edge → stop →
@@ -20,8 +21,14 @@ export function useInfusionHandlers(
   // 1.4.9: a bar's end is its stop. Dropping the end grip stops it at that
   // column (a planned stop if the column is still ahead); on a stopped bar it
   // moves the stop. A running bar otherwise ends at "now" by itself.
-  function extendInfusion(id: string, newEnd: number) {
-    const d = dataRef.current; onChangeRef.current({ ...d, infusions: (d.infusions ?? []).map(i => i.id === id ? { ...i, endCol: newEnd, plannedStopCol: undefined, stopped: true } : i) })
+  /** Stops an infusion; a TCI stop may carry the pump's own total (2026-10-18). */
+  function extendInfusion(id: string, newEnd: number, pump?: { value: number; unit: PumpTotalUnit }) {
+    const d = dataRef.current; onChangeRef.current({ ...d, infusions: (d.infusions ?? []).map(i => i.id === id ? { ...i, endCol: newEnd, plannedStopCol: undefined, stopped: true, ...(pump ? { pumpTotal: pump.value, pumpTotalUnit: pump.unit } : {}) } : i) })
+  }
+
+  /** The pump's total entered or corrected after the stop; none clears it. */
+  function setInfusionPumpTotal(id: string, pump?: { value: number; unit: PumpTotalUnit }) {
+    const d = dataRef.current; onChangeRef.current({ ...d, infusions: (d.infusions ?? []).map(i => i.id === id ? { ...i, pumpTotal: pump?.value, pumpTotalUnit: pump?.unit } : i) })
   }
 
   function resumeInfusion(id: string) {
@@ -53,7 +60,11 @@ export function useInfusionHandlers(
     onChangeRef.current({ ...d, infusions: (d.infusions ?? []).map(i => i.id === id ? { ...i, stopped: undefined, endCol: Math.max(i.endCol, col) } : i) })
   }
 
-  function applyInfRateChange(infId: string, fromCol: number | null, toCol: number, rate: number, unit: string, concentration?: string) {
+  /** A change records both rates when known: the dose rate and the pump rate (2026-10-18). */
+  function applyInfRateChange(
+    infId: string, fromCol: number | null, toCol: number,
+    { rate, unit, concentration, volumeRateMlPerHour }: { rate: number; unit: string; concentration?: string; volumeRateMlPerHour?: number },
+  ) {
     onChangeRef.current({
       ...dataRef.current,
       infusions: (dataRef.current.infusions ?? []).map(i => {
@@ -61,12 +72,12 @@ export function useInfusionHandlers(
         const changes = (i.rateChanges ?? []).filter(rc => rc.col !== fromCol && rc.col !== toCol).sort((a, b) => a.col - b.col)
         if (toCol === i.startCol) {
           // Dropped on the start cell → change the base rate/concentration of the segment
-          return { ...i, rate, unit, concentration: concentration ?? i.concentration, rateChanges: changes.length > 0 ? changes : undefined }
+          return { ...i, rate, unit, concentration: concentration ?? i.concentration, volumeRateMlPerHour, rateChanges: changes.length > 0 ? changes : undefined }
         }
-        return { ...i, rateChanges: [...changes, { col: toCol, rate, unit, concentration: concentration ?? i.concentration }].sort((a, b) => a.col - b.col) }
+        return { ...i, rateChanges: [...changes, { col: toCol, rate, unit, concentration: concentration ?? i.concentration, volumeRateMlPerHour }].sort((a, b) => a.col - b.col) }
       }),
     })
   }
 
-  return { removeInfusion, extendInfusion, resumeInfusion, continueInfusion, extendInfusionLeft, restoreInfusion, applyInfRateChange }
+  return { removeInfusion, extendInfusion, setInfusionPumpTotal, resumeInfusion, continueInfusion, extendInfusionLeft, restoreInfusion, applyInfRateChange }
 }

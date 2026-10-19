@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react"
-import { ActivityIndicator, Pressable, Text, View } from "react-native"
+import { useMemo } from "react"
+import { Pressable, Text, View } from "react-native"
 import { Controller, useWatch, type Control, type UseFormSetValue } from "react-hook-form"
 import Ionicons from "@expo/vector-icons/Ionicons"
 import {
   APAGBI_FASTING_POLICY_2023,
   calculateColds,
   calculatePovoc,
-  evaluatePediatricFasting,
+  isFastingAssignmentBelowMinimum,
+  PEDIATRIC_FASTING_CATEGORIES,
+  policyFastingAssignments,
   getPediatricVitalReference,
   normalizePediatricAge,
   validateClinicalModeAge,
@@ -15,17 +17,11 @@ import {
   type PediatricAgeUnit,
   type PediatricFastingCategory,
 } from "@lospor/core/pediatric"
-import {
-  calculateMostellerBsa,
-  calculatePediatricMaintenanceFluid,
-  calculateRcukPediatricResuscitation,
-} from "@lospor/core/pediatric-calculators"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { ClinicalSwitchRow, Field } from "@/components/ui"
 import { PovocSection } from "@/components/preop/PovocSection"
 import { SegmentedSelect } from "@/components/preop/PreopFormWidgets"
 import { PEDIATRIC_PREOP_LABELS, type PediatricPreopLabels } from "@/components/preop/pediatric-preop-labels"
-import { apiFetch } from "@/lib/api"
 import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import type { PediatricModeCapability } from "@/lib/deployment-capabilities"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
@@ -213,14 +209,7 @@ const COLDS_OPTIONS = {
 } as const
 
 type ColdsField = keyof typeof COLDS_OPTIONS
-type AcceptedKind = "MOSTELLER_BSA" | "MAINTENANCE_FLUID" | "RCUK_RESUSCITATION"
 
-const FASTING_CATEGORIES: PediatricFastingCategory[] = [
-  "CLEAR_FLUIDS",
-  "BREAST_MILK",
-  "INFANT_FORMULA_UNDER_1_YEAR",
-  "SOLID_FOOD_OR_COW_MILK",
-]
 
 function ChoicePills({ value, options, onChange }: {
   value?: string
@@ -252,48 +241,12 @@ function fastingLabel(category: PediatricFastingCategory, labels: PediatricPreop
   return labels.solids
 }
 
-function hoursSince(value?: string | null): number | undefined {
-  if (!value) return undefined
-  const timestamp = new Date(value).getTime()
-  if (!Number.isFinite(timestamp)) return undefined
-  return Math.max(0, Math.round((Date.now() - timestamp) / 36_000) / 100)
-}
-
-function CalculationCard({ title, value, caseId, accepted, accepting, labels, onAccept }: {
-  title: string
-  value: string
-  caseId?: string | null
-  accepted: boolean
-  accepting: boolean
-  labels: PediatricPreopLabels
-  onAccept?: () => void
-}) {
-  return (
-    <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 11, gap: 7 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>{title}</Text>
-      <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: "900" }}>{value}</Text>
-      <Pressable
-        disabled={!caseId || !onAccept || accepted || accepting}
-        onPress={onAccept}
-        style={{ minHeight: 38, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", borderRadius: 9, borderWidth: 1, borderColor: accepted ? colors.success : colors.primary, opacity: !caseId || !onAccept || accepting ? 0.5 : 1 }}
-      >
-        {accepting ? <ActivityIndicator size="small" color={colors.primary} /> : accepted ? <Ionicons name="checkmark" size={16} color={colors.success} /> : null}
-        <Text style={{ color: accepted ? colors.success : colors.primary, fontSize: 12, fontWeight: "900" }}>
-          {accepted ? labels.accepted : caseId ? labels.accept : labels.saveFirst}
-        </Text>
-      </Pressable>
-    </View>
-  )
-}
-
-export function PediatricRiskAndCalculators({ control, setValue, tc, language, caseId, isShown = () => true }: Props & { caseId?: string | null; isShown?: (field: string) => boolean }) {
+export function PediatricRiskAndCalculators({ control, setValue, tc, language, isShown = () => true }: Props & { isShown?: (field: string) => boolean }) {
   const labels = PEDIATRIC_PREOP_LABELS[language]
   const [
     mode,
     ageValue,
     ageUnitRaw,
-    heightCm,
-    weightKg,
     povocSurgeryAtLeast30Minutes,
     povocStrabismusSurgery,
     povocHistory,
@@ -310,8 +263,6 @@ export function PediatricRiskAndCalculators({ control, setValue, tc, language, c
       "clinicalMode",
       "ageValue",
       "ageUnit",
-      "heightCm",
-      "weightKg",
       "povocSurgeryAtLeast30Minutes",
       "povocStrabismusSurgery",
       "povocHistory",
@@ -324,9 +275,6 @@ export function PediatricRiskAndCalculators({ control, setValue, tc, language, c
       "pediatricFasting",
     ],
   })
-  const [accepting, setAccepting] = useState<AcceptedKind | null>(null)
-  const [accepted, setAccepted] = useState<Set<AcceptedKind>>(new Set())
-  const [acceptError, setAcceptError] = useState("")
   const ageUnit: PediatricAgeUnit = ageUnitRaw ?? "YEARS"
   const age = ageValue != null ? normalizePediatricAge({ value: ageValue, unit: ageUnit }) : null
   const povoc = age
@@ -346,11 +294,6 @@ export function PediatricRiskAndCalculators({ control, setValue, tc, language, c
         surgery: coldsSurgery,
       })
     : null
-  const bsa = heightCm && weightKg ? calculateMostellerBsa({ heightCm, weightKg }) : null
-  const maintenance = weightKg
-    ? calculatePediatricMaintenanceFluid({ weightKg, age: ageValue != null ? { value: ageValue, unit: ageUnit } : null })
-    : null
-  const resuscitation = weightKg ? calculateRcukPediatricResuscitation({ weightKg }) : null
   const fastingByCategory = useMemo(
     () => new Map((fastingRows ?? []).map(row => [row.category, row])),
     [fastingRows],
@@ -388,43 +331,18 @@ export function PediatricRiskAndCalculators({ control, setValue, tc, language, c
     return labels.surgery
   }
 
-  function updateFasting(category: PediatricFastingCategory, elapsedHours?: number | null) {
+  // A nil-by-mouth assignment: each intake stops so many hours before
+  // surgery. Clearing the hours removes that intake from the assignment.
+  function assignFasting(category: PediatricFastingCategory, hoursBefore?: number | null) {
     const remaining = (fastingRows ?? []).filter(row => row.category !== category)
-    if (elapsedHours == null) {
+    if (hoursBefore == null || !Number.isFinite(hoursBefore) || hoursBefore < 0) {
       setValue("pediatricFasting", remaining, { shouldDirty: true })
       return
     }
-    const lastIntakeAt = new Date(Date.now() - elapsedHours * 3_600_000).toISOString()
-    const result = evaluatePediatricFasting({ category, lastIntakeAt, assessmentAt: new Date() })
     setValue("pediatricFasting", [
       ...remaining,
-      {
-        category,
-        lastIntakeAt,
-        status: result.status,
-        requiredHours: result.requiredHours,
-        policyId: result.policyId,
-        policyVersion: result.policyVersion,
-      },
+      { category, hoursBefore: Math.min(hoursBefore, 24), policyId: APAGBI_FASTING_POLICY_2023.id, policyVersion: APAGBI_FASTING_POLICY_2023.version },
     ], { shouldDirty: true })
-  }
-
-  async function acceptCalculation(kind: AcceptedKind, inputs: Record<string, unknown>) {
-    if (!caseId) return
-    setAccepting(kind)
-    setAcceptError("")
-    try {
-      const response = await apiFetch(`/api/cases/${caseId}/calculations`, {
-        method: "POST",
-        body: JSON.stringify({ kind, inputs }),
-      })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      setAccepted(current => new Set(current).add(kind))
-    } catch {
-      setAcceptError(labels.calculationFailed)
-    } finally {
-      setAccepting(null)
-    }
   }
 
   return (
@@ -451,69 +369,41 @@ export function PediatricRiskAndCalculators({ control, setValue, tc, language, c
       </View> : null}
 
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 10 }}>
-        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labels.fasting}</Text>
-        {FASTING_CATEGORIES.map(category => {
+        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labels.npoTitle}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>{labels.npoHint}</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setValue("pediatricFasting", policyFastingAssignments(), { shouldDirty: true })}
+          style={{ alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: colors.primary }}
+        >
+          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "900" }}>{labels.npoUsePolicy}</Text>
+        </Pressable>
+        {PEDIATRIC_FASTING_CATEGORIES.map(category => {
           const row = fastingByCategory.get(category)
-          const status = row?.status === "MET" ? labels.met : row?.status === "NOT_MET" ? labels.notMet : labels.unknown
-          const statusColor = row?.status === "MET" ? colors.success : row?.status === "NOT_MET" ? colors.danger : colors.textMuted
+          const minimum = APAGBI_FASTING_POLICY_2023.minimumHours[category]
           return (
-            <View key={category} style={{ gap: 5 }}>
+            <View key={category} style={{ gap: 5 }} testID={`npo-${category}`}>
               <Field label={fastingLabel(category, labels)}>
                 <ClinicalNumberInput
-                  value={hoursSince(row?.lastIntakeAt)}
-                  onChange={value => updateFasting(category, value)}
+                  value={row?.hoursBefore ?? null}
+                  onChange={value => assignFasting(category, value)}
                   min={0}
-                  max={168}
+                  max={24}
                   step={0.5}
                   precision={1}
-                  unit="h"
-                  placeholder={labels.hoursSinceIntake}
+                  unit={labels.npoHoursBefore}
+                  placeholder={String(minimum)}
                 />
               </Field>
-              {row ? <Text style={{ color: statusColor, fontSize: 11, fontWeight: "800" }}>{status} - {row.requiredHours} h</Text> : null}
+              {row && isFastingAssignmentBelowMinimum(row)
+                ? <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "800" }}>{labels.npoBelowMinimum.replace("{hours}", String(minimum))}</Text>
+                : null}
             </View>
           )
         })}
         <Text style={{ color: colors.textMuted, fontSize: 10 }}>{APAGBI_FASTING_POLICY_2023.id} {APAGBI_FASTING_POLICY_2023.version}</Text>
       </View>
 
-      <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 10 }}>
-        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labels.calculators}</Text>
-        <CalculationCard
-          title={labels.bsa}
-          value={bsa?.available ? `${bsa.value.squareMetres} m2` : "-"}
-          caseId={caseId}
-          accepted={accepted.has("MOSTELLER_BSA")}
-          accepting={accepting === "MOSTELLER_BSA"}
-          labels={labels}
-          onAccept={heightCm && weightKg ? () => acceptCalculation("MOSTELLER_BSA", { heightCm, weightKg }) : undefined}
-        />
-        <CalculationCard
-          title={labels.maintenanceFluid}
-          value={maintenance?.available
-            ? maintenance.value.dailyRangeMl
-              ? `${maintenance.value.dailyRangeMl.minimum}-${maintenance.value.dailyRangeMl.maximum} ml/day`
-              : `${maintenance.value.dailyMl} ml/day - ${maintenance.value.hourlyMl} ml/h`
-            : "-"}
-          caseId={caseId}
-          accepted={accepted.has("MAINTENANCE_FLUID")}
-          accepting={accepting === "MAINTENANCE_FLUID"}
-          labels={labels}
-          onAccept={weightKg ? () => acceptCalculation("MAINTENANCE_FLUID", { weightKg, age: ageValue != null ? { value: ageValue, unit: ageUnit } : null }) : undefined}
-        />
-        <CalculationCard
-          title={labels.resuscitation}
-          value={resuscitation?.available ? `${resuscitation.value.shockJoules} J - ${resuscitation.value.adrenalineMicrograms} mcg adrenaline` : "-"}
-          caseId={caseId}
-          accepted={accepted.has("RCUK_RESUSCITATION")}
-          accepting={accepting === "RCUK_RESUSCITATION"}
-          labels={labels}
-          onAccept={weightKg ? () => acceptCalculation("RCUK_RESUSCITATION", { weightKg }) : undefined}
-        />
-        {acceptError ? <Notice tone="danger">{acceptError}</Notice> : null}
-        <Notice tone="warning">{labels.profilesUnavailable}</Notice>
-        <Text style={{ color: colors.textMuted, fontSize: 10 }}>{labels.ruleset}: {bsa?.ruleVersion ?? "-"}</Text>
-      </View>
     </View>
   )
 }

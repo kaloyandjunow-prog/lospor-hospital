@@ -16,9 +16,11 @@ import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { Badge } from "@/components/ui/badge"
 import { calcBMI, calcABW } from "@/lib/scores"
-import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
+import { GuptaRiskCard, RiskScoreCards } from "@/components/forms/RiskScoreCards"
 import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
-import { suggestASAFromTags } from "@/lib/icd-categories"
+import { PlannedAnaesthesiaField } from "@/components/forms/PlannedAnaesthesiaField"
+import { AsaClassButtons } from "@/components/forms/AsaClassButtons"
+import { asaReasonLabel, suggestASAFromTags } from "@/lib/icd-categories"
 import { usePreopRiskScores } from "@/hooks/usePreopRiskScores"
 import { Lightbulb } from "lucide-react"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
@@ -40,6 +42,7 @@ import {
 } from "@/components/forms/PediatricPreopSections"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { metadataString } from "@lospor/core/option-contracts"
+import { preopAgeInYears } from "@lospor/core/preop-documents"
 import {
   pediatricCapabilityMessageKey,
   useClinicalAiCapabilities,
@@ -57,7 +60,7 @@ import { PreopQuestionList, type PreopPendingSuggestion, type PreopQuestionAnswe
 import {
   isPreopQuestionShown, isPreopScoreAvailable, preopProfileForMode,
   PREOP_LEGACY_FIELD_BY_QUESTION,
-  preopAnswerStates,
+  preopAnswerStates, preopAnswerOptionKeys,
   type PreopAssessmentProfile,
   type PreopFormSection,
 } from "@lospor/core/preop-assessment"
@@ -156,7 +159,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const preopProfile = useMemo(() => preopProfileForMode(profiles, preopMode), [profiles, preopMode]) // adults' or children's
   const shown = (stableKey: string) => isPreopQuestionShown(preopProfile, stableKey, preopMode)
   const shownField = (field: string) => !QUESTION_OF_FIELD[field] || shown(QUESTION_OF_FIELD[field])
-  const questionStates = preopAnswerStates(watch() as unknown as Record<string, unknown>)
+  const formValues = watch() as unknown as Record<string, unknown>
+  const questionStates = preopAnswerStates(formValues)
   const [pendingSuggestions, setPendingSuggestions] = useState<PreopPendingSuggestion[]>([])
   const loadSuggestions = useCallback(async () => {
     if (!caseId) return setPendingSuggestions([])
@@ -193,7 +197,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       profile={preopProfile}
       formSection={formSection}
       mode={preopMode}
-      states={questionStates}
+      ageYears={preopAgeInYears({ ageYears: ageYearsVal, ageValue, ageUnit })}
+      states={questionStates} optionKeys={preopAnswerOptionKeys(formValues)}
       onAnswer={answerQuestion}
       suggestions={pendingSuggestions}
       onReviewSuggestion={reviewSuggestion}
@@ -1052,7 +1057,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
         <div className="space-y-3">
           <div className="space-y-2">
             <Label>{t("preop.asaLabel")} <span className="text-red-500">*</span></Label>
-            {asaSuggestion && (
+            {asaSuggestion && !watch("asaScore") && ( // a prompt to choose, gone once a class is chosen
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <Lightbulb className="h-4 w-4 shrink-0" />
@@ -1060,7 +1065,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                 </div>
                 {asaSuggestion.reasons.length > 0 && (
                   <ul className="text-xs text-blue-600 pl-6 list-disc space-y-0.5">
-                    {asaSuggestion.reasons.map(r => <li key={r}>{r}</li>)}
+                    {asaSuggestion.reasonCodes.map(code => <li key={code}>{asaReasonLabel(code, locale === "bg" ? "bg" : "en", bmi)}</li>)}
                   </ul>
                 )}
               </div>
@@ -1071,52 +1076,29 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               </div>
             )}
             <Controller name="asaScore" control={control} render={({ field }) => (
-              <div className={`grid grid-cols-3 sm:grid-cols-6 gap-2 ${fe("asaScore")}`}>
-                {[
-                  { v:"I",   desc:"Normal healthy patient",               color:"bg-green-500  border-green-500  text-white dark:bg-green-700  dark:border-green-500" },
-                  { v:"II",  desc:"Mild systemic disease",                color:"bg-lime-500   border-lime-500   text-white dark:bg-lime-700   dark:border-lime-500"   },
-                  { v:"III", desc:"Severe systemic disease",              color:"bg-yellow-500 border-yellow-500 text-white dark:bg-yellow-700 dark:border-yellow-500" },
-                  { v:"IV",  desc:"Constant threat to life",              color:"bg-orange-500 border-orange-500 text-white dark:bg-orange-700 dark:border-orange-500" },
-                  { v:"V",   desc:"Moribund patient",                     color:"bg-red-500    border-red-500    text-white dark:bg-red-700    dark:border-red-500"    },
-                  { v:"VI",  desc:"Brain-dead organ donor",               color:"bg-slate-500  border-slate-500  text-white dark:bg-slate-600  dark:border-slate-400"  },
-                ].map(opt => {
-                  const label = emergencySurgery && opt.v !== "VI" ? `${opt.v}E` : opt.v
-                  return (
-                    <button key={opt.v} type="button"
-                      onClick={() => field.onChange(field.value === opt.v ? undefined : opt.v)}
-                      className={`rounded-xl border-2 p-3 text-center transition-all ${field.value === opt.v ? opt.color + " scale-105 shadow-sm" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"}`}>
-                      <div className="text-xl font-bold">{label}</div>
-                      <div className="text-[9px] mt-1 leading-tight">{opt.desc}</div>
-                    </button>
-                  )
-                })}
-              </div>
+              <AsaClassButtons value={field.value} onChange={field.onChange} emergencySurgery={!!emergencySurgery} className={fe("asaScore")} />
             )} />
           </div>
           {fieldErrors.has("asaScore") && <p className="text-red-500 text-xs">{t("preop.asaRequired")}</p>}
           <p className="text-xs text-slate-500">{t("preop.scoresNote")}</p>
         </div>
 
+        <Controller name="plannedAnaesthesia" control={control} render={({ field }) => <PlannedAnaesthesiaField value={field.value} onChange={field.onChange} />} />
+
         {/* Calculated risk scores */}
         {isPediatric ? (
           <div className="pt-1 border-t border-slate-100 dark:border-[#2a2a2a]">
-            <PediatricRiskAndCalculators control={control} setValue={setValue} caseId={caseId} isShown={shownField} />
+            <PediatricRiskAndCalculators control={control} setValue={setValue} isShown={shownField} />
           </div>
-        ) : (
+        ) : (<>
         <RiskScoreCards
-          rcriScore={rcriScore}
-          apfelScore={apfelScore}
-          stopBangScore={stopBangScore}
-          rcriAnswered={rcriAnswered}
-          apfelAnswered={apfelAnswered}
-          stopBangAnswered={stopBangAnswered}
-          unavailable={{
-            rcri: !isPreopScoreAvailable(preopProfile, "RCRI"),
-            apfel: !isPreopScoreAvailable(preopProfile, "APFEL"),
-            stopBang: !isPreopScoreAvailable(preopProfile, "STOPBANG"),
-          }}
+          rcriScore={rcriScore} apfelScore={apfelScore} stopBangScore={stopBangScore}
+          rcriAnswered={rcriAnswered} apfelAnswered={apfelAnswered} stopBangAnswered={stopBangAnswered}
+          unavailable={{ rcri: !isPreopScoreAvailable(preopProfile, "RCRI"), apfel: !isPreopScoreAvailable(preopProfile, "APFEL"), stopBang: !isPreopScoreAvailable(preopProfile, "STOPBANG") }}
         />
-        )}
+        {questionList("risk_scores")}
+        <GuptaRiskCard profile={preopProfile} values={formValues} onAnswer={answerQuestion} />
+        </>)}
 
         {/* Notes */}
         <div className="space-y-1 pt-2">

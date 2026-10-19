@@ -127,7 +127,10 @@ export function calculatePediatricMaintenanceFluid(input: {
 export function calculateRcukPediatricResuscitation(input: {
   weightKg: number
 }): PediatricCalculation<{
+  /** First shocks: 4 J/kg, never above the 360 J maximum. */
   shockJoules: number
+  /** From the 5th shock, for refractory VF/pVT: stepwise up to 8 J/kg, max 360 J. */
+  escalatedShockJoules: number
   adrenalineMicrograms: number
   adrenalineMilligrams: number
   amiodaroneFirstDoseMilligrams: number
@@ -141,7 +144,10 @@ export function calculateRcukPediatricResuscitation(input: {
   return {
     available: true,
     value: {
-      shockJoules: input.weightKg * 4,
+      // RCUK 2025: 1st shock 4 J/kg; from the 5th shock escalate stepwise to
+      // 8 J/kg (max 360 J) for refractory VF/pVT.
+      shockJoules: Math.min(Math.round(input.weightKg * 4), 360),
+      escalatedShockJoules: Math.min(Math.round(input.weightKg * 8), 360),
       adrenalineMicrograms,
       adrenalineMilligrams: adrenalineMicrograms / 1000,
       amiodaroneFirstDoseMilligrams: Math.min(input.weightKg * 5, 300),
@@ -286,5 +292,28 @@ export function calculatePediatricLocalAnaestheticLimit(input: {
     ruleVersion: input.profile.version,
     sourceIds: input.profile.sourceIds,
     reviewStatus: input.profile.reviewStatus,
+  }
+}
+
+/**
+ * The reference values the intraoperative screen shows for a child, worked
+ * out from the preop record every time it is drawn. Nothing is accepted or
+ * stored: they follow the weight, height and age, like the risk scores.
+ */
+export function pediatricIntraopReference(input: {
+  weightKg?: number | null
+  heightCm?: number | null
+  age?: Pick<PediatricAgeInput, "value" | "unit"> | null
+}) {
+  const weightKg = input.weightKg != null && input.weightKg > 0 ? input.weightKg : null
+  const heightCm = input.heightCm != null && input.heightCm > 0 ? input.heightCm : null
+  const bsa = weightKg != null && heightCm != null ? calculateMostellerBsa({ heightCm, weightKg }) : null
+  const maintenance = weightKg != null ? calculatePediatricMaintenanceFluid({ weightKg, age: input.age ?? null }) : null
+  const resuscitation = weightKg != null ? calculateRcukPediatricResuscitation({ weightKg }) : null
+  return {
+    bsaSquareMetres: bsa?.available ? bsa.value.squareMetres : null,
+    maintenance: maintenance?.available ? maintenance.value : null,
+    resuscitation: resuscitation?.available ? resuscitation.value : null,
+    ruleVersion: PEDIATRIC_RULESET_VERSION,
   }
 }

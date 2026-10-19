@@ -37,4 +37,12 @@ describe("pediatric research display", () => {
       suppressed: false,
     }, "en")).toBe("Pediatric patient")
   })
+  it("shows a raw score out of its maximum, with the guideline band", () => {
+    expect(displayResearchFieldValue("apfel", 3, "en")).toBe("3 / 4 · High (~ 60%)")
+    expect(displayResearchFieldValue("povoc", 2, "en")).toBe("2 / 4 · 30%")
+    expect(displayResearchFieldValue("povocRiskPercent", 30, "en")).toBe("30%")
+    expect(displayResearchFieldValue("colds", 17, "en")).toBe("17 / 25")
+    expect(displayResearchFieldValue("aldreteSpO2", 1, "en")).toBe("1 / 2")
+    expect(displayResearchFieldValue("weightKg", 70, "en")).toBe("70")
+  })
 })

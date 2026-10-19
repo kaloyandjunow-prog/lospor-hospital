@@ -5,6 +5,7 @@ import { Sparkles, X, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
 import type { PreopData } from "@/components/forms/PreopForm"
+import { serverMessage } from "@/lib/server-message"
 
 interface Props {
   getFormData: () => PreopData
@@ -51,7 +52,7 @@ export function AIAdvisor({ getFormData, caseId, onSaveBeforeAI }: Props) {
         if (res.status === 503) {
           throw new Error(t("preop.aiUnavailable"))
         }
-        throw new Error(err.error ?? `HTTP ${res.status}`)
+        throw new Error(serverMessage(err.error ?? `HTTP ${res.status}`))
       }
 
       const reader = res.body!.getReader()
@@ -68,7 +69,7 @@ export function AIAdvisor({ getFormData, caseId, onSaveBeforeAI }: Props) {
       setStatus("done")
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return
-      setError(err instanceof Error ? err.message : "Unknown error")
+      setError(err instanceof Error ? err.message : serverMessage("Unknown error"))
       setStatus("error")
     }
   }

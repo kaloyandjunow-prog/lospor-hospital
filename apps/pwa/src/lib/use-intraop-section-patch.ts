@@ -5,6 +5,7 @@ import { notify } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
 import type { CasePatchResponse, CasePatchResult } from "@/lib/offline-case-patches"
 import { createCoalescingBatcher, type CoalescingBatcher } from "@lospor/core/sync"
+import { serverMessage } from "@/lib/server-message"
 
 type SyncState = "saved" | "saving" | "failed" | "offline"
 
@@ -90,7 +91,7 @@ export function useIntraopSectionPatch({
       )
       .then(() => batcherRef.current!.submit(payload))
       .catch((error) => {
-        setSyncErrorMessage(error instanceof Error ? error.message : "Local save failed")
+        setSyncErrorMessage(error instanceof Error ? error.message : serverMessage("Local save failed"))
         setSyncState("failed")
         throw error
       })

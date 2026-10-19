@@ -1,8 +1,11 @@
 import {
   DRUG_CATALOG,
   type DoseProfile,
+  type DrugCatalogEntry,
   FLUID_CATALOG,
+  type FluidCatalogEntry,
   INFUSION_CATALOG,
+  type InfusionCatalogEntry,
   parseDoseProfile,
 } from "../catalog"
 import {
@@ -44,8 +47,17 @@ function adultDosePayload(input: {
   }
 }
 
-export function createLosporAdultRulePayloads(): ClinicalRulePayload[] {
-  const drugs = DRUG_CATALOG.map(entry => adultDosePayload({
+/**
+ * Adult profiles for every catalogue drug, infusion and fluid. A released
+ * baseline passes the catalogues as they were at its release (see
+ * release-1-2-0.ts); anything else reads the live ones.
+ */
+export function createLosporAdultRulePayloads(catalogs: {
+  drugs?: readonly DrugCatalogEntry[]
+  infusions?: readonly InfusionCatalogEntry[]
+  fluids?: readonly FluidCatalogEntry[]
+} = {}): ClinicalRulePayload[] {
+  const drugs = (catalogs.drugs ?? DRUG_CATALOG).map(entry => adultDosePayload({
     kind: "ADULT_DRUG_PROFILE",
     itemKey: entry.name,
     label: entry.name,
@@ -53,14 +65,14 @@ export function createLosporAdultRulePayloads(): ClinicalRulePayload[] {
     profileKind: "bolus",
     profile: entry.profile,
   }))
-  const infusions = INFUSION_CATALOG.map(entry => adultDosePayload({
+  const infusions = (catalogs.infusions ?? INFUSION_CATALOG).map(entry => adultDosePayload({
     kind: "ADULT_INFUSION_PROFILE",
     itemKey: entry.name,
     label: entry.name,
     profileKind: "infusion",
     profile: entry.profile,
   }))
-  const fluids = FLUID_CATALOG.map(entry => adultDosePayload({
+  const fluids = (catalogs.fluids ?? FLUID_CATALOG).map(entry => adultDosePayload({
     kind: "ADULT_FLUID_PROFILE",
     itemKey: entry.name,
     label: entry.name,

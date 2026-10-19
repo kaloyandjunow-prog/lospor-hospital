@@ -11,6 +11,8 @@ describe("runningItemsAt", () => {
     const t = tt({ infusions: [{ id: "i1", name: "Noradrenaline", rate: "5", color: "#f00", startCol: 0, endCol: 5, rateChanges: [{ col: 2, rate: "8" }] }] })
     expect(runningItemsAt(t, 1)).toEqual([{ id: "inf-i1", label: "Noradrenaline 5", color: "#f00" }])
     expect(runningItemsAt(t, 3)).toEqual([{ id: "inf-i1", label: "Noradrenaline 8", color: "#f00" }]) // after rate change
+    const withUnit = tt({ infusions: [{ id: "i2", name: "Ropivacaine 0.2%", rate: "0.208", unit: "mL/kg/hr", color: "#a5f", startCol: 0, endCol: 5 }] })
+    expect(runningItemsAt(withUnit, 1)[0]?.label).toBe("Ropivacaine 0.2% 0.208 mL/kg/hr")
     expect(runningItemsAt(t, 6)).toEqual([]) // past endCol
   })
 
@@ -90,5 +92,19 @@ describe("buildRowSummary", () => {
     const s = buildRowSummary(undefined, evs, label)
     expect(s.drugParts).toEqual(["Propofol", "Incision", "Fentanyl"])
     expect(s.hasUnsynced).toBe(true)
+  })
+})
+
+describe("a TCI infusion's running label (2026-10-18)", () => {
+  it("shows the site, the target and the predicted value at the row", () => {
+    const t0 = Date.UTC(2026, 9, 18, 8, 0)
+    const t = tt({ infusions: [{
+      id: "p", name: "Propofol", rate: "4", unit: "mcg/mL", color: "#3b82f6", startCol: 0, endCol: 6,
+      startTs: new Date(t0).toISOString(), endTs: new Date(t0 + 35 * 60_000).toISOString(),
+      tciModel: "SCHNIDER", tciSite: "EFFECT",
+    }] })
+    const label = runningItemsByCol(t, [4], { tciPatient: { ageYears: 40, weightKg: 70, heightCm: 175, sex: "MALE" } }).get(4)![0]!.label
+    expect(label).toMatch(/^Propofol Ce 4 mcg\/mL ≈(3\.9|4)$/)
+    expect(runningItemsByCol(t, [4]).get(4)![0]!.label).toBe("Propofol Ce 4 mcg/mL")
   })
 })

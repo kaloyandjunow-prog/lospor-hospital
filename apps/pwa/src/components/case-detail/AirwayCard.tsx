@@ -90,7 +90,8 @@ export function AirwayCard({ preop, tc }: { preop: CaseData["preop"]; tc: (key: 
         <View style={{ flex: 1 }}>
           <InfoRow
             label={tc("summaryNeckMobility")}
-            value={preop?.neckMobility ?? null}
+            // The label, not the stored code (it read LIMITED in both languages).
+            value={preop?.neckMobility === "FULL" ? tc("neckFull") : preop?.neckMobility === "LIMITED" ? tc("neckLimited") : preop?.neckMobility === "FIXED" ? tc("neckFixed") : preop?.neckMobility ?? null}
             valueColor={neckColor(preop?.neckMobility ?? undefined)}
           />
           <InfoRow

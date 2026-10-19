@@ -309,7 +309,7 @@ describe("ClinicalRulesPage preset creation", () => {
     await screen.findByText("Available rulesets")
     fireEvent.click(screen.getByRole("button", { name: "Pediatric" }))
     await screen.findByRole("button", { name: "Edit Plasma-Lyte" })
-    expect(screen.getByText(/Fluid.*Crystalloids.*mL.*IV/)).toBeTruthy()
+    expect(screen.getByText(/Fluid.*Crystalloids.*mL.*Intravenous/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Add drug" }))
     expect(screen.getByTestId("pediatric-drug-profile-editor")).toBeTruthy()

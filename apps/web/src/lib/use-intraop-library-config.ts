@@ -115,7 +115,7 @@ export function useIntraopLibraryConfig({
   }, [fluidLibOpts])
 
   const { INFUSION_CONFIGS, INFUSION_WEIGHT_BASIS, INFUSION_ROUTES, QUICK_RATES, INFUSION_ROUTE_PROFILES } = useMemo(() => {
-    const configs: Record<string, { units: string[]; min: number; max: number; step: number; color: string; suggestedRate?: number }> = {}
+    const configs: Record<string, { units: string[]; min: number; max: number; step: number; color: string; suggestedRate?: number; group?: string }> = {}
     const profiles = baseProfilesMap(infusionLibOpts)
     for (const o of infusionLibOpts) {
       const profile = profiles[o.label]
@@ -126,6 +126,8 @@ export function useIntraopLibraryConfig({
         step: profile?.step ?? 1,
         color: o.color ?? "#64748b",
         suggestedRate: profile?.suggestedRate,
+        // The menu group, so the picker can be browsed by group as drugs are.
+        group: o.group ?? undefined,
       }
     }
     const infusionWeightBasis: WeightBasisMap = weightBasisMap(infusionLibOpts)

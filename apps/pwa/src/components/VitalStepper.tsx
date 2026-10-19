@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, Pressable, Modal, PanResponder, useWindowDimensions } from "react-native"
 import { hapticKey, hapticTick } from "@/lib/haptic"
 import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 import { colors, withAlpha } from "@/theme/colors"
 
 // Shared clinical vitals stepper — identical UX to the preop exam vitals
@@ -16,7 +17,8 @@ function roundToStep(value: number, step: number, precision: number) {
 }
 function formatClinicalValue(value: number | undefined, precision: number) {
   if (value == null) return "-"
-  return precision > 0 ? value.toFixed(precision).replace(/\.0+$/, "") : String(Math.round(value))
+  // Trailing zeros dropped: 0.5, not 0.500 (a strength on a 0.025 step).
+  return precision > 0 ? value.toFixed(precision).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") : String(Math.round(value))
 }
 
 export function VitalStepper({ value, onChange, min, max, manualMax = max, step = 1, precision = 0, unit, placeholder = "-", disabled = false }: {
@@ -35,6 +37,8 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   const { t } = usePreferences()
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [keypadText, setKeypadText] = useState("")
+  // A typed number outside the limits is brought to the nearest one, and says so.
+  const [limitNotice, setLimitNotice] = useState<string | null>(null)
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [trackWidth, setTrackWidth] = useState(1)
   const fieldRef = useRef<View>(null)
@@ -48,6 +52,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
     // null, not undefined: canonicalizePreopPatch drops undefined as "not in
     // this diff" and keeps the stored reading, so a cleared vital stayed on the
     // record while the field showed empty. null is the explicit clear.
+    setLimitNotice(null)
     if (next == null) { onChange(null); return }
     onChange(clampNumber(roundToStep(next, step, precision), min, max))
   }, [disabled, max, min, onChange, precision, step])
@@ -101,7 +106,11 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
     const parsed = Number(keypadText.replace(",", "."))
     if (keypadText.trim() && Number.isFinite(parsed)) {
       hapticTick()
-      onChange(clampNumber(roundToStep(parsed, step, precision), min, manualMax))
+      const rounded = roundToStep(parsed, step, precision)
+      const kept = clampNumber(rounded, min, manualMax)
+      const shown = `${formatClinicalValue(kept, precision)}${unit ? ` ${unit}` : ""}`
+      setLimitNotice(rounded > kept ? formatMessage(t("keypadLoweredToMax"), { value: shown }) : rounded < kept ? formatMessage(t("keypadRaisedToMin"), { value: shown }) : null)
+      onChange(kept)
     }
     setKeypadOpen(false)
   }
@@ -176,6 +185,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
         <View style={{ height: 5, borderRadius: 999, backgroundColor: colors.borderStrong }} />
         <View style={{ position: "absolute", left: `${ratio * 100}%`, width: 10, height: 22, marginLeft: -5, borderRadius: 5, backgroundColor: colors.textSecondary }} />
       </View>
+      {limitNotice ? <Text testID="stepper-limit-notice" accessibilityRole="alert" style={{ color: colors.warning, fontSize: 12, fontWeight: "700" }}>{limitNotice}</Text> : null}
 
       <Modal visible={keypadOpen && anchor != null} transparent animationType="fade" onRequestClose={closeKeypad}>
         <Pressable onPress={closeKeypad} style={{ flex: 1, backgroundColor: "transparent" }}>

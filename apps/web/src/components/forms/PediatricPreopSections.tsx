@@ -1,19 +1,21 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import {
   Controller,
   useWatch,
   type Control,
   type UseFormSetValue,
 } from "react-hook-form"
-import { useLocale, useTranslations } from "next-intl"
+import { useTranslations } from "next-intl"
 import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import { ShieldAlert } from "lucide-react"
 import {
   APAGBI_FASTING_POLICY_2023,
   calculatePovoc,
-  evaluatePediatricFasting,
+  isFastingAssignmentBelowMinimum,
+  PEDIATRIC_FASTING_CATEGORIES,
+  policyFastingAssignments,
   normalizePediatricAge,
   validateClinicalModeAge,
   validatePediatricAge,
@@ -21,11 +23,6 @@ import {
   type PediatricAgeUnit,
   type PediatricFastingCategory,
 } from "@lospor/core/pediatric"
-import {
-  calculateMostellerBsa,
-  calculatePediatricMaintenanceFluid,
-  calculateRcukPediatricResuscitation,
-} from "@lospor/core/pediatric-calculators"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { NumberStepper } from "@/components/NumberStepper"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +33,6 @@ import {
   pediatricCapabilityMessageKey,
   type PediatricModeCapability,
 } from "@/lib/deployment-capabilities"
-import { CalculationCard } from "@/components/forms/PediatricPreopDisplay"
 import { PediatricColdsCard } from "@/components/forms/PediatricColdsCard"
 
 type FormProps = {
@@ -244,36 +240,23 @@ export function ClinicalModeAgeFields({
   )
 }
 
-const FASTING_CATEGORIES: PediatricFastingCategory[] = [
-  "CLEAR_FLUIDS",
-  "BREAST_MILK",
-  "INFANT_FORMULA_UNDER_1_YEAR",
-  "SOLID_FOOD_OR_COW_MILK",
-]
-
-type AcceptedKind = "MOSTELLER_BSA" | "MAINTENANCE_FLUID" | "RCUK_RESUSCITATION"
 
 export function PediatricRiskAndCalculators({
   control,
   setValue,
-  caseId,
   isShown = () => true,
 }: FormProps & {
-  caseId?: string | null
   /** Whether the hospital's preop profile asks this field's question. */
   isShown?: (field: string) => boolean
 }) {
   const t = useTranslations("pediatric")
   const tRoot = useTranslations()
-  const locale = useLocale()
   // A score with a switched-off input is not computed as if the answer were "no".
   const povocAvailable = ["povocSurgeryAtLeast30Minutes", "povocStrabismusSurgery", "povocHistory"].every(field => isShown(field))
   const [
     mode,
     ageValue,
     ageUnitRaw,
-    heightCm,
-    weightKg,
     povocSurgeryAtLeast30Minutes,
     povocStrabismusSurgery,
     povocHistory,
@@ -284,16 +267,12 @@ export function PediatricRiskAndCalculators({
       "clinicalMode",
       "ageValue",
       "ageUnit",
-      "heightCm",
-      "weightKg",
       "povocSurgeryAtLeast30Minutes",
       "povocStrabismusSurgery",
       "povocHistory",
       "pediatricFasting",
     ],
   })
-  const [accepting, setAccepting] = useState<AcceptedKind | null>(null)
-  const [accepted, setAccepted] = useState<Set<AcceptedKind>>(new Set())
   const ageUnit: PediatricAgeUnit = ageUnitRaw ?? "YEARS"
   const age = ageValue != null ? normalizePediatricAge({ value: ageValue, unit: ageUnit }) : null
   const povoc = age
@@ -304,15 +283,6 @@ export function PediatricRiskAndCalculators({
         patientOrFamilyHistory: !!povocHistory,
       })
     : null
-  const bsa = heightCm && weightKg ? calculateMostellerBsa({ heightCm, weightKg }) : null
-  const maintenance = weightKg
-    ? calculatePediatricMaintenanceFluid({
-        weightKg,
-        age: ageValue != null ? { value: ageValue, unit: ageUnit } : null,
-      })
-    : null
-  const resuscitation = weightKg ? calculateRcukPediatricResuscitation({ weightKg }) : null
-
   const fastingByCategory = useMemo(
     () => new Map((fastingRows ?? []).map(row => [row.category, row])),
     [fastingRows],
@@ -320,53 +290,19 @@ export function PediatricRiskAndCalculators({
 
   if (mode !== "PEDIATRIC") return null
 
-  function updateFasting(category: PediatricFastingCategory, rawLocalDate: string) {
+  // A nil-by-mouth assignment: each intake stops so many hours before
+  // surgery. Clearing the hours removes that intake from the assignment.
+  function assignFasting(category: PediatricFastingCategory, raw: string) {
     const remaining = (fastingRows ?? []).filter(row => row.category !== category)
-    if (!rawLocalDate) {
+    const hoursBefore = raw === "" ? null : Number(raw)
+    if (hoursBefore == null || !Number.isFinite(hoursBefore) || hoursBefore < 0) {
       setValue("pediatricFasting", remaining, { shouldDirty: true })
       return
     }
-    const lastIntakeAt = new Date(rawLocalDate).toISOString()
-    const result = evaluatePediatricFasting({
-      category,
-      lastIntakeAt,
-      assessmentAt: new Date(),
-    })
     setValue("pediatricFasting", [
       ...remaining,
-      {
-        category,
-        lastIntakeAt,
-        status: result.status,
-        requiredHours: result.requiredHours,
-        policyId: result.policyId,
-        policyVersion: result.policyVersion,
-      },
+      { category, hoursBefore: Math.min(hoursBefore, 24), policyId: APAGBI_FASTING_POLICY_2023.id, policyVersion: APAGBI_FASTING_POLICY_2023.version },
     ], { shouldDirty: true })
-  }
-
-  async function acceptCalculation(kind: AcceptedKind, inputs: Record<string, unknown>) {
-    if (!caseId) return
-    setAccepting(kind)
-    try {
-      const response = await fetch(`/api/cases/${caseId}/calculations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, inputs }),
-      })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      setAccepted(current => new Set(current).add(kind))
-    } finally {
-      setAccepting(null)
-    }
-  }
-
-  function localDateValue(value?: string | null) {
-    if (!value) return ""
-    const date = new Date(value)
-    if (!Number.isFinite(date.getTime())) return ""
-    const offset = date.getTimezoneOffset() * 60_000
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16)
   }
 
   return (
@@ -392,23 +328,36 @@ export function PediatricRiskAndCalculators({
       {isShown("coldsApplicable") && <PediatricColdsCard control={control} setValue={setValue} />}
 
       <div className="border-t border-slate-200 pt-4 dark:border-[#2e2e2e]">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("fasting")}</p>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("npoTitle")}</p>
+          <Button type="button" size="sm" variant="outline" onClick={() => setValue("pediatricFasting", policyFastingAssignments(), { shouldDirty: true })}>
+            {t("npoUsePolicy")}
+          </Button>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">{t("npoHint")}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {FASTING_CATEGORIES.map(category => {
+          {PEDIATRIC_FASTING_CATEGORIES.map(category => {
             const row = fastingByCategory.get(category)
+            const minimum = APAGBI_FASTING_POLICY_2023.minimumHours[category]
             return (
-              <label key={category} className="space-y-1 text-xs font-semibold text-slate-500">
+              <label key={category} className="space-y-1 text-xs font-semibold text-slate-500" data-testid={`npo-${category}`}>
                 <span>{t(`fastingCategories.${category}`)}</span>
-                <input
-                  type="datetime-local"
-                  value={localDateValue(row?.lastIntakeAt)}
-                  onChange={event => updateFasting(category, event.target.value)}
-                  className="h-10 w-full border border-slate-300 bg-white px-2 text-sm font-normal text-slate-800 dark:border-[#3a3a3a] dark:bg-[#181818] dark:text-slate-100"
-                />
-                {row && (
-                  <span className={row.status === "MET" ? "text-emerald-600" : row.status === "NOT_MET" ? "text-red-600" : "text-amber-600"}>
-                    {t(`fastingStatus.${row.status ?? "UNKNOWN"}`)} · {row.requiredHours} h
-                  </span>
+                <span className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={24}
+                    step={0.5}
+                    inputMode="decimal"
+                    value={row?.hoursBefore ?? ""}
+                    placeholder={String(minimum)}
+                    onChange={event => assignFasting(category, event.target.value)}
+                    className="h-10 w-24 border border-slate-300 bg-white px-2 text-sm font-normal text-slate-800 dark:border-[#3a3a3a] dark:bg-[#181818] dark:text-slate-100"
+                  />
+                  <span className="font-normal">{t("npoHoursBefore")}</span>
+                </span>
+                {row && isFastingAssignmentBelowMinimum(row) && (
+                  <span className="block font-normal text-amber-600">{t("npoBelowMinimum", { hours: minimum })}</span>
                 )}
               </label>
             )
@@ -419,54 +368,6 @@ export function PediatricRiskAndCalculators({
         </p>
       </div>
 
-      <div className="border-t border-slate-200 pt-4 dark:border-[#2e2e2e]">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("calculators")}</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <CalculationCard
-            title={t("bsa")}
-            value={bsa?.available ? `${bsa.value.squareMetres} m²` : "—"}
-            caseId={caseId}
-            accepted={accepted.has("MOSTELLER_BSA")}
-            accepting={accepting === "MOSTELLER_BSA"}
-            onAccept={heightCm && weightKg
-              ? () => acceptCalculation("MOSTELLER_BSA", { heightCm, weightKg })
-              : undefined}
-          />
-          <CalculationCard
-            title={t("maintenanceFluid")}
-            value={maintenance?.available
-              ? maintenance.value.dailyRangeMl
-                ? `${maintenance.value.dailyRangeMl.minimum}–${maintenance.value.dailyRangeMl.maximum} ml/day`
-                : `${maintenance.value.dailyMl} ml/day · ${maintenance.value.hourlyMl} ml/h`
-              : "—"}
-            caseId={caseId}
-            accepted={accepted.has("MAINTENANCE_FLUID")}
-            accepting={accepting === "MAINTENANCE_FLUID"}
-            onAccept={weightKg
-              ? () => acceptCalculation("MAINTENANCE_FLUID", {
-                  weightKg,
-                  age: ageValue != null ? { value: ageValue, unit: ageUnit } : null,
-                })
-              : undefined}
-          />
-          <CalculationCard
-            title={t("resuscitation")}
-            value={resuscitation?.available
-              ? `${resuscitation.value.shockJoules} J · ${resuscitation.value.adrenalineMicrograms} mcg`
-              : "—"}
-            caseId={caseId}
-            accepted={accepted.has("RCUK_RESUSCITATION")}
-            accepting={accepting === "RCUK_RESUSCITATION"}
-            onAccept={weightKg
-              ? () => acceptCalculation("RCUK_RESUSCITATION", { weightKg })
-              : undefined}
-          />
-        </div>
-        <div className="mt-3 border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          {t("profilesUnavailable")}
-        </div>
-        <p className="mt-2 text-xs text-slate-400">{locale === "bg" ? "Версия на правилата" : "Ruleset"}: {bsa?.ruleVersion ?? "—"}</p>
-      </div>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import type { DoseLimit } from "@lospor/core/catalog"
 import type { PediatricInfusionSelectionResolution } from "@lospor/core/clinical-rules"
 import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
 import type { DrugFormulation } from "@/lib/intraop-log-event"
@@ -24,6 +25,36 @@ export type ActiveInfProfile = InfProfile & {
   manualEntryOnly?: boolean
   rule?: InfusionRuleSelection
   disposition?: PediatricInfusionSelectionResolution["disposition"]
+  /** A volume rate limited by dose (local anaesthetics in children); see use-volume-rate-entry. */
+  doseLimit?: DoseLimit
+}
+
+/** The sheet's profile for a resolved paediatric infusion surface. */
+export function pediatricInfusionProfile(
+  surface: PediatricInfusionSelectionResolution,
+  routes: string[] | undefined,
+): ActiveInfProfile {
+  return {
+    mode: surface.mode,
+    min: surface.min,
+    max: surface.max,
+    step: surface.step,
+    quickValues: surface.quickValues,
+    unit: surface.unit,
+    suggestedRate: surface.suggestedRate,
+    suggestedConcentration: surface.concentration || undefined,
+    concentrationOptions: surface.concentrationOptions,
+    concentrationUnit: surface.concentrationUnit,
+    formulationOptions: surface.formulationOptions,
+    formulation: surface.formulation,
+    advisory: surface.advisory,
+    route: surface.route,
+    routes: routes ?? surface.routes,
+    manualEntryOnly: surface.manualEntryOnly,
+    disposition: surface.disposition,
+    rule: { key: surface.ruleKey, version: surface.ruleVersion, sourceIds: surface.sourceIds },
+    doseLimit: surface.doseLimit,
+  }
 }
 
 export function filterInfusionPickerResults({

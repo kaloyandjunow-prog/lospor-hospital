@@ -55,11 +55,33 @@ export function rcriRiskBand(score: number): RiskBand & { key: RcriBandKey } {
   return { key: "high", severity: "high", incidence: "≥ 5.4%" }
 }
 
-/** Apfel — postoperative nausea and vomiting rate. */
+/**
+ * Apfel — postoperative nausea and vomiting rate, per the Fifth Consensus
+ * Guidelines (Gan 2025): about 10/20/40/60/80% for 0-4 factors, and 0 = low,
+ * 1-2 = medium, 3+ = high. One factor used to read "low, < 10%", which put a
+ * non-smoking woman with no other factor at half her published risk.
+ */
+const APFEL_INCIDENCE = ["~ 10%", "~ 20%", "~ 40%", "~ 60%", "~ 80%"] as const
+
 export function apfelRiskBand(score: number): RiskBand & { key: ApfelBandKey } {
-  if (score <= 1) return { key: "low", severity: "low", incidence: "< 10%" }
-  if (score === 2) return { key: "moderate", severity: "mid", incidence: "~ 40%" }
-  return { key: "high", severity: "high", incidence: "≥ 60%" }
+  const incidence = APFEL_INCIDENCE[Math.min(Math.max(Math.trunc(score), 0), 4)]
+  if (score <= 0) return { key: "low", severity: "low", incidence }
+  if (score <= 2) return { key: "moderate", severity: "mid", incidence }
+  return { key: "high", severity: "high", incidence }
+}
+
+/**
+ * PAED (Pediatric Anesthesia Emergence Delirium, 0-20). Sikich & Lerman 2004
+ * used >= 10; later work found > 12 more specific. 10-12 is therefore
+ * "possible" and above 12 "likely" -- a band for reading, not a diagnosis.
+ */
+export const PAED_BAND_KEYS = ["paed_none", "paed_possible", "paed_likely"] as const
+export type PaedBandKey = typeof PAED_BAND_KEYS[number]
+
+export function paedRiskBand(score: number): { key: PaedBandKey; severity: RiskSeverity } {
+  if (score < 10) return { key: "paed_none", severity: "low" }
+  if (score <= 12) return { key: "paed_possible", severity: "mid" }
+  return { key: "paed_likely", severity: "high" }
 }
 
 /** STOP-BANG — likelihood of obstructive sleep apnoea, not an event rate. */
@@ -112,18 +134,19 @@ export function suggestStopBangBP(comorbidities: CodedTag[], medications: CodedM
   return hasCodePrefix(comorbidities, ["I10", "I11"]) || hasAtcPrefix(medications, ["C02", "C03", "C07", "C08", "C09"])
 }
 
-export type MedicationWarning = { key: string; label: string }
+/** A warning from the current medications; `labelBg` for a Bulgarian reader (2026-10-18). */
+export type MedicationWarning = { key: string; label: string; labelBg: string }
 
 export function getMedicationWarnings(medications: CodedMed[]): MedicationWarning[] {
   const warnings: MedicationWarning[] = []
   if (hasAtcPrefix(medications, ["B01A"])) {
-    warnings.push({ key: "anticoagulant", label: "Anticoagulant/antiplatelet \u2014 review neuraxial/regional bleeding risk" })
+    warnings.push({ key: "anticoagulant", label: "Anticoagulant/antiplatelet \u2014 review neuraxial/regional bleeding risk", labelBg: "Антикоагулант/антиагрегант — преценете риска от кървене при невраксиална/регионална анестезия" })
   }
   if (hasAtcPrefix(medications, ["H02"])) {
-    warnings.push({ key: "steroid", label: "Chronic steroid use \u2014 consider perioperative steroid coverage" })
+    warnings.push({ key: "steroid", label: "Chronic steroid use \u2014 consider perioperative steroid coverage", labelBg: "Продължителна кортикостероидна терапия — обмислете периоперативно стероидно покритие" })
   }
   if (hasAtcPrefix(medications, ["C07"])) {
-    warnings.push({ key: "betablocker", label: "Beta-blocker \u2014 continue perioperatively per protocol" })
+    warnings.push({ key: "betablocker", label: "Beta-blocker \u2014 continue perioperatively per protocol", labelBg: "Бета-блокер — продължете периоперативно според протокола" })
   }
   return warnings
 }

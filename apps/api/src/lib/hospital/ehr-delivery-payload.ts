@@ -60,13 +60,18 @@ function codedTotals(intraop: Record<string, unknown> | null | undefined): {
   // the Core calculation over the frozen timetable when it is present, which
   // is the same source used to create those scalar fields. A case with no
   // fluid chart remains unrecorded rather than becoming a measured zero.
+  // Drug infusions count in the balance from 1.6.0 (Core 9.15.0): their mL is
+  // the server's own stored figure, worked out from the recorded pump rates
+  // (and a TCI infusion's model), since the frozen timetable carries no patient.
+  const infusions = Number(intraop?.infusionsMl ?? 0)
   const fluidTotals = fluids.length > 0
-    ? calculateFluidTotals(fluids as Parameters<typeof calculateFluidTotals>[0])
-    : ["crystalloidsMl", "colloidsMl", "bloodMl"].some(key => intraop?.[key] != null)
+    ? { ...calculateFluidTotals(fluids as Parameters<typeof calculateFluidTotals>[0]), infusions }
+    : ["crystalloidsMl", "colloidsMl", "bloodMl", "infusionsMl"].some(key => intraop?.[key] != null)
       ? {
           crystalloids: Number(intraop?.crystalloidsMl ?? 0),
           colloids: Number(intraop?.colloidsMl ?? 0),
           blood: Number(intraop?.bloodMl ?? 0),
+          infusions,
         }
       : null
 

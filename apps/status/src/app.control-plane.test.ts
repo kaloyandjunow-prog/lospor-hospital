@@ -319,6 +319,8 @@ function setup() {
     searchMedications: vi.fn(async (query: string) => query === "amlo" ? [AMLODIPINE] : []),
     answerEhrCodeSystem: vi.fn(async () => {}),
     updatePreopProfile: vi.fn(async () => {}),
+    updatePreopDocuments: vi.fn(async () => {}),
+    saveConsentTemplate: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
     setEhrIdentifierSystems: vi.fn(async () => {}),
     discoverEhrTransport: vi.fn(async () => ({
@@ -575,6 +577,61 @@ describe("Status Hospital control plane", () => {
     expect(adults).toContain("data-order-base=\"1000\"")
     expect(html).toContain("action=\"/status/control/preop-profile#preop-children\"")
     expect(html).toContain("data-move=\"up\"")
+  })
+
+  // Gupta needs two questions of its own. Each can be switched on alone, but
+  // the Gupta switch turns both on (and off) together.
+  it("offers a Gupta switch for adults that turns on every question it needs", async () => {
+    const { app, auth, controlPlane } = setup()
+    const view = structuredClone(VIEW)
+    const base = { ...view.preoperative.administration!.catalog[0]!, applicability: ["ADULT"], fixedInForm: false }
+    const functional = { ...base, stableKey: "A15_FUNCTIONAL_STATUS", labelEn: "Functional status", labelBg: "Функционален статус" }
+    const procedure = { ...base, stableKey: "A16_GUPTA_PROCEDURE_TYPE", labelEn: "Gupta procedure type", labelBg: "Вид операция" }
+    const adult = { id: "profile-1", version: 5, catalogVersion: "1.5.7", status: "PUBLISHED", publishedAt: "2026-10-15T08:00:00.000Z", questions: [
+      { stableKey: functional.stableKey, enabled: true, required: false, sortOrder: 1000 },
+      { stableKey: procedure.stableKey, enabled: false, required: false, sortOrder: 1001 },
+    ] }
+    view.preoperative.administration = { catalog: [functional, procedure], activeProfile: adult, activeProfiles: { ADULT: adult, PEDIATRIC: { ...adult, id: "profile-2", questions: [] } } }
+    vi.spyOn(controlPlane, "get").mockResolvedValue(view)
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    const adults = html.slice(html.indexOf("id=\"preop-adults\""), html.indexOf("</section>", html.indexOf("id=\"preop-adults\"")))
+    const kids = html.slice(html.indexOf("id=\"preop-children\""), html.indexOf("</section>", html.indexOf("id=\"preop-children\"")))
+    // Off while only one of its questions is on; the questions keep their own boxes.
+    expect(adults).toContain("name=\"score_GUPTA\" value=\"true\" data-score-switch=\"A15_FUNCTIONAL_STATUS A16_GUPTA_PROCEDURE_TYPE\" >")
+    expect(adults).toContain("Включването на Gupta включва и тези въпроси: Функционален статус · Вид операция")
+    expect(adults).toContain("name=\"enabled_A15_FUNCTIONAL_STATUS\" value=\"true\" checked")
+    expect(kids).not.toContain("score_GUPTA")
+    // Only one of the two on: Status says Gupta is not drawn anywhere.
+    expect(adults).toContain("data-testid=\"score-partial-GUPTA\">Включени са само част от тези въпроси, затова Gupta не се изчислява и не се показва никъде.")
+    expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-switch")
+    expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-partial")
+
+    const save = (fields: Record<string, string>) => app.request("/status/control/preop-profile", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        population: "ADULT", order_A15_FUNCTIONAL_STATUS: "1000", order_A16_GUPTA_PROCEDURE_TYPE: "1001",
+        reason: "Switch the Gupta cardiac risk on or off", password: "Initial password phrase1!", ...fields,
+      }),
+    })
+    expect((await save({ score_GUPTA: "true", score_GUPTA_was: "false" })).status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenLastCalledWith(expect.objectContaining({ questions: [
+      { stableKey: "A15_FUNCTIONAL_STATUS", enabled: true, required: false, sortOrder: 1000 },
+      { stableKey: "A16_GUPTA_PROCEDURE_TYPE", enabled: true, required: false, sortOrder: 1001 },
+    ] }))
+    // Unticking Gupta turns its questions off again, even with a box left ticked.
+    expect((await save({ score_GUPTA_was: "true", enabled_A15_FUNCTIONAL_STATUS: "true", required_A15_FUNCTIONAL_STATUS: "true" })).status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenLastCalledWith(expect.objectContaining({ questions: [
+      { stableKey: "A15_FUNCTIONAL_STATUS", enabled: false, required: false, sortOrder: 1000 },
+      { stableKey: "A16_GUPTA_PROCEDURE_TYPE", enabled: false, required: false, sortOrder: 1001 },
+    ] }))
+    // Without the switch a question is switched on by itself.
+    expect((await save({ enabled_A16_GUPTA_PROCEDURE_TYPE: "true" })).status).toBe(200)
+    expect(controlPlane.updatePreopProfile).toHaveBeenLastCalledWith(expect.objectContaining({ questions: [
+      { stableKey: "A15_FUNCTIONAL_STATUS", enabled: false, required: false, sortOrder: 1000 },
+      { stableKey: "A16_GUPTA_PROCEDURE_TYPE", enabled: true, required: false, sortOrder: 1001 },
+    ] }))
   })
 
   it("refuses a profile save that does not say which population it is for", async () => {
@@ -1557,5 +1614,112 @@ describe("asking the hospital system over the folder (1.5.0)", () => {
       body: new URLSearchParams({ enabled: "true", reason: "Vendor answers request files", password: "wrong" }).toString(),
     })
     expect(controlPlane.setEhrFolderRequests).not.toHaveBeenCalled()
+  })
+})
+
+describe("the preop summary and consent (1.6.0)", () => {
+  const sha = (character: string) => character.repeat(64)
+  const documents = {
+    summaryEnabled: true,
+    consentEnabled: false,
+    layout: "C",
+    updatedAt: "2026-10-16T08:00:00.000Z",
+    templates: {
+      ADULT: { version: 2, title: "Съгласие за възрастни", body: "## Обща анестезия\n\nТекст на болницата.", sha256: sha("a") },
+      PEDIATRIC: { version: 0, title: "Съгласие за деца", body: "Вграден текст.", sha256: sha("b") },
+    },
+    bundled: {
+      ADULT: { title: "Вградено за възрастни", body: "Вграден текст." },
+      PEDIATRIC: { title: "Вградено за деца", body: "Вграден текст." },
+    },
+    history: {
+      ADULT: [
+        { version: 2, title: "Съгласие за възрастни", sha256: sha("a"), createdAt: "2026-10-16T08:00:00.000Z", changeReason: "Нов текст от юристите" },
+        { version: 1, title: "Съгласие за възрастни", sha256: sha("c"), createdAt: "2026-10-15T08:00:00.000Z", changeReason: null },
+        { version: 0, title: "Вградено", sha256: sha("d"), createdAt: null, changeReason: null },
+      ],
+      PEDIATRIC: [{ version: 0, title: "Вградено", sha256: sha("b"), createdAt: null, changeReason: null }],
+    },
+  }
+  const withDocuments = () => ({ ...VIEW, preoperative: { ...VIEW.preoperative, documents } })
+
+  it("shows the switches, each population's text and its versions", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(withDocuments() as never)
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    expect(html).toContain('action="/status/control/preop-documents#preop-documents"')
+    expect(html).toMatch(/name="summaryEnabled" value="true" checked/)
+    expect(html).not.toMatch(/name="consentEnabled" value="true" checked/)
+    expect(html).toContain("## Обща анестезия")
+    expect(html).toContain("Нов текст от юристите")
+    expect(html).toContain('data-testid="consent-history-PEDIATRIC"')
+    // The layout chosen, among all five, each explained; and the technique tags in the help.
+    expect(html).toMatch(/name="layout" value="C" checked/)
+    expect(html.match(/name="layout" value="[A-E]"/g)).toHaveLength(5)
+    expect(html).toContain("[general]")
+  })
+
+  it("saves the layout chosen, and B for anything else", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const layout of ["E", "Z"]) {
+      await app.request("/status/control/preop-documents", {
+        method: "POST",
+        headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams({ summaryEnabled: "true", consentEnabled: "true", layout, reason: "Hospital copy for parents", password: "Initial password phrase1!" }).toString(),
+      })
+    }
+    expect(vi.mocked(controlPlane.updatePreopDocuments).mock.calls.map(([input]) => input.layout)).toEqual(["E", "B"])
+  })
+
+  it("shows nothing for an API that predates it", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie } })).text()
+    expect(html).not.toContain("/status/control/preop-documents")
+  })
+
+  it("keeps the consent off while the summary is off", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/preop-documents", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ consentEnabled: "true", reason: "Consent without the summary", password: "Initial password phrase1!" }).toString(),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.updatePreopDocuments).toHaveBeenCalledWith({ summaryEnabled: false, consentEnabled: false, layout: "B", reason: "Consent without the summary" })
+  })
+
+  it("saves a long Bulgarian text, which is far over the usual form size", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const body = "## Обща анестезия\n\n" + "Възможни усложнения са болка и гадене. ".repeat(300)
+    const form = new URLSearchParams({ population: "PEDIATRIC", title: "Съгласие за деца", body, reason: "Текстът на болницата", password: "Initial password phrase1!" }).toString()
+    expect(form.length).toBeGreaterThan(16_384)
+    const response = await app.request("/status/control/consent-template", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded", "content-length": String(Buffer.byteLength(form)) }),
+      body: form,
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.saveConsentTemplate).toHaveBeenCalledWith({ population: "PEDIATRIC", title: "Съгласие за деца", body: body.trim(), reason: "Текстът на болницата" })
+  })
+
+  it("saves nothing without the password, or for an unknown population", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const fields of [
+      { population: "ADULT", title: "T", body: "Текст", reason: "A reason long enough", password: "wrong" },
+      { population: "NEONATE", title: "T", body: "Текст", reason: "A reason long enough", password: "Initial password phrase1!" },
+    ]) {
+      await app.request("/status/control/consent-template", {
+        method: "POST",
+        headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams(fields).toString(),
+      })
+    }
+    expect(controlPlane.saveConsentTemplate).not.toHaveBeenCalled()
   })
 })

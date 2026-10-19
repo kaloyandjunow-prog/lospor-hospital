@@ -1,6 +1,7 @@
-import type { LocalAnaestheticFormulation } from "@lospor/core/catalog"
+import type { DoseLimit, LocalAnaestheticFormulation } from "@lospor/core/catalog"
 import type { DrugSelectionSurface } from "@lospor/core/drug-selection"
 import type { FluidEntryMode } from "@lospor/core/intraop-fluids"
+import type { TciModel, TciSite } from "@lospor/core/tci"
 
 /**
  * Shared shapes for the intraoperative timetable.
@@ -105,6 +106,15 @@ export type TtFP = {
   /** Routine-hidden item opened deliberately from search; never resolve guidance for it. */
   searchOnlyManualEntry?: boolean
   advisory?: string
+  /** A volume rate limited by dose (local anaesthetics in children); see lib/infusion-rate-view. */
+  doseLimit?: DoseLimit
+  /**
+   * The unit the rate is entered in when not `rateUnit` (the drug's own): the
+   * other dose unit or the pump's mL/hr; and the dose unit a pump rate is
+   * recorded as. Both rates are recorded (2026-10-18).
+   */
+  entryUnit?: string
+  doseUnit?: string
   calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
   calculationWeightKg?: number
   calculationMethod?: string
@@ -115,5 +125,7 @@ export type TtFP = {
   clinicalPresetId?: string
   clinicalPresetVersion?: number
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
+  /** Started as a target-controlled infusion: the rate is the target (2026-10-18). */
+  tci?: { model: TciModel; site: TciSite; opioids: boolean }
   anchor: FConflictAnchor
 }

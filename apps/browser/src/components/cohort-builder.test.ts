@@ -9,6 +9,21 @@ import {
 } from "./cohort-builder"
 
 describe("cohort builder", () => {
+  // Raw counts, as the record stores them: "Apfel 3 to 4", not a band.
+  it("filters on each risk score by its raw count, and reads the filter back", () => {
+    const cohort = buildCohort({ apfelMin: "3", apfelMax: "4", rcriMin: "2", coldsMin: "19", paedScoreMin: "13" })
+    expect(cohort.filters).toMatchObject({
+      apfel: { min: 3, max: 4 },
+      rcri: { min: 2 },
+      colds: { min: 19 },
+      paedScore: { min: 13 },
+    })
+    expect(cohort.filters.stopBang).toBeUndefined()
+    const form = formFromCohort(cohort)
+    expect([form.apfelMin, form.apfelMax, form.rcriMin, form.coldsMin, form.paedScoreMin]).toEqual(["3", "4", "2", "19", "13"])
+    expect(preservedCohortFilters(cohort)).not.toHaveProperty("apfel")
+  })
+
   it("maps visible fields to the shared structured research contract", () => {
     const cohort = buildCohort({
       from: "2026-01",
