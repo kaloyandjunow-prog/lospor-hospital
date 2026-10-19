@@ -496,8 +496,7 @@ export default function NewCasePage() {
   // patient link against the hospital's record number and that has to reach the
   // server before anything is documented against it.
   async function handlePreopSubmit(data: PreopData) {
-    setPreopHasInput(true)
-    setPreopData(data)
+    setPreopHasInput(true); setPreopData(data)
     const accepted = await runPreopSubmit(
       onError => saveSection("preop", data, { showToast: true, onError }),
       () => caseIdRef.current,
