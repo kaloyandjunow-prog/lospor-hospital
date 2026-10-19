@@ -29,7 +29,8 @@ export async function POST(
     if (error instanceof ZodError || error instanceof SyntaxError) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     if (error instanceof ConsentPrintError) return NextResponse.json({ error: error.code }, { status: 409 })
     if (error instanceof Error && error.message.includes("CASE_FINALIZED")) return NextResponse.json({ error: "CASE_FINALIZED" }, { status: 409 })
-    console.error("[consent-prints] record failed:", error)
+    // The appliance logs fixed codes only, never an error's text (1.6.0).
+    console.error("[consent-prints] CONSENT_PRINT_RECORD_FAILED")
     return NextResponse.json({ error: "Could not record the print" }, { status: 500 })
   }
 }

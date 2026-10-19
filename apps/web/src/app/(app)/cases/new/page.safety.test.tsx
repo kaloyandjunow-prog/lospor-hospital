@@ -124,9 +124,10 @@ describe("preop navigation save gate", () => {
         error: "Identifying information is not allowed", retryable: false, blockedKeys: ["teamNotes"],
       }))
       .mockResolvedValueOnce(created())
-    // A new case reads the preop profile on its own; that read is not a save.
+    // A new case reads the preop profile and the preop document settings on
+    // its own (1.6.0); those reads are not saves.
     vi.stubGlobal("fetch", vi.fn(async (url: string) =>
-      url === "/api/preop/profile" ? reply(404, {}) : saves()))
+      url === "/api/preop/profile" || url === "/api/preop/documents" ? reply(404, {}) : saves()))
     await submitPreop(piiData)
     expect(screen.getByTestId("preop-form")).toBeTruthy()
     expect(hoisted.captured.preop?.defaultValues?.teamNotes).toBe("Patient Ivan Petrov")
