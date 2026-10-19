@@ -2,12 +2,16 @@
 
 ## [1.6.2] - 2026-10-19
 
-Vendors Core 9.15.1, API, Web and PWA 9.15.0 and Browser 0.9.1. No database
+Vendors Core 9.15.1, API, Web and PWA 9.15.1 and Browser 0.9.1. No database
 migration of its own; from 1.5.6 the update still runs the five 1.6.0
 migrations, so going back restores the pre-update backup.
 
 ### Fixed
 
+- **Start at on the phone took only a time** (PWA 9.15.1). The intraop Start
+  at sheet placed the time on today, or yesterday when ahead of now, while the
+  Time tab steps the start date two weeks back. The sheet now has the same
+  date stepper.
 - **The preop summary and consent could not be switched on.** 1.6.0 shipped
   their Status screens with nothing behind them in the API: the control view
   carried no summary or consent settings, so Status hid the section, and the
