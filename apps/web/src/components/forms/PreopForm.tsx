@@ -54,11 +54,10 @@ import {
   SectionCard,
 } from "@/components/forms/PreopFormPresentational"
 import { PreopAnamnesisFields } from "@/components/forms/PreopAnamnesisFields"
-import { PreopSidebar, type PreopSidebarProps } from "@/components/forms/PreopSidebar"
+import { PreopSidebar } from "@/components/forms/PreopSidebar"
 import type { CaseStages } from "@/components/forms/CaseSidebar"
 import { StepTabBar } from "@/components/forms/StepTabBar"
 import { SectionJumpStrip } from "@/components/forms/SectionJumpStrip"
-import { broselowZone } from "@lospor/core/broselow"
 import type { PreopLayout } from "@/lib/preop-layout"
 import { LabResultsSection } from "@/components/forms/sections/LabResultsSection"
 import { PreopMedicationInstructionsSection, PreopWardOrdersSection } from "@/components/forms/PreopOrdersSections"
@@ -73,6 +72,7 @@ import {
   type PreopAssessmentProfile,
   type PreopFormSection,
 } from "@lospor/core/preop-assessment"
+import { buildPreopSidebarModel } from "@/components/forms/preop-sidebar-model"
 
 /** Baseline question behind each legacy form field. */
 const QUESTION_OF_FIELD: Record<string, string> = Object.fromEntries(
@@ -441,50 +441,13 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   const missingFields = sidebar ? new Set(missingPreopFields(formValues as unknown as PreopData, vitalsUTO, airwayUTO)) : new Set<string>()
   const anyMissing = (...keys: string[]) => keys.some(key => missingFields.has(key))
-  // The drugs a medication instruction can name: the current medication list as it stands.
   const currentMedicationChoices = ((formValues.currentMedications ?? []) as Tag[]).filter(tag => !!tag.label).map(tag => ({ label: tag.label, inn: tag.inn, atcCode: tag.atcCode }))
   const allergyTags = ((watch("allergyDetails") ?? []) as Tag[]).map(tag => tag.label).filter((label): label is string => !!label)
-  const ageUnitText = (unit: string | null | undefined) => unit === "MONTHS" ? (locale === "bg" ? "м." : "mo") : unit === "DAYS" ? (locale === "bg" ? "д." : "d") : (locale === "bg" ? "г." : "y")
-  // The step's sections, for the case panel and for the scrolling page's strip.
-  const preopSections = [
-    { id: "demographics", label: t("preop.demographicsSection"), missing: anyMissing("ageYears", "ageValue", "sex", "heightCm", "weightKg") },
-    { id: "case", label: t("preop.caseSection"), missing: anyMissing("diagnoses", "procedures") },
-    ...(sectionOn("MEDICAL_HISTORY") ? [{ id: "history", label: t("preop.historySection"), missing: false }] : []),
-    ...(sectionOn("CURRENT_MEDICATIONS") ? [{ id: "medications", label: t("preop.medicationsSection"), missing: false }] : []),
-    { id: "anamnesis", label: t("preop.historyCardTitle"), missing: false },
-    { id: "vitals", label: t("preop.vitalsSection"), missing: anyMissing("bp", "heartRate", "respiratoryRate") },
-    { id: "airway", label: t("preop.airwaySection"), missing: anyMissing("airway") },
-    ...(sectionOn("LABS") ? [{ id: "labs", label: t("preop.sidebar.labs"), missing: false }] : []),
-    { id: "risk", label: t("preop.riskSection"), missing: anyMissing("asaScore") },
-    ...(sectionOn("PLANNED_ANAESTHESIA") ? [{ id: "planned", label: t("preop.plannedAnaesthesia"), missing: false }] : []),
-    ...(sectionOn("PREMEDICATION") ? [{ id: "premedication", label: t("preop.premedication.title"), missing: false }] : []),
-    ...(isPediatric && sectionOn("PEDIATRIC_FASTING") ? [{ id: "fasting", label: t("preop.fastingSection"), missing: false }] : []),
-    ...(sectionOn("WARD_ORDERS") ? [{ id: "ward-orders", label: t("preop.orders.wardTitle"), missing: false }] : []),
-    ...(sectionOn("MEDICATION_INSTRUCTIONS") ? [{ id: "medication-instructions", label: t("preop.orders.medicationTitle"), missing: false }] : []),
-    { id: "notes", label: t("preop.notesLabel"), missing: false },
-  ]
-  const sidebarProps: PreopSidebarProps | null = sidebar ? {
-    sections: preopSections,
-    patient: {
-      ageText: ageValue != null && ageUnit ? `${ageValue} ${ageUnitText(ageUnit)}` : ageYearsVal != null ? `${ageYearsVal} ${ageUnitText("YEARS")}` : null,
-      sexText: sex === "MALE" ? (locale === "bg" ? "М" : "M") : sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : null,
-      heightCm: height ? Number(height) : null,
-      weightKg: weight ? Number(weight) : null,
-      bmi: bmi ?? null,
-      allergy: allergies === true,
-      allergyDetails: allergyTags,
-    },
-    broselow: broselowZone({ clinicalMode: preopMode, heightCm: height ? Number(height) : null, weightKg: weight ? Number(weight) : null }),
-    scores: isPediatric ? [] : [
-      { label: t("preop.rcriShort"), value: rcriAnswered > 0 ? rcriScore : null, max: 6 },
-      { label: t("preop.apfelShort"), value: apfelAnswered > 0 ? apfelScore : null, max: 4 },
-      { label: t("preop.stopBangShort"), value: stopBangAnswered > 0 ? stopBangScore : null, max: 8 },
-    ],
-    asa: { chosen: (watch("asaScore") as string | null | undefined) ?? null, suggested: asaSuggestion?.cls ?? null },
-    disabled: pediatricRecordReadOnly,
-    stages,
-  } : null
-
+  const { sections: preopSections, props: preopSidebarProps } = buildPreopSidebarModel({
+    t, sectionOn, anyMissing, isPediatric, preopMode, ageValue, ageUnit, ageYearsVal, sex, height, weight, bmi: bmi ?? null, allergies, allergyTags, locale,
+    rcriAnswered, rcriScore, apfelAnswered, apfelScore, stopBangAnswered, stopBangScore, asaChosen: (watch("asaScore") as string | null | undefined) ?? null, asaSuggested: asaSuggestion?.cls ?? null, disabled: pediatricRecordReadOnly, stages,
+  })
+  const sidebarProps = sidebar ? preopSidebarProps : null
   return (
     <form
       onSubmit={pediatricRecordReadOnly
