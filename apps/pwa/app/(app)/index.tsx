@@ -203,7 +203,7 @@ export default function DashboardScreen() {
       }
       networkErrorNotifiedRef.current = isNetworkFailure
     }
-  }, [filterQuery, draftOwner, logout, t, setCounts, setCaseTotal])
+  }, [filterQuery, draftOwner, logout, t, setCounts, setCaseTotal, setHospitalWide])
 
   const loadTransfers = useCallback(async () => {
     try {
