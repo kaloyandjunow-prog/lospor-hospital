@@ -491,7 +491,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       {/* ── Patient tab ─────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
       {/* Demographics */}
-      <div data-readiness="demographics" data-tour="preop-demographics">
+      <div id="preop-sec-demographics" data-readiness="demographics" data-tour="preop-demographics">
       <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
         {!caseId && (
           <div className="space-y-2">
