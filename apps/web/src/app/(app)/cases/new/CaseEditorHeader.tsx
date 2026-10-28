@@ -8,6 +8,7 @@ export type CaseSaveStatus = "idle" | "saving" | "saved" | "queued" | "blocked" 
 export function CaseEditorHeader({
   caseId,
   caseCode,
+  theatreName = null,
   saveStatus,
   saveError,
   maskedIdentifier,
@@ -16,6 +17,7 @@ export function CaseEditorHeader({
 }: {
   caseId: string | null
   caseCode: string | null
+  theatreName?: string | null
   saveStatus: CaseSaveStatus
   saveError: string | null
   maskedIdentifier: string | null
@@ -40,7 +42,7 @@ export function CaseEditorHeader({
         ) : null}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        {caseId && caseCode ? <CaseMeta caseId={caseId} caseCode={caseCode} /> : null}
+        {caseId && caseCode ? <CaseMeta caseId={caseId} caseCode={caseCode} theatreName={theatreName} /> : null}
         <div className="text-xs">
           {saveStatus === "saving" ? <span className="animate-pulse text-slate-400">{t("case.savingDraft")}</span> : null}
           {saveStatus === "saved" ? <span className="text-green-500">{t("case.draftSaved")}</span> : null}

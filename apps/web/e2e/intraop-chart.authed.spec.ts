@@ -64,6 +64,15 @@ async function createStartedCase(page: Page, intraop: Record<string, unknown> = 
   return id as string
 }
 
+/** A case that began twenty minutes ago, so its chart has past and future columns. */
+async function createRecentCase(page: Page) {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const startedAt = new Date(Date.now() - 20 * 60_000)
+  const local = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false })
+    .format(startedAt)
+  return createStartedCase(page, { startTime: local, startedAt: startedAt.toISOString(), timezone: zone })
+}
+
 async function openChart(page: Page, id: string) {
   // step=1 is the intraoperative step of the case wizard.
   // The wizard holds the live-case stream open, so `load` never fires.
@@ -79,6 +88,19 @@ async function openChart(page: Page, id: string) {
   const chart = page.locator('[data-tour="intraop-timetable"]')
   await expect(chart).toBeVisible({ timeout: 60_000 })
   return chart
+}
+
+/** Start an infusion through the chart's own picker and confirmation flow. */
+async function startInfusion(page: Page, chart: ReturnType<Page["locator"]>) {
+  await chart.getByTestId("add-infusion").nth(2).click({ timeout: 30_000 })
+  await page.getByRole("button", { name: "Browse all infusions" }).click({ timeout: 30_000 })
+  await page.getByPlaceholder("Search infusion").fill("Propofol")
+  await page.getByRole("button", { name: /^Propofol/ }).first().click()
+
+  const start = page.getByRole("button", { name: "Start Infusion" })
+  await expect(start).toBeVisible({ timeout: 30_000 })
+  await start.click()
+  await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible({ timeout: 30_000 })
 }
 
 /**

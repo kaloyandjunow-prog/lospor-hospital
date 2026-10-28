@@ -4,8 +4,6 @@ import { Toaster } from "@/components/ui/sonner"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages, getTranslations } from "next-intl/server"
 import { cookies } from "next/headers"
-import { Analytics } from "@vercel/analytics/next"
-import { PwaInit } from "@/components/PwaInit"
 import { parseUiScale, uiScaleFontSize, UI_SCALE_COOKIE } from "@/lib/ui-scale"
 
 // --font-sans and --font-geist-mono are declared in globals.css, alongside the

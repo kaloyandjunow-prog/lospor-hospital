@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { corsHeaders } from "@/lib/cors"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { caseReadWhereForUser } from "@/lib/access-control"
+import { caseWriteWhereForUser } from "@/lib/access-control"
 import { logAuditInTransaction } from "@/lib/audit"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { assignCaseTheatre, OperatingTheatreError } from "@/lib/operating-theatres"
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const result = await withLockedCaseTransaction(caseId, async tx => {
-      const visible = await tx.case.count({ where: caseReadWhereForUser(user, caseId) })
-      if (!visible) throw new OperatingTheatreError("CASE_NOT_FOUND", 404)
+      const writable = await tx.case.count({ where: caseWriteWhereForUser(user, caseId) })
+      if (!writable) throw new OperatingTheatreError("CASE_NOT_FOUND", 404)
       const change = await assignCaseTheatre(tx, caseId, parsed.data.theatreId, parsed.data.expectedTheatreId)
       if (change.before !== change.after) {
         await logAuditInTransaction(tx, user.id, "CASE_THEATRE_ASSIGN", caseId, { from: change.before, to: change.after })

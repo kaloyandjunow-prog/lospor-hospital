@@ -37,9 +37,11 @@ import {
   PediatricRiskAndCalculators,
   PediatricFastingFields,
   PediatricVitalReferenceNote,
+  ClinicalModeAgeFields,
 } from "@/components/forms/PediatricPreopSections"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { preopAgeInYears } from "@lospor/core/preop-documents"
+import { metadataString } from "@lospor/core/option-contracts"
 import {
   pediatricCapabilityMessageKey,
   useClinicalAiCapabilities,
