@@ -262,7 +262,7 @@ test("an infusion's right grip sets where it stops", async ({ page }) => {
   }, { timeout: 10_000, message: "no stop was recorded" }).toMatch(/^2026-08-27T08:[1-4]\d:/)
 })
 
-test("an infusion's left grip extends the bar backwards in time", async ({ page }) => {
+test("a running infusion's left grip extends the bar backwards in time", async ({ page }) => {
   const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
 
@@ -275,7 +275,7 @@ test("an infusion's left grip extends the bar backwards in time", async ({ page 
   await dragGripUntilBarLengthens(lane, "left", { x: 120, y: laneBox.height / 2 })
 })
 
-test("a rate change can be recorded, and dragging it copies it to another time", async ({ page }) => {
+test("a running infusion rate change can be copied to another time", async ({ page }) => {
   const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
 
