@@ -93,14 +93,14 @@ describe("POST /api/cases/:id/ai/advise", () => {
     expect(res.status).toBe(403)
   })
 
-  it("allows the immutable creator to read advice after same-institution handover", async () => {
+  it("does not let the immutable creator invoke advice after same-institution handover", async () => {
     const prismaM = await import("@/lib/prisma")
     vi.mocked(prismaM.prisma.case.findUnique).mockResolvedValue({
       ...CASE_WITH_OPTIN,
       userId: "assignee-2",
     } as never)
     const res = await POST(makeRequest(), { params: Promise.resolve({ id: "case-1" }) })
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(403)
   })
 
   it("builds prompt only from server-loaded DB fields, not client body", async () => {

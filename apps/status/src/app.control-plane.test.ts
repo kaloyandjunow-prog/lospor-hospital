@@ -184,6 +184,12 @@ const VIEW: ControlPlaneView = {
       },
     },
   },
+  caseVisibility: {
+    enabled: true,
+    changeReasonRecorded: true,
+    changedAt: "2026-08-19T08:00:00.000Z",
+    updatedAt: "2026-08-19T08:00:00.000Z",
+  },
   externalAi: {
     externalAiEnabled: true,
     provider: "MISTRAL",
@@ -301,6 +307,7 @@ function setup() {
     setCentralPolicy: vi.fn(async () => {}),
     retryCentralBatch: vi.fn(async () => {}),
     setGuidance: vi.fn(async () => {}),
+    setCaseVisibilityPolicy: vi.fn(async () => {}),
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
@@ -663,6 +670,24 @@ describe("Status Hospital control plane", () => {
     })
     expect(mutation.status).toBe(403)
     expect(controlPlane.setGuidance).not.toHaveBeenCalled()
+  })
+
+  it("protects the hospital-wide read-only case viewer policy with the Status password and reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    expect(await page.text()).toContain('action="/status/control/case-visibility"')
+
+    const response = await app.request("/status/control/case-visibility", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ enabled: "", reason: "Restrict colleague case reading for a review", password: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.setCaseVisibilityPolicy).toHaveBeenCalledWith({
+      enabled: false,
+      reason: "Restrict colleague case reading for a review",
+    })
   })
 
   it("requires the current password before issuing a granular grant", async () => {

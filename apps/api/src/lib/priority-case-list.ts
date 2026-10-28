@@ -32,29 +32,44 @@ export async function findCasesByPriority<Include extends Prisma.CaseInclude>(
   include: Include,
   skip: number,
   take: number,
+  preferredWhere?: Prisma.CaseWhereInput,
 ): Promise<Prisma.CaseGetPayload<{ include: Include }>[]> {
   let remainingSkip = skip
   let remainingTake = take
   const results: Prisma.CaseGetPayload<{ include: Include }>[] = []
 
-  for (const status of STATUS_PRIORITY) {
-    if (remainingTake <= 0) break
-    const tierWhere: Prisma.CaseWhereInput = { ...where, status }
-    const tierCount = await prisma.case.count({ where: tierWhere })
-    if (remainingSkip >= tierCount) {
-      remainingSkip -= tierCount
-      continue
+  // Hospital dashboards put the clinician's own assigned/created cases first,
+  // then the rest of the hospital. Each group retains the same urgency order
+  // as the ordinary dashboard, and pagination crosses the group boundary as if
+  // the two ordered lists had been concatenated.
+  const groups = preferredWhere
+    ? [
+        { AND: [where, preferredWhere] } satisfies Prisma.CaseWhereInput,
+        { AND: [where, { NOT: preferredWhere }] } satisfies Prisma.CaseWhereInput,
+      ]
+    : [where]
+
+  for (const groupWhere of groups) {
+    for (const status of STATUS_PRIORITY) {
+      if (remainingTake <= 0) break
+      const tierWhere: Prisma.CaseWhereInput = { ...groupWhere, status }
+      const tierCount = await prisma.case.count({ where: tierWhere })
+      if (remainingSkip >= tierCount) {
+        remainingSkip -= tierCount
+        continue
+      }
+      const rows = await prisma.case.findMany({
+        where: tierWhere,
+        include,
+        orderBy: { createdAt: "desc" },
+        skip: remainingSkip,
+        take: remainingTake,
+      }) as Prisma.CaseGetPayload<{ include: Include }>[]
+      results.push(...rows)
+      remainingTake -= rows.length
+      remainingSkip = 0
     }
-    const rows = await prisma.case.findMany({
-      where: tierWhere,
-      include,
-      orderBy: { createdAt: "desc" },
-      skip: remainingSkip,
-      take: remainingTake,
-    }) as Prisma.CaseGetPayload<{ include: Include }>[]
-    results.push(...rows)
-    remainingTake -= rows.length
-    remainingSkip = 0
+    if (remainingTake <= 0) break
   }
 
   return results

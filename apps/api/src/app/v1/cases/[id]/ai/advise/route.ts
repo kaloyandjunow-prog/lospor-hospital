@@ -4,7 +4,7 @@ import {
   externalAiProviderAccess,
 } from "@/lib/hospital/external-ai-policy"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { canAccessCase } from "@/lib/access-control"
+import { canWriteCase } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { logAudit } from "@/lib/audit"
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  if (!canAccessCase(user, existing)) {
+  if (!canWriteCase(user, existing)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   if (existing.clinicalMode === "PEDIATRIC") {

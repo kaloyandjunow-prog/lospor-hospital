@@ -100,6 +100,7 @@ model User {
   hospitalTransportConfigurations HospitalInstallation[]               @relation("HospitalTransportConfigurator")
   hospitalUsernameReservations    HospitalUsernameReservation[]
   operatedHospitalInstallation    HospitalInstallation?                @relation("ApplianceOperator")
+  caseVisibilityPoliciesChanged   HospitalCaseVisibilityPolicy[]        @relation("HospitalCaseVisibilityPolicyChanger")
   patientIdentifierPoliciesChanged HospitalPatientIdentifierPolicy[]   @relation("HospitalPatientIdentifierPolicyChanger")
   researchOmopApprovalsIssued     ResearchOmopApproval[]               @relation("ResearchOmopApprover")
   researchOmopApprovalsRequested  ResearchOmopApproval[]               @relation("ResearchOmopRequester")
@@ -2771,6 +2772,21 @@ model ClinicalGuidancePolicy {
   changeReason     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+/// Whether clinical accounts may read cases recorded at the same hospital.
+///
+/// The default is on for a new appliance. Turning it off restores the narrow
+/// owner/HOD view without changing any write permission or historical record.
+model HospitalCaseVisibilityPolicy {
+  id           String   @id @default("local")
+  enabled      Boolean  @default(true)
+  changedAt    DateTime?
+  changedById  String?
+  changedBy    User?    @relation("HospitalCaseVisibilityPolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
+  changeReason String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 /// Which keys this database was built under.

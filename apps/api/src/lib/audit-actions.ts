@@ -86,6 +86,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   // audit trail that cannot tell the two apart cannot answer that question.
   { code: "CASE_AUTO_FINALIZED", category: "CASE", labels: { bg: "Автоматично финализиран случай след изтичане на срока за преглед", en: "Case finalised automatically when the review window elapsed" } },
   { code: "CASE_CREATE", category: "CASE", labels: { bg: "Създаден случай", en: "Case created" } },
+  { code: "CASE_VIEWED", category: "CASE", labels: { bg: "Прегледан чужд случай", en: "Colleague's case viewed" } },
   { code: "CASE_DELETE", category: "CASE", labels: { bg: "Изтрит случай", en: "Case deleted" } },
   { code: "CASE_INTRAOP_AUTO_ENDED", category: "CASE", labels: { bg: "Случаят е приключен автоматично 48 часа след началото", en: "Case ended automatically 48 hours after it started" } },
   { code: "CASE_EVENT_ADD", category: "CASE", labels: { bg: "Добавено събитие към случай", en: "Case event added" } },
@@ -172,6 +173,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REPLACE", category: "SECURITY", labels: { bg: "Подменени данни за достъп до външен ИИ", en: "External AI credential replaced" } },
   { code: "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за външен ИИ", en: "External AI policy changed" } },
   { code: "HOSPITAL_GUIDANCE_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за изчислителни насоки", en: "Calculation-guidance policy changed" } },
+  { code: "HOSPITAL_CASE_VISIBILITY_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за видимостта на случаите", en: "Case-visibility policy changed" } },
   { code: "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за национален идентификатор (ЕГН)", en: "National-identifier (ЕГН) policy changed" } },
   { code: "PII_BLOCKED", category: "SECURITY", labels: { bg: "Блокирани лични данни", en: "Personal data blocked" } },
 ] as const)

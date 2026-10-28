@@ -5,7 +5,7 @@ import {
 } from "@/lib/hospital/external-ai-policy"
 import { corsHeaders } from "@/lib/cors"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { canAccessCase } from "@/lib/access-control"
+import { canWriteCase } from "@/lib/access-control"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  if (!canAccessCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!canWriteCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   // Consent check from the database -- it ignores any client-supplied aiOptIn.
   //

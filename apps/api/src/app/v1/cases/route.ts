@@ -10,6 +10,7 @@ import { parseLenient, type RejectedField } from "@/lib/lenient-parse"
 import { checkClinicalPayloadPII, piiErrorBody } from "@/lib/clinical-pii"
 import { syncCaseRelationalLockedSafe } from "@/lib/relational-sync"
 import { caseCapabilitiesForUser, caseReadWhereForUser } from "@/lib/access-control"
+import { caseVisibilityCapabilityState, isHospitalWideCaseViewer } from "@/lib/hospital/case-visibility"
 import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
@@ -291,7 +292,8 @@ export async function GET(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const where = caseReadWhereForUser(user)
+  const caseVisibilityEnabled = (await caseVisibilityCapabilityState()).enabled
+  const where = await caseReadWhereForUser(user, undefined, caseVisibilityEnabled)
 
   // Item 28: Pagination — accept optional ?skip and ?take; cap take at 200 per request
   const url = new URL(req.url)
@@ -327,16 +329,25 @@ export async function GET(req: NextRequest) {
     // see priority-case-list.ts. A dashboard capped at `take` rows must never
     // let the case closest to auto-closing scroll off the end behind a pile
     // of drafts or older finished cases.
-    findCasesByPriority(where, include, skip, take),
+    findCasesByPriority(
+      where,
+      include,
+      skip,
+      take,
+      isHospitalWideCaseViewer(user, caseVisibilityEnabled)
+        ? { OR: [{ userId: user.id }, { createdById: user.id }] }
+        : undefined,
+    ),
     prisma.case.count({ where }),
     dashboardCaseCounts(where, user.id),
   ])
 
   return NextResponse.json({
-    cases: cases.map(record => ({
+    cases: await Promise.all(cases.map(async record => ({
       ...record,
-      capabilities: caseCapabilitiesForUser(user, record),
-    })),
+      capabilities: await caseCapabilitiesForUser(user, record, caseVisibilityEnabled),
+    }))),
+    hospitalWide: isHospitalWideCaseViewer(user, caseVisibilityEnabled),
     total,
     skip,
     take,

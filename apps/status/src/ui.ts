@@ -1461,6 +1461,17 @@ export function renderControlPlane(
   const preopPage = `${preoperativePanel}${preopAdministration}`
   const guidancePolicy = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
 
+  const caseVisibility = view?.caseVisibility
+  const caseVisibilityControls = caseVisibility ? `
+    <div class="component"><div class="facts">
+      ${textFact(localize(locale, "Hospital-wide colleague case reading", "Четене на случаи на колеги в болницата"), boolWord(caseVisibility.enabled, locale))}
+      ${textFact(localize(locale, "Change reason recorded", "Записана причина за промяна"), boolWord(caseVisibility.changeReasonRecorded, locale))}
+      ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), caseVisibility.changedAt, locale)}
+      ${dateFact(localize(locale, "State last updated", "Състоянието е проверено на"), caseVisibility.updatedAt, locale)}
+    </div><p>${localize(locale, "When enabled, clinical members, heads of department and administrators can read cases recorded at this hospital. A colleague's case stays read-only: the switch never grants editing, AI actions, handover, correction or other writes. Research-only accounts and other hospitals remain outside the scope. New appliances start with this policy enabled.", "Когато е включена, клиничните лекари, началниците на отделения и администраторите могат да четат случаите, записани в тази болница. Случаят на колега остава само за четене: тази настройка никога не дава право за редакция, ИИ действия, предаване, корекция или друг запис. Профилите само за изследвания и другите болници остават извън обхвата. Новите инсталации започват с включена политика.")}</p>
+    <form method="post" action="/status/control/case-visibility"><div class="checks"><label class="check"><input type="checkbox" name="enabled" value="true" ${caseVisibility.enabled ? "checked" : ""}> ${localize(locale, "Allow clinical accounts to read hospital cases", "Разрешаване на клиничните профили да четат случаите на болницата")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save case-reading policy", "Запазване на настройката за четене на случаи")}</button></form></div>
+  ` : ""
+
   const externalAi = view?.externalAi
   const externalAiCapability = externalAi
     ? externalAi.capability === "ENABLED"
@@ -1857,7 +1868,7 @@ export function renderControlPlane(
     {
       slug: "clinical",
       label: localize(locale, "Clinical guidance", "Клинични насоки"),
-      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${preopPage}${guidancePolicy}` : ""}</div></section>`,
+      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${preopPage}${guidancePolicy}` : ""}${caseVisibilityControls}</div></section>`,
     },
     {
       slug: "ehr",
@@ -1891,7 +1902,7 @@ export function renderControlPlane(
   const aiSection = legacySections.find(entry => entry.slug === "ai")!
   const skinSections: { slug: string; label: string; html: string }[] = [
     { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2>${localize(locale, "Questions, summary and consent", "Въпроси, обобщение и съгласие")}</h2><div class="card">${preopPage}</div></section>` },
-    { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}</div></section>` },
+    { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}${caseVisibilityControls}</div></section>` },
     { slug: "ehr", label: localize(locale, "Hospital system", "Болнична система"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },
     { slug: "codes", label: localize(locale, "Codes", "Кодове"), html: `
     <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>

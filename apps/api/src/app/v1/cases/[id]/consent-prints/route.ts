@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { caseReadWhereForUser } from "@/lib/access-control"
+import { caseWriteWhereForUser } from "@/lib/access-control"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { ConsentPrintError, consentPrintSchema, recordConsentPrint } from "@/lib/preop/documents"
@@ -17,7 +17,7 @@ export async function POST(
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { id } = await params
 
-  const record = await prisma.case.findFirst({ where: caseReadWhereForUser(user, id), select: { id: true, status: true } })
+  const record = await prisma.case.findFirst({ where: caseWriteWhereForUser(user, id), select: { id: true, status: true } })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (record.status === "COMPLETE") return NextResponse.json({ error: "CASE_FINALIZED" }, { status: 409 })
 

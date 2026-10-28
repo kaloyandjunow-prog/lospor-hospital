@@ -38,7 +38,7 @@ export default {
     },
     {
       ...authedProject,
-      testMatch: /[\\/]hospital-e2e[\\/]pediatric-mode\.authed\.spec\.ts$/,
+      testMatch: /[\\/]hospital-e2e[\\/](?:pediatric-mode|case-visibility)\.authed\.spec\.ts$/,
       dependencies: ["setup"],
     },
   ],

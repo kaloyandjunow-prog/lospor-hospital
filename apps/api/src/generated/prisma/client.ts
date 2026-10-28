@@ -24,7 +24,7 @@ export * as $Enums from './enums'
 export * from "./enums"
 /**
  * ## Prisma Client
- * 
+ *
  * Type-safe database client for TypeScript
  * @example
  * ```
@@ -34,7 +34,7 @@ export * from "./enums"
  * // Fetch zero or more Users
  * const users = await prisma.user.findMany()
  * ```
- * 
+ *
  * Read more in our [docs](https://pris.ly/d/client).
  */
 export const PrismaClient = $Class.getPrismaClientClass()
@@ -522,6 +522,14 @@ export type HospitalInstallation = Prisma.HospitalInstallationModel
  * 
  */
 export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
+/**
+ * Model HospitalCaseVisibilityPolicy
+ * Whether clinical accounts may read cases recorded at the same hospital.
+ *
+ * The default is on for a new appliance. Turning it off restores the narrow
+ * owner/HOD view without changing any write permission or historical record.
+ */
+export type HospitalCaseVisibilityPolicy = Prisma.HospitalCaseVisibilityPolicyModel
 /**
  * Model HospitalKeyIdentity
  * Which keys this database was built under.

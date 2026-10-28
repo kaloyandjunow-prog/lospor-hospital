@@ -12,6 +12,7 @@ export function useDashboardPagination<CaseItem>(
 ) {
   const [counts, setCounts] = useState<DashboardServerCounts | null>(null)
   const [caseTotal, setCaseTotal] = useState<number | null>(null)
+  const [hospitalWide, setHospitalWide] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
 
   // Appends the server's next 200-row page in its own priority order -- take
@@ -20,13 +21,14 @@ export function useDashboardPagination<CaseItem>(
     if (loadingMore) return
     setLoadingMore(true)
     try {
-      const data = await apiJson<{ cases: CaseItem[]; counts?: DashboardServerCounts; total?: number }>(
+      const data = await apiJson<{ cases: CaseItem[]; counts?: DashboardServerCounts; total?: number; hospitalWide?: boolean }>(
         `/api/cases?skip=${cases.length}&take=200`,
         { timeoutMs },
       )
       setCases(prev => [...prev, ...(Array.isArray(data?.cases) ? data.cases : [])])
       if (data?.counts) setCounts(data.counts)
       if (data?.total != null) setCaseTotal(data.total)
+      if (typeof data?.hospitalWide === "boolean") setHospitalWide(data.hospitalWide)
     } catch {
       notify(t("error"), t("couldNotLoadCases"))
     } finally {
@@ -34,5 +36,5 @@ export function useDashboardPagination<CaseItem>(
     }
   }, [cases.length, loadingMore, setCases, t, timeoutMs])
 
-  return { counts, setCounts, caseTotal, setCaseTotal, loadingMore, loadMoreCases }
+  return { counts, setCounts, caseTotal, setCaseTotal, hospitalWide, setHospitalWide, loadingMore, loadMoreCases }
 }

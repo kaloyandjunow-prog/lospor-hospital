@@ -325,6 +325,7 @@ export const HOSPITAL_AUDIT_GOVERNANCE_INVENTORY = [
         path: "src/lib/hospital/control-plane.ts",
         actionCodes: [
           "HOSPITAL_GUIDANCE_POLICY_UPDATE",
+          "HOSPITAL_CASE_VISIBILITY_POLICY_UPDATE",
           "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE",
           "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REPLACE",
           "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REMOVE",

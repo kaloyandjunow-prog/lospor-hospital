@@ -50,7 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       select: { id: true, userId: true, createdById: true, institutionId: true, status: true },
     })
     if (!record) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
-    if (!canReadCase(user, record)) {
+    if (!await canReadCase(user, record)) {
       throw new CaseWriteError("CASE_FORBIDDEN", 403, "Forbidden")
     }
     return tx.caseClinicalCalculation.findMany({

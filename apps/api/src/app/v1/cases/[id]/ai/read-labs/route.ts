@@ -6,7 +6,7 @@ import {
 import { convertLabValue, isConfidentConversion } from "@lospor/core/lab-unit-conversion"
 import { LAB_LIBRARY } from "@/lib/labs"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { canAccessCase } from "@/lib/access-control"
+import { canWriteCase } from "@/lib/access-control"
 import { logAudit } from "@/lib/audit"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { prisma } from "@/lib/prisma"
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  if (!canAccessCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!canWriteCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   let imageBase64: string
   let mimeType: string

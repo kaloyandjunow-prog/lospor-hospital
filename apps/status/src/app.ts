@@ -1512,6 +1512,16 @@ export function createStatusApp({
     "clinical",
   ))
 
+  app.post("/status/control/case-visibility", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setCaseVisibilityPolicy({
+      enabled: formBoolean(body, "enabled"),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The hospital-wide case-reading policy was saved and audited. Write permissions were not changed.", "Политиката за четене на случаите в болницата е запазена и записана в одитния журнал. Правата за запис не са променени."),
+    "clinical",
+  ))
+
   app.post("/status/control/preop-profile", context => sensitiveControlAction(
     context,
     async body => {

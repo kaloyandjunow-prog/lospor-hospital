@@ -20,6 +20,8 @@ import {
   caseCapabilitiesForUser,
   caseReadWhereForUser,
 } from "@/lib/access-control"
+import { caseVisibilityCapabilityState } from "@/lib/hospital/case-visibility"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import { corsHeaders } from "@/lib/cors"
 import type { CaseDetail, Serialized } from "@/types/case-detail"
 import { SECTION_REVISION_HEADER } from "@lospor/core/sync"
@@ -93,7 +95,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const where = caseReadWhereForUser(user, id)
+  const caseVisibilityEnabled = (await caseVisibilityCapabilityState()).enabled
+  const where = await caseReadWhereForUser(user, id, caseVisibilityEnabled)
 
   // A case started 48 hours ago with no screen open on it ends as it is opened
   // (1.4.9); the sweeps catch the ones nobody opens. Only for a case this user
@@ -159,9 +162,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // with the bundled defaults -- exactly what its first save will provision.
   const profiles = await readPreopProfiles(prisma)
   const preopProfile = profiles ? serializePreopProfiles(profiles) : defaultPreopProfileShape()
+  const capabilities = await caseCapabilitiesForUser(user, record, caseVisibilityEnabled)
+  if (isHospitalDeployment() && record.userId !== user.id) {
+    after(() => logAudit(user.id, "CASE_VIEWED", record.id, {
+      scope: "hospital-wide",
+      readOnly: capabilities.canWrite !== true,
+    }))
+  }
   const responseRecord = {
     ...normalizedRecord,
-    capabilities: caseCapabilitiesForUser(user, record),
+    capabilities,
     patientReference: record.patientLink,
     preopProfile,
     preopRequiredMissing: missingRequiredPreopQuestions(profiles?.[populationForMode(record.clinicalMode)], record.preop?.assessmentAnswers, record.clinicalMode, preopAgeInYears(record.preop)),

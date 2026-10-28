@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const found = await prisma.case.findFirst({
-    where: caseReadWhereForUser(user, id),
+    where: await caseReadWhereForUser(user, id),
     select: {
       updatedAt: true,
       status: true,

@@ -32,7 +32,7 @@ export async function POST(
   // This shared predicate preserves institution scope for members, heads of
   // department, and administrators before any browser token is issued.
   const record = await prisma.case.findFirst({
-    where: caseReadWhereForUser(user, id),
+    where: await caseReadWhereForUser(user, id),
     select: { id: true },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })

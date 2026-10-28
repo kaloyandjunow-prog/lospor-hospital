@@ -6,7 +6,7 @@
 /*
  * This file should be your main import to use Prisma-related types and utilities in a browser. 
  * Use it to get access to models, enums, and input types.
- * 
+ *
  * This file does not contain a `PrismaClient` class, nor several other helpers that are intended as server-side only.
  * See `client.ts` for the standard, server-side entry point.
  *
@@ -19,7 +19,7 @@ export * as $Enums from './enums'
 export * from './enums';
 /**
  * Model User
- * 
+ *
  */
 export type User = Prisma.UserModel
 /**
@@ -498,6 +498,14 @@ export type HospitalInstallation = Prisma.HospitalInstallationModel
  * 
  */
 export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
+/**
+ * Model HospitalCaseVisibilityPolicy
+ * Whether clinical accounts may read cases recorded at the same hospital.
+ *
+ * The default is on for a new appliance. Turning it off restores the narrow
+ * owner/HOD view without changing any write permission or historical record.
+ */
+export type HospitalCaseVisibilityPolicy = Prisma.HospitalCaseVisibilityPolicyModel
 /**
  * Model HospitalKeyIdentity
  * Which keys this database was built under.

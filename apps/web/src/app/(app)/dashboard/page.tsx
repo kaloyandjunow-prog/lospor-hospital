@@ -50,19 +50,22 @@ type DashboardCounts = {
 // in the server's own priority order, and concatenates them in order.
 const PAGE_SIZE = 200
 
-async function fetchDashboard(limit: number): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number }> {
+async function fetchDashboard(limit: number): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number; hospitalWide: boolean }> {
   const cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }> = []
   let counts: DashboardCounts | null = null
   let total = 0
+  let hospitalWide = false
   for (let skip = 0; skip < Math.max(PAGE_SIZE, limit); skip += PAGE_SIZE) {
     const payload = await apiServerJson<{
       cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }>
       counts: DashboardCounts
       total: number
+      hospitalWide?: boolean
     }>(`/v1/cases?skip=${skip}&take=${PAGE_SIZE}`)
     cases.push(...payload.cases)
     counts = payload.counts
     total = payload.total
+    hospitalWide = payload.hospitalWide === true
     if (payload.cases.length < PAGE_SIZE) break // reached the end
   }
   return {
@@ -72,6 +75,7 @@ async function fetchDashboard(limit: number): Promise<{ cases: CaseRow[]; counts
     // page's response carries the same values.
     counts: counts!,
     total,
+    hospitalWide,
   }
 }
 
@@ -151,7 +155,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
 
   const now = new Date()
 
-  const { cases, counts, total } = await fetchDashboard(limit)
+  const { cases, counts, total, hospitalWide } = await fetchDashboard(limit)
 
   // Stat tiles and filter-chip counts read the server's true counts over the
   // whole accessible set. `cases` below is only the display page (capped at
@@ -182,6 +186,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
     if (scope === "icu") return c.postop?.disposition === "ICU"
     return true
   })
+  const orderedCases = hospitalWide
+    ? [...filteredCases].sort((a, b) => Number(b.userId === session.user.id) - Number(a.userId === session.user.id))
+    : filteredCases
   const asaDist = cases.reduce<Record<string, number>>((acc: Record<string, number>, c: CaseRow) => {
     const a = c.preop?.asaScore ?? "Unknown"
     acc[a] = (acc[a] ?? 0) + 1
@@ -280,7 +287,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
             </div>
           ) : (
             <DashboardSearch
-              cases={filteredCases}
+              cases={orderedCases}
               userId={session.user.id}
               role={session.user.role}
             />

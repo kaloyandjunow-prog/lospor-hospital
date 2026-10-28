@@ -427,6 +427,10 @@ export const schemas = {
     pediatricEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["adultEnabled", "pediatricEnabled", "reason"]),
+  HospitalCaseVisibilityPolicyRequest: object({
+    enabled: { type: "boolean" },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["enabled", "reason"]),
   HospitalExternalAiPolicyRequest: object({
     externalAiEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
@@ -557,6 +561,11 @@ export const schemas = {
     pediatricEnabled: { type: "boolean" },
     updatedAt: { type: "string", format: "date-time" },
   }, ["adultEnabled", "pediatricEnabled", "updatedAt"]),
+  HospitalCaseVisibilityPolicyResponse: object({
+    enabled: { type: "boolean" },
+    changedAt: { type: "string", format: "date-time" },
+    updatedAt: { type: "string", format: "date-time" },
+  }, ["enabled", "changedAt", "updatedAt"]),
   HospitalExternalAiPolicyResponse: object({
     externalAiEnabled: { type: "boolean" },
     provider: { type: "string", const: "MISTRAL" },
@@ -1970,6 +1979,14 @@ add("POST", "/v1/internal/hospital/control-plane/guidance", "Set prospective adu
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalGuidancePolicyRequest")),
   result: ref("HospitalGuidancePolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/case-visibility", "Enable or disable hospital-wide read-only clinical case visibility", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalCaseVisibilityPolicyRequest")),
+  result: ref("HospitalCaseVisibilityPolicyResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

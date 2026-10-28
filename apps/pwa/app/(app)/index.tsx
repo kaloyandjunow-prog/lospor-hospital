@@ -29,6 +29,7 @@ const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
 type CaseItem = {
   id: string
+  userId?: string
   caseCode: string
   status: string
   createdAt: string
@@ -120,7 +121,7 @@ export default function DashboardScreen() {
   const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
-  const { counts, setCounts, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS)
+  const { counts, setCounts, setHospitalWide, hospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS)
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
   const [transfers, setTransfers] = useState<PendingTransfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -157,13 +158,14 @@ export default function DashboardScreen() {
       setLoadError(null)
       // Explicit take: an unset request defaults to 50, silently undercounting
       // every stat tile for a clinic with more open work than that.
-      const data = await apiJson<CaseItem[] | { cases: CaseItem[]; counts?: DashboardServerCounts; total?: number }>(
+      const data = await apiJson<CaseItem[] | { cases: CaseItem[]; counts?: DashboardServerCounts; total?: number; hospitalWide?: boolean }>(
         "/api/cases?take=200",
         { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
       )
       setCases(Array.isArray(data) ? data : (Array.isArray(data?.cases) ? data.cases : []))
       setCounts(Array.isArray(data) ? null : (data?.counts ?? null))
       setCaseTotal(Array.isArray(data) ? null : (data?.total ?? null))
+      setHospitalWide(Array.isArray(data) ? false : data?.hospitalWide === true)
       setNetworkLoadFailed(false)
       networkErrorNotifiedRef.current = false
     } catch (err) {
@@ -351,14 +353,19 @@ export default function DashboardScreen() {
   const tabCounts = dashboardTabCounts(counts, cases, transfers.length, isToday, isThisMonth)
 
   const trimmedQuery = query.trim().toLowerCase()
-  const filteredCases = useMemo(() => cases.filter((c) => {
-    if (trimmedQuery) {
-      const haystack = [getCaseLabel(c, t("unnamedCase")), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
-        .filter(Boolean).join(" ").toLowerCase()
-      if (!haystack.includes(trimmedQuery)) return false
-    }
-    return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
-  }), [cases, activeTab, t, trimmedQuery])
+  const filteredCases = useMemo(() => {
+    const visible = cases.filter((c) => {
+      if (trimmedQuery) {
+        const haystack = [getCaseLabel(c, t("unnamedCase")), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+          .filter(Boolean).join(" ").toLowerCase()
+        if (!haystack.includes(trimmedQuery)) return false
+      }
+      return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
+    })
+    return hospitalWide
+      ? [...visible].sort((a, b) => Number(b.userId === identity?.userId) - Number(a.userId === identity?.userId))
+      : visible
+  }, [cases, activeTab, t, trimmedQuery, hospitalWide, identity?.userId])
 
   const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
 

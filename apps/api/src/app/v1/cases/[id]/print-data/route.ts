@@ -62,7 +62,7 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    where = caseReadWhereForUser(user, id)
+    where = await caseReadWhereForUser(user, id)
   }
 
   const record = await prisma.case.findFirst({

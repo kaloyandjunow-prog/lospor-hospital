@@ -134,6 +134,7 @@ export const ModelName = {
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
   ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalCaseVisibilityPolicy: 'HospitalCaseVisibilityPolicy',
   HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
@@ -1767,6 +1768,19 @@ export const ClinicalGuidancePolicyScalarFieldEnum = {
 } as const
 
 export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
+
+
+export const HospitalCaseVisibilityPolicyScalarFieldEnum = {
+  id: 'id',
+  enabled: 'enabled',
+  changedAt: 'changedAt',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalCaseVisibilityPolicyScalarFieldEnum = (typeof HospitalCaseVisibilityPolicyScalarFieldEnum)[keyof typeof HospitalCaseVisibilityPolicyScalarFieldEnum]
 
 
 export const HospitalKeyIdentityScalarFieldEnum = {

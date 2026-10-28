@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id: caseId } = await params
   const caseRecord = await prisma.case.findFirst({
-    where: caseReadWhereForUser(user, caseId),
+    where: await caseReadWhereForUser(user, caseId),
     select: { id: true },
   })
   if (!caseRecord) return NextResponse.json({ error: "Case not found" }, { status: 404 })
