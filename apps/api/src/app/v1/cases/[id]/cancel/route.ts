@@ -28,7 +28,7 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) })
 }
 
-function refused(req: NextRequest, error: unknown, caseId: string) {
+function refused(req: NextRequest, error: unknown) {
   if (error instanceof CancelRefused) return NextResponse.json({ error: error.code, code: error.code }, { status: error.status, headers: corsHeaders(req) })
   if (error instanceof CaseWriteError) return NextResponse.json({ error: error.message }, { status: error.status, headers: corsHeaders(req) })
   console.error("CASE_CANCEL_INTERNAL_ERROR")
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
     return NextResponse.json(result, { headers: corsHeaders(req) })
   } catch (error) {
-    return refused(req, error, caseId)
+    return refused(req, error)
   }
 }
 
@@ -93,6 +93,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     })
     return NextResponse.json(result, { headers: corsHeaders(req) })
   } catch (error) {
-    return refused(req, error, caseId)
+    return refused(req, error)
   }
 }
