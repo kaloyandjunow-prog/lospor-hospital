@@ -55,6 +55,8 @@ export const schema = z.object({
   // Case
   diagnoses:    z.array(tagSchema).default([]),
   procedures:   z.array(tagSchema).default([]),
+  // The planned procedure is not yet known: decided during surgery (10.0.0).
+  procedureUndetermined: z.boolean().default(false),
   teamNotes:            z.string().max(500).optional(),
   highRiskSurgery:      z.boolean().default(false),
   elective:             z.boolean().default(false),
@@ -63,6 +65,28 @@ export const schema = z.object({
   // API-owned definition-driven answers. Specialized controls remain the
   // presentation layer, but round-trip the shared relational rows unchanged.
   preopAnswers: z.array(preopAnswerSchema).default([]),
+  // Orders for the preoperative ward and medication instructions (Core
+  // preop-orders). Each list is sent whole; the API keeps its own copy of each
+  // row's labels and concept, which come back with the case and are kept here
+  // so a row the hospital has since switched off still reads as ordered.
+  preopWardOrders: z.array(z.object({
+    optionKey: z.string(),
+    specialtyKey: z.string().nullable().optional(),
+    labTest: z.string().nullable().optional(),
+  }).passthrough()).default([]),
+  // Premedication ordered at the preop visit, each phase in the picker's words.
+  preopPremedicationOrders: z.object({
+    DAY_BEFORE: z.string().nullable().optional(),
+    MORNING: z.string().nullable().optional(),
+  }).default({}),
+  preopMedicationInstructions: z.array(z.object({
+    id: z.string(),
+    optionKey: z.string(),
+    medicationLabel: z.string(),
+    medicationInn: z.string().nullable().optional(),
+    medicationAtc: z.string().nullable().optional(),
+    hoursBefore: z.number().int().nullable().optional(),
+  }).passthrough()).default([]),
 
   // Medical history — ICD-10 tags
   comorbidities: z.array(tagSchema).default([]),

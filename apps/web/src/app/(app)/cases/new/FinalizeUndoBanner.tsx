@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-/** Shown for five minutes after finalizing: the countdown, print, and undo. */
+/** Shown for the undo window (FINALIZE_UNDO_WINDOW_MS, 30 min) after finalizing: the countdown, print, and undo. */
 export function FinalizeUndoBanner({ undoSecsLeft, undoExpired, finalizedCaseId, onUndo }: {
   undoSecsLeft: number | null
   undoExpired: boolean

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
-import { drugGroupColorHex } from "@lospor/core/catalog"
+import { useCurrentDrugColors } from "@/lib/drug-colors"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
 import type { ScenarioGroup } from "@lospor/core"
@@ -63,7 +63,8 @@ export function InfusionPickerMenu({
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const groupOf = (drug: InfusionPickerOption) => drug.group ?? "Other"
   const groupLabel = (group: string) => displayClinicalCode("optionGroup", group, language, { label: group })
-  const groupColor = (group: string) => shade(drugGroupColorHex(group) ?? "#64748b")
+  // The group's colour, the hospital's own if it chose one (10.0.0).
+  const groupColor = useCurrentDrugColors().group
   if (mode === "scenario" && scenario) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>

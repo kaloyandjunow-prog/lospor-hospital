@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef } from "react"
 import { Plus, X } from "lucide-react"
 import type { TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
@@ -102,6 +103,8 @@ export type DrugLaneProps = LaneChrome & {
   /** The whole case's drugs: an entry's index here is its identity elsewhere. */
   drugs: TimetableData["drugs"]
   displayDrugName: (name: string) => string
+  /** A drug's colour, as its menu chip has it (10.0.0); violet when it has none. */
+  drugChip?: (name: string) => { className: string; style?: React.CSSProperties } | null
   sel: TtSel | null
   drag: TimetableDragState
   onDragOver: (event: React.DragEvent, col: number) => void
@@ -120,6 +123,7 @@ export function DrugLane({
   colW,
   drugs,
   displayDrugName,
+  drugChip,
   sel,
   drag,
   onDragOver,
@@ -129,6 +133,8 @@ export function DrugLane({
   onEditDose,
   onRemove,
 }: DrugLaneProps) {
+  // Whether the last press on a drug was a finger (its tap then opens the dose).
+  const lastPointer = useRef("mouse")
   return (
     <div className="flex min-h-[64px] border-t border-slate-100 dark:border-[#2a2a2a]">
       <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " py-3 flex items-start justify-end"}>
@@ -149,6 +155,11 @@ export function DrugLane({
               // Position in the case's own list, not in this column: that index
               // is what every handler below identifies the entry by.
               const gi = drugs.findIndex(candidate => candidate === drug)
+              const chip = drugChip?.(drug.name) ?? null
+              const selected = sel?.type === "drug" && sel.idx === gi
+              const tone = chip
+                ? `border ${chip.className} hover:brightness-95 dark:hover:brightness-125 ${selected ? "ring-2 ring-violet-500 dark:ring-violet-400" : ""}`
+                : selected ? "bg-violet-400 dark:bg-violet-600 ring-2 ring-violet-500 dark:ring-violet-400" : "bg-violet-100 dark:bg-violet-900/40 hover:bg-violet-200 dark:hover:bg-violet-800/40"
               return (
                 <div
                   key={gi}
@@ -160,12 +171,20 @@ export function DrugLane({
                     e.dataTransfer.setData("item-idx", String(gi))
                     e.dataTransfer.effectAllowed = "move"
                   }}
-                  onClick={e => { e.stopPropagation(); onOpenPicker(ci, (e.currentTarget as HTMLElement).getBoundingClientRect()) }}
+                  onPointerDown={e => { lastPointer.current = e.pointerType }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    // A finger has no reliable double-tap: its tap opens the dose (10.0.0);
+                    // another drug is added from the cell's own "+".
+                    if (lastPointer.current === "touch" || lastPointer.current === "pen") onEditDose(gi, drug.dose, drug.unit, e.currentTarget.getBoundingClientRect())
+                    else onOpenPicker(ci, (e.currentTarget as HTMLElement).getBoundingClientRect())
+                  }}
                   onDoubleClick={e => { e.stopPropagation(); onEditDose(gi, drug.dose, drug.unit, e.currentTarget.getBoundingClientRect()) }}
-                  className={`relative flex items-start gap-1 rounded px-2 py-1 group cursor-grab active:cursor-grabbing transition-colors ${drug.planned ? "opacity-50 border border-dashed border-violet-400" : ""} ${sel?.type === "drug" && sel.idx === gi ? "bg-violet-400 dark:bg-violet-600 ring-2 ring-violet-500 dark:ring-violet-400" : "bg-violet-100 dark:bg-violet-900/40 hover:bg-violet-200 dark:hover:bg-violet-800/40"}`}
+                  className={`relative flex items-start gap-1 rounded px-2 py-1 group cursor-grab active:cursor-grabbing transition-colors ${drug.planned ? `opacity-50 border border-dashed ${chip ? "" : "border-violet-400"}` : ""} ${tone}`}
+                  style={chip?.style}
                 >
                   <SaveMark eventIds={[drug.eventId]} />
-                  <span className="text-[10px] font-semibold text-violet-800 dark:text-violet-300 leading-tight truncate flex-1">
+                  <span className={`text-[10px] font-semibold leading-tight truncate flex-1 ${chip ? "" : "text-violet-800 dark:text-violet-300"}`}>
                     {displayDrugName(drug.name)}
                     {drug.dose && (
                       <>
@@ -178,7 +197,7 @@ export function DrugLane({
                     type="button"
                     tabIndex={-1}
                     onClick={e => { e.stopPropagation(); onRemove(gi) }}
-                    className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity text-violet-400 hover:text-violet-700 shrink-0 mt-0.5"
+                    className={`opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(any-pointer:coarse)]:opacity-100 transition-opacity shrink-0 mt-0.5 ${chip ? "opacity-70 hover:opacity-100" : "text-violet-400 hover:text-violet-700"}`}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>

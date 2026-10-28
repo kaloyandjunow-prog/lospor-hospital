@@ -83,7 +83,7 @@ const TOURS: Record<TourId, { en: StepDef[]; bg: StepDef[] }> = {
     bg: [
       { popover: { title: "Следоперативно събуждане 🏥", description: "Документирайте възстановяването — скала на Алдрет, жизнени показатели, извеждане и препоръки." } },
       { element: "[data-tour='postop-aldrete']",    popover: { title: "Скала на Алдрет",   description: "Оценете двигателна активност, дишане, кръвообращение, съзнание и SpO₂. Общ резултат ≥ 9 = готовност за извеждане.", side: "bottom" } },
-      { element: "[data-tour='postop-recovery']",   popover: { title: "Жизнени показатели", description: "Температура, болкова скала NRS (0–10), ПОНВ и престой в залата за събуждане.", side: "right" } },
+      { element: "[data-tour='postop-recovery']",   popover: { title: "Жизнени показатели", description: "Температура, болкова скала NRS (0–10), ПОГП и престой в залата за събуждане.", side: "right" } },
       { element: "[data-tour='postop-disposition']",popover: { title: "Извежда се към",     description: "Накъде се извежда пациентът — отделение, зала за събуждане или ИТО?", side: "right" } },
       { element: "[data-tour='postop-handover']",   popover: { title: "Препоръки",          description: "Отбележете стандартните препоръки за пациента. Те се отпечатват в пълен текст в протокола.", side: "right" } },
       { element: "[data-tour='postop-submit']",     popover: { title: "Завърши случая →",   description: "Всичко готово! Натиснете тук, за да финализирате случая и генерирате анестезиологичния протокол.", side: "top" } },

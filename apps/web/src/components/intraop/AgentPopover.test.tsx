@@ -25,7 +25,7 @@ function renderPopover(extra: Partial<Parameters<typeof AgentPopover>[0]> = {}) 
       quickPercentsFor={() => [0.5, 1, 2]}
       textClassFor={() => ""}
       displayAgentName={name => name}
-      labels={{ startAgentHere: "Start agent here", optional: "Optional" }}
+      labels={{ startAgentHere: "Start agent here", optional: "Optional", editLogged: "Edits are logged." }}
       onSelectAgent={() => {}}
       onPercentChange={() => {}}
       onNitrousChange={onNitrousChange}

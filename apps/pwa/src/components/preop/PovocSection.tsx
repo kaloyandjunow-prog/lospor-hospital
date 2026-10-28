@@ -16,7 +16,7 @@ const POVOC_QUESTIONS = [
   ["povocHistory", "povocHistory"],
 ] as const
 
-export function PovocSection({ control, labels, povoc, isShown = () => true, unavailableLabel }: {
+export function PovocSection({ control, labels, povoc, isShown = () => true, unavailableLabel, answered, answeredLabel }: {
   control: Control<PreopFormInput>
   labels: Record<string, string>
   povoc: { score: number; riskPercent: number; factors: { ageAtLeast3Years: boolean } } | null
@@ -24,6 +24,10 @@ export function PovocSection({ control, labels, povoc, isShown = () => true, una
   isShown?: (field: string) => boolean
   /** Shown instead of the score when an input is switched off. */
   unavailableLabel?: string
+  /** How many of the three are answered: no score until all are (10.0.0). */
+  answered?: number
+  /** "{answered} of {total} answered". */
+  answeredLabel?: string
 }) {
   useThemeRefresh()
   const available = POVOC_QUESTIONS.every(([name]) => isShown(name))
@@ -32,7 +36,11 @@ export function PovocSection({ control, labels, povoc, isShown = () => true, una
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labels.povoc}</Text>
         <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }}>
-          {povoc && available ? `${povoc.score}/4 - ${povoc.riskPercent}%` : "-"}
+          {povoc && available
+            ? `${povoc.score}/4 - ${povoc.riskPercent}%`
+            : available && answered != null && answeredLabel
+              ? answeredLabel.replace("{answered}", String(answered)).replace("{total}", "3")
+              : "-"}
         </Text>
       </View>
       {!available && unavailableLabel ? <Text style={{ color: colors.textMuted, fontSize: 11 }}>{unavailableLabel}</Text> : null}

@@ -104,6 +104,9 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
   // What the last render showed: an edit is compared with this.
   const logRef = useRef(log)
   const timetableRef = useRef(timetable)
+  // The entries this screen deleted, so an undo that brings one back keeps
+  // its own minute rather than its column's start (10.0.0).
+  const retiredRef = useRef(new Map<string, CoreLogEvent>())
   useLayoutEffect(() => {
     logRef.current = log
     timetableRef.current = timetable
@@ -122,6 +125,10 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
       toast.error(t(`refused.${issue.code}`))
       return false
     }
+    for (const id of ops.remove) {
+      const gone = logRef.current.find(event => event.id === id)
+      if (gone) retiredRef.current.set(id, gone)
+    }
     void onEventOps?.(ops)
     return true
   }, [onEventOps, readOnly, t])
@@ -138,6 +145,7 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
       chartStart: chartStartMs,
       now: serverNow(),
       newId: randomId,
+      retired: retiredRef.current,
     }))
   }, [chartStartMs, commit, t])
 

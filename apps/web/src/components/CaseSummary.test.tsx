@@ -110,6 +110,32 @@ describe("CaseSummary — Aldrete banding", () => {
     expect(tile.className).toMatch(/green/)
     expect(within(tile).getByText("Ready for discharge")).toBeTruthy()
   })
+
+  // A child is scored on Steward (10.0.0): three components out of 6, banded
+  // ready at the full score, and no Aldrete on the sheet.
+  it("prints a child's Steward score in place of Aldrete", () => {
+    render(<CaseSummary caseId="case-1" initialData={caseFixture({
+      clinicalMode: "PEDIATRIC",
+      postop: { stewardConsciousness: 2, stewardAirway: 1, stewardMovement: 2, stewardTotal: 5, disposition: "WARD" } as unknown as CaseDetail["postop"],
+    })} />)
+
+    const tile = screen.getByText("Steward total").closest("div") as HTMLElement
+    expect(within(tile).getByText("5 / 6")).toBeTruthy()
+    // Ready to leave recovery at 4 or more.
+    expect(tile.className).toMatch(/green/)
+    expect(screen.getByText("Airway")).toBeTruthy()
+    expect(screen.queryByText("Aldrete total")).toBeNull()
+  })
+
+  it("marks a Steward score below 4 not ready", () => {
+    render(<CaseSummary caseId="case-1" initialData={caseFixture({
+      clinicalMode: "PEDIATRIC",
+      postop: { stewardConsciousness: 1, stewardAirway: 1, stewardMovement: 1, stewardTotal: 3, disposition: "WARD" } as unknown as CaseDetail["postop"],
+    })} />)
+    const tile = screen.getByText("Steward total").closest("div") as HTMLElement
+    expect(within(tile).getByText("3 / 6")).toBeTruthy()
+    expect(tile.className).toMatch(/red/)
+  })
 })
 
 describe("CaseSummary — neonatal age", () => {
@@ -200,5 +226,40 @@ describe("CaseSummary — failures reach the user", () => {
     screen.getByText("Unfinalize").click()
 
     await waitFor(() => expect(alerted).toHaveBeenCalled())
+  })
+})
+
+describe("CaseSummary — a cancelled procedure, and the procedure done (10.0.0)", () => {
+  it("carries a clear cancelled label with its reason and note", () => {
+    render(<CaseSummary caseId="case-1" initialData={caseFixture({
+      status: "CANCELLED", cancellationReason: "NO_THEATRE_TIME_OR_STAFF", cancellationNote: "List overran", cancelledAt: "2026-08-01T07:00:00.000Z",
+    } as Partial<CaseDetail>)} />)
+    const banner = screen.getByTestId("summary-cancelled")
+    expect(banner.textContent).toContain("PROCEDURE CANCELLED · No theatre time or staff")
+    expect(banner.textContent).toContain("List overran")
+  })
+
+  it("has no cancelled label on an ordinary case", () => {
+    render(<CaseSummary caseId="case-1" initialData={caseFixture()} />)
+    expect(screen.queryByTestId("summary-cancelled")).toBeNull()
+  })
+
+  it("prints the procedure done when it differs from the plan, and only then", () => {
+    const withPostop = (performed: string) => caseFixture({
+      preop: { ...caseFixture().preop, plannedProcedure: "Cholecystectomy", proceduresJson: [{ label: "Cholecystectomy" }] } as unknown as CaseDetail["preop"],
+      postop: { ...caseFixture().postop, performedProceduresJson: [{ label: performed }] } as unknown as CaseDetail["postop"],
+    })
+    const { unmount } = render(<CaseSummary caseId="case-1" initialData={withPostop("Open cholecystectomy")} />)
+    expect(screen.getAllByTestId("summary-performed")[0].textContent).toContain("Open cholecystectomy")
+    unmount()
+    render(<CaseSummary caseId="case-1" initialData={withPostop("Cholecystectomy")} />)
+    expect(screen.queryByTestId("summary-performed")).toBeNull()
+  })
+
+  it("names a plan not yet known in the header", () => {
+    render(<CaseSummary caseId="case-1" initialData={caseFixture({
+      preop: { ...caseFixture().preop, plannedProcedure: "", procedureUndetermined: true } as unknown as CaseDetail["preop"],
+    })} />)
+    expect(screen.getAllByText("Procedure not yet known — decided during surgery").length).toBeGreaterThan(0)
   })
 })

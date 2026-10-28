@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   BackHandler,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -25,7 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager, isServerRefusal } from "@/lib/autosave-manager"
 import { usePreopProfile } from "@/lib/use-preop-profile"
-import type { PreopFormSection } from "@lospor/core/preop-assessment"
+import { PREOP_MH_SUSCEPTIBILITY_GROUP, type PreopFormSection } from "@lospor/core/preop-assessment"
 import { fetchMissingRequiredPreop, missingRequiredPreopMessage } from "@/lib/preop-required"
 import { PreopQuestionList } from "@/components/preop/PreopQuestionList"
 import { PreopAnamnesisFields } from "@/components/preop/PreopAnamnesisFields"
@@ -58,6 +56,10 @@ const USE_NATIVE_DRIVER = Platform.OS !== "web"
 import { notify } from "@/lib/notify"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { PreopSectionCard as SectionCard } from "@/components/preop/PreopSectionCard"
+import { PreopMedicationInstructionsSection, PreopWardOrdersSection } from "@/components/preop/PreopOrdersSections"
+import { PreopPremedicationOrderSection } from "@/components/preop/PreopPremedicationOrder"
+import { isPreopSectionOn } from "@lospor/core/preop-orders"
+import { sideSwipeExitMs, sideSwipeFade, sideSwipeFollow, sideSwipeGate, sideSwipeStep } from "@/lib/side-swipe"
 import { convertedMeasurement } from "@/lib/use-converted-measurement"
 import { LabScanPanel } from "@/components/LabScanPanel"
 import { AiAdvisorPanel } from "@/components/AiAdvisorPanel"
@@ -65,8 +67,8 @@ import {
   capabilityMessageKey,
   useDeploymentCapabilities,
 } from "@/lib/deployment-capabilities"
-import { AppHeader } from "@/components/AppHeader"
-import { EditWindowBanner } from "@/components/EditWindowBanner"
+import { PreopOverview } from "@/components/preop/PreopOverview"
+import { PreopSectionRail } from "@/components/preop/PreopSectionRail"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { localizedPreopValidationMessage } from "@/lib/preop-validation-messages"
@@ -92,6 +94,7 @@ import { AdultScoreBadges } from "@/components/preop/AdultScoreBadges"
 import {
   PediatricModeAgeFields,
   PediatricRiskAndCalculators,
+  PediatricFastingFields,
   PediatricVitalReferenceNote,
 } from "@/components/preop/PediatricPreopSections"
 import { useReadinessFocus } from "@/lib/use-readiness-focus"
@@ -107,7 +110,7 @@ export default function NewCaseScreen() {
   const preopDocuments = usePreopDocumentSettings()
   const { continue: continueId, localId: localIdParam, focus } = useLocalSearchParams<{ continue?: string; localId?: string; focus?: string }>()
   const insets = useSafeAreaInsets()
-  const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
+  const { preopLayout, t, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
   const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const ageRange         = useRangeSpec("AGE_RANGE")
@@ -126,7 +129,12 @@ export default function NewCaseScreen() {
   const { options: upperLipBiteOptions }  = useOptionLibrary("UPPER_LIP_BITE")
   const { options: cormackLehaneOptions } = useOptionLibrary("CORMACK_LEHANE")
 
-  const SECTION_LABELS = useMemo(() => localizedPreopSectionLabels(tc), [tc])
+  // Sections the hospital switched off, known once the profile is (set below).
+  const [offSections, setOffSections] = useState("")
+  const SECTION_LABELS = useMemo(() => {
+    const off = new Set(offSections.split(","))
+    return localizedPreopSectionLabels(tc).filter(section => !off.has(section.key))
+  }, [tc, offSections])
   const { width: screenWidth } = useWindowDimensions()
   const primaryHeaderHeight = insets.top + 60
   const scrollRef = useRef<ScrollView>(null)
@@ -142,6 +150,8 @@ export default function NewCaseScreen() {
   const activeSectionRef = useRef<PreopSection>("patient")
   const slideAnim = useRef(new Animated.Value(0)).current
   const gestureScale = useRef(new Animated.Value(1)).current
+  // The card fades a little as it leaves and in as the next one arrives (10.0.0).
+  const sectionFade = useRef(new Animated.Value(1)).current
   const slideDir = useRef<1 | -1>(1)
   const headerAnim = useRef(new Animated.Value(0)).current
   const headerCollapseRef = useRef(0)
@@ -256,6 +266,8 @@ export default function NewCaseScreen() {
   // read from getValues so the offer appears as soon as it is entered.
   const patientNumberWatch = useWatch({ control, name: "patientNumber" })
   const stopbangInputs = useWatch({ control, name: ["stopbangSnoring", "stopbangTired", "stopbangObserved", "stopbangBP", "stopbangNeck"] })
+  // Not yet known (10.0.0): sets the procedure search aside.
+  const procedureUndetermined = useWatch({ control, name: "procedureUndetermined" })
   const [apfelPONVHistory, apfelPostopOpioids] = useWatch({ control, name: ["apfelPONVHistory", "apfelPostopOpioids"] })
 
   const bmi = heightCm && weightKg ? weightKg / ((heightCm / 100) ** 2) : null
@@ -290,6 +302,7 @@ export default function NewCaseScreen() {
   const SECTION_KEYS = useMemo(() => SECTION_LABELS.map(s => s.key), [SECTION_LABELS])
   const activeIndex = SECTION_KEYS.indexOf(activeSection)
   function showSection(section: PreopSection): boolean {
+    if (!SECTION_KEYS.includes(section)) return false
     return preopLayout !== "sections" || activeSection === section
   }
 
@@ -309,16 +322,18 @@ export default function NewCaseScreen() {
     }
   }, [SECTION_KEYS, activeIndex])
 
-  const sectionSwipeResponder = useMemo(() => PanResponder.create({
+  const sectionSwipeResponder = useMemo(() => { const gate = sideSwipeGate(); return PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, { dx, dy }) =>
-      preopLayout === "sections" && Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 20,
-    onPanResponderRelease: (_, { dx }) => {
-      if (dx < -50) goNextSection()
-      else if (dx > 50) goPrevSection()
+    onStartShouldSetPanResponderCapture: () => gate.start(),
+    // One rule with the card's own pan and the intraop tabs (side-swipe.ts).
+    onMoveShouldSetPanResponder: (_, { dx, dy }) => preopLayout === "sections" && gate.claims(dx, dy),
+    onPanResponderRelease: (_, { dx, dy, vx }) => {
+      const step = sideSwipeStep(dx, dy, vx, screenWidth)
+      if (step === 1) goNextSection()
+      else if (step === -1) goPrevSection()
     },
 
-  }), [goNextSection, goPrevSection, preopLayout])
+  }) }, [goNextSection, goPrevSection, preopLayout, screenWidth])
 
   useEffect(() => {
     return () => {
@@ -481,7 +496,23 @@ export default function NewCaseScreen() {
   // useWatch re-renders on every field change on native and web (watch(callback) is unreliable on Expo web).
   const _allFormValues = useWatch({ control })
   const preopProfile = usePreopProfile({ caseId, pediatric: pediatricMode, values: _allFormValues as Record<string, unknown>, form: { getAnswers: () => getValues("preopAnswers") ?? [], setAnswers: answers => setValue("preopAnswers", answers, { shouldDirty: true }) } })
-  const questionList = (formSection: PreopFormSection) => <PreopQuestionList profile={preopProfile.profile} formSection={formSection} mode={preopProfile.mode} ageYears={preopProfile.ageYears} states={preopProfile.states} optionKeys={preopProfile.optionKeys} onAnswer={preopProfile.answerQuestion} suggestions={preopProfile.suggestions} onReviewSuggestion={preopProfile.reviewSuggestion} tc={tc} language={language} />
+  const sectionConfig = preopProfile.sectionConfig
+  const offSectionKeys = ([
+    ["MEDICAL_HISTORY", "history"],
+    ["CURRENT_MEDICATIONS", "meds"],
+    ["LABS", "labs"],
+    ["PLANNED_ANAESTHESIA", "planned"],
+    ["PEDIATRIC_FASTING", "fasting"],
+    ["WARD_ORDERS", "wardOrders"],
+    ["MEDICATION_INSTRUCTIONS", "medInstructions"],
+    ["PREMEDICATION", "premedication"],
+  ] as const).filter(([key]) => !isPreopSectionOn(sectionConfig, key)).map(([, section]) => section).join(",")
+  useEffect(() => { setOffSections(offSectionKeys) }, [offSectionKeys])
+  // A section switched off while it was the one open hands over to the first.
+  useEffect(() => {
+    if (!SECTION_KEYS.includes(activeSection)) setActiveSection(SECTION_KEYS[0])
+  }, [SECTION_KEYS, activeSection])
+  const questionList = (formSection: PreopFormSection, groups?: { only?: string; except?: string }) => <PreopQuestionList profile={preopProfile.profile} formSection={formSection} mode={preopProfile.mode} ageYears={preopProfile.ageYears} sex={sex ?? null} groups={groups} states={preopProfile.states} optionKeys={preopProfile.optionKeys} onAnswer={preopProfile.answerQuestion} suggestions={preopProfile.suggestions} onReviewSuggestion={preopProfile.reviewSuggestion} tc={tc} language={language} />
   // Previous snapshot so the effect can tell WHAT changed: a tap on a toggle/
   // pill (boolean value) saves near-instantly; typing keeps the long pause.
   const prevFormValuesRef = useRef<Record<string, unknown> | null>(null)
@@ -599,14 +630,18 @@ export default function NewCaseScreen() {
     }
   }, [SECTION_LABELS, activeSection, screenWidth])
 
+  // The next section glides in from a short way off on the side being swiped
+  // towards, fading in, with no zoom: it used to start 35% across and shrunk,
+  // so it visibly jumped from one side to the other (10.0.0).
   const runSectionEnterAnim = useCallback((fromDir: 1 | -1) => {
-    slideAnim.setValue(fromDir * screenWidth * 0.35)
-    gestureScale.setValue(0.93)
+    slideAnim.setValue(fromDir * screenWidth * 0.12)
+    sectionFade.setValue(0)
+    gestureScale.setValue(1)
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
-      Animated.timing(gestureScale, { toValue: 1, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 240, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(sectionFade, { toValue: 1, duration: 200, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
     ]).start()
-  }, [gestureScale, screenWidth, slideAnim])
+  }, [gestureScale, screenWidth, sectionFade, slideAnim])
 
   useEffect(() => {
     if (preopLayout !== "sections") return
@@ -614,35 +649,42 @@ export default function NewCaseScreen() {
 
   }, [activeSection, preopLayout, runSectionEnterAnim])
 
+  const sectionPanGate = useRef(sideSwipeGate()).current
   const sectionPan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gs) =>
-      Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.4,
+    // Taken only when clearly sideways (side-swipe.ts): it took 10 px at a
+    // slant, so a thumb's arc while scrolling moved the card.
+    onStartShouldSetPanResponderCapture: () => sectionPanGate.start(),
+    onMoveShouldSetPanResponder: (_, gs) => sectionPanGate.claims(gs.dx, gs.dy),
     onPanResponderGrant: () => {
       slideAnim.stopAnimation()
       gestureScale.stopAnimation()
+      sectionFade.stopAnimation()
     },
     onPanResponderMove: (_, gs) => {
       const curIdx = SECTION_KEYS.indexOf(activeSectionRef.current)
       const canLeft  = curIdx < SECTION_KEYS.length - 1
       const canRight = curIdx > 0
       if ((gs.dx < 0 && canLeft) || (gs.dx > 0 && canRight)) {
-        slideAnim.setValue(gs.dx)
-        gestureScale.setValue(1 - 0.07 * Math.min(1, Math.abs(gs.dx) / screenWidth))
+        slideAnim.setValue(sideSwipeFollow(gs.dx))
+        sectionFade.setValue(sideSwipeFade(gs.dx, screenWidth))
       }
     },
     onPanResponderRelease: (_, gs) => {
-      const threshold = screenWidth * 0.26
+      const step = sideSwipeStep(gs.dx, gs.dy, gs.vx, screenWidth)
       const curIdx  = SECTION_KEYS.indexOf(activeSectionRef.current)
       const canLeft  = curIdx < SECTION_KEYS.length - 1
       const canRight = curIdx > 0
-      const goLeft  = gs.dx < 0 && (Math.abs(gs.dx) > threshold || gs.vx < -0.5) && canLeft
-      const goRight = gs.dx > 0 && (Math.abs(gs.dx) > threshold || gs.vx >  0.5) && canRight
+      const goLeft  = step === 1 && canLeft
+      const goRight = step === -1 && canRight
       if (goLeft || goRight) {
         const dir = goLeft ? -1 : 1
         const target = SECTION_KEYS[curIdx - dir] as PreopSection
+        // On at the finger's own speed, slowing, right off the screen: it
+        // accelerated and stopped short at 60%, then the next one jumped in.
+        const exitMs = sideSwipeExitMs(dir * screenWidth - sideSwipeFollow(gs.dx), gs.vx)
         Animated.parallel([
-          Animated.timing(slideAnim,    { toValue: dir * screenWidth * 0.6, duration: 150, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.cubic) }),
-          Animated.timing(gestureScale, { toValue: 0.93, duration: 150, useNativeDriver: USE_NATIVE_DRIVER }),
+          Animated.timing(slideAnim,   { toValue: dir * screenWidth, duration: exitMs, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
+          Animated.timing(sectionFade, { toValue: 0, duration: exitMs, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
         ]).start(() => {
           slideDir.current = -dir as 1 | -1
           setActiveSection(target)
@@ -651,15 +693,15 @@ export default function NewCaseScreen() {
         })
       } else {
         Animated.parallel([
-          Animated.spring(slideAnim,    { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
-          Animated.spring(gestureScale, { toValue: 1, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
+          Animated.spring(slideAnim,   { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 180, friction: 24 }),
+          Animated.timing(sectionFade, { toValue: 1, duration: 180, useNativeDriver: USE_NATIVE_DRIVER }),
         ]).start()
       }
     },
     onPanResponderTerminate: () => {
       Animated.parallel([
-        Animated.spring(slideAnim,    { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
-        Animated.spring(gestureScale, { toValue: 1, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
+        Animated.spring(slideAnim,   { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 180, friction: 24 }),
+        Animated.timing(sectionFade, { toValue: 1, duration: 180, useNativeDriver: USE_NATIVE_DRIVER }),
       ]).start()
     },
   })).current
@@ -676,18 +718,13 @@ export default function NewCaseScreen() {
         activeSectionRef.current = section
         setActiveSection(section)
         preopModeRef.current = "editing"
-        slideAnim.setValue(screenWidth * 0.35)
-        gestureScale.setValue(0.93)
         setPreopMode("editing")
-        Animated.parallel([
-          Animated.timing(slideAnim,    { toValue: 0, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
-          Animated.timing(gestureScale, { toValue: 1, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
-        ]).start()
+        runSectionEnterAnim(1)
         return
       }
       Animated.parallel([
-        Animated.timing(slideAnim,    { toValue: -dir * screenWidth * 0.4, duration: 140, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
-        Animated.timing(gestureScale, { toValue: 0.93, duration: 140, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.timing(slideAnim,   { toValue: -dir * screenWidth * 0.25, duration: 160, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
+        Animated.timing(sectionFade, { toValue: 0, duration: 160, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
       ]).start(() => {
         slideDir.current = dir as 1 | -1
         setActiveSection(section)
@@ -953,117 +990,8 @@ export default function NewCaseScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        {preopMode === "overview" ? (
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <AppHeader title={tc("preopTitle")} showNewCase={false} />
-            {preopCaseStatus === "COMPLETE" && preopFinalizedAt && (
-              <EditWindowBanner finalizedAt={preopFinalizedAt} caseId={continueId ?? undefined} showBackButton />
-            )}
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: "900", marginBottom: 4 }}>{tc("preopTitle")}</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 20 }}>{tc("tapSectionHint")}</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                {computeSectionItems().map(({ key, label, done, required, summary }) => (
-                  <TouchableOpacity
-                    key={key}
-                    onPress={() => jumpTo(key)}
-                    style={{
-                      width: "47%", minHeight: 80, justifyContent: "center", gap: 4,
-                      borderRadius: 16, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 12,
-                      backgroundColor: done ? withAlpha(colors.success, "12") : required ? withAlpha(colors.warning, "10") : colors.surfaceRaised,
-                      borderWidth: 1.5,
-                      borderColor: done ? withAlpha(colors.success, "77") : required ? withAlpha(colors.warning, "66") : colors.border,
-                    }}
-                  >
-                    <Text style={{ color: done ? colors.success : required ? colors.warning : colors.textMuted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                      {done ? tc("overviewReady") : required ? tc("overviewRequired") : tc("overviewOptional")}
-                    </Text>
-                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "900" }}>{label}</Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 11 }} numberOfLines={1}>{summary}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity
-                onPress={handleSubmit(onSubmit, onInvalid)}
-                disabled={saving}
-                style={{
-                  backgroundColor: colors.primary, borderRadius: 16, borderCurve: "continuous",
-                  paddingVertical: 15, alignItems: "center", borderWidth: 1,
-                  borderColor: withAlpha(colors.primary, "99"),
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                {saving ? <ActivityIndicator color={shade("#fff")} /> : <Text style={{ color: shade("#fff"), fontWeight: "900", fontSize: 16 }}>{tc("continueIntraop")}</Text>}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        ) : <View style={{ flex: 1 }} {...(preopLayout === "sections" ? sectionSwipeResponder.panHandlers : {})}>
-        <Animated.View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 30,
-            height: primaryHeaderHeight,
-            overflow: "hidden",
-            backgroundColor: colors.background,
-            opacity: headerAnim.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 0.2, 0] }),
-            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -primaryHeaderHeight] }) }],
-          }}
-        >
-          <AppHeader title={tc("preopTitle")} showNewCase={false} />
-        </Animated.View>
-
-        <Animated.View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 29,
-            backgroundColor: colors.background,
-            paddingTop: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [12, insets.top + 10] }),
-            paddingBottom: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [primaryHeaderHeight, 0] }) }],
-          }}
-        >
-          <ScrollView ref={sectionRailRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
-            {SECTION_LABELS.map((section) => {
-              const isActive = activeSection === section.key
-              return (
-                <View
-                  key={section.key}
-                  style={{ alignItems: "center" }}
-                  onLayout={(e) => {
-                    pillLayouts.current[section.key] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width }
-                  }}
-                >
-                  <Pressable
-                    onPress={() => jumpTo(section.key)}
-                    style={{
-                      minHeight: 44,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: isActive ? withAlpha(colors.primary, "AA") : colors.border,
-                      backgroundColor: isActive ? colors.primarySoft : colors.surfaceRaised,
-                      paddingHorizontal: 17,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: isActive ? colors.primary : colors.textSecondary, fontSize: 13, fontWeight: "900" }}>{section.label}</Text>
-                  </Pressable>
-                  {isActive && (
-                    <View style={{ height: 2, borderRadius: 1, backgroundColor: colors.primary, width: "80%", marginTop: 3 }} />
-                  )}
-                </View>
-              )
-            })}
-          </ScrollView>
-        </Animated.View>
+        {preopMode === "overview" ? <PreopOverview tc={tc} shade={shade} items={computeSectionItems()} finalizedAt={preopFinalizedAt} caseStatus={preopCaseStatus} continueId={continueId ?? undefined} saving={saving} onJump={jumpTo} onContinue={handleSubmit(onSubmit, onInvalid)} /> : <View style={{ flex: 1 }} {...(preopLayout === "sections" ? sectionSwipeResponder.panHandlers : {})}>
+        <PreopSectionRail labels={SECTION_LABELS} activeSection={activeSection} sectionRailRef={sectionRailRef} headerAnim={headerAnim} primaryHeaderHeight={primaryHeaderHeight} insetTop={insets.top} homeLabel={t("dashboard")} onHome={() => router.replace("/(app)")} onJump={jumpTo} onPillLayout={(section, event) => { pillLayouts.current[section] = { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width } }} />
 
         <Animated.ScrollView
           ref={scrollRef}
@@ -1077,7 +1005,7 @@ export default function NewCaseScreen() {
           scrollEventThrottle={16}
           {...(preopLayout === "sections" ? sectionPan.panHandlers : {})}
         >
-          <Animated.View style={preopLayout === "sections" ? { transform: [{ translateX: slideAnim }, { scale: gestureScale }] } : undefined}>
+          <Animated.View style={preopLayout === "sections" ? { opacity: sectionFade, transform: [{ translateX: slideAnim }, { scale: gestureScale }] } : undefined}>
           <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
             {draftState !== "idle" && (
               <Text style={{ color: draftState === "blocked" ? colors.danger : draftState === "queued" ? colors.warning : colors.textMuted, fontSize: 11, fontWeight: "700", textAlign: "right", marginBottom: saveError ? 2 : 4 }}>
@@ -1173,11 +1101,17 @@ export default function NewCaseScreen() {
               <Controller control={control} name="diagnoses" render={({ field }) => (
                 <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={localizedPreopValidationMessage(errors.diagnoses?.message, tc) ?? blockedErrorFor("diagnoses")} />
               )} />
+              {/* Not yet known (10.0.0): decided during surgery. On, it stands for
+                  the procedure and the search is set aside. */}
+              <Controller control={control} name="procedureUndetermined" render={({ field }) => (
+                <ClinicalSwitchRow label={tc("procedureUndetermined")} value={!!field.value}
+                  onValueChange={(v) => { field.onChange(v); if (v) setValue("procedures", [], { shouldDirty: true }) }} activeColor={colors.warning} />
+              )} />
               <Controller control={control} name="procedures" render={({ field }) => (
-                <>
+                <View pointerEvents={procedureUndetermined ? "none" : "auto"} style={{ opacity: procedureUndetermined ? 0.4 : 1 }}>
                   <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ ...item, code: item.code ?? item.label }))} onChange={(items) => field.onChange(items)} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={localizedPreopValidationMessage(errors.procedures?.message, tc) ?? blockedErrorFor("procedures")} />
                   <ProcedureOperationPicker value={(field.value ?? []).map((item) => ({ ...item, code: item.code ?? item.label }))} onChange={(items) => field.onChange(items)} />
-                </>
+                </View>
               )} />
               {preopProfile.shownField("highRiskSurgery") ? <Controller control={control} name="highRiskSurgery" render={({ field }) => <ClinicalSwitchRow label={tc("highRiskSurgery")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} /> : null}
               <Controller control={control} name="emergencySurgery" render={({ field }) => (
@@ -1213,21 +1147,22 @@ export default function NewCaseScreen() {
             </SectionCard>
 
             <SectionCard title={tc("sectionAnamnesis")} onLayout={(y) => { sectionY.current.anamnesis = y }} visible={showSection("anamnesis")}>
-              <PreopAnamnesisFields control={control} setValue={setValue} tc={tc} allergies={allergies} familyAnesthesiaProblems={familyAnesthesiaProblems} pediatricMode={pediatricMode} rcriSuggested={rcriSuggested} stopBangBPSuggested={stopBangBPSuggested} RCRI_HINT={RCRI_HINT} sex={sex} smoking={smoking} bmi={bmi} ageYears={ageYears} blockedErrorFor={blockedErrorFor} scrollToSection={scrollToSection} shownField={preopProfile.shownField} />
-              {questionList("anamnesis")}
+              <PreopAnamnesisFields control={control} setValue={setValue} tc={tc} allergies={allergies} familyAnesthesiaProblems={familyAnesthesiaProblems} pediatricMode={pediatricMode} rcriSuggested={rcriSuggested} stopBangBPSuggested={stopBangBPSuggested} RCRI_HINT={RCRI_HINT} sex={sex} smoking={smoking} bmi={bmi} ageYears={ageYears} blockedErrorFor={blockedErrorFor} scrollToSection={scrollToSection} shownField={preopProfile.shownField} mhQuestions={questionList("anamnesis", { only: PREOP_MH_SUSCEPTIBILITY_GROUP })} />
+              {questionList("anamnesis", { except: PREOP_MH_SUSCEPTIBILITY_GROUP })}
             </SectionCard>
 
             <SectionCard title={tc("sectionExam")} onLayout={(y) => { sectionY.current.exam = y }} visible={showSection("exam")}>
               <PediatricVitalReferenceNote control={control} language={language} />
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <View style={{ flex: 1 }}>
+              {/* Stacked below 360 px, as in postop: the labels and units were cut. */}
+              <View style={{ flexDirection: screenWidth < 360 ? "column" : "row", gap: 10 }}>
+                <View style={screenWidth < 360 ? undefined : { flex: 1 }}>
                   <Controller control={control} name="bpSystolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
                       <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.bpSystolic?.message, tc)} />
                     )} />
                   )} />
                 </View>
-                <View style={{ flex: 1 }}>
+                <View style={screenWidth < 360 ? undefined : { flex: 1 }}>
                   <Controller control={control} name="bpDiastolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
                       <VitalNumber label={tc("dbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 5 : bpDiastolicRange?.min ?? 1} max={bpDiastolicRange?.max ?? 200} step={bpDiastolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required />
@@ -1337,7 +1272,6 @@ export default function NewCaseScreen() {
                   />
                 )} />
               </Field>
-              <Controller control={control} name="plannedAnaesthesia" render={({ field }) => <PlannedAnaesthesiaSection value={field.value} onChange={field.onChange} language={language} tc={tc} />} />
               {!pediatricMode ? (<>
                 <AdultScoreBadges rcriScore={rcriScore} apfelScore={apfelScore} stopBangScore={stopBangScore} available={preopProfile.scoreAvailable} language={language} tc={tc} />{questionList("risk_scores")}<GuptaRiskCard profile={preopProfile.profile} values={preopProfile.values} onAnswer={preopProfile.answerQuestion} tc={tc} language={language} />
               </>) : (
@@ -1363,13 +1297,40 @@ export default function NewCaseScreen() {
               {pediatricMode ? questionList("risk_scores") : null /* adults: drawn above the Gupta card */}
             </SectionCard>
 
+            {/* After the assessment, the plan and what is ordered (10.0.0). */}
+            <SectionCard title={tc("plannedAnaesthesia")} onLayout={(y) => { sectionY.current.planned = y }} visible={showSection("planned")}>
+              <Controller control={control} name="plannedAnaesthesia" render={({ field }) => <PlannedAnaesthesiaSection bare value={field.value} onChange={field.onChange} language={language} tc={tc} />} />
+            </SectionCard>
+
+            <SectionCard title={tc("sectionPremedication")} onLayout={(y) => { sectionY.current.premedication = y }} visible={showSection("premedication")}>
+              <Controller control={control} name="preopPremedicationOrders" render={({ field }) => (
+                <PreopPremedicationOrderSection value={field.value ?? {}} onChange={field.onChange} patient={_allFormValues as Record<string, unknown>} language={language} tc={tc} />
+              )} />
+            </SectionCard>
+
+            <SectionCard title={tc("sectionFasting")} onLayout={(y) => { sectionY.current.fasting = y }} visible={pediatricMode && showSection("fasting")}>
+              <PediatricFastingFields control={control} setValue={setValue} language={language} />
+            </SectionCard>
+
+            <SectionCard title={tc("sectionWardOrders")} onLayout={(y) => { sectionY.current.wardOrders = y }} visible={showSection("wardOrders")}>
+              <Controller control={control} name="preopWardOrders" render={({ field }) => (
+                <PreopWardOrdersSection config={sectionConfig} value={field.value ?? []} onChange={field.onChange} language={language} tc={tc} />
+              )} />
+            </SectionCard>
+
+            <SectionCard title={tc("sectionMedInstructions")} onLayout={(y) => { sectionY.current.medInstructions = y }} visible={showSection("medInstructions")}>
+              <Controller control={control} name="preopMedicationInstructions" render={({ field }) => (
+                <PreopMedicationInstructionsSection config={sectionConfig} value={field.value ?? []} onChange={field.onChange} medications={currentMedications ?? []} language={language} tc={tc} />
+              )} />
+            </SectionCard>
+
             <PrimaryButton label={tc("continueIntraop")} onPress={handleSubmit(onSubmit, onInvalid)} loading={saving} />
           </View>
           </Animated.View>
         </Animated.ScrollView>
 
         {scrollRailVisible && preopLayout !== "sections" ? (
-          <View pointerEvents="none" style={{ position: "absolute", right: 6, top: appHeaderHidden ? insets.top + 78 : 182, bottom: 34, width: 210, alignItems: "flex-end" }}>
+          <View pointerEvents="none" style={{ position: "absolute", right: 6, top: appHeaderHidden ? insets.top + 78 : 182, bottom: 34, width: 18, alignItems: "flex-end" }}>
             <View onLayout={(event) => setRailHeight(Math.max(1, event.nativeEvent.layout.height))} style={{ flex: 1, width: 18, alignItems: "center", justifyContent: "center" }}>
               <View style={{ position: "absolute", top: 0, bottom: 0, width: 3, borderRadius: 999, backgroundColor: withAlpha(colors.borderStrong, "AA") }} />
               <Animated.View
@@ -1394,26 +1355,8 @@ export default function NewCaseScreen() {
                   transform: [{ translateY: scrollYAnim.interpolate({ inputRange: [0, maxScrollY], outputRange: [-5, railHeight - 5], extrapolate: "clamp" }) }],
                 }}
               />
-              <Animated.View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 24,
-                  transform: [{ translateY: scrollYAnim.interpolate({ inputRange: [0, maxScrollY], outputRange: [-14, railHeight - 14], extrapolate: "clamp" }) }],
-                  minWidth: 86,
-                  maxWidth: 176,
-                  borderRadius: 999,
-                  backgroundColor: withAlpha(colors.background, "F2"),
-                  borderWidth: 1,
-                  borderColor: withAlpha(colors.primary, "77"),
-                  paddingHorizontal: 8,
-                  paddingVertical: 5,
-                }}
-              >
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "900", textAlign: "center" }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                  {SECTION_LABELS.find((section) => section.key === activeSection)?.label}
-                </Text>
-              </Animated.View>
+              {/* No floating section name beside the thumb: it covered the fields, and
+                  the sticky strip above already names and centres the section (10.0.0). */}
             </View>
           </View>
         ) : null}

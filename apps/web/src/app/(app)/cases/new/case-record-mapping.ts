@@ -6,6 +6,8 @@
 
 import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
 import { normalizePlannedAnaesthesia } from "@lospor/core/preop-plan"
+import { medicationInstructionsToSend } from "@lospor/core/preop-orders"
+import { POSTOP_PAIN_ITEM_FIELDS } from "@lospor/core/postop-pain"
 import type { PreopData } from "@/components/forms/PreopForm"
 import type { IntraopData } from "@/components/forms/IntraopForm"
 import type { PostopData } from "@/components/forms/PostopForm"
@@ -107,7 +109,8 @@ export function dbPreopToForm(
 
     // Case - prefer JSON arrays; fall back to semicolon-split string (never comma-split)
     diagnoses:          toTagsSemi(p.diagnosesJson, p.diagnosis),
-    procedures:         toTagsSemi(p.proceduresJson, p.plannedProcedure),
+    procedures:         p.procedureUndetermined ? [] : toTagsSemi(p.proceduresJson, p.plannedProcedure),
+    procedureUndetermined: p.procedureUndetermined ?? false,
     teamNotes:            p.teamNotes            ?? undefined,
     highRiskSurgery:      p.highRiskSurgery      ?? false,
     elective:             p.elective              ?? false,
@@ -222,6 +225,13 @@ export function dbPreopToForm(
     pediatricFasting: Array.isArray(p.pediatricFasting)
       ? p.pediatricFasting as PreopData["pediatricFasting"]
       : [],
+    preopWardOrders: Array.isArray(p.preopWardOrders)
+      ? p.preopWardOrders as PreopData["preopWardOrders"]
+      : [],
+    preopPremedicationOrders: premedicationOrdersFrom(p.preopPremedicationOrders),
+    preopMedicationInstructions: Array.isArray(p.preopMedicationInstructions)
+      ? p.preopMedicationInstructions as PreopData["preopMedicationInstructions"]
+      : [],
     plannedAnaesthesia: normalizePlannedAnaesthesia(p.plannedAnaesthesia),
 
     // Free text. Both are stored columns that the shared CaseDetailPreop DTO
@@ -245,10 +255,14 @@ export function dbPostopToForm(o: CaseDetailPostop): PostopData {
     aldreteCirculation:   o.aldreteCirculation   ?? undefined,
     aldreteConsciousness: o.aldreteConsciousness ?? undefined,
     aldreteSpO2:          o.aldreteSpO2          ?? undefined,
+    stewardConsciousness: o.stewardConsciousness ?? undefined,
+    stewardAirway:        o.stewardAirway        ?? undefined,
+    stewardMovement:      o.stewardMovement      ?? undefined,
     painScoreNRS:         o.painScoreNRS         ?? undefined,
     pediatricPainScale:   o.pediatricPainScale   ?? undefined,
     pediatricPainScore:   o.pediatricPainScore   ?? undefined,
     paedScore:            o.paedScore            ?? undefined,
+    ...Object.fromEntries(POSTOP_PAIN_ITEM_FIELDS.map(field => [field, (o as Record<string, unknown>)[field] ?? undefined])),
     ponv:                 o.ponv                 ?? null,
     temperatureCelsius:   o.temperatureCelsius   ?? undefined,
     recoveryBpSystolic:   o.recoveryBpSystolic   ?? undefined,
@@ -262,6 +276,7 @@ export function dbPostopToForm(o: CaseDetailPostop): PostopData {
     disposition:          o.disposition          ?? undefined,
     dispositionNotes:     o.dispositionNotes     ?? undefined,
     handoverItems:        Array.isArray(o.handoverItems) ? o.handoverItems : [],
+    performedProcedures:  Array.isArray(o.performedProceduresJson) ? o.performedProceduresJson as PostopData["performedProcedures"] : [],
   }
 }
 
@@ -324,12 +339,20 @@ export function preopSummaryForIntraop(preop: PreopData): PreopSummary {
     allergyDetails:        preop.allergyDetails,
     comorbidities:         preop.comorbidities,
     currentMedications:    preop.currentMedications,
+    premedicationOrders:   preop.preopPremedicationOrders,
     labResults:            preop.labResults,
     diagnosis:             preop.diagnoses?.map(d => d.label).join("; ") || null,
     plannedProcedure:      plannedProcedureText(preop.procedures) || null,
     emergencySurgery:      preop.emergencySurgery ?? null,
     pediatricFasting:      preop.pediatricFasting ?? null,
   }
+}
+
+/** The case's premedication orders, a phase each; anything else reads as none. */
+function premedicationOrdersFrom(value: unknown): PreopData["preopPremedicationOrders"] {
+  const orders = value && typeof value === "object" ? value as Record<string, unknown> : {}
+  const text = (phase: string) => typeof orders[phase] === "string" ? orders[phase] as string : ""
+  return { DAY_BEFORE: text("DAY_BEFORE"), MORNING: text("MORNING") }
 }
 
 export function sectionPayload(
@@ -353,6 +376,9 @@ export function sectionPayload(
     delete clinicalPreop.patientFirstName
     delete clinicalPreop.patientLastName
     delete clinicalPreop.patientId
+    if (preop.preopMedicationInstructions) {
+      clinicalPreop.preopMedicationInstructions = medicationInstructionsToSend(preop.preopMedicationInstructions)
+    }
     return { ...clinicalPreop, bmi }
   }
   if (section === "intraop") {

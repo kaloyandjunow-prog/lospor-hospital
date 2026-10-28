@@ -21,7 +21,8 @@ export function dashboardCaseTarget(
   item: DashboardCaseRouteInput,
   hasQueuedIntraop: boolean,
 ): DashboardCaseTarget {
-  if (item.postop || item.status === "COMPLETE" || item.status === "AWAITING_REVIEW") return "case"
+  // A cancelled procedure opens read-only, like a finished case (10.0.0).
+  if (item.postop || item.status === "COMPLETE" || item.status === "AWAITING_REVIEW" || item.status === "CANCELLED") return "case"
   // Queued offline intraop work is exempt: it was queued while this device
   // could still write, and the only way not to lose it is to keep opening
   // intraop long enough to flush it.
@@ -113,9 +114,9 @@ export function caseMatchesDashboardTab(
   switch (tab) {
     case "Today":           return isToday(caseItem.createdAt)
     case "Month":           return isThisMonth(caseItem.createdAt)
-    case "Active":          return caseItem.status !== "COMPLETE"
+    case "Active":          return caseItem.status !== "COMPLETE" && caseItem.status !== "CANCELLED"
     case "Drafts":          return caseItem.status === "DRAFT"
-    case "Awaiting Postop": return caseItem.status !== "COMPLETE" && caseItem.intraop?.endTime != null
+    case "Awaiting Postop": return caseItem.status !== "COMPLETE" && caseItem.status !== "CANCELLED" && caseItem.intraop?.endTime != null
     case "Complete":        return caseItem.status === "COMPLETE"
     case "Handovers":       return false
     default:                return true

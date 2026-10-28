@@ -40,8 +40,12 @@ export const JSON_HEADERS = { Origin: ORIGIN, "Content-Type": "application/json"
  * `use.baseURL` from the config, so it is passed explicitly — without it every
  * relative request in a spec would fail with "invalid URL".
  */
-export function contextFor(browser: Browser, role: Role): Promise<BrowserContext> {
-  return browser.newContext({ storageState: storageStateFor(role), baseURL: BASE_URL })
+export async function contextFor(browser: Browser, role: Role): Promise<BrowserContext> {
+  const context = await browser.newContext({ storageState: storageStateFor(role), baseURL: BASE_URL })
+  // E2E_UI_SCALE=130 runs a suite at that display size (10.0.0), e.g. the
+  // chart's drag specs, whose pointer maths a larger page must not upset.
+  if (process.env.E2E_UI_SCALE) await context.addCookies([{ name: "uiScale", value: process.env.E2E_UI_SCALE, url: BASE_URL }])
+  return context
 }
 
 /** Runs `body` with a context for each named role and always closes them. */

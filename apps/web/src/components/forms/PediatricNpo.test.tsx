@@ -7,7 +7,7 @@ import { useForm, useWatch } from "react-hook-form"
 import { describe, expect, it } from "vitest"
 import enMessages from "../../../messages/en.json"
 import type { PreopData } from "./preopSchema"
-import { PediatricRiskAndCalculators } from "./PediatricPreopSections"
+import { PediatricFastingFields } from "./PediatricPreopSections"
 
 let latest: PreopData["pediatricFasting"] = []
 const report = (rows: PreopData["pediatricFasting"]) => { latest = rows }
@@ -16,7 +16,8 @@ function Harness({ onRows }: { onRows: (rows: PreopData["pediatricFasting"]) => 
   const { control, setValue } = useForm<PreopData>({ defaultValues: { clinicalMode: "PEDIATRIC", ageValue: 4, ageUnit: "YEARS", pediatricFasting: [] } as never })
   const rows = useWatch({ control, name: "pediatricFasting" })
   useEffect(() => { onRows(rows) }, [onRows, rows])
-  return <PediatricRiskAndCalculators control={control} setValue={setValue} />
+  // Its own card since 10.0.0, no longer inside the risk scores.
+  return <PediatricFastingFields control={control} setValue={setValue} />
 }
 
 const input = (category: string) => screen.getByTestId(`npo-${category}`).querySelector("input") as HTMLInputElement

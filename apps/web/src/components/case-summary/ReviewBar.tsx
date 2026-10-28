@@ -94,7 +94,10 @@ export function ReviewBar({
     AWAITING_REVIEW: { label: statusLabel("AWAITING_REVIEW"), cls: "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
     IN_PROGRESS:     { label: statusLabel("IN_PROGRESS"),     cls: "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400" },
     DRAFT:           { label: statusLabel("DRAFT"),           cls: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" },
+    CANCELLED:       { label: statusLabel("CANCELLED"),       cls: "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-800 text-orange-800 dark:text-orange-300" },
   }
+  // A finished case, or a cancelled procedure (10.0.0): read, printed, not edited.
+  const closed = status === "COMPLETE" || status === "CANCELLED"
   const sc = statusConfig[status ?? "DRAFT"] ?? statusConfig.DRAFT
 
   /**
@@ -173,7 +176,7 @@ export function ReviewBar({
             {sc.label}
           </span>
           <div className="flex items-center gap-2 flex-wrap">
-            {canWrite && status !== "COMPLETE" && (
+            {canWrite && !closed && (
               <>
                 <span className="text-xs text-slate-400">{L.edit}</span>
                 <a href={`/cases/new?continue=${caseId}&step=0`}
@@ -204,7 +207,7 @@ export function ReviewBar({
                 {L.unfinalize}
               </button>
             )}
-            {status === "COMPLETE" && (
+            {closed && (
               <a href={`/cases/${caseId}/print`}
                 className="text-xs font-bold px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors">
                 {L.printCase}
@@ -215,7 +218,7 @@ export function ReviewBar({
         {!canWrite && (
           <p className="text-xs text-slate-500 dark:text-slate-400">{t("case.handedOnReadOnly")}</p>
         )}
-        {canWrite && status !== "COMPLETE" ? (
+        {canWrite && !closed ? (
           <ReadinessPanel caseId={caseId} readiness={shown} locale={locale === "bg" ? "bg" : "en"} />
         ) : null}
         {closeSecsLeft !== null && (

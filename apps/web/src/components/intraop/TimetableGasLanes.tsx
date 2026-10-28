@@ -2,6 +2,8 @@
 
 import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
 import { SaveMark } from "./SaveMark"
+import { TOUCH_GRIP } from "./touch-drag"
+import { ContinueOverlay } from "./ContinueOverlay"
 import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { X } from "lucide-react"
 import { displayGasMix, displayGasSettings } from "@/lib/clinical-display"
@@ -12,6 +14,7 @@ import type { TtSel } from "./timetable-types"
 import type { AgentSegment, GasSettingsSegment } from "@/types/timetable"
 import { gasSettingsAtColumn } from "@lospor/core/intraop-summary"
 import { useIntraopUiCopy } from "./ui-copy"
+import { ChangeStripCell, stripStretches } from "./TimetableChangeStrip"
 
 /**
  * The two lanes that record what the patient is breathing: the volatile agent,
@@ -61,7 +64,8 @@ export type AgentLaneProps = LaneChrome & {
   onCellDrop: (event: React.DragEvent, col: number) => void
   onGripDragStart: (event: React.DragEvent, startCol: number) => void
   onDragEnd: () => void
-  openPickerForSeg: (col: number, seg: AgentSegment, rect: DOMRect) => void
+  /** `atCol` is the column clicked: the editor changes the percent from there. */
+  openPickerForSeg: (col: number, seg: AgentSegment, rect: DOMRect, atCol?: number) => void
   openPickerEmpty: (col: number, rect: DOMRect) => void
   resumeSegment: (startCol: number) => void
   extendSegment: (startCol: number, toCol: number) => void
@@ -100,17 +104,26 @@ export function AgentLane({
 }: AgentLaneProps) {
   const copy = useIntraopUiCopy()
   const { extendingAgent, extendHoverCol } = drag
+  // Each concentration it ran at is shown in a strip above the bar (10.0.0).
+  const hasStrip = agents.some(agent => agent.percent != null || (agent.percentChanges?.length ?? 0) > 0)
 
   return (
     <div
       className="flex items-stretch border-b border-slate-200 dark:border-[#2e2e2e] bg-slate-50/60 dark:bg-[#1a1a1a]/60 relative"
-      style={{ minHeight: 32 }}
+      style={{ minHeight: hasStrip ? 46 : 32 }}
     >
       <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-2"}>
         {label}
       </div>
       {rowCols.map(ci => {
-        const committedSeg = segmentAt(ci)
+        const dragged = extendingAgent !== null && extendHoverCol !== null
+          ? agents.find(a => a.startCol === extendingAgent) ?? null
+          : null
+        const wholeSeg = segmentAt(ci)
+        // Dragged back, the bar is drawn only as far as the hover column; the
+        // columns it would give up stay empty instead of drawing as loose boxes.
+        const vacated = !!(dragged && wholeSeg && wholeSeg.startCol === dragged.startCol && ci > (extendHoverCol as number))
+        const committedSeg = vacated ? null : wholeSeg
         // While a grip is being dragged the bar is drawn to the hover column,
         // so the extension is visible before it is committed.
         const draggingSeg = (() => {
@@ -140,11 +153,11 @@ export function AgentLane({
             onDrop={e => onCellDrop(e, ci)}
             onClick={e => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-              if (seg && isStart) openPickerForSeg(ci, seg, rect)
-              else if (!seg) openPickerEmpty(ci, rect)
+              if (seg) openPickerForSeg(seg.startCol, seg, rect, ci)
+              else if (!vacated) openPickerEmpty(ci, rect)
             }}
           >
-            {!seg && (
+            {!seg && !vacated && (
               <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none">
                 {copy.gas.choose}
               </span>
@@ -154,6 +167,8 @@ export function AgentLane({
               const agentLabel = (isStart || isRowCont)
                 ? [displayAgentName(seg.name), seg.n2o != null ? `+ N2O ${seg.n2o}%` : null].filter(Boolean).join(" ")
                 : null
+              const stretches = stripStretches(seg.startCol, seg.percent != null ? `${seg.percent}%` : null,
+                (seg.percentChanges ?? []).map(change => ({ col: change.col, label: `${change.percent}%`, planned: change.planned })))
               return (
                 <>
                   <div
@@ -162,17 +177,38 @@ export function AgentLane({
                       const rect = (e.currentTarget as HTMLElement).closest("[data-agent-cell]")?.getBoundingClientRect()
                         ?? (e.currentTarget as HTMLElement).getBoundingClientRect()
                       setSel({ type: "agent", startCol: seg.startCol })
-                      if (isStart) openPickerForSeg(ci, seg, rect)
+                      openPickerForSeg(seg.startCol, seg, rect, ci)
                     }}
                     onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeSegment(seg.startCol) }}
                     title={seg.stopped ? copy.doubleClickResume : undefined}
-                    className={`absolute inset-y-1 border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
+                    style={hasStrip ? { top: 18, bottom: 3 } : undefined}
+                    className={`absolute ${hasStrip ? "" : "inset-y-1"} border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   />
                   {isEnd && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
+                  {stretches.length > 0 && (
+                    <ChangeStripCell
+                      col={ci}
+                      stretches={stretches}
+                      tone={{ bg: style2.bar, text: style2.text }}
+                      height={15}
+                      top={1}
+                      roundStart={isStart || isRowCont}
+                      roundEnd={isEnd && !isRowExit}
+                      faded={!!seg.stopped || !!seg.planned || isDragPreview}
+                      selected={sel?.type === "agent" && sel.startCol === seg.startCol}
+                      onClick={event => {
+                        const rect = (event.currentTarget as HTMLElement).closest("[data-agent-cell]")?.getBoundingClientRect()
+                          ?? event.currentTarget.getBoundingClientRect()
+                        setSel({ type: "agent", startCol: seg.startCol })
+                        openPickerForSeg(seg.startCol, seg, rect, ci)
+                      }}
+                      testId="agent-percent-strip"
+                    />
+                  )}
                   {agentLabel && (
                     <span
                       className={`absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none text-xs font-bold whitespace-nowrap flex items-center justify-center ${style2.text}`}
-                      style={{ left: 0, width: (visEnd - visStart + 1) * colW }}
+                      style={{ left: 0, width: (visEnd - visStart + 1) * colW, ...(hasStrip ? { top: 30 } : {}) }}
                     >
                       {agentLabel}
                     </span>
@@ -180,17 +216,17 @@ export function AgentLane({
                 </>
               )
             })()}
-            {showBarGrip(seg?.endCol ?? -1, isEnd, isDragPreview, colEnd) && style2 && seg && !seg.stopped && (
+            {showBarGrip(seg?.endCol ?? -1, isEnd, isDragPreview, colEnd) && style2 && seg && (
               <div
                 draggable
                 onDragStart={e => { e.stopPropagation(); onGripDragStart(e, seg.startCol) }}
                 onDragEnd={onDragEnd}
-                className={`absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 ${style2.grip} opacity-70 hover:opacity-100 rounded-r-sm`}
+                className={`absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 ${style2.grip} opacity-70 hover:opacity-100 rounded-r-sm ${TOUCH_GRIP}`}
               >
                 <span className="text-white text-[8px] font-bold select-none">|</span>
               </div>
             )}
-            {isEnd && !isRowExit && sel?.type === "agent" && sel.startCol === seg?.startCol && seg && !seg.stopped && !isDragPreview && (
+            {isEnd && !isRowExit && sel?.type === "agent" && sel.startCol === seg?.startCol && seg && !seg.stopped && !isDragPreview && extendingAgent === null && (
               <DiscontinuePrompt
                 open={discConfirmId === `agent-${seg.startCol}`}
                 onOpen={() => setDiscConfirmId(`agent-${seg.startCol}`)}
@@ -204,26 +240,20 @@ export function AgentLane({
                 type="button"
                 aria-label={copy.removeAria(displayAgentName(seg.name))}
                 onClick={e => { e.stopPropagation(); removeSegment(seg.startCol) }}
-                className="absolute top-0.5 right-3 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
+                className="absolute top-0.5 right-3 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(any-pointer:coarse)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
               >
                 <X className="h-2.5 w-2.5" />
               </button>
             )}
             {agents.some(a => a.plannedStopCol === ci) && <PlannedStopMarker />}
+            {agents.flatMap(a => (a.percentChanges ?? []).filter(change => change.planned && change.col === ci))
+              .map(change => <PlannedChangeMarker key={change.eventId ?? change.col} value={`${change.percent}%`} />)}
             {!seg && !isDragPreview && (() => {
               // An agent turned off earlier can be picked up again here rather
               // than started afresh, which would read as a second agent.
               const stoppedAgent = agents.find(a => a.stopped && a.endCol < ci)
               return stoppedAgent ? (
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); continueAgent(stoppedAgent, ci) }}
-                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
-                >
-                  <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-white/80 dark:bg-black/40 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
-                    {copy.fluid.continueQuestion}
-                  </span>
-                </button>
+                <ContinueOverlay label={copy.fluid.continueQuestion} onContinue={() => continueAgent(stoppedAgent, ci)} testId="agent-continue" />
               ) : null
             })()}
           </div>

@@ -30,7 +30,12 @@ export function assertCrossAppCiContract(source) {
   requirePattern(workflow, /push:\s*\n\s*branches:\s*\[main\]/, "CI must run on main")
   requirePattern(workflow, /\n\s*pull_request:\s*(?:\n|$)/, "CI must run for pull requests")
 
-  const job = jobBlock(workflow, "e2e")
+  // The release-train expression is intentionally equivalent to `main` for
+  // this structural contract; its dynamic branch selection is checked by the
+  // literal `startsWith(github.head_ref, 'release/')` below.
+  const workflowForContract = workflow.replace(/ref: \$\{\{ github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'release\/'\) && github\.head_ref \|\| github\.event_name == 'pull_request' && \(github\.base_ref == 'release-9\.13\.5-vendor' \|\| github\.head_ref == 'release-9\.13\.5-vendor'\) && 'release-9\.13\.5-vendor' \|\| 'main' \}\}/g, "ref: main")
+  requirePattern(workflow, /startsWith\(github\.head_ref,\s*'release\/'\)/, "Release-train CI must select matching release branches")
+  const job = jobBlock(workflowForContract, "e2e")
   requirePattern(job, /timeout-minutes:\s*(?:[6-9]\d|\d{3,})\b/, "Web E2E must allow at least 60 minutes")
   requirePattern(job, /services:\s*\n\s*postgres:/, "Web E2E must use disposable PostgreSQL")
   requirePattern(

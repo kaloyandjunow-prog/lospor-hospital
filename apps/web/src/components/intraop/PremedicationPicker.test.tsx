@@ -116,3 +116,30 @@ describe("PremedicationPicker in adult mode", () => {
     expect(screen.queryByText("Contraindicated in children")).toBeNull()
   })
 })
+
+describe("PremedicationPicker and the preop order", () => {
+  it("offers no 'not applicable' in the preop order", () => {
+    open({ allowNotApplicable: false })
+    expect(screen.queryByText(/not applicable/i)).toBeNull()
+    expect(screen.getByText("Analgesics")).toBeTruthy()
+  })
+
+  it("still offers it in the intraoperative record", () => {
+    open()
+    expect(screen.getByText(/not applicable/i)).toBeTruthy()
+  })
+
+  it("says a phase still holds the order, with an edit button beside it that opens the picker", () => {
+    render(<PremedicationPicker label="Evening" value="Paracetamol 210 mg PO" onChange={() => {}} categories={CATEGORIES} doses={DOSES} prospectiveGuidanceEnabled asOrdered />)
+    expect(screen.getByTestId("premedication-as-ordered").textContent).toContain("As ordered at the preop visit")
+    expect(screen.queryByText("Analgesics")).toBeNull()
+    fireEvent.click(screen.getByTestId("premedication-edit-ordered"))
+    expect(screen.getByText("Analgesics")).toBeTruthy()
+  })
+
+  it("shows neither once the phase has been changed", () => {
+    render(<PremedicationPicker label="Evening" value="Paracetamol 210 mg PO" onChange={() => {}} categories={CATEGORIES} doses={DOSES} prospectiveGuidanceEnabled />)
+    expect(screen.queryByTestId("premedication-as-ordered")).toBeNull()
+    expect(screen.queryByTestId("premedication-edit-ordered")).toBeNull()
+  })
+})

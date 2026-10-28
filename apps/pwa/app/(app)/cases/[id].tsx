@@ -17,12 +17,16 @@ import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { AirwayCard, IntraopCard, LabCard, MedicalHistoryCard, PostopCard, PreopCard } from "@/components/case-detail/CaseDetailCards"
 import { SummaryTimetable } from "@/components/case-detail/SummaryTimetable"
+import { CaseStatusMeta } from "@/components/case-detail/CaseStatusMeta"
 import {
   computedDisplayStatus,
   type CaseData,
 } from "@/lib/case-detail-summary"
 import { INTRAOP_RESUME_WINDOW_MS } from "@lospor/core/intraop-engine"
 import { caseIsWritable } from "@lospor/core/case-capabilities"
+import { cancellationReasonLabel } from "@lospor/core/case-cancellation"
+import { caseScreenActions } from "@/lib/case-actions"
+import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +60,9 @@ export default function CaseSummaryScreen() {
   // Status alone let a creator whose write access ended at handover still see
   // Edit/Finalize/Delete, all refused server-side; caseIsWritable (shared
   // with web) fails closed instead.
-  const canEdit = caseData?.status !== "COMPLETE" && caseIsWritable(caseData)
+  // A cancelled procedure is closed like a finished case (10.0.0): read, printed, not edited.
+  const screenActions = caseScreenActions({ status: caseData?.status, writable: caseIsWritable(caseData) })
+  const canEdit = screenActions.edit
 
   const { unfinalizing, handleUnfinalize } = useCaseUnfinalize(id, t, tc, loadCase)
 
@@ -110,8 +116,9 @@ export default function CaseSummaryScreen() {
 
   const screenTitle = caseData?.caseCode ?? (loading ? "…" : tc("cardPreop"))
 
-  const procedureTitle = caseData?.preop?.proceduresJson?.[0]?.label
-    ?? caseData?.preop?.plannedProcedure
+  const procedureTitle = (caseData?.preop?.procedureUndetermined ? plannedProcedureLabel(caseData.preop, language) : null)
+    ?? caseData?.preop?.proceduresJson?.[0]?.label
+    ?? (caseData?.preop?.plannedProcedure || null)
     ?? t("caseDetails")
 
   const diagnosisSubtitle = caseData?.preop?.diagnosesJson?.[0]?.label
@@ -178,30 +185,7 @@ export default function CaseSummaryScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, paddingTop: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Status + meta row */}
-        <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          <View style={{
-            paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999,
-            backgroundColor: withAlpha(sc, "22"),
-            borderWidth: 1, borderColor: withAlpha(sc, "66"),
-          }}>
-            <Text style={{
-              color: sc, fontSize: 11, fontWeight: "800",
-              textTransform: "uppercase", letterSpacing: 0.5,
-            }}>
-              {displayStatusLabel}
-            </Text>
-          </View>
-          {caseData.caseCode ? (
-            <Text style={{ color: colors.textMuted, fontSize: 12 }}>{caseData.caseCode}</Text>
-          ) : null}
-          {caseData.institution?.name ? (
-            <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-              {caseData.institution.name}
-              {caseData.institution.city ? `, ${caseData.institution.city}` : ""}
-            </Text>
-          ) : null}
-        </View>
+        <CaseStatusMeta statusLabel={displayStatusLabel} statusColor={sc} caseCode={caseData.caseCode} cancelledText={caseData.status === "CANCELLED" ? `${t("cancelledBanner")}${cancellationReasonLabel(caseData.cancellationReason, language) ? ` · ${cancellationReasonLabel(caseData.cancellationReason, language)}` : ""}` : undefined} theatreName={caseData.theatre?.name} institutionName={caseData.institution?.name} institutionCity={caseData.institution?.city} />
 
         {/* ── Hero bar ───────────────────────────────────────────────────────── */}
         <View style={{
@@ -378,14 +362,14 @@ export default function CaseSummaryScreen() {
           keyEvents={caseData.intraop?.keyEvents}
           startISO={caseData.intraop?.startTime}
           onPress={() => router.push(
-            caseData.status === "COMPLETE"
+            screenActions.timetableReadOnly
               ? `/(app)/cases/timetable/${id}`
               : `/(app)/cases/intraop/${id}`,
           )}
-          actionLabel={caseData.status === "COMPLETE" ? tc("summaryViewTimetable") : undefined}
+          actionLabel={screenActions.timetableReadOnly ? tc("summaryViewTimetable") : undefined}
         />
         <IntraopCard intraop={caseData.intraop} preop={caseData.preop} clinicalMode={caseData.clinicalMode} tc={tc} t={t} />
-        <PostopCard postop={caseData.postop} tc={tc} t={t} />
+        <PostopCard postop={caseData.postop} tc={tc} t={t} pediatric={caseData.clinicalMode === "PEDIATRIC"} />
         <LabCard labResults={caseData.preop?.labResults ?? undefined} tc={tc} />
       </ScrollView>
     </View>

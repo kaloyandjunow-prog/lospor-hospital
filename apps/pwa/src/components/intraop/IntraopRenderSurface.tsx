@@ -1,5 +1,5 @@
 import { memo, Profiler, useCallback } from "react"
-import { View, type PanResponderInstance } from "react-native"
+import { Animated, View, type PanResponderInstance } from "react-native"
 
 import { recordRenderPhases } from "@/lib/diagnostics"
 
@@ -24,10 +24,10 @@ const MemoizedIntraopSheetsHost = memo(IntraopSheetsHost)
 
 type IntraopRenderSurfaceProps = IntraopTabContentBuilderProps
   & IntraopSheetsBuilderProps
-  & { tabSwipeResponder: PanResponderInstance }
+  & { tabSwipeResponder: PanResponderInstance; tabMotion?: { slide: Animated.Value; fade: Animated.Value } }
 
 export function IntraopRenderSurface(props: IntraopRenderSurfaceProps) {
-  const { screenWidth, tabSwipeResponder, eventLabel } = props
+  const { screenWidth, tabSwipeResponder, tabMotion, eventLabel } = props
   // Vital abbreviations in the reader’s language (АН / СЧ in Bulgarian).
   const { language } = usePreferences()
   const logEventText = useCallback((event: LogEvent) => eventLabel(event).text, [eventLabel])
@@ -56,12 +56,14 @@ export function IntraopRenderSurface(props: IntraopRenderSurfaceProps) {
   return (
     <>
       <View style={{ flex:1, width: screenWidth, overflow: "hidden" }} {...tabSwipeResponder.panHandlers}>
+        <Animated.View style={{ flex: 1, ...(tabMotion ? { opacity: tabMotion.fade, transform: [{ translateX: tabMotion.slide }] } : {}) }}>
         <Profiler
           id="tab"
           onRender={(_id, _phase, actualDuration) => recordRenderPhases({ tabTree: actualDuration })}
         >
           <MemoizedIntraopTabContentHost {...tabContent} />
         </Profiler>
+        </Animated.View>
       </View>
       <Profiler
         id="sheets"

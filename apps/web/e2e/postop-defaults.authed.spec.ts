@@ -84,3 +84,52 @@ test("opening the recovery form records no Aldrete score", async ({ browser }) =
     await context.close()
   }
 })
+
+// A child is scored on Steward, not Aldrete (10.0.0): three components, 0-6.
+test("a child's recovery form scores Steward, and only once all three are in", async ({ browser }) => {
+  const context = await contextFor(browser, "member-a")
+  const page = await context.newPage()
+  const api = context.request
+
+  const created = await api.post("/api/cases", {
+    headers: JSON_HEADERS,
+    data: { clinicalMode: "PEDIATRIC", preop: { ageValue: 4, ageUnit: "YEARS", sex: "MALE", heightCm: 104, weightKg: 17 } },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const { id } = await created.json()
+
+  try {
+    await page.goto(`/cases/new?continue=${id}&step=2`)
+    const card = page.locator('[data-tour="postop-aldrete"]')
+    await expect(card).toBeVisible({ timeout: 20_000 })
+    await expect(card.getByText("Steward recovery score (on leaving theatre)")).toBeVisible()
+    // Required to finalise: the label carries the red star.
+    await expect(card.getByText(/^Airway \*$/)).toBeVisible()
+    await expect(card.getByText("Circulation (BP vs pre-op)")).toHaveCount(0)
+    await expect(page.getByTestId("steward-total")).toHaveText("— / 6")
+
+    // Rows are consciousness, airway, movement; buttons 0, 1, 2.
+    const rows = card.locator("div.grid.grid-cols-3")
+    await expect(rows).toHaveCount(3)
+    await rows.nth(0).getByRole("button").nth(2).click()
+    await rows.nth(1).getByRole("button").nth(1).click()
+    await expect(page.getByTestId("steward-total")).toHaveText("— / 6")
+    await rows.nth(2).getByRole("button").nth(2).click()
+    await expect(page.getByTestId("steward-total")).toHaveText("5 / 6")
+    // Ready to leave recovery at 4 or more; below that, watched.
+    await expect(card.getByText("Ready for discharge from recovery")).toBeVisible()
+    await rows.nth(2).getByRole("button").nth(0).click()
+    await expect(page.getByTestId("steward-total")).toHaveText("3 / 6")
+    await expect(card.getByText("Extended recovery monitoring needed")).toBeVisible()
+    await rows.nth(2).getByRole("button").nth(2).click()
+    await expect(page.getByTestId("steward-total")).toHaveText("5 / 6")
+
+    await expect.poll(async () => (await readPostop(api, id))?.stewardTotal ?? null, { timeout: 20_000 }).toBe(5)
+    const saved = await readPostop(api, id)
+    expect(saved).toMatchObject({ stewardConsciousness: 2, stewardAirway: 1, stewardMovement: 2, aldreteTotal: null })
+    if (process.env.SHOTS_DIR) await card.screenshot({ path: `${process.env.SHOTS_DIR}/web-steward-card.png` })
+  } finally {
+    await api.delete(`/api/cases/${id}`, { headers: JSON_HEADERS }).catch(() => {})
+    await context.close()
+  }
+})

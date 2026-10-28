@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { Modal, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
 import type { ClinicalNumberChange } from "@/lib/clinical-number-entry"
@@ -12,6 +12,7 @@ import {
   type BodySystem,
 } from "@lospor/core/preop"
 import { metadataString } from "@lospor/core/option-contracts"
+import { HoldRepeatPressable } from "@/components/HoldRepeatPressable"
 
 function impact() {
   hapticTick()
@@ -250,7 +251,6 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   const [trackWidth, setTrackWidth] = useState(1)
   const fieldRef = useRef<View>(null)
   const trackXRef = useRef(0)
-  const holdTimer = useRef<{ initial: ReturnType<typeof setTimeout> | null; repeat: ReturnType<typeof setInterval> | null }>({ initial: null, repeat: null })
   const { height: screenHeight, width: screenWidth } = useWindowDimensions()
 
   const commit = useCallback((next: number | undefined) => {
@@ -265,22 +265,6 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   const nudge = useCallback((direction: -1 | 1) => {
     commit((value ?? min) + direction * step)
   }, [commit, min, step, value])
-
-  function startHold(direction: -1 | 1) {
-    nudge(direction)
-    holdTimer.current.initial = setTimeout(() => {
-      holdTimer.current.repeat = setInterval(() => nudge(direction), 120)
-    }, 420)
-  }
-
-  const stopHold = useCallback(() => {
-    if (holdTimer.current.initial) clearTimeout(holdTimer.current.initial)
-    if (holdTimer.current.repeat) clearInterval(holdTimer.current.repeat)
-    holdTimer.current.initial = null
-    holdTimer.current.repeat = null
-  }, [])
-
-  useEffect(() => stopHold, [stopHold])
 
   const setFromPageX = useCallback((pageX: number) => {
     const ratio = clampNumber((pageX - trackXRef.current) / Math.max(1, trackWidth), 0, 1)
@@ -352,13 +336,12 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   return (
     <View style={{ gap: 9 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable
-          onPressIn={() => startHold(-1)}
-          onPressOut={stopHold}
+        <HoldRepeatPressable
+          onStep={() => nudge(-1)}
           style={{ width: 44, height: 44, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}
         >
-          <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>-</Text>
-        </Pressable>
+          <Text selectable={false} style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>-</Text>
+        </HoldRepeatPressable>
 
         {/* The unit sits below the field, not inside it. Between the two 44px
             buttons a half-width field is only ~61px wide, and "130 mmHg" needs
@@ -378,13 +361,12 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
           ) : null}
         </View>
 
-        <Pressable
-          onPressIn={() => startHold(1)}
-          onPressOut={stopHold}
+        <HoldRepeatPressable
+          onStep={() => nudge(1)}
           style={{ width: 44, height: 44, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}
         >
-          <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>+</Text>
-        </Pressable>
+          <Text selectable={false} style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>+</Text>
+        </HoldRepeatPressable>
       </View>
 
       <View

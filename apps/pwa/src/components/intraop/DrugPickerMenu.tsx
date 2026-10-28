@@ -5,7 +5,8 @@ import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
 
-export type DrugPickerOption = { name: string; unit: string }
+/** color: the drug's own (a hospital's, 10.0.0); its group's when absent. */
+export type DrugPickerOption = { name: string; unit: string; color?: string }
 export type DrugPickerCategory = {
   cat: string
   color: string
@@ -85,7 +86,7 @@ export function DrugPickerMenu({
               key={drug.name}
               label={drugLabel(drug.name)}
               sublabel={drug.unit}
-              color={drugCat.color}
+              color={drug.color ?? drugCat.color}
               onPress={() => onPickCategoryDrug(drug)}
             />
           ))}

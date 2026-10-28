@@ -29,7 +29,7 @@ const INTENTIONAL_LATIN_TOKENS = new Set([
   "ABW", "APAGBI", "ASA", "Apfel", "BIS", "BMI", "BG", "BP", "BSA",
   "C", "CO₂", "COLDS", "CVP", "DBP", "E", "ECG", "EEG", "EMG", "EN", "EtCO₂",
   "FGF", "Fi", "FiO2", "FiO₂", "Fr", "G", "HH", "HR", "IBW", "IM",
-  "IV", "J", "L", "LOSPOR", "MAC", "MM", "McLaren", "NIRS", "NRS", "P10",
+  "FLACC", "FPS-R", "IV", "J", "L", "LOSPOR", "MAC", "MM", "McLaren", "NIPS", "NIRS", "NRS", "P10", "PAED",
   "P5", "P50", "PO", "POVOC", "RCRI", "RR", "SBP", "SC", "SpO₂",
   "STOP-BANG", "TCI", "TIVA", "TOF", "Temp", "ULBT", "adrenaline", "bpm",
   "cm", "cmH₂O", "d", "g", "h", "hospital", "kg", "kPa", "lb", "m2", "mcg",
@@ -188,26 +188,26 @@ describe("user-visible localization inventory", () => {
       "abwLabel",
       "bmiLabel",
       "ibwLabel",
-      "ponvLabel",
       "spO2Label",
       "summaryASA",
       "summaryBMI",
       "summaryCL",
       "summaryIBW",
       "summaryMallampati",
-      "summaryPONV",
       "summaryULBT",
     ] as const) {
       expect(CLINICAL_STRINGS.bg[key], key).toBe(CLINICAL_STRINGS.en[key])
     }
     expect(STRINGS.bg.aldreteLabel).toBe("Алдрет")
+    // PONV is ПОГП on Bulgarian screens, as Core and the printed record have it (decided 2026-10-27).
+    for (const key of ["ponvLabel", "summaryPONV"] as const) expect(CLINICAL_STRINGS.bg[key], key).toBe("ПОГП")
+    expect(CLINICAL_STRINGS.bg.apfelPONV).toContain("(ПОГП)")
     // The section titles are Bulgarian (decided 2026-10-18); the score names inside stay.
     expect(CLINICAL_STRINGS.bg.asaPhysicalStatus).toBe("Оценка по ASA")
     expect(CLINICAL_STRINGS.bg.aldreteScore).toBe("Модифицирана скала на Алдрет")
 
     const lockedTokensByKey = {
       apfelSection: ["Apfel"],
-      apfelPONV: ["PONV"],
       emergencySuffix: ["ASA", "E"],
       eventToHDU: ["HDU"],
       eventToICU: ["ICU"],
@@ -215,14 +215,14 @@ describe("user-visible localization inventory", () => {
       familyAnesthesiaHint: ["MH", "suxamethonium"],
       heightCm: ["cm"],
       // Vital abbreviations are Bulgarian on Bulgarian screens (decided 2026-10-18).
-      hviAlertHR: ["СЧ", "/мин"],
-      hviAlertResp: ["SpO₂", "ДЧ", "/мин"],
+      hviAlertHR: ["СЧ", "bpm"],
+      hviAlertResp: ["SpO₂", "ДЧ", "/min"],
       hviDVT_LMWH: ["DVT", "LMWH"],
       hviECG: ["ECG"],
       hviFluidPlan: ["IV"],
       hviNPO: ["NPO"],
       hviPIV: ["IV"],
-      hviPONVProtocol: ["PONV"],
+      hviPONVProtocol: ["ПОГП"],
       n2oFlow: ["N₂O", "L/min"],
       o2Flow: ["O₂", "L/min"],
       rcriCreatinine: ["µmol/L", "mg/dL"],

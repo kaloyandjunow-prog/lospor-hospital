@@ -63,7 +63,8 @@ export function HandoverButton({
   // A finalized case is an attested record; the server refuses to move one
   // (409). Offering the control anyway meant a clinician could pick a
   // colleague, press the button and have nothing whatsoever happen.
-  if (caseStatus === "COMPLETE") return null
+  // The same for a cancelled procedure (10.0.0), closed until it is undone.
+  if (caseStatus === "COMPLETE" || caseStatus === "CANCELLED") return null
 
   const label = pending
     ? t("transfer.awaitingAcceptance")

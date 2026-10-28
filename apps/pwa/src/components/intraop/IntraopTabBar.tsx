@@ -39,6 +39,8 @@ function IntraopTabBarComponent({ tab, onSelect, tc, screenWidth, railRef, layou
               borderBottomWidth:2, borderBottomColor: tab===t ? shade("#3b82f6") : "transparent" }}>
             <Text style={{ color: tab===t ? shade("#3b82f6") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>
               {label}
+              {/* Technique and timing hold fields needed to finalise. */}
+              {t === "technique" || t === "timing" ? <Text style={{ color:shade("#ef4444") }}> *</Text> : null}
             </Text>
           </TouchableOpacity>
           )

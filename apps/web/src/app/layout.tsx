@@ -4,6 +4,9 @@ import { Toaster } from "@/components/ui/sonner"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages, getTranslations } from "next-intl/server"
 import { cookies } from "next/headers"
+import { Analytics } from "@vercel/analytics/next"
+import { PwaInit } from "@/components/PwaInit"
+import { parseUiScale, uiScaleFontSize, UI_SCALE_COOKIE } from "@/lib/ui-scale"
 
 // --font-sans and --font-geist-mono are declared in globals.css, alongside the
 // @font-face rules that load them from /public/fonts. See the note there for
@@ -52,9 +55,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const jar       = await cookies()
   const themeCookie = jar.get("theme")?.value
   const isDark      = themeCookie !== "light" // default to dark when no cookie set
+  // The display size, drawn from the first frame like the theme (10.0.0).
+  const uiFontSize  = uiScaleFontSize(parseUiScale(jar.get(UI_SCALE_COOKIE)?.value))
 
   return (
-    <html lang={locale} className={`h-full antialiased${isDark ? " dark" : ""}`} suppressHydrationWarning>
+    <html lang={locale} className={`h-full antialiased${isDark ? " dark" : ""}`} style={uiFontSize ? { fontSize: uiFontSize } : undefined} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
           {children}

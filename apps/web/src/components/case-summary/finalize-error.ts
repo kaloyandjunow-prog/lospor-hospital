@@ -16,6 +16,7 @@ export function finalizeErrorMessage(body: unknown, L: Labels): string {
     missing_technique:      L.finalizeMissingTechnique,
     missing_postop:         L.finalizeMissingPostop,
     missing_aldrete:        L.finalizeMissingAldrete,
+    missing_steward:        L.finalizeMissingSteward,
     missing_disposition:    L.finalizeMissingDisposition,
     missing_intraop:        L.finalizeMissingIntraop,
     missing_start_time:     L.finalizeMissingStartTime,

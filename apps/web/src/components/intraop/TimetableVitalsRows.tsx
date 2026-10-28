@@ -3,6 +3,7 @@
 import { cvpToDisplay } from "@lospor/core/monitoring-values"
 import type { IntraopVitalKey } from "@lospor/core/intraop-vitals"
 import { useTranslations } from "next-intl"
+import { useRef, useSyncExternalStore } from "react"
 import { SaveMark } from "./SaveMark"
 
 import { nextVitalsField } from "./vitals-navigation"
@@ -123,6 +124,14 @@ export function TimetableVitalsRows({
   lastVitalBefore,
   onOpenStepper,
 }: TimetableVitalsRowsProps) {
+  // A finger's tap on a cell opens the stepper (10.0.0); on a touch screen the
+  // on-screen keyboard stays down, while a real keyboard still types.
+  const lastPointer = useRef("mouse")
+  const touchScreen = useSyncExternalStore(
+    () => () => {},
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(any-pointer: coarse)").matches,
+    () => false,
+  )
   const t = useTranslations("intraop.timetable")
   if (rows.length === 0) {
     return isFirstRow ? (
@@ -193,6 +202,7 @@ export function TimetableVitalsRows({
                 {stored != null && <SaveMark eventIds={[vitals[ci]?.eventId]} className="absolute top-0 right-0" />}
                 <input
                   type="number"
+                  inputMode={touchScreen ? "none" : undefined}
                   tabIndex={-1}
                   min={row.min}
                   max={row.max}
@@ -213,6 +223,15 @@ export function TimetableVitalsRows({
                     else inputRefs.current.delete(k)
                   }}
                   onDoubleClick={e => { e.stopPropagation(); onOpenStepper(stepperFor(ci, e.currentTarget.getBoundingClientRect())) }}
+                  onPointerDown={e => { lastPointer.current = e.pointerType }}
+                  onClick={e => {
+                    // A finger gets the stepper on its tap (10.0.0); double-tap is unreliable.
+                    // On the tap, not on touch-down: the tap's click would land on the
+                    // stepper's own backdrop and close it at once.
+                    if (lastPointer.current !== "touch" && lastPointer.current !== "pen") return
+                    e.stopPropagation()
+                    onOpenStepper(stepperFor(ci, e.currentTarget.getBoundingClientRect()))
+                  }}
                   onKeyDown={e => {
                     if (e.key === "Enter") {
                       e.preventDefault()

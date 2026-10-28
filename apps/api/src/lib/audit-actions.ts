@@ -103,6 +103,9 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "CASE_TRANSFER_REQUEST", category: "CASE", labels: { bg: "Заявено предаване на случай", en: "Case handover requested" } },
   { code: "CASE_UNFINALIZED", category: "CASE", labels: { bg: "Отменено финализиране на случай", en: "Case finalisation reversed" } },
   { code: "CASE_UPDATE", category: "CASE", labels: { bg: "Обновен случай", en: "Case updated" } },
+  { code: "CASE_THEATRE_ASSIGN", category: "CASE", labels: { bg: "Променена операционна зала на случай", en: "Case operating theatre changed" } },
+  { code: "CASE_CANCEL", category: "CASE", labels: { bg: "Отменена процедура", en: "Procedure cancelled" } },
+  { code: "CASE_CANCEL_UNDO", category: "CASE", labels: { bg: "Възстановен случай след отменена процедура", en: "Procedure cancellation undone" } },
   { code: "INTRAOP_TIME_ANOMALY_REPAIRED", category: "CASE", labels: { bg: "Коригирана времева аномалия в интраоперативно събитие", en: "Intraoperative event time anomaly repaired" } },
   { code: "RELATIONAL_SYNC_FAILED", category: "CASE", labels: { bg: "Неуспешна синхронизация на данните за случай", en: "Case data synchronisation failed" } },
 

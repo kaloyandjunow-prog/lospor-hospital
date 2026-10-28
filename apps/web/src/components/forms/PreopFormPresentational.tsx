@@ -55,14 +55,17 @@ export function SectionCard({
   children,
   action,
   error,
+  id,
 }: {
   title: string
   children: ReactNode
   action?: ReactNode
   error?: boolean
+  /** The anchor the sidebar jumps to. */
+  id?: string
 }) {
   return (
-    <Card className={error ? "border-red-500 dark:border-red-500" : ""}>
+    <Card id={id} className={`${id ? "scroll-mt-24 " : ""}${error ? "border-red-500 dark:border-red-500" : ""}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base text-slate-700">{title}</CardTitle>

@@ -1,10 +1,12 @@
 "use client"
 
+import { plannedProcedureLabel, plannedProcedureText } from "@lospor/core/procedure-codes"
+import { cancellationReasonLabel } from "@lospor/core/case-cancellation"
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { displayApfelRisk, displayRcriRisk, displayStopBangRisk } from "@lospor/core/risk-band-display"
 import { useLocale } from "next-intl"
-import { aldreteBand, handoverGroups } from "@lospor/core/postop"
+import { aldreteBand, handoverGroups, stewardBand } from "@lospor/core/postop"
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
 import { displayClinicalCode, displayOptionEntry, toClinicalLocale } from "@/lib/clinical-display"
 import type { Tag } from "@/components/TagInput"
@@ -44,6 +46,7 @@ import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { formatInfusionTotal } from "@lospor/core/intraop-totals"
 import { printCaseDate, printGeneratedDate, printTimeSpan } from "@/components/case-summary/print-format"
+import { MON, SummaryChip as Chip, SummaryField as F } from "@/components/case-summary/SummaryPrimitives"
 
 // ── Enum label maps ───────────────────────────────────────────────────────────
 function deviceLabel(i: CaseDetailIntraop | null | undefined, locale: string): string {
@@ -61,46 +64,6 @@ function deviceLabel(i: CaseDetailIntraop | null | undefined, locale: string): s
     if (device === "ENDOBRONCHIAL_TUBE") return `${label}${i?.endobronchialSize ? " " + i.endobronchialSize + "mm" : ""}`
     return label
   }).join(" + ") || "—"
-}
-
-const MON: { f: keyof CaseDetailIntraop; l: string }[] = [
-  { f: "ecg",              l: "ECG"      },
-  { f: "spO2Monitor",      l: "SpO₂"     },
-  { f: "nbpMonitor",       l: "NBP"      },
-  { f: "etco2Monitor",     l: "EtCO₂"    },
-  { f: "tempMonitor",      l: "Temp"     },
-  { f: "invasiveBP",       l: "IBP"      },
-  { f: "cvpMonitor",       l: "CVP"      },
-  { f: "paCatheter",       l: "PA cath"  },
-  { f: "tee",              l: "TEE"      },
-  { f: "bis",              l: "BIS"      },
-  { f: "entropyMonitor",   l: "Entropy"  },
-  { f: "nirsMonitor",      l: "NIRS"     },
-  { f: "evokedPotentials", l: "SSEP/MEP" },
-  { f: "tofMonitor",       l: "TOF/NMT"  },
-  { f: "urinaryCatheter",  l: "Urine"    },
-  { f: "stomachTube",      l: "NGT"      },
-]
-
-function F({ label, value }: { label: string; value?: string | number | null }) {
-  if (value == null || value === "") return null
-  return (
-    <div className="flex justify-between gap-2 py-[2px] border-b border-slate-100 dark:border-[#252525] last:border-0 text-[10.5px]">
-      <span className="text-slate-500 dark:text-slate-400 shrink-0">{label}</span>
-      <span className="font-semibold text-slate-800 dark:text-slate-100 text-right min-w-0 break-words">{String(value)}</span>
-    </div>
-  )
-}
-
-function Chip({ children, color = "slate" }: { children: string; color?: string }) {
-  const c: Record<string, string> = {
-    slate:  "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-    blue:   "bg-blue-100  text-blue-800  dark:bg-blue-900/40 dark:text-blue-300",
-    amber:  "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-    red:    "bg-red-100   text-red-700   dark:bg-red-900/30  dark:text-red-300",
-    green:  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  }
-  return <span className={`inline-block text-[8.5px] px-1.5 py-0.5 rounded font-medium mr-1 mb-1 ${c[color] ?? c.slate}`}>{children}</span>
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -183,6 +146,11 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const i    = data.intraop
   const o    = data.postop
   const inst = data.institution
+  const performedText = plannedProcedureText(data.postop?.performedProceduresJson)
+  // A cancelled procedure (10.0.0): said at the top of the record and the print.
+  const cancelled = (data as { status?: string }).status === "CANCELLED"
+  // The operating theatre prints on the record (10.0.0): the name the case kept.
+  const theatreName = (data as { theatreName?: string | null }).theatreName ?? data.theatre?.name ?? null
   const ibwResolution = resolveIdealBodyWeight({
     clinicalMode: data.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT",
     heightCm: p?.heightCm,
@@ -294,7 +262,10 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   // A recovery nobody has scored yet is not a zero. Defaulting the missing
   // total to 0 banded every un-assessed patient "not ready" in alarm red — the
   // worst reading on the sheet, produced by the absence of a reading.
-  const aldreteStatus = o?.aldreteTotal != null ? aldreteBand(o.aldreteTotal) : null
+  // A child is scored on Steward instead (10.0.0).
+  const steward = data.clinicalMode === "PEDIATRIC"
+  const recoveryTotal = steward ? o?.stewardTotal : o?.aldreteTotal
+  const aldreteStatus = recoveryTotal != null ? (steward ? stewardBand(recoveryTotal) : aldreteBand(recoveryTotal)) : null
   const aldreteBg = aldreteStatus === "ready" ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700"
     : aldreteStatus === "observe" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700"
     : aldreteStatus === "not_ready" ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700"
@@ -383,7 +354,11 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                 <span className="text-blue-800 dark:text-blue-400 text-[11px]">●</span>
                 <span className="text-[11px] font-bold tracking-[0.18em] text-blue-900 dark:text-blue-300">{L.record}</span>
               </div>
-              {p?.plannedProcedure && <div className="text-[13px] font-bold text-slate-900 mt-0.5">{p.plannedProcedure}</div>}
+              {plannedProcedureLabel(p, locale) && <div className="text-[13px] font-bold text-slate-900 mt-0.5">{plannedProcedureLabel(p, locale)}</div>}
+              {/* The procedure done, when it differs from the plan (10.0.0). */}
+              {performedText && performedText !== p?.plannedProcedure && (
+                <div className="text-[10.5px] text-slate-700" data-testid="summary-performed">{L.performedLbl}: <span className="font-semibold">{performedText}</span></div>
+              )}
               {(p?.diagnosis || p?.icdCode) && (
                 <div className="text-[9.5px] text-slate-500">{[p?.diagnosis, p?.icdCode].filter(Boolean).join(" · ")}</div>
               )}
@@ -391,9 +366,18 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             <div className="text-right text-[9.5px] text-slate-500 leading-relaxed shrink-0">
               <div>{inst?.name}{inst?.city ? ` · ${inst.city}` : ""}</div>
               <div>{dateStr}</div>
+              {theatreName && <div data-testid="print-theatre">{L.theatreLbl} <span className="font-bold text-slate-800">{theatreName}</span></div>}
               <div><span className="font-bold text-slate-800">{data.caseCode ? `${L.caseLbl} ${data.caseCode}` : ""}</span>{isPrint ? `${data.caseCode ? " · " : ""}${L.pageLbl} 1 ${L.ofLbl} ${pageTotal}` : ""}</div>
             </div>
           </div>
+
+          {cancelled && (
+            <div data-testid="summary-cancelled" className="border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/40 rounded-lg px-3 py-2 text-[12px] font-bold text-orange-900 dark:text-orange-200">
+              {L.cancelledLbl}{cancellationReasonLabel(data.cancellationReason, locale) ? ` · ${cancellationReasonLabel(data.cancellationReason, locale)}` : ""}
+              {data.cancellationNote ? <span className="font-normal"> — {data.cancellationNote}</span> : null}
+              {data.cancelledAt ? <span className="font-normal"> · {new Date(data.cancelledAt).toLocaleString(locale === "bg" ? "bg-BG" : "en-GB")}</span> : null}
+            </div>
+          )}
 
           {/* Patient fill-in band — identity always blank, filled by hand */}
           <div className="border border-slate-200 rounded-lg bg-slate-50/60 dark:bg-[#181818] px-3 py-1.5 flex items-end gap-4">
@@ -466,7 +450,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             {(sheet0Panels.length > 1 || sheet0Panels[0].intervalMin > 5) && (
               <p className="text-[7.5px] text-slate-400 px-1.5 pb-0.5 shrink-0">
                 {locale === "bg"
-                  ? `Жизнените показатели в таблицата са през ${sheet0Panels[0].intervalMin} мин · графиката, медикаментите и събитията са в точно записаното време`
+                  ? `Жизнените показатели в таблицата са през ${sheet0Panels[0].intervalMin} min · графиката, медикаментите и събитията са в точно записаното време`
                   : `Vitals table sampled q${sheet0Panels[0].intervalMin}min · graph, drugs and events at exact recorded times`}
               </p>
             )}
@@ -621,7 +605,11 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                 <span className="text-blue-800 dark:text-blue-400 text-[11px]">●</span>
                 <span className="text-[11px] font-bold tracking-[0.18em] text-blue-900 dark:text-blue-300">{L.prepost}</span>
               </div>
-              {p?.plannedProcedure && <div className="text-[13px] font-bold text-slate-900 mt-0.5">{p.plannedProcedure}</div>}
+              {plannedProcedureLabel(p, locale) && <div className="text-[13px] font-bold text-slate-900 mt-0.5">{plannedProcedureLabel(p, locale)}</div>}
+              {/* The procedure done, when it differs from the plan (10.0.0). */}
+              {performedText && performedText !== p?.plannedProcedure && (
+                <div className="text-[10.5px] text-slate-700" data-testid="summary-performed">{L.performedLbl}: <span className="font-semibold">{performedText}</span></div>
+              )}
               {(p?.diagnosis || p?.icdCode) && (
                 <div className="text-[9.5px] text-slate-500">{[p?.diagnosis, p?.icdCode].filter(Boolean).join(" · ")}</div>
               )}
@@ -714,6 +702,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             labels={L as unknown as Record<string, string>}
             aldreteBg={aldreteBg}
             aldreteStatus={aldreteStatus}
+            steward={steward}
             handoverItems={handoverItems}
             handoverLookup={handoverLookup}
             Field={F}

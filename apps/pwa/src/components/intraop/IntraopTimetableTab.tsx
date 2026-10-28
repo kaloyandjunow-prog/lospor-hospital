@@ -4,7 +4,8 @@ import type { IntraopLabDraw } from "@lospor/core/labs"
 import { FlatList, Platform, View } from "react-native"
 import type { TimetableData, VitalsEntry } from "@/components/IntraopTimetable"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
-import { runningItemsByCol, type RunningItem, type RowSummary, type RunningNameOf } from "@/lib/intraop-running"
+import { runningItemsByCol, type RunningColorOf, type RunningItem, type RowSummary, type RunningNameOf } from "@/lib/intraop-running"
+import { useCurrentDrugColors } from "@/lib/drug-colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayedCatalogName } from "@lospor/core/display"
 import { TimetableFooter } from "./TimetableFooter"
@@ -105,8 +106,18 @@ export function IntraopTimetableTab({
   // Running agents, infusions and fluids by the names the reader chose (Settings → UI).
   const { language, bulgarianNames } = usePreferences()
   const nameOf = useCallback<RunningNameOf>((kind, name) => displayedCatalogName(RUNNING_CATEGORY[kind], name, language, bulgarianNames), [bulgarianNames, language])
+  // Infusions in the colours in use, the hospital's own included (10.0.0).
+  const drugColors = useCurrentDrugColors()
+  const colorOf = useCallback<RunningColorOf>((kind, name) => kind === "infusion" ? drugColors.infusion(name) : undefined, [drugColors])
+  const shownInfusions = useMemo(
+    () => activeInfusions.map(infusion => {
+      const color = drugColors.infusion(infusion.name)
+      return color && color !== infusion.color ? { ...infusion, color } : infusion
+    }),
+    [activeInfusions, drugColors],
+  )
   const rowDataByCol = useMemo(() => {
-    const runningByCol = runningItemsByCol(timetable, chartRows, { projectRunning, nameOf, tciPatient })
+    const runningByCol = runningItemsByCol(timetable, chartRows, { projectRunning, nameOf, colorOf, tciPatient })
     const data = new Map<number, {
       vital: VitalsEntry | undefined
       rowEvents: LogEvent[]
@@ -126,7 +137,7 @@ export function IntraopTimetableTab({
       })
     }
     return data
-  }, [buildSummary, chartRows, eventRows, nameOf, projectRunning, tciPatient, timetable])
+  }, [buildSummary, chartRows, colorOf, eventRows, nameOf, projectRunning, tciPatient, timetable])
 
   const labDrawsByCol = useMemo(() => {
     const byCol = new Map<number, IntraopLabDraw[]>()
@@ -163,7 +174,7 @@ export function IntraopTimetableTab({
         running={running}
         summary={summary}
         labelOf={eventText}
-        activeInfusions={activeInfusions}
+        activeInfusions={shownInfusions}
         activeFluids={activeFluids}
         activeAgents={activeAgents}
         activeGas={activeGas}
@@ -183,7 +194,7 @@ export function IntraopTimetableTab({
     onOpenLabs,
     activeFluids,
     activeGas,
-    activeInfusions,
+    shownInfusions,
     buildSummary,
     chartStart,
     collapseExpandedRow,

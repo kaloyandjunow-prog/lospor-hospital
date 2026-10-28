@@ -4,6 +4,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { GestureHandlerRootView, GestureDetector, Gesture, ScrollView as GHScrollView } from "react-native-gesture-handler"
 import { planPanels } from "@lospor/core/print"
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
+import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import { apiJson } from "@/lib/api"
 import { usePreferences } from "@/lib/preferences-context"
 import { AppHeader } from "@/components/AppHeader"
@@ -31,7 +32,7 @@ type CaseData = {
   caseCode?: string | null
   status?: string
   intraop?: { keyEvents?: unknown; startTime?: string | null; timezone?: string | null } | null
-  preop?: { plannedProcedure?: string | null } | null
+  preop?: { plannedProcedure?: string | null; procedureUndetermined?: boolean } | null
 }
 
 export default function TimetableViewerScreen() {
@@ -109,7 +110,7 @@ export default function TimetableViewerScreen() {
 
   const contWord = language === "bg" ? "ПРОДЪЛЖЕНИЕ" : "CONTINUED"
   const sampledNote = (m: number) => language === "bg"
-    ? `Жизнените показатели в таблицата са през ${m} мин · графиката, медикаментите и събитията са в точно записаното време`
+    ? `Жизнените показатели в таблицата са през ${m} min · графиката, медикаментите и събитията са в точно записаното време`
     : `Vitals table sampled q${m}min · graph, drugs and events at exact recorded times`
 
   const zoomBtn = (label: string, onPress: () => void, disabled: boolean) => (
@@ -148,7 +149,7 @@ export default function TimetableViewerScreen() {
         <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <Text style={{ color: colors.textMuted, fontSize: 12, flex: 1 }} numberOfLines={1}>
-              {caseData.caseCode ?? ""}{caseData.preop?.plannedProcedure ? ` · ${caseData.preop.plannedProcedure}` : ""}
+              {caseData.caseCode ?? ""}{plannedProcedureLabel(caseData.preop, language) ? ` · ${plannedProcedureLabel(caseData.preop, language)}` : ""}
             </Text>
             {/* zoom controls: − / current sampling badge / + */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

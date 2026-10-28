@@ -23,6 +23,9 @@ export type ServerAldreteRecord = {
   consciousnessScore?: number | null
   aldreteSpO2?: number | null
   spO2Score?: number | null
+  stewardConsciousness?: number | null
+  stewardAirway?: number | null
+  stewardMovement?: number | null
 }
 
 export type AldreteFormValues = {
@@ -31,6 +34,9 @@ export type AldreteFormValues = {
   aldreteCirculation: number | undefined
   aldreteConsciousness: number | undefined
   aldreteSpO2: number | undefined
+  stewardConsciousness: number | undefined
+  stewardAirway: number | undefined
+  stewardMovement: number | undefined
 }
 
 export function aldreteFromServerPostop(p: ServerAldreteRecord): AldreteFormValues {
@@ -40,5 +46,9 @@ export function aldreteFromServerPostop(p: ServerAldreteRecord): AldreteFormValu
     aldreteCirculation:   p.aldreteCirculation   ?? p.circulationScore   ?? undefined,
     aldreteConsciousness: p.aldreteConsciousness ?? p.consciousnessScore ?? undefined,
     aldreteSpO2:          p.aldreteSpO2          ?? p.spO2Score          ?? undefined,
+    // A child's Steward score (10.0.0): the same rule, zero is a finding.
+    stewardConsciousness: p.stewardConsciousness ?? undefined,
+    stewardAirway:        p.stewardAirway        ?? undefined,
+    stewardMovement:      p.stewardMovement      ?? undefined,
   }
 }

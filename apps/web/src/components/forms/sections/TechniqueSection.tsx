@@ -13,7 +13,7 @@ export function TechniqueSection({ t, control, techniques, techniqueTree, presen
   setPresentsIntubated: () => void
 }) {
   return (
-    <SectionCard title={t("intraop.techniqueSection")} collapsible
+    <SectionCard title={t("intraop.techniqueSection")} collapsible required
       badge={techniques.length ? techniques.slice(0, 2).map(v => techniqueDisplayLabel(v, techniqueTree)).join(", ") : undefined}>
       <div className="space-y-4">
         <div className="flex items-start gap-3">

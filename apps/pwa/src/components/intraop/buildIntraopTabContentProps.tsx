@@ -340,6 +340,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       savePremedication,
       tc,
       openPremedPicker,
+      ordered: preop?.premedicationOrders,
     } }
 
     // Totals are derived, not held in state: a pure function of the timetable,

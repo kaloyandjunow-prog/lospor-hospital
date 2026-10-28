@@ -1,11 +1,11 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  View, Text, ScrollView, TextInput, TouchableOpacity,
-  ActivityIndicator, Switch, KeyboardAvoidingView, Platform,
+  View, Text, ScrollView, TouchableOpacity, Pressable,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Animated, useWindowDimensions,
 } from "react-native"
 import { useLocalSearchParams, useRouter, Stack } from "expo-router"
 import { notify } from "@/lib/notify"
-import { useForm, Controller, useWatch } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { apiJson } from "@/lib/api"
 import { submitCaseForReview, submitForReviewMessage } from "@/lib/submit-case-for-review"
@@ -15,24 +15,41 @@ import { useLiveRefresh } from "@/lib/use-live-refresh"
 import { ScreenState } from "@/components/clinical-ui"
 import { AppHeader } from "@/components/AppHeader"
 import { EditWindowBanner } from "@/components/EditWindowBanner"
-import { VitalNumber } from "@/components/VitalStepper"
-import { convertedMeasurement } from "@/lib/use-converted-measurement"
 import { colors, withAlpha } from "@/theme/colors"
 import { useCaseLock } from "@/lib/use-case-lock"
 import { WatchingOverlay } from "@/components/WatchingOverlay"
 import { usePreferences } from "@/lib/preferences-context"
 import { useRangeSpec } from "@/lib/use-option-library"
 import { normaliseHandoverCodes, postopFormSchema, type PostopFormData as FormData, type PostopFormInput as FormInput } from "@/lib/postop-form-schema"
-import { DispositionPicker, Field, HandoverChecklist, NRSRow, PaedBand, RecoverySummary, ScoreRow, SectionHeader, usePostopFocusScroll } from "@/components/postop/PostopFormSections"
+import { RecoverySummary, usePostopFocusScroll } from "@/components/postop/PostopFormSections"
+import { usePreopProfiles } from "@/lib/use-preop-profile"
+import { useSectionPager } from "@/lib/use-section-pager"
 import { canonicalizePostopPatch } from "@lospor/core/case-payloads"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import {
   aldreteBand,
   aldreteTotal as calculateAldreteTotal,
+  stewardBand,
+  stewardTotal as calculateStewardTotal,
+  suggestAldreteCirculation,
+  suggestAldreteSpO2,
 } from "@lospor/core/postop"
-import { recommendPediatricPainScale } from "@lospor/core/pediatric"
+import {
+  POSTOP_PAIN_ITEM_FIELDS,
+  flaccTotal,
+  nipsTotal,
+  paedOffered,
+  paedTotal,
+  painScaleLabel,
+  painScalesFor,
+  painSummaryEntries,
+} from "@lospor/core/postop-pain"
+import { preopSectionConfigFor } from "@lospor/core/preop-orders"
+import type { PediatricAgeUnit } from "@lospor/core/pediatric"
 import { aldreteFromServerPostop } from "@/lib/postop-aldrete-hydration"
-import { aldreteCriteria } from "@/lib/postop-aldrete-criteria"
+import { aldreteCriteria, stewardCriteria } from "@/lib/postop-aldrete-criteria"
+import { PostopVitalsAndScore } from "@/components/postop/PostopVitalsAndScore"
+import { PostopPainDisposition } from "@/components/postop/PostopPainDisposition"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -44,14 +61,14 @@ export default function PostopFormScreen() {
   const { id, continuedItems, focus } = useLocalSearchParams<{ id: string; continuedItems?: string; focus?: string }>()
   const focusScroll = usePostopFocusScroll(focus)
   const router    = useRouter()
-  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
+  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade, language, postopLayout } = usePreferences()
+  const { width: screenWidth } = useWindowDimensions()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const recoveryBpSystolicRange  = useRangeSpec("BP_SYSTOLIC_RANGE")
   const recoveryBpDiastolicRange = useRangeSpec("BP_DIASTOLIC_RANGE")
   const recoveryHeartRateRange   = useRangeSpec("HEART_RATE_RANGE")
   const recoverySpo2Range        = useRangeSpec("SPO2_RANGE")
   const recoveryTemperatureRange = useRangeSpec("TEMPERATURE_RANGE")
-  const _painNrsRange            = useRangeSpec("PAIN_NRS_RANGE")
   const { isWatching, takeover } = useCaseLock(id, true)
   const [saving, setSaving]   = useState(false)
   const [loading, setLoading] = useState(true)
@@ -63,12 +80,15 @@ export default function PostopFormScreen() {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const lastSavedJsonRef = useRef("")
   const [clinicalMode, setClinicalMode] = useState<"ADULT" | "PEDIATRIC">("ADULT")
-  const [patientAgeYears, setPatientAgeYears] = useState(0)
-  const [canSelfReportPain, setCanSelfReportPain] = useState(false)
-  const [canUseNumbers, setCanUseNumbers] = useState(false)
+  const [patientAge, setPatientAge] = useState<{ ageValue: number | null; ageUnit: PediatricAgeUnit | null; ageYears: number | null }>({ ageValue: null, ageUnit: null, ageYears: null })
+  const [preopSystolic, setPreopSystolic] = useState<number | null>(null)
+  // The planned procedure was not yet known: the procedure done is then required (10.0.0).
+  const [procedureUndetermined, setProcedureUndetermined] = useState(false)
+  const [legacyPain, setLegacyPain] = useState<string | null>(null)
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const ALDRETE_CRITERIA = aldreteCriteria(tc)
+  const STEWARD_CRITERIA = stewardCriteria(tc)
 
   const { control, handleSubmit, reset, getValues, setValue } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(postopFormSchema),
@@ -88,24 +108,49 @@ export default function PostopFormScreen() {
   const aldreteCirculation   = useWatch({ control, name: "aldreteCirculation" })
   const aldreteConsciousness = useWatch({ control, name: "aldreteConsciousness" })
   const aldreteSpO2          = useWatch({ control, name: "aldreteSpO2" })
+  const stewardConsciousness = useWatch({ control, name: "stewardConsciousness" })
+  const stewardAirway        = useWatch({ control, name: "stewardAirway" })
+  const stewardMovement      = useWatch({ control, name: "stewardMovement" })
   const disposition        = useWatch({ control, name: "disposition" })
   const handoverItems      = useWatch({ control, name: "handoverItems" }) ?? []
   const dispositionNotes   = useWatch({ control, name: "dispositionNotes" })
-  const painScoreNRS       = useWatch({ control, name: "painScoreNRS" })
-  const pediatricPainScore = useWatch({ control, name: "pediatricPainScore" })
   const ponv               = useWatch({ control, name: "ponv" })
   const formValues         = useWatch({ control })
   const pediatricMode = clinicalMode === "PEDIATRIC"
-  const pediatricPain = recommendPediatricPainScale({
-    ageYears: patientAgeYears,
-    canSelfReport: canSelfReportPain,
-    canUseNumbers,
-  })
+  const painLanguage = language === "bg" ? "bg" : "en"
 
-  useEffect(() => {
-    if (!pediatricMode) return
-    setValue("pediatricPainScale", pediatricPain.scale, { shouldDirty: true })
-  }, [pediatricMode, pediatricPain.scale, setValue])
+  // The hospital's section switches (10.0.0), kept with the preop profile.
+  const profiles = usePreopProfiles()
+  const sectionConfig = preopSectionConfigFor(profiles?.sectionConfigs, clinicalMode)
+  const showVitals = sectionConfig.sections.POSTOP_RECOVERY_VITALS
+  const showPain = sectionConfig.sections.POSTOP_PAIN
+  const showDelirium = paedOffered(clinicalMode) && sectionConfig.sections.POSTOP_DELIRIUM
+  const showPonv = sectionConfig.sections.POSTOP_PONV
+  const showHandover = sectionConfig.sections.POSTOP_HANDOVER
+  const painScales = painScalesFor({ clinicalMode, ...patientAge })
+
+  // Pain and delirium item by item.
+  const items = formValues as Partial<Record<string, number | null>>
+  const flacc = flaccTotal(items)
+  const nips = nipsTotal(items)
+  const paed = paedTotal(items)
+  const painLine = painSummaryEntries({
+    flaccTotal: flacc, nipsTotal: nips, fpsrScore: items.fpsrScore ?? null, painScoreNRS: items.painScoreNRS ?? null,
+  }, painLanguage).map(entry => `${entry.label} ${entry.value.split(" · ")[0]}`).join(", ") || null
+
+  // What the recovery observations suggest for two Aldrete items: outlined,
+  // and set only by the clinician's tap.
+  const suggestions: Partial<Record<string, { score: number; text: string }>> = {}
+  if (!pediatricMode && showVitals) {
+    const spo2Value = formValues.recoverySpO2Unobtainable ? null : formValues.recoverySpO2 ?? null
+    const spo2 = suggestAldreteSpO2(spo2Value)
+    if (spo2 != null) suggestions.aldreteSpO2 = { score: spo2, text: tc("suggestSpo2").replace("{score}", String(spo2)).replace("{value}", String(spo2Value)) }
+    const sbp = formValues.recoveryBpUnobtainable ? null : formValues.recoveryBpSystolic ?? null
+    const circulation = suggestAldreteCirculation(sbp, preopSystolic)
+    if (circulation != null) {
+      suggestions.aldreteCirculation = { score: circulation, text: tc("suggestCirculation").replace("{score}", String(circulation)).replace("{recovery}", String(sbp)).replace("{preop}", String(preopSystolic)) }
+    }
+  }
 
   useEffect(() => {
     if (disposition === "WARD" || disposition === "PACU") return
@@ -113,17 +158,20 @@ export default function PostopFormScreen() {
     if (dispositionNotes) setValue("dispositionNotes", "", { shouldDirty: true })
   }, [disposition, dispositionNotes, handoverItems.length, setValue])
 
-  const aldreteTotal = calculateAldreteTotal({
-    aldreteActivity,
-    aldreteRespiration,
-    aldreteCirculation,
-    aldreteConsciousness,
-    aldreteSpO2,
-  })
-  // Null until all five components are recorded. Without this an unassessed
+  // A child is scored on Steward instead of Aldrete (10.0.0).
+  const aldreteTotal = pediatricMode
+    ? calculateStewardTotal({ stewardConsciousness, stewardAirway, stewardMovement })
+    : calculateAldreteTotal({
+      aldreteActivity,
+      aldreteRespiration,
+      aldreteCirculation,
+      aldreteConsciousness,
+      aldreteSpO2,
+    })
+  // Null until all components are recorded. Without this an unassessed
   // patient scored 0 and was labelled "continue recovery" as though someone had
   // looked and found them unresponsive.
-  const aldreteStatus = aldreteTotal == null ? null : aldreteBand(aldreteTotal)
+  const aldreteStatus = aldreteTotal == null ? null : pediatricMode ? stewardBand(aldreteTotal) : aldreteBand(aldreteTotal)
 
   const aldreteLabel = tc(aldreteStatus === null ? "aldreteNotAssessed"
     : aldreteStatus === "ready" ? "summaryReadyDischarge"
@@ -139,7 +187,7 @@ export default function PostopFormScreen() {
     updatedAt?: string
     syncRevision?: number
   }
-  type CaseResponse = { clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: { ageYears?: number | null }; postop?: PostopRecord; finalizedAt?: string | null; status?: string }
+  type CaseResponse = { clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: { ageYears?: number | null; ageValue?: number | null; ageUnit?: PediatricAgeUnit | null; bpSystolic?: number | null; proceduresJson?: unknown; procedureUndetermined?: boolean }; postop?: PostopRecord; finalizedAt?: string | null; status?: string }
 
   const valuesFromPostop = useCallback((p: PostopRecord, _mode: "ADULT" | "PEDIATRIC"): FormData => {    return {
       // See postop-aldrete-hydration: undefined, not 0, for unassessed -- 0 is a real, pathological score.
@@ -160,12 +208,20 @@ export default function PostopFormScreen() {
       painScoreNRS:       p.painScoreNRS,
       // null, not undefined: only null survives into a patch to clear an answer.
       ponv:               p.ponv ?? null,
-      disposition:        p.disposition,
+      // The server sends null for "not chosen"; the form schema takes only
+      // absent for these two, and a null made every autosave of a reopened
+      // record fail its parse and skip without a word (10.0.0).
+      disposition:        p.disposition ?? undefined,
       dispositionNotes:   p.dispositionNotes   ?? "",
-      pediatricPainScale: p.pediatricPainScale,
+      pediatricPainScale: p.pediatricPainScale ?? undefined,
       pediatricPainScore: p.pediatricPainScore,
       paedScore:          p.paedScore,
+      // Pain and delirium item by item (10.0.0): unscored stays unscored.
+      ...Object.fromEntries(POSTOP_PAIN_ITEM_FIELDS.map(field => [field, (p as Record<string, unknown>)[field] ?? undefined])),
       handoverItems:      normaliseHandoverCodes(Array.isArray(p.handoverItems) ? p.handoverItems : []),
+      performedProcedures: Array.isArray((p as { performedProceduresJson?: unknown }).performedProceduresJson)
+        ? (p as { performedProceduresJson: FormData["performedProcedures"] }).performedProceduresJson
+        : Array.isArray((p as { performedProcedures?: unknown }).performedProcedures) ? (p as { performedProcedures: FormData["performedProcedures"] }).performedProcedures : [],
     }
   }, [])
 
@@ -248,14 +304,20 @@ export default function PostopFormScreen() {
         const p = c.postop ?? {}
         const mode = c.clinicalMode ?? "ADULT"
         setClinicalMode(mode)
-        setPatientAgeYears(c.preop?.ageYears ?? 0)
+        setPatientAge({ ageValue: c.preop?.ageValue ?? null, ageUnit: c.preop?.ageUnit ?? null, ageYears: c.preop?.ageYears ?? null })
+        setPreopSystolic(c.preop?.bpSystolic ?? null)
+        setProcedureUndetermined(c.preop?.procedureUndetermined === true)
+        setLegacyPain(p.pediatricPainScale && p.pediatricPainScore != null
+          ? tc("painEarlier").replace("{scale}", painScaleLabel(p.pediatricPainScale)).replace("{score}", String(p.pediatricPainScore))
+          : null)
         const serverValues = valuesFromPostop(p, mode)
         const queuedPostop = await autosaveManager.outbox.load<Record<string, unknown>>(id, "postop")
         const nextValues = valuesFromPostop({ ...p, ...(queuedPostop ?? {}) }, mode)
-        const storedPainScale = nextValues.pediatricPainScale
-        setCanSelfReportPain(storedPainScale === "FPS_R" || storedPainScale === "NRS")
-        setCanUseNumbers(storedPainScale === "NRS")
         lastSavedJsonRef.current = JSON.stringify(payloadFrom(nextValues))
+        // The procedure done starts as the one planned (10.0.0).
+        if (!nextValues.performedProcedures?.length && Array.isArray(c.preop?.proceduresJson) && c.preop.proceduresJson.length > 0) {
+          nextValues.performedProcedures = c.preop.proceduresJson as FormData["performedProcedures"]
+        }
         // Pre-populate dispositionNotes with continued-postop items if field is empty
         if (continuedItems && !nextValues.dispositionNotes) {
           const itemList = decodeURIComponent(continuedItems).split("|").filter(Boolean)
@@ -316,6 +378,60 @@ export default function PostopFormScreen() {
     if (autosaveManager.getState(id).pending === 0) markSaveResult("saved")
   }, { enabled: !loading && autosaveState === "queued", intervalMs: 10_000 })
 
+
+  // ── Sections (10.0.0): one at a time with a swipe, or all in one scroll,
+  // as the preop form is set. Recovery score and discharge are always there:
+  // both are needed to finalise.
+  type PostopSectionKey = "vitals" | "score" | "pain" | "discharge"
+  const sectionList: { key: PostopSectionKey; label: string; required: boolean; missing: boolean }[] = [
+    ...(showVitals ? [{ key: "vitals" as const, label: tc("postopSectionVitals"), required: false, missing: false }] : []),
+    { key: "score", label: tc("postopSectionScore"), required: true, missing: aldreteTotal == null },
+    ...(showPain || showDelirium || showPonv ? [{ key: "pain" as const, label: tc("postopSectionPain"), required: false, missing: false }] : []),
+    { key: "discharge", label: tc("postopSectionDischarge"), required: true, missing: !disposition },
+  ]
+  const sectionKeys = sectionList.map(section => section.key).join("|")
+  const pagerKeys = useMemo(() => sectionKeys.split("|") as PostopSectionKey[], [sectionKeys])
+  const paged = postopLayout === "sections"
+  const pager = useSectionPager(pagerKeys, paged, screenWidth)
+  const pagerGo = pager.go
+  // Where each section starts in the scroll: its place in the section block plus
+  // where that block starts, below the summary.
+  const sectionY = useRef<Partial<Record<PostopSectionKey, number>>>({})
+  const blockY = useRef(0)
+  const sectionTop = useCallback((key: PostopSectionKey) => blockY.current + (sectionY.current[key] ?? 0), [])
+  // In the scrolling layout the strip follows the scroll.
+  const followScroll = (y: number) => {
+    if (paged) return
+    const passed = sectionList.filter(section => sectionTop(section.key) <= y + 24)
+    const current = passed[passed.length - 1]?.key ?? sectionList[0].key
+    if (current !== pager.active) pager.go(current)
+  }
+  const markY = (key: PostopSectionKey) => (event: { nativeEvent: { layout: { y: number } } }) => { sectionY.current[key] = event.nativeEvent.layout.y }
+  const jumpTo = useCallback((key: PostopSectionKey) => {
+    pagerGo(key)
+    if (!paged) setTimeout(() => focusScroll.ref.current?.scrollTo({ y: Math.max(0, sectionTop(key) - 8), animated: true }), 30)
+  }, [focusScroll.ref, pagerGo, paged, sectionTop])
+  // A readiness "Go to" opens its section.
+  useEffect(() => {
+    const key = focus === "recovery" ? "score" : focus === "disposition" ? "discharge" : null
+    if (loading || !key) return
+    // Scrolling: once the sections have been laid out.
+    jumpTo(key)
+  }, [focus, jumpTo, loading])
+  // Each section opens at its top.
+  useEffect(() => {
+    if (paged) focusScroll.ref.current?.scrollTo({ y: 0, animated: false })
+  }, [focusScroll.ref, paged, pager.active])
+  const nextSection = paged ? sectionList[sectionList.findIndex(section => section.key === pager.active) + 1] : undefined
+  // The open section's pill is kept in view, centred, as preop's are: the last
+  // one sat half off the screen (10.0.0).
+  const stripRef = useRef<ScrollView>(null)
+  const pillX = useRef<Partial<Record<PostopSectionKey, { x: number; width: number }>>>({})
+  useEffect(() => {
+    const pill = pillX.current[pager.active]
+    if (pill) stripRef.current?.scrollTo({ x: Math.max(0, pill.x + pill.width / 2 - screenWidth / 2), animated: true })
+  }, [pager.active, screenWidth])
+
   async function onSubmit(data: FormData) {
     setSaving(true)
     try {
@@ -366,13 +482,49 @@ export default function PostopFormScreen() {
         style={{ flex: 1, backgroundColor: colors.background }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView ref={focusScroll.ref} style={{ paddingHorizontal: 20, paddingTop: 2 }} contentContainerStyle={{ paddingBottom: 80 }}>
+        {/* The sections, as a strip: a red dot where a field needed to finalise is empty. */}
+        <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background }}>
+          <ScrollView ref={stripRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
+            {sectionList.map(section => {
+              const isActive = pager.active === section.key
+              return (
+                <Pressable
+                  key={section.key}
+                  testID={`postop-pill-${section.key}`}
+                  onLayout={event => { pillX.current[section.key] = { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width } }}
+                  onPress={() => jumpTo(section.key)}
+                  style={{
+                    minHeight: 40,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: isActive ? withAlpha(colors.primary, "AA") : colors.border,
+                    backgroundColor: isActive ? colors.primarySoft : colors.surfaceRaised,
+                    paddingHorizontal: 15,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ color: isActive ? colors.primary : colors.textSecondary, fontSize: 13, fontWeight: "900" }}>
+                    {section.label}{section.required ? <Text style={{ color: colors.danger }}> *</Text> : null}
+                  </Text>
+                  {section.missing ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.danger }} /> : null}
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+        </View>
+        <View style={{ flex: 1 }} {...pager.panHandlers}>
+        <ScrollView ref={focusScroll.ref} style={{ paddingHorizontal: 20, paddingTop: 2 }} contentContainerStyle={{ paddingBottom: 80 }} keyboardShouldPersistTaps="handled" scrollEventThrottle={64} onScroll={event => followScroll(event.nativeEvent.contentOffset.y)}>
           <RecoverySummary
             total={aldreteTotal}
+            status={aldreteStatus}
+            steward={pediatricMode}
             label={aldreteLabel}
             disposition={disposition}
-            pain={pediatricMode ? pediatricPainScore : painScoreNRS}
+            pain={painLine}
             ponv={ponv}
+            compact={paged}
           />
           <Text style={{ color: autosaveState === "error" || autosaveState === "blocked" ? colors.danger : autosaveState === "queued" ? colors.warning : colors.textMuted, fontSize: 12, fontWeight: "800", marginTop: 2, marginBottom: 4, textAlign: "right" }}>
             {autosaveState === "saving"
@@ -387,248 +539,48 @@ export default function PostopFormScreen() {
               ? `${t("savedAt")} ${lastSavedAt}`
               : tc("autosaveReady")}
           </Text>
-          {/* ── Modified Aldrete Score ─────────────────────────────── */}
-          <SectionHeader title={tc("aldreteScore")} onLayout={focusScroll.mark("recovery")} />
 
-          {ALDRETE_CRITERIA.map((criterion) => (
-            <View key={criterion.field} className="mb-4">
-              <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 8 }}>{criterion.label}</Text>
-              <Controller
-                control={control}
-                name={criterion.field}
-                render={({ field: { onChange, value } }) => (
-                  <ScoreRow
-                    label={criterion.label}
-                    value={value as number}
-                    onChange={onChange}
-                    descriptions={criterion.descriptions}
-                  />
-                )}
-              />
-            </View>
-          ))}
+          <Animated.View style={pager.style} onLayout={event => { blockY.current = event.nativeEvent.layout.y }}>
+          {(pager.shown("vitals") || pager.shown("score")) && <PostopVitalsAndScore control={control} pediatricMode={pediatricMode} screenWidth={screenWidth} unitPrefs={unitPrefs} tc={tc} recoveryBpSystolicRange={recoveryBpSystolicRange} recoveryBpDiastolicRange={recoveryBpDiastolicRange} recoveryHeartRateRange={recoveryHeartRateRange} recoverySpo2Range={recoverySpo2Range} recoveryTemperatureRange={recoveryTemperatureRange} aldreteCriteria={ALDRETE_CRITERIA} stewardCriteria={STEWARD_CRITERIA} suggestions={suggestions} markY={markY} />}
 
-          {/* ── Recovery vitals ────────────────────────────────────── */}
-          <SectionHeader title={tc("recoveryVitals")} />
+          <PostopPainDisposition control={control} setValue={setValue} tc={tc} handoverNotesPlaceholder={t("handoverNotesPlaceholder")} items={items} painLanguage={painLanguage} painScales={painScales} legacyPain={legacyPain} flacc={flacc} nips={nips} paed={paed} showPainSection={pager.shown("pain")} showDischargeSection={pager.shown("discharge")} showPain={showPain} showDelirium={showDelirium} showPonv={showPonv} ponv={ponv} disposition={disposition} procedureUndetermined={procedureUndetermined} showHandover={showHandover} blockedDispositionMessage={blockedIssue?.field === "dispositionNotes" && blockedIssue ? blockedMessage(blockedIssue) : undefined} markY={markY} />
 
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Controller control={control} name="recoveryBpSystolic" render={({ field }) => (
-                <Controller control={control} name="recoveryBpUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : recoveryBpSystolicRange?.min ?? 1} max={recoveryBpSystolicRange?.max ?? 300} step={recoveryBpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} labelNotAvailable={tc("vitalNotAvailable")} />
-                )} />
-              )} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Controller control={control} name="recoveryBpDiastolic" render={({ field }) => (
-                <Controller control={control} name="recoveryBpUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("dbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 5 : recoveryBpDiastolicRange?.min ?? 1} max={recoveryBpDiastolicRange?.max ?? 200} step={recoveryBpDiastolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} labelNotAvailable={tc("vitalNotAvailable")} />
-                )} />
-              )} />
-            </View>
-          </View>
-
-          <Controller control={control} name="recoveryHeartRate" render={({ field }) => (
-            <Controller control={control} name="recoveryHeartRateUnobtainable" render={({ field: uto }) => (
-              <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : recoveryHeartRateRange?.min ?? 1} max={pediatricMode ? 350 : recoveryHeartRateRange?.max ?? 300} step={recoveryHeartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} labelNotAvailable={tc("vitalNotAvailable")} />
-            )} />
-          )} />
-
-          <Controller control={control} name="recoverySpO2" render={({ field }) => (
-            <Controller control={control} name="recoverySpO2Unobtainable" render={({ field: uto }) => (
-              <VitalNumber label={tc("spO2Label")} unit="%" value={field.value} onChange={field.onChange} min={recoverySpo2Range?.min ?? 0} max={recoverySpo2Range?.max ?? 100} step={recoverySpo2Range?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} labelNotAvailable={tc("vitalNotAvailable")} />
-            )} />
-          )} />
-
-          <Controller control={control} name="temperatureCelsius" render={({ field }) => (
-            <Controller control={control} name="recoveryTemperatureUnobtainable" render={({ field: uto }) => {
-              const cv = convertedMeasurement("temperature", unitPrefs, field.value, field.onChange, pediatricMode ? 25 : recoveryTemperatureRange?.min ?? 0, recoveryTemperatureRange?.max ?? 45, recoveryTemperatureRange?.step ?? 0.1)
-              return <VitalNumber label={tc("temperatureLabel")} unit={cv.unit} value={cv.value} onChange={cv.onChange} min={cv.min} max={cv.max} step={cv.step} precision={cv.precision || 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} labelNotAvailable={tc("vitalNotAvailable")} />
-            }} />
-          )} />
-
-          {pediatricMode ? (
-            <View>
-              <SectionHeader title={tc("pediatricPainAssessment")} />
-              <Field label={tc("childCanSelfReportPain")}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: canSelfReportPain ? colors.primary : colors.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 }}>
-                  <Switch
-                    value={canSelfReportPain}
-                    onValueChange={(value) => {
-                      setCanSelfReportPain(value)
-                      if (!value) setCanUseNumbers(false)
-                    }}
-                    trackColor={{ false: colors.borderStrong, true: withAlpha(colors.primary, "66") }}
-                    thumbColor={shade("#fff")}
-                  />
-                  <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800" }}>
-                    {canSelfReportPain ? t("yesLabel") : t("noLabel")}
-                  </Text>
-                </View>
-              </Field>
-              {canSelfReportPain ? (
-                <Field label={tc("childCanUseNumericScale")}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: canUseNumbers ? colors.primary : colors.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 }}>
-                    <Switch
-                      value={canUseNumbers}
-                      onValueChange={setCanUseNumbers}
-                      trackColor={{ false: colors.borderStrong, true: withAlpha(colors.primary, "66") }}
-                      thumbColor={shade("#fff")}
-                    />
-                    <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800" }}>
-                      {canUseNumbers ? t("yesLabel") : t("noLabel")}
-                    </Text>
-                  </View>
-                </Field>
-              ) : null}
-              <View style={{ borderWidth: 1, borderColor: withAlpha(colors.primary, "55"), backgroundColor: withAlpha(colors.primary, "12"), borderRadius: 10, padding: 10, marginBottom: 12 }}>
-                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "900" }}>
-                  {tc("recommendedScale")}: {pediatricPain.scale.replace("_", "-")}
-                </Text>
-              </View>
-              <Field label={`${pediatricPain.scale.replace("_", "-")} (0-10)`}>
-                <Controller
-                  control={control}
-                  name="pediatricPainScore"
-                  render={({ field: { onChange, value } }) => <NRSRow value={value} onChange={onChange} />}
-                />
-              </Field>
-              <Field label={tc("paedOptional")}>
-                <Controller
-                  control={control}
-                  name="paedScore"
-                  render={({ field: { onChange, value } }) => <><NRSRow value={value} onChange={onChange} max={20} /><PaedBand score={value} /></>}
-                />
-              </Field>
-            </View>
+          {nextSection ? (
+            <TouchableOpacity
+              testID="postop-next-section"
+              accessibilityRole="button"
+              onPress={() => jumpTo(nextSection.key)}
+              style={{ backgroundColor: colors.primarySoft, borderRadius: 16, borderCurve: "continuous", paddingVertical: 15, alignItems: "center", marginTop: 22, borderWidth: 1, borderColor: withAlpha(colors.primary, "88") }}
+            >
+              <Text style={{ color: colors.primary, fontWeight: "900", fontSize: 16 }}>{tc("postopNext").replace("{section}", nextSection.label)} →</Text>
+            </TouchableOpacity>
           ) : (
-            <Field label={tc("painNRS")}>
-              <Controller
-                control={control}
-                name="painScoreNRS"
-                render={({ field: { onChange, value } }) => <NRSRow value={value} onChange={onChange} />}
-              />
-            </Field>
-          )}
-
-          <Field label={tc("ponvLabel")}>
-            <Controller
-              control={control}
-              name="ponv"
-              render={({ field: { onChange, value } }) => (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: value ? colors.warning : colors.border, borderRadius: 14, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 10 }}>
-                  <Switch
-                    value={value ?? false}
-                    onValueChange={onChange}
-                    trackColor={{ false: colors.borderStrong, true: withAlpha(colors.warning, "66") }}
-                    ios_backgroundColor={colors.borderStrong}
-                    thumbColor={shade("#fff")}
-                  />
-                  <Text style={{ color: value ? colors.warning : colors.textSecondary, fontSize: 14, fontWeight: "800" }}>{value ? tc("ponvPresent") : tc("ponvAbsent")}</Text>
-                </View>
-              )}
-            />
-          </Field>
-
-          {/* ── Disposition ────────────────────────────────────────── */}
-          <SectionHeader title={tc("dispositionLabel")} onLayout={focusScroll.mark("disposition")} />
-
-          <View className="mb-4">
-            <Controller
-              control={control}
-              name="disposition"
-              render={({ field: { onChange, value } }) => (
-                <DispositionPicker
-                  value={value}
-                  onChange={(next) => {
-                    onChange(next)
-                    if (next !== "WARD" && next !== "PACU") {
-                      setValue("handoverItems", [], { shouldDirty: true })
-                      setValue("dispositionNotes", "", { shouldDirty: true })
-                    }
-                  }}
-                  wardLabel={tc("dispWard")}
-                  pacuLabel={tc("dispPACU")}
-                  icuLabel={tc("dispICU")}
-                />
-              )}
-            />
-          </View>
-
-          {(disposition === "WARD" || disposition === "PACU") && (
-          <Field label={tc("dispNotes")}>
-            <Controller
-              control={control}
-              name="dispositionNotes"
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  placeholderTextColor={colors.textMuted}
-                  placeholder={t("handoverNotesPlaceholder")}
-                  value={value ?? ""}
-                  onChangeText={onChange}
-                  multiline
-                  style={{
-                    minHeight: 92,
-                    textAlignVertical: "top",
-                    backgroundColor: colors.surface,
-                    color: colors.textPrimary,
-                    borderRadius: 14,
-                    borderCurve: "continuous",
-                    paddingHorizontal: 14,
-                    paddingVertical: 12,
-                    fontSize: 16,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                />
-              )}
-            />
-            {blockedIssue?.field === "dispositionNotes" ? (
-              <Text style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}>
-                {blockedMessage(blockedIssue)}
-              </Text>
-            ) : null}
-          </Field>
-          )}
-
-          {/* ── Handover checklist ─────────────────────────────────── */}
-          {(disposition === "WARD" || disposition === "PACU") && (
-            <>
-              <SectionHeader title={tc("handoverChecklist")} />
-              <Controller
-                control={control}
-                name="handoverItems"
-                render={({ field: { onChange, value } }) => (
-                  <HandoverChecklist value={value ?? []} onChange={onChange} />
-                )}
-              />
-            </>
-          )}
-
-          {/* ── Save ───────────────────────────────────────────────── */}
           <TouchableOpacity
-            style={{
-              backgroundColor: colors.success,
-              borderRadius: 16,
-              borderCurve: "continuous",
-              paddingVertical: 15,
-              alignItems: "center",
-              marginTop: 22,
-              borderWidth: 1,
-              borderColor: withAlpha(colors.success, "99"),
-              boxShadow: "0 12px 26px rgba(0, 0, 0, 0.32)",
-            }}
-            onPress={handleSubmit(onSubmit)}
-            disabled={isWatching || saving}
-          >
-            {saving ? (
-              <ActivityIndicator color={shade("#fff")} />
-            ) : (
-              <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{tc("continueToSummary")}</Text>
-            )}
-          </TouchableOpacity>
+              style={{
+                backgroundColor: colors.success,
+                borderRadius: 16,
+                borderCurve: "continuous",
+                paddingVertical: 15,
+                alignItems: "center",
+                marginTop: 22,
+                borderWidth: 1,
+                borderColor: withAlpha(colors.success, "99"),
+                boxShadow: "0 12px 26px rgba(0, 0, 0, 0.32)",
+              }}
+              onPress={handleSubmit(onSubmit)}
+              disabled={isWatching || saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={shade("#fff")} />
+              ) : (
+                <Text style={{ color: colors.background, fontWeight: "900", fontSize: 16 }}>{tc("continueToSummary")}</Text>
+              )}
+            </TouchableOpacity>
+          )}
+          </Animated.View>
 
         </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </>
   )

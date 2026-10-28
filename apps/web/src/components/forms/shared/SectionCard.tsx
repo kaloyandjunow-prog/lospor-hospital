@@ -3,11 +3,13 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronDown } from "lucide-react"
 
-export function SectionCard({ title, children, collapsible = false, defaultCollapsed = false, badge, readiness }: {
+export function SectionCard({ title, children, collapsible = false, defaultCollapsed = false, badge, readiness, required = false }: {
   title: string; children: React.ReactNode
   collapsible?: boolean; defaultCollapsed?: boolean; badge?: string
   /** The readiness name a "Go to" scrolls to (1.5.0). */
   readiness?: string
+  /** Holds a field needed to finalise: the title carries the red star. */
+  required?: boolean
 }) {
   const [open, setOpen] = useState(!defaultCollapsed)
   return (
@@ -17,7 +19,7 @@ export function SectionCard({ title, children, collapsible = false, defaultColla
         onClick={collapsible ? () => setOpen(v => !v) : undefined}
       >
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base text-slate-700 dark:text-slate-200">{title}</CardTitle>
+          <CardTitle className="text-base text-slate-700 dark:text-slate-200">{title}{required ? <span className="text-red-500"> *</span> : null}</CardTitle>
           <div className="flex items-center gap-2">
             {badge && !open && <span className="text-xs text-slate-400 dark:text-slate-500 font-normal truncate max-w-[180px]">{badge}</span>}
             {collapsible && <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />}

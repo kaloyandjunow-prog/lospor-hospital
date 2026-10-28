@@ -1,6 +1,5 @@
 "use client"
 
-import { useMemo } from "react"
 import {
   Controller,
   useWatch,
@@ -11,17 +10,12 @@ import { useTranslations } from "next-intl"
 import { applyClinicalModeSwitch } from "@/lib/clinical-mode-switch"
 import { ShieldAlert } from "lucide-react"
 import {
-  APAGBI_FASTING_POLICY_2023,
   calculatePovoc,
-  isFastingAssignmentBelowMinimum,
-  PEDIATRIC_FASTING_CATEGORIES,
-  policyFastingAssignments,
   normalizePediatricAge,
   validateClinicalModeAge,
   validatePediatricAge,
   type ClinicalMode,
   type PediatricAgeUnit,
-  type PediatricFastingCategory,
 } from "@lospor/core/pediatric"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { NumberStepper } from "@/components/NumberStepper"
@@ -34,6 +28,7 @@ import {
   type PediatricModeCapability,
 } from "@/lib/deployment-capabilities"
 import { PediatricColdsCard } from "@/components/forms/PediatricColdsCard"
+export { PediatricFastingFields } from "@/components/forms/PediatricFastingFields"
 
 type FormProps = {
   control: Control<PreopData>
@@ -52,10 +47,18 @@ export function ClinicalModeAgeFields({
   setValue,
   pediatricCapability,
   existingPediatricRecord = false,
+  part,
+  compact = false,
 }: FormProps & {
   pediatricCapability: PediatricModeCapability
   existingPediatricRecord?: boolean
+  /** Only the mode switch, or only the age, so a compact layout can place them apart. */
+  part?: "mode" | "age"
+  /** No sliders and smaller buttons: the compact demographics layout. */
+  compact?: boolean
 }) {
+  const showMode = part !== "age"
+  const showAge = part !== "mode"
   const t = useTranslations("pediatric")
   const [modeRaw, ageValue, ageUnitRaw, ageYears] = useWatch({
     control,
@@ -99,9 +102,9 @@ export function ClinicalModeAgeFields({
   return (
     <fieldset
       disabled={pediatricRecordReadOnly}
-      className="min-w-0 space-y-4 border-0 p-0 sm:col-span-3"
+      className={compact ? "min-w-0 space-y-2 border-0 p-0" : "min-w-0 space-y-4 border-0 p-0 sm:col-span-3"}
     >
-      <div className="space-y-2">
+      {showMode && <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {t("mode")}
         </Label>
@@ -118,7 +121,7 @@ export function ClinicalModeAgeFields({
                 && !pediatricRecordReadOnly
                 ? pediatricNoticeId
                 : undefined}
-              className={`min-h-11 border-2 px-3 py-2 text-sm font-semibold transition-colors ${
+              className={`${compact ? "min-h-9 py-1.5 text-xs" : "min-h-11 py-2 text-sm"} border-2 px-3 font-semibold transition-colors ${
                 mode === value
                   ? "border-blue-500 bg-blue-500 text-white"
                   : "border-slate-200 text-slate-600 hover:border-blue-300 dark:border-[#3a3a3a] dark:text-slate-300"
@@ -141,9 +144,9 @@ export function ClinicalModeAgeFields({
             ))}</span>
           </p>
         )}
-      </div>
+      </div>}
 
-      {mode === "ADULT" ? (
+      {showAge && (mode === "ADULT" ? (
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             {t("age")} <span className="text-red-500">*</span>
@@ -156,13 +159,13 @@ export function ClinicalModeAgeFields({
               max={149}
               step={1}
               unit={t("yearsShort")}
-              showSlider
+              showSlider={!compact}
             />
           )} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="space-y-2 sm:col-span-2">
+        <div className={compact ? "grid grid-cols-1 gap-2" : "grid grid-cols-1 gap-4 sm:grid-cols-3"}>
+          <div className={compact ? "space-y-2" : "space-y-2 sm:col-span-2"}>
             <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {t("preciseAge")} <span className="text-red-500">*</span>
             </Label>
@@ -173,7 +176,7 @@ export function ClinicalModeAgeFields({
               max={ageMaximum(ageUnit)}
               step={1}
               unit={t(ageUnit === "DAYS" ? "daysShort" : ageUnit === "MONTHS" ? "monthsShort" : "yearsShort")}
-              showSlider={ageUnit === "YEARS"}
+              showSlider={!compact && ageUnit === "YEARS"}
             />
           </div>
           <div className="space-y-2">
@@ -207,9 +210,9 @@ export function ClinicalModeAgeFields({
             )}
           </div>
         </div>
-      )}
+      ))}
 
-      {!modeMismatch.valid && (
+      {showAge && !modeMismatch.valid && (
         <div className="flex items-start justify-between gap-3 border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
           <span className="flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -228,7 +231,7 @@ export function ClinicalModeAgeFields({
           </Button>
         </div>
       )}
-      {ageIssues.map(issue => (
+      {showAge && ageIssues.map(issue => (
         <p
           key={issue.code}
           className={issue.severity === "ERROR" ? "text-xs text-red-600" : "text-xs text-amber-600"}
@@ -260,7 +263,6 @@ export function PediatricRiskAndCalculators({
     povocSurgeryAtLeast30Minutes,
     povocStrabismusSurgery,
     povocHistory,
-    fastingRows,
   ] = useWatch({
     control,
     name: [
@@ -270,12 +272,14 @@ export function PediatricRiskAndCalculators({
       "povocSurgeryAtLeast30Minutes",
       "povocStrabismusSurgery",
       "povocHistory",
-      "pediatricFasting",
     ],
   })
   const ageUnit: PediatricAgeUnit = ageUnitRaw ?? "YEARS"
   const age = ageValue != null ? normalizePediatricAge({ value: ageValue, unit: ageUnit }) : null
-  const povoc = age
+  // A score once all three are answered (10.0.0); an unanswered one is not a "no".
+  const povocAnswers = [povocSurgeryAtLeast30Minutes, povocStrabismusSurgery, povocHistory]
+  const povocAnsweredCount = povocAnswers.filter(answer => answer === true || answer === false).length
+  const povoc = age && povocAnsweredCount === 3
     ? calculatePovoc({
         ageYears: age.approximateDays / 365.2425,
         surgeryMinutes: povocSurgeryAtLeast30Minutes ? 30 : 0,
@@ -283,27 +287,7 @@ export function PediatricRiskAndCalculators({
         patientOrFamilyHistory: !!povocHistory,
       })
     : null
-  const fastingByCategory = useMemo(
-    () => new Map((fastingRows ?? []).map(row => [row.category, row])),
-    [fastingRows],
-  )
-
   if (mode !== "PEDIATRIC") return null
-
-  // A nil-by-mouth assignment: each intake stops so many hours before
-  // surgery. Clearing the hours removes that intake from the assignment.
-  function assignFasting(category: PediatricFastingCategory, raw: string) {
-    const remaining = (fastingRows ?? []).filter(row => row.category !== category)
-    const hoursBefore = raw === "" ? null : Number(raw)
-    if (hoursBefore == null || !Number.isFinite(hoursBefore) || hoursBefore < 0) {
-      setValue("pediatricFasting", remaining, { shouldDirty: true })
-      return
-    }
-    setValue("pediatricFasting", [
-      ...remaining,
-      { category, hoursBefore: Math.min(hoursBefore, 24), policyId: APAGBI_FASTING_POLICY_2023.id, policyVersion: APAGBI_FASTING_POLICY_2023.version },
-    ], { shouldDirty: true })
-  }
 
   return (
     <div className="space-y-5">
@@ -311,6 +295,7 @@ export function PediatricRiskAndCalculators({
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("povoc")}</p>
           {povoc && povocAvailable && <Badge variant="outline">{povoc.score}/4 · {povoc.riskPercent}%</Badge>}
+          {!povoc && povocAvailable && <span className="text-xs text-slate-500" data-testid="povoc-answered">{tRoot("preop.questionsAnswered", { answered: povocAnsweredCount, total: 3 })}</span>}
         </div>
         {!povocAvailable && <p className="text-xs text-slate-500" role="note">{tRoot("preop.scoreUnavailable")}</p>}
         {([
@@ -326,48 +311,6 @@ export function PediatricRiskAndCalculators({
       </div>
 
       {isShown("coldsApplicable") && <PediatricColdsCard control={control} setValue={setValue} />}
-
-      <div className="border-t border-slate-200 pt-4 dark:border-[#2e2e2e]">
-        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("npoTitle")}</p>
-          <Button type="button" size="sm" variant="outline" onClick={() => setValue("pediatricFasting", policyFastingAssignments(), { shouldDirty: true })}>
-            {t("npoUsePolicy")}
-          </Button>
-        </div>
-        <p className="mb-3 text-xs text-slate-500">{t("npoHint")}</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {PEDIATRIC_FASTING_CATEGORIES.map(category => {
-            const row = fastingByCategory.get(category)
-            const minimum = APAGBI_FASTING_POLICY_2023.minimumHours[category]
-            return (
-              <label key={category} className="space-y-1 text-xs font-semibold text-slate-500" data-testid={`npo-${category}`}>
-                <span>{t(`fastingCategories.${category}`)}</span>
-                <span className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={24}
-                    step={0.5}
-                    inputMode="decimal"
-                    value={row?.hoursBefore ?? ""}
-                    placeholder={String(minimum)}
-                    onChange={event => assignFasting(category, event.target.value)}
-                    className="h-10 w-24 border border-slate-300 bg-white px-2 text-sm font-normal text-slate-800 dark:border-[#3a3a3a] dark:bg-[#181818] dark:text-slate-100"
-                  />
-                  <span className="font-normal">{t("npoHoursBefore")}</span>
-                </span>
-                {row && isFastingAssignmentBelowMinimum(row) && (
-                  <span className="block font-normal text-amber-600">{t("npoBelowMinimum", { hours: minimum })}</span>
-                )}
-              </label>
-            )
-          })}
-        </div>
-        <p className="mt-2 text-xs text-slate-400">
-          {APAGBI_FASTING_POLICY_2023.id} {APAGBI_FASTING_POLICY_2023.version}
-        </p>
-      </div>
-
     </div>
   )
 }

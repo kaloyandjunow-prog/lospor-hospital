@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { downloadPersonalExport, requestRole } from "@/lib/account-actions"
-import { Settings, Sun, Moon, X, User, LayoutList, Rows3 } from "lucide-react"
+import { Settings, Sun, Moon, X, User, LayoutList, Rows3, PanelRight } from "lucide-react"
+import { useCaseLayout } from "@/hooks/useCaseLayout"
+import type { ScreenLayout } from "@/lib/case-layout"
+import { applyUiScale, parseUiScale, UI_SCALE_COOKIE, UI_SCALE_DEFAULT } from "@/lib/ui-scale"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { caseOutbox } from "@/lib/case-outbox"
@@ -19,30 +22,10 @@ import {
 import { useAccountLocale } from "@/hooks/useAccountLocale"
 import { SettingRow, Toggle } from "@/components/settings/SettingControls"
 import { BulgarianNamesSettings } from "@/components/settings/BulgarianNamesSettings"
+import { PillGroup } from "@/components/settings/PillGroup"
+import { UiScaleSetting } from "@/components/settings/UiScaleSetting"
 
 type Category = "ui" | "units" | "automation" | "access" | "privacy"
-
-function PillGroup({ options, value, onChange }: {
-  options: { value: string; label: string; icon?: React.ReactNode }[]
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <div className="flex gap-1.5 flex-wrap">
-      {options.map(o => (
-        <button key={o.value} type="button" onClick={() => onChange(o.value)}
-          className={`flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg border text-xs font-semibold transition-all ${
-            value === o.value
-              ? "bg-slate-800 dark:bg-slate-200 border-slate-700 dark:border-slate-300 text-white dark:text-slate-900"
-              : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-[#555]"
-          }`}>
-          {o.icon && <span className="shrink-0">{o.icon}</span>}
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 type RoleReq = { id: string; status: string; requestedAt: string; resolvedAt: string | null } | null
 
@@ -71,8 +54,18 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   // Somebody already in "Без институция" has nothing to leave.
   const canLeave = Boolean(institutionId) && institutionId !== NO_INSTITUTION_ID
   const [dark, setDark]             = useState(false)
-  const [layoutMode, setLayoutMode] = useState<"tabs" | "scroll">("scroll")
-  const [preopLayout, setPreopLayout] = useState<"tabs" | "scroll">("scroll")
+  const [caseLayout, setCaseLayout] = useCaseLayout()
+  const [uiScale, setUiScale] = useState(UI_SCALE_DEFAULT)
+  useEffect(() => {
+    const stored = document.cookie.split("; ").find(item => item.startsWith(`${UI_SCALE_COOKIE}=`))?.split("=")[1]
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one read of the stored size on mount
+    setUiScale(parseUiScale(stored))
+  }, [])
+  function changeUiScale(next: number) {
+    const value = parseUiScale(next)
+    setUiScale(value)
+    applyUiScale(value)
+  }
   const [ttLayout, setTtLayout]     = useState<"expand" | "scroll">("scroll")
   const [defMon, setDefMon]         = useState<"standard" | "advanced">("standard")
   const [vitalsExp, setVitalsExp]   = useState(true)
@@ -156,12 +149,6 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
     document.documentElement.classList.toggle("dark", isDark)
     if (!storedTheme) document.cookie = "theme=dark; path=/; max-age=31536000; SameSite=Lax"
 
-    const lm = localStorage.getItem("layoutMode")
-    if (lm === "tabs" || lm === "scroll") setLayoutMode(lm)
-
-    const pl = localStorage.getItem("preopLayout")
-    if (pl === "tabs" || pl === "scroll") setPreopLayout(pl)
-
     const tt = localStorage.getItem("timetableLayout")
     if (tt === "expand" || tt === "scroll") setTtLayout(tt)
 
@@ -230,8 +217,6 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
     setSetting("theme", next ? "dark" : "light")
     document.cookie = `theme=${next ? "dark" : "light"}; path=/; max-age=31536000; SameSite=Lax`
   }
-  function applyLayout(mode: "tabs" | "scroll") { setLayoutMode(mode); setSetting("layoutMode", mode) }
-  function applyPreopLayout(mode: "tabs" | "scroll") { setPreopLayout(mode); setSetting("preopLayout", mode) }
   function applyTtLayout(mode: "expand" | "scroll") { setTtLayout(mode); setSetting("timetableLayout", mode) }
   function applyDefMon(mode: "standard" | "advanced") {
     setDefMon(mode)
@@ -520,20 +505,29 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                         ]} />
                     </SettingRow>
 
-                    <SettingRow label={t("settings.preopFormLayout")} description={t("settings.preopFormLayoutDesc")}>
-                      <PillGroup value={preopLayout} onChange={v => applyPreopLayout(v as "tabs" | "scroll")}
+                    {/* The case screens (10.0.0): the sidebar first, which overrides
+                        the rest; without it, each screen sectioned or scrollable. */}
+                    <SettingRow label={t("settings.caseLayout")} description={t("settings.caseLayoutDesc")}>
+                      <PillGroup value={caseLayout.sidebar ? "sidebar" : "none"} onChange={v => setCaseLayout({ sidebar: v === "sidebar" })}
                         options={[
-                          { value: "tabs",   label: t("settings.layoutTabbed"), icon: <LayoutList className="h-3 w-3" /> },
-                          { value: "scroll", label: t("settings.layoutScroll"), icon: <Rows3 className="h-3 w-3" /> },
+                          { value: "sidebar", label: t("settings.layoutSidebar"), icon: <PanelRight className="h-3 w-3" /> },
+                          { value: "none",    label: t("settings.layoutNoSidebar"), icon: <Rows3 className="h-3 w-3" /> },
                         ]} />
                     </SettingRow>
 
-                    <SettingRow label={t("settings.formLayout")} description={t("settings.formLayoutDesc")}>
-                      <PillGroup value={layoutMode} onChange={v => applyLayout(v as "tabs" | "scroll")}
-                        options={[
-                          { value: "tabs",   label: t("settings.layoutTabbed"), icon: <LayoutList className="h-3 w-3" /> },
-                          { value: "scroll", label: t("settings.layoutScroll"), icon: <Rows3 className="h-3 w-3" /> },
-                        ]} />
+                    {!caseLayout.sidebar && (["preop", "intraop", "postop"] as const).map(screen => (
+                      <SettingRow key={screen} label={t(`settings.screenLayout.${screen}`)}>
+                        <PillGroup value={caseLayout[screen]} onChange={v => setCaseLayout({ [screen]: v as ScreenLayout })}
+                          options={[
+                            { value: "tabs",   label: t("settings.layoutSectioned"), icon: <LayoutList className="h-3 w-3" /> },
+                            { value: "scroll", label: t("settings.layoutScrollable"), icon: <Rows3 className="h-3 w-3" /> },
+                          ]} />
+                      </SettingRow>
+                    ))}
+
+                    {/* Everything on the page larger or smaller, on this device (10.0.0). */}
+                    <SettingRow label={t("settings.uiScale")} description={t("settings.uiScaleDesc")}>
+                      <UiScaleSetting value={uiScale} onChange={changeUiScale} />
                     </SettingRow>
 
                     <SettingRow label={t("settings.timetableLayout")} description={t("settings.timetableLayoutDesc")}>

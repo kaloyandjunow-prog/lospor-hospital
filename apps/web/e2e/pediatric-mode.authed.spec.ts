@@ -105,7 +105,9 @@ test("a complete paediatric case can be submitted for review and finalised", asy
       })
       expect(intraop.ok(), await intraop.text()).toBeTruthy()
 
-      const postop = await api.patch(`/api/cases/${id}`, {
+      // A child is scored on Steward, and an Aldrete score does not stand in
+      // for it (10.0.0).
+      const aldreteOnly = await api.patch(`/api/cases/${id}`, {
         headers: JSON_HEADERS,
         data: {
           postop: {
@@ -114,6 +116,15 @@ test("a complete paediatric case can be submitted for review and finalised", asy
             disposition: "WARD",
           },
         },
+      })
+      expect(aldreteOnly.ok(), await aldreteOnly.text()).toBeTruthy()
+      const refused = await api.post(`/api/cases/${id}/submit-for-review`, { headers: JSON_HEADERS })
+      expect(refused.status(), await refused.text()).toBe(422)
+      expect(JSON.stringify(await refused.json())).toContain("missing_steward")
+
+      const postop = await api.patch(`/api/cases/${id}`, {
+        headers: JSON_HEADERS,
+        data: { postop: { stewardConsciousness: 2, stewardAirway: 2, stewardMovement: 2 } },
       })
       expect(postop.ok(), await postop.text()).toBeTruthy()
 

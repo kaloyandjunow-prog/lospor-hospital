@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Animated, FlatList, Modal, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Animated, FlatList, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -12,7 +12,6 @@ import { getQueuedCasePatchSummary, getQueuedCaseIds, clearAllQueuedPatchesForCa
 import { getAllLocalCaseDrafts, localDraftOwnerFromIdentity, type LocalCaseDraft } from "@/lib/local-case-store"
 import { localDraftRecoveryParams, shouldShowLocalDraft } from "@/lib/local-draft-review"
 import { usePreferences } from "@/lib/preferences-context"
-import { displayClinicalCode } from "@/lib/clinical-display"
 import { ASABadge, DispositionBadge, StatusBadge, statusLabel } from "@/components/ui"
 import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
 import { AppHeader } from "@/components/AppHeader"
@@ -24,6 +23,13 @@ import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
 import { useDashboardPagination } from "@/lib/use-dashboard-pagination"
 import { caseIsWritable } from "@lospor/core/case-capabilities"
 import { isSameCalendarDay, isSameCalendarMonth } from "@lospor/core/dashboard-date-scope"
+import type { CaseTheatreView } from "@lospor/core/operating-theatres"
+import { assignCaseTheatre, dashboardFilterQuery, TheatreChangedError, useOperatingTheatres, type DashboardFilter } from "@/lib/use-operating-theatres"
+import { type CancellationReason } from "@lospor/core/case-cancellation"
+import { dashboardMenuActions } from "@/lib/case-actions"
+import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
+import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
+import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
@@ -41,16 +47,19 @@ type CaseItem = {
     ageUnit?: "DAYS" | "MONTHS" | "YEARS"
     sex?: string
     asaScore?: string
+    procedureUndetermined?: boolean
     diagnoses?: { label: string }[]
     procedures?: { label: string }[]
   }
-  intraop?: { monthYear?: string; endTime?: string | null }
+  intraop?: { monthYear?: string; endTime?: string | null; startedAt?: string | null; startTime?: string | null }
   postop?: { disposition?: string }
   user?: { name?: string }
   // Any handover on this case still waiting to be answered. The list endpoint
   // has always returned this; it was simply not read.
   transfers?: { id: string }[]
   capabilities?: { canWrite: boolean } | null
+  /** The operating theatre (10.0.0); null while the site does not use them. */
+  theatre?: CaseTheatreView | null
 }
 
 type FilterTab = "All" | "Today" | "Month" | "Active" | "Drafts" | "Awaiting Postop" | "Complete" | "Handovers"
@@ -71,8 +80,9 @@ const FILTER_TAB_LABEL_KEYS: Record<FilterTab, "filterAll" | "filterToday" | "mo
   Handovers: "filterHandovers",
 }
 
-function getCaseLabel(item: CaseItem, unnamedCase: string): string {
+function getCaseLabel(item: CaseItem, unnamedCase: string, language?: string): string {
   return (
+    (item.preop?.procedureUndetermined ? plannedProcedureLabel(item.preop, language) : null) ??
     item.preop?.procedures?.[0]?.label ??
     item.preop?.plannedProcedure ??
     item.preop?.diagnoses?.[0]?.label ??
@@ -116,12 +126,18 @@ function routeFor(item: CaseItem, hasQueuedIntraop: boolean): Href {
 
 export default function DashboardScreen() {
   const router = useRouter()
-  const { identity } = useAuth()
+  const { identity, logout } = useAuth()
   const { t, tc, language, shade } = usePreferences()
   const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
-  const { counts, setCounts, setHospitalWide, hospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS)
+  // The theatre and anaesthesiologist filters (10.0.0), applied by the API.
+  const [filter, setFilter] = useState<DashboardFilter>({ theatre: null, assignee: null })
+  const [filterSheet, setFilterSheet] = useState<"theatre" | "assignee" | null>(null)
+  const [people, setPeople] = useState<{ id: string; name: string }[]>([])
+  const filterQuery = dashboardFilterQuery(filter)
+  const { config: theatreConfig } = useOperatingTheatres()
+  const { counts, setCounts, setHospitalWide, hospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
   const [transfers, setTransfers] = useState<PendingTransfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -136,7 +152,10 @@ export default function DashboardScreen() {
   const [queuedIntraopCaseIds, setQueuedIntraopCaseIds] = useState<Set<string>>(new Set())
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuCase, setMenuCase] = useState<CaseItem | null>(null)
-  const [menuMode, setMenuMode] = useState<"menu" | "assign" | "confirmDelete">("menu")
+  const [menuMode, setMenuMode] = useState<"menu" | "assign" | "theatre" | "cancel" | "confirmDelete">("menu")
+  // A cancelled procedure (10.0.0): the reason chosen, and a note for "Other".
+  const [cancelReason, setCancelReason] = useState<CancellationReason | null>(null)
+  const [cancelNote, setCancelNote] = useState("")
   const { colleagues, loadingColleagues, busy: handoverBusy, loadColleagues, handOver, resolveHandover } =
     useCaseHandover(t)
   const [actionLoading, setActionLoading] = useState(false)
@@ -159,7 +178,7 @@ export default function DashboardScreen() {
       // Explicit take: an unset request defaults to 50, silently undercounting
       // every stat tile for a clinic with more open work than that.
       const data = await apiJson<CaseItem[] | { cases: CaseItem[]; counts?: DashboardServerCounts; total?: number; hospitalWide?: boolean }>(
-        "/api/cases?take=200",
+        `/api/cases?take=200${filterQuery}`,
         { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
       )
       setCases(Array.isArray(data) ? data : (Array.isArray(data?.cases) ? data.cases : []))
@@ -175,6 +194,7 @@ export default function DashboardScreen() {
       setNetworkLoadFailed(isNetworkFailure)
       if (err instanceof ApiError && err.status === 401) {
         // Expiry retains account-bound unsynced work; only explicit sign-out clears it.
+        await logout()
         notify(t("sessionExpired"), t("signInAgainPrompt"))
         return
       }
@@ -183,7 +203,7 @@ export default function DashboardScreen() {
       }
       networkErrorNotifiedRef.current = isNetworkFailure
     }
-  }, [t, draftOwner, setCounts, setCaseTotal])
+  }, [filterQuery, draftOwner, logout, t, setCounts, setCaseTotal])
 
   const loadTransfers = useCallback(async () => {
     try {
@@ -310,6 +330,72 @@ export default function DashboardScreen() {
     if (!await loadColleagues()) setMenuMode("menu")
   }
 
+  // The case's theatre (10.0.0): anyone who can open it, until intraop starts.
+  async function handleAssignTheatre(theatreId: string | null) {
+    if (!menuCase) return
+    setActionLoading(true)
+    try {
+      await assignCaseTheatre(menuCase.id, theatreId, menuCase.theatre?.id ?? null)
+      closeMenu()
+      await loadCases()
+    } catch (err) {
+      if (err instanceof TheatreChangedError) {
+        // Someone chose another meanwhile: show it, keep the list open, say who.
+        const theatreName = err.current?.name ?? t("noTheatre")
+        setMenuCase(prev => prev && prev.theatre ? { ...prev, theatre: { ...prev.theatre, id: err.current?.id ?? null, name: err.current?.name ?? null } } : prev)
+        notify(t("theatreLabel"), (err.changedBy ? t("theatreChangedMeanwhileBy").replace("{name}", err.changedBy) : t("theatreChangedMeanwhile")).replace("{theatre}", theatreName))
+        void loadCases()
+        return
+      }
+      notify(t("error"), err instanceof Error && err.message ? err.message : t("theatreChangeFailed"))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleCancelProcedure() {
+    if (!menuCase || !cancelReason || (cancelReason === "OTHER" && !cancelNote.trim())) return
+    setActionLoading(true)
+    try {
+      await apiJson(`/api/cases/${menuCase.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason, ...(cancelNote.trim() ? { note: cancelNote.trim() } : {}) }),
+      })
+      closeMenu()
+      await loadCases()
+    } catch (err) {
+      notify(t("error"), err instanceof ApiError && err.sourceMessage === "CANCELLATION_TOO_LATE" ? t("cancellationTooLate") : err instanceof Error && err.message ? err.message : t("cancellationFailed"))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleUndoCancellation() {
+    if (!menuCase) return
+    setActionLoading(true)
+    try {
+      await apiJson(`/api/cases/${menuCase.id}/cancel`, { method: "DELETE" })
+      closeMenu()
+      await loadCases()
+    } catch (err) {
+      notify(t("error"), err instanceof Error && err.message ? err.message : t("actionFailed"))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function openFilterSheet(kind: "theatre" | "assignee") {
+    setFilterSheet(kind)
+    if (kind === "assignee" && people.length === 0) {
+      const [me, colleagues] = await Promise.all([
+        apiJson<{ id: string; name: string }>("/api/user").catch(() => null),
+        apiJson<{ id: string; name: string }[]>("/api/users/colleagues").catch(() => []),
+      ])
+      setPeople([...(me ? [{ id: me.id, name: me.name }] : []), ...(Array.isArray(colleagues) ? colleagues : []).filter(item => item.id !== me?.id)])
+    }
+  }
+
   async function handleAssignTo(userId: string) {
     if (!menuCase) return
     const outcome = await handOver(menuCase.id, userId)
@@ -328,6 +414,12 @@ export default function DashboardScreen() {
   const menuCasePending = (menuCase?.transfers?.length ?? 0) > 0
   // Fail-closed, like everywhere else `capabilities` is read: neither Delete nor Handover for a non-writable case.
   const menuCaseWritable = menuCase != null && caseIsWritable(menuCase)
+  const menuCaseTheatreChangeable = theatreConfig.enabled && menuCase?.theatre?.changeable === true
+  // What the held case offers (case-actions.ts, shared with the case screen).
+  const menuActions = dashboardMenuActions({
+    status: menuCase?.status, intraop: menuCase?.intraop, writable: menuCaseWritable,
+    pendingTransfer: menuCasePending, theatreChangeable: menuCaseTheatreChangeable,
+  })
 
   async function handleWithdrawHandover() {
     if (!menuCase) return
@@ -356,7 +448,7 @@ export default function DashboardScreen() {
   const filteredCases = useMemo(() => {
     const visible = cases.filter((c) => {
       if (trimmedQuery) {
-        const haystack = [getCaseLabel(c, t("unnamedCase")), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+        const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
           .filter(Boolean).join(" ").toLowerCase()
         if (!haystack.includes(trimmedQuery)) return false
       }
@@ -365,7 +457,7 @@ export default function DashboardScreen() {
     return hospitalWide
       ? [...visible].sort((a, b) => Number(b.userId === identity?.userId) - Number(a.userId === identity?.userId))
       : visible
-  }, [cases, activeTab, t, trimmedQuery, hospitalWide, identity?.userId])
+  }, [cases, activeTab, language, t, trimmedQuery, hospitalWide, identity?.userId])
 
   const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
 
@@ -395,7 +487,7 @@ export default function DashboardScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6, marginRight: 8 }}>
             <Text style={{ color: colors.textPrimary, fontWeight: "800", flex: 1, fontSize: 14 }} numberOfLines={2}>
-              {getCaseLabel(item, t("unnamedCase"))}
+              {getCaseLabel(item, t("unnamedCase"), language)}
             </Text>
             {hasPendingSync ? (
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.warning, flexShrink: 0 }} />
@@ -409,13 +501,18 @@ export default function DashboardScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <ASABadge asa={item.preop?.asaScore} />
           {isComplete && <DispositionBadge disposition={item.postop?.disposition} />}
+          {item.theatre?.name ? (
+            <View style={{ backgroundColor: withAlpha(colors.primary, "16"), borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>{item.theatre.name}</Text>
+            </View>
+          ) : null}
           {item.user?.name ? <Text style={{ color: colors.textMuted, fontSize: 11 }}>{item.user.name}</Text> : null}
           <Text style={{ color: colors.textMuted, fontSize: 11, fontVariant: ["tabular-nums"] }}>{item.caseCode}</Text>
         </View>
       </TouchableOpacity>
       </Animated.View>
     )
-  }, [queuedCaseIds, queuedIntraopCaseIds, router, handleLongPress, t])
+  }, [queuedCaseIds, queuedIntraopCaseIds, router, handleLongPress, language, t])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -495,6 +592,17 @@ export default function DashboardScreen() {
                 ))}
               </View>
 
+              {/* The unit indicators (10.0.0). */}
+              <TouchableOpacity
+                testID="open-indicators"
+                accessibilityRole="button"
+                onPress={() => router.push("/(app)/indicators" as Href)}
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 11, marginBottom: 14 }}
+              >
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "800" }}>{t("indTitle")}</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+
               <PendingHandovers
                 transfers={transfers}
                 actioning={actioningTransfer}
@@ -507,6 +615,25 @@ export default function DashboardScreen() {
                   <WorkflowPill key={tab} label={`${t(FILTER_TAB_LABEL_KEYS[tab])} ${tabCounts[tab]}`} selected={activeTab === tab} onPress={() => setActiveTab(tab)} />
                 ))}
               </ScrollView>
+
+              {/* The theatre and anaesthesiologist filters (10.0.0). */}
+              <View testID="dashboard-filters" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                {theatreConfig.enabled ? (
+                  <WorkflowPill
+                    label={`${t("filterTheatre")}: ${filter.theatre === "none" ? t("noTheatre") : theatreConfig.theatres.find(item => item.id === filter.theatre)?.name ?? t("allTheatres")} ▾`}
+                    selected={filter.theatre !== null}
+                    onPress={() => void openFilterSheet("theatre")}
+                  />
+                ) : null}
+                <WorkflowPill
+                  label={`${t("filterAnaesthesiologist")}: ${people.find(item => item.id === filter.assignee)?.name ?? t("allAnaesthesiologists")} ▾`}
+                  selected={filter.assignee !== null}
+                  onPress={() => void openFilterSheet("assignee")}
+                />
+                {filter.theatre || filter.assignee ? (
+                  <WorkflowPill label={`× ${t("clearFilters")}`} selected={false} onPress={() => setFilter({ theatre: null, assignee: null })} />
+                ) : null}
+              </View>
             </>
           }
           ListEmptyComponent={
@@ -559,215 +686,49 @@ export default function DashboardScreen() {
         <Text style={{ color: shade("#fff"), fontSize: 13, fontWeight: "900" }}>{t("newCase")}</Text>
       </TouchableOpacity>
 
-      <Modal visible={menuCase !== null} transparent animationType="fade" onRequestClose={closeMenu}>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}
-          onPress={closeMenu}
-          activeOpacity={1}
-        >
-          <View
-            style={{ backgroundColor: colors.surfaceRaised, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 }}
-            onStartShouldSetResponder={() => true}
-          >
-            <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginBottom: 16 }} />
-
-            {menuMode === "menu" ? (
-              <>
-                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 2 }} numberOfLines={2}>
-                  {menuCase ? getCaseLabel(menuCase, t("unnamedCase")) : ""}
-                </Text>
-                <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 18 }}>{menuCase?.caseCode ?? ""}</Text>
-
-                {menuCase?.status === "COMPLETE" ? (
-                  <TouchableOpacity
-                    style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
-                    onPress={() => {
-                      const printId = menuCase?.id
-                      closeMenu()
-                      if (printId) {
-                        notify(tc("actionPrintCase"), tc("printGenerating"))
-                        void openPrintCase(printId, language).then(ok => {
-                          if (!ok) notify(tc("errorLabel"), tc("printFailed"))
-                        })
-                      }
-                    }}
-                    disabled={actionLoading || handoverBusy}
-                  >
-                    <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "700" }}>🖨 {tc("actionPrintCase")}</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {menuCase?.status !== "COMPLETE" && menuCaseWritable ? (
-                  <TouchableOpacity
-                    style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
-                    onPress={handleDeleteCase}
-                    disabled={actionLoading || handoverBusy}
-                  >
-                    <Text style={{ color: colors.danger, fontSize: 16, fontWeight: "700" }}>{t("deleteCase")}</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {/*
-                  Offered to everyone, and the server decides what it means: a
-                  head of department or an administrator assigns and the case
-                  moves at once; anyone else asks, and it moves when the
-                  recipient accepts. Handing a case on at the end of a shift is
-                  an ordinary clinical act, and a phone is where it happens.
-
-                  This used to be gated on `userRoleRef.current === "HOD"`,
-                  which is not a role the API has ever returned — the enum value
-                  is HEAD_OF_DEPT and "HOD" is only a display label in
-                  src/i18n/strings.ts. So the condition was never true for a
-                  head of department, and this control was in practice
-                  admin-only. Removing the gate fixes that too.
-                */}
-                {menuCase?.status !== "COMPLETE" && !menuCasePending && menuCaseWritable ? (
-                  <TouchableOpacity
-                    style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-                    onPress={handleShowAssign}
-                    disabled={actionLoading || handoverBusy}
-                  >
-                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>{t("handOver")}…</Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {/*
-                  A handover nobody answers has to be escapable, and only the
-                  sender may withdraw it. While one is outstanding the case
-                  cannot be offered to anyone else, so without this a case
-                  handed to a colleague on annual leave would be stuck.
-                */}
-                {menuCasePending ? (
-                  <TouchableOpacity
-                    style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
-                    onPress={handleWithdrawHandover}
-                    disabled={actionLoading || handoverBusy}
-                  >
-                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>{t("withdrawHandover")}</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                <TouchableOpacity
-                  style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, alignItems: "center" }}
-                  onPress={closeMenu}
-                >
-                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{t("cancel")}</Text>
-                </TouchableOpacity>
-              </>
-            ) : menuMode === "assign" ? (
-              <>
-                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 16 }}>{t("assignTo")}</Text>
-                {loadingColleagues ? (
-                  <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
-                ) : colleagues.length === 0 ? (
-                  <Text style={{ color: colors.textMuted, fontSize: 14, marginBottom: 16 }}>{t("noColleaguesFound")}</Text>
-                ) : (
-                  <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-                    {colleagues.map((c) => (
-                      <TouchableOpacity
-                        key={c.id}
-                        style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
-                        onPress={() => handleAssignTo(c.id)}
-                        disabled={actionLoading || handoverBusy}
-                      >
-                        <View>
-                          <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "600" }}>{c.name}</Text>
-                          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{displayClinicalCode("userRole", c.role, language)}</Text>
-                        </View>
-                        {actionLoading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
-                <TouchableOpacity
-                  style={{ paddingVertical: 16, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, alignItems: "center" }}
-                  onPress={() => setMenuMode("menu")}
-                >
-                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{t("back")}</Text>
-                </TouchableOpacity>
-              </>
-            ) : menuMode === "confirmDelete" ? (
-              <>
-                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 6 }}>
-                  {t("deleteCaseTitle")}
-                </Text>
-                <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 20 }} numberOfLines={2}>
-                  {menuCase ? getCaseLabel(menuCase, t("unnamedCase")) : ""}
-                </Text>
-                <TouchableOpacity
-                  style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, alignItems: "center", backgroundColor: "rgba(220,38,38,0.08)", borderRadius: 10, marginBottom: 8 }}
-                  onPress={confirmDeleteCase}
-                  disabled={actionLoading || handoverBusy}
-                >
-                  {actionLoading
-                    ? <ActivityIndicator color={colors.danger} />
-                    : <Text style={{ color: colors.danger, fontSize: 16, fontWeight: "700" }}>{t("deleteCase")}</Text>
-                  }
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ paddingVertical: 14, alignItems: "center" }}
-                  onPress={() => setMenuMode("menu")}
-                  disabled={actionLoading || handoverBusy}
-                >
-                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{t("cancel")}</Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* ── Search popup ── */}
-      <Modal visible={searchOpen} transparent animationType="fade" onRequestClose={() => { setSearchOpen(false); setQuery("") }}>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-start" }}>
-          <View style={{ backgroundColor: colors.surfaceRaised, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 }}>
-            <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "900", marginBottom: 12 }}>{t("searchCases")}</Text>
-            <TextInput
-              autoFocus
-              value={query}
-              onChangeText={setQuery}
-              placeholder={t("searchCasesPlaceholder")}
-              placeholderTextColor={colors.textMuted}
-              style={{
-                backgroundColor: colors.surface, color: colors.textPrimary,
-                borderWidth: 1, borderColor: colors.border, borderRadius: 14,
-                paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, marginBottom: 12,
-              }}
-            />
-            {query.trim().length > 0 && (
-              <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled">
-                {filteredCases.slice(0, 20).map(c => (
-                  <TouchableOpacity key={c.id}
-                    onPress={() => {
-                      setSearchOpen(false)
-                      router.push(routeFor(c, queuedIntraopCaseIds.has(c.id)))
-                    }}
-                    style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
-                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
-                      {getCaseLabel(c, t("unnamedCase"))}
-                    </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                      {c.caseCode} · {statusLabel(c.status, language)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                {filteredCases.length === 0 && (
-                  <Text style={{ color: colors.textMuted, fontSize: 14, paddingVertical: 16, textAlign: "center" }}>{t("noCasesFound")}</Text>
-                )}
-              </ScrollView>
-            )}
-            <TouchableOpacity
-              style={{ marginTop: 10, paddingVertical: 12, alignItems: "center", borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
-              onPress={() => { setSearchOpen(false); if (!query.trim()) setQuery("") }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 15, fontWeight: "700" }}>
-                {query.trim() ? t("showInDashboard") : t("cancel")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSearchOpen(false)} />
-        </View>
-      </Modal>
+      <DashboardCaseMenu
+        menuCase={menuCase}
+        menuMode={menuMode}
+        menuActions={menuActions}
+        caseLabel={menuCase ? getCaseLabel(menuCase, t("unnamedCase"), language) : ""}
+        language={language}
+        t={t}
+        tc={tc}
+        closeMenu={closeMenu}
+        setMenuMode={setMenuMode}
+        actionLoading={actionLoading}
+        handoverBusy={handoverBusy}
+        loadingColleagues={loadingColleagues}
+        colleagues={colleagues}
+        onPrint={() => { const printId = menuCase?.id; const printCode = menuCase?.caseCode; closeMenu(); if (printId) { notify(tc("actionPrintCase"), tc("printGenerating")); void openPrintCase(printId, language, printCode).then(ok => { if (!ok) notify(tc("errorLabel"), tc("printFailed")) }) } }}
+        onDelete={handleDeleteCase}
+        onShowAssign={() => { void handleShowAssign() }}
+        onAssignTo={id => { void handleAssignTo(id) }}
+        onWithdraw={() => { void handleWithdrawHandover() }}
+        onCancelProcedure={() => { void handleCancelProcedure() }}
+        onUndoCancellation={() => { void handleUndoCancellation() }}
+        onAssignTheatre={id => { void handleAssignTheatre(id) }}
+        onConfirmDelete={() => { void confirmDeleteCase() }}
+        cancelReason={cancelReason}
+        setCancelReason={setCancelReason}
+        cancelNote={cancelNote}
+        setCancelNote={setCancelNote}
+        theatres={theatreConfig.theatres}
+      />
+      <DashboardSheets
+        filterSheet={filterSheet}
+        filterOptions={filterSheet === "theatre" ? [{ id: "", name: t("allTheatres") }, ...theatreConfig.theatres, { id: "none", name: t("noTheatre") }] : [{ id: "", name: t("allAnaesthesiologists") }, ...people]}
+        currentFilter={filterSheet === "theatre" ? filter.theatre : filter.assignee}
+        onCloseFilter={() => setFilterSheet(null)}
+        onSelectFilter={id => { setFilter(prev => filterSheet === "theatre" ? { ...prev, theatre: id || null } : { ...prev, assignee: id || null }); setFilterSheet(null) }}
+        searchOpen={searchOpen}
+        query={query}
+        setQuery={setQuery}
+        onCloseSearch={() => { setSearchOpen(false); if (!query.trim()) setQuery("") }}
+        searchResults={filteredCases.slice(0, 20).map(c => ({ id: c.id, label: getCaseLabel(c, t("unnamedCase"), language), caseCode: c.caseCode, status: statusLabel(c.status, language), href: routeFor(c, queuedIntraopCaseIds.has(c.id)) }))}
+        onOpenResult={href => router.push(href)}
+        t={t}
+      />
     </View>
   )
 }

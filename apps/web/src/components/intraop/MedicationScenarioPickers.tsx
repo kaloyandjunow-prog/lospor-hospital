@@ -71,7 +71,7 @@ export function BolusScenarioPicker({
   )
 }
 
-type InfusionConfig = { units: string[]; group?: string }
+type InfusionConfig = { units: string[]; group?: string; customColor?: string }
 
 export function InfusionScenarioPicker({
   favourites,
@@ -96,6 +96,7 @@ export function InfusionScenarioPicker({
         name,
         unit: configs[name]?.units[0],
         ...(manualEntryOnly ? { manualEntryOnly: true } : {}),
+        ...(configs[name]?.customColor ? { customColor: configs[name].customColor } : {}),
       })
     }
     return [...byGroup.values()]

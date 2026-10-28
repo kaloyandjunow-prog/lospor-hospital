@@ -2,6 +2,8 @@
 
 import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
 import { SaveMark } from "./SaveMark"
+import { TOUCH_GRIP } from "./touch-drag"
+import { ContinueOverlay } from "./ContinueOverlay"
 import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { X } from "lucide-react"
 import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
@@ -10,6 +12,7 @@ import type { TimetableDragActions, TimetableDragState } from "./use-timetable-d
 import type { TtSel } from "./timetable-types"
 import type { TimetableFluid } from "@/types/timetable"
 import { useIntraopUiCopy } from "./ui-copy"
+import { ChangeStripCell, stripStretches } from "./TimetableChangeStrip"
 
 /**
  * One fluid lane: a single line running down the chart.
@@ -55,7 +58,8 @@ export type FluidLaneProps = {
   displayFluidName: (name: string) => string
   drag: TimetableDragState
   dragActions: TimetableDragActions
-  extendFluid: (id: string, toCol: number) => void
+  /** The end grip was dropped: the shared rule decides what, if anything, is written. */
+  onEndDrop: (id: string, toCol: number) => void
   resumeFluid: (id: string) => void
   continueFluid: (seg: TimetableFluid, col: number) => void
   removeFluid: (id: string) => void
@@ -77,7 +81,7 @@ export function FluidLane({
   displayFluidName,
   drag,
   dragActions,
-  extendFluid,
+  onEndDrop,
   resumeFluid,
   continueFluid,
   removeFluid,
@@ -111,6 +115,14 @@ export function FluidLane({
           ? Math.max(extFluidHover, seg.startCol)
           : (seg?.endCol ?? -1)
         const isActualEnd = seg !== null && ci === effectiveEnd
+        // Dragged back, the part the bar would give up is drawn faded, strip included.
+        const cutOff = !!(committedSeg && extendingFluid === committedSeg.id && extFluidHover !== null && ci > effectiveEnd)
+        // A rate line shows each rate it ran at in a strip above the bar (10.0.0); a bag does not.
+        const isRate = seg?.fluidEntryMode === "RATE"
+        const stretches = seg && isRate
+          ? stripStretches(seg.startCol, seg.rate != null && seg.rate !== "" ? `${seg.rate} mL/h` : null,
+            (seg.rateChanges ?? []).map(change => ({ col: change.col, label: `${change.rate} ${change.unit || "mL/h"}`, planned: change.planned })))
+          : []
         const isRowExit = seg != null && barContinues(seg.endCol, colEnd) && ci === colEnd - 1 && !isActualEnd
         const isSel = seg && sel?.type === "fluid" && sel.id === seg.id
         // The real start and stop inside the cell; the column rule while a grip is dragged.
@@ -136,19 +148,40 @@ export function FluidLane({
               if (!extendingFluid) return
               e.preventDefault()
               const s = segments.find(s => s.id === extendingFluid)
-              if (s) extendFluid(extendingFluid, Math.max(ci, s.startCol))
+              if (s) onEndDrop(extendingFluid, Math.max(ci, s.startCol))
               dragActions.fluidExtendEnd()
             }}
           >
             {seg && (
               <>
                 {isActualEnd && !isRowExit && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
+                {stretches.length > 0 && (
+                  <ChangeStripCell
+                    col={ci}
+                    stretches={stretches}
+                    color={color}
+                    height={21}
+                    top={1}
+                    roundStart={isActualStart || isRowCont}
+                    roundEnd={isActualEnd && !isRowExit}
+                    faded={!!seg.stopped || isDragPreview || cutOff}
+                    selected={!!isSel}
+                    timed={{ ...timedLeft, ...timedRight }}
+                    onClick={!seg.stopped ? event => {
+                      const current = currentFluidRate(seg)
+                      setSel({ type: "fluid", id: seg.id })
+                      onChangeRate({ id: seg.id, rate: current == null ? "" : String(current), rect: event.currentTarget.getBoundingClientRect() })
+                    } : undefined}
+                    testId="fluid-rate-strip"
+                  />
+                )}
                 <div
                   onClick={e => { e.stopPropagation(); if (isActualStart || isRowCont) setSel({ type: "fluid", id: seg.id }) }}
                   onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeFluid(seg.id) }}
                   title={seg.stopped ? copy.doubleClickResume : undefined}
-                  className={`absolute inset-y-1 border-y cursor-pointer ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${isDragPreview ? "opacity-50" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
+                  className={`absolute ${isRate ? "" : "inset-y-1"} border-y cursor-pointer ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${isDragPreview || cutOff ? "opacity-50" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   style={{
+                    ...(isRate ? { top: 24, bottom: 4 } : {}),
                     ...timedLeft,
                     ...timedRight,
                     backgroundColor: isSel ? color + "88" : color + "33",
@@ -162,8 +195,9 @@ export function FluidLane({
                   const visW = (visEnd - visStart + 1) * colW
                   const rate = currentFluidRate(seg)
                   const concentration = seg.concentration ? ` ${seg.concentration}` : ""
+                  // The rate itself is on the strip above.
                   const barLabel = seg.fluidEntryMode === "RATE"
-                    ? `${displayFluidName(seg.name)}${concentration}${rate != null ? ` · ${rate} mL/h` : ""}`
+                    ? `${displayFluidName(seg.name)}${concentration}`
                     : `${displayFluidName(seg.name)}${concentration}${(seg.bagVolumeMl ?? Number(seg.volume)) ? ` · ${seg.bagVolumeMl ?? seg.volume} mL` : ""}`
 
                   // A running rate is the thing most likely to change, so its
@@ -182,14 +216,14 @@ export function FluidLane({
                         })
                       }}
                       className="absolute top-1/2 -translate-y-1/2 z-20 select-none truncate px-1 text-[10px] font-bold"
-                      style={{ color, left: 0, width: visW }}
+                      style={{ color, left: 0, width: visW, top: 42 }}
                     >
                       {barLabel}
                     </button>
                   ) : (
                     <span
                       className="absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none truncate px-1 text-center text-[10px] font-bold"
-                      style={{ color, left: 0, width: visW }}
+                      style={{ color, left: 0, width: visW, ...(isRate ? { top: 42 } : {}) }}
                     >
                       {barLabel}
                     </span>
@@ -197,21 +231,33 @@ export function FluidLane({
                 })()}
               </>
             )}
-            {showBarGrip(seg?.endCol ?? -1, isActualEnd, isDragPreview, colEnd) && !isRowExit && seg && !seg.stopped && (
+            {showBarGrip(seg?.endCol ?? -1, isActualEnd, isDragPreview, colEnd) && !isRowExit && seg && (
               <div
                 draggable
                 onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("ext-fluid", seg.id); dragActions.fluidExtendStart(seg.id) }}
                 onDragEnd={() => dragActions.fluidExtendEnd()}
-                className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 opacity-70 hover:opacity-100 rounded-r-sm"
+                className={`absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 opacity-70 hover:opacity-100 rounded-r-sm ${TOUCH_GRIP}`}
                 style={{ backgroundColor: color, ...timedRight }}
               >
                 <span className="text-white text-[8px] font-bold select-none">|</span>
               </div>
             )}
+            {/* A stopped bag, selected: carry on with it (10.0.0; was a double-click only). */}
+            {isActualEnd && !isRowExit && seg && seg.stopped && isSel && !isDragPreview && (
+              <button
+                type="button"
+                data-testid="fluid-resume"
+                onClick={e => { e.stopPropagation(); resumeFluid(seg.id) }}
+                className="absolute z-30 text-[8px] font-semibold bg-emerald-600/80 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-emerald-600 whitespace-nowrap"
+                style={{ top: isRate ? 26 : 6, right: 14 + ((timedRight as { right?: number }).right ?? 0) }}
+              >
+                ↻ {copy.resume}
+              </button>
+            )}
             {isActualEnd && !isRowExit && seg && !seg.stopped && !isDragPreview && (
               <div
-                className={`absolute z-30 flex items-center justify-center transition-opacity ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                style={{ top: 4, right: 14, bottom: 4 }}
+                className={`absolute z-30 flex items-center justify-center transition-opacity ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(any-pointer:coarse)]:pointer-events-none"}`}
+                style={{ top: isRate ? 24 : 4, right: 14 + ((timedRight as { right?: number }).right ?? 0), bottom: 4 }}
               >
                 <button
                   type="button"
@@ -238,7 +284,7 @@ export function FluidLane({
                 type="button"
                 aria-label={copy.removeAria(displayFluidName(seg.name))}
                 onClick={e => { e.stopPropagation(); removeFluid(seg.id) }}
-                className="absolute top-0.5 right-4 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
+                className="absolute top-0.5 right-4 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(any-pointer:coarse)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
               >
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -247,15 +293,7 @@ export function FluidLane({
             {segments.flatMap(s => (s.rateChanges ?? []).filter(rc => rc.planned && rc.col === ci))
               .map(rc => <PlannedChangeMarker key={rc.eventId ?? rc.col} value={`${rc.rate} ${rc.unit}`} />)}
             {stoppedSeg && (
-              <button
-                type="button"
-                onClick={e => { e.stopPropagation(); continueFluid(stoppedSeg, ci) }}
-                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
-              >
-                <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-white/80 dark:bg-black/40 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
-                  {copy.fluid.continueQuestion}
-                </span>
-              </button>
+              <ContinueOverlay label={copy.fluid.continueQuestion} onContinue={() => continueFluid(stoppedSeg, ci)} testId="fluid-continue" />
             )}
           </div>
         )

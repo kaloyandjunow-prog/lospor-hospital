@@ -2,9 +2,11 @@ import { apiServerJson, getLiveSession } from "@/lib/live-session"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FilePlus, FileText, Activity, Users } from "lucide-react"
+import { FilePlus, FileText, Activity, Users, BarChart3 } from "lucide-react"
 import { PendingHandovers } from "@/components/PendingHandovers"
 import { DashboardSearch } from "@/components/DashboardSearch"
+import { DashboardFilters } from "@/components/DashboardFilters"
+import { OPERATING_THEATRES_OFF, parseOperatingTheatreConfig, type CaseTheatreView } from "@lospor/core/operating-theatres"
 import { getTranslations } from "next-intl/server"
 import { isSameCalendarDay, isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
 import type React from "react"
@@ -34,6 +36,7 @@ type CaseRow = {
     aldreteTotal: number | null
   } | null
   user: { name: string }
+  theatre?: CaseTheatreView
   transfers: Array<{ id: string; toUserId: string }>
   capabilities?: { canWrite: boolean } | null
 }
@@ -50,7 +53,17 @@ type DashboardCounts = {
 // in the server's own priority order, and concatenates them in order.
 const PAGE_SIZE = 200
 
-async function fetchDashboard(limit: number): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number; hospitalWide: boolean }> {
+/** The dashboard's filters (10.0.0), applied by the API: by theatre and by anaesthesiologist. */
+type DashboardFilter = { theatre: string | null; assignee: string | null }
+
+function filterQuery(filter: DashboardFilter): string {
+  const params = new URLSearchParams()
+  if (filter.theatre) params.set("theatre", filter.theatre)
+  if (filter.assignee) params.set("assignee", filter.assignee)
+  return params.toString()
+}
+
+async function fetchDashboard(limit: number, filter: DashboardFilter): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number; hospitalWide: boolean }> {
   const cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }> = []
   let counts: DashboardCounts | null = null
   let total = 0
@@ -61,7 +74,7 @@ async function fetchDashboard(limit: number): Promise<{ cases: CaseRow[]; counts
       counts: DashboardCounts
       total: number
       hospitalWide?: boolean
-    }>(`/v1/cases?skip=${skip}&take=${PAGE_SIZE}`)
+    }>(`/v1/cases?skip=${skip}&take=${PAGE_SIZE}${filterQuery(filter) ? `&${filterQuery(filter)}` : ""}`)
     cases.push(...payload.cases)
     counts = payload.counts
     total = payload.total
@@ -100,12 +113,16 @@ function isThisMonthCase(c: CaseRow, now: Date) {
 
 // Switching scope deliberately drops back to the first page of the new
 // scope's own results, rather than carrying the previous scope's limit over.
-function scopeHref(scope: DashboardScope) {
-  return scope === "all" ? "/dashboard" : `/dashboard?scope=${scope}`
+// The filters stay on as the scope changes.
+function scopeHref(scope: DashboardScope, filter: DashboardFilter = { theatre: null, assignee: null }) {
+  const params = new URLSearchParams(filterQuery(filter))
+  if (scope !== "all") params.set("scope", scope)
+  const query = params.toString()
+  return query ? `/dashboard?${query}` : "/dashboard"
 }
 
-function loadMoreHref(scope: DashboardScope, limit: number) {
-  const params = new URLSearchParams()
+function loadMoreHref(scope: DashboardScope, limit: number, filter: DashboardFilter) {
+  const params = new URLSearchParams(filterQuery(filter))
   if (scope !== "all") params.set("scope", scope)
   params.set("limit", String(limit + PAGE_SIZE))
   return `/dashboard?${params.toString()}`
@@ -139,7 +156,7 @@ function StatCard({
   )
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams?: Promise<{ scope?: string; limit?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams?: Promise<{ scope?: string; limit?: string; theatre?: string; assignee?: string }> }) {
   const session = await getLiveSession()
   if (!session?.user?.id) return null
   const t = await getTranslations()
@@ -154,8 +171,18 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
     : PAGE_SIZE
 
   const now = new Date()
+  const filter: DashboardFilter = { theatre: params?.theatre?.slice(0, 64) || null, assignee: params?.assignee?.slice(0, 64) || null }
 
-  const { cases, counts, total, hospitalWide } = await fetchDashboard(limit)
+  const [{ cases, counts, total, hospitalWide }, theatreConfig, colleagues] = await Promise.all([
+    fetchDashboard(limit, filter),
+    apiServerJson<unknown>("/v1/operating-theatres").then(parseOperatingTheatreConfig, () => OPERATING_THEATRES_OFF),
+    apiServerJson<Array<{ id: string; name: string }>>("/v1/users/colleagues").catch(() => []),
+  ])
+  // Anyone a case can be assigned to here: this clinician and their colleagues.
+  const anaesthesiologists = [
+    { id: session.user.id, name: session.user.name ?? "" },
+    ...(Array.isArray(colleagues) ? colleagues : []).filter(item => item.id !== session.user.id),
+  ]
 
   // Stat tiles and filter-chip counts read the server's true counts over the
   // whole accessible set. `cases` below is only the display page (capped at
@@ -201,12 +228,15 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
       <div>
         <h1 className="text-2xl font-bold text-slate-800">{t("dashboard.title")}</h1>
         <p className="text-slate-500 text-sm mt-1">{t("dashboard.welcome")}, {session.user?.name}</p>
+        <Link href="/indicators" className="md:hidden mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400">
+          <BarChart3 className="h-4 w-4" /> {t("nav.indicators")}
+        </Link>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tour="dashboard-stats">
         <StatCard
-          href={scopeHref("all")}
+          href={scopeHref("all", filter)}
           active={scope === "all"}
           icon={
             <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -217,7 +247,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
           label={t("dashboard.totalCases")}
         />
         <StatCard
-          href={scopeHref("month")}
+          href={scopeHref("month", filter)}
           active={scope === "month"}
           icon={
             <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -228,7 +258,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
           label={t("dashboard.thisMonth")}
         />
         <StatCard
-          href={scopeHref("icu")}
+          href={scopeHref("icu", filter)}
           active={scope === "icu"}
           icon={
             <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
@@ -253,7 +283,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
         ] as const).map(([key, labelKey, count]) => (
           <Link
             key={key}
-            href={scopeHref(key)}
+            href={scopeHref(key, filter)}
             className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
               scope === key
                 ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
@@ -264,6 +294,8 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
           </Link>
         ))}
       </div>
+
+      <DashboardFilters theatres={theatreConfig.theatres} theatresEnabled={theatreConfig.enabled} anaesthesiologists={anaesthesiologists} />
 
       {/* Pending incoming handovers */}
       <PendingHandovers />
@@ -290,6 +322,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
               cases={orderedCases}
               userId={session.user.id}
               role={session.user.role}
+              theatres={theatreConfig.enabled ? theatreConfig.theatres : null}
             />
           )}
           {cases.length < total && (
@@ -299,7 +332,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
             // loaded, so an older matching case past this point stays
             // unreachable until "load more" is used.
             <div className="mt-4 text-center">
-              <Link href={loadMoreHref(scope, limit)}>
+              <Link href={loadMoreHref(scope, limit, filter)}>
                 <Button variant="outline" size="sm">
                   {t("dashboard.loadMore")} ({cases.length} / {total})
                 </Button>

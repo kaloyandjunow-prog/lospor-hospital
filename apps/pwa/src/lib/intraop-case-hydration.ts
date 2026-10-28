@@ -94,7 +94,11 @@ export function buildLoadedIntraopCaseState(
     baseIntraopRevision: data.intraop?.syncRevision ?? data.intraopRevision,
     caseInfo: {
       caseCode: data.caseCode ?? "",
-      procedure: data.preop?.plannedProcedure,
+      // The operating theatre (10.0.0), when the case has one.
+      theatre: data.theatre?.name ?? null,
+      procedure: data.preop?.plannedProcedure || undefined,
+      // Not yet known (10.0.0): the screen names it in the reader's language.
+      procedureUndetermined: data.preop?.procedureUndetermined === true,
       diagnosis: data.preop?.diagnosis,
       techniques: caseTechniques,
       status: data.status,

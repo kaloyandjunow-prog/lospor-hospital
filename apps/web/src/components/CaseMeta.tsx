@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react"
 import { useTranslations } from "next-intl"
-import { StickyNote, X } from "lucide-react"
+import { DoorOpen, StickyNote, X } from "lucide-react"
 
 /**
  * The case code, and the notes attached to it.
@@ -17,11 +17,17 @@ export function CaseMeta({
   caseCode,
   initialNotes,
   canWrite = false,
+  theatreName = null,
+  cancelled = null,
 }: {
+  /** A cancelled procedure (10.0.0): its reason, shown as a clear label. */
+  cancelled?: { reason: string | null } | null
   caseId: string
   caseCode: string
   initialNotes?: string | null
   canWrite?: boolean
+  /** The case's operating theatre (10.0.0), when it has one. */
+  theatreName?: string | null
 }) {
   const t = useTranslations()
   const [open, setOpen]   = useState(false)
@@ -52,6 +58,17 @@ export function CaseMeta({
       <span className="font-mono text-xs tracking-wider text-slate-500 bg-slate-100 dark:bg-[#2a2a2a] dark:text-slate-400 px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#3a3a3a] select-all">
         {caseCode}
       </span>
+      {cancelled && (
+        <span data-testid="case-cancelled" className="inline-flex items-center text-xs font-bold uppercase tracking-wide text-orange-800 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40 px-2.5 py-1 rounded-md border border-orange-300 dark:border-orange-800">
+          {t("cancellation.label")}{cancelled.reason ? ` · ${cancelled.reason}` : ""}
+        </span>
+      )}
+      {theatreName && (
+        <span data-testid="case-theatre" title={t("theatre.label")} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-md border border-indigo-200 dark:border-indigo-800">
+          <DoorOpen className="h-3.5 w-3.5" aria-hidden />
+          <span className="sr-only">{t("theatre.label")}: </span>{theatreName}
+        </span>
+      )}
       <div className="relative">
         {showNotes && <button
           type="button"

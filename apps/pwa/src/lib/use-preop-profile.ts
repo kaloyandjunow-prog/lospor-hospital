@@ -10,6 +10,7 @@ import {
   type PreopAssessmentProfile,
 } from "@lospor/core/preop-assessment"
 import { preopAgeInYears } from "@lospor/core/preop-documents"
+import { preopSectionConfigFor } from "@lospor/core/preop-orders"
 import { apiFetch, apiJson } from "./api"
 import { clinicalSyncKv } from "./clinical-sync-kv"
 import type { PreopPendingSuggestion, PreopQuestionAnswer } from "@/components/preop/PreopQuestionList"
@@ -24,6 +25,30 @@ const QUESTION_OF_FIELD: Record<string, string> = Object.fromEntries(
 type FormAccess = {
   getAnswers: () => PreopQuestionAnswer[]
   setAnswers: (answers: PreopQuestionAnswer[]) => void
+}
+
+/**
+ * The hospital's preoperative profiles, adults' and children's, as last seen:
+ * the cached copy at once, then the server's. Also read by the postoperative
+ * form for its section switches (10.0.0).
+ */
+export function usePreopProfiles(): PreopAssessmentProfile | null {
+  const [profiles, setProfiles] = useState<PreopAssessmentProfile | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    clinicalSyncKv.get(PROFILE_CACHE_KEY)
+      .then(cached => { if (!cancelled && cached) setProfiles(current => current ?? JSON.parse(cached) as PreopAssessmentProfile) })
+      .catch(() => {})
+    apiJson<PreopAssessmentProfile>("/api/preop/profile")
+      .then(fresh => {
+        if (cancelled) return
+        setProfiles(fresh)
+        void clinicalSyncKv.set(PROFILE_CACHE_KEY, JSON.stringify(fresh)).catch(() => {})
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  return profiles
 }
 
 /**
@@ -48,25 +73,13 @@ export function usePreopProfile({
   values: Record<string, unknown>
   form: FormAccess
 }) {
-  const [profiles, setProfile] = useState<PreopAssessmentProfile | null>(null)
+  const profiles = usePreopProfiles()
   const [suggestions, setSuggestions] = useState<PreopPendingSuggestion[]>([])
   const mode = pediatric ? "PEDIATRIC" : "ADULT"
   const profile = useMemo(() => preopProfileForMode(profiles, mode) ?? null, [profiles, mode])
-
-  useEffect(() => {
-    let cancelled = false
-    clinicalSyncKv.get(PROFILE_CACHE_KEY)
-      .then(cached => { if (!cancelled && cached) setProfile(current => current ?? JSON.parse(cached) as PreopAssessmentProfile) })
-      .catch(() => {})
-    apiJson<PreopAssessmentProfile>("/api/preop/profile")
-      .then(fresh => {
-        if (cancelled) return
-        setProfile(fresh)
-        void clinicalSyncKv.set(PROFILE_CACHE_KEY, JSON.stringify(fresh)).catch(() => {})
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
+  // The hospital's switchable sections and order rows for this population; the
+  // bundled defaults until a profile has been seen.
+  const sectionConfig = useMemo(() => preopSectionConfigFor(profiles?.sectionConfigs, mode), [profiles, mode])
 
   const loadSuggestions = useCallback(async () => {
     if (!caseId) return setSuggestions([])
@@ -107,6 +120,7 @@ export function usePreopProfile({
 
   return {
     profile,
+    sectionConfig,
     mode: mode as "ADULT" | "PEDIATRIC",
     states: preopAnswerStates(values),
     optionKeys: preopAnswerOptionKeys(values),

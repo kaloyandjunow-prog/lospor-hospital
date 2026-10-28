@@ -5,6 +5,8 @@ import {
   calcEquipment,
 } from "@lospor/core/equipment"
 import type { ClinicalMode } from "@lospor/core/pediatric"
+import { broselowZone } from "@lospor/core/broselow"
+import { BroselowBadge } from "@/components/BroselowBadge"
 
 interface Props {
   clinicalMode: ClinicalMode
@@ -101,6 +103,7 @@ export function EquipmentSuggestions(props: Props) {
     age?: { value: number; unit: "DAYS" | "MONTHS" | "YEARS" } | null
   }
   const categories = calcEquipment(input)
+  const broselow = broselowZone({ clinicalMode: props.clinicalMode, heightCm: props.heightCm, weightKg: props.weightKg })
 
   function localizeText(value: string): string {
     const key = EQUIPMENT_TEXT_KEYS[value]
@@ -135,6 +138,16 @@ export function EquipmentSuggestions(props: Props) {
         {props.weightKg ? (
           <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
             {t("intraop.equipment.basedOn", { details })}
+          </p>
+        ) : null}
+        {broselow ? (
+          <p className="mt-2">
+            <BroselowBadge
+              result={broselow}
+              language={locale}
+              label={t("intraop.equipment.broselow")}
+              basis={t(broselow.basis === "HEIGHT" ? "intraop.equipment.broselowByHeight" : "intraop.equipment.broselowByWeight")}
+            />
           </p>
         ) : null}
       </div>

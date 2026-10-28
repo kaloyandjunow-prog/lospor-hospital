@@ -22,6 +22,7 @@ export type ServerPreop = ServerPreopFormBase & {
   diagnosis?: unknown
   proceduresJson?: unknown
   procedures?: unknown
+  procedureUndetermined?: unknown
   plannedProcedure?: unknown
   comorbidities?: unknown
   currentMedications?: unknown
@@ -102,6 +103,13 @@ function preopAnswersFromServer(rows: unknown): PreopFormInput["preopAnswers"] {
   return answers
 }
 
+/** The case's premedication orders, a phase each; anything else reads as none. */
+function premedicationOrdersFrom(value: unknown): PreopFormInput["preopPremedicationOrders"] {
+  const orders = value && typeof value === "object" ? value as Record<string, unknown> : {}
+  const text = (phase: string) => typeof orders[phase] === "string" ? orders[phase] as string : ""
+  return { DAY_BEFORE: text("DAY_BEFORE"), MORNING: text("MORNING") }
+}
+
 export function valuesFromServerPreop(
   p: ServerPreop,
   caseClinicalMode?: ClinicalMode | null,
@@ -124,7 +132,8 @@ export function valuesFromServerPreop(
     bloodType: p.bloodType ?? undefined,
     rhFactor: p.rhFactor ?? undefined,
     diagnoses: structuredOrLegacyTags(p.diagnosesJson, p.diagnosis),
-    procedures: structuredOrLegacyTags(p.proceduresJson, p.plannedProcedure),
+    procedures: p.procedureUndetermined === true ? [] : structuredOrLegacyTags(p.proceduresJson, p.plannedProcedure),
+    procedureUndetermined: p.procedureUndetermined === true,
     highRiskSurgery: p.highRiskSurgery ?? false,
     // Unanswered, not derived. `!emergencySurgery` reads as elective the moment
     // emergency is unticked, which is not the same statement as "someone has
@@ -203,6 +212,9 @@ export function valuesFromServerPreop(
     coldsAirwayDevice: p.coldsAirwayDevice ?? undefined,
     coldsSurgery: p.coldsSurgery ?? undefined,
     pediatricFasting: Array.isArray(p.pediatricFasting) ? p.pediatricFasting : [],
+    preopWardOrders: Array.isArray(p.preopWardOrders) ? p.preopWardOrders : [],
+    preopMedicationInstructions: Array.isArray(p.preopMedicationInstructions) ? p.preopMedicationInstructions : [],
+    preopPremedicationOrders: premedicationOrdersFrom(p.preopPremedicationOrders),
     plannedAnaesthesia: normalizePlannedAnaesthesia(p.plannedAnaesthesia),
     // teamNotes and notes are two different fields the clinician can fill in
     // separately; falling back to one when the other is empty merges them and

@@ -18,6 +18,7 @@ import { useLocale } from "next-intl"
 import { useIntraopUiCopy } from "./ui-copy"
 import { customStrengthLabel } from "@lospor/core/strength-entry"
 import { StrengthCustomField } from "./StrengthCustomField"
+import { HoldRepeatButton } from "@/components/HoldRepeatButton"
 
 // One reused dose-entry screen for drugs (bolus), infusions, fluids, and
 // agents — extracted out of IntraopTimetable.tsx where each of these used
@@ -116,6 +117,9 @@ export function DoseSelector({
   )
   const a = ACCENT[accent] ?? ACCENT.violet
   const num = parseFloat(value) || 0
+  function stepBy(delta: number) {
+    onValueChange(String(parseFloat(Math.min(max, Math.max(min, num + delta)).toFixed(10))))
+  }
   const pillBase = "min-h-7 whitespace-nowrap text-[10px] font-semibold px-2 py-1 rounded-full border transition-all"
   const pillOff  = "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"
   const doseValues = useMemo(() => quickValues ?? [], [quickValues])
@@ -297,22 +301,22 @@ export function DoseSelector({
 
       <div className="flex items-center gap-1.5">
         {showGuidance && !manualEntryOnly && (
-          <button type="button"
-            onClick={() => onValueChange(String(Math.max(min, (parseFloat(value) || 0) - step)))}
-            className="flex items-center justify-center w-7 h-7 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors select-none">
+          <HoldRepeatButton
+            onStep={() => stepBy(-step)}
+            className="flex items-center justify-center w-7 h-7 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors">
             <Minus className="h-3 w-3" />
-          </button>
+          </HoldRepeatButton>
         )}
         <input autoFocus type="number" placeholder={valuePlaceholder ?? copy.value} value={value}
           onChange={e => onValueChange(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !confirmDisabled && onConfirm?.()}
           className={`flex-1 min-w-0 text-xs text-center bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1 outline-none ${a.focusBorder} [appearance:textfield]`} />
         {showGuidance && !manualEntryOnly && (
-          <button type="button"
-            onClick={() => onValueChange(String(Math.min(max, (parseFloat(value) || 0) + step)))}
-            className="flex items-center justify-center w-7 h-7 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors select-none">
+          <HoldRepeatButton
+            onStep={() => stepBy(step)}
+            className="flex items-center justify-center w-7 h-7 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors">
             <Plus className="h-3 w-3" />
-          </button>
+          </HoldRepeatButton>
         )}
         {units && units.length > 0 && !unitSuffix && (
           units.length === 1

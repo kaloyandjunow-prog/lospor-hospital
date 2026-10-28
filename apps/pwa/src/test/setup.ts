@@ -36,6 +36,7 @@ vi.mock("react-native", () => {
       Value: class {
         constructor(public _v: number) {}
         setValue() {}
+        stopAnimation() {}
         interpolate() { return this }
       },
       timing: () => ({ start: (cb?: () => void) => cb?.() }),
@@ -43,6 +44,7 @@ vi.mock("react-native", () => {
       sequence: () => ({ start: (cb?: () => void) => cb?.() }),
       parallel: () => ({ start: (cb?: () => void) => cb?.() }),
     },
+    Easing: { out: (f: unknown) => f, in: (f: unknown) => f, cubic: (x: number) => x, quad: (x: number) => x },
     PanResponder: { create: () => ({ panHandlers: {} }) },
   }
 })

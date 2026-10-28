@@ -8,20 +8,23 @@ import { IntraopAttentionPanel } from "@/components/intraop/IntraopAttentionPane
 import { CaseSaveStateContext } from "@/lib/use-case-save-state"
 import { appendComplications } from "@/lib/append-complications"
 import { totalsProvisional } from "@lospor/core/intraop-save-state"
-import { adultPremedDoseForRoute } from "@lospor/core/premedication"
 import type { IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 import { computeLiveDrugTotals, infusionsVolumeMl, tciPatientFrom } from "@/lib/intraop-drug-totals"
 import { buildIntraopSubmission, intraopEndCaseValuesNow, intraopTimeErrors } from "@/lib/intraop-submit"
-import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { StepTabBar } from "@/components/forms/StepTabBar"
+import { SectionJumpStrip } from "@/components/forms/SectionJumpStrip"
 import { useLocale, useTranslations } from "next-intl"
 import { IntraopTimetable, type TimetableData, type IntraopLogEvent } from "@/components/IntraopTimetable"
 import type { WeightBasisMap } from "@/lib/infusion-calc"
-import { buildTree as buildTechniqueTree, techniqueIsGeneral, techniqueUsesGas } from "@/components/TechniqueTree"
+import { buildTree as buildTechniqueTree, techniqueDisplayLabel, techniqueIsGeneral, techniqueUsesGas } from "@/components/TechniqueTree"
+import { CaseSidebar, sidebarPatientOf, type CaseStages } from "@/components/forms/CaseSidebar"
+import { broselowZone } from "@lospor/core/broselow"
 import { IntraopPreopSummary } from "@/components/intraop/IntraopPreopSummary"
 import { useEndCaseCheck } from "@/components/intraop/EndCaseReadiness"
 import { useAllergyGate } from "@/components/intraop/AllergyGate"
@@ -41,7 +44,8 @@ import { IntraopEhrLabs, ehrLabsWriter } from "@/components/intraop/IntraopEhrLa
 import { useClinicalRules } from "@/hooks/useClinicalRules"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
-import type { PremDoseCfg, PremedCat, PremedRouteView } from "@/components/intraop/PremedicationPicker"
+import { usePremedicationLibrary } from "@/components/intraop/use-premedication-library"
+import { usePremedicationPrefill } from "@/components/intraop/use-premedication-prefill"
 import { PositionSection } from "@/components/forms/sections/PositionSection"
 import { MonitoringSection } from "@/components/forms/sections/MonitoringSection"
 import { VascularAccessSection } from "@/components/forms/sections/VascularAccessSection"
@@ -52,15 +56,8 @@ import { TimelineSection } from "@/components/forms/sections/TimelineSection"
 import { AirwaySection } from "@/components/forms/sections/AirwaySection"
 import { TechniqueSection } from "@/components/forms/sections/TechniqueSection"
 import {
-  mapPremedicationCategories,
   weightBasisMap,
 } from "@lospor/core/option-library"
-import {
-  buildPediatricPremedLibrary,
-  pediatricPremedDoseForRoute,
-  type PediatricPremedAnnotation,
-  type PediatricPremedPatient,
-} from "@lospor/core/pediatric-premedication-library"
 import {
   evaluateIntraopReadiness,
   type ClinicalIssueCode,
@@ -78,7 +75,9 @@ export type { IntraopFormFields, IntraopData } from "./intraopSchema"
 
 import type { PreopSummary } from "@/components/forms/preop-summary"
 
-export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onSaveNow, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, readOnly = false, autoEnded: autoEndedProp = false, caseId = null, aiOptIn = false, focus = null }: {
+export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onSaveNow, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onEventOps, readOnly = false, autoEnded: autoEndedProp = false, caseId = null, aiOptIn = false, focus = null, stages }: {
+  /** Where the case is, for the case panel (sidebar layout). */
+  stages?: CaseStages
   /**
    * The saved case, once autosave has created one.
    *
@@ -95,7 +94,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   onBack: () => void
   onAutoSave?: (data: IntraopData) => void; onSaveNow?: (data: IntraopData) => Promise<unknown> // hospital: saves at once (labs from the hospital system)
   onPostopContinued?: (items: string[]) => void
-  layoutMode?: "tabs" | "scroll"
+  /** "sidebar": one scrolling page beside the case panel (10.0.0). */
+  layoutMode?: "tabs" | "scroll" | "sidebar"
   caseStarted?: boolean
   eventLog?: IntraopLogEvent[]
   /** Writes timeline edits as event operations (the log is the only source). */
@@ -134,7 +134,6 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   const techniqueTree = useMemo(() => buildTechniqueTree(techniqueLibOpts, locale), [locale, techniqueLibOpts])
   const { options: monitoringOptions } = useOptionLibrary("MONITORING")
   const { options: airwayOptions } = useOptionLibrary("AIRWAY_MANAGEMENT")
-  const { options: premedOptions } = useOptionLibrary("PREMED_DRUG")
   const { options: infusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
   const infusionWeightBasis = useMemo<WeightBasisMap>(
     () => weightBasisMap(infusionLibOpts),
@@ -142,74 +141,11 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   )
   const airwayDeviceOptions = useMemo(() => airwayOptions.filter(o => o.group === "Device"), [airwayOptions])
   const airwayToolOptions = useMemo(() => airwayOptions.filter(o => o.group === "Instrument"), [airwayOptions])
-  // Premedication for a child is rebuilt from the child's weight and age, drug
-  // by drug. Without this the picker offered a 12 kg two-year-old the adult
-  // library unchanged — a gram of paracetamol — because PremDoseCfg carries a
-  // fixed amount with no weight term. The rebuild lives in @lospor/core so this
-  // and the mobile sheet cannot drift apart on a dose.
-  // Declared here rather than beside the IBW block below, because the premedication
-  // rebuild needs them and `const` does not hoist.
+  // The premedication picker's drugs and doses, rebuilt for a child from its
+  // weight and age (shared with the preop order: use-premedication-library).
   const clinicalMode = preop?.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT"
   const isPediatric = clinicalMode === "PEDIATRIC"
-
-  const premedPatient = useMemo<PediatricPremedPatient>(() => ({
-    weightKg: preop?.weightKg ?? null,
-    heightCm: preop?.heightCm ?? null,
-    sex: preop?.sex ?? null,
-    age: isPediatric && preop?.ageValue != null && preop.ageUnit
-      ? { value: preop.ageValue, unit: preop.ageUnit }
-      : null,
-  }), [isPediatric, preop])
-
-  const premedPediatric = useMemo(
-    () => isPediatric
-      ? buildPediatricPremedLibrary(mapPremedicationCategories(premedOptions), premedPatient)
-      : null,
-    [isPediatric, premedOptions, premedPatient],
-  )
-
-  // One list, in core's shape, whether or not this is a child: the paediatric
-  // rebuild returns the same categories with the doses recomputed. The picker
-  // and the dose map are then two views of that one structure rather than two
-  // passes over the option table, which is how the list and its dosing came to
-  // be built by different code.
-  const premedCategories = useMemo<PremedCat[]>(
-    () => premedPediatric ?? mapPremedicationCategories(premedOptions),
-    [premedOptions, premedPediatric])
-
-  const premedDoses = useMemo<Record<string, PremDoseCfg>>(() => {
-    const map: Record<string, PremDoseCfg> = {}
-    for (const category of premedCategories) {
-      for (const { name, pediatric: _annotation, ...cfg } of category.drugs) map[name] = cfg
-    }
-    return map
-  }, [premedCategories])
-
-  /** Provenance and withheld reasons, keyed by drug, empty outside paediatric mode. */
-  const premedAnnotations = useMemo<Record<string, PediatricPremedAnnotation>>(() => {
-    if (!premedPediatric) return {}
-    const map: Record<string, PediatricPremedAnnotation> = {}
-    for (const category of premedPediatric) {
-      for (const drug of category.drugs) {
-        if (drug.pediatric) map[drug.name] = drug.pediatric
-      }
-    }
-    return map
-  }, [premedPediatric])
-
-  // Oral midazolam is 0.5 mg/kg and intravenous is 0.05; leaving the previous
-  // number in place across a route change is a tenfold error waiting to happen.
-  const premedDoseForRoute = useCallback((drugName: string, route: string): PremedRouteView | null => {
-    const cfg = premedDoses[drugName]
-    if (!cfg) return null
-    if (premedPediatric) {
-      const next = pediatricPremedDoseForRoute({ name: drugName, ...cfg }, route, premedPatient)
-      return { dose: next.status === "calculated" ? next.dose : null, unit: cfg.unit, min: cfg.min, max: cfg.max, step: cfg.step, hint: cfg.hint }
-    }
-    // Adults: each route has its own dose, range and step (Core, 1.4.9).
-    const view = adultPremedDoseForRoute({ name: drugName, routeDoses: cfg.routeDoses }, route, preop?.weightKg)
-    return view.status === "unknown" ? null : { ...view, ...(view.status === "needs-weight" ? { min: 0, max: 1000 } : {}) }
-  }, [premedDoses, premedPatient, premedPediatric, preop?.weightKg])
+  const { premedCategories, premedDoses, premedAnnotations, premedDoseForRoute } = usePremedicationLibrary(preop)
 
   const EMPTY_TIMETABLE = useMemo<TimetableData>(() => ({ vitals: [], drugs: [], fluids: [], agents: [], infusions: [], gasSettings: [], clinicalEvents: [] }), [])
   const safeTimetable = (defaultTimetable && !Array.isArray(defaultTimetable) && "vitals" in defaultTimetable)
@@ -330,6 +266,14 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     const timer = setTimeout(save, 1000)             // reduced from 2 s → 1 s
     return () => clearTimeout(timer)
   }, [airwayDevicesKey, airwayToolsKey, allValuesKey, getValues, onAutoSave, positionsKey, ventilationModesKey])
+
+  // The premedication starts from what the preop visit ordered (1.7.0).
+  usePremedicationPrefill({
+    ordered: preop?.premedicationOrders,
+    readOnly,
+    getValue: field => getValues(field),
+    setValue: (field, value) => setValue(field, value, { shouldDirty: true }),
+  })
 
   // Fire pending save immediately when user navigates away (component unmounts)
   useEffect(() => {
@@ -491,6 +435,42 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     onSubmit({ ...formData, vitals, drugsAdministered })
   }
 
+  // The case panel (10.0.0): the same one as preop and postop, with this
+  // step's parts, what is needed to finalise, and its times.
+  const minutesOf = (time: string | null | undefined) => {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(time ?? "")
+    return match ? Number(match[1]) * 60 + Number(match[2]) : null
+  }
+  const startMinutes = minutesOf(watchedStartTime)
+  const endMinutes = minutesOf(watchedEndTime)
+  const durationMinutes = startMinutes != null && endMinutes != null ? (endMinutes - startMinutes + 1440) % 1440 : null
+  const intraopSidebar = layoutMode === "sidebar" ? (
+    <CaseSidebar
+      stages={stages ?? { current: 1 }}
+      sections={[
+        { id: "overview", label: t("intraop.tabs.overview"), missing: !watchedStartTime || !watchedEndTime },
+        { id: "anaesthesia", label: t("intraop.tabs.anaesthesia"), missing: techniques.length === 0 },
+        { id: "chart", label: t("intraop.tabs.chart"), missing: false },
+        { id: "finish", label: t("intraop.tabs.finish"), missing: false },
+      ]}
+      anchorPrefix="intraop-sec-"
+      patient={sidebarPatientOf(preop, locale)}
+      broselow={isPediatric ? broselowZone({ clinicalMode: "PEDIATRIC", heightCm: preop?.heightCm ?? null, weightKg: preop?.weightKg ?? null }) : null}
+      factsTitle={t("intraop.sidebar.title")}
+      facts={[
+        { label: t("intraop.startTime"), value: watchedStartTime || "—" },
+        { label: t("intraop.endTime"), value: watchedEndTime || "—" },
+        { label: t("intraop.sidebar.duration"), value: durationMinutes == null ? "—" : `${Math.floor(durationMinutes / 60)} h ${durationMinutes % 60} min` },
+        { label: t("intraop.sidebar.technique"), value: techniques.length ? techniques.slice(0, 2).map(value => techniqueDisplayLabel(value, techniqueTree)).join(", ") : "—" },
+        ...(preop?.asaScore ? [{ label: "ASA", value: preop.asaScore }] : []),
+      ]}
+      // The footer below already carries Continue; the panel stays clear of it.
+      clearFooter
+      testId="intraop-sidebar"
+      stripTestId="intraop-section-strip"
+    />
+  ) : null
+
   return (
     <form onSubmit={handleSubmit(handleSubmitWithTimetable)} className="flex flex-col gap-0">
 
@@ -578,7 +558,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       {/* Premedication */}
       <PremedicationSection t={t} control={control} watch={watch} premedCategories={premedCategories} premedDoses={premedDoses}
         premedAnnotations={premedAnnotations} premedDoseForRoute={premedDoseForRoute}
-        prospectiveGuidanceEnabled={prospectiveGuidanceEnabled} />
+        prospectiveGuidanceEnabled={prospectiveGuidanceEnabled} ordered={preop?.premedicationOrders} />
       </div>{/* /intraop-technique */}
 
         </>)
@@ -656,22 +636,41 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       <ComplicationsSection t={t} control={control} watch={watch} eventLog={eventLog} labResults={(watchedLabResults ?? []) as never} onDeleteEvent={onEventOps ? removeEvent : undefined} />
 
         </>)
+        if (layoutMode === "sidebar") return (
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-x-6">
+            {intraopSidebar}
+            <div className="mt-6 min-w-0 space-y-6">
+              <div id="intraop-sec-overview" className="scroll-mt-24 space-y-6">{tabOverview}</div>
+              <div id="intraop-sec-anaesthesia" className="scroll-mt-24 space-y-6">{tabAnaesthesia}</div>
+              <div id="intraop-sec-chart" className="scroll-mt-24 space-y-6">{tabChart}</div>
+              <div id="intraop-sec-finish" className="scroll-mt-24 space-y-6">{tabFinish}</div>
+            </div>
+          </div>
+        )
         if (layoutMode === "scroll") return (
           <div className="space-y-6 mt-6">
-            {tabOverview}
-            {tabAnaesthesia}
-            {tabChart}
-            {tabFinish}
+            {/* The same strip of jump links as the other steps' scrolling pages (10.0.0). */}
+            <SectionJumpStrip
+              sections={(["overview", "anaesthesia", "chart", "finish"] as const).map(id => ({ id, label: t(`intraop.tabs.${id}`) }))}
+              anchorPrefix="intraop-sec-"
+              testId="intraop-scroll-strip"
+            />
+            <div id="intraop-sec-overview" className="scroll-mt-28 space-y-6">{tabOverview}</div>
+            <div id="intraop-sec-anaesthesia" className="scroll-mt-28 space-y-6">{tabAnaesthesia}</div>
+            <div id="intraop-sec-chart" className="scroll-mt-28 space-y-6">{tabChart}</div>
+            <div id="intraop-sec-finish" className="scroll-mt-28 space-y-6">{tabFinish}</div>
           </div>
         )
         return (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-0">
-            <TabsList variant="line" className="sticky top-0 z-20 w-full bg-white dark:bg-[#111] border-b border-slate-200 dark:border-[#2a2a2a] rounded-none px-4 mb-0 h-11 justify-start gap-1">
-              <TabsTrigger value="overview"    className="text-xs font-semibold px-3">{t("intraop.tabs.overview")}</TabsTrigger>
-              <TabsTrigger value="anaesthesia" className="text-xs font-semibold px-3">{t("intraop.tabs.anaesthesia")}</TabsTrigger>
-              <TabsTrigger value="chart"       className="text-xs font-semibold px-3">{t("intraop.tabs.chart")}</TabsTrigger>
-              <TabsTrigger value="finish"      className="text-xs font-semibold px-3">{t("intraop.tabs.finish")}</TabsTrigger>
-            </TabsList>
+            {/* The same bar as preop and postop (10.0.0). */}
+            <StepTabBar
+              tabs={(["overview", "anaesthesia", "chart", "finish"] as const).map(value => ({ value, label: t(`intraop.tabs.${value}`) }))}
+              active={activeTab as "overview" | "anaesthesia" | "chart" | "finish"}
+              onSelect={setActiveTab}
+              label={t("case.steps.intraop")}
+              testId="intraop-tabs"
+            />
             <TabsContent value="overview"    className="space-y-6 p-0 mt-6">{tabOverview}</TabsContent>
             <TabsContent value="anaesthesia" className="space-y-6 p-0 mt-6">{tabAnaesthesia}</TabsContent>
             <TabsContent value="chart"       className="space-y-6 p-0 mt-6">{tabChart}</TabsContent>

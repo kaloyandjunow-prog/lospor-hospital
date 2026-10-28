@@ -31,12 +31,17 @@ export type AgentPopoverProps = {
   quickPercentsFor: (agent: string) => number[]
   textClassFor: (agent: string) => string
   displayAgentName: (name: string) => string
-  labels: { startAgentHere: string; optional: string }
+  labels: { startAgentHere: string; optional: string; editLogged: string }
+  /** Heading and apply button when the edit is a change from a later time, not the start. */
+  editCaption?: string
+  applyLabel?: string
   onSelectAgent: (agent: string) => void
   onPercentChange: (percent: number) => void
   onNitrousChange: (percent: number | null) => void
   onStart: (agent: string) => void
   onApply: () => void
+  /** A stopped agent: carry on with it (10.0.0; was a double-click only). */
+  onResume?: () => void
   onDismiss: () => void
 }
 
@@ -57,11 +62,14 @@ export function AgentPopover({
   textClassFor,
   displayAgentName,
   labels,
+  editCaption,
+  applyLabel,
   onSelectAgent,
   onPercentChange,
   onNitrousChange,
   onStart,
   onApply,
+  onResume,
   onDismiss,
 }: AgentPopoverProps) {
   const copy = useIntraopUiCopy()
@@ -88,12 +96,17 @@ export function AgentPopover({
           width: POPOVER_WIDTH,
           zIndex: 9999,
           transform: showAbove ? "translateY(-100%)" : undefined,
+          // Never past the screen edge: the editor of a running or stopped agent
+          // is taller than the room the flip allows for, and its last buttons
+          // (Apply, Resume) were cut off near the bottom (10.0.0).
+          maxHeight: showAbove ? anchor.top - 12 : window.innerHeight - top - 8,
+          overflowY: "auto",
         }}
         className="bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2"
         onClick={event => event.stopPropagation()}
       >
         <p className={captionClass}>
-          {editingName ? copy.editAgent(displayAgentName(editingName)) : labels.startAgentHere}
+          {editingName ? editCaption ?? copy.editAgent(displayAgentName(editingName)) : labels.startAgentHere}
         </p>
 
         {!editingName && (
@@ -179,13 +192,26 @@ export function AgentPopover({
         </div>
 
         {editingName && (
-          <button
-            type="button"
-            onClick={onApply}
-            className="w-full text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors"
-          >
-            {copy.apply}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onApply}
+              className="w-full text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors"
+            >
+              {applyLabel ?? copy.apply}
+            </button>
+            {onResume && (
+              <button
+                type="button"
+                onClick={onResume}
+                data-testid="agent-resume"
+                className="w-full text-xs font-semibold border border-emerald-400 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg py-1.5 transition-colors"
+              >
+                {copy.resume}
+              </button>
+            )}
+            <p className="text-[9px] leading-snug text-slate-400">{labels.editLogged}</p>
+          </>
         )}
       </div>
     </>,

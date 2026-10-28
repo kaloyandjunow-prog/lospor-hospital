@@ -82,3 +82,26 @@ describe("EquipmentSuggestions", () => {
     expect(screen.queryByText("Suggested equipment & sizes")).toBeNull()
   })
 })
+
+describe("the Broselow colour in the equipment suggestions", () => {
+  const child = { clinicalMode: "PEDIATRIC" as const, ageValue: 6, ageUnit: "YEARS" as const, ageYears: 6, weightKg: 20, heightCm: 112, sex: "MALE" }
+
+  it("shows a child's tape colour at the top, in English", () => {
+    renderSuggestions(child)
+    const badge = screen.getByTestId("broselow-badge")
+    expect(badge.dataset.zone).toBe("BLUE")
+    expect(badge.textContent).toContain("Broselow Blue")
+    expect(badge.textContent).toContain("by height")
+  })
+
+  it("names the colour in Bulgarian", () => {
+    renderSuggestions(child, "bg")
+    expect(screen.getByTestId("broselow-badge").textContent).toContain("Син")
+    expect(screen.getByTestId("broselow-badge").textContent).toContain("по ръст")
+  })
+
+  it("shows no colour for an adult", () => {
+    renderSuggestions({ clinicalMode: "ADULT", ageYears: 40, weightKg: 70, heightCm: 175, sex: "MALE" })
+    expect(screen.queryByTestId("broselow-badge")).toBeNull()
+  })
+})

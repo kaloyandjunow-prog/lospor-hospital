@@ -9,12 +9,16 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { usePreopDocumentSettings } from "@/lib/use-preop-documents"
 import { PreopForm, type PreopData } from "@/components/forms/PreopForm"
+import { useCaseLayout } from "@/hooks/useCaseLayout"
+import { screenLayoutOf } from "@/lib/case-layout"
+import { sidebarPatientOf, type CaseStages } from "@/components/forms/CaseSidebar"
 import { IntraopForm, type IntraopData } from "@/components/forms/IntraopForm"
 import { type TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/types/timetable"
 import type { CaseDetail, CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop } from "@/types/case-detail"
 import { PostopForm, type PostopData } from "@/components/forms/PostopForm"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, UserRound } from "lucide-react"
+import { CaseMeta } from "@/components/CaseMeta"
 import {
   dbPreopToForm,
   dbPostopToForm,
@@ -25,7 +29,7 @@ import {
 } from "./case-record-mapping"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { recordEhrDecisions } from "@/lib/ehr-import"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { CaseSummary } from "@/components/CaseSummary"
 import { useTour } from "@/context/TourContext"
@@ -51,6 +55,7 @@ import { submitCaseForReview, submitForReviewMessage, refetchAwaitingReviewAt } 
 import { canProgressAfterSave, type SaveOutcomeKind } from "@lospor/core/save-progression"
 import { useCaseEventLog } from "./useCaseEventLog"
 import { intraopAutosaveValues } from "@/lib/intraop-submit"
+import { PendingCloseBanner } from "./PendingCloseBanner"
 
 type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }
 
@@ -59,7 +64,9 @@ export default function NewCasePage() {
   const preopDocuments = usePreopDocumentSettings() // summary between preop and intraop, when on
   const searchParams = useSearchParams()
   const t = useTranslations()
+  const locale = useLocale()
   const STEPS = [t("case.steps.preop"), t("case.steps.intraop"), t("case.steps.postop"), t("case.steps.summary")]
+  const STEPS_SHORT = [t("case.stepsShort.preop"), t("case.stepsShort.intraop"), t("case.stepsShort.postop"), t("case.stepsShort.summary")]
 
   const { setCurrentFormStep } = useTour()
 
@@ -71,8 +78,11 @@ export default function NewCasePage() {
   const [timetableDefault, setTimetableDefault] = useState<TimetableData | null>(null)
   const [postopData, setPostopData]   = useState<PostopData | null>(null)
   const [continuedPostopItems, setContinuedPostopItems] = useState<string[]>([])
-  const [layoutMode, setLayoutMode]   = useState<"tabs" | "scroll">("scroll")
-  const [preopLayout, setPreopLayout] = useState<"tabs" | "scroll">("scroll")
+  // Sidebar, or each screen sectioned or scrollable (10.0.0).
+  const [caseLayout] = useCaseLayout()
+  const preopLayout = screenLayoutOf(caseLayout, "preop")
+  const intraopLayout = screenLayoutOf(caseLayout, "intraop")
+  const postopLayout = screenLayoutOf(caseLayout, "postop")
   // 30-minute graceful close window, anchored to the server's awaitingReviewAt
   // (set once, the moment the case reaches AWAITING_REVIEW) rather than a
   // per-browser localStorage timestamp, so this and the case-detail route
@@ -80,25 +90,6 @@ export default function NewCasePage() {
   const [awaitingReviewAt, setAwaitingReviewAt] = useState<string | null>(null)
   const closeSecsLeft = usePendingCloseCountdown(awaitingReviewAt, null, finaliseCase)
 
-  useEffect(() => {
-    // One-time mount sync from localStorage (can't read it during SSR), plus
-    // a storage-event listener for cross-tab updates - same pattern as
-    // SettingsMenu.tsx/ThemeToggle.tsx.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    const stored = localStorage.getItem("layoutMode")
-    if (stored === "tabs" || stored === "scroll") setLayoutMode(stored)
-    const storedPreop = localStorage.getItem("preopLayout")
-    if (storedPreop === "tabs" || storedPreop === "scroll") setPreopLayout(storedPreop)
-    const handler = (e: StorageEvent) => {
-      if (e.key === "layoutMode" && (e.newValue === "tabs" || e.newValue === "scroll"))
-        setLayoutMode(e.newValue)
-      if (e.key === "preopLayout" && (e.newValue === "tabs" || e.newValue === "scroll"))
-        setPreopLayout(e.newValue)
-    }
-    window.addEventListener("storage", handler)
-    /* eslint-enable react-hooks/set-state-in-effect */
-    return () => window.removeEventListener("storage", handler)
-  }, [])
   const [submitting, setSubmitting]   = useState(false)
   const [saveStatus, setSaveStatus]   = useState<CaseSaveStatus>("idle")
   const [autoSaveErrMsg, setAutoSaveErrMsg] = useState<string | null>(null)
@@ -115,6 +106,7 @@ export default function NewCasePage() {
   const { error: preopSubmitError, run: runPreopSubmit } = usePreopSubmitGate(setSubmitting)
   useUnsavedCaseWarning(preopHasInput && (!caseId || preopNeedsReview))
   const markPreopInput = useCallback(() => setPreopHasInput(true), [])
+  const [theatreName, setTheatreName] = useState<string | null>(null)
   // Undo finalization state
   const [finalizedCaseId,   setFinalizedCaseId]   = useState<string | null>(null)
   const [undoSecsLeft,      setUndoSecsLeft]       = useState<number | null>(null)
@@ -171,10 +163,17 @@ export default function NewCasePage() {
           router.replace(`/cases/${continueId}`)
           return
         }
+        // A cancelled procedure is closed: it opens read-only (10.0.0).
+        if (record.status === "CANCELLED") {
+          toast(t("cancellation.closedRedirect"))
+          router.replace(`/cases/${continueId}`)
+          return
+        }
         caseIdRef.current = continueId
         setCaseId(continueId)
         acceptPatientReference(record)
         if (record.caseCode) setCaseCode(record.caseCode)
+        setTheatreName(record.theatre?.name ?? null)
         const [queuedPreop, queuedIntraop, queuedPostop, pendingEvents, pendingMutations] = await Promise.all([
           autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
           autosaveManager.outbox.load<Record<string, unknown>>(continueId, "intraop").catch(() => null),
@@ -629,29 +628,37 @@ export default function NewCasePage() {
     }
   }
 
+  // The case panel's stages: an earlier step opens again, as Back does.
+  const caseStages: CaseStages = { current: step, onSelect: target => { setStep(target); window.scrollTo(0, 0) } }
+
   const visiblePreopRejections = withBlockedPreopRejection(new Map(rejections.preop ?? []), blockedIssue, blockedMessage)
 
   return (
-    <div className={`${step === 1 ? "max-w-6xl" : step === 3 ? "max-w-[1200px]" : "max-w-4xl"} mx-auto space-y-8 transition-all`}>
+    <div className={`${step === 1 && caseLayout.sidebar ? "max-w-[1400px]" : step === 1 || (step < 3 && caseLayout.sidebar) ? "max-w-6xl" : step === 3 ? "max-w-[1200px]" : "max-w-4xl"} mx-auto space-y-8 transition-all`}>
       <FinalizeUndoBanner undoSecsLeft={undoSecsLeft} undoExpired={undoExpired} finalizedCaseId={finalizedCaseId} onUndo={handleUndo} />
 
       {isWatching && <WatchingBanner onTakeover={takeover} holderName={holderName} />}
+      <>
       <CaseEditorHeader
         caseId={caseId}
         caseCode={caseCode}
+        theatreName={theatreName}
         saveStatus={saveStatus}
         saveError={autoSaveErrMsg}
         maskedIdentifier={patientReference?.maskedIdentifier ?? null}
         onPatientRelink={(n, reason) => relinkPatient(caseIdRef.current, n, reason)}
         patientRelinkDisabled={isWatching}
       />
+      </>
 
-      <CaseProgress
+      <div className={caseLayout.sidebar && step < 3 ? "lg:hidden" : undefined}>
+        <CaseProgress
         labels={STEPS}
         currentStep={step}
         caseExists={Boolean(caseId)}
         onStepChange={setStep}
-      />
+        />
+      </div>
 
       {/* Compact pending-close banner - visible at steps 0/1/2 while countdown is running */}
       {closeSecsLeft !== null && step < 3 && (
@@ -687,6 +694,7 @@ export default function NewCasePage() {
             onSubmit={handlePreopSubmit}
             onAutoSave={onPreopAutoSave}
             layoutMode={preopLayout}
+            stages={caseStages}
             caseId={caseId}
             onEhrAcceptedBeforeCase={onEhrAcceptedBeforeCase}
             submitting={submitting}
@@ -705,7 +713,8 @@ export default function NewCasePage() {
             onBack={() => setStep(0)}
             onAutoSave={onIntraopAutoSave}
             onPostopContinued={items => setContinuedPostopItems(items)}
-            layoutMode={layoutMode}
+            layoutMode={intraopLayout}
+            stages={caseStages}
             eventLog={eventLog}
             onEventOps={applyEventOps}
             readOnly={isWatching} autoEnded={autoEnded} caseId={caseId} aiOptIn={!!preopData?.aiOptIn} onSaveNow={data => saveSection("intraop", intraopAutosaveValues(data) as IntraopData)}
@@ -716,7 +725,14 @@ export default function NewCasePage() {
             rejectedFields={rejections.postop}
             defaultValues={postopData ?? undefined}
             clinicalMode={preopData?.clinicalMode ?? "ADULT"}
-            pediatricAgeYears={preopData?.ageYears}
+            patientAge={{ ageValue: preopData?.ageValue ?? null, ageUnit: preopData?.ageUnit ?? null, ageYears: preopData?.ageYears ?? null }}
+            preopSystolic={preopData?.bpSystolic ?? null}
+            plannedProcedures={preopData?.procedures ?? []}
+            procedureUndetermined={preopData?.procedureUndetermined ?? false}
+            sectionConfigs={preopProfile?.sectionConfigs}
+            layoutMode={postopLayout}
+            stages={caseStages}
+            patient={sidebarPatientOf(preopData ? preopSummaryForIntraop(preopData) : null, locale)}
             onSubmit={handlePostopSubmit}
             onBack={() => setStep(1)}
             submitting={submitting}
@@ -730,33 +746,9 @@ export default function NewCasePage() {
       {step === 3 && caseId && (
         <div className="space-y-4">
           {/* Graceful close countdown banner - hidden once finalized */}
-          {closeSecsLeft !== null && (
-          <div className="no-print rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-300">
-                  {t("case.pendingClose")}{" "}
-                  <span className="font-bold tabular-nums">
-                    {String(Math.floor(closeSecsLeft / 60)).padStart(2,"0")}:{String(closeSecsLeft % 60).padStart(2,"0")}
-                  </span>
-                </p>
-                <p className="text-sm text-amber-600 dark:text-amber-400">{t("case.pendingCloseHint")}</p>
-              </div>
-            </div>
-            {closeSecsLeft !== null && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-amber-600 dark:text-amber-400">{t("settings.edit")}:</span>
-                <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40" onClick={() => setStep(0)}>{t("case.steps.preop")}</Button>
-                <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40" onClick={() => setStep(1)}>{t("case.steps.intraop")}</Button>
-                <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40" onClick={() => setStep(2)}>{t("case.steps.postop")}</Button>
-                <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => finaliseCase()}>
-                  {t("case.closeNow")}
-                </Button>
-              </div>
-            )}
-          </div>
-          )}
+          {closeSecsLeft !== null && <PendingCloseBanner seconds={closeSecsLeft} onEdit={setStep} onClose={finaliseCase} />}
+          {/*
+          */}
 
           {/* Case summary - patient name dialog is inside CaseSummary */}
           <div data-tour="summary-print" className="no-print absolute opacity-0 pointer-events-none" aria-hidden />

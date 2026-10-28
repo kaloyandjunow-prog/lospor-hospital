@@ -66,6 +66,24 @@ function SummaryDetails({ facts, locale }: { facts: SummaryFacts; locale: string
           </ul>
         </Section>
       ) : null}
+      {facts.orders.all.length > 0 ? (
+        <Section title={L.wardOrders}>
+          <ul className="text-[10.5px] leading-snug space-y-0.5" data-testid="preop-summary-ward-orders">{facts.orders.all.map(text => <li key={text}>{text}</li>)}</ul>
+        </Section>
+      ) : null}
+      {facts.medicationOrders.all.length > 0 ? (
+        <Section title={L.medsInstr}>
+          <ul className="text-[10.5px] leading-snug space-y-0.5" data-testid="preop-summary-medication-instructions">{facts.medicationOrders.all.map((text, index) => <li key={index}>{text}</li>)}</ul>
+        </Section>
+      ) : null}
+      {facts.premedication.night.length + facts.premedication.morning.length > 0 ? (
+        <Section title={L.premedTitle}>
+          <ul className="text-[10.5px] leading-snug space-y-0.5" data-testid="preop-summary-premedication">
+            {facts.premedication.night.length > 0 ? <li>{L.premedEvening}: {facts.premedication.night.join(", ")}</li> : null}
+            {facts.premedication.morning.length > 0 ? <li>{L.premedMorning}: {facts.premedication.morning.join(", ")}</li> : null}
+          </ul>
+        </Section>
+      ) : null}
     </div>
   )
 }

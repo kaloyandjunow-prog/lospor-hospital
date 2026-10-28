@@ -2,6 +2,7 @@ import type { ReactElement } from "react"
 
 import type { CaseDetail } from "@/types/case-detail"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { painSummaryEntries } from "@lospor/core/postop-pain"
 
 /**
  * The recovery half of the printed record: Aldrete, recovery observations and
@@ -18,6 +19,7 @@ export function PostopRecoverySection({
   labels: L,
   aldreteBg,
   aldreteStatus,
+  steward = false,
   handoverItems,
   handoverLookup,
   Field: F,
@@ -29,6 +31,8 @@ export function PostopRecoverySection({
   /** Background classes for the total, banded by the caller. */
   aldreteBg: string
   aldreteStatus: string | null
+  /** A child's record: the Steward score in place of Aldrete (10.0.0). */
+  steward?: boolean
   handoverItems: string[]
   handoverLookup: Record<string, string>
   Field: (props: { label: string; value: string | null }) => ReactElement | null
@@ -39,22 +43,26 @@ export function PostopRecoverySection({
           <span className="text-[9px] font-bold tracking-[0.12em] text-blue-900 dark:text-blue-300">{L.postopRecoveryLbl}</span>
           <div className="flex-1 h-px bg-blue-100 dark:bg-blue-900/60" />
         </div>
-        <div className="grid grid-cols-6 gap-2">
-          {[
+        <div className={`grid ${steward ? "grid-cols-4" : "grid-cols-6"} gap-2`}>
+          {(steward ? [
+            [L.stewardConsciousness, o?.stewardConsciousness],
+            [L.stewardAirway,        o?.stewardAirway],
+            [L.stewardMovement,      o?.stewardMovement],
+          ] : [
             [L.aldreteActivity,      o?.aldreteActivity],
             [L.aldreteRespiration,   o?.aldreteRespiration],
             [L.aldreteCirculation,   o?.aldreteCirculation],
             [L.aldreteConsciousness, o?.aldreteConsciousness],
             ["SpO₂",          o?.aldreteSpO2],
-          ].map(([lbl, val]) => (
+          ]).map(([lbl, val]) => (
             <div key={lbl as string} className="border border-slate-200 rounded-lg text-center py-1.5 bg-white">
               <p className="text-[8px] text-slate-500">{lbl as string}</p>
               <p className="text-[15px] font-extrabold text-slate-900 leading-tight">{val ?? "—"}</p>
             </div>
           ))}
           <div className={`border rounded-lg text-center py-1.5 ${aldreteBg}`}>
-            <p className="text-[8px] font-medium">{L.aldreteTotalLbl}</p>
-            <p className="text-[15px] font-extrabold leading-tight">{o?.aldreteTotal ?? "—"} / 10</p>
+            <p className="text-[8px] font-medium">{steward ? L.stewardTotalLbl : L.aldreteTotalLbl}</p>
+            <p className="text-[15px] font-extrabold leading-tight">{(steward ? o?.stewardTotal : o?.aldreteTotal) ?? "—"} / {steward ? 6 : 10}</p>
             <p className="text-[7px]">{aldreteStatus === "ready" ? L.readyDischarge : aldreteStatus === "observe" ? L.monitor : aldreteStatus === "not_ready" ? L.continueStr : "—"}</p>
           </div>
         </div>
@@ -65,7 +73,8 @@ export function PostopRecoverySection({
             <F label={L.hr} value={o?.recoveryHeartRate != null ? `${o.recoveryHeartRate} bpm` : null} />
             <F label="SpO₂" value={o?.recoverySpO2 != null ? `${o.recoverySpO2} %` : null} />
             <F label={L.temperature} value={o?.temperatureCelsius ? `${o.temperatureCelsius} °C` : null} />
-            <F label={L.painNRS}     value={o?.painScoreNRS != null ? `${o.painScoreNRS} / 10` : null} />
+            {/* Every pain and delirium scale scored (10.0.0), each with its band. */}
+            {painSummaryEntries(o, locale === "bg" ? "bg" : "en").map(entry => <F key={entry.key} label={entry.label} value={entry.value} />)}
             <F label={L.ponv}        value={o?.ponv ? "Yes" : o?.ponv === false ? "None" : null} />
           </div>
           <div className="border border-slate-200 rounded-lg p-2 bg-white">

@@ -59,6 +59,8 @@ export const preopFormSchema = z.object({
   diagnoses: z.array(z.object({ label: z.string(), code: z.string().optional(), system: z.string().optional(), labelEn: z.string().optional(), labelBg: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
   // system, group, domain and description carry the exact ICD-10-PCS operation
   // when one was chosen (@lospor/core/procedure-codes).
+  // The planned procedure is not yet known: decided during surgery (10.0.0).
+  procedureUndetermined: z.boolean().default(false),
   procedures: z.array(z.object({ label: z.string(), code: z.string().optional(), system: z.string().optional(), group: z.string().optional(), domain: z.string().optional(), description: z.string().optional(), sub: z.string().optional(), sourceLabel: z.string().optional(), sourceVocabulary: z.string().optional(), suggestedCodes: z.array(z.string()).optional(), imported: z.record(z.string(), z.unknown()).optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
   highRiskSurgery: z.boolean().default(false),
   elective: z.boolean().default(false),
@@ -153,6 +155,28 @@ export const preopFormSchema = z.object({
     policyVersion: z.string(),
   })).default([]),
 
+  // Ward orders and medication instructions (1.7.0). The server keeps each as
+  // a row of its own; the rows it sends back carry their labels and status,
+  // which pass through untouched.
+  preopWardOrders: z.array(z.object({
+    optionKey: z.string(),
+    specialtyKey: z.string().nullable().optional(),
+    labTest: z.string().nullable().optional(),
+  }).passthrough()).default([]),
+  // Premedication ordered at the preop visit, each phase in the picker's words.
+  preopPremedicationOrders: z.object({
+    DAY_BEFORE: z.string().nullable().optional(),
+    MORNING: z.string().nullable().optional(),
+  }).default({}),
+  preopMedicationInstructions: z.array(z.object({
+    id: z.string(),
+    optionKey: z.string(),
+    medicationLabel: z.string(),
+    medicationInn: z.string().nullable().optional(),
+    medicationAtc: z.string().nullable().optional(),
+    hoursBefore: z.number().int().nullable().optional(),
+  }).passthrough()).default([]),
+
   asaScore: z.enum(["I", "II", "III", "IV", "V", "VI"]),
   teamNotes: z.string().max(500).optional(),
   notes: z.string().optional(),
@@ -185,3 +209,8 @@ export type PreopSection =
   | "airway"
   | "labs"
   | "risk"
+  | "planned"
+  | "fasting"
+  | "wardOrders"
+  | "medInstructions"
+  | "premedication"

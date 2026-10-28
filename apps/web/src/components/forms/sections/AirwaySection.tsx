@@ -1,7 +1,6 @@
 "use client"
 import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { Controller } from "react-hook-form"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { RangeSelect } from "@/components/forms/shared/RangeSelect"
 import { Label } from "@/components/ui/label"
@@ -11,6 +10,7 @@ import { displayClinicalCode, displayOption } from "@/lib/clinical-display"
 import type { Control, UseFormWatch, UseFormSetValue, UseFormRegister, Path } from "react-hook-form"
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 import { VENT_ASSISTED, VENT_CONTROLLED } from "@lospor/core/ventilation"
+import { CormackLehaneField } from "@/components/forms/sections/CormackLehaneField"
 import {
   AIRWAY_DEVICE_REQUIRED_FIELDS,
   AIRWAY_DEVICES_WITH_SUBOPTIONS,
@@ -111,78 +111,7 @@ export function AirwaySection({
       {(watch("airwayTools") ?? []).some((t: string) => ["DIRECT_LARY","VIDEO_LARY"].includes(t)) && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.cormackLehaneLabel")}</p>
-          <Controller name="cormackLehane" control={control} render={({ field }) => (
-            <div className="grid grid-cols-5 gap-2">
-              {([
-                {
-                  v: "I", label: "I", color: "bg-green-500 border-green-500 dark:bg-green-700 dark:border-green-600 text-white",
-                  desc: "Full glottis",
-                  svg: (
-                    <svg viewBox="0 0 44 32" className="w-10 h-7 mx-auto mb-1">
-                      <ellipse cx="22" cy="26" rx="16" ry="5" fill="currentColor" opacity="0.2"/>
-                      <path d="M22 6 L8 26 L36 26 Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round"/>
-                      <line x1="8" y1="26" x2="36" y2="26" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3,2"/>
-                    </svg>
-                  ),
-                },
-                {
-                  v: "IIa", label: "IIa", color: "bg-lime-500 border-lime-500 dark:bg-lime-700 dark:border-lime-600 text-white",
-                  desc: "Posterior commissure",
-                  svg: (
-                    <svg viewBox="0 0 44 32" className="w-10 h-7 mx-auto mb-1">
-                      <rect x="0" y="0" width="44" height="14" fill="currentColor" opacity="0.3" rx="2"/>
-                      <path d="M22 14 L10 26 L34 26 Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round"/>
-                      <line x1="10" y1="26" x2="34" y2="26" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3,2"/>
-                    </svg>
-                  ),
-                },
-                {
-                  v: "IIb", label: "IIb", color: "bg-yellow-500 border-yellow-500 dark:bg-yellow-700 dark:border-yellow-600 text-white",
-                  desc: "Arytenoids only",
-                  svg: (
-                    <svg viewBox="0 0 44 32" className="w-10 h-7 mx-auto mb-1">
-                      <rect x="0" y="0" width="44" height="18" fill="currentColor" opacity="0.3" rx="2"/>
-                      <path d="M22 18 L16 26 L28 26 Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round"/>
-                      <line x1="16" y1="26" x2="28" y2="26" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2,2"/>
-                    </svg>
-                  ),
-                },
-                {
-                  v: "III", label: "III", color: "bg-orange-500 border-orange-500 dark:bg-orange-700 dark:border-orange-600 text-white",
-                  desc: "Epiglottis only",
-                  svg: (
-                    <svg viewBox="0 0 44 32" className="w-10 h-7 mx-auto mb-1">
-                      <rect x="0" y="0" width="44" height="22" fill="currentColor" opacity="0.3" rx="2"/>
-                      <path d="M8 22 Q22 10 36 22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-                    </svg>
-                  ),
-                },
-                {
-                  v: "IV", label: "IV", color: "bg-red-500 border-red-500 dark:bg-red-700 dark:border-red-600 text-white",
-                  desc: "No view",
-                  svg: (
-                    <svg viewBox="0 0 44 32" className="w-10 h-7 mx-auto mb-1">
-                      <rect x="0" y="0" width="44" height="32" fill="currentColor" opacity="0.25" rx="2"/>
-                      <line x1="12" y1="10" x2="32" y2="22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                      <line x1="32" y1="10" x2="12" y2="22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                    </svg>
-                  ),
-                },
-              ] as const).map(opt => (
-                <button key={opt.v} type="button"
-                  onClick={() => field.onChange(field.value === opt.v ? undefined : opt.v)}
-                  className={`rounded-xl border-2 p-2.5 text-center transition-all ${
-                    field.value === opt.v
-                      ? opt.color + " shadow-sm"
-                      : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"
-                  }`}>
-                  {opt.svg}
-                  <div className="text-sm font-bold leading-none">{opt.label}</div>
-                  <div className="text-[9px] mt-1 leading-tight opacity-80">{opt.desc}</div>
-                </button>
-              ))}
-            </div>
-          )} />
+          <CormackLehaneField control={control} />
         </div>
       )}
 
@@ -255,10 +184,11 @@ export function AirwaySection({
                 const inProgress = !confirmed && isExpanded
                 const btnLabel = summary && !isExpanded ? summary : (inProgress ? `${label}…` : label)
                 return (
-                  <button key={v} type="button"
+                  <span key={v} className="inline-flex items-stretch">
+                  <button type="button"
                     onClick={() => isExpanded ? setAirwayExpandedDevice(null) : expandAirwayDevice(v)}
                     onContextMenu={e => { e.preventDefault(); removeComplexDevice(v) }}
-                    title={confirmed ? (isExpanded ? "Click to collapse · Right-click to remove" : "Click to edit · Right-click to remove") : "Click to fill in details"}
+                    title={confirmed ? t(isExpanded ? "intraop.airway.deviceHintOpen" : "intraop.airway.deviceHintClosed") : t("intraop.airway.deviceHintNew")}
                     className={`px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                       confirmed
                         ? summary && !isExpanded
@@ -270,6 +200,16 @@ export function AirwaySection({
                     }`}>
                     {btnLabel}
                   </button>
+                  {/* Removing a filled-in device was a right-click only; a finger has none (10.0.0). */}
+                  {confirmed && (
+                    <button type="button" onClick={() => removeComplexDevice(v)}
+                      aria-label={t("intraop.airway.removeDevice", { device: label })} title={t("intraop.airway.removeDevice", { device: label })}
+                      data-testid={`airway-remove-${v}`}
+                      className="-ml-1 px-2 rounded-r-lg border-2 border-l-0 border-slate-300 dark:border-[#444] text-slate-400 hover:text-red-500 hover:border-red-300 text-sm">
+                      ×
+                    </button>
+                  )}
+                  </span>
                 )
               })}
             </div>

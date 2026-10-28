@@ -3,6 +3,7 @@ import { act } from "react-test-renderer"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { render } from "@/test/render"
 import type { PreopAssessmentProfile, PreopProfileQuestion } from "@lospor/core/preop-assessment"
+import { defaultPreopSectionConfig } from "@lospor/core/preop-orders"
 
 // The hospital's preop profile on the phone (9.11.0, coverage review 9.13.0):
 // the last profile seen is followed offline, a NO takes its follow-ups with
@@ -68,6 +69,25 @@ beforeEach(() => {
 })
 
 describe("the preop profile on the phone", () => {
+  it("follows the hospital's section switches for the case's population, kept for offline", async () => {
+    const adult = defaultPreopSectionConfig("ADULT")
+    const paediatric = defaultPreopSectionConfig("PEDIATRIC")
+    api.profile = { ...profile([]), sectionConfigs: {
+      ADULT: { ...adult, sections: { ...adult.sections, WARD_ORDERS: false } },
+      PEDIATRIC: { ...paediatric, sections: { ...paediatric.sections, LABS: false } },
+    } }
+    await mount()
+    api.offline = true
+    expect((await mount()).hook().sectionConfig.sections).toMatchObject({ WARD_ORDERS: false, LABS: true })
+    expect((await mount("case-1", true)).hook().sectionConfig.sections).toMatchObject({ WARD_ORDERS: true, LABS: false, PEDIATRIC_FASTING: true })
+  })
+
+  it("before any profile, offers the bundled sections", async () => {
+    api.offline = true
+    const { hook } = await mount()
+    expect(hook().sectionConfig).toEqual(defaultPreopSectionConfig("ADULT"))
+  })
+
   it("offline, follows the last profile it saw rather than showing everything", async () => {
     api.profile = profile([question("BASE_SMOKING", { enabled: false })])
     await mount()
