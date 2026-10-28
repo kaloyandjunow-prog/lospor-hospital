@@ -3,6 +3,8 @@ export type PersistedCaseStatus =
   | "IN_PROGRESS"
   | "AWAITING_REVIEW"
   | "COMPLETE"
+  /** The procedure was cancelled before anaesthesia started (10.0.0). */
+  | "CANCELLED"
 
 export type DerivedCaseStage =
   | "DRAFT"
@@ -12,6 +14,7 @@ export type DerivedCaseStage =
   | "AWAITING_POSTOP"
   | "AWAITING_REVIEW"
   | "COMPLETE"
+  | "CANCELLED"
 
 // Backwards-compatible name for existing badges. Persistence code should use
 // PersistedCaseStatus so derived display stages cannot reach the Prisma enum.
@@ -25,6 +28,7 @@ export const CASE_STATUS_LABELS: Record<DerivedCaseStage, { en: string; bg: stri
   AWAITING_POSTOP:     { en: "Awaiting postop",     bg: "Изчаква постоперативен преглед" },
   AWAITING_REVIEW:     { en: "Awaiting review",     bg: "Изчаква преглед" },
   COMPLETE:            { en: "Case finished",       bg: "Случаят е завършен" },
+  CANCELLED:           { en: "Procedure cancelled", bg: "Отменена процедура" },
 }
 
 export type CaseStageInput = {
@@ -32,6 +36,7 @@ export type CaseStageInput = {
   preop?: {
     diagnosis?: string | null
     plannedProcedure?: string | null
+    procedureUndetermined?: boolean | null
     asaScore?: string | null
   } | null
   intraop?: {
@@ -40,13 +45,14 @@ export type CaseStageInput = {
 }
 
 export function deriveCaseStage(input: CaseStageInput): DerivedCaseStage {
+  if (input.status === "CANCELLED") return "CANCELLED"
   if (input.status === "COMPLETE") return "COMPLETE"
   if (input.status === "AWAITING_REVIEW") return "AWAITING_REVIEW"
   if (input.intraop?.endTime != null) return "AWAITING_POSTOP"
   if (input.status === "IN_PROGRESS") return "IN_PROGRESS"
   const preopComplete = Boolean(
     input.preop?.diagnosis
-    && input.preop.plannedProcedure
+    && (input.preop.plannedProcedure || input.preop.procedureUndetermined)
     && input.preop.asaScore,
   )
   if (preopComplete) return "AWAITING_ALLOCATION"

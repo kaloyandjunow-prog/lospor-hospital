@@ -59,6 +59,93 @@ export function aldreteBand(total: number): AldreteBand {
   return "not_ready"
 }
 
+/**
+ * What the recovery observations suggest for two Aldrete items (10.0.0). Only
+ * a suggestion: the clinician confirms it with one tap, nothing is set for
+ * them. Null when the readings do not decide the item.
+ *
+ * SpO2: below 90% scores 0 whatever the oxygen; 90-92% cannot be 2 (that needs
+ * more than 92% on room air), so it scores 1. Above 92% depends on whether the
+ * patient breathes room air, which the record does not hold: no suggestion.
+ */
+export function suggestAldreteSpO2(spo2: number | null | undefined): 0 | 1 | null {
+  if (typeof spo2 !== "number" || !Number.isFinite(spo2)) return null
+  if (spo2 < 90) return 0
+  if (spo2 <= 92) return 1
+  return null
+}
+
+/**
+ * Circulation, from the recovery systolic pressure against the preoperative
+ * one: within 20% scores 2, 20-49% away 1, 50% or more 0.
+ */
+export function suggestAldreteCirculation(
+  recoverySystolic: number | null | undefined,
+  preopSystolic: number | null | undefined,
+): 0 | 1 | 2 | null {
+  if (typeof recoverySystolic !== "number" || typeof preopSystolic !== "number") return null
+  if (!Number.isFinite(recoverySystolic) || !Number.isFinite(preopSystolic) || preopSystolic <= 0) return null
+  const change = Math.abs(recoverySystolic - preopSystolic) / preopSystolic
+  if (change <= 0.2) return 2
+  if (change < 0.5) return 1
+  return 0
+}
+
+/**
+ * The Steward recovery score, used for children in place of Aldrete (10.0.0).
+ * Three components scored 0-2 (Steward, Can Anaesth Soc J 1975):
+ *
+ * - consciousness: 0 not responding, 1 responding to stimuli, 2 awake;
+ * - airway: 0 airway requires maintenance, 1 maintains a good airway,
+ *   2 coughs on command or cries;
+ * - movement: 0 not moving, 1 non-purposeful movements, 2 moving limbs
+ *   purposefully.
+ *
+ * As with Aldrete, a partial assessment has no total: zero is a finding, not
+ * "not assessed".
+ */
+export const STEWARD_FIELDS = [
+  "stewardConsciousness",
+  "stewardAirway",
+  "stewardMovement",
+] as const
+export type StewardField = (typeof STEWARD_FIELDS)[number]
+
+export const STEWARD_SCORE_MIN = 0
+export const STEWARD_SCORE_MAX = 2
+export const STEWARD_TOTAL_MAX = STEWARD_FIELDS.length * STEWARD_SCORE_MAX
+/**
+ * Ready to leave recovery at 4 or more, as most units use the score; below
+ * that the child is not ready. Steward has no agreed middle band.
+ */
+export const STEWARD_READY_TOTAL = 4
+
+export function stewardTotal(
+  values: Partial<Record<StewardField, number | null | undefined>>,
+): number | null {
+  let total = 0
+  for (const field of STEWARD_FIELDS) {
+    const value = values[field]
+    if (typeof value !== "number" || !Number.isFinite(value)) return null
+    total += value
+  }
+  return total
+}
+
+export function stewardBand(total: number): AldreteBand {
+  return total >= STEWARD_READY_TOTAL ? "ready" : "not_ready"
+}
+
+/**
+ * Which recovery score a case is scored on: Steward for a child, Aldrete for
+ * an adult. The case's clinical mode decides, as it does for every other
+ * paediatric scale.
+ */
+export type RecoveryScore = "ALDRETE" | "STEWARD"
+export function recoveryScoreFor(clinicalMode: string | null | undefined): RecoveryScore {
+  return clinicalMode === "PEDIATRIC" ? "STEWARD" : "ALDRETE"
+}
+
 export type HandoverLocale = "en" | "bg"
 export type HandoverItem = { code: string; label: string }
 export type HandoverGroup = {

@@ -376,13 +376,29 @@ export type TimetableInfusion = SegmentEventRefs & {
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
+/**
+ * A new concentration of an agent already running: another agent_start of the
+ * same agent, as the phone writes it (10.0.0). Before, the chart kept only the
+ * last value, so 2% then 1.5% then 1% read as one bar at 1%.
+ */
+export type AgentPercentChange = {
+  eventId?: string
+  col: number
+  ts?: string
+  /** Dated after the reading time: drawn as planned, applied to nothing yet. */
+  planned?: boolean
+  percent: number
+}
+
 export type AgentSegment = SegmentEventRefs & {
   name: string
   color?: string
   startCol: number
   endCol: number
   n2o?: number
+  /** The concentration it was started at; later ones are in percentChanges. */
   percent?: number
+  percentChanges?: AgentPercentChange[]
   stopped?: boolean
   /** Starts after "now" or after the case end: a planned marker, left out of every total. */
   planned?: boolean
@@ -845,7 +861,24 @@ function parseAgentSegment(value: unknown): AgentSegment | null {
     ...(optionalString(value, "color") !== undefined ? { color: optionalString(value, "color") } : {}),
     ...(optionalNumber(value, "n2o") !== undefined ? { n2o: optionalNumber(value, "n2o") } : {}),
     ...(optionalNumber(value, "percent") !== undefined ? { percent: optionalNumber(value, "percent") } : {}),
+    ...(Array.isArray(value.percentChanges)
+      ? { percentChanges: parseArray(value.percentChanges, parseAgentPercentChange) }
+      : {}),
     ...(optionalBoolean(value, "stopped") !== undefined ? { stopped: optionalBoolean(value, "stopped") } : {}),
+  }
+}
+
+function parseAgentPercentChange(value: unknown): AgentPercentChange | null {
+  if (!isRecord(value)) return null
+  const col = requiredNumber(value, "col")
+  const percent = requiredNumber(value, "percent")
+  if (col === null || percent === null) return null
+  return {
+    col,
+    percent,
+    ...(optionalString(value, "eventId") !== undefined ? { eventId: optionalString(value, "eventId") } : {}),
+    ...(optionalString(value, "ts") !== undefined ? { ts: optionalString(value, "ts") } : {}),
+    ...(value.planned === true ? { planned: true } : {}),
   }
 }
 

@@ -72,12 +72,11 @@ describe("whether a preoperative assessment is finished", () => {
         endedAt: new Date("2026-01-01T09:00:00Z"),
         techniques: ["GENERAL"],
       },
+      // A child is scored on Steward (10.0.0).
       postop: {
-        aldreteActivity: 2,
-        aldreteRespiration: 2,
-        aldreteCirculation: 2,
-        aldreteConsciousness: 2,
-        aldreteSpO2: 2,
+        stewardConsciousness: 2,
+        stewardAirway: 2,
+        stewardMovement: 2,
         disposition: "WARD",
       },
     })

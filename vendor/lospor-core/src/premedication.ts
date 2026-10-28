@@ -27,8 +27,8 @@ export const PREMEDICATION_PHASES: Readonly<Record<PremedicationPhase, {
   /** Days from the day of surgery, for dating the administration. */
   dayOffset: number
 }>> = {
-  DAY_BEFORE: { en: "The day before", bg: "Предишния ден", dayOffset: -1 },
-  MORNING: { en: "Morning before surgery", bg: "Сутринта преди операцията", dayOffset: 0 },
+  DAY_BEFORE: { en: "The night before surgery", bg: "Вечерта преди операцията", dayOffset: -1 },
+  MORNING: { en: "The morning of surgery", bg: "Сутринта в деня на операцията", dayOffset: 0 },
 }
 
 /** What the "not applicable" button writes for a phase in which nothing was given. */
@@ -88,6 +88,64 @@ export function parsePremedicationEntries(text: string | null | undefined, phase
       route: match?.[3]?.trim() || null,
     }
   })
+}
+
+// ── Premedication ordered at the preop visit (1.7.0) ─────────────────────
+
+/**
+ * The premedication the anaesthetist orders at the preop visit, per phase, in
+ * the picker's own words ("Midazolam 7.5 mg PO; Pantoprazole 40 mg PO"): the
+ * same shape the intraoperative record keeps, so the order carries straight
+ * into it. A phase left out of a save is left as it is; an empty one clears it.
+ */
+export type PremedicationOrders = Partial<Record<PremedicationPhase, string | null>>
+
+export const PREMEDICATION_ORDER_PHASES: Readonly<Record<PremedicationPhase, { en: string; bg: string }>> = {
+  DAY_BEFORE: { en: "The night before surgery", bg: "Вечерта преди операцията" },
+  MORNING: { en: "The morning of surgery", bg: "Сутринта в деня на операцията" },
+}
+
+export const MAX_PREMEDICATION_ENTRIES = 20
+export const MAX_PREMEDICATION_ENTRY_LENGTH = 200
+
+/** One phase's entries, in order; "not applicable" is not an entry. */
+export function premedicationEntries(text: string | null | undefined): string[] {
+  if (typeof text !== "string") return []
+  return text.split(";").map(part => part.trim()).filter(part => part && part !== PREMEDICATION_NOT_GIVEN)
+}
+
+export type PremedicationOrderProblem =
+  | { code: "TOO_MANY_ENTRIES"; phase: PremedicationPhase }
+  | { code: "ENTRY_TOO_LONG"; phase: PremedicationPhase }
+  | { code: "UNKNOWN_PHASE"; phase: string }
+
+export function premedicationOrderProblems(orders: Record<string, unknown>): PremedicationOrderProblem[] {
+  const problems: PremedicationOrderProblem[] = []
+  for (const [phase, text] of Object.entries(orders)) {
+    if (phase !== "DAY_BEFORE" && phase !== "MORNING") { problems.push({ code: "UNKNOWN_PHASE", phase }); continue }
+    const entries = premedicationEntries(typeof text === "string" ? text : null)
+    if (entries.length > MAX_PREMEDICATION_ENTRIES) problems.push({ code: "TOO_MANY_ENTRIES", phase })
+    if (entries.some(entry => entry.length > MAX_PREMEDICATION_ENTRY_LENGTH)) problems.push({ code: "ENTRY_TOO_LONG", phase })
+  }
+  return problems
+}
+
+/**
+ * What a phase of the intraoperative record starts with: the preop order,
+ * while the phase is still empty. A phase anyone has filled, or marked not
+ * applicable, is never overwritten. Null: nothing to fill.
+ */
+export function premedicationPrefill(current: string | null | undefined, ordered: string | null | undefined): string | null {
+  if (typeof current === "string" && current.trim()) return null
+  const entries = premedicationEntries(ordered)
+  return entries.length > 0 ? entries.join("; ") : null
+}
+
+/** Whether a phase of the record still holds exactly what was ordered. */
+export function isPremedicationAsOrdered(current: string | null | undefined, ordered: string | null | undefined): boolean {
+  const ordered_ = premedicationEntries(ordered)
+  const current_ = premedicationEntries(current)
+  return ordered_.length > 0 && ordered_.length === current_.length && ordered_.every((entry, index) => entry === current_[index])
 }
 
 /**

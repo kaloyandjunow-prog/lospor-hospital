@@ -10,6 +10,7 @@ export type FinalizationErrorKind =
   | "missing_technique"
   | "missing_postop"
   | "missing_aldrete"
+  | "missing_steward"
   | "missing_disposition"
   | "missing_intraop"
   | "missing_start_time"
@@ -69,6 +70,7 @@ export function classifyFinalizationError(body: unknown): FinalizationErrorKind 
     case "missing_technique": return "missing_technique"
     case "missing_postop": return "missing_postop"
     case "missing_aldrete": return "missing_aldrete"
+    case "missing_steward": return "missing_steward"
     case "missing_disposition": return "missing_disposition"
     // Not produced by the current validator; kept for older servers.
     case "missing_intraop": return "missing_intraop"

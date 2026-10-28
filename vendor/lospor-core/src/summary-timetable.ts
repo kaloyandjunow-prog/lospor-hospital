@@ -16,7 +16,7 @@ export type ProjectedSeg   = { startCol?: number; endCol?: number }
 export type ProjectedTimetable = {
   vitals?: ProjectedVital[]
   drugs?: { eventId?: string; colIdx?: number; name?: string; dose?: string; unit?: string }[]
-  agents?: (ProjectedSeg & { name?: string; percent?: number })[]
+  agents?: (ProjectedSeg & { name?: string; percent?: number; percentChanges?: { col: number; percent: number; planned?: boolean }[] })[]
   infusions?: (ProjectedSeg & { name?: string; rate?: number | string; unit?: string; tciModel?: TciModel; tciSite?: TciSite })[]
   gasSettings?: (ProjectedSeg & { fgf?: number; carrierGas?: string | null; fio2?: number })[]
   fluids?: (ProjectedSeg & { name?: string; volume?: string })[]
@@ -113,6 +113,25 @@ const LANE_COLORS = {
 
 function segEnd(s: ProjectedSeg): number { return s.endCol ?? s.startCol ?? 0 }
 
+/**
+ * One stretch per concentration, so 2% then 1.5% reads as two, not as one bar
+ * at either value (10.0.0). A planned change has not happened and is left out.
+ */
+function agentStretches(a: NonNullable<ProjectedTimetable["agents"]>[number]): SummaryLane["segments"] {
+  const start = a.startCol ?? 0
+  const end = segEnd(a)
+  const changes = (a.percentChanges ?? [])
+    .filter(change => !change.planned && change.col > start && change.col <= end)
+    .sort((x, y) => x.col - y.col)
+  const stretches = [{ col: start, percent: a.percent }, ...changes]
+  return stretches.map((stretch, i) => ({
+    startCol: stretch.col,
+    endCol: i + 1 < stretches.length ? stretches[i + 1].col - 1 : end,
+    text: `${i === 0 ? a.name ?? "" : ""}${stretch.percent != null ? ` ${stretch.percent}%` : ""}`.trim(),
+    code: a.name,
+  }))
+}
+
 // Lane labels sit in a narrow left gutter, so the Bulgarian ones stay short —
 // the same abbreviations used on the printed record.
 export const LANE_LABELS = {
@@ -148,10 +167,7 @@ export function buildSummaryTimetableModel(kev: unknown, lang: "en" | "bg" = "en
   // as on the printed record; in one shared row they hid one another (2026-10-19).
   // Gas and position follow one another and keep one row each.
   const lanes: SummaryLane[] = []
-  for (const a of agents) lanes.push({
-    kind: "agent", label: L.agent, color: LANE_COLORS.agent,
-    segments: [{ startCol: a.startCol ?? 0, endCol: segEnd(a), text: `${a.name ?? ""}${a.percent != null ? ` ${a.percent}%` : ""}`.trim(), code: a.name }],
-  })
+  for (const a of agents) lanes.push({ kind: "agent", label: L.agent, color: LANE_COLORS.agent, segments: agentStretches(a) })
   for (const f of infusions) lanes.push({
     kind: "infusion", label: L.infusion, color: LANE_COLORS.infusion,
     segments: [{ startCol: f.startCol ?? 0, endCol: segEnd(f), text: `${f.name ?? ""} ${tciTargetText(f) ?? `${f.rate ?? ""}${f.unit ? ` ${f.unit}` : ""}`}`.trim(), code: f.name }],

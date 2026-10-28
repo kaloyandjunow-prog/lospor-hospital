@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Core
 
+## [10.0.0] - 2026-10-28
+
+### Added
+
+- **Definition-driven preoperative workflow:** configurable sections and order
+  rows, ward orders, medication instructions, consultation specialties and an
+  explicitly undetermined planned procedure.
+- **Recovery and theatre support:** postoperative pain items, the paediatric
+  Steward score and Aldrete suggestions, Broselow guidance, operating theatres,
+  unit indicators, drug colours and immutable procedure cancellation.
+- **Intraoperative and research contracts:** agent percentage changes,
+  undo/time handling, additional preoperative and postoperative export fields,
+  NHIS specialties, premedication/order contracts and the related bilingual
+  server messages.
+
+### Changed
+
+- Case readiness, validation, display/review terms, procedure codes and
+  research mappings now carry the same workflow and cancellation semantics as
+  the API and clients.
+
 ## [9.15.1] - 2026-10-19
 
 ### Added

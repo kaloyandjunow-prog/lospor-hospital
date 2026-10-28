@@ -34,11 +34,20 @@ export const RESEARCH_SCORE_SCALES = {
   /** FLACC, FPS-R and NRS are all reported on 0-10 here. */
   pediatricPainScore: { min: 0, max: 10 },
   paedScore: { min: 0, max: 20 },
+  /** Item-scored pain scales (10.0.0); FPS-R steps by 2. */
+  flaccTotal: { min: 0, max: 10 },
+  fpsrScore: { min: 0, max: 10 },
+  nipsTotal: { min: 0, max: 7 },
   aldreteActivity: { min: 0, max: 2 },
   aldreteRespiration: { min: 0, max: 2 },
   aldreteCirculation: { min: 0, max: 2 },
   aldreteConsciousness: { min: 0, max: 2 },
   aldreteSpO2: { min: 0, max: 2 },
+  /** A child's recovery score, in place of Aldrete (10.0.0). */
+  stewardTotal: { min: 0, max: 6 },
+  stewardConsciousness: { min: 0, max: 2 },
+  stewardAirway: { min: 0, max: 2 },
+  stewardMovement: { min: 0, max: 2 },
 } as const
 
 export type ResearchScoreField = keyof typeof RESEARCH_SCORE_SCALES

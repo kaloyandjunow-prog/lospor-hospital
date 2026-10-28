@@ -1,3 +1,4 @@
+import type { CaseTheatreView } from "./operating-theatres"
 import type { CaseStatus } from "./case-status"
 import type {
   ClinicalMode,
@@ -94,6 +95,8 @@ export type CaseDetailPreopDto = Record<string, unknown> & {
   diagnosis: string
   diagnosesJson: ClinicalTagDto[] | null
   plannedProcedure: string
+  /** The planned procedure is not yet known (10.0.0). */
+  procedureUndetermined?: boolean
   proceduresJson: ClinicalTagDto[] | null
   icdCode: string | null
   teamNotes: string | null
@@ -301,6 +304,10 @@ export type CaseDetailPostopDto = Record<string, unknown> & {
   aldreteConsciousness: number | null
   aldreteSpO2: number | null
   aldreteTotal: number | null
+  stewardConsciousness: number | null
+  stewardAirway: number | null
+  stewardMovement: number | null
+  stewardTotal: number | null
   recoveryBpSystolic: number | null
   recoveryBpDiastolic: number | null
   recoveryHeartRate: number | null
@@ -309,6 +316,26 @@ export type CaseDetailPostopDto = Record<string, unknown> & {
   pediatricPainScale?: PediatricPainScale | null
   pediatricPainScore?: number | null
   paedScore?: number | null
+  /** Pain and delirium item by item, with totals (10.0.0). */
+  flaccFace?: number | null
+  flaccLegs?: number | null
+  flaccActivity?: number | null
+  flaccCry?: number | null
+  flaccConsolability?: number | null
+  flaccTotal?: number | null
+  fpsrScore?: number | null
+  nipsFacialExpression?: number | null
+  nipsCry?: number | null
+  nipsBreathing?: number | null
+  nipsArms?: number | null
+  nipsLegs?: number | null
+  nipsArousal?: number | null
+  nipsTotal?: number | null
+  paedEyeContact?: number | null
+  paedPurposeful?: number | null
+  paedAware?: number | null
+  paedRestless?: number | null
+  paedInconsolable?: number | null
   ponv: boolean
   temperatureCelsius: number | null
   recoveryBpUnobtainable: boolean
@@ -318,6 +345,8 @@ export type CaseDetailPostopDto = Record<string, unknown> & {
   complications: string | null
   disposition: Disposition | null
   dispositionNotes: string | null
+  /** The procedure done (10.0.0). */
+  performedProceduresJson?: unknown
   handoverItems: string[] | null
   createdAt: string
   updatedAt: string
@@ -327,6 +356,10 @@ export type CaseDetailPostopDto = Record<string, unknown> & {
 export type CaseDetailDto = {
   id: string
   caseCode: string | null
+  /** A cancelled procedure (10.0.0). */
+  cancelledAt?: string | null
+  cancellationReason?: string | null
+  cancellationNote?: string | null
   notes: string | null
   userId: string
   /** Immutable author; `userId` remains the current clinical assignee. */
@@ -354,6 +387,8 @@ export type CaseDetailDto = {
   pediatricModeDecisionRequired?: boolean
   clinicalCalculations?: CaseClinicalCalculationDto[]
   capabilities: CaseAccessCapabilities
+  /** The operating theatre (10.0.0); null while the site does not use them. */
+  theatre?: CaseTheatreView | null
 }
 
 export type CaseAccessCapabilities = {

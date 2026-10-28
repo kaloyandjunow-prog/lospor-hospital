@@ -63,6 +63,12 @@ describe("a figure nobody recorded is not zero", () => {
       .toEqual({ recorded: true, value: 0, unit: "score" })
     expect(header({ postop: {} }).handover.aldreteTotal.recorded).toBe(false)
   })
+
+  it("carries a child's Steward score beside it (10.0.0)", () => {
+    expect(header({ postop: { stewardTotal: 5 } }).handover.stewardTotal)
+      .toEqual({ recorded: true, value: 5, unit: "score" })
+    expect(header({ postop: {} }).handover.stewardTotal.recorded).toBe(false)
+  })
 })
 
 describe("drug totals carry how many doses made them", () => {

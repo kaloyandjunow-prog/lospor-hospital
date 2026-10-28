@@ -1,5 +1,8 @@
 import { derivePreopScores } from "./preop-payload"
 import { plannedProcedureText } from "./procedure-codes"
+import { medicationInstructionsToSend } from "./preop-orders"
+import { STEWARD_FIELDS } from "./postop"
+import { FLACC_FIELDS, NIPS_FIELDS, PAED_FIELDS } from "./postop-pain"
 import {
   normalizePediatricAge,
   type PediatricAgeUnit,
@@ -36,9 +39,15 @@ const NUMBER_FIELDS = {
   postop: new Set([
     "aldreteActivity", "aldreteRespiration", "aldreteCirculation",
     "aldreteConsciousness", "aldreteSpO2", "aldreteTotal",
+    "stewardConsciousness", "stewardAirway", "stewardMovement", "stewardTotal",
     "recoveryBpSystolic", "recoveryBpDiastolic", "recoveryHeartRate",
     "recoverySpO2", "painScoreNRS", "pediatricPainScore", "paedScore",
     "temperatureCelsius",
+    "flaccFace", "flaccLegs", "flaccActivity", "flaccCry", "flaccConsolability",
+    "fpsrScore",
+    "nipsFacialExpression", "nipsCry", "nipsBreathing", "nipsArms", "nipsLegs", "nipsArousal",
+    "paedEyeContact", "paedPurposeful", "paedAware", "paedRestless", "paedInconsolable",
+    "flaccTotal", "nipsTotal",
   ]),
 }
 
@@ -101,6 +110,9 @@ export function canonicalizePreopPatch(input: Record<string, unknown>): Canonica
       unit: patch.ageUnit as PediatricAgeUnit,
     })
     if (age) patch.ageYears = age.completedYears
+  }
+  if (Array.isArray(patch.preopMedicationInstructions)) {
+    patch.preopMedicationInstructions = medicationInstructionsToSend(patch.preopMedicationInstructions as Array<{ medicationLabel: string }>)
   }
   // Remove maturity keys from early-v8 local drafts and queued patches.
   for (const field of [
@@ -188,6 +200,22 @@ export function canonicalizePostopPatch(input: Record<string, unknown>): Canonic
     // A component changed but the set is still incomplete: clear any total left
     // from an earlier save rather than leaving a stale one that now disagrees.
     normalized.aldreteTotal = null
+  }
+  // The same for a child's Steward score (10.0.0).
+  const stewardValues = STEWARD_FIELDS.map(field => Number(normalized[field]))
+  if (stewardValues.every(value => Number.isFinite(value))) {
+    normalized.stewardTotal = stewardValues.reduce((total, value) => total + value, 0)
+  } else if (STEWARD_FIELDS.some(field => normalized[field] !== undefined)) {
+    normalized.stewardTotal = null
+  }
+  // FLACC, NIPS and PAED are entered item by item (10.0.0); each total follows
+  // its items the same way. PAED's total is the long-standing paedScore.
+  for (const [fields, totalField] of [[FLACC_FIELDS, "flaccTotal"], [NIPS_FIELDS, "nipsTotal"], [PAED_FIELDS, "paedScore"]] as const) {
+    if (!fields.some(field => normalized[field] !== undefined)) continue
+    const values = fields.map(field => normalized[field])
+    normalized[totalField] = values.every(value => typeof value === "number" && Number.isFinite(value))
+      ? (values as number[]).reduce((total, value) => total + value, 0)
+      : null
   }
 
   const permitsHandover = normalized.disposition === "WARD" || normalized.disposition === "PACU"

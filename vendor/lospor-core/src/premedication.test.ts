@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import { formatPremedicationEntry } from "./intraop-entries"
 import {
+  isPremedicationAsOrdered,
   parsePremedicationEntries,
+  premedicationOrderProblems,
+  premedicationPrefill,
   premedicationAtcCode,
   premedicationDate,
   premedicationPhaseOf,
@@ -49,8 +52,8 @@ describe("premedication codes and timing", () => {
     expect(premedicationDate("2026-03-01", "DAY_BEFORE")).toBe("2026-02-28")
     expect(premedicationDate("2026-03-01T08:30:00Z", "MORNING")).toBe("2026-03-01")
     expect(premedicationDate(null, "MORNING")).toBeNull()
-    expect(PREMEDICATION_PHASES.DAY_BEFORE.en).toBe("The day before")
-    expect(PREMEDICATION_PHASES.MORNING.bg).toBe("Сутринта преди операцията")
+    expect(PREMEDICATION_PHASES.DAY_BEFORE.en).toBe("The night before surgery")
+    expect(PREMEDICATION_PHASES.MORNING.bg).toBe("Сутринта в деня на операцията")
   })
 
   it("reads the phase names earlier records used", () => {
@@ -58,5 +61,36 @@ describe("premedication codes and timing", () => {
     expect(premedicationPhaseOf("day-before")).toBe("DAY_BEFORE")
     expect(premedicationPhaseOf("morning")).toBe("MORNING")
     expect(premedicationPhaseOf("afternoon")).toBeNull()
+  })
+})
+
+describe("premedication ordered at the preop visit", () => {
+  const ordered = "Midazolam 7.5 mg PO; Pantoprazole 40 mg PO"
+
+  it("fills an empty phase of the intraoperative record with the order", () => {
+    for (const empty of [undefined, null, "", "  "]) expect(premedicationPrefill(empty, ordered)).toBe(ordered)
+  })
+
+  it("never overwrites a phase someone has filled or marked not applicable", () => {
+    expect(premedicationPrefill("Diazepam 10 mg PO", ordered)).toBeNull()
+    expect(premedicationPrefill("N/A", ordered)).toBeNull()
+  })
+
+  it("fills nothing when nothing was ordered", () => {
+    for (const none of [undefined, null, "", "N/A", " ; "]) expect(premedicationPrefill(null, none)).toBeNull()
+  })
+
+  it("tells a phase still as ordered from one since edited", () => {
+    expect(isPremedicationAsOrdered("Midazolam 7.5 mg PO;Pantoprazole 40 mg PO", ordered)).toBe(true)
+    expect(isPremedicationAsOrdered("Midazolam 7.5 mg PO", ordered)).toBe(false)
+    expect(isPremedicationAsOrdered("Pantoprazole 40 mg PO; Midazolam 7.5 mg PO", ordered)).toBe(false)
+    expect(isPremedicationAsOrdered("", "")).toBe(false)
+  })
+
+  it("keeps an order within bounds and to the two phases", () => {
+    expect(premedicationOrderProblems({ DAY_BEFORE: ordered, MORNING: null })).toEqual([])
+    expect(premedicationOrderProblems({ NOON: ordered })).toEqual([{ code: "UNKNOWN_PHASE", phase: "NOON" }])
+    expect(premedicationOrderProblems({ MORNING: Array.from({ length: 21 }, (_, i) => `Drug${i} 1 mg PO`).join("; ") })).toEqual([{ code: "TOO_MANY_ENTRIES", phase: "MORNING" }])
+    expect(premedicationOrderProblems({ MORNING: "x".repeat(201) })).toEqual([{ code: "ENTRY_TOO_LONG", phase: "MORNING" }])
   })
 })
