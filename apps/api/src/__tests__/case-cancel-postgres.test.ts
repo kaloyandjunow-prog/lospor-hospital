@@ -100,7 +100,7 @@ describe.skipIf(!runPostgres)("cancelling a procedure, PostgreSQL", () => {
       status: "CANCELLED", statusBeforeCancel: "IN_PROGRESS", cancelledById: ownerId, cancellationReason: "OTHER", cancellationNote: "Surgeon unwell",
     })
     expect((await stored()).cancelledAt).toBeInstanceOf(Date)
-    expect(await audits()).toEqual([expect.objectContaining({ action: "CASE_CANCEL", userId: ownerId, detail: { reason: "OTHER", from: "IN_PROGRESS" } })])
+    expect(await audits()).toEqual([expect.objectContaining({ action: "CASE_CANCEL", userId: ownerId, detail: { reasonCode: "OTHER", from: "IN_PROGRESS" } })])
   })
 
   it("cannot be cancelled twice, and refuses edits while cancelled", async () => {
@@ -123,7 +123,7 @@ describe.skipIf(!runPostgres)("cancelling a procedure, PostgreSQL", () => {
       status: "IN_PROGRESS", statusBeforeCancel: null, cancelledAt: null, cancelledById: null, cancellationReason: null, cancellationNote: null,
     })
     expect((await audits()).map(entry => entry.action)).toEqual(["CASE_CANCEL", "CASE_CANCEL_UNDO"])
-    expect((await audits())[1].detail).toEqual({ reason: "OTHER", to: "IN_PROGRESS" })
+    expect((await audits())[1].detail).toEqual({ reasonRecorded: true, to: "IN_PROGRESS" })
     expect(await call(undo, caseId)).toMatchObject({ status: 409, body: { code: "CASE_NOT_CANCELLED" } })
   })
 })
