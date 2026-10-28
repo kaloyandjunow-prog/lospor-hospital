@@ -32,7 +32,7 @@ describe("bundled preoperative catalog", () => {
     // previous ICU stay, alcohol use with two follow-ups, a child's recent
     // vaccination, Gupta's two inputs, and bleeding/transfusion for children.
     expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("ADULT"))).toHaveLength(27)
-    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("PEDIATRIC"))).toHaveLength(19)
+    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("PEDIATRIC"))).toHaveLength(20)
     expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.length === 0)).toHaveLength(36)
     expect(BUNDLED_PREOP_QUESTIONS.every(question => question.options.every(option =>
       option.key !== "NOT_ASSESSED" && option.key !== "UNKNOWN",

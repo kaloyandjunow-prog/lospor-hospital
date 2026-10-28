@@ -508,7 +508,7 @@ describe("the plan is rebuilt against the case as it stands", () => {
         techniques: ["GENERAL"],
       },
       postop: {
-        stewardConsciousness: 2, stewardAirway: 2, stewardRespiration: 2,
+        stewardConsciousness: 2, stewardAirway: 2, stewardMovement: 2,
         disposition: "WARD",
       },
     })
