@@ -17,8 +17,7 @@ import { type TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/types/timetable"
 import type { CaseDetail, CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop } from "@/types/case-detail"
 import { PostopForm, type PostopData } from "@/components/forms/PostopForm"
-import { CheckCircle2, UserRound } from "lucide-react"
-import { CaseMeta } from "@/components/CaseMeta"
+import { CheckCircle2 } from "lucide-react"
 import {
   dbPreopToForm,
   dbPostopToForm,
@@ -66,7 +65,6 @@ export default function NewCasePage() {
   const t = useTranslations()
   const locale = useLocale()
   const STEPS = [t("case.steps.preop"), t("case.steps.intraop"), t("case.steps.postop"), t("case.steps.summary")]
-  const STEPS_SHORT = [t("case.stepsShort.preop"), t("case.stepsShort.intraop"), t("case.stepsShort.postop"), t("case.stepsShort.summary")]
 
   const { setCurrentFormStep } = useTour()
 

@@ -10,8 +10,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
@@ -63,7 +61,7 @@ import { LabResultsSection } from "@/components/forms/sections/LabResultsSection
 import { PreopMedicationInstructionsSection, PreopWardOrdersSection } from "@/components/forms/PreopOrdersSections"
 import { PreopPremedicationOrderSection } from "@/components/forms/PreopPremedicationOrder"
 import { preopSectionConfigFor } from "@lospor/core/preop-orders"
-import { PreopCaseSection, PreopDemographicsSection } from "@/components/forms/PreopPatientSections"
+import { PreopCaseSection } from "@/components/forms/PreopPatientSections"
 import { PreopQuestionList, type PreopPendingSuggestion, type PreopQuestionAnswer } from "@/components/forms/PreopQuestionList"
 import {
   isPreopQuestionShown, isPreopScoreAvailable, preopProfileForMode,
@@ -166,7 +164,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const [height, weight, sex, ageYearsVal, smoking, highRiskSurgery, emergencySurgery,
          allergies, familyAnesthesiaProblems, difficultAirwayHistory, comorbidities, bloodType, rhFactor,
          clinicalMode, ageValue, ageUnit, procedureUndetermined] =
-    // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form watch() cannot be memoized; the form re-reads on every change.
     watch(["heightCm", "weightKg", "sex", "ageYears", "smoking", "highRiskSurgery", "emergencySurgery",
            "allergies", "familyAnesthesiaProblems", "difficultAirwayHistory", "comorbidities", "bloodType", "rhFactor",
            "clinicalMode", "ageValue", "ageUnit", "procedureUndetermined"])
