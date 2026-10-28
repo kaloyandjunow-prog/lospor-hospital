@@ -25,8 +25,9 @@ has to be typed or compared:
   the first console login.
 - **Offline, from the maintainer's USB:** `sudo sh /media/usb/losporctl-install.sh`.
 - **Hyper-V, the wizard:** extract the Windows kit and double-click **Install
-  LOSPOR Hospital**. It asks everything once, and the server installs itself
-  and ends with the Go-live address (see [Preparing the host](host-preparation.md)).
+  LOSPOR Hospital**. It asks everything once, then shows four installation
+  stages, a progress bar and details while the server installs itself. It ends
+  with the Go-live address (see [Preparing the host](host-preparation.md)).
 - **Hyper-V from PowerShell:** build the VM with the kit. It carries the
   installer onto the VM, and the first console login offers to run it.
 

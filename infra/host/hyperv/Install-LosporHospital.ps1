@@ -542,7 +542,7 @@ function Invoke-WindowWizard {
         $bg = New-Radio "Български" ($a.Locale -ne "en"); $en = New-Radio "English" ($a.Locale -eq "en")
         Add-Field "LocaleBg" "Език / Language" $bg $null
         Add-Field "LocaleEn" "" $en $null
-        Add-Note ("Този помощник пита всичко веднъж и проверява отговорите, преди да създаде каквото и да е. След това Ubuntu и LOSPOR се инсталират сами (около час) и тук се показва адресът на страницата «Готовност».`n`n" +
+        Add-Note ("Този помощник пита всичко веднъж и проверява отговорите, преди да създаде каквото и да е. След това Ubuntu и LOSPOR се инсталират сами (около час) и тук се показва адресът на страницата «Пускане в работа».`n`n" +
           "This wizard asks everything once and checks the answers before creating anything. Then Ubuntu and LOSPOR install by themselves (about an hour), and this window shows the Go-live address.`n`n" +
           "Нужни са: клиничното и изследователското DNS име, сертификатът на болницата (файл .pfx), ако е от нейния удостоверителен център, и интернет, освен ако файловете на изданието са до този комплект.`n`n" +
           "You need: the clinical and research DNS names, the hospital certificate (a .pfx file) if it comes from the hospital's authority, and an internet connection unless the release files are next to this kit.")
@@ -629,7 +629,7 @@ function Invoke-WindowWizard {
         $heading.Text = T "6. Check and install" "6. Проверка и инсталиране"
         Add-Note ((Get-SummaryLines) -join "`n")
         Add-Field "IsoPath" (T "Ubuntu ISO (empty: download)" "Ubuntu ISO (празно: изтегля се)") (New-TextBox $a.IsoPath) (New-Browse "IsoPath" "Ubuntu server ISO (*.iso)|*.iso")
-        Add-Note (T "Installing takes about an hour and needs nothing from you. Keep this window open: it shows the progress and ends with the Go-live address." "Инсталирането отнема около час и не изисква нищо от вас. Оставете този прозорец отворен: той показва напредъка и завършва с адреса на страницата «Готовност».")
+        Add-Note (T "Installing takes about an hour and needs nothing from you. Keep this window open: it shows the progress and ends with the Go-live address." "Инсталирането отнема около час и не изисква нищо от вас. Оставете този прозорец отворен: той показва напредъка и завършва с адреса на страницата «Пускане в работа».")
       }
     }
     Update-Rows
@@ -768,7 +768,7 @@ Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 
 $installed = $result -and $result.state -eq "installed"
 $message = if ($installed) {
-  T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use.`n`nServer console: user lospor, with the server password." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Готовност» води нататък до клинична употреба.`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
+  T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use.`n`nServer console: user lospor, with the server password." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба.`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
 } elseif ($result) {
   T "The installation did not finish.`n`n$($result.message)`n`nServer console: user lospor, with the server password." "Инсталацията не завърши.`n`n$($result.message)`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
 } else {
@@ -781,7 +781,7 @@ if ($AnswersFile -or $Text -or $serverCore) {
 }
 Add-Type -AssemblyName System.Windows.Forms
 if ($installed) {
-  $open = [System.Windows.Forms.MessageBox]::Show($message + "`n`n" + (T "Open Go-live now?" "Да се отвори ли «Готовност» сега?"), "LOSPOR Hospital", "YesNo", "Information")
+  $open = [System.Windows.Forms.MessageBox]::Show($message + "`n`n" + (T "Open Go-live now?" "Да се отвори ли «Пускане в работа» сега?"), "LOSPOR Hospital", "YesNo", "Information")
   if ($open -eq "Yes") { Start-Process $result.url }
   exit 0
 }

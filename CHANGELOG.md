@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+### Changed
+
+- **Operator documentation:** installation, host preparation, quick start,
+  network, operations and Status references now use the Bulgarian page name
+  «Пускане в работа» and explain the installer progress/details and server
+  installation steps; the Windows/Hyper-V kit uses the same terminology.
+- **Public documentation boundary:** the appliance-specific EHR, Central,
+  patient-number, printing and go-live behavior is called out inside the
+  unified guide, alongside the serverless demo behavior.
+
 ## [1.6.2] - 2026-10-19
 
 Vendors Core 9.15.1, API, Web and PWA 9.15.1 and Browser 0.9.1. No database
