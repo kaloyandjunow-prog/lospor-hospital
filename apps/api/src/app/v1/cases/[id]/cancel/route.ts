@@ -31,7 +31,7 @@ export async function OPTIONS(req: NextRequest) {
 function refused(req: NextRequest, error: unknown, caseId: string) {
   if (error instanceof CancelRefused) return NextResponse.json({ error: error.code, code: error.code }, { status: error.status, headers: corsHeaders(req) })
   if (error instanceof CaseWriteError) return NextResponse.json({ error: error.message }, { status: error.status, headers: corsHeaders(req) })
-  console.error("[case cancel]", caseId, error)
+  console.error("CASE_CANCEL_INTERNAL_ERROR")
   return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders(req) })
 }
 

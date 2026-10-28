@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch (error) {
     if (error instanceof OperatingTheatreError) return NextResponse.json({ error: error.code, code: error.code, ...error.details }, { status: error.status, headers: corsHeaders(req) })
     if (error instanceof CaseWriteError) return NextResponse.json({ error: error.message }, { status: error.status })
-    console.error("[case theatre]", caseId, error)
+    console.error("CASE_THEATRE_INTERNAL_ERROR")
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
