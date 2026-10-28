@@ -1,16 +1,61 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased]
+## [1.7.0] - 2026-10-29
+
+Vendors Core, API, Web and PWA 10.0.0; Browser stays 0.9.1.
+
+### Added
+
+- **Hospital-wide case reading.** Clinical members can see every case recorded
+  at their hospital, while a colleague's case remains read-only. Members see
+  their own cases first; heads of department and administrators retain their
+  existing write access. The policy is enabled by default in new installations,
+  can be changed in Status, and policy changes and colleague-case openings are
+  audited. Research-only accounts and cases from other hospitals remain out of
+  scope.
+- **Procedure cancellation.** A planned procedure can be cancelled with a
+  reason and optional note, remains available as a read-only record, prints as
+  cancelled, and can be reopened during the allowed window.
+- **Operating theatres.** Hospitals can create and manage theatres, assign
+  cases before anaesthesia starts, and filter the dashboard by theatre.
+- **Department indicators.** The appliance provides privacy-suppressed
+  activity, case-mix, airway, drug, event, recovery and documentation
+  indicators with hospital-configured thresholds.
+- **Preoperative and postoperative workflow.** Optional preop sections, ward
+  orders, medication instructions, premedication orders, planned-procedure
+  uncertainty, Procedure done, age-appropriate pain scales, Steward/Aldrete
+  recovery scores and PAED are available in the clinical forms.
+- **Theatre and medication setup.** Status can configure theatres, indicator
+  thresholds and drug colours. Broselow guidance and the new form side panels
+  are available in the clinical apps.
 
 ### Changed
 
-- **Operator documentation:** installation, host preparation, quick start,
-  network, operations and Status references now use the Bulgarian page name
-  «Пускане в работа» and explain the installer progress/details and server
-  installation steps; the Windows/Hyper-V kit uses the same terminology.
-- **Public documentation boundary:** the appliance-specific EHR, Central,
-  patient-number, printing and go-live behavior is called out inside the
-  unified guide, alongside the serverless demo behavior.
+- **Installation and go-live.** Operator documentation, the installer wizard,
+  progress window and Windows/Hyper-V kit use the Bulgarian name «Пускане в
+  работа» and describe the installation stages and details.
+- **OMOP export contract.** The appliance now exports observation qualifier,
+  unit and source fields through Central contract 2.6.0, including explicit
+  numeric observations for selected critical-low and critical-high laboratory
+  thresholds.
+- **Public demo boundary.** The user documentation distinguishes the public
+  serverless demo from the hospital appliance and identifies appliance-only
+  patient, EHR, Central, printing and Status behaviour.
+
+### Security
+
+- Updated Next.js, Zod, Vite, undici, body-parser, shadcn and node-forge to
+  patched versions where compatible with the reviewed appliance toolchains.
+- The remaining Zod advisory is confined to the Expo 56 build CLI and is not
+  present in the shipped static PWA runtime; it is explicitly accepted for
+  this release until Expo 56 provides a patched CLI or the toolchain is
+  reviewed for migration.
+
+### Upgrade note
+
+- This release adds hospital database migrations. The rollback policy is
+  **backup-required**: take and verify the pre-update database backup before
+  activation. The release pins Core, API, Web and PWA 10.0.0 and Browser 0.9.1.
 
 ## [1.6.2] - 2026-10-19
 

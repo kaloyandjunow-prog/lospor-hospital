@@ -257,6 +257,9 @@ export interface OmopLabRow {
   takenAt?: Date | string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  /** Critical thresholds supplied by the reporting laboratory. */
+  criticalLow?: number | null
+  criticalHigh?: number | null
   standardConceptId?: number | null
   mappingStatus?: string
 }

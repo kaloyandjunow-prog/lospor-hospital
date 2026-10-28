@@ -2770,6 +2770,30 @@ describe("laboratory results carry the time the specimen was drawn", () => {
     expect(flag?.value_as_string).toBe("LOINC:718-7=low")
     expect(flag?.observation_date).toBe("2026-06-01")
   })
+
+  it("exports explicit critical limits as unit-bearing observations", () => {
+    const c = completeCase() as unknown as { intraop: Record<string, unknown> }
+    c.intraop.labRows = [labRow({
+      test: "Potassium", loincCode: "2823-3", valueNum: 4.2, value: "4.2",
+      unitCanon: "mmol/L", criticalLow: 2.5, criticalHigh: 6.0,
+      takenAt: new Date("2026-06-01T08:35:00Z"),
+    })]
+
+    const rows = mapCasesToOmop([c as never]).observation.filter(row =>
+      row.observation_source_value === "LOSPOR:LAB_CRITICAL_LOW"
+      || row.observation_source_value === "LOSPOR:LAB_CRITICAL_HIGH",
+    )
+
+    expect(rows).toHaveLength(2)
+    expect(rows.map(row => row.value_as_number)).toEqual([2.5, 6.0])
+    expect(rows.every(row => row.unit_concept_id === 8753)).toBe(true)
+    expect(rows.every(row => row.unit_source_value === "mmol/L")).toBe(true)
+    expect(rows.every(row => row.observation_date === "2026-06-01")).toBe(true)
+    expect(rows.map(row => row.value_as_string)).toEqual([
+      "LOINC:2823-3=2.5",
+      "LOINC:2823-3=6",
+    ])
+  })
 })
 
 describe("why a case has no airway device of its own", () => {

@@ -256,11 +256,13 @@ export const CASE_SELECT = {
       difficultAirwayHistory: true, mallampati: true, labResults: true,
       labRows: {
         select: {
-          test: true, valueNum: true, value: true, unitCanon: true, loincCode: true, abnormalFlag: true,
+          test: true, valueNum: true, value: true, unit: true, unitCanon: true, loincCode: true,
+          sourceVocabulary: true, sourceCode: true, takenAt: true, abnormalFlag: true,
           // A result the lab reported as text, and the range it was judged
           // against. Without the range, "high" is an assertion the export
           // cannot support; without the text, a qualitative result vanished.
           referenceLow: true, referenceHigh: true,
+          criticalLow: true, criticalHigh: true,
           standardConceptId: true, mappingStatus: true,
         },
       },
@@ -336,6 +338,7 @@ export const CASE_SELECT = {
       startedAt: true, endedAt: true, timezone: true,
       startTime: true, endTime: true, durationMinutes: true, monthYear: true,
       techniques: true, keyEvents: true, airwayDevice: true,
+      presentsIntubated: true, airwayNotApplicable: true,
       // Airway management detail. None of this used to leave the appliance, so
       // an export could say a tube was placed but never which one, what size,
       // whether it was cuffed, or how hard the laryngoscopy was -- the part a
@@ -349,6 +352,16 @@ export const CASE_SELECT = {
       ventilationModes: true, ippv: true, jetVentilation: true, peepCmH2O: true,
       crystalloidsMl: true, colloidsMl: true, bloodMl: true, infusionsMl: true, urineMl: true, bloodLossMl: true,
       complications: true, premedicationEvening: true, premedicationMorning: true,
+      labRows: {
+        select: {
+          test: true, valueNum: true, value: true, unit: true, unitCanon: true, loincCode: true,
+          sourceVocabulary: true, sourceCode: true, takenAt: true, abnormalFlag: true,
+          referenceLow: true, referenceHigh: true,
+          criticalLow: true, criticalHigh: true,
+          standardConceptId: true, mappingStatus: true,
+        },
+        orderBy: [{ takenAt: "asc" }, { ordinal: "asc" }],
+      },
       vascularAccessRows: {
         select: { site: true, siteLabel: true, size: true, sizeUnit: true, depthCm: true, lumens: true, preexisting: true, ordinal: true, sourceVocabulary: true, sourceCode: true, standardConceptId: true, mappingStatus: true },
         orderBy: { ordinal: "asc" },

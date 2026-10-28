@@ -255,6 +255,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       // worse than an uncoded one, which is the lesson of every other concept
       // on this page.
       valueConceptId = 0,
+      unitConceptId = 0,
+      unitSourceValue: string | null = null,
     ) => {
       if (value == null || value === "") return
       observations.push({
@@ -271,8 +273,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
         value_as_string: String(value),
         qualifier_concept_id: 0,
         qualifier_source_value: null,
-        unit_concept_id: 0,
-        unit_source_value: null,
+        unit_concept_id: unitConceptId,
+        unit_source_value: unitSourceValue,
         observation_source_value: source,
         visit_occurrence_id: visitId,
       })
@@ -347,6 +349,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
         // defines it.
         const labDate = isoDate(lab.takenAt) ?? fallbackDate
         const labInstant = isoInstant(lab.takenAt) ?? fallbackDate
+        const labUnitConceptId = lab.unitCanon ? LAB_UNIT_CONCEPTS[lab.unitCanon] ?? 0 : 0
+        const labUnitSourceValue = lab.unitCanon ?? lab.unit ?? null
         measurements.push({
           measurement_id:              nextId(),
           person_id:                   personId,
@@ -356,8 +360,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
           measurement_type_concept_id: 32817,
           value_as_number:             lab.valueNum,
           value_as_concept_id: null,
-          unit_concept_id:             lab.unitCanon ? LAB_UNIT_CONCEPTS[lab.unitCanon] ?? 0 : 0,
-          unit_source_value:           lab.unitCanon ?? lab.unit ?? null,
+          unit_concept_id:             labUnitConceptId,
+          unit_source_value:           labUnitSourceValue,
           measurement_source_value:    labSource,
           // The value as the lab reported it. For a numeric result this is the
           // unparsed original; for a qualitative one it is the only value there
@@ -376,6 +380,35 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
         // keyed by the same source value the measurement row uses.
         if (lab.abnormalFlag) {
           sourceObservation("LOSPOR:LAB_ABNORMAL_FLAG", `${labSource}=${lab.abnormalFlag}`, labDate)
+        }
+        // OMOP MEASUREMENT has reference ranges but no critical limits. Keep
+        // the laboratory's explicit limits as numeric observations instead of
+        // placing them in range_low/high, which would falsely describe the
+        // ordinary reference interval. The analyte source and unit stay with
+        // each threshold, so separate tests in one case cannot be confused.
+        if (lab.criticalLow != null) {
+          sourceObservation(
+            "LOSPOR:LAB_CRITICAL_LOW",
+            `${labSource}=${lab.criticalLow}`,
+            labDate,
+            lab.criticalLow,
+            0,
+            0,
+            labUnitConceptId,
+            labUnitSourceValue,
+          )
+        }
+        if (lab.criticalHigh != null) {
+          sourceObservation(
+            "LOSPOR:LAB_CRITICAL_HIGH",
+            `${labSource}=${lab.criticalHigh}`,
+            labDate,
+            lab.criticalHigh,
+            0,
+            0,
+            labUnitConceptId,
+            labUnitSourceValue,
+          )
         }
       }
     }

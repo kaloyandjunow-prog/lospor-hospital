@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.6.2",
+  "release": "1.7.0",
   "policy": "backup-required",
-  "justification": "Hospital 1.6.2 adds no migration, but an update from 1.5.6 still runs the five 1.6.0 clinical migrations, and no service-compatible rollback proof was produced. Going back restores the pre-update backup.",
+  "justification": "Rollback requires restoring the pre-update database backup because this release adds hospital clinical migrations and no service-compatible rollback proof was produced.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-10-19"
+  "assessedAt": "2026-10-29"
 }
