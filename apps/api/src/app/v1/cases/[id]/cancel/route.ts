@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: { status: "CANCELLED", statusBeforeCancel: record.status, cancelledAt, cancelledById: user.id, cancellationReason: parsed.data.reason, cancellationNote: note },
       })
       // Nothing else on the case changes: what was recorded stays.
-      await logAuditInTransaction(tx, user.id, "CASE_CANCEL", caseId, { reason: parsed.data.reason, from: record.status })
+      await logAuditInTransaction(tx, user.id, "CASE_CANCEL", caseId, { reasonCode: parsed.data.reason, from: record.status })
       return { status: "CANCELLED", cancelledAt: cancelledAt.toISOString(), cancellationReason: parsed.data.reason }
     })
     return NextResponse.json(result, { headers: corsHeaders(req) })
@@ -88,7 +88,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         where: { id: caseId },
         data: { status, statusBeforeCancel: null, cancelledAt: null, cancelledById: null, cancellationReason: null, cancellationNote: null },
       })
-      await logAuditInTransaction(tx, user.id, "CASE_CANCEL_UNDO", caseId, { reason: record.cancellationReason, to: status })
+      await logAuditInTransaction(tx, user.id, "CASE_CANCEL_UNDO", caseId, { reasonRecorded: Boolean(record.cancellationReason), to: status })
       return { status }
     })
     return NextResponse.json(result, { headers: corsHeaders(req) })

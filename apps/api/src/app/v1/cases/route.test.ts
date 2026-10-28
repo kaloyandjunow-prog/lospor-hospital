@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     case: { findMany: mocks.findMany, count: mocks.count },
     operatingTheatrePolicy: { findUnique: vi.fn().mockResolvedValue(null) },
+    hospitalCaseVisibilityPolicy: { findUnique: vi.fn().mockResolvedValue(null) },
   },
 }))
 vi.mock("@/lib/access-control", () => ({

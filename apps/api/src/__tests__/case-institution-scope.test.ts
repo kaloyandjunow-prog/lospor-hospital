@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { canAccessCase, caseReadWhereForUser, headOfDeptCaseScope } from "../lib/access-control"
 import type { AuthUser } from "../lib/mobile-auth"
 
@@ -20,6 +20,9 @@ const hod = (institutionId: string): AuthUser => ({
 
 const HOSPITAL_A = "inst-a"
 const HOSPITAL_B = "inst-b"
+
+beforeEach(() => vi.stubEnv("LOSPOR_DEPLOYMENT_MODE", ""))
+afterEach(() => vi.unstubAllEnvs())
 
 describe("headOfDeptCaseScope", () => {
   it("matches on the case's own institution and nothing else", () => {

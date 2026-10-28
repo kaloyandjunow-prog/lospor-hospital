@@ -6,6 +6,7 @@ vi.mock("server-only", () => ({}))
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   ensure: vi.fn(),
+  read: vi.fn(),
   serialize: vi.fn(),
 }))
 
@@ -13,6 +14,7 @@ vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: mocks.auth }))
 vi.mock("@/lib/preop/service", () => ({
   preparePreopProfile: vi.fn(async () => {}),
   ensurePreopProfiles: mocks.ensure,
+  readPreopProfiles: mocks.read,
   serializePreopProfiles: mocks.serialize,
 }))
 vi.mock("@/lib/prisma", () => ({
@@ -28,6 +30,7 @@ describe("preoperative profile read boundary", () => {
     vi.clearAllMocks()
     mocks.auth.mockResolvedValue({ id: "user-1", role: "MEMBER" })
     mocks.ensure.mockResolvedValue({ ADULT: { id: "profile-1" }, PEDIATRIC: { id: "profile-2" } })
+    mocks.read.mockResolvedValue({ ADULT: { id: "profile-1" }, PEDIATRIC: { id: "profile-2" } })
     mocks.serialize.mockImplementation((value: unknown) => ({ serialized: value }))
   })
 

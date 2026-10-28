@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   canReadCase,
   canAccessCaseWithOwnerFallback,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/access-control"
 
 describe("access control helpers", () => {
+  beforeEach(() => vi.stubEnv("LOSPOR_DEPLOYMENT_MODE", ""))
   afterEach(() => vi.unstubAllEnvs())
 
   it("widens only hospital clinical reads when the persisted overlay is enabled", async () => {
