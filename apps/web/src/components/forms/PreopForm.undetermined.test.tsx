@@ -13,6 +13,10 @@ vi.mock("@/hooks/useOptionLibrary", () => ({
 vi.mock("@/lib/deployment-capabilities", () => ({
   capabilityMessageKey: () => "deploymentCapabilities.externalAiUnavailable",
   pediatricCapabilityMessageKey: () => "newSelectionUnavailable",
+  useEhrImportCapability: () => ({
+    enabled: false, reason: "PROVIDER_NOT_CONFIGURED", transport: null,
+    folderRequests: false, egnPermitted: false,
+  }),
   useClinicalAiCapabilities: () => ({
     clinicalAdvice: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
     labImageExtraction: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
@@ -28,7 +32,7 @@ import { PreopForm } from "./PreopForm"
 
 // Everything a submit needs, so only the procedure decides it.
 const COMPLETE = {
-  clinicalMode: "ADULT", ageYears: 45, sex: "MALE", heightCm: 175, weightKg: 80, diagnoses: [{ label: "Test diagnosis" }],
+  clinicalMode: "ADULT", patientId: "P-1", ageYears: 45, sex: "MALE", heightCm: 175, weightKg: 80, diagnoses: [{ label: "Test diagnosis" }],
   bpSystolic: 120, bpDiastolic: 80, heartRate: 70, respiratoryRate: 14, mallampati: "I", asaScore: "II",
 }
 

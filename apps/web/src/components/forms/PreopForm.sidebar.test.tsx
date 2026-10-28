@@ -17,6 +17,10 @@ vi.mock("@/hooks/useOptionLibrary", () => ({
 vi.mock("@/lib/deployment-capabilities", () => ({
   capabilityMessageKey: () => "deploymentCapabilities.externalAiUnavailable",
   pediatricCapabilityMessageKey: () => "newSelectionUnavailable",
+  useEhrImportCapability: () => ({
+    enabled: false, reason: "PROVIDER_NOT_CONFIGURED", transport: null,
+    folderRequests: false, egnPermitted: false,
+  }),
   useClinicalAiCapabilities: () => ({
     clinicalAdvice: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
     labImageExtraction: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
