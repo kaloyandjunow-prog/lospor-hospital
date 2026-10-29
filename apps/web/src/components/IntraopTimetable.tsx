@@ -414,7 +414,7 @@ export function IntraopTimetable({
   // Every in-progress drag lives in one reducer; see intraop/use-timetable-drag.
   // Bars dragged by a finger as by a mouse (10.0.0).
   const touchDragRoot = useRef<HTMLDivElement>(null)
-  useTouchDrag(touchDragRoot)
+  const touchDragReady = useTouchDrag(touchDragRoot)
   const [drag, dragActions] = useTimetableDrag()
   // Extending an infusion segment
   // Whole-bar drag
@@ -1657,7 +1657,7 @@ export function IntraopTimetable({
   return (
     <TciPatientContext.Provider value={tciPatient}>
     {/* A long press here picks a bar up rather than selecting its text (touch only). */}
-    <div ref={touchDragRoot} className="space-y-3 pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]">
+    <div ref={touchDragRoot} data-touch-drag-ready={touchDragReady ? "true" : "loading"} className="space-y-3 pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]">
       {/* Chart toggle + layout toggle on same row */}
       <div className="flex items-center gap-2 flex-wrap">
         <button type="button" onClick={() => setChartOpen(o => !o)}

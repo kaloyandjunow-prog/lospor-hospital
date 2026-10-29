@@ -150,6 +150,10 @@ export default function NewCasePage() {
     const continueId = searchParams.get("continue")
     const stepParam  = searchParams.get("step")
     if (!continueId) return
+    // A stage button changes only `step`; the case is already hydrated. Do not
+    // refetch and temporarily unmount the current form, or a fast stage change
+    // can race the new screen and leave its sidebar absent for a render window.
+    if (caseIdRef.current === continueId) return
     // Async fetch-on-mount with a loading flag - standard data-fetching effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)

@@ -1,5 +1,33 @@
 # Changelog - LOSPOR Web App
 
+## [10.0.2] - 2026-10-29
+
+### Fixed
+
+- **Postoperative score totals:** recovery and item pain totals now project
+  the latest click synchronously, preventing stale totals during rapid input.
+- **Regression coverage:** added component tests for rapid Steward and FLACC
+  scoring.
+- **Case-lock cleanup:** repeated release requests and leases removed during
+  case cleanup no longer produce false 404/unhandled-rejection noise.
+- **Postoperative score rendering:** rapid FLACC/Aldrete/Steward item taps now
+  render from the synchronous score projection, eliminating stale aggregate
+  totals during interaction bursts, including the recovery score component.
+- **Recovery score stability:** recovery score taps now commit the complete
+  immediate projection before React Hook Form publishes its next render.
+- **Pain score stability:** FLACC item taps now publish through a concurrent-safe
+  score snapshot so the total cannot lag behind the last selected item.
+- **Dependency security:** upgraded Next.js to 16.4.3, Sentry, Vitest 5,
+  Zod, Vite and the related transitive packages; no high or critical npm audit
+  findings remain. The remaining low `deepmerge` advisory has no upstream fix.
+
+## [10.0.1] - 2026-10-29
+
+### Changed
+
+- **Maintenance release:** the web app development lint toolchain now uses
+  ESLint 10.13.0; the public clinical workflow is unchanged.
+
 ## [10.0.0] - 2026-10-28
 
 ### Added

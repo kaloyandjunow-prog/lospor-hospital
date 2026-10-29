@@ -216,7 +216,7 @@ export const autosaveManager = createAutosaveManager({
           undefined,
       }
     },
-    isNetworkError: (error) => error instanceof TypeError,
+    isNetworkError: isTransientNetworkError,
     onChange: (count) => {
       pendingEventCount = count
       emitEventCount()
@@ -225,7 +225,7 @@ export const autosaveManager = createAutosaveManager({
   eventMutations: {
     kv: idbKV,
     send: sendMutation,
-    isNetworkError: (error) => error instanceof TypeError,
+    isNetworkError: isTransientNetworkError,
     onChange: (count) => {
       pendingMutationCount = count
       emitEventCount()

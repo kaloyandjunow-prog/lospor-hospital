@@ -522,7 +522,10 @@ test("a rate change can be recorded, and dragging it copies it to another time",
 
   const lane = chart.getByTestId("infusion-lane").first()
   const laneBox = await lane.boundingBox()
-  const cells = lane.locator('[draggable="true"]')
+  // Rate-change dividers are draggable too. Keep the bar-cell locator
+  // separate, otherwise adding the first divider changes `cells.last()` into
+  // the divider itself and the copy drag lands back on its source column.
+  const cells = lane.locator('[draggable="true"]:not(.cursor-col-resize)')
 
   // The infusion started two columns in and runs to now, so it spans several
   // columns already. Open the menu from its second column: a change has to sit

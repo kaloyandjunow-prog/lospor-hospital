@@ -6,6 +6,20 @@ import { autosaveManager, onEventRefused } from "@/lib/autosave-manager"
 import { randomId } from "@/lib/random-id"
 import { applyIntraopEventOps, type IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
 
+const EVENT_SAVE_RETRY_DELAYS_MS = [250, 750, 1_500] as const
+
+async function settleEventSave(caseId: string): Promise<void> {
+  for (const delay of [0, ...EVENT_SAVE_RETRY_DELAYS_MS]) {
+    if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay))
+    await autosaveManager.waitForCase(caseId)
+    const state = autosaveManager.getState(caseId)
+    if (state.pending === 0) return
+    await autosaveManager.flushCase(caseId)
+  }
+  await autosaveManager.waitForCase(caseId)
+  if (autosaveManager.getState(caseId).pending > 0) throw new Error("Event change remains queued")
+}
+
 /** The timeline rules with a message of their own (intraop.timelineRules.refused). */
 const TIMELINE_RULE_CODES = new Set([
   "STOP_BEFORE_START", "NOT_RUNNING", "STOP_BEFORE_LATER_CHANGE", "ALREADY_RUNNING",
@@ -65,6 +79,11 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
       for (const event of ops.add) {
         await autosaveManager.appendEvent(caseId, event as Record<string, unknown> & { id: string })
       }
+      // stageEventMutation/appendEvent normally flush immediately. A transient
+      // socket reset can leave the durable entry queued, though; retry this
+      // concrete user action before reporting failure rather than relying on
+      // the 15-second background heartbeat to make the chart appear saved.
+      await settleEventSave(caseId)
     } catch {
       // A fixed code only: runtime logs never carry case data (9.12.1).
       console.error("[intraop event] EVENT_JOURNAL_FAILED")

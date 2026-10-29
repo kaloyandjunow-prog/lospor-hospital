@@ -60,6 +60,9 @@ function webLockTransport(): CaseLockTransport {
         body: JSON.stringify(force ? { force: true } : { deviceId }),
         keepalive: true,
       })
+      // Deleting a case or a second cleanup can remove the lease before this
+      // best-effort release arrives. The desired end state is already true.
+      if (response.status === 404) return
       if (!response.ok) throw new Error(`Lock release failed (${response.status})`)
     },
   }
@@ -96,6 +99,7 @@ export function useCaseLock(caseId: string | null, enabled = true): {
     if (!caseId || !enabled) { setLockState("idle"); return }
 
     let disposed = false
+    let releasePromise: Promise<void> | null = null
     const lease = new CaseLockLease(caseId, getDeviceId(), webLockTransport())
     leaseRef.current = lease
     const unsubscribe = lease.subscribe(state => {
@@ -109,8 +113,12 @@ export function useCaseLock(caseId: string | null, enabled = true): {
     })
 
     const release = () => {
+      if (releasePromise) return
       stopHeartbeat()
-      void lease.release()
+      releasePromise = lease.release().catch(() => {
+        // Unload/unmount is best-effort. The server lease expiry and the next
+        // client acquisition remain the recovery path for a lost request.
+      })
     }
     window.addEventListener("beforeunload", release)
 
