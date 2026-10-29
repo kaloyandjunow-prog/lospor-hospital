@@ -287,7 +287,7 @@ jobs:
           check_ref "Caddy builder" golang:1.26.10-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
           check_ref "Caddy runtime" caddy:2.11.7-alpine "$CADDY_RUNTIME_BASE_IMAGE"
           check_ref curl curlimages/curl:8.23.0 "$CURL_BASE_IMAGE"
-          check_ref Trivy aquasec/trivy:0.74.0 "$TRIVY_IMAGE"
+          check_ref Trivy aquasec/trivy:0.76.1 "$TRIVY_IMAGE"
           mkdir -p .data/release-evidence
           node - <<'NODE'
           const fs = require("node:fs")

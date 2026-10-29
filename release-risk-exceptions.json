@@ -1,4 +1,13 @@
 {
   "schemaVersion": 1,
-  "exceptions": []
+  "exceptions": [
+    {
+      "release": "1.7.0",
+      "image": "caddy",
+      "vulnerabilityId": "CVE-2026-116587",
+      "package": "github.com/go-jose/go-jose/v3",
+      "expiresAt": "2027-01-31",
+      "justification": "Caddy 2.11.7 and its Smallstep certificate path still compile go-jose/v3, and upstream has no patched v3 release for this advisory. go-jose/v4 is already at 4.1.6; this exact finding is accepted until upstream removes or patches v3."
+    }
+  ]
 }

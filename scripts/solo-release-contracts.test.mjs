@@ -44,7 +44,7 @@ const RELEASE_INPUTS = {
     caddyBuilder: `golang:1.26.10-alpine3.24@sha256:${"4".repeat(64)}`,
     caddyRuntime: `caddy:2.11.7-alpine@sha256:${"5".repeat(64)}`,
     curl: `curlimages/curl:8.23.0@sha256:${"6".repeat(64)}`,
-    trivy: `aquasec/trivy:0.74.0@sha256:${"7".repeat(64)}`,
+    trivy: `aquasec/trivy:0.76.1@sha256:${"7".repeat(64)}`,
   },
   postgresSource: {
     debianSnapshot: "20260803T000000Z",

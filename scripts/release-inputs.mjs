@@ -10,7 +10,7 @@ const EXPECTED = Object.freeze({
   caddyBuilder: "golang:1.26.10-alpine3.24",
   caddyRuntime: "caddy:2.11.7-alpine",
   curl: "curlimages/curl:8.23.0",
-  trivy: "aquasec/trivy:0.74.0",
+  trivy: "aquasec/trivy:0.76.1",
 })
 
 const ENVIRONMENT = Object.freeze({
