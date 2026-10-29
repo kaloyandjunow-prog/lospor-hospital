@@ -19,7 +19,7 @@ const ghostBase = { top: 22, bottom: 4 } as const
 export function MoveGhost({ color, isFirst, isLast }: { color: string; isFirst: boolean; isLast: boolean }) {
   return (
     <div
-      className="absolute left-0 right-0 border border-dashed opacity-25"
+      className="absolute left-0 right-0 border border-dashed opacity-25 pointer-events-none"
       style={{
         ...ghostBase,
         backgroundColor: color + "33",
