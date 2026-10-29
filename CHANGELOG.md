@@ -46,6 +46,8 @@ Vendors Core, API, Web and PWA 10.0.0; Browser stays 0.9.1.
 
 - Updated Next.js, Zod, Vite, undici, body-parser, shadcn and node-forge to
   patched versions where compatible with the reviewed appliance toolchains.
+- Updated the release scanner from Trivy 0.74.0 to 0.76.1 and pinned its
+  exact multi-platform image digest for the candidate vulnerability scan.
 - The remaining Zod advisory is confined to the Expo 56 build CLI and is not
   present in the shipped static PWA runtime; it is explicitly accepted for
   this release until Expo 56 provides a patched CLI or the toolchain is
