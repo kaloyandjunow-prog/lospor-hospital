@@ -60,6 +60,7 @@ import { ProcedureOperationPicker } from "@/components/forms/ProcedureOperationP
 import { procedureGroupTag } from "@lospor/core/procedure-codes"
 import { RecoveryVitals } from "@/components/forms/postop/RecoveryVitals"
 import { RecoveryScore, type AldreteKey } from "@/components/forms/postop/RecoveryScore"
+import { usePostopScoreProjection } from "@/components/forms/postop/usePostopScoreProjection"
 
 type ProcedureSearchItem = { code: string; group?: string; description: string; domain: string }
 export type { PostopData }
@@ -67,15 +68,6 @@ export type { PostopData }
 
 
 type ScoredItem = FlaccField | NipsField | PaedField
-type ScoreField =
-  | AldreteKey
-  | "stewardConsciousness"
-  | "stewardAirway"
-  | "stewardMovement"
-  | ScoredItem
-  | "fpsrScore"
-  | "painScoreNRS"
-
 export type HandoverGroup = Omit<CoreHandoverGroup, "id">
 
 export const normaliseHandoverCodes = normalizeHandoverCodes
@@ -151,25 +143,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       ...(defaultValues?.handoverItems ? { handoverItems: normaliseHandoverCodes(defaultValues.handoverItems) } : {}),
     },
   })
-  // RHF remains the source of truth, but score totals are derived aggregates.
-  // Controller/useWatch can publish a browser click one render later when a
-  // busy form is mounted. Keep a local projection of score fields so an
-  // aggregate is never visually one answer behind the buttons that changed it.
-  const [scoreProjection, setScoreProjection] = useState<Partial<Record<ScoreField, number | null>>>(() => {
-    const scoreKeys = new Set<string>([
-      "aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2",
-      "stewardConsciousness", "stewardAirway", "stewardMovement",
-      ...FLACC_ITEMS.map(item => item.key), ...NIPS_ITEMS.map(item => item.key), ...PAED_ITEMS.map(item => item.key),
-      "fpsrScore", "painScoreNRS",
-    ])
-    return Object.fromEntries(Object.entries(defaultValues ?? {}).filter(([key, value]) => scoreKeys.has(key) && value !== undefined)) as Partial<Record<ScoreField, number | null>>
-  })
-  const setScore = (key: ScoreField, value: number | null) => {
-    setValue(key, value, { shouldDirty: true })
-    setScoreProjection(previous => ({ ...previous, [key]: value }))
-  }
-  const projected = <K extends ScoreField>(key: K, observed: number | null | undefined) =>
-    Object.prototype.hasOwnProperty.call(scoreProjection, key) ? scoreProjection[key] : observed
+  const { setScore, projected } = usePostopScoreProjection(defaultValues, setValue)
 
   const allValues = useWatch({ control })
   const allValuesKey = JSON.stringify(allValues)

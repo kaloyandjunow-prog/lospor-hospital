@@ -4,6 +4,7 @@ import { Controller, type Control } from "react-hook-form"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
+import type { PostopData } from "@/components/forms/postopSchema"
 
 export type AldreteKey = "aldreteActivity" | "aldreteRespiration" | "aldreteCirculation" | "aldreteConsciousness" | "aldreteSpO2"
 type StewardKey = "stewardConsciousness" | "stewardAirway" | "stewardMovement"
