@@ -48,6 +48,11 @@ Vendors Core, API, Web and PWA 10.0.0; Browser stays 0.9.1.
   patched versions where compatible with the reviewed appliance toolchains.
 - Updated the release scanner from Trivy 0.74.0 to 0.76.1 and pinned its
   exact multi-platform image digest for the candidate vulnerability scan.
+- Accepted the one currently unfixed Caddy finding, CVE-2026-116587 in
+  `github.com/go-jose/go-jose/v3`, until upstream publishes a patched v3
+  release or removes the module from Caddy's Smallstep certificate path. The
+  exact, release-scoped exception expires on 2027-01-31; all other HIGH and
+  CRITICAL findings are clear in the Trivy 0.76.1 scan.
 - The remaining Zod advisory is confined to the Expo 56 build CLI and is not
   present in the shipped static PWA runtime; it is explicitly accepted for
   this release until Expo 56 provides a patched CLI or the toolchain is
