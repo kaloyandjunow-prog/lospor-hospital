@@ -49,12 +49,12 @@ fi
 docker run --rm --entrypoint sh "$curl_image" -c '
   [ "$(id -u)" -ne 0 ]
   for tool in curl cut date mkdir mv rm sleep; do command -v "$tool" >/dev/null; done
-  curl --version | grep -Fq "curl 8.21.0"
+  curl --version | grep -Fq "curl 8.23.0"
 '
 
 # Validate the real Hospital configuration, including reverse proxy and zstd
 # modules, instead of accepting a custom binary that only prints a version.
-docker run --rm "$caddy_image" caddy version | grep -Fq 'v2.11.4'
+docker run --rm "$caddy_image" caddy version | grep -Fq 'v2.11.7'
 modules="$(docker run --rm "$caddy_image" caddy list-modules --packages)"
 printf '%s\n' "$modules" | grep -Fq 'http.handlers.reverse_proxy'
 printf '%s\n' "$modules" | grep -Fq 'http.encoders.zstd'

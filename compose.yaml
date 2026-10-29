@@ -359,7 +359,7 @@ services:
       context: .
       dockerfile: infra/docker/curl-worker.Dockerfile
       args:
-        CURL_BASE_IMAGE: ${CURL_BASE_IMAGE:-curlimages/curl:8.21.0}
+        CURL_BASE_IMAGE: ${CURL_BASE_IMAGE:-curlimages/curl:8.23.0}
     restart: unless-stopped
     environment:
       HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
@@ -403,7 +403,7 @@ services:
       context: .
       dockerfile: infra/docker/curl-worker.Dockerfile
       args:
-        CURL_BASE_IMAGE: ${CURL_BASE_IMAGE:-curlimages/curl:8.21.0}
+        CURL_BASE_IMAGE: ${CURL_BASE_IMAGE:-curlimages/curl:8.23.0}
     restart: unless-stopped
     environment:
       HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
@@ -450,7 +450,7 @@ services:
       dockerfile: infra/docker/pwa.Dockerfile
       args:
         NODE_PWA_BUILD_BASE_IMAGE: ${NODE_PWA_BUILD_BASE_IMAGE:-node:24-alpine3.24}
-        NGINX_PWA_BASE_IMAGE: ${NGINX_PWA_BASE_IMAGE:-nginx:1.30.4-alpine}
+        NGINX_PWA_BASE_IMAGE: ${NGINX_PWA_BASE_IMAGE:-nginx:1.30.6-alpine}
     restart: unless-stopped
     read_only: true
     # nginx keeps its pid file and every proxy/client body buffer on disk. It
@@ -692,8 +692,8 @@ services:
       context: .
       dockerfile: infra/docker/caddy.Dockerfile
       args:
-        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.9-alpine3.24}
-        CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.4-alpine}
+        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.10-alpine3.24}
+        CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.7-alpine}
     restart: unless-stopped
     environment:
       ACME_EMAIL: ${ACME_EMAIL}
@@ -735,8 +735,8 @@ services:
       context: .
       dockerfile: infra/docker/caddy.Dockerfile
       args:
-        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.9-alpine3.24}
-        CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.4-alpine}
+        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.10-alpine3.24}
+        CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.7-alpine}
     restart: unless-stopped
     command: ["run", "--config", "/etc/caddy/AcmeProxyCaddyfile", "--adapter", "caddyfile"]
     ports:

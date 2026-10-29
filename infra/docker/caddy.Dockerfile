@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
-ARG CADDY_BUILD_BASE_IMAGE=golang:1.26.9-alpine3.24
-ARG CADDY_RUNTIME_BASE_IMAGE=caddy:2.11.4-alpine
+ARG CADDY_BUILD_BASE_IMAGE=golang:1.26.10-alpine3.24
+ARG CADDY_RUNTIME_BASE_IMAGE=caddy:2.11.7-alpine
 
 FROM ${CADDY_BUILD_BASE_IMAGE} AS builder
 ARG TARGETOS=linux

@@ -33,11 +33,11 @@ function fixture() {
     platform: "linux/amd64",
     images: {
       node: `node:24-alpine3.24@sha256:${"1".repeat(64)}`,
-      nginx: `nginx:1.30.4-alpine@sha256:${"2".repeat(64)}`,
+      nginx: `nginx:1.30.6-alpine@sha256:${"2".repeat(64)}`,
       postgres: `postgres:17.11-trixie@sha256:${"3".repeat(64)}`,
-      caddyBuilder: `golang:1.26.9-alpine3.24@sha256:${"4".repeat(64)}`,
-      caddyRuntime: `caddy:2.11.4-alpine@sha256:${"5".repeat(64)}`,
-      curl: `curlimages/curl:8.21.0@sha256:${"6".repeat(64)}`,
+      caddyBuilder: `golang:1.26.10-alpine3.24@sha256:${"4".repeat(64)}`,
+      caddyRuntime: `caddy:2.11.7-alpine@sha256:${"5".repeat(64)}`,
+      curl: `curlimages/curl:8.23.0@sha256:${"6".repeat(64)}`,
       trivy: `aquasec/trivy:0.74.0@sha256:${"7".repeat(64)}`,
     },
     postgresSource: {
