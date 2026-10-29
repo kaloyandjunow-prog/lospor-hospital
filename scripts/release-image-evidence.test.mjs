@@ -24,6 +24,7 @@ function vulnerabilityReport(image) {
       ImageID: image.localDockerId,
       DiffIDs: image.rootfsDiffIds,
       RepoTags: [image.scanReference],
+      RepoDigests: [`${image.scanReference.slice(0, image.scanReference.lastIndexOf(":"))}@${image.localDockerId}`],
       Reference: image.scanReference,
       ImageConfig: {
         architecture: "amd64",
@@ -184,6 +185,21 @@ test("accepts reordered CycloneDX diff IDs but rejects a substituted one", async
   victim.value = id(199)
   await writeFile(substituted.sboms[0], JSON.stringify(tampered))
   assert.throws(() => substituted.run("verify-scans", version, substituted.ledgerPath, ...substituted.reports, ...substituted.sboms), /Command failed/)
+})
+
+test("accepts a CycloneDX registry manifest purl from a pulled candidate", async () => {
+  const f = await fixture()
+  const report = JSON.parse(await readFile(f.reports[0], "utf8"))
+  const sbom = JSON.parse(await readFile(f.sboms[0], "utf8"))
+  const registryDigest = id(201)
+  const repository = f.images[0].scanReference.slice(0, f.images[0].scanReference.lastIndexOf(":"))
+  const purl = trivyCycloneDxRootPurl(registryDigest, f.images[0].scanReference)
+  report.Metadata.RepoDigests = [`${repository}@${registryDigest}`]
+  sbom.metadata.component.purl = purl
+  sbom.metadata.component["bom-ref"] = purl
+  await writeFile(f.reports[0], JSON.stringify(report))
+  await writeFile(f.sboms[0], JSON.stringify(sbom))
+  assert.doesNotThrow(() => f.run("verify-scans", version, f.ledgerPath, ...f.reports, ...f.sboms))
 })
 
 test("rejects a CycloneDX root identity change", async () => {

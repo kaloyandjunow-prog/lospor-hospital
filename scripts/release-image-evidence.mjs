@@ -13,6 +13,7 @@ import {
   samePortableIdentity,
   trivyArtifactId,
   trivyCycloneDxRootPurl,
+  trivyRepositoryContext,
   validatePortableIdentity,
 } from "./portable-image-identity.mjs"
 import { parseReleaseInputs } from "./release-inputs.mjs"
@@ -126,7 +127,16 @@ function assertOneProperty(component, propertyName, expectedValue, name) {
   }
 }
 
-function assertCycloneDxIdentity(bom, expected, name) {
+function registryDigestsFor(expected, repoDigests) {
+  if (!Array.isArray(repoDigests)) return []
+  const repository = trivyRepositoryContext(expected.scanReference)
+  return repoDigests
+    .filter(value => typeof value === "string" && value.startsWith(`${repository}@`))
+    .map(value => value.slice(repository.length + 1))
+    .filter(value => SHA256_DIGEST.test(value))
+}
+
+function assertCycloneDxIdentity(bom, expected, name, repoDigests = []) {
   if (!bom || typeof bom !== "object" || Array.isArray(bom)
     || bom.bomFormat !== "CycloneDX" || bom.specVersion !== "1.7" || bom.version !== 1) {
     throw new Error(`CycloneDX 1.7 document identity is invalid for ${name}`)
@@ -137,7 +147,8 @@ function assertCycloneDxIdentity(bom, expected, name) {
     throw new Error(`CycloneDX document was not produced by Trivy ${TRIVY_VERSION} for ${name}`)
   }
   const component = bom.metadata?.component
-  const expectedPurl = trivyCycloneDxRootPurl(expected.localDockerId, expected.scanReference, expected.platform)
+  const expectedPurls = registryDigestsFor(expected, repoDigests)
+    .map(digest => trivyCycloneDxRootPurl(digest, expected.scanReference, expected.platform))
   // Trivy builds the root purl from the image's RepoDigests. A candidate image
   // is scanned before it is pushed, so on a classic Docker image store it has
   // no RepoDigest yet and Trivy emits no purl at all, using a random UUID as
@@ -155,7 +166,7 @@ function assertCycloneDxIdentity(bom, expected, name) {
   // does emit one it is still checked exactly.
   const purlPresent = typeof component?.purl === "string"
   if (component?.type !== "container" || component?.name !== expected.scanReference
-    || (purlPresent && (component.purl !== expectedPurl || component["bom-ref"] !== expectedPurl))) {
+    || (purlPresent && (!expectedPurls.includes(component.purl) || component["bom-ref"] !== component.purl))) {
     // Name the field and print both values. Diagnosing this from "is not the
     // recorded image" alone is impossible, and every attempt costs a full
     // release run.
@@ -163,7 +174,7 @@ function assertCycloneDxIdentity(bom, expected, name) {
       ["type", component?.type, "container"],
       ["name", component?.name, expected.scanReference],
       ...(purlPresent
-        ? [["purl", component.purl, expectedPurl], ["bom-ref", component["bom-ref"], expectedPurl]]
+        ? [["purl", component.purl, expectedPurls.length === 1 ? expectedPurls[0] : JSON.stringify(expectedPurls)], ["bom-ref", component["bom-ref"], component.purl]]
         : []),
     ].filter(([, actual, wanted]) => actual !== wanted)
       .map(([field, actual, wanted]) => `\n  ${field}:\n    actual:   ${actual}\n    expected: ${wanted}`)
@@ -287,6 +298,8 @@ if (command === "create") {
   const byName = new Map(ledger.map(image => [image.name, image]))
   const vulnerabilitySeen = new Set()
   const sbomSeen = new Set()
+  const vulnerabilityReports = new Map()
+  const sbomReports = new Map()
   for (const path of paths) {
     const file = basename(path)
     const isSbom = file.endsWith(".cdx.json")
@@ -295,9 +308,16 @@ if (command === "create") {
     const seen = isSbom ? sbomSeen : vulnerabilitySeen
     if (!expected || seen.has(name)) throw new Error(`Unexpected or duplicate Trivy evidence file: ${file}`)
     const report = JSON.parse(await readFile(path, "utf8"))
-    if (isSbom) assertCycloneDxIdentity(report, expected, name)
-    else assertVulnerabilityIdentity(report, expected, name)
+    if (isSbom) sbomReports.set(name, report)
+    else {
+      assertVulnerabilityIdentity(report, expected, name)
+      vulnerabilityReports.set(name, report)
+    }
     seen.add(name)
+  }
+  for (const [name, report] of sbomReports) {
+    const expected = byName.get(name)
+    assertCycloneDxIdentity(report, expected, name, vulnerabilityReports.get(name)?.Metadata?.RepoDigests)
   }
   if (vulnerabilitySeen.size !== 10 || sbomSeen.size !== 10) throw new Error("Trivy vulnerability or SBOM evidence is incomplete")
   console.log("All ten vulnerability reports and all ten CycloneDX 1.7 SBOMs match the same-host image ledger.")
