@@ -250,6 +250,10 @@ test("an infusion's right grip sets where it stops", async ({ page }) => {
   const grip = lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
   await expect(grip).toBeVisible({ timeout: 10_000 })
   await grip.dragTo(lane, { targetPosition: { x: laneBox.width / 2, y: laneBox.height / 2 } })
+  // Stopping a running bar is deliberately confirmed: the drop proposes the
+  // timestamp, and the clinician must explicitly record the stop.
+  await expect(page.getByText(/Stop Propofol/)).toBeVisible()
+  await page.getByRole("button", { name: "Stop", exact: true }).click()
 
   // A stopped bar is no longer draggable, so the proof is the saved log: a
   // stop for this infusion, inside the case.
