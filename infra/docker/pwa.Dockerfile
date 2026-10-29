@@ -1,6 +1,6 @@
 ﻿# syntax=docker/dockerfile:1.7
 ARG NODE_PWA_BUILD_BASE_IMAGE=node:24-alpine3.24
-ARG NGINX_PWA_BASE_IMAGE=nginx:1.30.4-alpine
+ARG NGINX_PWA_BASE_IMAGE=nginx:1.30.6-alpine
 FROM ${NODE_PWA_BUILD_BASE_IMAGE} AS builder
 WORKDIR /workspace
 ENV NPM_CONFIG_FETCH_RETRIES=5 \

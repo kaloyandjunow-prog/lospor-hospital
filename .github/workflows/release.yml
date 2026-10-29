@@ -282,11 +282,11 @@ jobs:
           check_ref "PWA Node" node:24-alpine3.24 "$NODE_PWA_BUILD_BASE_IMAGE"
           check_ref "Status Node" node:24-alpine3.24 "$NODE_STATUS_BASE_IMAGE"
           check_ref "Web Node" node:24-alpine3.24 "$NODE_WEB_BASE_IMAGE"
-          check_ref nginx nginx:1.30.4-alpine "$NGINX_PWA_BASE_IMAGE"
+          check_ref nginx nginx:1.30.6-alpine "$NGINX_PWA_BASE_IMAGE"
           check_ref PostgreSQL postgres:17.11-trixie "$POSTGRES_BASE_IMAGE"
-          check_ref "Caddy builder" golang:1.26.9-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
-          check_ref "Caddy runtime" caddy:2.11.4-alpine "$CADDY_RUNTIME_BASE_IMAGE"
-          check_ref curl curlimages/curl:8.21.0 "$CURL_BASE_IMAGE"
+          check_ref "Caddy builder" golang:1.26.10-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
+          check_ref "Caddy runtime" caddy:2.11.7-alpine "$CADDY_RUNTIME_BASE_IMAGE"
+          check_ref curl curlimages/curl:8.23.0 "$CURL_BASE_IMAGE"
           check_ref Trivy aquasec/trivy:0.74.0 "$TRIVY_IMAGE"
           mkdir -p .data/release-evidence
           node - <<'NODE'

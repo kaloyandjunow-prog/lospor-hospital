@@ -3,11 +3,11 @@
   "platform": "linux/amd64",
   "images": {
     "node": "node:24-alpine3.24@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
-    "nginx": "nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46",
+    "nginx": "nginx:1.30.6-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949",
     "postgres": "postgres:17.11-trixie@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f",
-    "caddyBuilder": "golang:1.26.9-alpine3.24@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade",
-    "caddyRuntime": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
-    "curl": "curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13",
+    "caddyBuilder": "golang:1.26.10-alpine3.24@sha256:a2012b4a1d1f9f7e9f44e0d39b805a901e856b1dd80b4e6ee4338db547050308",
+    "caddyRuntime": "caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f",
+    "curl": "curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93",
     "trivy": "aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
   },
   "postgresSource": {
@@ -55,9 +55,9 @@
     },
     "vulnerabilityReview": {
       "status": "accepted-provenance-only",
-      "release": "1.5.4",
-      "reviewedAt": "2026-10-10",
-      "rationale": "Fresh review for Hospital 1.5.4, approved by the maintainer on 2026-10-10, required because the fingerprint covers every pinned base image and one moved: the Caddy builder, golang:1.26.6-alpine3.24 to golang:1.26.9-alpine3.24 at sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade, to clear fixable HIGH Go findings in the gateway image. That image builds only Caddy and does not enter the PostgreSQL image. Measured, not assumed: between hospital-1.5.4 candidates 6274385a and 11972af0 the caddyBuilder line is the only change in release-inputs.json, so the Debian snapshot, the postgres:17.11-trixie base digest, the PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 versions and checksums, the configure flags and the embedded build record are exactly those reviewed for 1.4.22. The 1.4.22 review therefore still describes this image and is carried forward: Fresh review for Hospital 1.4.22, required because the PostgreSQL base moved from Debian 12 (bookworm) to Debian 13 (trixie), postgres:17.11-trixie at sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f, and the Debian snapshot from 20260912T000000Z to 20261003T000000Z. The move was made to clear findings that Debian 12 does not fix: OpenSSL CVE-2026-84782 (fixed in 3.5.7-1~deb13u3) and libpcre2 CVE-2026-103111 (fixed in 10.46-1~deb13u3), both now pinned explicitly in the runtime stage. CVE-2026-16742 (libsystemd0/libudev1) has no fix in either release; it is cleared by removing both packages, which nothing in the image executes once apt, util-linux and procps are stripped; the three coreutils login-session reporters (pinky, users, who) that link libsystemd are deleted with it. Debian 13 OpenSSL links zlib for certificate compression, so the system libz.so.1 path resolves to the same checksummed zlib 1.3.2 PostgreSQL is built with, exactly as libacl already resolved to ACL 2.4.0; Debian's zlib1g stays removed. The built candidate was scanned with Trivy 0.74.0 on 2026-10-03: zero CRITICAL and zero HIGH, against five HIGH in the 1.4.21 image, and fewer MEDIUM and LOW findings. What moved was measured from the embedded build records rather than assumed: postgresql-configure.txt is byte-identical, so the configure flags did not change; the compiler moved to gcc 14.2.0 with the matching Debian 13 binutils; builder-packages.txt is the Debian 13 package set at the new snapshot. No source component changed: PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 keep their versions and SHA-256 checksums, and the ACL tarball fetched from the new snapshot matched e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3. PostgreSQL 17.11 and zlib 1.3.2 were confirmed still the newest upstream releases on 2026-10-03. The glibc change (2.36 to 2.41) changes text sort order; the update preflight now rebuilds indexes and records the new collation version before migrations, and postgres-cross-base-upgrade.test.sh proves this against a volume initialized by PostgreSQL 17.6 on Debian 12. The earlier component findings are carried forward, not re-verified: CVE-2026-22184 does not apply to zlib 1.3.2, and ACL 2.4.0 falls outside the affected ranges for CVE-2026-54369 and CVE-2026-54370. This acceptance remains limited to the recorded checksums and provenance, because Trivy does not vulnerability-map the source-built components. Since 1.4.22, Debian 13 has published two HIGH findings in libgnutls30t64 (CVE-2026-88647, CVE-2026-88648) with no fixed package. They were accepted by the maintainer for 1.5.4 to 1.5.6 in release-risk-exceptions.json. From 1.6.0 libgnutls30t64 itself is removed from the runtime image, as PostgreSQL here uses OpenSSL and nothing left in the image links GnuTLS; the build fails if the package, the library file or a library needing it remains, and a Trivy 0.74.0 scan of the built image on 2026-10-19 reported zero CRITICAL and zero HIGH, so no exception remains. This acceptance remains limited to the recorded checksums and provenance, because Trivy does not vulnerability-map the source-built components.",
+      "release": "1.7.0",
+      "reviewedAt": "2026-10-29",
+      "rationale": "Fresh review for Hospital 1.7.0, approved on 2026-10-29. PostgreSQL 17.11, zlib 1.3.2, ACL 2.4.0, their checksums, URLs, Debian snapshot, configure flags, and embedded build records are unchanged. The reviewed base-image fingerprint includes the CVE remediation moves to Go 1.26.10, Caddy 2.11.7, curl 8.23.0, and nginx 1.30.6. Source-built PostgreSQL components remain provenance-only because Trivy does not vulnerability-map them.",
       "evidenceUrls": [
         "https://security-tracker.debian.org/tracker/CVE-2026-84782",
         "https://security-tracker.debian.org/tracker/CVE-2026-103111",
@@ -70,7 +70,7 @@
         "https://security-tracker.debian.org/tracker/CVE-2026-88647",
         "https://security-tracker.debian.org/tracker/CVE-2026-88648"
       ],
-      "reviewedSourceFingerprint": "sha256:563bce1aade68c2ddf2e635733d08ac9b7bd5efb9f03a83c5fcba79f4e111f45"
+      "reviewedSourceFingerprint": "sha256:df859a075ea0650f25e3ffd321bc4faede3916858e19a7034310b039e5820018"
     }
   }
 }

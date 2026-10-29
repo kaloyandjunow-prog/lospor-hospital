@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Release CI replaces this default with the approved linux/amd64 digest.
-ARG CURL_BASE_IMAGE=curlimages/curl:8.21.0
+ARG CURL_BASE_IMAGE=curlimages/curl:8.23.0
 FROM ${CURL_BASE_IMAGE}
 
 # Keep the upstream entrypoint and unprivileged default user. The Hospital

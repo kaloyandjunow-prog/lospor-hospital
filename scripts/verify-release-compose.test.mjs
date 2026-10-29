@@ -96,11 +96,11 @@ describe("resolved release Compose contract", () => {
       NODE_PWA_BUILD_BASE_IMAGE: digest("node:24-alpine3.24"),
       NODE_STATUS_BASE_IMAGE: digest("node:24-alpine3.24"),
       NODE_WEB_BASE_IMAGE: digest("node:24-alpine3.24"),
-      NGINX_PWA_BASE_IMAGE: digest("nginx:1.30.4-alpine"),
+      NGINX_PWA_BASE_IMAGE: digest("nginx:1.30.6-alpine"),
       POSTGRES_BASE_IMAGE: digest("postgres:17.11-trixie"),
-      CURL_BASE_IMAGE: digest("curlimages/curl:8.21.0"),
-      CADDY_BUILD_BASE_IMAGE: digest("golang:1.26.9-alpine3.24"),
-      CADDY_RUNTIME_BASE_IMAGE: digest("caddy:2.11.4-alpine"),
+      CURL_BASE_IMAGE: digest("curlimages/curl:8.23.0"),
+      CADDY_BUILD_BASE_IMAGE: digest("golang:1.26.10-alpine3.24"),
+      CADDY_RUNTIME_BASE_IMAGE: digest("caddy:2.11.7-alpine"),
     }
     const publication = structuredClone(models.publication)
     for (const service of ["api", "migrate", "tools"]) publication.services[service].build.args.NODE_API_BASE_IMAGE = environment.NODE_API_BASE_IMAGE
