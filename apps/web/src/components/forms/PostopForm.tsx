@@ -1,7 +1,7 @@
 "use client"
 
 import { useForm, useWatch, Controller, type Resolver } from "react-hook-form"
-import { useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { useScrollToReadiness } from "@/lib/readiness-focus"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -67,6 +67,14 @@ export type { PostopData }
 
 
 type ScoredItem = FlaccField | NipsField | PaedField
+type ScoreField =
+  | AldreteKey
+  | "stewardConsciousness"
+  | "stewardAirway"
+  | "stewardMovement"
+  | ScoredItem
+  | "fpsrScore"
+  | "painScoreNRS"
 
 export type HandoverGroup = Omit<CoreHandoverGroup, "id">
 
@@ -144,10 +152,24 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     },
   })
   // RHF remains the source of truth, but score totals are derived aggregates.
-  // A browser click can update a Controller field without making the parent
-  // render that reads the aggregate in the same turn. Keep an explicit render
-  // tick for score changes so the total never stays visually one answer behind.
-  const [, bumpScoreRender] = useReducer((version: number) => version + 1, 0)
+  // Controller/useWatch can publish a browser click one render later when a
+  // busy form is mounted. Keep a local projection of score fields so an
+  // aggregate is never visually one answer behind the buttons that changed it.
+  const [scoreProjection, setScoreProjection] = useState<Partial<Record<ScoreField, number | null>>>(() => {
+    const scoreKeys = new Set<string>([
+      "aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2",
+      "stewardConsciousness", "stewardAirway", "stewardMovement",
+      ...FLACC_ITEMS.map(item => item.key), ...NIPS_ITEMS.map(item => item.key), ...PAED_ITEMS.map(item => item.key),
+      "fpsrScore", "painScoreNRS",
+    ])
+    return Object.fromEntries(Object.entries(defaultValues ?? {}).filter(([key, value]) => scoreKeys.has(key) && value !== undefined)) as Partial<Record<ScoreField, number | null>>
+  })
+  const setScore = (key: ScoreField, value: number | null) => {
+    setValue(key, value, { shouldDirty: true })
+    setScoreProjection(previous => ({ ...previous, [key]: value }))
+  }
+  const projected = <K extends ScoreField>(key: K, observed: number | null | undefined) =>
+    Object.prototype.hasOwnProperty.call(scoreProjection, key) ? scoreProjection[key] : observed
 
   const allValues = useWatch({ control })
   const allValuesKey = JSON.stringify(allValues)
@@ -162,8 +184,20 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     return () => clearTimeout(timer)
   }, [allValuesKey, getValues, onAutoSave])
 
-  const aldreteVals = useWatch({ control, name: ["aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2"] })
-  const stewardVals = useWatch({ control, name: ["stewardConsciousness", "stewardAirway", "stewardMovement"] })
+  const aldreteWatched = useWatch({ control, name: ["aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2"] })
+  const stewardWatched = useWatch({ control, name: ["stewardConsciousness", "stewardAirway", "stewardMovement"] })
+  const aldreteVals = [
+    projected("aldreteActivity", aldreteWatched[0]),
+    projected("aldreteRespiration", aldreteWatched[1]),
+    projected("aldreteCirculation", aldreteWatched[2]),
+    projected("aldreteConsciousness", aldreteWatched[3]),
+    projected("aldreteSpO2", aldreteWatched[4]),
+  ]
+  const stewardVals = [
+    projected("stewardConsciousness", stewardWatched[0]),
+    projected("stewardAirway", stewardWatched[1]),
+    projected("stewardMovement", stewardWatched[2]),
+  ]
   // A child is scored on Steward instead of Aldrete (10.0.0); the card, its
   // total and its band all follow the case's clinical mode.
   const aldreteTotal = isPediatric
@@ -200,15 +234,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
 
   // Pain and delirium, item by item.
   const itemValues = useWatch({ control, name: [...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key) }) as (number | null | undefined)[]
-  const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, itemValues[index]])) as Record<ScoredItem, number | null | undefined>
-  const setItem = (key: ScoredItem, value: number | null) => {
-    setValue(key, value, { shouldDirty: true })
-    bumpScoreRender()
-  }
+  const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, projected(item.key, itemValues[index])])) as Record<ScoredItem, number | null | undefined>
+  const setItem = (key: ScoredItem, value: number | null) => setScore(key, value)
   const flacc = flaccTotal(items)
   const nips = nipsTotal(items)
   const paed = paedTotal(items)
-  const [fpsr, nrs] = useWatch({ control, name: ["fpsrScore", "painScoreNRS"] })
+  const [fpsrWatched, nrsWatched] = useWatch({ control, name: ["fpsrScore", "painScoreNRS"] })
+  const fpsr = projected("fpsrScore", fpsrWatched)
+  const nrs = projected("painScoreNRS", nrsWatched)
 
   useEffect(() => {
     if (disposition === "WARD" || disposition === "PACU") return
@@ -271,7 +304,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       )}
 
       {showVitals && <div className={hidden("vitals")}><RecoveryVitals control={control} setValue={setValue} isPediatric={isPediatric} rejectedFields={rejectedFields} unobtainable={{ bp: recoveryBpUTO, heartRate: recoveryHeartRateUTO, spo2: recoverySpo2UTO, temperature: recoveryTemperatureUTO }} ranges={{ bpSystolic: recoveryBpSystolicRange, bpDiastolic: recoveryBpDiastolicRange, heartRate: recoveryHeartRateRange, spo2: recoverySpo2Range, temperature: recoveryTemperatureRange }} /></div>}
-      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} onScoreChange={bumpScoreRender} /></div>
+      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} onScoreChange={setScore} /></div>
 
       {/* Pain, emergence delirium and PONV */}
       {(showPain || showDelirium || showPonv) && (
@@ -301,7 +334,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">FPS-R</p>
                 <p className="text-xs text-slate-400">{t("postop.pain.faceHint")}</p>
                 <Controller name="fpsrScore" control={control} render={({ field }) => (
-                  <SelfReportScale kind="FPS_R" value={field.value == null ? null : Number(field.value)} onChange={value => { field.onChange(value); bumpScoreRender() }} />
+                  <SelfReportScale kind="FPS_R" value={projected("fpsrScore", field.value == null ? null : Number(field.value))} onChange={value => setScore("fpsrScore", value)} />
                 )} />
                 <ScaleTotal label="FPS-R" total={fpsr == null ? null : Number(fpsr)} max={10} band={fpsr == null ? null : selfReportBand(Number(fpsr))} language={language} />
               </div>
@@ -310,7 +343,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</p>
                 <Controller name="painScoreNRS" control={control} render={({ field }) => (
-                  <SelfReportScale kind="NRS" value={field.value == null ? null : Number(field.value)} onChange={value => { field.onChange(value); bumpScoreRender() }} />
+                  <SelfReportScale kind="NRS" value={projected("painScoreNRS", field.value == null ? null : Number(field.value))} onChange={value => setScore("painScoreNRS", value)} />
                 )} />
               </div>
             )}
