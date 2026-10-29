@@ -41,6 +41,26 @@ function lane(events: LogEvent[], projectRunning: boolean) {
   return onOpenMenu
 }
 
+function laneWithMove(events: LogEvent[]) {
+  const segments = projectIntraopEvents(events, { start, openThrough: at(5) }).infusions
+  render(
+    <InfusionLane
+      drugName="Propofol" color="#8b5cf6" segments={segments} labelWidth={80}
+      rowCols={Array.from({ length: 16 }, (_, index) => index)} colStart={0} colEnd={16} colW={30} nowCol={1}
+      sel={null} setSel={() => {}} clearSel={() => {}} displayInfusionName={name => name}
+      discConfirmId={null} setDiscConfirmId={() => {}} hoverDiscontinue={null}
+      drag={{
+        movingInf: { id: "prop", origStart: segments[0].startCol, origEnd: segments[0].endCol, fromCol: segments[0].startCol },
+        movingInfCol: segments[0].startCol,
+        movingRatePill: null, extendingInf: null, extInfHover: null, extendingInfLeft: null, extInfLeftHover: null,
+      } as never}
+      dragActions={new Proxy({}, { get: () => () => {} }) as never}
+      extendInfusion={() => {}} onEndDrop={() => {}} extendInfusionLeft={() => {}} applyInfRateChange={() => {}} onMoveBar={() => {}}
+      onOpenMenu={() => {}} projectRunning={false}
+    />,
+  )
+}
+
 describe("a running infusion in the cells after now, on the web", () => {
   it("runs on, dashed, in every later cell of a live case", () => {
     lane([propofol], true)
@@ -74,5 +94,15 @@ describe("a stopped infusion on the web", () => {
     const onOpenMenu = lane([propofol, { id: "s", ts: at(5), type: "infusion_stop", infId: "prop" }], false)
     fireEvent.click(screen.getAllByText(/mg\/kg\/hr/)[0])
     expect(onOpenMenu).toHaveBeenCalledWith(expect.objectContaining({ segId: "prop", stopped: true }))
+  })
+})
+
+describe("an infusion picked up for a whole-bar move", () => {
+  it("shows the rate strip ghost before the first dragover", () => {
+    laneWithMove([
+      propofol,
+      { id: "r", ts: at(5), type: "infusion_rate", infId: "prop", name: "Propofol", rate: "6", unit: "mg/kg/hr" },
+    ])
+    expect(screen.getAllByTestId("infusion-strip-ghost").length).toBeGreaterThan(0)
   })
 })

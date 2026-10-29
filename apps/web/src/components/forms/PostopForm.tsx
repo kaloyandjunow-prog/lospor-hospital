@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm, Controller, type Resolver } from "react-hook-form"
+import { useForm, useWatch, Controller, type Resolver } from "react-hook-form"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { useScrollToReadiness } from "@/lib/readiness-focus"
@@ -126,7 +126,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   const recoveryHeartRateRange   = useRange("HEART_RATE_RANGE")
   const recoverySpo2Range        = useRange("SPO2_RANGE")
   const recoveryTemperatureRange = useRange("TEMPERATURE_RANGE")
-  const { register, handleSubmit, control, watch, setValue, getValues } = useForm<PostopData>({
+  const { register, handleSubmit, control, setValue, getValues } = useForm<PostopData>({
     // Same zod-v4/react-hook-form resolver-typing friction as IntraopForm.tsx/PreopForm.tsx
     resolver: zodResolver(postopSchema) as Resolver<PostopData>,
     defaultValues: {
@@ -144,8 +144,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     },
   })
 
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const allValues = watch()
+  const allValues = useWatch({ control })
   const allValuesKey = JSON.stringify(allValues)
   // Skip the first run: this effect fires on mount, so without the guard simply
   // opening the form scheduled a save of whatever the defaults happened to be.
@@ -158,8 +157,8 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     return () => clearTimeout(timer)
   }, [allValuesKey, getValues, onAutoSave])
 
-  const aldreteVals = watch(["aldreteActivity","aldreteRespiration","aldreteCirculation","aldreteConsciousness","aldreteSpO2"])
-  const stewardVals = watch(["stewardConsciousness","stewardAirway","stewardMovement"])
+  const aldreteVals = useWatch({ control, name: ["aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2"] })
+  const stewardVals = useWatch({ control, name: ["stewardConsciousness", "stewardAirway", "stewardMovement"] })
   // A child is scored on Steward instead of Aldrete (10.0.0); the card, its
   // total and its band all follow the case's clinical mode.
   const aldreteTotal = isPediatric
@@ -176,14 +175,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   // colouring it "destructive" would read as a sick patient rather than an
   // unfinished form.
   const aldreteStatus = aldreteTotal == null ? null : isPediatric ? stewardBand(aldreteTotal) : aldreteBand(aldreteTotal)
-  const disposition   = watch("disposition")
-  const handoverItems = watch("handoverItems") ?? []
+  const disposition   = useWatch({ control, name: "disposition" })
+  const handoverItems = useWatch({ control, name: "handoverItems" }) ?? []
   const [recoveryBpUTO, recoveryHeartRateUTO, recoverySpo2UTO, recoveryTemperatureUTO] =
-    watch(["recoveryBpUnobtainable", "recoveryHeartRateUnobtainable", "recoverySpO2Unobtainable", "recoveryTemperatureUnobtainable"])
+    useWatch({ control, name: ["recoveryBpUnobtainable", "recoveryHeartRateUnobtainable", "recoverySpO2Unobtainable", "recoveryTemperatureUnobtainable"] })
 
   // What the recovery observations suggest for two Aldrete items (10.0.0):
   // shown beside the item, set only when the clinician taps it.
-  const [recoverySystolic, recoverySpO2] = watch(["recoveryBpSystolic", "recoverySpO2"])
+  const [recoverySystolic, recoverySpO2] = useWatch({ control, name: ["recoveryBpSystolic", "recoverySpO2"] })
   const suggestions: Partial<Record<AldreteKey, { score: number; text: string }>> = {}
   if (!isPediatric && sectionOn("POSTOP_RECOVERY_VITALS")) {
     const spo2 = recoverySpo2UTO ? null : suggestAldreteSpO2(recoverySpO2 == null ? null : Number(recoverySpO2))
@@ -195,13 +194,13 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   }
 
   // Pain and delirium, item by item.
-  const itemValues = watch([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key)) as (number | null | undefined)[]
+  const itemValues = useWatch({ control, name: [...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key) }) as (number | null | undefined)[]
   const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, itemValues[index]])) as Record<ScoredItem, number | null | undefined>
   const setItem = (key: ScoredItem, value: number | null) => setValue(key, value, { shouldDirty: true })
   const flacc = flaccTotal(items)
   const nips = nipsTotal(items)
   const paed = paedTotal(items)
-  const [fpsr, nrs] = watch(["fpsrScore", "painScoreNRS"])
+  const [fpsr, nrs] = useWatch({ control, name: ["fpsrScore", "painScoreNRS"] })
 
   useEffect(() => {
     if (disposition === "WARD" || disposition === "PACU") return
