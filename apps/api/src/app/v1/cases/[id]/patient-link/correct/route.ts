@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { corsHeaders } from "@/lib/cors"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { caseWhereForUser, requireRole } from "@/lib/access-control"
+import { caseWriteWhereForUser, requireRole } from "@/lib/access-control"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const result = await withLockedCaseTransaction(id, async tx => {
       const caseRecord = await tx.case.findFirst({
-        where: caseWhereForUser(user, id),
+        where: caseWriteWhereForUser(user, id),
         select: { id: true, institutionId: true, patientLinkId: true, status: true },
       })
       if (!caseRecord) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")

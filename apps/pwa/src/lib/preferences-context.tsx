@@ -9,6 +9,7 @@ import React, {
 } from "react"
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
+import { applyUiScale, loadUiScale } from "@/lib/ui-scale"
 import { setColorScheme, type ColorScheme } from "@/theme/colors"
 import { ThemeSchemeContext } from "@/theme/theme-context"
 import { shadeFor } from "@/theme/shade"
@@ -47,6 +48,7 @@ const PRE_AUTH_LANGUAGE_KEY = "lospor_pre_auth_locale_v1"
 const LEGACY_LANGUAGE_KEY = "lospor_language"
 const THEME_KEY = "lospor_theme"
 const PREOP_LAYOUT_KEY = "lospor_preop_layout"
+const POSTOP_LAYOUT_KEY = "lospor_postop_layout"
 
 export type { ClinicalStringKey, TranslationKey }
 
@@ -68,6 +70,10 @@ export function PreferencesProvider({
   const [theme, setThemeState] = useState<ColorScheme>("dark")
   const [preopLayout, setPreopLayoutState] =
     useState<"sections" | "scroll">("scroll")
+  // Null until chosen: postop then follows the preop choice, as it did.
+  const [postopLayoutChoice, setPostopLayoutState] =
+    useState<"sections" | "scroll" | null>(null)
+  const postopLayout = postopLayoutChoice ?? preopLayout
   const [clinicalPreferences, setClinicalPreferences] =
     useState<ClinicalPreferences>(DEFAULT_CLINICAL_PREFERENCES)
   const [clinicalPreferencesReady, setClinicalPreferencesReady] =
@@ -77,6 +83,9 @@ export function PreferencesProvider({
   const preAuthOverrideRef = useRef(false)
   const explicitLoginSelectionRef = useRef<AppLanguage | null>(null)
   const authenticatedLocaleSyncRef = useRef<Promise<void> | null>(null)
+
+  // The display size the device last chose (web build), from the first screen.
+  useEffect(() => { void loadUiScale().then(applyUiScale) }, [])
 
   const applyLanguage = useCallback((value: AppLanguage) => {
     setLanguageState(value)
@@ -96,7 +105,9 @@ export function PreferencesProvider({
     void Promise.all([
       SecureStore.getItemAsync(THEME_KEY),
       SecureStore.getItemAsync(PREOP_LAYOUT_KEY),
-    ]).then(([storedTheme, storedLayout]) => {
+      SecureStore.getItemAsync(POSTOP_LAYOUT_KEY),
+    ]).then(([storedTheme, storedLayout, storedPostop]) => {
+      if (storedPostop === "sections" || storedPostop === "scroll") setPostopLayoutState(storedPostop)
       if (storedTheme === "dark" || storedTheme === "light") {
         setThemeState(storedTheme)
         setColorScheme(storedTheme)
@@ -277,11 +288,17 @@ export function PreferencesProvider({
     await SecureStore.setItemAsync(PREOP_LAYOUT_KEY, value)
   }
 
+  async function setPostopLayout(value: "sections" | "scroll") {
+    setPostopLayoutState(value)
+    await SecureStore.setItemAsync(POSTOP_LAYOUT_KEY, value)
+  }
+
   const value = useMemo<PreferencesContextValue>(() => ({
     language,
     theme,
     shade: (hex: string) => shadeFor(theme, hex),
     preopLayout,
+    postopLayout,
     heightUnit: clinicalPreferences.units.height,
     weightUnit: clinicalPreferences.units.weight,
     temperatureUnit: clinicalPreferences.units.temperature,
@@ -300,6 +317,7 @@ export function PreferencesProvider({
     completeLoginLocaleSync,
     setTheme,
     setPreopLayout,
+    setPostopLayout,
     setHeightUnit: unit => patchClinical({ units: { height: unit } }),
     setWeightUnit: unit => patchClinical({ units: { weight: unit } }),
     setTemperatureUnit: unit =>
@@ -329,6 +347,7 @@ export function PreferencesProvider({
     localeReady,
     patchClinical,
     preopLayout,
+    postopLayout,
     selectLoginLanguage,
     setLanguage,
     theme,

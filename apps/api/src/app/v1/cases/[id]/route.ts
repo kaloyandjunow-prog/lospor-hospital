@@ -20,6 +20,8 @@ import {
   caseCapabilitiesForUser,
   caseReadWhereForUser,
 } from "@/lib/access-control"
+import { caseVisibilityCapabilityState } from "@/lib/hospital/case-visibility"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import { corsHeaders } from "@/lib/cors"
 import type { CaseDetail, Serialized } from "@/types/case-detail"
 import { SECTION_REVISION_HEADER } from "@lospor/core/sync"
@@ -42,11 +44,15 @@ import {
   PreopContractError,
   preopContractBlockedKeys,
   savePreopAnswers,
+  savePreopOrders,
   populationForMode,
   readPreopProfiles,
   serializePreopProfiles,
   preparePreopProfile,
 } from "@/lib/preop/service"
+import { serializeMedicationInstruction, serializePremedicationOrders, serializeWardOrder } from "@/lib/preop/sections"
+import { keepTheatreNameAtStart, operatingTheatresEnabled } from "@/lib/operating-theatres"
+import { caseTheatreView } from "@lospor/core/operating-theatres"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 const REVISION_HEADER = SECTION_REVISION_HEADER
@@ -93,7 +99,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const where = caseReadWhereForUser(user, id)
+  const caseVisibilityEnabled = (await caseVisibilityCapabilityState()).enabled
+  const where = await caseReadWhereForUser(user, id, caseVisibilityEnabled)
 
   // A case started 48 hours ago with no screen open on it ends as it is opened
   // (1.4.9); the sweeps catch the ones nobody opens. Only for a case this user
@@ -114,11 +121,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             orderBy: { questionId: "asc" },
           },
           assessmentSuggestions: { orderBy: { createdAt: "desc" } },
+          wardOrders: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" } },
+          medicationInstructions: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" } },
+          premedicationOrders: { where: { status: "ACTIVE" }, orderBy: { ordinal: "asc" } },
         },
       },
       intraop: true,
       postop: true,
       clinicalCalculations: true,
+      operatingTheatre: { select: { name: true } },
       institution: { select: { name: true, city: true } },
       user: {
         select: {
@@ -159,12 +170,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // with the bundled defaults -- exactly what its first save will provision.
   const profiles = await readPreopProfiles(prisma)
   const preopProfile = profiles ? serializePreopProfiles(profiles) : defaultPreopProfileShape()
+  const capabilities = await caseCapabilitiesForUser(user, record, caseVisibilityEnabled)
+  if (isHospitalDeployment() && record.userId !== user.id) {
+    after(() => logAudit(user.id, "CASE_VIEWED", record.id, {
+      scope: "hospital-wide",
+      readOnly: capabilities.canWrite !== true,
+    }))
+  }
+  // Off, a case shows no theatre, unless it kept one from its start (10.0.0).
+  const theatresOn = await operatingTheatresEnabled(prisma)
+  // A case's orders go out in the shape the form sends them back in; the
+  // instruction's id is the form's own.
+  const preopOrders = record.preop ? {
+    preopWardOrders: record.preop.wardOrders.map(serializeWardOrder),
+    preopMedicationInstructions: record.preop.medicationInstructions.map(serializeMedicationInstruction),
+    preopPremedicationOrders: serializePremedicationOrders(record.preop.premedicationOrders),
+  } : null
   const responseRecord = {
     ...normalizedRecord,
-    capabilities: caseCapabilitiesForUser(user, record),
+    capabilities,
     patientReference: record.patientLink,
+    ...(preopOrders && normalizedRecord.preop ? { preop: { ...normalizedRecord.preop, wardOrders: undefined, medicationInstructions: undefined, premedicationOrders: undefined, ...preopOrders } } : {}),
+    // The operating theatre (10.0.0): the name it kept, and whether it can still change.
+    theatre: theatresOn || record.operatingTheatreName ? caseTheatreView(record) : null,
+    operatingTheatre: undefined,
     preopProfile,
-    preopRequiredMissing: missingRequiredPreopQuestions(profiles?.[populationForMode(record.clinicalMode)], record.preop?.assessmentAnswers, record.clinicalMode, preopAgeInYears(record.preop)),
+    preopRequiredMissing: missingRequiredPreopQuestions(profiles?.[populationForMode(record.clinicalMode)], record.preop?.assessmentAnswers, record.clinicalMode, preopAgeInYears(record.preop), record.preop?.sex),
   } as unknown as Serialized<CaseDetail>
 
   // Extending open infusion/fluid/agent bars to "now" on read used to happen here,
@@ -260,6 +291,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (!caseRecord) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
       if (!await canWriteCaseWithOwnerFallback(tx, user, caseRecord)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      // A cancelled procedure is closed to editing until the cancellation is undone (10.0.0).
+      if (caseRecord.status === "CANCELLED") {
+        return NextResponse.json({ error: "CASE_CANCELLED", code: "CASE_CANCELLED" }, { status: 409 })
       }
       if (caseRecord.status === "COMPLETE") {
         return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
@@ -401,6 +436,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           answers: (mappedPreop as Record<string, unknown>).preopAnswers as never,
           clinicalMode: pediatricDecision.clinicalMode,
         })
+        await savePreopOrders(tx, {
+          caseId: id,
+          preopId: savedPreop.id,
+          actorId: userId,
+          clinicalMode: pediatricDecision.clinicalMode,
+          wardOrders: (mappedPreop as Record<string, unknown>).preopWardOrders as never,
+          medicationInstructions: (mappedPreop as Record<string, unknown>).preopMedicationInstructions as never,
+          premedicationOrders: (mappedPreop as Record<string, unknown>).preopPremedicationOrders as never,
+        })
       }
     }
     if (intraop) {
@@ -434,6 +478,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           data: { caseId: id, ...mapIntraop(effectiveIntraop), syncRevision: 1 },
         })
       }
+      // A started case keeps its theatre's name from now on (10.0.0).
+      await keepTheatreNameAtStart(tx, id)
       // A change of start or end moves where the chart is read (1.4.9).
       if (["startedAt", "endedAt", "startTime", "endTime"].some(key => key in intraop)) {
         const saved = await tx.intraoperativeRecord.findUnique({
@@ -674,6 +720,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       }
       const pediatricBlock = pediatricMutationResponse(req, existing.clinicalMode)
       if (pediatricBlock) return pediatricBlock
+      // A cancelled procedure is closed to editing until the cancellation is undone (10.0.0).
+      if (existing.status === "CANCELLED") {
+        return NextResponse.json({ error: "CASE_CANCELLED", code: "CASE_CANCELLED" }, { status: 409 })
+      }
       if (existing.status === "COMPLETE") {
         return NextResponse.json({ error: "Cannot delete a completed case" }, { status: 400 })
       }

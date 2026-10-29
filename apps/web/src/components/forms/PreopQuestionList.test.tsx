@@ -30,3 +30,35 @@ describe("suggestions from the record", () => {
     expect(text({ A12: "NO" })).not.toContain(enMessages.preop.suggestionAccept)
   })
 })
+
+// 10.0.0: pregnancy and breastfeeding are not asked of a man, and the MH
+// group is drawn apart, under its own heading in the anamnesis.
+describe("which rows a section draws", () => {
+  const row = (stableKey: string, section: string, labelEn: string): PreopProfileQuestion =>
+    ({ ...question, stableKey, section, labelEn, answerType: "BOOLEAN", formSection: "anamnesis" })
+  const profile = { questions: [
+    row("A13_PREGNANCY", "ADULT_ADDITIONS", "Pregnancy / possible pregnancy"),
+    row("S4_HEAT_STROKE", "MH_SUSCEPTIBILITY", "Heat stroke in the past"),
+    row("S1_PREVIOUS_ICU_ADMISSION", "SHARED_ADDITIONS", "Previous intensive care admission"),
+  ].map((item, sortOrder) => ({ ...item, sortOrder })) }
+  const draw = (props: Partial<React.ComponentProps<typeof PreopQuestionList>>) => render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      <PreopQuestionList profile={profile} formSection="anamnesis" mode="ADULT" states={new Map()} onAnswer={vi.fn()} {...props} />
+    </NextIntlClientProvider>,
+  ).container.textContent ?? ""
+
+  it("leaves pregnancy off for a man, and asks it of a woman or a patient whose sex is not yet recorded", () => {
+    expect(draw({ sex: "MALE" })).not.toContain("Pregnancy")
+    expect(draw({ sex: "FEMALE" })).toContain("Pregnancy")
+    expect(draw({ sex: null })).toContain("Pregnancy")
+  })
+
+  it("draws only the MH group, or everything but it", () => {
+    const only = draw({ groups: { only: "MH_SUSCEPTIBILITY" } })
+    expect(only).toContain("Heat stroke")
+    expect(only).not.toContain("intensive care")
+    const rest = draw({ groups: { except: "MH_SUSCEPTIBILITY" } })
+    expect(rest).not.toContain("Heat stroke")
+    expect(rest).toContain("intensive care")
+  })
+})

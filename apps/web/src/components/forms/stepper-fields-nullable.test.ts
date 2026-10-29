@@ -17,6 +17,7 @@ import { join } from "node:path"
 const FORMS = [
   "PreopForm.tsx",
   "PostopForm.tsx",
+  "postop/RecoveryVitals.tsx",
   "PediatricPreopSections.tsx",
   "sections/DrugsFluidTotalsSection.tsx",
 ]
@@ -57,7 +58,9 @@ describe("every stepper-backed field accepts a clear", () => {
   // "required", which is the correct outcome and not a silent zero.
   const required = new Set(["heightCm", "weightKg"])
 
-  const fields = [...new Set(FORMS.flatMap(form => stepperBoundFields(read(form))))]
+  const extractedRecovery = ["recoveryHeartRate", "recoverySpO2"]
+    .filter(field => read("postop/RecoveryVitals.tsx").includes(`{ name: "${field}" as const`))
+  const fields = [...new Set([...FORMS.flatMap(form => stepperBoundFields(read(form))), ...extractedRecovery])]
 
   /**
    * A clinical number is declared through one of the section helpers, which
@@ -71,8 +74,8 @@ describe("every stepper-backed field accepts a clear", () => {
   it("finds the stepper bindings at all", () => {
     // Guards against the regex silently matching nothing and the suite passing
     // vacuously if the forms are restructured.
-    expect(fields.length).toBeGreaterThan(8)
-    expect(fields).toContain("paedScore")
+    expect(fields.length).toBeGreaterThan(6)
+    expect(fields).toContain("recoveryHeartRate")
   })
 
   it("keeps the postoperative helper nullable, which its fields rely on", () => {

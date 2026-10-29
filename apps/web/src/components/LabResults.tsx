@@ -269,7 +269,7 @@ export function LabResults({
                         type="button"
                         aria-label={t("intraop.lab.removeResult")}
                         onClick={() => remove(idx)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"
+                        className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(any-pointer:coarse)]:opacity-100 text-slate-300 hover:text-red-400 transition-all"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

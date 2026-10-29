@@ -1,4 +1,5 @@
 import { intraopStampForColumn } from "./intraop-commands"
+import { INTRAOP_COLUMN_MS } from "./intraop-engine"
 import type {
   AgentSegment,
   ClinicalEvent,
@@ -45,6 +46,12 @@ export type TimetableEditContext = {
   chartStart: Date | string | number
   now: Date | string | number
   newId: () => string
+  /**
+   * Entries this editor deleted earlier, by id (10.0.0). An undo brings a
+   * deleted entry back as a new one; with this it keeps the minute it had,
+   * rather than the start of its column, while it is still in that column.
+   */
+  retired?: ReadonlyMap<string, LogEvent>
 }
 
 const DRUG_FIELDS = [
@@ -66,7 +73,13 @@ function sameJson(a: unknown, b: unknown): boolean {
 export function timetableEditToEventOps(context: TimetableEditContext): IntraopEventOps {
   const ops: IntraopEventOps = { add: [], update: [], remove: [] }
   const byId = new Map(context.log.map(event => [event.id, event]))
-  const stamp = (column: number) => intraopStampForColumn({ chartStart: context.chartStart, column, now: context.now })
+  const chartStartMs = new Date(context.chartStart).getTime()
+  const stamp = (column: number, priorId?: string) => {
+    const prior = priorId ? context.retired?.get(priorId) : undefined
+    const priorMs = prior ? Date.parse(prior.ts) : NaN
+    if (Number.isFinite(priorMs) && Math.floor((priorMs - chartStartMs) / INTRAOP_COLUMN_MS) === Math.floor(column)) return prior!.ts
+    return intraopStampForColumn({ chartStart: context.chartStart, column, now: context.now })
+  }
   const updated = new Map<string, LogEvent>()
   const update = (id: string | undefined, patch: Partial<LogEvent>) => {
     if (!id) return
@@ -104,7 +117,8 @@ export function timetableEditToEventOps(context: TimetableEditContext): IntraopE
 }
 
 type Writers = {
-  stamp: (column: number) => string
+  /** The time for a column; with the entry's earlier id, its own minute if it was deleted and is in that column. */
+  stamp: (column: number, priorId?: string) => string
   update: (id: string | undefined, patch: Partial<LogEvent>) => void
   add: (event: Omit<LogEvent, "id">) => void
   remove: (...ids: (string | undefined)[]) => void
@@ -143,7 +157,7 @@ function drugs(context: TimetableEditContext, w: Writers) {
   for (const drug of gone) w.remove(drug.eventId)
   for (const { before, after } of pairs) {
     if (!before) {
-      w.add({ type: "drug", ts: w.stamp(after.colIdx), ...drugPatch(after) })
+      w.add({ type: "drug", ts: w.stamp(after.colIdx, after.eventId), ...drugPatch(after) })
       continue
     }
     if (sameJson(before, after)) continue
@@ -175,7 +189,7 @@ function vitals(context: TimetableEditContext, w: Writers) {
       // A clinician's edit makes the reading theirs: it is no longer auto-filled.
       w.update(eventId, { ...cleared, ...now, autoFilled: after[column]?.autoFilled ? true : undefined })
     } else if (!empty) {
-      w.add({ type: "vital", ts: w.stamp(column), ...now, ...(after[column]?.autoFilled ? { autoFilled: true } : {}) })
+      w.add({ type: "vital", ts: w.stamp(column, after[column]?.eventId), ...now, ...(after[column]?.autoFilled ? { autoFilled: true } : {}) })
     }
   }
 }
@@ -185,7 +199,7 @@ function clinicalEvents(context: TimetableEditContext, w: Writers) {
   for (const item of gone) w.remove(item.eventId)
   for (const { before, after } of pairs) {
     if (!before) {
-      w.add({ type: "clinical_event", ts: w.stamp(after.colIdx), label: after.label, color: after.color })
+      w.add({ type: "clinical_event", ts: w.stamp(after.colIdx, after.eventId), label: after.label, color: after.color })
       continue
     }
     if (sameJson(before, after)) continue
@@ -227,7 +241,7 @@ function segmentLifecycle<S extends { startEventId?: string; stopEventId?: strin
   if (wasStopped && !nowStopped) {
     w.remove(before.stopEventId)
   } else if (!wasStopped && nowStopped) {
-    w.add({ ...stop(), ...(after.endCaseStop ? { endCaseStop: true } : {}), ts: w.stamp(Math.max(afterEnd, after.startCol)) })
+    w.add({ ...stop(), ...(after.endCaseStop ? { endCaseStop: true } : {}), ts: w.stamp(Math.max(afterEnd, after.startCol), after.stopEventId) })
   } else if (wasStopped && nowStopped && (beforeEnd !== afterEnd || stopPatch)) {
     w.update(before.stopEventId, { ...stopPatch, ...(beforeEnd !== afterEnd ? { ts: w.stamp(Math.max(afterEnd, after.startCol)) } : {}) })
   }
@@ -236,7 +250,7 @@ function segmentLifecycle<S extends { startEventId?: string; stopEventId?: strin
     const { pairs, gone } = matchByRef(changes.before, changes.after, change => change.eventId)
     for (const change of gone) w.remove(change.eventId)
     for (const { before: was, after: now } of pairs) {
-      if (!was) w.add({ ...changes.add(now), ts: w.stamp(now.col) })
+      if (!was) w.add({ ...changes.add(now), ts: w.stamp(now.col, now.eventId) })
       else if (!sameJson(was, now)) w.update(now.eventId, { ...changes.patch(now), ...(was.col !== now.col ? { ts: w.stamp(now.col) } : {}) })
     }
   }
@@ -273,9 +287,9 @@ function infusions(context: TimetableEditContext, w: Writers) {
       return { rate: String(rate.rate), unit: rate.unit, concentration: rate.concentration, volumeRateMlPerHour: rate.volumeRateMlPerHour }
     }
     if (!before) {
-      w.add({ type: "infusion_start", ts: w.stamp(after.startCol), ...infusionStart(after) })
-      for (const change of after.rateChanges ?? []) w.add({ type: "infusion_rate", infId: after.id, name: after.name, ...changeOf(change), ts: w.stamp(change.col) })
-      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol)) })
+      w.add({ type: "infusion_start", ts: w.stamp(after.startCol, after.startEventId), ...infusionStart(after) })
+      for (const change of after.rateChanges ?? []) w.add({ type: "infusion_rate", infId: after.id, name: after.name, ...changeOf(change), ts: w.stamp(change.col, change.eventId) })
+      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol), after.stopEventId) })
       continue
     }
     if (sameJson(before, after)) continue
@@ -315,9 +329,9 @@ function fluids(context: TimetableEditContext, w: Writers) {
       return { rate: String(rate.rate), unit: rate.unit }
     }
     if (!before) {
-      w.add({ type: "fluid_start", ts: w.stamp(after.startCol), ...fluidStart(after) })
-      for (const change of after.rateChanges ?? []) w.add({ type: "fluid_rate", fluidId: after.id, name: after.name, fluidEntryMode: "RATE", ...changeOf(change), ts: w.stamp(change.col) })
-      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol)) })
+      w.add({ type: "fluid_start", ts: w.stamp(after.startCol, after.startEventId), ...fluidStart(after) })
+      for (const change of after.rateChanges ?? []) w.add({ type: "fluid_rate", fluidId: after.id, name: after.name, fluidEntryMode: "RATE", ...changeOf(change), ts: w.stamp(change.col, change.eventId) })
+      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol), after.stopEventId) })
       continue
     }
     if (sameJson(before, after)) continue
@@ -338,18 +352,27 @@ function fluids(context: TimetableEditContext, w: Writers) {
 
 function agents(context: TimetableEditContext, w: Writers) {
   const { pairs, gone } = matchByRef<AgentSegment>(context.before.agents ?? [], context.after.agents ?? [], item => item.startEventId)
-  for (const item of gone) removeSegment(w, item)
+  for (const item of gone) removeSegment(w, item, item.percentChanges)
   for (const { before, after } of pairs) {
     const start = { name: after.name, color: after.color, value: after.percent == null ? undefined : String(after.percent) }
     const stop = () => ({ type: "agent_stop" as const, name: after.name, color: after.color, agentMode: "concurrent" as const })
+    // A new concentration is another start of the same agent, as the phone writes it.
+    const changeOf = (change: RateChange) => ({ value: String((change as NonNullable<AgentSegment["percentChanges"]>[number]).percent) })
+    const change = (item: RateChange) => ({ type: "agent_start" as const, name: after.name, color: after.color, agentMode: "concurrent" as const, ...changeOf(item) })
     if (!before) {
-      w.add({ type: "agent_start", ts: w.stamp(after.startCol), ...start, agentMode: "concurrent" })
-      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol)) })
+      w.add({ type: "agent_start", ts: w.stamp(after.startCol, after.startEventId), ...start, agentMode: "concurrent" })
+      for (const item of after.percentChanges ?? []) w.add({ ...change(item), ts: w.stamp(item.col, item.eventId) })
+      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol), after.stopEventId) })
       continue
     }
     if (sameJson(before, after)) continue
     const startChanged = before.name !== after.name || before.percent !== after.percent || before.color !== after.color
-    segmentLifecycle(w, before, after, startChanged ? start : {}, stop)
+    segmentLifecycle(w, before, after, startChanged ? start : {}, stop, {
+      before: before.percentChanges ?? [],
+      after: after.percentChanges ?? [],
+      add: change,
+      patch: changeOf,
+    })
   }
 }
 
@@ -361,9 +384,9 @@ function gas(context: TimetableEditContext, w: Writers) {
       ({ fgf: item.fgf, carrierGas: item.carrierGas, fio2: item.fio2, fiAir: item.fiAir, fiN2O: item.fiN2O })
     const stop = () => ({ type: "gas_stop" as const })
     if (!before) {
-      w.add({ type: "gas_start", ts: w.stamp(after.startCol), ...settings(after) })
-      for (const change of after.settingsChanges ?? []) w.add({ type: "gas_change", ...settings(change), ts: w.stamp(change.col) })
-      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol)) })
+      w.add({ type: "gas_start", ts: w.stamp(after.startCol, after.startEventId), ...settings(after) })
+      for (const change of after.settingsChanges ?? []) w.add({ type: "gas_change", ...settings(change), ts: w.stamp(change.col, change.eventId) })
+      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol), after.stopEventId) })
       continue
     }
     if (sameJson(before, after)) continue
@@ -382,7 +405,7 @@ function markers(context: TimetableEditContext, w: Writers, lane: "positions" | 
   const { pairs, gone } = matchByRef<PositionSegment | PhaseSegment>(context.before[lane] ?? [], context.after[lane] ?? [], item => item.startEventId)
   for (const item of gone) w.remove(item.startEventId)
   for (const { before, after } of pairs) {
-    if (!before) { w.add({ type, ts: w.stamp(after.startCol), name: nameOf(after) }); continue }
+    if (!before) { w.add({ type, ts: w.stamp(after.startCol, after.startEventId), name: nameOf(after) }); continue }
     if (before.startCol === after.startCol && nameOf(before) === nameOf(after)) continue
     w.update(after.startEventId, { name: nameOf(after), ...(before.startCol !== after.startCol ? { ts: w.stamp(after.startCol) } : {}) })
   }

@@ -44,6 +44,8 @@ export function PreopQuestionList({
   tc,
   language,
   ageYears,
+  sex,
+  groups,
 }: {
   profile: Pick<PreopAssessmentProfile, "questions"> | null | undefined
   formSection: PreopFormSection
@@ -58,9 +60,14 @@ export function PreopQuestionList({
   language: string
   /** The case's age; a question asked only from an age is left off younger patients. */
   ageYears?: number | null
+  /** The case's sex; pregnancy and breastfeeding are not asked of a man (10.0.0). */
+  sex?: string | null
+  /** Only one catalogue group, or all but one: the MH group has its own heading (10.0.0). */
+  groups?: { only?: string; except?: string }
 }) {
   useThemeRefresh()
-  const rows = preopQuestionRows(profile, formSection, mode, states, ageYears)
+  const rows = preopQuestionRows(profile, formSection, mode, states, ageYears, sex)
+    .filter(row => (!groups?.only || row.question.section === groups.only) && row.question.section !== groups?.except)
   if (rows.length === 0) return null
   const progress = preopQuestionProgress(rows, states)
   const label = (question: PreopProfileQuestion) =>
@@ -72,7 +79,7 @@ export function PreopQuestionList({
   }
 
   let previousGroup: string | null = null
-  const groups = new Set(rows.filter(row => row.depth === 0).map(row => row.question.section))
+  const sectionGroups = new Set(rows.filter(row => row.depth === 0).map(row => row.question.section))
 
   return (
     <View testID={`preop-questions-${formSection}`} style={{ marginTop: 6 }}>
@@ -81,7 +88,7 @@ export function PreopQuestionList({
       </Text>
       {rows.map(({ question, depth }) => {
         const state = states.get(question.stableKey)
-        const heading = depth === 0 && groups.size > 1 && question.section !== previousGroup
+        const heading = depth === 0 && sectionGroups.size > 1 && !groups?.only && question.section !== previousGroup
           ? <SectionHeader title={groupLabel(question.section)} />
           : null
         if (depth === 0) previousGroup = question.section

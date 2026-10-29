@@ -68,6 +68,12 @@ export const MATRIX: Record<string, RoundTrip> = {
     }],
   },
 
+  ...rows({
+    preopWardOrders: [{ id: "order-1", optionKey: "CONSULTATION", kind: "CONSULT", specialtyKey: "1004", labelEn: "Consultation with", labelBg: "Консултация с" }],
+    preopMedicationInstructions: [{ id: "row-1", optionKey: "STOP_BEFORE_SURGERY", medicationLabel: "Metformin", medicationInn: "metformin", medicationAtc: "A10BA02", hoursBefore: 48, labelEn: "Stop taking" }],
+    preopPremedicationOrders: { DAY_BEFORE: "Midazolam 7.5 mg PO", MORNING: "Pantoprazole 40 mg PO; Midazolam 3.75 mg PO" },
+  }),
+
   // ageYears is 0 on purpose — a neonate is 0 years old.
   ...rows({
     ageYears: 0, ageValue: 9, ageUnit: "MONTHS", sex: "FEMALE",
@@ -116,6 +122,12 @@ export const MATRIX: Record<string, RoundTrip> = {
   procedures: {
     db: { proceduresJson: [{ label: "Appendectomy" }], plannedProcedure: "Appendectomy" },
     form: [{ label: "Appendectomy" }],
+  },
+  // Not yet known (10.0.0). All rows make one record, so this one is false:
+  // true would clear the procedures above (its own round trip is tested apart).
+  procedureUndetermined: {
+    db: { procedureUndetermined: false },
+    form: false,
   },
   allergyDetails: {
     db: { allergyDetails: JSON.stringify([{ label: "Penicillin" }]) },

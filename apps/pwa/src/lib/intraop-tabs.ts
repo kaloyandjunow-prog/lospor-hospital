@@ -29,13 +29,6 @@ export function centeredTabRailScrollX(
   return Math.max(0, layout.x + layout.width / 2 - screenWidth / 2)
 }
 
-export function intraopTabSwipeDirection(dx: number, dy: number): -1 | 1 | null {
-  if (Math.abs(dx) <= Math.abs(dy) * 1.5 || Math.abs(dx) <= 20) return null
-  if (dx < -50) return 1
-  if (dx > 50) return -1
-  return null
-}
-
 /** The tab each part of the intraoperative record lives on, for a readiness "Go to" (1.5.0). */
 const FOCUS_TAB: Record<string, IntraopTab> = {
   times: "timing",

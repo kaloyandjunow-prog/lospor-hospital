@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* The option library's colour classes (drug, infusion and fluid groups) are
+   written in Core's catalogue, not in this app's source, so Tailwind never saw
+   their dark: variants: in the dark theme the chips kept their light
+   background under light text and could not be read (10.0.0). */
+@source "../../node_modules/@lospor/core/src/catalog";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -379,3 +384,15 @@ input[type="range"]::-moz-range-thumb {
 .dark .driver-popover.lospor-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-left-color: #1c1c1c; }
 .dark .driver-popover.lospor-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-bottom-color: #1c1c1c; }
 .dark .driver-popover.lospor-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-top-color: #1c1c1c; }
+/* A hospital's own drug colour (10.0.0): src/lib/drug-tone.ts sets both
+   themes' tones as variables, worked out in Core to stay readable. */
+.drug-tone {
+  background-color: var(--tone-bg);
+  color: var(--tone-text);
+  border-color: var(--tone-border);
+}
+.dark .drug-tone {
+  background-color: var(--tone-bg-dark);
+  color: var(--tone-text-dark);
+  border-color: var(--tone-border-dark);
+}

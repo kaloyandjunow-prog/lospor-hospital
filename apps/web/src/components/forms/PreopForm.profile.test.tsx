@@ -56,7 +56,7 @@ function profile(questions: PreopProfileQuestion[]): PreopAssessmentProfile {
   return { id: "p", version: 1, catalogVersion: "1.4.8", status: "PUBLISHED", publishedAt: null, questions }
 }
 
-function renderForm(preopProfile: PreopAssessmentProfile | null, layoutMode: "tabs" | "scroll" = "scroll") {
+function renderForm(preopProfile: PreopAssessmentProfile | null, layoutMode: "tabs" | "scroll" | "sidebar" = "scroll") {
   return render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
       <PreopForm defaultValues={{ clinicalMode: "ADULT" }} onSubmit={vi.fn()} onAutoSave={vi.fn()} layoutMode={layoutMode} preopProfile={preopProfile} />
@@ -66,7 +66,7 @@ function renderForm(preopProfile: PreopAssessmentProfile | null, layoutMode: "ta
 
 const yesButton = (container: HTMLElement, id: string) => container.querySelector(`[aria-label="${id}: Yes"]`)
 
-describe.each(["scroll", "tabs"] as const)("the preoperative form driven by the profile (%s layout)", layoutMode => {
+describe.each(["scroll", "tabs", "sidebar"] as const)("the preoperative form driven by the profile (%s layout)", layoutMode => {
   it("keeps the bundled baseline when there is no profile, and draws no extra questions", () => {
     const { container } = renderForm(null, layoutMode)
     expect(yesButton(container, "smoking")).not.toBeNull()

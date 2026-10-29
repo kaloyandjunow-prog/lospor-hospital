@@ -74,7 +74,9 @@ export type ReadinessKind =
   | "missing_complication_documentation"
   | "missing_postop"
   | "missing_aldrete"
+  | "missing_steward"
   | "missing_disposition"
+  | "missing_performed_procedure"
   | "unacknowledged_allergy_conflict"
   /** A code this build does not know, from a newer server. Shown, never dropped. */
   | "other"
@@ -98,7 +100,9 @@ export const READINESS_KINDS: readonly ReadinessKind[] = [
   "missing_complication_documentation",
   "missing_postop",
   "missing_aldrete",
+  "missing_steward",
   "missing_disposition",
+  "missing_performed_procedure",
   "unacknowledged_allergy_conflict",
   "other",
 ]
@@ -138,7 +142,10 @@ const INTRAOP_AREA: Partial<Record<ClinicalIssueCode, IntraopArea>> = {
 const POSTOP_AREA: Partial<Record<ClinicalIssueCode, PostopArea>> = {
   missing_postop: "recovery",
   missing_aldrete: "recovery",
+  missing_steward: "recovery",
   missing_disposition: "disposition",
+  // The procedure done is recorded beside where the patient goes (10.0.0).
+  missing_performed_procedure: "disposition",
 }
 
 const KNOWN_KINDS = new Set<string>(READINESS_KINDS)
@@ -216,6 +223,11 @@ export type CaseReadinessOptions = {
    * can or should fix. Everything else is, while the team is still there.
    */
   omitPostop?: boolean
+}
+
+/** The readiness kinds of a finalisation check's blockers, each once (the unit indicators, 10.0.0). */
+export function blockerKinds(issues: readonly ClinicalIssue[]): ReadinessKind[] {
+  return [...new Set(issues.filter(issue => issue.severity === "error").map(issue => readinessItem(issue, "blocker").kind))]
 }
 
 /** The readiness of the case a client holds. */

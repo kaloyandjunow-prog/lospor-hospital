@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Web App
 
+## [10.0.0] - 2026-10-28
+
+### Added
+
+- **Preoperative workflow:** section-based forms, ward and medication orders,
+  consultation specialties, and an explicit “procedure not yet determined”
+  state.
+- **Recovery and operating workflow:** paediatric Steward and pain controls,
+  Broselow guidance, operating-theatre assignment, unit indicators, drug
+  colours and cancellation of a procedure before anaesthesia starts.
+- **Intraoperative details:** agent percentage changes and the corresponding
+  timetable, summary and print behavior.
+
+### Changed
+
+- Case navigation, layout, search and pagination were tightened around the
+  new workflow, with matching English and Bulgarian clinical copy.
+- Added workflow controls are now represented in the case sidebar, dashboard
+  filters, handover/repeat actions, settings and responsive layout, including
+  the new indicators and operating-theatre paths.
+
 ## [9.15.1] - 2026-10-20
 
 On Core 9.15.0. No web changes: this release keeps the web app on the same

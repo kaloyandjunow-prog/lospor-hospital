@@ -99,7 +99,7 @@ test("a case belongs to the department it was recorded in, not to its author's c
   })
 })
 
-test("a member sees their own cases and not a colleague's", async ({ browser }) => {
+test("a member sees a colleague's case read-only through the hospital viewer", async ({ browser }) => {
   await withRoles(browser, ["member-a", "hod-a"], async ctx => {
     const memberA = ctx["member-a"].request
     const hodA    = ctx["hod-a"].request
@@ -113,9 +113,11 @@ test("a member sees their own cases and not a colleague's", async ({ browser }) 
     const { id } = await created.json()
 
     try {
-      // Sharing an institution is not sharing a caseload: a member sees only
-      // what they recorded. Seniority runs one way.
-      expect((await memberA.get(`/api/cases/${id}`)).status()).toBe(404)
+      // The hospital viewer gives members read-only visibility across their
+      // institution. It must not grant write access to a colleague's case.
+      expect((await memberA.get(`/api/cases/${id}`)).status()).toBe(200)
+      const write = await memberA.patch(`/api/cases/${id}`, { headers: JSON_HEADERS, data: { preop: { weightKg: 72 } } })
+      expect(write.status()).toBe(403)
       expect((await hodA.get(`/api/cases/${id}`)).status()).toBe(200)
     } finally {
       const del = await hodA.delete(`/api/cases/${id}`, { headers: JSON_HEADERS })

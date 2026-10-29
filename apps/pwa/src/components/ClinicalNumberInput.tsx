@@ -5,7 +5,7 @@ import { resolveNumberEntry, type ClinicalNumberChange } from "@/lib/clinical-nu
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { parseClinicalNumber } from "@/lib/clinical-number"
-
+import { HoldRepeatPressable } from "./HoldRepeatPressable"
 export { parseClinicalNumber } from "@/lib/clinical-number"
 
 type Props = {
@@ -273,12 +273,12 @@ export function ClinicalNumberInput({
 
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
         {showSteppers ? (
-          <Pressable
-            onPress={() => nudge(-1)}
+          <HoldRepeatPressable
+            onStep={() => nudge(-1)}
             style={{ width: 44, height: 44, borderRadius: 14, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}
           >
-            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "800" }}>-</Text>
-          </Pressable>
+            <Text selectable={false} style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "800" }}>-</Text>
+          </HoldRepeatPressable>
         ) : null}
         <View ref={fieldRef} collapsable={false} style={{ flex: 1 }}>
           <View style={{ opacity: wheelOpen ? 0 : 1 }}>
@@ -475,12 +475,12 @@ export function ClinicalNumberInput({
           </Modal>
         </View>
         {showSteppers ? (
-          <Pressable
-            onPress={() => nudge(1)}
+          <HoldRepeatPressable
+            onStep={() => nudge(1)}
             style={{ width: 44, height: 44, borderRadius: 14, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}
           >
-            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "800" }}>+</Text>
-          </Pressable>
+            <Text selectable={false} style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "800" }}>+</Text>
+          </HoldRepeatPressable>
         ) : null}
       </View>
     </View>

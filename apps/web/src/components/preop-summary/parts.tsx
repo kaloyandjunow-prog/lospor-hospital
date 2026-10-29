@@ -5,6 +5,7 @@ import {
   type ConsentBlock,
   type ConsentInline,
 } from "@lospor/core/preop-documents"
+import { BroselowBadge } from "@/components/BroselowBadge"
 import type { PreopSummaryLabels } from "./labels"
 import type { SummaryFacts } from "./facts"
 
@@ -74,6 +75,21 @@ export function AllergyFrame({ facts }: { facts: SummaryFacts }) {
   return p?.allergies === false ? <p className="text-[10px] text-slate-500">{L.nkda}</p> : null
 }
 
+/** The child's tape colour, with its name so a black-and-white print still says it. */
+export function BroselowTag({ facts }: { facts: SummaryFacts }) {
+  if (!facts.broselow) return null
+  const { L, lang, broselow } = facts
+  return (
+    <BroselowBadge
+      result={broselow}
+      language={lang}
+      label={L.broselow}
+      basis={broselow.basis === "HEIGHT" ? L.byHeight : L.byWeight}
+      size="sm"
+    />
+  )
+}
+
 /** The row of measurements under the title: age, sex, height, weight, BMI, BSA, blood group. */
 export function PatientStrip({ facts }: { facts: SummaryFacts }) {
   const { L, p } = facts
@@ -83,6 +99,7 @@ export function PatientStrip({ facts }: { facts: SummaryFacts }) {
       {p?.sex === "MALE" || p?.sex === "FEMALE" ? <Line label={L.sex} value={p.sex === "MALE" ? L.male : L.female} /> : null}
       {p?.heightCm ? <Line label={L.height} value={`${p.heightCm} cm`} /> : null}
       {p?.weightKg ? <Line label={L.weight} value={`${p.weightKg} kg`} /> : null}
+      {facts.broselow ? <BroselowTag facts={facts} /> : null}
       {p?.bmi ? <Line label={L.bmi} value={String(Math.round(p.bmi * 10) / 10)} /> : null}
       {facts.bsa ? <Line label={L.bsa} value={`${facts.bsa} m²`} /> : null}
       {facts.bloodGroup ? <Line label={L.bloodGroup} value={facts.bloodGroup} /> : null}

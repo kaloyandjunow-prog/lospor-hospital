@@ -226,6 +226,13 @@ export type ControlPlaneView = {
       pediatric: ClinicalBaselineReadiness
     }
   }
+  /** Added additively in Hospital 1.7.0; absent on an older API. */
+  caseVisibility?: {
+    enabled: boolean
+    changeReasonRecorded: boolean
+    changedAt: string | null
+    updatedAt: string | null
+  }
   preoperative: {
     scope: "APPLIANCE_WIDE"
     catalogVersion: string
@@ -523,6 +530,7 @@ export interface ControlPlanePort {
     pediatricEnabled: boolean
     reason: string
   }): Promise<void>
+  setCaseVisibilityPolicy(input: { enabled: boolean; reason: string }): Promise<void>
   setExternalAiPolicy(input: {
     externalAiEnabled: boolean
     reason: string
@@ -802,6 +810,11 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !isRecord(value.guidance) || !isRecord(value.externalAi)
     || !isRecord(value.patientIdentifier) || !isRecord(value.ehrTransport)
     || !isRecord(value.ehrVitalCodes)) return null
+  if (value.caseVisibility !== undefined && (!isRecord(value.caseVisibility)
+    || typeof value.caseVisibility.enabled !== "boolean"
+    || typeof value.caseVisibility.changeReasonRecorded !== "boolean"
+    || !nullableIso(value.caseVisibility.changedAt)
+    || !nullableIso(value.caseVisibility.updatedAt))) return null
   if (typeof value.pediatricMode.enabled !== "boolean"
     || typeof value.pediatricMode.productionReady !== "boolean"
     || typeof value.pediatricMode.releaseReviewed !== "boolean"
@@ -1196,6 +1209,9 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   setGuidance(input: Parameters<ControlPlanePort["setGuidance"]>[0]): Promise<void> {
     return this.mutate("/guidance", input)
+  }
+  setCaseVisibilityPolicy(input: Parameters<ControlPlanePort["setCaseVisibilityPolicy"]>[0]): Promise<void> {
+    return this.mutate("/case-visibility", input)
   }
   setExternalAiPolicy(input: Parameters<ControlPlanePort["setExternalAiPolicy"]>[0]): Promise<void> {
     return this.mutate("/external-ai/policy", input)

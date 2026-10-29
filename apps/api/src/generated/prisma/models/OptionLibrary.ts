@@ -661,10 +661,6 @@ export type EnumLibraryCategoryFieldUpdateOperationsInput = {
   set?: $Enums.LibraryCategory
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type OptionLibraryUpdateOneWithoutChildrenNestedInput = {
   create?: Prisma.XOR<Prisma.OptionLibraryCreateWithoutChildrenInput, Prisma.OptionLibraryUncheckedCreateWithoutChildrenInput>
   connectOrCreate?: Prisma.OptionLibraryCreateOrConnectWithoutChildrenInput

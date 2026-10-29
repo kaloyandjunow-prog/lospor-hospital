@@ -2,11 +2,13 @@
 import { useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import type { ScenarioGroup } from "@lospor/core"
+import { drugChip } from "@/lib/drug-tone"
 
 export type BrowseCategory = {
   cat: string
   color: string
-  items: { name: string; unit?: string; manualEntryOnly?: boolean }[]
+  /** customColor: the hospital's own colour for the item (10.0.0), over the category's classes. */
+  items: { name: string; unit?: string; manualEntryOnly?: boolean; customColor?: string }[]
 }
 
 /**
@@ -108,15 +110,18 @@ export function ScenarioPicker({
         {query.trim() ? (
           homeMatches.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {homeMatches.map(i => (
+              {homeMatches.map(i => {
+                const chip = drugChip(i.color, i.customColor)
+                return (
                 <button key={`${i.cat}:${i.name}`} type="button" onClick={() => onPick(i.name, i.unit, i.manualEntryOnly)}
-                  className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${i.color}`}>
+                  className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${chip.className}`} style={chip.style}>
                   {displayItem(i.name)}
                   {i.manualEntryOnly && (
                     <span className="block text-[9px] font-normal opacity-75">{labels.manualEntry}</span>
                   )}
                 </button>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">{labels.empty}</p>
@@ -202,15 +207,18 @@ export function ScenarioPicker({
           <div key={c.cat}>
             <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#666] mb-1">{displayCategory(c.cat)}</p>
             <div className="flex flex-wrap gap-1">
-              {c.items.map(i => (
+              {c.items.map(i => {
+                const chip = drugChip(c.color, i.customColor)
+                return (
                 <button key={i.name} type="button" onClick={() => onPick(i.name, i.unit, i.manualEntryOnly)}
-                  className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${c.color}`}>
+                  className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${chip.className}`} style={chip.style}>
                   {displayItem(i.name)}
                   {i.manualEntryOnly && (
                     <span className="block text-[9px] font-normal opacity-75">{labels.manualEntry}</span>
                   )}
                 </button>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}

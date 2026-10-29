@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Label } from "@/components/ui/label"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, ClipboardCheck, Pencil, X } from "lucide-react"
 import { useLocale } from "next-intl"
 import { displayClinicalCode, displayOptionEntry } from "@/lib/clinical-display"
 import { DISPLAY_CLINICAL_DOSE_GUIDANCE } from "@/lib/clinical-guidance-policy"
@@ -34,8 +34,13 @@ export type PremedRouteView = { dose: number | null; unit: string; min: number; 
  */
 export type PremedAnnotation = PediatricPremedAnnotation
 
-export function PremedicationPicker({ label, value, onChange, categories, doses, annotations = {}, doseForRoute, prospectiveGuidanceEnabled, showDoseGuidance = DISPLAY_CLINICAL_DOSE_GUIDANCE }: {
+export function PremedicationPicker({ label, value, onChange, categories, doses, annotations = {}, doseForRoute, prospectiveGuidanceEnabled, showDoseGuidance = DISPLAY_CLINICAL_DOSE_GUIDANCE, allowNotApplicable = true, asOrdered = false, testId }: {
   label: string; value?: string; onChange: (v: string) => void
+  /** Off for the preop order: nothing ordered is no order, not "not applicable". */
+  allowNotApplicable?: boolean
+  /** The record still holds what the preop visit ordered: say so, with an edit button beside it. */
+  asOrdered?: boolean
+  testId?: string
   categories: PremedCat[]; doses: Record<string, PremDoseCfg>
   annotations?: Record<string, PremedAnnotation>
   /**
@@ -138,10 +143,10 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
       {/* ── Phase 1: categories ── */}
       {phase === "categories" && (
         <>
-          <button type="button" onClick={() => { onChange("N/A"); setOpen(false) }}
+          {allowNotApplicable && <button type="button" onClick={() => { onChange("N/A"); setOpen(false) }}
             className="w-full text-left px-4 py-2.5 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] border-b border-slate-100 dark:border-[#2e2e2e] transition-colors italic">
             {copy.premedication.notApplicable}
-          </button>
+          </button>}
           {categories.map(cat => (
             <button key={cat.category} type="button"
               onClick={() => { setActiveCat(cat.category); setPhase("drugs") }}
@@ -276,15 +281,28 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
   )
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1" data-testid={testId}>
       <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</Label>
+      <div className="flex items-center gap-1.5">
       <button ref={btnRef} type="button" onClick={openPicker}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${open ? "border-blue-400 ring-1 ring-blue-300" : "border-slate-200 dark:border-[#3a3a3a] hover:border-slate-300 dark:hover:border-[#555]"} bg-white dark:bg-[#2a2a2a]`}>
+        className={`min-w-0 flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${open ? "border-blue-400 ring-1 ring-blue-300" : "border-slate-200 dark:border-[#3a3a3a] hover:border-slate-300 dark:hover:border-[#555]"} bg-white dark:bg-[#2a2a2a]`}>
         <span className={`truncate ${selected.length ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-[#666]"}`}>
           {selected.length ? selected.map(displayEntry).join(" · ") : copy.premedication.notSet}
         </span>
         <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
+      {asOrdered && (
+        <button type="button" onClick={openPicker} data-testid="premedication-edit-ordered"
+          className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-[#3a3a3a] px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700">
+          <Pencil className="h-3 w-3" /> {copy.premedication.edit}
+        </button>
+      )}
+      </div>
+      {asOrdered && (
+        <p className="flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400" data-testid="premedication-as-ordered">
+          <ClipboardCheck className="h-3 w-3" /> {copy.premedication.asOrdered}
+        </p>
+      )}
       {dropdown}
 
       {selected.length > 0 && (

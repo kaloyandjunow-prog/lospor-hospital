@@ -1,5 +1,6 @@
+import { sideSwipeExitMs, sideSwipeFade, sideSwipeFollow, sideSwipeGate, sideSwipeStep } from "./side-swipe"
 import { useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from "react"
-import { FlatList, PanResponder, ScrollView } from "react-native"
+import { Animated, Easing, FlatList, PanResponder, ScrollView } from "react-native"
 
 import type { TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/lib/intraop-log-event"
@@ -11,8 +12,8 @@ import {
 } from "@/lib/intraop-projection"
 import {
   adjacentIntraopTab,
+  INTRAOP_TAB_KEYS,
   centeredTabRailScrollX,
-  intraopTabSwipeDirection,
   type IntraopTab,
 } from "@/lib/intraop-tabs"
 
@@ -82,14 +83,59 @@ export function useIntraopTimetableViewport({
     }
   }, [chartRows.length, currentCol, expandedRow, startRef, tab, verticalTimetableRef])
 
+  const tabSwipeGate = useRef(sideSwipeGate()).current
+  // The tab's content follows the finger, leaves at its speed and the next
+  // one glides in, as the preop sections do (10.0.0); it used to switch at once.
+  const tabSlide = useRef(new Animated.Value(0)).current
+  const tabFade = useRef(new Animated.Value(1)).current
+  const tabMotion = useMemo(() => ({ slide: tabSlide, fade: tabFade }), [tabFade, tabSlide])
+  const springBack = useRef(() => {
+    Animated.parallel([
+      Animated.spring(tabSlide, { toValue: 0, useNativeDriver: true, tension: 180, friction: 24 }),
+      Animated.timing(tabFade, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start()
+  }).current
   const tabSwipeResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, { dx, dy }) => intraopTabSwipeDirection(dx, dy) !== null,
-    onPanResponderRelease: (_, { dx, dy }) => {
-      const direction = intraopTabSwipeDirection(dx, dy)
-      if (direction !== null) setTab(adjacentIntraopTab(tab, direction))
+    // The same rule as the preop sections (side-swipe.ts).
+    onStartShouldSetPanResponderCapture: () => tabSwipeGate.start(),
+    onMoveShouldSetPanResponder: (_, { dx, dy }) => tabSwipeGate.claims(dx, dy),
+    onPanResponderGrant: () => { tabSlide.stopAnimation(); tabFade.stopAnimation() },
+    onPanResponderMove: (_, { dx }) => {
+      // Nothing to slide towards past the first or the last tab.
+      if (adjacentIntraopTab(tab, dx < 0 ? 1 : -1) === tab) return
+      tabSlide.setValue(sideSwipeFollow(dx))
+      tabFade.setValue(sideSwipeFade(dx, screenWidth))
     },
-  }), [setTab, tab])
+    onPanResponderRelease: (_, { dx, dy, vx }) => {
+      const direction = sideSwipeStep(dx, dy, vx, screenWidth)
+      const next = direction !== null ? adjacentIntraopTab(tab, direction) : tab
+      if (next === tab) { springBack(); return }
+      const toward = direction === 1 ? -1 : 1
+      const exitMs = sideSwipeExitMs(toward * screenWidth - sideSwipeFollow(dx), vx)
+      Animated.parallel([
+        Animated.timing(tabSlide, { toValue: toward * screenWidth, duration: exitMs, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+        Animated.timing(tabFade, { toValue: 0, duration: exitMs, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
+      ]).start(() => setTab(next))
+    },
+    onPanResponderTerminate: () => springBack(),
+  }), [screenWidth, setTab, springBack, tab, tabFade, tabSlide, tabSwipeGate])
+
+  // Whatever changed the tab (a swipe, a tap on the rail, a "Go to"), the new
+  // one glides in from the side it lies on.
+  const previousTab = useRef(tab)
+  useEffect(() => {
+    const before = INTRAOP_TAB_KEYS.indexOf(previousTab.current)
+    const after = INTRAOP_TAB_KEYS.indexOf(tab)
+    previousTab.current = tab
+    if (before === after) return
+    tabSlide.setValue((after > before ? 1 : -1) * screenWidth * 0.12)
+    tabFade.setValue(0)
+    Animated.parallel([
+      Animated.timing(tabSlide, { toValue: 0, duration: 240, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(tabFade, { toValue: 1, duration: 200, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+    ]).start()
+  }, [screenWidth, tab, tabFade, tabSlide])
 
   useEffect(() => {
     const layout = tabLayouts.current[tab]
@@ -108,5 +154,6 @@ export function useIntraopTimetableViewport({
     chartRows,
     jumpVerticalTimetableToNow,
     tabSwipeResponder,
+    tabMotion,
   }
 }

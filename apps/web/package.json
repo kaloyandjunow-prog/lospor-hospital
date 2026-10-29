@@ -18,6 +18,10 @@
     "typecheck": "next typegen && tsc --noEmit --pretty false"
   },
   "overrides": {
+    "systeminformation": "5.33.18",
+    "vite": "8.3.5",
+    "undici": "7.30.1",
+    "body-parser": "2.4.0",
     "@hono/node-server": "2.0.12",
     "postcss": "8.5.23",
     "sharp": "0.35.5",
@@ -38,7 +42,7 @@
     "date-fns": "^4.1.0",
     "driver.js": "^1.4.0",
     "lucide-react": "^1.14.0",
-    "next": "16.3.8",
+    "next": "16.4.3",
     "next-intl": "^4.11.2",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
@@ -46,11 +50,12 @@
     "react-hook-form": "^7.75.0",
     "recharts": "^3.8.1",
     "server-only": "^0.0.1",
-    "shadcn": "^4.16.0",
+    "shadcn": "^4.23.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tw-animate-css": "^1.4.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7",
+    "@dragdroptouch/drag-drop-touch": "2.0.3"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
@@ -65,7 +70,7 @@
     "@vitest/coverage-v8": "^4.1.9",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.3",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",

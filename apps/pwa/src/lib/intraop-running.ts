@@ -31,11 +31,15 @@ export type RunningItem = {
 
 /** How a running agent, infusion or fluid is named in its row; the stored name by default. */
 export type RunningNameOf = (kind: "agent" | "infusion" | "fluid", name: string) => string
+/** Its colour now, if it differs from the one saved (a hospital's drug colours, 10.0.0). */
+export type RunningColorOf = (kind: "agent" | "infusion" | "fluid", name: string) => string | undefined
 
 const storedName: RunningNameOf = (_kind, name) => name
 
-function presentRunningItem(item: CoreRunningItem, nameOf: RunningNameOf = storedName): RunningItem {
+function presentRunningItem(item: CoreRunningItem, nameOf: RunningNameOf = storedName, colorOf?: RunningColorOf): RunningItem {
   const presented = presentRunningLabel(item, nameOf)
+  const current = item.kind === "gas" ? undefined : colorOf?.(item.kind, item.name)
+  if (current) presented.color = current
   if (item.planned) presented.planned = true
   if (item.plannedStop) presented.plannedStop = true
   if (item.plannedChange) presented.plannedChange = true
@@ -94,13 +98,13 @@ export function runningItemsByCol(
   cols: number[],
   // The live chart of a case not yet ended: running items also show in the
   // rows after now, where a change can be planned on them (Core, 9.13.1).
-  options: { projectRunning?: boolean; nameOf?: RunningNameOf; tciPatient?: TciPatient | null } = {},
+  options: { projectRunning?: boolean; nameOf?: RunningNameOf; colorOf?: RunningColorOf; tciPatient?: TciPatient | null } = {},
 ): Map<number, RunningItem[]> {
   const coreRows = runningItemsByColumn(timetable, cols, options)
   return new Map(
     [...coreRows].map(([col, items]) => [
       col,
-      items.map(item => presentRunningItem(item, options.nameOf)),
+      items.map(item => presentRunningItem(item, options.nameOf, options.colorOf)),
     ]),
   )
 }

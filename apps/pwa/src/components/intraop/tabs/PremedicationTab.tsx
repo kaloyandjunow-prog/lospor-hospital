@@ -3,11 +3,14 @@ import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayOptionEntry } from "@/lib/clinical-display"
 import { useShade } from "@/theme/shade"
+import { isPremedicationAsOrdered, type PremedicationOrders } from "@lospor/core/premedication"
 
 export function PremedicationTab({
   premedEveningText, setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication,
-  tc, openPremedPicker,
+  tc, openPremedPicker, ordered,
 }: {
+  /** The premedication ordered at the preop visit, to say where a phase still holds it. */
+  ordered?: PremedicationOrders
   premedEveningText: string
   setPremedEveningText: (v: string) => void
   premedMorningText: string
@@ -40,6 +43,7 @@ export function PremedicationTab({
                 </TouchableOpacity>
               </View>
             </View>
+            {isPremedicationAsOrdered(premedEveningText, ordered?.DAY_BEFORE) ? <AsOrdered phase="evening" onEdit={() => openPremedPicker("evening")} tc={tc} /> : null}
             {items.length > 0 ? (
               <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
                 {items.map(item => (
@@ -82,6 +86,7 @@ export function PremedicationTab({
                 </TouchableOpacity>
               </View>
             </View>
+            {isPremedicationAsOrdered(premedMorningText, ordered?.MORNING) ? <AsOrdered phase="morning" onEdit={() => openPremedPicker("morning")} tc={tc} /> : null}
             {items.length > 0 ? (
               <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
                 {items.map(item => (
@@ -104,5 +109,19 @@ export function PremedicationTab({
         )
       })()}
     </ScrollView>
+  )
+}
+
+/** The phase still holds what the preop visit ordered: say so, with an edit button beside it. */
+function AsOrdered({ phase, onEdit, tc }: { phase: "evening" | "morning"; onEdit: () => void; tc: (key: ClinicalStringKey) => string }) {
+  const shade = useShade()
+  return (
+    <View testID={`premed-as-ordered-${phase}`} style={{ flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+      <Text style={{ flex:1, color:shade("#34d399"), fontSize:12, fontWeight:"700" }}>{tc("premedAsOrdered")}</Text>
+      <TouchableOpacity testID={`premed-edit-ordered-${phase}`} onPress={onEdit} hitSlop={8}
+        style={{ paddingHorizontal:12, paddingVertical:7, borderRadius:8, borderWidth:1, borderColor:shade("#3b82f655"), backgroundColor:shade("#1e3a5f") }}>
+        <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"800" }}>✎ {tc("premedEditOrdered")}</Text>
+      </TouchableOpacity>
+    </View>
   )
 }

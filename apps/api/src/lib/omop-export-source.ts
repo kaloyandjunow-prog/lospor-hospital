@@ -152,6 +152,8 @@ export const CASE_SELECT = {
       errorCode: true, rejectedAt: true,
     },
   },
+  // A cancelled procedure (10.0.0): exported with its cancellation.
+  cancelledAt: true, cancellationReason: true,
   user: { select: { institution: { select: { name: true } } } },
   fieldStatuses: {
     select: { section: true, fieldKey: true, presence: true },
@@ -229,7 +231,7 @@ export const CASE_SELECT = {
       bpUnobtainable: true, heartRateUnobtainable: true, spO2Unobtainable: true,
       temperatureUnobtainable: true, respiratoryRateUnobtainable: true,
       airwayUnobtainable: true,
-      diagnosis: true, diagnosesJson: true, plannedProcedure: true, proceduresJson: true,
+      diagnosis: true, diagnosesJson: true, plannedProcedure: true, proceduresJson: true, procedureUndetermined: true,
       comorbidities: true, asaScore: true, emergencySurgery: true, highRiskSurgery: true,
       allergies: true, allergyDetails: true, smoking: true, substanceAbuse: true,
       // Clinical detail that was read into the mapper's row types but never
@@ -254,11 +256,13 @@ export const CASE_SELECT = {
       difficultAirwayHistory: true, mallampati: true, labResults: true,
       labRows: {
         select: {
-          test: true, valueNum: true, value: true, unitCanon: true, loincCode: true, abnormalFlag: true,
+          test: true, valueNum: true, value: true, unit: true, unitCanon: true, loincCode: true,
+          sourceVocabulary: true, sourceCode: true, takenAt: true, abnormalFlag: true,
           // A result the lab reported as text, and the range it was judged
           // against. Without the range, "high" is an assertion the export
           // cannot support; without the text, a qualitative result vanished.
           referenceLow: true, referenceHigh: true,
+          criticalLow: true, criticalHigh: true,
           standardConceptId: true, mappingStatus: true,
         },
       },
@@ -304,6 +308,28 @@ export const CASE_SELECT = {
         },
         orderBy: { questionId: "asc" },
       },
+      wardOrders: {
+        where: { status: "ACTIVE" },
+        select: {
+          optionKey: true, kind: true, labelEn: true, labelBg: true, conceptId: true,
+          specialtyKey: true, specialtyLabelEn: true, specialtyLabelBg: true,
+          labTest: true, labLoinc: true, labConceptId: true, createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      medicationInstructions: {
+        where: { status: "ACTIVE" },
+        select: {
+          optionKey: true, conceptId: true, medicationLabel: true, medicationInn: true,
+          medicationAtc: true, hoursBefore: true, createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      premedicationOrders: {
+        where: { status: "ACTIVE" },
+        select: { phase: true, entry: true, atcCode: true, dose: true, unit: true, route: true, conceptId: true, createdAt: true },
+        orderBy: [{ phase: "asc" }, { ordinal: "asc" }],
+      },
     },
   },
   intraop: {
@@ -312,6 +338,7 @@ export const CASE_SELECT = {
       startedAt: true, endedAt: true, timezone: true,
       startTime: true, endTime: true, durationMinutes: true, monthYear: true,
       techniques: true, keyEvents: true, airwayDevice: true,
+      presentsIntubated: true, airwayNotApplicable: true,
       // Airway management detail. None of this used to leave the appliance, so
       // an export could say a tube was placed but never which one, what size,
       // whether it was cuffed, or how hard the laryngoscopy was -- the part a
@@ -325,6 +352,16 @@ export const CASE_SELECT = {
       ventilationModes: true, ippv: true, jetVentilation: true, peepCmH2O: true,
       crystalloidsMl: true, colloidsMl: true, bloodMl: true, infusionsMl: true, urineMl: true, bloodLossMl: true,
       complications: true, premedicationEvening: true, premedicationMorning: true,
+      labRows: {
+        select: {
+          test: true, valueNum: true, value: true, unit: true, unitCanon: true, loincCode: true,
+          sourceVocabulary: true, sourceCode: true, takenAt: true, abnormalFlag: true,
+          referenceLow: true, referenceHigh: true,
+          criticalLow: true, criticalHigh: true,
+          standardConceptId: true, mappingStatus: true,
+        },
+        orderBy: [{ takenAt: "asc" }, { ordinal: "asc" }],
+      },
       vascularAccessRows: {
         select: { site: true, siteLabel: true, size: true, sizeUnit: true, depthCm: true, lumens: true, preexisting: true, ordinal: true, sourceVocabulary: true, sourceCode: true, standardConceptId: true, mappingStatus: true },
         orderBy: { ordinal: "asc" },
@@ -343,11 +380,18 @@ export const CASE_SELECT = {
       syncRevision: true,
       aldreteActivity: true, aldreteRespiration: true, aldreteCirculation: true, aldreteConsciousness: true, aldreteSpO2: true,
       aldreteTotal: true, painScoreNRS: true, pediatricPainScale: true,
+      stewardConsciousness: true, stewardAirway: true, stewardMovement: true, stewardTotal: true,
+      flaccFace: true, flaccLegs: true, flaccActivity: true, flaccCry: true, flaccConsolability: true, flaccTotal: true, fpsrScore: true, nipsFacialExpression: true, nipsCry: true, nipsBreathing: true, nipsArms: true, nipsLegs: true, nipsArousal: true, nipsTotal: true, paedEyeContact: true, paedPurposeful: true, paedAware: true, paedRestless: true, paedInconsolable: true,
       pediatricPainScore: true, paedScore: true, ponv: true, disposition: true,
       recoveryBpSystolic: true, recoveryBpDiastolic: true, recoveryHeartRate: true, recoverySpO2: true, temperatureCelsius: true,
       recoveryBpUnobtainable: true, recoveryHeartRateUnobtainable: true,
       recoverySpO2Unobtainable: true, recoveryTemperatureUnobtainable: true,
       complications: true,
+      // The procedure done (10.0.0), coded: what the export takes as performed.
+      performedProcedureRows: {
+        select: { code: true, group: true, domain: true, description: true, sourceVocabulary: true, sourceCode: true, standardConceptId: true, mappingStatus: true, ordinal: true },
+        orderBy: { ordinal: "asc" },
+      },
     },
   },
   finalizations: {

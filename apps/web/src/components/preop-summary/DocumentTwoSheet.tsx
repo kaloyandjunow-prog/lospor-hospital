@@ -1,6 +1,6 @@
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { summaryFacts, type PreopSummaryData } from "./facts"
-import { Blank, Box, Line, PenLine } from "./parts"
+import { Blank, Box, BroselowTag, Line, PenLine } from "./parts"
 import { Questionnaire } from "./Questionnaire"
 
 function SecTitle({ children }: { children: string }) {
@@ -20,7 +20,7 @@ function Value({ children }: { children: string | number | null | undefined }) {
  */
 export function DocumentTwoSheet({ data, locale, printedAt }: { data: PreopSummaryData; locale: string; printedAt: Date }) {
   const facts = summaryFacts(data, locale, printedAt)
-  const { L, p } = facts
+  const { L, p, orders, medicationOrders, premedication } = facts
   const fastHours = (category: string) => facts.fasting.find(row => row.category === category)?.hoursBefore ?? null
   const solids = fastHours("SOLID_FOOD_OR_COW_MILK")
   const water = fastHours("CLEAR_FLUIDS")
@@ -34,7 +34,7 @@ export function DocumentTwoSheet({ data, locale, printedAt }: { data: PreopSumma
       <h2 className="text-center text-[11.5px] font-bold uppercase my-1.5">{facts.child ? L.docTitleChild : L.docTitleAdult}</h2>
 
       <div className="space-y-1">
-        <div>{L.name} <Blank width="95mm" /> {L.age} <Value>{facts.ageText}</Value> {L.height} <Value>{p?.heightCm ? `${p.heightCm} cm` : null}</Value> {L.weight} <Value>{p?.weightKg ? `${p.weightKg} kg` : null}</Value></div>
+        <div>{L.name} <Blank width="95mm" /> {L.age} <Value>{facts.ageText}</Value> {L.height} <Value>{p?.heightCm ? `${p.heightCm} cm` : null}</Value> {L.weight} <Value>{p?.weightKg ? `${p.weightKg} kg` : null}</Value> {facts.broselow ? <BroselowTag facts={facts} /> : null}</div>
         <div>{L.id} <Blank width="55mm" /> {L.ward} <Blank /> {L.room} <Blank width="12mm" /> {L.bloodGroup} <Value>{facts.bloodGroup}</Value></div>
         <div>{L.surgeon} <Blank width="70mm" /></div>
         <div>{L.diagnosis}: <Value>{facts.diagnosisText}</Value></div>
@@ -79,13 +79,25 @@ export function DocumentTwoSheet({ data, locale, printedAt }: { data: PreopSumma
         <div><Box ticked={solids != null} />{L.stopSolids} <Value>{solids}</Value> {L.hoursBeforeOp}</div>
         <div><Box ticked={water != null} />{L.stopWater} <Value>{water}</Value> {L.hoursBeforeOp}</div>
         <div className="font-bold mt-1.5">{L.medsInstr}</div>
-        <div><Box />{L.stopMed} <Blank width="60mm" /> <Blank width="10mm" /> {L.daysBeforeOp}</div>
-        <div><Box />{L.continueMed} <Blank width="80mm" /></div>
+        {/* The paper's rows, filled in from the case where it holds them; otherwise left for the pen. */}
+        {medicationOrders.stop.length > 0
+          ? medicationOrders.stop.map((row, index) => <div key={index}><Box ticked />{L.stopMed} <b className="font-semibold">{row.drug}</b>{row.hours ? <> <b className="font-semibold">{row.hours}</b> {L.beforeOp}</> : null}</div>)
+          : <div><Box />{L.stopMed} <Blank width="60mm" /> <Blank width="10mm" /> {L.daysBeforeOp}</div>}
+        {medicationOrders.keep.length > 0
+          ? <div><Box ticked />{L.continueMed} <b className="font-semibold">{medicationOrders.keep.join(", ")}</b></div>
+          : <div><Box />{L.continueMed} <Blank width="80mm" /></div>}
+        {medicationOrders.others.map((text, index) => <div key={index}><Box ticked />{text}</div>)}
         <div className="font-bold mt-1.5">{L.extraTitle}</div>
-        <div><Box />{L.noExtra}</div>
-        <div><Box />{L.consultWith} <Blank /> {L.because} <Blank width="60mm" /></div>
+        <div><Box ticked={orders.none} />{L.noExtra}</div>
+        {orders.consults.length > 0
+          ? <div><Box ticked />{L.consultWith} <b className="font-semibold">{orders.consults.join(", ")}</b> {L.because} <Blank width="50mm" /></div>
+          : <div><Box />{L.consultWith} <Blank /> {L.because} <Blank width="60mm" /></div>}
+        {orders.others.map(text => <div key={text}><Box ticked />{text}</div>)}
         <div className="font-bold mt-1.5">{L.premedTitle}</div>
-        <div><Box />{L.premedMorning} <Blank width="90mm" /></div>
+        {premedication.night.length > 0 ? <div data-testid="doc2-premed-night"><Box ticked />{L.premedEvening} <b className="font-semibold">{premedication.night.join(", ")}</b></div> : null}
+        {premedication.morning.length > 0
+          ? <div data-testid="doc2-premed-morning"><Box ticked />{L.premedMorning} <b className="font-semibold">{premedication.morning.join(", ")}</b></div>
+          : <div><Box />{L.premedMorning} <Blank width="90mm" /></div>}
         <div><Box />{L.ponvProphylaxis} · <Box />{L.dvtProphylaxis}</div>
         <div className="font-bold mt-1.5">{L.indicTitle}</div>
         <div className="flex flex-wrap gap-x-3"><span><Box />{L.noContra}</span><span><Box />{L.relContra}</span><span><Box />{L.absContra}</span><span><Box ticked={p?.emergencySurgery === true} />{L.emergencyAnaesthesia}</span></div>

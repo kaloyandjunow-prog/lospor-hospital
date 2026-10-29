@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { canAccessCase, caseReadWhereForUser, headOfDeptCaseScope } from "../lib/access-control"
 import type { AuthUser } from "../lib/mobile-auth"
 
@@ -21,6 +21,9 @@ const hod = (institutionId: string): AuthUser => ({
 const HOSPITAL_A = "inst-a"
 const HOSPITAL_B = "inst-b"
 
+beforeEach(() => vi.stubEnv("LOSPOR_DEPLOYMENT_MODE", ""))
+afterEach(() => vi.unstubAllEnvs())
+
 describe("headOfDeptCaseScope", () => {
   it("matches on the case's own institution and nothing else", () => {
     // The owner fallback is gone. It matched unstamped cases through whoever
@@ -33,34 +36,34 @@ describe("headOfDeptCaseScope", () => {
 })
 
 describe("caseWhereForUser", () => {
-  it("scopes a head of department by the case's institution, not the owner's", () => {
+  it("scopes a head of department by the case's institution, not the owner's", async () => {
     const where = caseReadWhereForUser(hod(HOSPITAL_A))
     // headOfDeptCaseScope alone is one of two ways in now, not the whole
     // scope: canAccessCase permits the assignee unconditionally, before it
     // ever looks at institution, so this must stay a superset or promotion
     // to HOD silently drops cases assigned to them elsewhere (see the
     // "case assigned outside the department" block below).
-    expect(where).toEqual({ OR: [{ userId: "hod-1" }, headOfDeptCaseScope(HOSPITAL_A)] })
+    await expect(where).resolves.toEqual({ OR: [{ userId: "hod-1" }, headOfDeptCaseScope(HOSPITAL_A)] })
     // The old behaviour, which let a case follow its author.
-    expect(where).not.toEqual({ user: { institutionId: HOSPITAL_A } })
+    await expect(where).resolves.not.toEqual({ user: { institutionId: HOSPITAL_A } })
   })
 
-  it("keeps the id constraint alongside the institution scope", () => {
-    expect(caseReadWhereForUser(hod(HOSPITAL_A), "case-1")).toMatchObject({ id: "case-1" })
+  it("keeps the id constraint alongside the institution scope", async () => {
+    await expect(caseReadWhereForUser(hod(HOSPITAL_A), "case-1")).resolves.toMatchObject({ id: "case-1" })
   })
 
-  it("gives an admin everything", () => {
-    expect(caseReadWhereForUser({ id: "a", role: "ADMIN" } as AuthUser)).toEqual({})
+  it("gives an admin everything", async () => {
+    await expect(caseReadWhereForUser({ id: "a", role: "ADMIN" } as AuthUser)).resolves.toEqual({})
   })
 
-  it("gives an ordinary member only their own cases", () => {
-    expect(caseReadWhereForUser({ id: "u-1", role: "MEMBER" } as AuthUser))
-      .toEqual({ userId: "u-1" })
+  it("gives an ordinary member only their own cases", async () => {
+    await expect(caseReadWhereForUser({ id: "u-1", role: "MEMBER" } as AuthUser))
+      .resolves.toEqual({ userId: "u-1" })
   })
 
-  it("falls back to own-cases for a head of department with no institution", () => {
-    expect(caseReadWhereForUser({ id: "h", role: "HEAD_OF_DEPT" } as AuthUser))
-      .toEqual({ userId: "h" })
+  it("falls back to own-cases for a head of department with no institution", async () => {
+    await expect(caseReadWhereForUser({ id: "h", role: "HEAD_OF_DEPT" } as AuthUser))
+      .resolves.toEqual({ userId: "h" })
   })
 })
 
@@ -74,22 +77,22 @@ describe("a case does not follow its author to another hospital", () => {
     user: { institutionId: HOSPITAL_B },
   }
 
-  it("stays visible to the hospital where it was performed", () => {
-    expect(canAccessCase(hod(HOSPITAL_A), caseAtA)).toBe(true)
+  it("stays visible to the hospital where it was performed", async () => {
+    await expect(canAccessCase(hod(HOSPITAL_A), caseAtA)).resolves.toBe(true)
   })
 
-  it("is not visible to the hospital the author moved to", () => {
-    expect(canAccessCase(hod(HOSPITAL_B), caseAtA)).toBe(false)
+  it("is not visible to the hospital the author moved to", async () => {
+    await expect(canAccessCase(hod(HOSPITAL_B), caseAtA)).resolves.toBe(false)
   })
 
-  it("the query predicate agrees with the in-memory check", () => {
+  it("the query predicate agrees with the in-memory check", async () => {
     // Both must encode the same rule, or a list and a detail view disagree
     // about the same case — which is how the two drifted apart originally.
     expect(headOfDeptCaseScope(HOSPITAL_A).institutionId).toBe(caseAtA.institutionId)
-    expect(canAccessCase(hod(HOSPITAL_A), caseAtA)).toBe(true)
+    await expect(canAccessCase(hod(HOSPITAL_A), caseAtA)).resolves.toBe(true)
 
     expect(headOfDeptCaseScope(HOSPITAL_B).institutionId).not.toBe(caseAtA.institutionId)
-    expect(canAccessCase(hod(HOSPITAL_B), caseAtA)).toBe(false)
+    await expect(canAccessCase(hod(HOSPITAL_B), caseAtA)).resolves.toBe(false)
   })
 })
 
@@ -109,12 +112,12 @@ describe("a case assigned outside the department still belongs to its assignee",
     institutionId: HOSPITAL_B,
   }
 
-  it("canAccessCase already permits it", () => {
-    expect(canAccessCase(hod(HOSPITAL_A), assignedElsewhere)).toBe(true)
+  it("canAccessCase already permits it", async () => {
+    await expect(canAccessCase(hod(HOSPITAL_A), assignedElsewhere)).resolves.toBe(true)
   })
 
-  it("the query predicate now agrees", () => {
-    const where = caseReadWhereForUser(hod(HOSPITAL_A))
+  it("the query predicate now agrees", async () => {
+    const where = await caseReadWhereForUser(hod(HOSPITAL_A))
     expect(where).toMatchObject({ OR: expect.arrayContaining([{ userId: "hod-1" }]) })
   })
 })
@@ -142,19 +145,19 @@ describe("historical cases recorded before the snapshot existed", () => {
     user: { institutionId: HOSPITAL_A },
   }
 
-  it("is not visible to the head of the institution its author now works in", () => {
-    expect(canAccessCase(hod(HOSPITAL_A), legacyCase)).toBe(false)
+  it("is not visible to the head of the institution its author now works in", async () => {
+    await expect(canAccessCase(hod(HOSPITAL_A), legacyCase)).resolves.toBe(false)
   })
 
-  it("is not visible to an unrelated institution either", () => {
-    expect(canAccessCase(hod(HOSPITAL_B), legacyCase)).toBe(false)
+  it("is not visible to an unrelated institution either", async () => {
+    await expect(canAccessCase(hod(HOSPITAL_B), legacyCase)).resolves.toBe(false)
   })
 
-  it("stays visible to the clinician who recorded it", () => {
-    expect(canAccessCase({ id: "owner-1", role: "MEMBER" }, legacyCase)).toBe(true)
+  it("stays visible to the clinician who recorded it", async () => {
+    await expect(canAccessCase({ id: "owner-1", role: "MEMBER" }, legacyCase)).resolves.toBe(true)
   })
 
-  it("stays visible to an administrator", () => {
-    expect(canAccessCase({ id: "someone", role: "ADMIN" }, legacyCase)).toBe(true)
+  it("stays visible to an administrator", async () => {
+    await expect(canAccessCase({ id: "someone", role: "ADMIN" }, legacyCase)).resolves.toBe(true)
   })
 })

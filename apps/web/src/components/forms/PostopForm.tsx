@@ -1,7 +1,7 @@
 "use client"
 
 import { useForm, Controller, type Resolver } from "react-hook-form"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { useScrollToReadiness } from "@/lib/readiness-focus"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -10,40 +10,79 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, Save } from "lucide-react"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
-import { NumberStepper } from "@/components/NumberStepper"
-import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { useOptionLibrary, useRange } from "@/hooks/useOptionLibrary"
-import { displayOption, displayPaedBand, toClinicalLocale } from "@/lib/clinical-display"
+import { displayOption } from "@/lib/clinical-display"
+import type { PreopLayout } from "@/lib/preop-layout"
 import {
   aldreteBand,
   aldreteTotal as calculateAldreteTotal,
+  stewardBand,
+  stewardTotal as calculateStewardTotal,
   normalizeHandoverCodes,
+  suggestAldreteCirculation,
+  suggestAldreteSpO2,
   type HandoverGroup as CoreHandoverGroup,
 } from "@lospor/core/postop"
-import { recommendPediatricPainScale } from "@lospor/core/pediatric"
+import {
+  FLACC_ITEMS,
+  FLACC_TOTAL_MAX,
+  NIPS_ITEMS,
+  NIPS_TOTAL_MAX,
+  PAED_ITEMS,
+  PAED_TOTAL_MAX,
+  flaccBand,
+  flaccTotal,
+  nipsBand,
+  nipsTotal,
+  paedOffered,
+  paedTotal,
+  painScaleLabel,
+  painScalesFor,
+  painSummaryEntries,
+  selfReportBand,
+  type FlaccField,
+  type NipsField,
+  type PaedField,
+} from "@lospor/core/postop-pain"
+import { paedRiskBand } from "@lospor/core/risk"
+import { preopSectionConfigFor, type PreopSectionConfig } from "@lospor/core/preop-orders"
+import type { PediatricAgeUnit } from "@lospor/core/pediatric"
+import { ItemScale, ScaleTotal, SelfReportScale } from "@/components/forms/postop/PainScales"
+import { PostopSectionNav, type PostopNavSection, type PostopSectionId } from "@/components/forms/postop/PostopSectionNav"
+import { CaseSidebar, type CaseStages, type SidebarPatient } from "@/components/forms/CaseSidebar"
+import { broselowZone } from "@lospor/core/broselow"
 
 import { postopSchema, type PostopData } from "@/components/forms/postopSchema"
+import { TagInput, type Tag } from "@/components/TagInput"
+import { ProcedureOperationPicker } from "@/components/forms/ProcedureOperationPicker"
+import { procedureGroupTag } from "@lospor/core/procedure-codes"
+import { RecoveryVitals } from "@/components/forms/postop/RecoveryVitals"
+import { RecoveryScore, type AldreteKey } from "@/components/forms/postop/RecoveryScore"
+
+type ProcedureSearchItem = { code: string; group?: string; description: string; domain: string }
 export type { PostopData }
 
 
 
-type AldreteKey = "aldreteActivity" | "aldreteRespiration" | "aldreteCirculation" | "aldreteConsciousness" | "aldreteSpO2"
-
-const SCORE_COLORS = [
-  "bg-red-500 border-red-500 text-white dark:bg-red-700 dark:border-red-600",
-  "bg-amber-500 border-amber-500 text-white dark:bg-amber-700 dark:border-amber-600",
-  "bg-green-500 border-green-500 text-white dark:bg-green-700 dark:border-green-600",
-]
-const UNSELECTED = "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
+type ScoredItem = FlaccField | NipsField | PaedField
 
 export type HandoverGroup = Omit<CoreHandoverGroup, "id">
 
 export const normaliseHandoverCodes = normalizeHandoverCodes
 
-export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultValues, rejectedFields, clinicalMode = "ADULT", pediatricAgeYears, focus = null }: {
+/** The patient's age as the preoperative record holds it, for the pain scales. */
+export type PostopPatientAge = { ageValue?: number | null; ageUnit?: PediatricAgeUnit | null; ageYears?: number | null }
+
+export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultValues, rejectedFields, clinicalMode = "ADULT", patientAge, preopSystolic, sectionConfigs, layoutMode = "scroll", focus = null, patient = null, stages, plannedProcedures = [], procedureUndetermined = false }: {
+  /** The planned procedures, which the procedure done is filled in with (10.0.0). */
+  plannedProcedures?: Tag[]
+  /** The planned procedure was not yet known: the procedure done is then required. */
+  procedureUndetermined?: boolean
+  /** The patient's key facts and where the case is, for the case panel (sidebar layout). */
+  patient?: SidebarPatient | null
+  stages?: CaseStages
   onSubmit: (data: PostopData) => void
   onBack: () => void
   submitting?: boolean
@@ -53,16 +92,23 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
   clinicalMode?: "ADULT" | "PEDIATRIC"
-  pediatricAgeYears?: number | null
+  patientAge?: PostopPatientAge | null
+  /** The preoperative systolic pressure, for the Aldrete circulation suggestion. */
+  preopSystolic?: number | null
+  /** The hospital's section switches, per population, from the preop profile. */
+  sectionConfigs?: Partial<Record<"ADULT" | "PEDIATRIC", PreopSectionConfig>> | null
+  layoutMode?: PreopLayout
   /** A part to bring into view on arrival, from a readiness "Go to" (1.5.0). */
   focus?: string | null
 }) {
   const t      = useTranslations()
   useScrollToReadiness(focus)
   const locale = useLocale()
+  const language = locale === "bg" ? "bg" : "en"
   const isPediatric = clinicalMode === "PEDIATRIC"
-  const [canSelfReport, setCanSelfReport] = useState((pediatricAgeYears ?? 0) >= 4)
-  const [canUseNumbers, setCanUseNumbers] = useState((pediatricAgeYears ?? 0) >= 8)
+  const sectionConfig = useMemo(() => preopSectionConfigFor(sectionConfigs, clinicalMode), [sectionConfigs, clinicalMode])
+  const sectionOn = (key: keyof PreopSectionConfig["sections"]) => sectionConfig.sections[key]
+  const painScales = painScalesFor({ clinicalMode, ...patientAge })
 
   const { options: dispositionOptions } = useOptionLibrary("DISPOSITION")
   const { options: handoverOptions }    = useOptionLibrary("HANDOVER_ITEM")
@@ -80,7 +126,6 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   const recoveryHeartRateRange   = useRange("HEART_RATE_RANGE")
   const recoverySpo2Range        = useRange("SPO2_RANGE")
   const recoveryTemperatureRange = useRange("TEMPERATURE_RANGE")
-  const painNrsRange             = useRange("PAIN_NRS_RANGE")
   const { register, handleSubmit, control, watch, setValue, getValues } = useForm<PostopData>({
     // Same zod-v4/react-hook-form resolver-typing friction as IntraopForm.tsx/PreopForm.tsx
     resolver: zodResolver(postopSchema) as Resolver<PostopData>,
@@ -92,6 +137,9 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       // so simply opening it recorded a blood pressure, pulse, saturation and
       // temperature that nobody had taken.
       ...Object.fromEntries(Object.entries(defaultValues ?? {}).filter(([, v]) => v !== undefined && v !== null)),
+      // The procedure done starts as the one planned (10.0.0): the usual case
+      // needs no typing, and a different operation is a change.
+      performedProcedures: defaultValues?.performedProcedures?.length ? defaultValues.performedProcedures : plannedProcedures,
       ...(defaultValues?.handoverItems ? { handoverItems: normaliseHandoverCodes(defaultValues.handoverItems) } : {}),
     },
   })
@@ -111,31 +159,49 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   }, [allValuesKey, getValues, onAutoSave])
 
   const aldreteVals = watch(["aldreteActivity","aldreteRespiration","aldreteCirculation","aldreteConsciousness","aldreteSpO2"])
-  const aldreteTotal = calculateAldreteTotal({
-    aldreteActivity: aldreteVals[0],
-    aldreteRespiration: aldreteVals[1],
-    aldreteCirculation: aldreteVals[2],
-    aldreteConsciousness: aldreteVals[3],
-    aldreteSpO2: aldreteVals[4],
-  })
+  const stewardVals = watch(["stewardConsciousness","stewardAirway","stewardMovement"])
+  // A child is scored on Steward instead of Aldrete (10.0.0); the card, its
+  // total and its band all follow the case's clinical mode.
+  const aldreteTotal = isPediatric
+    ? calculateStewardTotal({ stewardConsciousness: stewardVals[0], stewardAirway: stewardVals[1], stewardMovement: stewardVals[2] })
+    : calculateAldreteTotal({
+      aldreteActivity: aldreteVals[0],
+      aldreteRespiration: aldreteVals[1],
+      aldreteCirculation: aldreteVals[2],
+      aldreteConsciousness: aldreteVals[3],
+      aldreteSpO2: aldreteVals[4],
+    })
+  const scoreMax = isPediatric ? 6 : 10
   // Null until every component is assessed; a partial score has no total, and
   // colouring it "destructive" would read as a sick patient rather than an
   // unfinished form.
-  const aldreteStatus = aldreteTotal == null ? null : aldreteBand(aldreteTotal)
-  const aldreteColor = aldreteStatus === null
-    ? "outline"
-    : aldreteStatus === "ready"
-    ? "default"
-    : aldreteStatus === "observe" ? "secondary" : "destructive"
+  const aldreteStatus = aldreteTotal == null ? null : isPediatric ? stewardBand(aldreteTotal) : aldreteBand(aldreteTotal)
   const disposition   = watch("disposition")
   const handoverItems = watch("handoverItems") ?? []
   const [recoveryBpUTO, recoveryHeartRateUTO, recoverySpo2UTO, recoveryTemperatureUTO] =
     watch(["recoveryBpUnobtainable", "recoveryHeartRateUnobtainable", "recoverySpO2Unobtainable", "recoveryTemperatureUnobtainable"])
-  const painRecommendation = recommendPediatricPainScale({
-    ageYears: pediatricAgeYears ?? 0,
-    canSelfReport,
-    canUseNumbers,
-  })
+
+  // What the recovery observations suggest for two Aldrete items (10.0.0):
+  // shown beside the item, set only when the clinician taps it.
+  const [recoverySystolic, recoverySpO2] = watch(["recoveryBpSystolic", "recoverySpO2"])
+  const suggestions: Partial<Record<AldreteKey, { score: number; text: string }>> = {}
+  if (!isPediatric && sectionOn("POSTOP_RECOVERY_VITALS")) {
+    const spo2 = recoverySpo2UTO ? null : suggestAldreteSpO2(recoverySpO2 == null ? null : Number(recoverySpO2))
+    if (spo2 != null) suggestions.aldreteSpO2 = { score: spo2, text: t("postop.suggest.spo2", { score: spo2, value: Number(recoverySpO2) }) }
+    const circulation = recoveryBpUTO ? null : suggestAldreteCirculation(recoverySystolic == null ? null : Number(recoverySystolic), preopSystolic)
+    if (circulation != null) {
+      suggestions.aldreteCirculation = { score: circulation, text: t("postop.suggest.circulation", { score: circulation, recovery: Number(recoverySystolic), preop: preopSystolic ?? "" }) }
+    }
+  }
+
+  // Pain and delirium, item by item.
+  const itemValues = watch([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key)) as (number | null | undefined)[]
+  const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, itemValues[index]])) as Record<ScoredItem, number | null | undefined>
+  const setItem = (key: ScoredItem, value: number | null) => setValue(key, value, { shouldDirty: true })
+  const flacc = flaccTotal(items)
+  const nips = nipsTotal(items)
+  const paed = paedTotal(items)
+  const [fpsr, nrs] = watch(["fpsrScore", "painScoreNRS"])
 
   useEffect(() => {
     if (disposition === "WARD" || disposition === "PACU") return
@@ -143,251 +209,154 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     if (getValues("dispositionNotes")) setValue("dispositionNotes", "", { shouldDirty: true })
   }, [disposition, getValues, handoverItems.length, setValue])
 
-  const ALDRETE_CRITERIA: { key: AldreteKey; labelKey: string; scoreKeys: string[] }[] = [
-    { key: "aldreteActivity",      labelKey: "postop.activity",      scoreKeys: ["postop.aldrete.activity0",      "postop.aldrete.activity1",      "postop.aldrete.activity2"] },
-    { key: "aldreteRespiration",   labelKey: "postop.respiration",   scoreKeys: ["postop.aldrete.respiration0",   "postop.aldrete.respiration1",   "postop.aldrete.respiration2"] },
-    { key: "aldreteCirculation",   labelKey: "postop.circulation",   scoreKeys: ["postop.aldrete.circulation0",   "postop.aldrete.circulation1",   "postop.aldrete.circulation2"] },
-    { key: "aldreteConsciousness", labelKey: "postop.consciousness", scoreKeys: ["postop.aldrete.consciousness0", "postop.aldrete.consciousness1", "postop.aldrete.consciousness2"] },
-    { key: "aldreteSpO2",          labelKey: "postop.spO2",          scoreKeys: ["postop.aldrete.spO20",          "postop.aldrete.spO21",          "postop.aldrete.spO22"] },
+  // ── Sections ──
+  const showVitals = sectionOn("POSTOP_RECOVERY_VITALS")
+  const showPain = sectionOn("POSTOP_PAIN")
+  const showDelirium = paedOffered(clinicalMode) && sectionOn("POSTOP_DELIRIUM")
+  const showPonv = sectionOn("POSTOP_PONV")
+  const showHandover = sectionOn("POSTOP_HANDOVER")
+  const scoreMissing = aldreteTotal == null
+  const sections: PostopNavSection[] = [
+    ...(showVitals ? [{ id: "vitals" as const, label: t("postop.section.vitals"), missing: false }] : []),
+    { id: "score", label: t("postop.section.score"), missing: scoreMissing },
+    ...(showPain || showDelirium || showPonv ? [{ id: "pain" as const, label: t("postop.section.pain"), missing: false }] : []),
+    { id: "discharge", label: t("postop.section.discharge"), missing: !disposition },
   ]
+  // Without the case panel the tabs mark a missing part as preop does: once
+  // the clinician has tried to save, not before (10.0.0).
+  const [attempted, setAttempted] = useState(false)
+  const [activeTab, setActiveTab] = useState<PostopSectionId>(() => focus === "disposition" ? "discharge" : focus === "recovery" ? "score" : sections[0].id)
+  const tabs = layoutMode === "tabs"
+  const sidebar = layoutMode === "sidebar"
+  const hidden = (id: PostopSectionId) => tabs && activeTab !== id ? "hidden" : ""
+  const sidebarScores = [
+    { label: t(isPediatric ? "postop.scoreShort.steward" : "postop.scoreShort.aldrete"), value: aldreteTotal == null ? "—" : `${aldreteTotal} / ${scoreMax}` },
+    ...painSummaryEntries({
+      flaccTotal: flacc, nipsTotal: nips, paedScore: paed,
+      fpsrScore: fpsr == null ? null : Number(fpsr), painScoreNRS: nrs == null ? null : Number(nrs),
+    }, language).map(entry => ({ label: entry.label, value: entry.value })),
+  ]
+  const legacyPain = defaultValues?.pediatricPainScale && defaultValues?.pediatricPainScore != null
+    ? t("postop.pain.earlier", { scale: painScaleLabel(defaultValues.pediatricPainScale), score: defaultValues.pediatricPainScore })
+    : null
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
-      {/* Modified Aldrete Score */}
-      <div data-tour="postop-aldrete">
-      <SectionCard title={t("postop.aldreteSection")} readiness="recovery">
-        <div className="space-y-5">
-          {ALDRETE_CRITERIA.map(({ key, labelKey, scoreKeys }) => (
-            <Controller key={key} name={key} control={control} render={({ field }) => (
-              <div>
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{t(labelKey)}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {scoreKeys.map((sk, i) => {
-                    const selected = Number(field.value) === i
-                    return (
-                      <button key={i} type="button"
-                        onClick={() => field.onChange(selected ? undefined : i)}
-                        className={`rounded-xl border-2 p-2.5 text-center transition-all ${selected ? SCORE_COLORS[i] + " scale-105 shadow-sm" : UNSELECTED}`}>
-                        <div className="text-xl font-bold leading-none">{i}</div>
-                        <div className="text-[10px] mt-1 leading-tight opacity-90">{String(t(sk)).replace(/^\d+\s*[—–-]\s*/, '')}</div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )} />
-          ))}
-
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-[#2a2a2a]">
-            <span className="font-semibold text-slate-700 dark:text-slate-200">{t("postop.aldreteTotal")}:</span>
-            {/* An unscored patient has no total, and no verdict either. This
-                rendered a bare " / 10" with "keep monitoring" beside it, which
-                reads as an assessment that was never made. */}
-            <Badge variant={aldreteColor} className="text-base px-3 py-1" data-testid="aldrete-total">
-              {aldreteTotal ?? "—"} / 10
-            </Badge>
-            {aldreteStatus === "ready" && <span className="text-sm text-green-600 dark:text-green-400">{t("postop.aldreteReady")}</span>}
-            {aldreteStatus !== null && aldreteStatus !== "ready" && <span className="text-sm text-amber-600 dark:text-amber-400">{t("postop.aldreteMonitor")}</span>}
-          </div>
-        </div>
-      </SectionCard>
-      </div>{/* /postop-aldrete */}
-
-      {/* Recovery */}
-      <div data-tour="postop-recovery">
-      <SectionCard title={t("postop.recoverySection")}>
-        {/* Recovery vitals — SBP / DBP / HR / SpO₂ / Temperature (mirrors preop) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* BP */}
-          <div className="space-y-2 sm:col-span-2">
-            {/* Recovery observations are all numeric, so one summary above them
-                reaches every field the server can refuse without threading a
-                note through each control. */}
-            {rejectedFields && rejectedFields.size > 0 && (
-              <p className="text-red-500 text-xs mb-2" role="status">
-                {[...rejectedFields.values()].join(" · ")}
-              </p>
-            )}
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.bloodPressure")}</Label>
-              <button type="button"
-                onClick={() => { const next = !recoveryBpUTO; setValue("recoveryBpUnobtainable", next); if (next) { setValue("recoveryBpSystolic", undefined); setValue("recoveryBpDiastolic", undefined) } }}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-all ${recoveryBpUTO ? "bg-slate-200 border-slate-400 text-slate-700 font-semibold" : "border-slate-200 text-slate-400 hover:border-slate-300"}`}>
-                {t("preop.unableToObtain")}
-              </button>
-            </div>
-            {recoveryBpUTO ? (
-              <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <p className="text-xs text-slate-400 text-center mb-1">{t("preop.systolic")}</p>
-                  <Controller name="recoveryBpSystolic" control={control} render={({ field }) => (
-                    <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 20 : recoveryBpSystolicRange.min} max={recoveryBpSystolicRange.max} step={recoveryBpSystolicRange.step} showSlider />
-                  )} />
-                </div>
-                <span className="text-2xl font-light text-slate-300 mt-4">/</span>
-                <div className="flex-1">
-                  <p className="text-xs text-slate-400 text-center mb-1">{t("preop.diastolic")}</p>
-                  <Controller name="recoveryBpDiastolic" control={control} render={({ field }) => (
-                    <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 10 : recoveryBpDiastolicRange.min} max={recoveryBpDiastolicRange.max} step={recoveryBpDiastolicRange.step} showSlider />
-                  )} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Heart rate */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.heartRate")}</Label>
-              <button type="button"
-                onClick={() => { const next = !recoveryHeartRateUTO; setValue("recoveryHeartRateUnobtainable", next); if (next) setValue("recoveryHeartRate", undefined) }}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-all ${recoveryHeartRateUTO ? "bg-slate-200 border-slate-400 text-slate-700 font-semibold" : "border-slate-200 text-slate-400 hover:border-slate-300"}`}>
-                {t("preop.unableToObtain")}
-              </button>
-            </div>
-            {recoveryHeartRateUTO ? (
-              <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
-            ) : (
-              <Controller name="recoveryHeartRate" control={control} render={({ field }) => (
-                <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 10 : recoveryHeartRateRange.min} max={recoveryHeartRateRange.max} step={recoveryHeartRateRange.step} unit="bpm" showSlider />
-              )} />
-            )}
-          </div>
-
-          {/* SpO₂ */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.spO2")}</Label>
-              <button type="button"
-                onClick={() => { const next = !recoverySpo2UTO; setValue("recoverySpO2Unobtainable", next); if (next) setValue("recoverySpO2", undefined) }}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-all ${recoverySpo2UTO ? "bg-slate-200 border-slate-400 text-slate-700 font-semibold" : "border-slate-200 text-slate-400 hover:border-slate-300"}`}>
-                {t("preop.unableToObtain")}
-              </button>
-            </div>
-            {recoverySpo2UTO ? (
-              <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
-            ) : (
-              <Controller name="recoverySpO2" control={control} render={({ field }) => (
-                <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 20 : recoverySpo2Range.min} max={recoverySpo2Range.max} step={recoverySpo2Range.step} unit="%" showSlider />
-              )} />
-            )}
-          </div>
-
-          {/* Temperature */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.temperatureC")}</Label>
-              <button type="button"
-                onClick={() => { const next = !recoveryTemperatureUTO; setValue("recoveryTemperatureUnobtainable", next); if (next) setValue("temperatureCelsius", undefined) }}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-all ${recoveryTemperatureUTO ? "bg-slate-200 border-slate-400 text-slate-700 font-semibold" : "border-slate-200 text-slate-400 hover:border-slate-300"}`}>
-                {t("preop.unableToObtain")}
-              </button>
-            </div>
-            {recoveryTemperatureUTO ? (
-              <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
-            ) : (
-              <Controller name="temperatureCelsius" control={control} render={({ field }) => (
-                <ConvertedStepper measurement="temperature" canonicalValue={field.value} onCanonicalChange={field.onChange} canonicalMin={isPediatric ? 25 : recoveryTemperatureRange.min} canonicalMax={recoveryTemperatureRange.max} canonicalStep={recoveryTemperatureRange.step} showSlider />
-              )} />
-            )}
-          </div>
-
-          {isPediatric ? (
-            <div className="space-y-4 sm:col-span-2 border-t border-slate-100 pt-4 dark:border-[#2a2a2a]">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("pediatric.postopPain")}</p>
-                <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
-                  {t("pediatric.recommendedPainScale", { scale: painRecommendation.scale.replace("_", "-") })}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={canSelfReport}
-                    onCheckedChange={value => {
-                      const next = value === true
-                      setCanSelfReport(next)
-                      if (!next) setCanUseNumbers(false)
-                    }}
-                  />
-                  {t("pediatric.canSelfReport")}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={canUseNumbers}
-                    disabled={!canSelfReport}
-                    onCheckedChange={value => setCanUseNumbers(value === true)}
-                  />
-                  {t("pediatric.canUseNumbers")}
-                </label>
-              </div>
-              <Controller name="pediatricPainScale" control={control} render={({ field }) => (
-                <div className="grid grid-cols-3 gap-2">
-                  {(["FLACC", "FPS_R", "NRS"] as const).map(scale => (
-                    <button
-                      key={scale}
-                      type="button"
-                      onClick={() => field.onChange(scale)}
-                      className={`min-h-10 border-2 px-2 py-2 text-sm font-semibold ${
-                        field.value === scale
-                          ? "border-blue-500 bg-blue-500 text-white"
-                          : "border-slate-200 text-slate-600 dark:border-[#3a3a3a] dark:text-slate-300"
-                      }`}
-                    >
-                      {scale.replace("_", "-")}
-                    </button>
-                  ))}
-                </div>
-              )} />
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("pediatric.painScore")}</Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min={0}
-                    max={10}
-                    step={1}
-                    {...register("pediatricPainScore")}
-                    className="flex-1 h-2 rounded-lg appearance-none bg-slate-200 dark:bg-[#333] accent-blue-600 cursor-pointer"
-                  />
-                  <span className="text-sm font-bold w-6 text-center text-slate-700 dark:text-slate-200">{watch("pediatricPainScore") ?? 0}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("pediatric.paedScore")}</Label>
-                <Controller name="paedScore" control={control} render={({ field }) => (
-                  <NumberStepper value={field.value} onChange={field.onChange} min={0} max={20} step={1} showSlider />
-                )} />
-                <p className="text-xs text-slate-400">{watch("paedScore") != null ? displayPaedBand(Number(watch("paedScore")), toClinicalLocale(locale)).label : t("pediatric.paedOptional")}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</Label>
-              <div className="flex items-center gap-2">
-                <input type="range" min={painNrsRange.min} max={painNrsRange.max} step={painNrsRange.step}
-                  {...register("painScoreNRS")}
-                  className="flex-1 h-2 rounded-lg appearance-none bg-slate-200 dark:bg-[#333] accent-blue-600 cursor-pointer" />
-                <span className="text-sm font-bold w-6 text-center text-slate-700 dark:text-slate-200">{watch("painScoreNRS") ?? 0}</span>
-              </div>
-            </div>
+    <form onSubmit={event => { setAttempted(true); void handleSubmit(onSubmit)(event) }} className={sidebar ? "space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-x-6" : "space-y-6"}>
+      {sidebar ? (
+        <CaseSidebar
+          stages={stages ?? { current: 2 }}
+          sections={sections}
+          anchorPrefix="postop-sec-"
+          patient={patient}
+          broselow={isPediatric ? broselowZone({ clinicalMode, heightCm: patient?.heightCm ?? null, weightKg: patient?.weightKg ?? null }) : null}
+          factsTitle={t("preop.sidebar.scores")}
+          facts={sidebarScores}
+          action={(
+            <Button type="submit" disabled={submitting} className="w-full gap-2 bg-green-600 hover:bg-green-700">
+              <Save className="h-4 w-4" /> {submitting ? t("common.saving") : t("postop.saveCase")}
+            </Button>
           )}
-        </div>
+          testId="postop-sidebar"
+          stripTestId="postop-section-strip"
+        />
+      ) : (
+        <PostopSectionNav layout={layoutMode} sections={attempted ? sections : sections.map(section => ({ ...section, missing: false }))} activeTab={activeTab} onTab={setActiveTab} label={t("case.steps.postop")} />
+      )}
 
-        <Controller name="ponv" control={control} render={({ field }) => (
-          <ClinicalYesNo id="ponv" label={t("postop.ponv")} value={field.value ?? null} onChange={field.onChange} />
-        )} />
-      </SectionCard>
-      </div>{/* /postop-recovery */}
+      {showVitals && <div className={hidden("vitals")}><RecoveryVitals control={control} setValue={setValue} isPediatric={isPediatric} rejectedFields={rejectedFields} unobtainable={{ bp: recoveryBpUTO, heartRate: recoveryHeartRateUTO, spo2: recoverySpo2UTO, temperature: recoveryTemperatureUTO }} ranges={{ bpSystolic: recoveryBpSystolicRange, bpDiastolic: recoveryBpDiastolicRange, heartRate: recoveryHeartRateRange, spo2: recoverySpo2Range, temperature: recoveryTemperatureRange }} /></div>}
+      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} /></div>
+
+      {/* Pain, emergence delirium and PONV */}
+      {(showPain || showDelirium || showPonv) && (
+      <div id="postop-sec-pain" className={`scroll-mt-28 space-y-6 ${hidden("pain")}`}>
+        {showPain && (
+          <SectionCard title={t("postop.pain.title")}>
+            <p className="text-xs text-blue-700 dark:text-blue-300" data-testid="pain-scales-offered">
+              {t("postop.pain.offered", { scales: painScales.map(painScaleLabel).join(", ") })}
+            </p>
+            {legacyPain ? <p className="text-xs text-slate-500">{legacyPain}</p> : null}
+            {painScales.includes("NIPS") && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">NIPS</p>
+                <ItemScale items={NIPS_ITEMS} values={items} onChange={setItem} language={language} testId="nips-scale" />
+                <ScaleTotal label="NIPS" total={nips} max={NIPS_TOTAL_MAX} band={nips == null ? null : nipsBand(nips)} language={language} />
+              </div>
+            )}
+            {painScales.includes("FLACC") && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">FLACC</p>
+                <ItemScale items={FLACC_ITEMS} values={items} onChange={setItem} language={language} testId="flacc-scale" />
+                <ScaleTotal label="FLACC" total={flacc} max={FLACC_TOTAL_MAX} band={flacc == null ? null : flaccBand(flacc)} language={language} />
+              </div>
+            )}
+            {painScales.includes("FPS_R") && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">FPS-R</p>
+                <p className="text-xs text-slate-400">{t("postop.pain.faceHint")}</p>
+                <Controller name="fpsrScore" control={control} render={({ field }) => (
+                  <SelfReportScale kind="FPS_R" value={field.value == null ? null : Number(field.value)} onChange={field.onChange} />
+                )} />
+                <ScaleTotal label="FPS-R" total={fpsr == null ? null : Number(fpsr)} max={10} band={fpsr == null ? null : selfReportBand(Number(fpsr))} language={language} />
+              </div>
+            )}
+            {painScales.includes("NRS") && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</p>
+                <Controller name="painScoreNRS" control={control} render={({ field }) => (
+                  <SelfReportScale kind="NRS" value={field.value == null ? null : Number(field.value)} onChange={field.onChange} />
+                )} />
+              </div>
+            )}
+          </SectionCard>
+        )}
+
+        {showDelirium && (
+          <SectionCard title={t("postop.delirium.title")}>
+            <p className="text-xs text-slate-400">{t("postop.delirium.hint")}</p>
+            <ItemScale items={PAED_ITEMS} values={items} onChange={setItem} language={language} testId="paed-scale" />
+            <ScaleTotal
+              label="PAED"
+              total={paed ?? (PAED_ITEMS.some(item => items[item.key] != null) ? null : defaultValues?.paedScore ?? null)}
+              max={PAED_TOTAL_MAX}
+              band={paed == null ? null : t(`postop.delirium.${paedRiskBand(paed).key}`)}
+              language={language}
+            />
+          </SectionCard>
+        )}
+
+        {showPonv && (
+          <SectionCard title={t("postop.ponvTitle")}>
+            <Controller name="ponv" control={control} render={({ field }) => (
+              <ClinicalYesNo id="ponv" label={t("postop.ponv")} value={field.value ?? null} onChange={field.onChange} />
+            )} />
+          </SectionCard>
+        )}
+      </div>
+      )}
 
       {/* Disposition */}
-      <div data-tour="postop-disposition">
-      <SectionCard title={t("postop.dispositionSection")} readiness="disposition">
+      <div id="postop-sec-discharge" data-tour="postop-disposition" className={`scroll-mt-28 ${hidden("discharge")}`}>
+      <SectionCard title={t("postop.dispositionSection")} readiness="disposition" required>
+        {/* The procedure done (10.0.0): always on; what the export takes as performed. */}
+        <div className="space-y-1" data-testid="performed-procedure">
+          <Label>{t("postop.performedProcedure")}{procedureUndetermined && <span className="text-red-500"> *</span>}</Label>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{procedureUndetermined ? t("postop.performedProcedureUndetermined") : t("postop.performedProcedureHint")}</p>
+          <Controller name="performedProcedures" control={control} render={({ field }) => (
+            <div>
+              <TagInput
+                value={(field.value ?? []) as Tag[]}
+                onChange={field.onChange}
+                searchUrl="/api/search/procedures"
+                renderSuggestion={(item: ProcedureSearchItem) =>
+                  procedureGroupTag({ group: item.group || item.description, domain: item.domain })}
+                placeholder={t("preop.procedurePlaceholder")}
+              />
+              <ProcedureOperationPicker value={(field.value ?? []) as Tag[]} onChange={field.onChange} />
+            </div>
+          )} />
+        </div>
         <div className="space-y-1">
-          <Label>{t("postop.dispatchTo")}</Label>
+          <Label>{t("postop.dispatchTo")} <span className="text-red-500">*</span></Label>
           <Controller name="disposition" control={control} render={({ field }) => (
             <div className="flex gap-3">
               {dispositionOptions.map(opt => (
@@ -413,15 +382,15 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
         </div>
 
         {/* Handover checklist — WARD or PACU only */}
-        {(disposition === "WARD" || disposition === "PACU") && (
+        {showHandover && (disposition === "WARD" || disposition === "PACU") && (
           <div data-tour="postop-handover" className="space-y-4 pt-2 border-t border-slate-100 dark:border-[#2a2a2a]">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{locale === "bg" ? "Указания при предаване" : "Handover instructions"}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-              {HANDOVER_GROUPS.map(({ group, items }) => (
+              {HANDOVER_GROUPS.map(({ group, items: groupItems }) => (
                 <div key={group}>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">{group}</p>
                   <div className="space-y-1.5">
-                    {items.map(({ code, label }) => {
+                    {groupItems.map(({ code, label }) => {
                       const checked = handoverItems.includes(code)
                       return (
                         <label key={code} className="flex items-start gap-2 cursor-pointer group">
@@ -449,7 +418,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
           </div>
         )}
 
-        {(disposition === "WARD" || disposition === "PACU") && (
+        {showHandover && (disposition === "WARD" || disposition === "PACU") && (
         <div className="space-y-1">
           <Label>{t("postop.handoverNotes")}</Label>
           <Textarea

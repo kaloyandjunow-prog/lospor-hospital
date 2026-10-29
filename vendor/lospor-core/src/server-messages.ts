@@ -151,6 +151,20 @@ export const SERVER_MESSAGES_BG: Readonly<Record<string, string>> = Object.freez
   "timeline_rule": "Записът нарушава правилата на времевата линия",
   "timetable_data_retired": "Тази форма на запис вече не се приема; обновете приложението",
   "toUserId required": "Изисква се получател",
+  "theatreId required": "Изберете операционна зала",
+  "Invalid period": "Невалиден период: до 366 дни, началото преди края",
+  // Operating theatres (10.0.0): the codes the theatre route answers with.
+  OPERATING_THEATRES_OFF: "Операционните зали не се използват в тази болница",
+  THEATRE_LOCKED_INTRAOP_STARTED: "Операционната зала не може да се смени след началото на интраоперативния етап",
+  THEATRE_NOT_FOUND: "Тази операционна зала вече не се предлага",
+  THEATRE_CHANGED: "Междувременно залата на случая е сменена",
+  // A cancelled procedure (10.0.0).
+  CASE_CANCELLED: "Процедурата е отменена: възстановете случая, за да го редактирате",
+  CASE_ALREADY_CANCELLED: "Процедурата вече е отменена",
+  CASE_NOT_CANCELLED: "Процедурата не е отменена",
+  CANCELLATION_TOO_LATE: "Процедурата не може да се отмени след началото на анестезията",
+  CANCELLATION_REASON_REQUIRED: "Изберете причина за отмяната",
+  CANCELLATION_NOTE_REQUIRED: "Опишете причината за отмяната",
 
   // Fallbacks in the apps, used when the server gives no message
   "Cannot reach the application server.": "Няма връзка със сървъра на приложението.",

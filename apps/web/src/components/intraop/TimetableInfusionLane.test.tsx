@@ -34,7 +34,7 @@ function lane(events: LogEvent[], projectRunning: boolean) {
       discConfirmId={null} setDiscConfirmId={() => {}} hoverDiscontinue={null}
       drag={{ movingInf: null, movingInfCol: null, movingRatePill: null, extendingInf: null, extInfHover: null, extendingInfLeft: null, extInfLeftHover: null } as never}
       dragActions={new Proxy({}, { get: () => () => {} }) as never}
-      extendInfusion={() => {}} extendInfusionLeft={() => {}} applyInfRateChange={() => {}} onMoveBar={() => {}}
+      extendInfusion={() => {}} onEndDrop={() => {}} extendInfusionLeft={() => {}} applyInfRateChange={() => {}} onMoveBar={() => {}}
       onOpenMenu={onOpenMenu} projectRunning={projectRunning}
     />,
   )
@@ -61,5 +61,18 @@ describe("a running infusion in the cells after now, on the web", () => {
     const onOpenMenu = lane([propofol], true)
     fireEvent.click(screen.getAllByTestId("infusion-runs-on")[cell1555 - 2])
     expect(onOpenMenu).toHaveBeenCalledWith(expect.objectContaining({ segId: "prop", name: "Propofol", stopped: false, fromPillCol: cell1555 }))
+  })
+})
+
+describe("a stopped infusion on the web", () => {
+  it("keeps its rate strip, so the rates it ran at can still be followed", () => {
+    lane([propofol, { id: "r", ts: at(0), type: "infusion_rate", infId: "prop", name: "Propofol", rate: "6", unit: "mg/kg/hr" }, { id: "s", ts: at(5), type: "infusion_stop", infId: "prop" }], false)
+    expect(screen.getAllByText(/mg\/kg\/hr/).length).toBeGreaterThan(0)
+  })
+
+  it("opens the stopped menu from its rate strip", () => {
+    const onOpenMenu = lane([propofol, { id: "s", ts: at(5), type: "infusion_stop", infId: "prop" }], false)
+    fireEvent.click(screen.getAllByText(/mg\/kg\/hr/)[0])
+    expect(onOpenMenu).toHaveBeenCalledWith(expect.objectContaining({ segId: "prop", stopped: true }))
   })
 })

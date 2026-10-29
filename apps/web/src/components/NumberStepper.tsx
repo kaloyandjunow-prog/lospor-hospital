@@ -1,8 +1,8 @@
 "use client"
 
-/* eslint-disable react-hooks/refs */
 import { useEffect, useRef } from "react"
 import { Minus, Plus } from "lucide-react"
+import { HoldRepeatButton } from "@/components/HoldRepeatButton"
 
 interface Props {
   // null as well as undefined: a cleared clinical field is stored as null so
@@ -33,11 +33,6 @@ export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, uni
   useEffect(() => { valueRef.current = value }, [value])
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
 
-  const timerRef = useRef<{
-    initial: ReturnType<typeof setTimeout> | null
-    repeat:  ReturnType<typeof setInterval> | null
-  }>({ initial: null, repeat: null })
-
   function clamp(v: number, s = step) {
     const rounded = Math.round(v / s) * s
     const fixed = parseFloat(rounded.toFixed(10))
@@ -55,23 +50,6 @@ export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, uni
     onChangeRef.current(clamp(cur - s, s))
   }
 
-  function startHold(fn: () => void) {
-    fn()
-    timerRef.current.initial = setTimeout(() => {
-      timerRef.current.repeat = setInterval(fn, 120)
-      setTimeout(() => {
-        if (!timerRef.current.repeat) return
-        clearInterval(timerRef.current.repeat)
-        timerRef.current.repeat = setInterval(fn, 50)
-      }, 1500)
-    }, 400)
-  }
-
-  function stopHold() {
-    if (timerRef.current.initial) { clearTimeout(timerRef.current.initial);  timerRef.current.initial = null }
-    if (timerRef.current.repeat)  { clearInterval(timerRef.current.repeat);  timerRef.current.repeat  = null }
-  }
-
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value
     if (raw === "" || raw === "-") { onChangeRef.current(null); return }
@@ -83,25 +61,14 @@ export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, uni
     onChangeRef.current(clamp(parseFloat(e.target.value)))
   }
 
-  const btnClass = "flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] hover:border-slate-300 active:bg-slate-100 dark:active:bg-[#3a3a3a] select-none touch-none transition-colors"
-
-  function makeHandlers(fn: () => void) {
-    return {
-      onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
-        e.currentTarget.setPointerCapture(e.pointerId)
-        startHold(fn)
-      },
-      onPointerUp:     stopHold,
-      onPointerCancel: stopHold,
-    }
-  }
+  const btnClass = "flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] hover:border-slate-300 active:bg-slate-100 dark:active:bg-[#3a3a3a] transition-colors"
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <button type="button" tabIndex={-1} className={btnClass} {...makeHandlers(decrement)}>
+        <HoldRepeatButton tabIndex={-1} className={btnClass} onStep={decrement}>
           <Minus className="h-3.5 w-3.5" />
-        </button>
+        </HoldRepeatButton>
 
         <div className="flex items-center gap-1 flex-1">
           <input
@@ -118,9 +85,9 @@ export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, uni
           {unit && <span className="text-sm text-slate-400 whitespace-nowrap">{unit}</span>}
         </div>
 
-        <button type="button" tabIndex={-1} className={btnClass} {...makeHandlers(increment)}>
+        <HoldRepeatButton tabIndex={-1} className={btnClass} onStep={increment}>
           <Plus className="h-3.5 w-3.5" />
-        </button>
+        </HoldRepeatButton>
       </div>
 
       {showSlider && (

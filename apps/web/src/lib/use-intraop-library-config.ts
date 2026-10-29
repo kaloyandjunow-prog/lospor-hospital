@@ -18,6 +18,7 @@ import {
   visibleClinicalOptions,
 } from "@lospor/core/clinical-rules"
 import type { WeightBasisMap } from "@/lib/infusion-calc"
+import { drugSolid } from "@/lib/drug-tone"
 
 /**
  * The intraoperative option libraries, turned into the lookup tables the
@@ -36,14 +37,18 @@ export function useIntraopLibraryConfig({
   drugLibOpts,
   fluidLibOpts,
   infusionLibOpts,
+  dark = true,
 }: {
   drugLibOpts: Parameters<typeof doseCalcMap>[0]
   fluidLibOpts: Parameters<typeof quickNumberMap>[0]
   infusionLibOpts: Parameters<typeof routesMap>[0]
+  /** The theme in use: a hospital's own infusion colour is drawn readable in it. */
+  dark?: boolean
 }) {
   const { QUICK_DRUGS, HIDDEN_DRUGS, BOLUS_DOSES, BOLUS_CONFIGS, LA_CONCENTRATIONS, DRUG_ROUTES, QUICK_DOSES, BOLUS_ROUTE_PROFILES } = useMemo(() => {
-    const byGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string }[] }>()
-    const hiddenByGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string; manualEntryOnly: true }[] }>()
+    // customColor: the hospital's own colour for the drug (10.0.0), else its group's.
+    const byGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string; customColor?: string }[] }>()
+    const hiddenByGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string; manualEntryOnly: true; customColor?: string }[] }>()
     // Only the picker hides ruleset-hidden drugs; the maps below stay complete so
     // a drug already recorded on the case keeps its units, codes and colour.
     for (const o of visibleClinicalOptions(drugLibOpts)) {
@@ -52,6 +57,7 @@ export function useIntraopLibraryConfig({
       byGroup.get(cat)!.drugs.push({
         name: o.label,
         unit: metadataString(o.metadata, "unit") ?? "mg",
+        ...(o.customColor ? { customColor: o.customColor } : {}),
       })
     }
     // A hidden canonical drug is absent from routine scenarios, favourites and
@@ -63,6 +69,7 @@ export function useIntraopLibraryConfig({
         name: o.label,
         unit: metadataString(o.metadata, "unit") ?? "mg",
         manualEntryOnly: true,
+        ...(o.customColor ? { customColor: o.customColor } : {}),
       })
     }
     return {
@@ -115,7 +122,7 @@ export function useIntraopLibraryConfig({
   }, [fluidLibOpts])
 
   const { INFUSION_CONFIGS, INFUSION_WEIGHT_BASIS, INFUSION_ROUTES, QUICK_RATES, INFUSION_ROUTE_PROFILES } = useMemo(() => {
-    const configs: Record<string, { units: string[]; min: number; max: number; step: number; color: string; suggestedRate?: number; group?: string }> = {}
+    const configs: Record<string, { units: string[]; min: number; max: number; step: number; color: string; customColor?: string; suggestedRate?: number; group?: string }> = {}
     const profiles = baseProfilesMap(infusionLibOpts)
     for (const o of infusionLibOpts) {
       const profile = profiles[o.label]
@@ -124,7 +131,9 @@ export function useIntraopLibraryConfig({
         min: profile?.min ?? 0,
         max: profile?.max ?? 100,
         step: profile?.step ?? 1,
-        color: o.color ?? "#64748b",
+        // The hospital's own colour, drawn readable in the theme in use (10.0.0).
+        color: o.customColor ? drugSolid(o.customColor, dark) : o.color ?? "#64748b",
+        ...(o.customColor ? { customColor: o.customColor } : {}),
         suggestedRate: profile?.suggestedRate,
         // The menu group, so the picker can be browsed by group as drugs are.
         group: o.group ?? undefined,
@@ -138,7 +147,7 @@ export function useIntraopLibraryConfig({
       QUICK_RATES: quickNumberMap(infusionLibOpts),
       INFUSION_ROUTE_PROFILES: routeProfilesMap(infusionLibOpts),
     }
-  }, [infusionLibOpts])
+  }, [infusionLibOpts, dark])
 
   return {
     QUICK_DRUGS, HIDDEN_DRUGS, BOLUS_DOSES, BOLUS_CONFIGS,

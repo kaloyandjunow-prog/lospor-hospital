@@ -27,8 +27,8 @@ describe("the paediatric reference on the PWA intraop screen", () => {
   it("reads the nil-by-mouth assignment as clock times once surgery has started", () => {
     const preop = { clinicalMode: "PEDIATRIC", weight: 12, pediatricFasting: [{ category: "CLEAR_FLUIDS", hoursBefore: 1 }, { category: "BREAST_MILK", hoursBefore: 10 }] } as never
     const shown = text(render(<PediatricIntraopReference language="bg" preop={preop} surgeryStart={new Date("2026-10-16T05:30:00Z")} timezone="Europe/Sofia" />))
-    expect(shown).toContain(": до 07:30 (1 ч преди)")
-    expect(shown).toContain(": до 22:30 (10 ч преди) · предния ден")
+    expect(shown).toContain(": до 07:30 (1 h преди)")
+    expect(shown).toContain(": до 22:30 (10 h преди) · предния ден")
     expect(text(render(<PediatricIntraopReference language="en" preop={preop} />))).not.toContain("by 07:30")
   })
 })

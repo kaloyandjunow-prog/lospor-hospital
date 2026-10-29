@@ -1,3 +1,4 @@
+import { hasPerformedProcedure, hasPlannedProcedure } from "./procedure-codes"
 import { isPediatricAge, type ClinicalMode, type PediatricAgeUnit } from "./pediatric"
 import { intraopEventsAfter, intraopUnconfirmedStops } from "./intraop-commands"
 import { parseLogEvents } from "./intraop-types"
@@ -41,7 +42,9 @@ export type ClinicalIssueCode =
   | "invalid_intraop_times"
   | "missing_postop"
   | "missing_aldrete"
+  | "missing_steward"
   | "missing_disposition"
+  | "missing_performed_procedure"
   | "unacknowledged_allergy_conflict"
 
 export type ClinicalIssue = {
@@ -63,7 +66,8 @@ export type ClinicalReadinessResult = ClinicalValidationResult & {
   warnings: ClinicalIssue[]
 }
 
-type NumberRule = { min: number; max: number; integer?: boolean }
+/** `step`: the value must be a multiple of it (FPS-R's six faces score 0, 2 ... 10). */
+type NumberRule = { min: number; max: number; integer?: boolean; step?: number }
 
 const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
   preop: {
@@ -119,6 +123,10 @@ const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
     aldreteConsciousness: { min: 0, max: 2, integer: true },
     aldreteSpO2: { min: 0, max: 2, integer: true },
     aldreteTotal: { min: 0, max: 10, integer: true },
+    stewardConsciousness: { min: 0, max: 2, integer: true },
+    stewardAirway: { min: 0, max: 2, integer: true },
+    stewardMovement: { min: 0, max: 2, integer: true },
+    stewardTotal: { min: 0, max: 6, integer: true },
     recoveryBpSystolic: { min: 10, max: 300, integer: true },
     recoveryBpDiastolic: { min: 5, max: 200, integer: true },
     recoveryHeartRate: { min: 10, max: 350, integer: true },
@@ -126,6 +134,25 @@ const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
     painScoreNRS: { min: 0, max: 10, integer: true },
     pediatricPainScore: { min: 0, max: 10, integer: true },
     paedScore: { min: 0, max: 20, integer: true },
+    flaccFace: { min: 0, max: 2, integer: true },
+    flaccLegs: { min: 0, max: 2, integer: true },
+    flaccActivity: { min: 0, max: 2, integer: true },
+    flaccCry: { min: 0, max: 2, integer: true },
+    flaccConsolability: { min: 0, max: 2, integer: true },
+    flaccTotal: { min: 0, max: 10, integer: true },
+    fpsrScore: { min: 0, max: 10, integer: true, step: 2 },
+    nipsFacialExpression: { min: 0, max: 1, integer: true },
+    nipsCry: { min: 0, max: 2, integer: true },
+    nipsBreathing: { min: 0, max: 1, integer: true },
+    nipsArms: { min: 0, max: 1, integer: true },
+    nipsLegs: { min: 0, max: 1, integer: true },
+    nipsArousal: { min: 0, max: 1, integer: true },
+    nipsTotal: { min: 0, max: 7, integer: true },
+    paedEyeContact: { min: 0, max: 4, integer: true },
+    paedPurposeful: { min: 0, max: 4, integer: true },
+    paedAware: { min: 0, max: 4, integer: true },
+    paedRestless: { min: 0, max: 4, integer: true },
+    paedInconsolable: { min: 0, max: 4, integer: true },
     temperatureCelsius: { min: 25, max: 45 },
   },
 }
@@ -162,8 +189,13 @@ export const CLINICAL_CLEARABLE_FIELDS: Readonly<Record<ClinicalSection, readonl
   postop: [
     "aldreteActivity", "aldreteRespiration", "aldreteCirculation",
     "aldreteConsciousness", "aldreteSpO2",
+    "stewardConsciousness", "stewardAirway", "stewardMovement",
     "recoveryBpSystolic", "recoveryBpDiastolic", "recoveryHeartRate", "recoverySpO2",
     "painScoreNRS", "pediatricPainScore", "paedScore", "temperatureCelsius",
+    "flaccFace", "flaccLegs", "flaccActivity", "flaccCry", "flaccConsolability",
+    "fpsrScore",
+    "nipsFacialExpression", "nipsCry", "nipsBreathing", "nipsArms", "nipsLegs", "nipsArousal",
+    "paedEyeContact", "paedPurposeful", "paedAware", "paedRestless", "paedInconsolable",
     "ponv",
   ],
 }
@@ -278,7 +310,7 @@ function validatePatch(section: ClinicalSection, patch: Record<string, unknown>)
       continue
     }
     const normalized = rule.integer ? Math.round(value) : value
-    if (normalized < rule.min || normalized > rule.max) {
+    if (normalized < rule.min || normalized > rule.max || (rule.step && normalized % rule.step !== 0)) {
       issues.push(issue("out_of_range", field, { min: rule.min, max: rule.max }))
     }
   }
@@ -390,7 +422,7 @@ export function evaluatePreopReadiness(preop: Record<string, unknown> | null | u
   if (!isNonEmptyArray(preop.diagnoses) && !String(preop.diagnosis ?? "").trim()) {
     issues.push(issue("missing_diagnosis", "diagnoses"))
   }
-  if (!isNonEmptyArray(preop.procedures) && !String(preop.plannedProcedure ?? "").trim()) {
+  if (!hasPlannedProcedure(preop)) {
     issues.push(issue("missing_procedure", "procedures"))
   }
   if (
@@ -523,6 +555,8 @@ export type PreopAllocationInput = {
   diagnoses?: unknown[] | null
   plannedProcedure?: string | null
   procedures?: unknown[] | null
+  /** The planned procedure is not yet known (10.0.0). */
+  procedureUndetermined?: boolean | null
   asaScore?: string | null
   sex?: string | null
   ageYears?: number | null
@@ -553,7 +587,7 @@ export type PreopAllocationInput = {
 export function preopReadyForAllocation(preop: PreopAllocationInput | null | undefined): boolean {
   if (!preop) return false
   const hasDiagnosis = !!preop.diagnosis || (preop.diagnoses?.length ?? 0) > 0
-  const hasProcedure = !!preop.plannedProcedure || (preop.procedures?.length ?? 0) > 0
+  const hasProcedure = hasPlannedProcedure(preop)
   const hasAge = preop.ageYears != null || (preop.ageValue != null && !!preop.ageUnit)
   // UNKNOWN is a truthy string meaning "nobody has recorded this yet", so it
   // has to fail here exactly as a blank does.
@@ -561,15 +595,24 @@ export function preopReadyForAllocation(preop: PreopAllocationInput | null | und
   return hasDiagnosis && hasProcedure && !!preop.asaScore && hasAge && hasSex
 }
 
-export function evaluatePostopReadiness(postop: Record<string, unknown> | null | undefined): ClinicalValidationResult {
+export function evaluatePostopReadiness(
+  postop: Record<string, unknown> | null | undefined,
+  clinicalMode: ClinicalMode = "ADULT",
+): ClinicalValidationResult {
   if (!postop) return { valid: false, issues: [issue("missing_postop", "postop")] }
   const issues: ClinicalIssue[] = []
   // Every component, not merely one. Accepting a single subscore let a partial
   // assessment finalise, and the missing components were then counted as zero
   // — documenting a patient nobody had looked at as unresponsive and apnoeic.
-  const missingAldrete = ALDRETE_FIELDS.filter(field => postop[field] == null)
-  if (missingAldrete.length) {
-    issues.push(issue("missing_aldrete", `postop.${missingAldrete[0]}`))
+  // A child is scored on Steward instead of Aldrete (10.0.0), and only on it.
+  if (recoveryScoreFor(clinicalMode) === "STEWARD") {
+    const missingSteward = STEWARD_FIELDS.filter(field => postop[field] == null)
+    if (missingSteward.length) issues.push(issue("missing_steward", `postop.${missingSteward[0]}`))
+  } else {
+    const missingAldrete = ALDRETE_FIELDS.filter(field => postop[field] == null)
+    if (missingAldrete.length) {
+      issues.push(issue("missing_aldrete", `postop.${missingAldrete[0]}`))
+    }
   }
   if (!postop.disposition) issues.push(issue("missing_disposition", "postop.disposition"))
   return { valid: issues.length === 0, issues }
@@ -622,7 +665,12 @@ export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalVal
   if (input.intraop && hasUnconfirmedStops(input.intraop)) {
     issues.push(issue("unconfirmed_stops", "intraop.keyEvents"))
   }
-  issues.push(...evaluatePostopReadiness(input.postop).issues)
+  issues.push(...evaluatePostopReadiness(input.postop, input.clinicalMode).issues)
+  // A procedure planned as not yet known is finalised only once the
+  // procedure done is recorded (10.0.0).
+  if (input.postop && input.preop?.procedureUndetermined === true && !hasPerformedProcedure(input.postop)) {
+    issues.push(issue("missing_performed_procedure", "postop.performedProcedures"))
+  }
   if (hasUnacknowledgedAllergyConflict(input.preop, input.intraop)) {
     issues.push(issue("unacknowledged_allergy_conflict", "intraop.medications", { severity: "warning" }))
   }
@@ -704,7 +752,7 @@ export function evaluatePreopSectionCompletion(
   const caseComplete = (
     isNonEmptyArray(value.diagnoses) || Boolean(String(value.diagnosis ?? "").trim())
   ) && (
-    isNonEmptyArray(value.procedures) || Boolean(String(value.plannedProcedure ?? "").trim())
+    hasPlannedProcedure(value)
   )
   const physicalComplete = (
     value.bpUnobtainable === true
@@ -721,7 +769,7 @@ export function evaluatePreopSectionCompletion(
       : hasAnyClinicalAge(value) || filled("sex", "heightCm", "weightKg") ? "incomplete" : "empty",
     case_details: caseComplete
       ? "complete"
-      : filled("diagnoses", "diagnosis", "procedures", "plannedProcedure") ? "incomplete" : "empty",
+      : filled("diagnoses", "diagnosis", "procedures", "plannedProcedure", "procedureUndetermined") ? "incomplete" : "empty",
     medical_history: filled("comorbidities", "allergies", "smoking", "substanceAbuse") ? "complete" : "optional",
     current_medications: filled("currentMedications") ? "complete" : "optional",
     anamnesis: filled(
@@ -739,4 +787,4 @@ export function evaluatePreopSectionCompletion(
     risk_scores: value.asaScore ? "complete" : "incomplete",
   }
 }
-import { ALDRETE_FIELDS, POSTOP_DISPOSITIONS } from "./postop"
+import { ALDRETE_FIELDS, POSTOP_DISPOSITIONS, STEWARD_FIELDS, recoveryScoreFor } from "./postop"

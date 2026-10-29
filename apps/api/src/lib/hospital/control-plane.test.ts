@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   research: vi.fn(),
   externalAi: vi.fn(),
   baselines: vi.fn(),
+  caseVisibility: vi.fn(),
   preopProfile: vi.fn(),
   hospital: vi.fn(() => true),
   patientIdentifier: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
     centralExportPolicy: { findUnique: mocks.policy },
     centralDeliveryBatch: { findMany: mocks.batches, groupBy: mocks.queues },
     clinicalGuidancePolicy: { findUnique: mocks.guidance },
+    hospitalCaseVisibilityPolicy: { findUnique: mocks.caseVisibility },
     // A site with nothing mapped yet, which is what every site is on its first
     // day. The view has to hold up with all three lists empty.
     hospitalEhrLabCodeMap: { findMany: async () => [] },
@@ -100,6 +102,7 @@ describe("privacy-safe Central Status view", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.hospital.mockReturnValue(true)
+    mocks.caseVisibility.mockResolvedValue(null)
     mocks.installation.mockResolvedValue({
       siteId: "site-1",
       siteCode: "SITE_1",

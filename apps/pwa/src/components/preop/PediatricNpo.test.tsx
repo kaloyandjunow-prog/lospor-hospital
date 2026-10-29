@@ -5,7 +5,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { PreferencesProvider } from "@/lib/preferences-context"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import { pressByText, queryByText, render } from "@/test/render"
-import { PediatricRiskAndCalculators } from "./PediatricPreopSections"
+import { PediatricFastingFields } from "./PediatricPreopSections"
 
 vi.mock("@expo/vector-icons/Ionicons", () => ({ default: () => null }))
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
@@ -15,7 +15,8 @@ let latest: PreopFormInput["pediatricFasting"] = []
 function Harness() {
   const { control, setValue, watch } = useForm<PreopFormInput>({ defaultValues: { clinicalMode: "PEDIATRIC", ageValue: 4, ageUnit: "YEARS", pediatricFasting: [] } as never })
   latest = watch("pediatricFasting")
-  return <PediatricRiskAndCalculators control={control} setValue={setValue} tc={key => key} language="en" />
+  // Its own section since 10.0.0, no longer inside the risk scores.
+  return <PediatricFastingFields control={control} setValue={setValue} language="en" />
 }
 
 describe("the nil-by-mouth assignment on the PWA", () => {

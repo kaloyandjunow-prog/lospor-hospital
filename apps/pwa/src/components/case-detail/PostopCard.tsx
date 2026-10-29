@@ -8,8 +8,9 @@ import {
   formatHandoverItem,
   type CaseData,
 } from "@/lib/case-detail-summary"
-import { aldreteBand, aldreteTotal } from "@lospor/core/postop"
+import { aldreteBand, aldreteTotal, stewardBand, stewardTotal } from "@lospor/core/postop"
 import { vitalAbbreviations } from "@lospor/core/intraop-summary"
+import { painSummaryEntries, type PainRecord } from "@lospor/core/postop-pain"
 
 type AldreteCriterion = {
   field: keyof NonNullable<CaseData["postop"]>
@@ -17,8 +18,18 @@ type AldreteCriterion = {
   descriptions: [string, string, string]
 }
 
-export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
+export function PostopCard({ postop, tc, t, pediatric = false }: {
+  postop: CaseData["postop"]
+  tc: (key: ClinicalStringKey) => string
+  t: (key: TranslationKey) => string
+  /** A child's case: scored on Steward instead of Aldrete (10.0.0). */
+  pediatric?: boolean
+}) {
   const { language } = usePreferences()
+  const performedList = (postop as { performedProceduresJson?: unknown } | null | undefined)?.performedProceduresJson
+  const performed = Array.isArray(performedList)
+    ? performedList.map(item => (item as { label?: unknown })?.label).filter((label): label is string => typeof label === "string" && !!label.trim()).join("; ")
+    : ""
 
   const ALDRETE_CRITERIA: AldreteCriterion[] = [
     { field: "aldreteActivity", label: tc("aldreteActivity"), descriptions: [tc("aldreteNoMovement"), tc("aldrete2Extremities"), tc("aldreteAllExtremities")] },
@@ -26,6 +37,11 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
     { field: "aldreteCirculation", label: tc("aldreteCirculation"), descriptions: [tc("aldreteBP50"), tc("aldreteBP20to49"), tc("aldreteBP20")] },
     { field: "aldreteConsciousness", label: tc("aldreteConsciousness"), descriptions: [tc("aldreteNoResponse"), tc("aldreteArousable"), tc("aldreteAwake")] },
     { field: "aldreteSpO2", label: tc("aldreteSpO2"), descriptions: [tc("aldreteSpO2Low"), tc("aldreteSpO2Mid"), tc("aldreteSpO2High")] },
+  ]
+  const STEWARD_CRITERIA: AldreteCriterion[] = [
+    { field: "stewardConsciousness", label: tc("stewardConsciousness"), descriptions: [tc("stewardNotResponding"), tc("stewardRespondsToStimuli"), tc("stewardAwake")] },
+    { field: "stewardAirway", label: tc("stewardAirway"), descriptions: [tc("stewardAirwayMaintained"), tc("stewardGoodAirway"), tc("stewardCoughsCries")] },
+    { field: "stewardMovement", label: tc("stewardMovement"), descriptions: [tc("stewardNotMoving"), tc("stewardNonPurposeful"), tc("stewardPurposeful")] },
   ]
 
   if (!postop) {
@@ -38,8 +54,10 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
 
   // Null until all five components are recorded. A stored aldreteTotal from
   // before this distinction existed is still shown as-is.
-  const total = postop.aldreteTotal ?? aldreteTotal(postop)
-  const totalStatus = total == null ? null : aldreteBand(total)
+  const total = pediatric
+    ? postop.stewardTotal ?? stewardTotal(postop)
+    : postop.aldreteTotal ?? aldreteTotal(postop)
+  const totalStatus = total == null ? null : pediatric ? stewardBand(total) : aldreteBand(total)
   const totalColor = totalStatus === null
     ? colors.textMuted
     : totalStatus === "ready"
@@ -60,7 +78,7 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
 
   return (
     <SummaryCard title={tc("cardPostop")} defaultOpen={false}>
-      {ALDRETE_CRITERIA.map(c => (
+      {(pediatric ? STEWARD_CRITERIA : ALDRETE_CRITERIA).map(c => (
         <AldreteRow
           key={String(c.field)}
           label={c.label}
@@ -75,7 +93,7 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
         paddingVertical: 12,
       }}>
         <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "800" }}>
-          {tc("summaryAldrete")}
+          {tc(pediatric ? "summarySteward" : "summaryAldrete")}
         </Text>
         <View style={{
           paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999,
@@ -83,7 +101,7 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
           borderWidth: 1, borderColor: withAlpha(totalColor, "66"),
         }}>
           <Text style={{ color: totalColor, fontSize: 14, fontWeight: "900" }}>
-            {total}/10 — {totalLabel}
+            {total}/{pediatric ? 6 : 10} — {totalLabel}
           </Text>
         </View>
       </View>
@@ -140,19 +158,20 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
             <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).temp} °C</Text>
           </View>
         )}
-        {postop.painScoreNRS != null && (
-          <View style={{
+        {/* Every pain and delirium scale scored (10.0.0). */}
+        {painSummaryEntries(postop as PainRecord, language === "bg" ? "bg" : "en").map(entry => (
+          <View key={entry.key} style={{
             flex: 1, minWidth: 70,
             backgroundColor: withAlpha(colors.warning, "11"),
             borderWidth: 1, borderColor: withAlpha(colors.warning, "44"),
             borderRadius: 10, padding: 8, alignItems: "center",
           }}>
             <Text style={{ color: colors.warning, fontSize: 16, fontWeight: "800" }}>
-              {postop.painScoreNRS}/10
+              {entry.value.split(" · ")[0].replace(" / ", "/")}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{tc("summaryPain")} NRS</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{entry.key === "PAED" ? entry.label : `${tc("summaryPain")} ${entry.label}`}</Text>
           </View>
-        )}
+        ))}
         {postop.ponv != null && (
           <View style={{
             flex: 1, minWidth: 60,
@@ -170,6 +189,14 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
           </View>
         )}
       </View>
+
+      {/* The procedure done (10.0.0), as the web summary shows it. */}
+      {performed ? (
+        <View testID="postop-performed" style={{ marginBottom: 10 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{tc("performedProcedureLabel")}</Text>
+          <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }}>{performed}</Text>
+        </View>
+      ) : null}
 
       {postop.disposition && (
         <View style={{

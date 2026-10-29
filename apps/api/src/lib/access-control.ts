@@ -1,8 +1,10 @@
 import { Prisma } from "@/generated/prisma/client"
+import { isHospitalDeployment } from "./hospital/deployment"
 
 export type AuthUser = {
   id: string
   role?: string | null
+  accountKind?: string | null
   institutionId?: string | null
 }
 
@@ -11,6 +13,23 @@ type CaseAccessRecord = {
   createdById?: string | null
   institutionId?: string | null
   user?: Record<string, unknown> | null
+}
+
+function isHospitalWideCaseViewer(
+  user: AuthUser,
+  enabled: boolean,
+): boolean {
+  return isHospitalDeployment()
+    && enabled
+    && (user.role === "MEMBER" || user.role === "HEAD_OF_DEPT" || user.role === "ADMIN")
+    && user.accountKind !== "RESEARCH_ONLY"
+    && !!user.institutionId
+}
+
+async function loadCaseVisibilityEnabled(): Promise<boolean> {
+  if (!isHospitalDeployment()) return false
+  const { caseVisibilityCapabilityState } = await import("./hospital/case-visibility")
+  return (await caseVisibilityCapabilityState()).enabled
 }
 
 // Centralizes the `!user || user.role !== "X"` check that was copy-pasted
@@ -23,9 +42,19 @@ export function requireRole<U extends { role?: string | null }>(
   return !!user && !!user.role && roles.includes(user.role)
 }
 
-export function canReadCase(user: AuthUser, record: CaseAccessRecord): boolean {
+function canReadCaseWithVisibility(
+  user: AuthUser,
+  record: CaseAccessRecord,
+  caseVisibilityEnabled: boolean,
+): boolean {
   if (user.role === "ADMIN") return true
   if (record.userId === user.id) return true
+  if (isHospitalWideCaseViewer(user, caseVisibilityEnabled)) {
+    // The appliance overlay widens reading only. A clinician may see a case
+    // from their hospital, or a case they created, but not a case from another
+    // institution. Research-only accounts never enter this branch.
+    return record.createdById === user.id || record.institutionId === user.institutionId
+  }
   if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
     // The case's own institution, not the owner's. This used to fall back to
     // `record.user.institutionId` when the case had none, which handed a head
@@ -42,6 +71,15 @@ export function canReadCase(user: AuthUser, record: CaseAccessRecord): boolean {
   return false
 }
 
+export async function canReadCase(
+  user: AuthUser,
+  record: CaseAccessRecord,
+  caseVisibilityEnabled?: boolean,
+): Promise<boolean> {
+  const enabled = caseVisibilityEnabled ?? await loadCaseVisibilityEnabled()
+  return canReadCaseWithVisibility(user, record, enabled)
+}
+
 export function canWriteCase(user: AuthUser, record: CaseAccessRecord): boolean {
   if (user.role === "ADMIN") return true
   if (record.userId === user.id) return true
@@ -50,9 +88,14 @@ export function canWriteCase(user: AuthUser, record: CaseAccessRecord): boolean 
     && record.institutionId === user.institutionId
 }
 
-export function caseCapabilitiesForUser(user: AuthUser, record: CaseAccessRecord) {
+export async function caseCapabilitiesForUser(
+  user: AuthUser,
+  record: CaseAccessRecord,
+  caseVisibilityEnabled?: boolean,
+) {
+  const enabled = caseVisibilityEnabled ?? await loadCaseVisibilityEnabled()
   return {
-    canRead: canReadCase(user, record),
+    canRead: canReadCaseWithVisibility(user, record, enabled),
     canWrite: canWriteCase(user, record),
     isCreator: record.createdById === user.id,
     isAssignee: record.userId === user.id,
@@ -128,7 +171,11 @@ export function headOfDeptCaseScope(institutionId: string): Prisma.CaseWhereInpu
   return { institutionId }
 }
 
-export function caseReadWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereInput {
+function caseReadWhereForUserWithVisibility(
+  user: AuthUser,
+  id: string | undefined,
+  caseVisibilityEnabled: boolean,
+): Prisma.CaseWhereInput {
   const base = id ? { id } : {}
   if (user.role === "ADMIN") return base
   if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
@@ -141,6 +188,16 @@ export function caseReadWhereForUser(user: AuthUser, id?: string): Prisma.CaseWh
     // rather than adding to it.
     return { ...base, OR: [{ userId: user.id }, headOfDeptCaseScope(user.institutionId)] }
   }
+  if (isHospitalWideCaseViewer(user, caseVisibilityEnabled)) {
+    return {
+      ...base,
+      OR: [
+        { userId: user.id },
+        { createdById: user.id },
+        { institutionId: user.institutionId! },
+      ],
+    }
+  }
   if (user.institutionId) {
     return {
       ...base,
@@ -151,6 +208,21 @@ export function caseReadWhereForUser(user: AuthUser, id?: string): Prisma.CaseWh
     }
   }
   return { ...base, userId: user.id }
+}
+
+export async function caseReadWhereForUser(
+  user: AuthUser,
+  id?: string,
+  caseVisibilityEnabled?: boolean,
+): Promise<Prisma.CaseWhereInput> {
+  const enabled = caseVisibilityEnabled ?? await loadCaseVisibilityEnabled()
+  return caseReadWhereForUserWithVisibility(user, id, enabled)
+}
+
+/** The personal-data export must never inherit the hospital-wide read overlay. */
+export function caseOwnWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereInput {
+  const base = id ? { id } : {}
+  return { ...base, OR: [{ userId: user.id }, { createdById: user.id }] }
 }
 
 export function caseWriteWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereInput {

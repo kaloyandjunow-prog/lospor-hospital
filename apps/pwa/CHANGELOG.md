@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Mobile
 
+## [10.0.0] - 2026-10-28
+
+### Added
+
+- **Preoperative workflow:** section-based forms, ward and medication orders,
+  consultation specialties, and an explicit “procedure not yet determined”
+  state.
+- **Recovery and operating workflow:** paediatric Steward and pain controls,
+  Broselow guidance, operating-theatre assignment, unit indicators, drug
+  colours and cancellation of a procedure before anaesthesia starts.
+- **Intraoperative details:** agent percentage changes and the corresponding
+  timetable and case-summary behavior.
+
+### Changed
+
+- Case detail, dashboard paging, form sections and accessibility controls were
+  refined, with matching English and Bulgarian clinical copy.
+- Added workflow controls are available through the mobile case actions,
+  section navigation, hold/repeat interaction, UI scale preferences and
+  intraoperative touch/timetable behavior.
+
 ## [9.15.1] - 2026-10-20
 
 On Core 9.15.0.

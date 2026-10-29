@@ -10,6 +10,8 @@ export const RESEARCH_CASE_STATUSES = [
   "IN_PROGRESS",
   "AWAITING_REVIEW",
   "COMPLETE",
+  // A case whose procedure was cancelled (10.0.0): exported with its cancellation.
+  "CANCELLED",
 ] as const
 
 export const RESEARCH_METRIC_IDS = [
@@ -216,6 +218,10 @@ export type ResearchCaseSummary = {
   /** Human-facing opaque research identifier (`RC-<uuid>`). */
   researchId: string
   status: ResearchCaseStatus
+  /** A cancelled procedure's reason (Core CANCELLATION_REASONS), when status is CANCELLED (10.0.0). */
+  cancellationReason?: string | null
+  /** The planned procedure was not yet known: decided during surgery (10.0.0). */
+  procedureUndetermined?: boolean
   clinicalMode: ClinicalMode
   clinicalRulesVersion: string | null
   period: string | null

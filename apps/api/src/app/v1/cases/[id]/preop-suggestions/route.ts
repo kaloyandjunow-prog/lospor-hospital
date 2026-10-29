@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id },
     select: { userId: true, createdById: true, institutionId: true, preop: { select: { id: true } } },
   })
-  if (!record || !canReadCase(user, record)) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!record || !await canReadCase(user, record)) return NextResponse.json({ error: "Not found" }, { status: 404 })
   // No assessment, no suggestions. `preopId: undefined` is not a filter to
   // Prisma -- it is the absence of one, and returned every case's suggestions.
   if (!record.preop) return NextResponse.json([])
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         select: { userId: true, createdById: true, institutionId: true, status: true, preop: { select: { id: true } } },
       })
       if (!record) return null
-      if (record.status === "COMPLETE") return "FROZEN" as const
+      if (record.status === "COMPLETE" || record.status === "CANCELLED") return "FROZEN" as const
       if (!await canWriteCaseWithOwnerFallback(tx, user, record)) return "FORBIDDEN" as const
       if (!record.preop) return "NO_PREOP" as const
       return generatePreopSuggestions(tx, { caseId: id, preopId: record.preop.id, actorId: user.id })

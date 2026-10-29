@@ -1,4 +1,5 @@
 import type { PediatricFastingCategory } from "@lospor/core/pediatric"
+import type { PremedicationOrders } from "@lospor/core/premedication"
 
 /**
  * The slice of the preoperative assessment the intraoperative screen shows.
@@ -34,4 +35,6 @@ export type PreopSummary = {
   emergencySurgery?: boolean | null
   /** The child's nil-by-mouth assignment, read as clock times once surgery starts. */
   pediatricFasting?: { category: PediatricFastingCategory; hoursBefore: number }[] | null
+  /** The premedication ordered at the preop visit; the record's premedication starts from it. */
+  premedicationOrders?: PremedicationOrders | null
 }

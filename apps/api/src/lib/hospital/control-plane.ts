@@ -26,6 +26,7 @@ import {
   sealExternalAiCredential,
 } from "./external-ai-policy"
 import { patientIdentifierControlView } from "./patient-identifier-policy"
+import { caseVisibilityControlView } from "./case-visibility"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
 import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
@@ -103,6 +104,11 @@ export const centralClinicalPolicySchema = z.object({
 export const guidancePolicySchema = z.object({
   adultEnabled: z.boolean(),
   pediatricEnabled: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const caseVisibilityPolicySchema = z.object({
+  enabled: z.boolean(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -529,6 +535,38 @@ export async function setGuidancePolicy(input: z.infer<typeof guidancePolicySche
     })
     return policy
   })
+}
+
+export async function setCaseVisibilityPolicy(
+  input: z.infer<typeof caseVisibilityPolicySchema>,
+) {
+  const parsed = caseVisibilityPolicySchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const now = new Date()
+    const policy = await tx.hospitalCaseVisibilityPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        enabled: parsed.enabled,
+        changedAt: now,
+        changedById: actor.id,
+        changeReason: parsed.reason,
+      },
+      update: {
+        enabled: parsed.enabled,
+        changedAt: now,
+        changedById: actor.id,
+        changeReason: parsed.reason,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_CASE_VISIBILITY_POLICY_UPDATE", policy.id, {
+      enabled: policy.enabled,
+      reasonRecorded: Boolean(parsed.reason),
+      readOnlyOverlay: true,
+    })
+    return policy
+  }, serializableTransaction)
 }
 
 /**
@@ -1455,10 +1493,11 @@ export async function updateHospitalPreopProfile(
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrVitalCodes, ehrMedicationCodes, ehrCodeSystems, preoperative] = await Promise.all([
+  const [research, central, guidance, caseVisibility, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrVitalCodes, ehrMedicationCodes, ehrCodeSystems, preoperative] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
+    caseVisibilityControlView(prisma),
     externalAiControlView(prisma),
     assessHospitalClinicalBaselines(prisma),
     patientIdentifierControlView(prisma),
@@ -1495,6 +1534,7 @@ export async function hospitalControlPlaneView() {
       updatedAt: guidance.updatedAt?.toISOString() ?? null,
       baselines,
     },
+    caseVisibility,
     externalAi,
     patientIdentifier,
     ehrTransport,

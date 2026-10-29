@@ -115,7 +115,7 @@ describe("layout E: a copy for the hospital and one for the patient", () => {
     renderPages(data({ ageValue: 7, ageUnit: "YEARS", ageYears: 7, pediatricFasting: [{ category: "BREAST_MILK", hoursBefore: 4 }] }, {}, "E"))
     expect(screen.getByTestId("preop-summary-acknowledgement").textContent).toContain("анестезията на детето си")
     expect(screen.getByTestId("consent-signers").textContent).toContain("Родител")
-    expect(screen.getByTestId("preop-patient-fasting").textContent).toContain("Кърма4 ч преди операцията")
+    expect(screen.getByTestId("preop-patient-fasting").textContent).toContain("Кърма4 h преди операцията")
     const keep = screen.getByTestId("consent-keep")
     expect(keep.textContent).toContain("Екземпляр за родителя")
     expect(keep.querySelector("[data-testid=consent-signers]")).toBeNull()
@@ -178,5 +178,103 @@ describe("the consent's fasting list", () => {
     expect(consent).toContain("вода или чай — 1 час преди анестезията;")
     expect(consent).toContain("друга храна или краве мляко — 6 часа преди анестезията.")
     expect(consent).not.toContain("друга храна — 8 часа")
+  })
+})
+
+describe("the Broselow colour", () => {
+  const child = { ageValue: 4, ageUnit: "YEARS", ageYears: 4, heightCm: 100, weightKg: 16 }
+
+  it("is printed beside a child's measurements, named so a black-and-white copy still says it", () => {
+    render(<PreopSummarySheet locale="bg" printedAt={PRINTED} data={data(child, { clinicalMode: "PEDIATRIC" })} />)
+    const badge = screen.getByTestId("broselow-badge")
+    expect(badge.dataset.zone).toBe("WHITE")
+    expect(badge.textContent).toContain("Broselow Бял")
+    expect(badge.textContent).toContain("по ръст")
+  })
+
+  it("is on the children's Document №2 as well, and in English", () => {
+    renderPages(data({ ...child, heightCm: 115 }, { clinicalMode: "PEDIATRIC" }, "A"), "en")
+    const badge = screen.getByTestId("broselow-badge")
+    expect(badge.dataset.zone).toBe("BLUE")
+    expect(badge.textContent).toContain("Broselow Blue")
+  })
+
+  it("falls back to weight when no height was recorded", () => {
+    render(<PreopSummarySheet locale="en" printedAt={PRINTED} data={data({ ...child, heightCm: null, weightKg: 13 }, { clinicalMode: "PEDIATRIC" })} />)
+    expect(screen.getByTestId("broselow-badge").dataset.zone).toBe("YELLOW")
+    expect(screen.getByTestId("broselow-badge").textContent).toContain("by weight")
+  })
+
+  it("is not printed for an adult", () => {
+    render(<PreopSummarySheet locale="en" printedAt={PRINTED} data={data({ heightCm: 100, weightKg: 16 }, { clinicalMode: "ADULT" })} />)
+    expect(screen.queryByTestId("broselow-badge")).toBeNull()
+  })
+})
+
+describe("the ward orders and medication instructions", () => {
+  const ORDERS = {
+    preopWardOrders: [
+      { id: "1", optionKey: "CORRECT_ELECTROLYTES", kind: "SIMPLE", labelEn: "Correct electrolyte disturbances", labelBg: "Корекция на дисйонемия", conceptId: 4171615, specialtyKey: null, specialtyLabelEn: null, specialtyLabelBg: null, labTest: null, labLoinc: null },
+      { id: "2", optionKey: "CONSULTATION", kind: "CONSULT", labelEn: "Consultation with", labelBg: "Консултация с", conceptId: 4304361, specialtyKey: "1004", specialtyLabelEn: "Internal diseases", specialtyLabelBg: "Вътрешни болести", labTest: null, labLoinc: null },
+      { id: "3", optionKey: "INVESTIGATE", kind: "LAB", labelEn: "Investigate", labelBg: "Изследване на", conceptId: 4013385, specialtyKey: null, specialtyLabelEn: null, specialtyLabelBg: null, labTest: "INR", labLoinc: "6301-6" },
+    ],
+    preopMedicationInstructions: [
+      { id: "a", optionKey: "STOP_BEFORE_SURGERY", labelEn: "Stop taking", labelBg: "Спрете приема на", conceptId: 764611, medicationLabel: "Metformin", medicationInn: "metformin", medicationAtc: null, hoursBefore: 48 },
+      { id: "b", optionKey: "DO_NOT_STOP", labelEn: "Don't stop taking", labelBg: "Не спирайте приема на", conceptId: 0, medicationLabel: "Bisoprolol", medicationInn: null, medicationAtc: null, hoursBefore: null },
+    ],
+  }
+
+  it("prints both lists on the summary, in the sheet's language", () => {
+    render(<PreopSummarySheet locale="bg" printedAt={PRINTED} data={data(ORDERS)} />)
+    expect(screen.getByTestId("preop-summary-ward-orders").textContent).toBe("Корекция на дисйонемияКонсултация с Вътрешни болестиИзследване на INR")
+    expect(screen.getByTestId("preop-summary-medication-instructions").textContent)
+      .toBe("Спрете приема на Metformin 48 h (2 дни) преди операциятаНе спирайте приема на Bisoprolol")
+  })
+
+  it("prints no heading for a case without orders", () => {
+    render(<PreopSummarySheet locale="en" printedAt={PRINTED} data={data({})} />)
+    expect(screen.queryByTestId("preop-summary-ward-orders")).toBeNull()
+    expect(screen.queryByTestId("preop-summary-medication-instructions")).toBeNull()
+  })
+
+  it("fills in Document №2's own rows, and keeps the pen lines when there is nothing to fill", () => {
+    const { unmount } = render(<>{preopDocumentPages({ data: data(ORDERS, {}, "A"), locale: "en", printedAt: PRINTED, techniques: [] }).map(({ key, page }) => <div key={key}>{page}</div>)}</>)
+    const sheet = screen.getAllByTestId("preop-summary-sheet")[0]!.textContent ?? ""
+    expect(sheet).toContain("Stop taking Metformin 48 h (2 days) before the operation")
+    expect(sheet).toContain("Continue taking Bisoprolol")
+    expect(sheet).toContain("consultation with Internal diseases")
+    expect(sheet).toContain("Correct electrolyte disturbances")
+    expect(sheet).toContain("Investigate INR")
+    expect(sheet).not.toContain("days before the operation")
+    unmount()
+    render(<>{preopDocumentPages({ data: data({}, {}, "A"), locale: "en", printedAt: PRINTED, techniques: [] }).map(({ key, page }) => <div key={key}>{page}</div>)}</>)
+    expect(screen.getAllByTestId("preop-summary-sheet")[0]!.textContent).toContain("days before the operation")
+  })
+
+  it("tells the patient what to take and what to stop, on the page that goes home", () => {
+    renderPages(data(ORDERS, {}, "E"), "bg")
+    expect(screen.getByTestId("preop-patient-take").textContent).toContain("Bisoprolol")
+    expect(screen.getByTestId("preop-patient-stop").textContent).toContain("Metformin — спрете 48 h (2 дни) преди операцията")
+  })
+
+  const PREMED = { preopPremedicationOrders: { DAY_BEFORE: "Midazolam 7.5 mg PO", MORNING: "Pantoprazole 40 mg PO; Midazolam 3.75 mg PO" } }
+
+  it("prints the premedication ordered for the ward, a line per phase", () => {
+    render(<PreopSummarySheet locale="en" printedAt={PRINTED} data={data(PREMED)} />)
+    const lines = [...screen.getByTestId("preop-summary-premedication").querySelectorAll("li")].map(li => li.textContent)
+    expect(lines).toEqual(["on the evening before the operation: Midazolam 7.5 mg PO", "on the morning of the operation: Pantoprazole 40 mg PO, Midazolam 3.75 mg PO"])
+    render(<PreopSummarySheet locale="en" printedAt={PRINTED} data={data({ preopPremedicationOrders: { DAY_BEFORE: "", MORNING: "" } })} />)
+    expect(screen.getAllByTestId("preop-summary-premedication")).toHaveLength(1)
+  })
+
+  it("fills Document №2's premedication row, and adds the evening only when ordered", () => {
+    const pages = (preop: Record<string, unknown>) => render(<>{preopDocumentPages({ data: data(preop, {}, "A"), locale: "en", printedAt: PRINTED, techniques: [] }).map(({ key, page }) => <div key={key}>{page}</div>)}</>)
+    const { unmount } = pages(PREMED)
+    expect(screen.getByTestId("doc2-premed-night").textContent).toContain("Midazolam 7.5 mg PO")
+    expect(screen.getByTestId("doc2-premed-morning").textContent).toContain("Pantoprazole 40 mg PO, Midazolam 3.75 mg PO")
+    unmount()
+    pages({})
+    expect(screen.queryByTestId("doc2-premed-night")).toBeNull()
+    expect(screen.queryByTestId("doc2-premed-morning")).toBeNull()
   })
 })

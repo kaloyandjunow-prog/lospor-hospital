@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { View, Text, Pressable, Modal, PanResponder, useWindowDimensions } from "react-native"
 import { hapticKey, hapticTick } from "@/lib/haptic"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
 import { colors, withAlpha } from "@/theme/colors"
+import { HoldRepeatPressable } from "./HoldRepeatPressable"
 
 // Shared clinical vitals stepper — identical UX to the preop exam vitals
 // (web-like − / number / + with a thin slider and a custom in-app keypad).
@@ -43,7 +44,6 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   const [trackWidth, setTrackWidth] = useState(1)
   const fieldRef = useRef<View>(null)
   const trackXRef = useRef(0)
-  const holdTimer = useRef<{ initial: ReturnType<typeof setTimeout> | null; repeat: ReturnType<typeof setInterval> | null }>({ initial: null, repeat: null })
   const { height: screenHeight, width: screenWidth } = useWindowDimensions()
 
   const commit = useCallback((next: number | undefined) => {
@@ -60,22 +60,6 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   function nudge(direction: -1 | 1) {
     commit((value ?? min) + direction * step)
   }
-
-  function startHold(direction: -1 | 1) {
-    nudge(direction)
-    holdTimer.current.initial = setTimeout(() => {
-      holdTimer.current.repeat = setInterval(() => nudge(direction), 120)
-    }, 420)
-  }
-
-  function stopHold() {
-    if (holdTimer.current.initial) clearTimeout(holdTimer.current.initial)
-    if (holdTimer.current.repeat) clearInterval(holdTimer.current.repeat)
-    holdTimer.current.initial = null
-    holdTimer.current.repeat = null
-  }
-
-  useEffect(() => stopHold, [])
 
   const setFromPageX = useCallback((pageX: number) => {
     const ratio = clampNumber((pageX - trackXRef.current) / Math.max(1, trackWidth), 0, 1)
@@ -139,14 +123,13 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   return (
     <View style={{ gap: 9 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable
+        <HoldRepeatPressable
           disabled={disabled}
-          onPressIn={() => startHold(-1)}
-          onPressOut={stopHold}
+          onStep={() => nudge(-1)}
           style={{ width: 44, height: 44, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, opacity: disabled ? 0.45 : 1 }}
         >
-          <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>-</Text>
-        </Pressable>
+          <Text selectable={false} style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>-</Text>
+        </HoldRepeatPressable>
 
         {/* See PreopFormWidgets: the unit lives below the field because a
             half-width field is only ~61px and "130 mmHg" needed 88. */}
@@ -163,14 +146,13 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
           ) : null}
         </View>
 
-        <Pressable
+        <HoldRepeatPressable
           disabled={disabled}
-          onPressIn={() => startHold(1)}
-          onPressOut={stopHold}
+          onStep={() => nudge(1)}
           style={{ width: 44, height: 44, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, opacity: disabled ? 0.45 : 1 }}
         >
-          <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>+</Text>
-        </Pressable>
+          <Text selectable={false} style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>+</Text>
+        </HoldRepeatPressable>
       </View>
 
       <View

@@ -41,6 +41,7 @@ export function useIntraopOptionSets(
   )
   const {
     drugColor,
+    drugColors,
     clinicalEventColor,
     CLINICAL_EVENT_CATS,
   } = intraopOptions
@@ -71,13 +72,18 @@ export function useIntraopOptionSets(
   const writtenByApp = useMemo(() => ({ "Anaesthesia start": tc("evAnaesthesiaStart") }), [tc])
   const eventLabel = useCallback((ev: LogEvent, prevVital?: LogEvent): { text: string; color: string; sub?: string } => {
     // Drugs, infusions, fluids and agents by the names the reader chose (Settings → UI).
-    const shown = ev.name ? { ...ev, name: displayedEventName(ev.type, ev.name, language, bulgarianNames) } : ev
+    // A drug or infusion in the colour in use, not the one it was saved with (10.0.0).
+    const current = !ev.name ? undefined
+      : ev.type === "drug" ? drugColors.drug(ev.name)
+      : ev.type.startsWith("infusion_") ? drugColors.infusion(ev.name)
+      : undefined
+    const shown = ev.name ? { ...ev, name: displayedEventName(ev.type, ev.name, language, bulgarianNames), ...(current ? { color: current } : {}) } : ev
     const built = buildEventLabel(shown, prevVital, { drugColor, clinicalEventColor, language, drugCategoryLabel: category => displayClinicalCode("optionGroup", category, language, { label: category }) })
     const label = ev.type === "clinical_event"
       ? { ...built, text: localizedClinicalEventText(built.text, language, eventNames, writtenByApp) }
       : built
     return ev.autoFilled ? { ...label, text: `${label.text} · ${autoFilledTag}` } : label
-  }, [autoFilledTag, bulgarianNames, clinicalEventColor, drugColor, eventNames, language, writtenByApp])
+  }, [autoFilledTag, bulgarianNames, clinicalEventColor, drugColor, drugColors, eventNames, language, writtenByApp])
 
   const techniqueLabel = useCallback((value: string): string =>
     techniqueDisplayLabel(value, TECHNIQUE_TREE),

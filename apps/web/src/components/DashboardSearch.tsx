@@ -7,6 +7,11 @@ import { useRouter } from "next/navigation"
 import { Search, X, FileText, Printer } from "lucide-react"
 import { DeleteDraftButton } from "@/components/DeleteDraftButton"
 import { HandoverButton } from "@/components/HandoverButton"
+import { TheatreButton } from "@/components/TheatreButton"
+import { CancelProcedureButton, UndoCancellationButton } from "@/components/CancelProcedureButton"
+import { cancellationAllowed, cancellationReasonLabel } from "@lospor/core/case-cancellation"
+import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
+import type { CaseTheatreView, OperatingTheatre } from "@lospor/core/operating-theatres"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { caseIsWritable } from "@/lib/case-capabilities"
 import { displayPediatricAge } from "@lospor/core/pediatric"
@@ -26,11 +31,15 @@ type CaseRow = {
     ageUnit?: "DAYS" | "MONTHS" | "YEARS" | null
     sex?: string | null
     asaScore?: string | null
+    procedureUndetermined?: boolean | null
   } | null
-  intraop?: { monthYear?: string | null; endTime?: string | null; startTime?: string | null } | null
+  intraop?: { monthYear?: string | null; endTime?: string | null; startTime?: string | null; startedAt?: string | null } | null
+  /** A cancelled procedure (10.0.0). */
+  cancellationReason?: string | null
   postop?: { disposition?: string | null } | null
   transfers: { id: string }[]
   capabilities?: { canWrite: boolean } | null
+  theatre?: CaseTheatreView
 }
 
 /** "34y", or the precise unit for a neonate/infant recorded in days or months. */
@@ -56,8 +65,10 @@ function dispositionBadge(d: string | null, locale: string) {
   return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[d] ?? ""}`}>{displayClinicalCode("option:DISPOSITION", d, locale)}</span>
 }
 
-type StatusKey = "finished" | "awaitingReview" | "awaitingPostop" | "inTheatre" | "awaitingAllocation" | "inConsultation" | "draft"
+type StatusKey = "cancelled" | "finished" | "awaitingReview" | "awaitingPostop" | "inTheatre" | "awaitingAllocation" | "inConsultation" | "draft"
 function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
+  // First: a cancelled procedure is cancelled whatever else the case holds (10.0.0).
+  if (c.status === "CANCELLED") return { key: "cancelled", cls: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300" }
   if (c.status === "COMPLETE") return { key: "finished", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" }
   // Before the intraop check, not after. A case in its closure window has a
   // finished intraop and a complete postop, so testing endTime first labelled
@@ -77,7 +88,7 @@ function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
 }
 
 const STATUS_CODES: Record<StatusKey, string> = {
-  finished: "COMPLETE", awaitingReview: "AWAITING_REVIEW", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
+  cancelled: "CANCELLED", finished: "COMPLETE", awaitingReview: "AWAITING_REVIEW", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
   awaitingAllocation: "AWAITING_ALLOCATION", inConsultation: "IN_CONSULTATION", draft: "DRAFT",
 }
 
@@ -85,10 +96,13 @@ export function DashboardSearch({
   cases,
   userId,
   role,
+  theatres = null,
 }: {
   cases: CaseRow[]
   userId: string
   role: string
+  /** The site's operating theatres (10.0.0); null while it does not use them. */
+  theatres?: OperatingTheatre[] | null
 }) {
   const locale = useLocale()
   const t = useTranslations()
@@ -97,7 +111,7 @@ export function DashboardSearch({
 
   const filtered = query.trim()
     ? cases.filter(c => {
-        const hay = [c.preop?.plannedProcedure, c.preop?.diagnosis, c.caseCode]
+        const hay = [c.preop?.plannedProcedure, c.preop?.diagnosis, c.caseCode, theatres ? c.theatre?.name : null]
           .filter(Boolean).join(" ").toLowerCase()
         return hay.includes(query.trim().toLowerCase())
       })
@@ -131,20 +145,21 @@ export function DashboardSearch({
           {filtered.map(c => {
             const { key, cls } = computeStatus(c)
             const isComplete = c.status === "COMPLETE"
+            const isCancelled = c.status === "CANCELLED"
             const canWrite = caseIsWritable(c)
             // A non-complete case the reader cannot write to (handed to a
             // colleague, or read-only for their role) opens the read-only
             // summary, the same as a complete one -- never the edit wizard,
             // which the server would refuse to save from anyway.
-            const href = isComplete || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
+            const href = isComplete || isCancelled || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
             return (
               <Link key={c.id} href={href} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
-                      {c.preop?.plannedProcedure || t("dashboard.untitled")}
+                      {plannedProcedureLabel(c.preop, locale) || t("dashboard.untitled")}
                     </p>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${cls}`}>
+                    <span title={isCancelled ? cancellationReasonLabel(c.cancellationReason, locale) ?? undefined : undefined} data-testid={isCancelled ? "cancelled-badge" : undefined} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${cls}`}>
                       {displayClinicalCode("caseStatus", STATUS_CODES[key], locale)}
                     </span>
                   </div>
@@ -160,7 +175,10 @@ export function DashboardSearch({
                       {c.caseCode}
                     </span>
                   )}
-                  {!isComplete && canWrite && <DeleteDraftButton caseId={c.id} />}
+                  {!isComplete && !isCancelled && canWrite && <DeleteDraftButton caseId={c.id} />}
+                  {/* Once anaesthesia has started, the button stays but is inactive. */}
+                  {canWrite && !isComplete && !isCancelled && <CancelProcedureButton caseId={c.id} inactive={!cancellationAllowed(c)} />}
+                  {isCancelled && canWrite && <UndoCancellationButton caseId={c.id} />}
                   {isComplete && (
                     <span
                       role="link"
@@ -174,6 +192,7 @@ export function DashboardSearch({
                       <Printer className="h-3 w-3" /> {t("dashboard.printCase")}
                     </span>
                   )}
+                  {theatres && c.theatre && <TheatreButton caseId={c.id} theatre={c.theatre} theatres={theatres} />}
                   <HandoverButton
                     caseId={c.id}
                     caseOwnerId={c.userId}

@@ -37,9 +37,11 @@ function Chips({ options, chosen, onChange, testId }: {
  * ventilation after the operation. The summary prints it; layout C of the
  * consent starts with the sections it needs ticked.
  */
-export function PlannedAnaesthesiaField({ value, onChange }: {
+export function PlannedAnaesthesiaField({ value, onChange, bare = false }: {
   value: unknown
   onChange: (next: PlannedAnaesthesia) => void
+  /** Inside a card that already carries the title: no frame and no heading of its own. */
+  bare?: boolean
 }) {
   const t = useTranslations()
   const locale = useLocale()
@@ -52,8 +54,8 @@ export function PlannedAnaesthesiaField({ value, onChange }: {
   const heading = "text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
 
   return (
-    <fieldset className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-[#2a2a2a]" data-testid="preop-planned-anaesthesia">
-      <legend className="px-1 text-sm font-medium text-slate-700 dark:text-slate-300">{t("preop.plannedAnaesthesia")}</legend>
+    <fieldset className={bare ? "space-y-3" : "space-y-3 rounded-xl border border-slate-200 p-3 dark:border-[#2a2a2a]"} data-testid="preop-planned-anaesthesia">
+      <legend className={bare ? "sr-only" : "px-1 text-sm font-medium text-slate-700 dark:text-slate-300"}>{t("preop.plannedAnaesthesia")}</legend>
       <div className="space-y-1.5">
         <div className={heading}>{t("intraop.techniqueSection")}</div>
         <TechniqueTree value={plan.techniques} onChange={techniques => set({ techniques })} />

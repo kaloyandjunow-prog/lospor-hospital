@@ -5,7 +5,7 @@ import type { TreeNode } from "./types"
 
 export const HANDOVER_ITEMS: TreeNode[] = [
   { v: "VITAL_SIGNS_MONITORING", label: "Vital Signs & Monitoring", labelBg: "Жизнени показатели и мониторинг", children: [
-    { v: "obs_freq", label: "Observations q15 min × 1h, then q30 min × 1h", labelBg: "Контрол на жизнените показатели на всеки 15 мин за 1 ч, след това на всеки 30 мин за 1 ч" },
+    { v: "obs_freq", label: "Observations q15 min × 1h, then q30 min × 1h", labelBg: "Контрол на жизнените показатели на всеки 15 min за 1 h, след това на всеки 30 min за 1 h" },
     { v: "spo2_cont", label: "Continuous SpO₂ monitoring", labelBg: "Непрекъснато мониториране на SpO₂" },
     { v: "alert_bp", label: "Blood pressure — target range communicated", labelBg: "АН — съобщен целеви диапазон" },
     { v: "temp_monitor", label: "Temperature monitoring / active warming", labelBg: "Мониториране на температурата / активно затопляне" },
@@ -16,7 +16,7 @@ export const HANDOVER_ITEMS: TreeNode[] = [
     { v: "o2_supp", label: "Supplemental O₂ — rate and duration specified", labelBg: "Допълнителен O₂ — уточнени дебит и продължителност" },
     { v: "npo", label: "Fasting status / nil by mouth until fully awake", labelBg: "Гладуване / без прием през устата до пълно събуждане" },
     { v: "diet_advance", label: "Advance diet when tolerating", labelBg: "Захранване при добра поносимост" },
-    { v: "alert_resp", label: "Alert if SpO₂ < 92% or RR < 8 or > 25/min", labelBg: "Сигнализирай при SpO₂ < 92% или ДЧ < 8 или > 25/мин" },
+    { v: "alert_resp", label: "Alert if SpO₂ < 92% or RR < 8 or > 25/min", labelBg: "Сигнализирай при SpO₂ < 92% или ДЧ < 8 или > 25/min" },
     { v: "airway_alert", label: "Difficult airway — alert at bedside", labelBg: "Труден дихателен път — обозначен при леглото" },
     { v: "airway_position", label: "Position: head up / lateral / as specified", labelBg: "Позиция: повдигната горна част на тялото / странично / според указанията" },
   ]},
@@ -24,7 +24,7 @@ export const HANDOVER_ITEMS: TreeNode[] = [
     { v: "piv", label: "Peripheral IV in situ", labelBg: "Поставен периферен венозен катетър (ПВК)" },
     { v: "cvk", label: "Central venous catheter in situ", labelBg: "Поставен централен венозен катетър (ЦВК)" },
     { v: "art_line", label: "Arterial line in situ", labelBg: "Поставена артериална линия" },
-    { v: "alert_hr", label: "Alert if HR < 50 or > 120 bpm", labelBg: "Сигнализирай при СЧ < 50 или > 120/мин" },
+    { v: "alert_hr", label: "Alert if HR < 50 or > 120 bpm", labelBg: "Сигнализирай при СЧ < 50 или > 120 bpm" },
     { v: "fluid_plan", label: "IV fluid plan — type, rate, volume specified", labelBg: "План за венозни вливания — уточнени разтвор, скорост и обем" },
     { v: "fluid_balance", label: "Fluid balance monitoring and documentation", labelBg: "Мониториране и документиране на водния баланс" },
     { v: "antihypertensive", label: "Antihypertensive medications resumed / held", labelBg: "Антихипертензивни медикаменти — възобновени / временно преустановени" },

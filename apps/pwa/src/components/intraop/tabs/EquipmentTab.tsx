@@ -10,6 +10,8 @@ import {
 } from "@/lib/intraop-preop-summary"
 import { useShade } from "@/theme/shade"
 import { PediatricIntraopReference } from "@/components/intraop/PediatricIntraopReference"
+import { BroselowChip } from "@/components/intraop/BroselowChip"
+import { broselowZone } from "@lospor/core/broselow"
 
 export function EquipmentTab({
   preop, surgeryStart, caseTimezone,
@@ -42,6 +44,7 @@ export function EquipmentTab({
       cormackLehane: preop.cormackLehane,
     },
   }) : [], language)
+  const broselow = preop ? broselowZone({ clinicalMode: preop.clinicalMode, heightCm: preop.height, weightKg: preop.weight }) : null
   const medicationWarnings = getMedicationWarnings(preop?.currentMedications ?? [])
   // The recorded allergies in view while drugs are given, and any the drug
   // check cannot read named as such, so silence is not taken for a pass (1.5.0).
@@ -87,6 +90,8 @@ export function EquipmentTab({
             {preop?.height != null && <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("heightPlaceholder")} <Text style={{ color:shade("#f8fafc"), fontWeight:"700" }}>{preop.height} cm</Text></Text>}
             {preop?.sex    != null && <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("sexLabel")} <Text style={{ color:shade("#f8fafc"), fontWeight:"700" }}>{preop.sex === "MALE" ? tc("sexMale") : preop.sex === "FEMALE" ? tc("sexFemale") : preop.sex}</Text></Text>}
           </View>
+
+          {broselow ? <BroselowChip result={broselow} /> : null}
 
           {pediatricMode && preop ? <PediatricIntraopReference preop={preop} language={language} surgeryStart={surgeryStart} timezone={caseTimezone} /> : null}
 

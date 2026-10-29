@@ -4,6 +4,7 @@ import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences, type ClinicalStringKey, type TranslationKey } from "@/lib/preferences-context"
 import { SummaryCard, InfoRow, Chip, ChipRow, Divider } from "./CaseDetailPrimitives"
 import { vitalAbbreviations } from "@lospor/core/intraop-summary"
+import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import {
   asaColor,
   apfelRiskLabel,
@@ -40,7 +41,9 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
   }) : null
 
   const diagLabel = preop.diagnosesJson?.[0]?.label ?? preop.diagnosis
-  const procLabel = preop.proceduresJson?.[0]?.label ?? preop.plannedProcedure
+  // A plan not yet known says so (10.0.0), rather than showing nothing.
+  const procLabel = (preop.procedureUndetermined ? plannedProcedureLabel(preop, language) : null)
+    ?? preop.proceduresJson?.[0]?.label ?? preop.plannedProcedure
 
   const bloodType = preop.bloodType && preop.rhFactor
     ? `${preop.bloodType}${preop.rhFactor === "POSITIVE" ? "+" : preop.rhFactor === "NEGATIVE" ? "−" : preop.rhFactor}`

@@ -27,13 +27,13 @@ describe("bundled preoperative catalog", () => {
     ]))
   })
   it("keeps the complete approved baseline and population catalog represented", () => {
-    expect(BUNDLED_PREOP_QUESTIONS).toHaveLength(82)
-    // 1.6.0 (Core 9.15.0) added previous ICU stay, alcohol use with two
-    // follow-ups, a child's recent vaccination and Gupta's two inputs, and asks
-    // bleeding and transfusion of children too.
+    expect(BUNDLED_PREOP_QUESTIONS).toHaveLength(89)
+    // Core 10.0.0 carries the approved baseline plus the 1.6.0 additions:
+    // previous ICU stay, alcohol use with two follow-ups, a child's recent
+    // vaccination, Gupta's two inputs, and bleeding/transfusion for children.
     expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("ADULT"))).toHaveLength(27)
-    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("PEDIATRIC"))).toHaveLength(19)
-    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.length === 0)).toHaveLength(36)
+    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.includes("PEDIATRIC"))).toHaveLength(20)
+    expect(BUNDLED_PREOP_QUESTIONS.filter(question => question.applicability.length === 0)).toHaveLength(42)
     expect(BUNDLED_PREOP_QUESTIONS.every(question => question.options.every(option =>
       option.key !== "NOT_ASSESSED" && option.key !== "UNKNOWN",
     ))).toBe(true)

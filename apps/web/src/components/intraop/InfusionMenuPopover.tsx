@@ -12,7 +12,9 @@ import { useIntraopUiCopy } from "./ui-copy"
  * A discontinued line keeps its place on the record and offers only restore:
  * an infusion that ran and was stopped is part of what happened, so it is never
  * removed from the chart by this menu — it is struck through and can be brought
- * back if it was stopped in error.
+ * back if it was stopped in error. A running one entered by mistake can be
+ * removed (10.0.0; before, only the Delete key or a drag off the chart did it,
+ * neither of which a finger has), behind the timetable's confirmation.
  *
  * Presentational; the timetable owns every change.
  */
@@ -31,6 +33,8 @@ export type InfusionMenuPopoverProps = {
    */
   pumpTotal?: { amountUnit: "mg" | "mcg"; value?: number; unit?: PumpTotalUnit; onSave: (pump?: PumpTotalEntry) => void }
   onRestore: () => void
+  /** Remove a running infusion entered by mistake; the timetable asks first. */
+  onRemove?: () => void
   /** Highlights the bar that Discontinue would end. */
   onDiscontinueHover: (hovering: boolean) => void
   onDismiss: () => void
@@ -48,6 +52,7 @@ export function InfusionMenuPopover({
   onChangeRate,
   onDiscontinue,
   onRestore,
+  onRemove,
   onDiscontinueHover,
   onDismiss,
   pumpTotal,
@@ -133,6 +138,16 @@ export function InfusionMenuPopover({
             >
               {copy.discontinue}
             </button>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={onRemove}
+                data-testid="infusion-remove"
+                className={`${itemClass} hover:bg-slate-50 dark:hover:bg-[#333] text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-[#3a3a3a]`}
+              >
+                {copy.infusion.removeEnteredInError}
+              </button>
+            )}
           </>
         )}
       </div>

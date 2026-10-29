@@ -191,6 +191,8 @@ export const STATUS_META: Record<string, { color: string }> = {
   AWAITING_POSTOP:      { color: "#f97316" },
   AWAITING_REVIEW:      { color: "#f59e0b" },
   COMPLETE:             { color: colors.success },
+  // A cancelled procedure (10.0.0).
+  CANCELLED:            { color: colors.danger },
 }
 
 export function statusLabel(status: string, language: AppLanguage): string {

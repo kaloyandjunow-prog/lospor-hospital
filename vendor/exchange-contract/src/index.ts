@@ -118,6 +118,12 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
     // that no tool can read out of the string "true". MEASUREMENT gained this
     // in 2.3.0; OBSERVATION carries the same kind of answer and was missed.
     "value_as_concept_id",
+    // Qualifier and unit belong to the observation value when an observation
+    // carries a numeric quantity, such as a laboratory threshold or a planned
+    // instruction. They were emitted by the appliance but absent here, so the
+    // loader could never receive them.
+    "qualifier_concept_id", "qualifier_source_value",
+    "unit_concept_id", "unit_source_value",
     "observation_source_value", "visit_occurrence_id",
   ],
 }

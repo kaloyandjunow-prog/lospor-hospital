@@ -9,11 +9,14 @@ import {
   type PremedCat,
 } from "@/components/intraop/PremedicationPicker"
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
+import { isPremedicationAsOrdered, type PremedicationOrders } from "@lospor/core/premedication"
 
 export function PremedicationSection({
   t, control, watch, premedCategories, premedDoses,
-  premedAnnotations = {}, premedDoseForRoute, prospectiveGuidanceEnabled,
+  premedAnnotations = {}, premedDoseForRoute, prospectiveGuidanceEnabled, ordered,
 }: {
+  /** The premedication ordered at the preop visit, to say where a phase still holds it. */
+  ordered?: PremedicationOrders | null
   t: (key: string) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
@@ -32,13 +35,15 @@ export function PremedicationSection({
           <PremedicationPicker label={t("intraop.premedicationEvening")} value={field.value} onChange={field.onChange}
             categories={premedCategories} doses={premedDoses}
             annotations={premedAnnotations} doseForRoute={premedDoseForRoute}
-            prospectiveGuidanceEnabled={prospectiveGuidanceEnabled} />
+            prospectiveGuidanceEnabled={prospectiveGuidanceEnabled}
+            asOrdered={isPremedicationAsOrdered(field.value, ordered?.DAY_BEFORE)} testId="premedication-evening" />
         )} />
         <Controller name="premedicationMorning" control={control} render={({ field }) => (
           <PremedicationPicker label={t("intraop.premedicationMorning")} value={field.value} onChange={field.onChange}
             categories={premedCategories} doses={premedDoses}
             annotations={premedAnnotations} doseForRoute={premedDoseForRoute}
-            prospectiveGuidanceEnabled={prospectiveGuidanceEnabled} />
+            prospectiveGuidanceEnabled={prospectiveGuidanceEnabled}
+            asOrdered={isPremedicationAsOrdered(field.value, ordered?.MORNING)} testId="premedication-morning" />
         )} />
       </div>
     </SectionCard>

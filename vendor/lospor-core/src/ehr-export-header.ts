@@ -60,6 +60,8 @@ export type EhrCodedHeader = {
   complications: EhrCodedComplication[]
   handover: {
     aldreteTotal: EhrQuantity
+    /** A child's recovery score, in place of Aldrete (10.0.0). */
+    stewardTotal: EhrQuantity
     disposition: string | null
     items: string[]
   }
@@ -76,6 +78,7 @@ type IntraopLike = {
 
 type PostopLike = {
   aldreteTotal?: number | null
+  stewardTotal?: number | null
   disposition?: string | null
   handoverItems?: unknown
   complications?: unknown
@@ -163,6 +166,7 @@ export function buildCodedHeader(input: {
     ],
     handover: {
       aldreteTotal: quantity(postop.aldreteTotal, "score"),
+      stewardTotal: quantity(postop.stewardTotal, "score"),
       disposition: postop.disposition ?? null,
       items: stringList(postop.handoverItems),
     },

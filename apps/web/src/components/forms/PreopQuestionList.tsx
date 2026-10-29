@@ -45,6 +45,9 @@ export function PreopQuestionList({
   onReviewSuggestion,
   className,
   ageYears,
+  sex,
+  groups,
+  columns = false,
 }: {
   profile: Pick<PreopAssessmentProfile, "questions"> | null | undefined
   formSection: PreopFormSection
@@ -58,20 +61,28 @@ export function PreopQuestionList({
   className?: string
   /** The case's age; a question asked only from an age is left off younger patients. */
   ageYears?: number | null
+  /** The case's sex; pregnancy and breastfeeding are not asked of a man (10.0.0). */
+  sex?: string | null
+  /** Only one catalogue group, or all but one: the MH group is drawn under its own heading (10.0.0). */
+  groups?: { only?: string; except?: string }
+  /** Two columns on a wide screen (the sidebar layout). */
+  columns?: boolean
 }) {
   const t = useTranslations()
   const locale = useLocale()
-  const rows = preopQuestionRows(profile, formSection, mode, states, ageYears)
+  const rows = preopQuestionRows(profile, formSection, mode, states, ageYears, sex)
+    .filter(row => (!groups?.only || row.question.section === groups.only) && row.question.section !== groups?.except)
   if (rows.length === 0) return null
   const progress = preopQuestionProgress(rows, states)
   const label = (question: PreopProfileQuestion) => locale === "bg" ? question.labelBg : question.labelEn
 
-  const groups: Array<{ group: string; rows: typeof rows }> = []
+  const onlyGroup = groups?.only
+  const groupsOf: Array<{ group: string; rows: typeof rows }> = []
   for (const row of rows) {
     const group = row.question.section
-    const last = groups[groups.length - 1]
+    const last = groupsOf[groupsOf.length - 1]
     if (last && (last.group === group || row.depth === 1)) last.rows.push(row)
-    else groups.push({ group, rows: [row] })
+    else groupsOf.push({ group, rows: [row] })
   }
 
   return (
@@ -79,10 +90,10 @@ export function PreopQuestionList({
       <p className="text-right text-[11px] text-muted-foreground" aria-live="polite">
         {t("preop.questionsAnswered", { answered: progress.answered, total: progress.total })}
       </p>
-      {groups.map(({ group, rows: groupRows }, index) => (
-        <div key={`${group}-${index}`} className="space-y-2">
-          {groups.length > 1 && (
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t(`preop.questionGroup.${group}`)}</p>
+      {groupsOf.map(({ group, rows: groupRows }, index) => (
+        <div key={`${group}-${index}`} className={columns ? "space-y-2 lg:block lg:columns-2 lg:gap-x-10 lg:space-y-0" : "space-y-2"}>
+          {groupsOf.length > 1 && !onlyGroup && (
+            <p className={`text-xs font-semibold uppercase tracking-wider text-slate-400${columns ? " [column-span:all] lg:mb-2" : ""}`}>{t(`preop.questionGroup.${group}`)}</p>
           )}
           {groupRows.map(({ question, depth }) => {
             const state = states.get(question.stableKey)
@@ -97,7 +108,7 @@ export function PreopQuestionList({
             return (
               <div
                 key={question.stableKey}
-                className={cn("flex items-start gap-2", depth === 1 && "ml-6 border-l pl-3")}
+                className={cn("flex items-start gap-2", columns && "lg:mb-2 lg:break-inside-avoid", depth === 1 && "ml-6 border-l pl-3")}
                 data-testid={`preop-question-${question.stableKey}`}
               >
                 {isPreopChoiceQuestion(question) ? null : (

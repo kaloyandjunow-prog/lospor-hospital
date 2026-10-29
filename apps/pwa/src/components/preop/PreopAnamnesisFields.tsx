@@ -14,7 +14,7 @@ import { colors, useThemeRefresh } from "@/theme/colors"
 export function PreopAnamnesisFields({
   control, setValue, tc, allergies, familyAnesthesiaProblems, pediatricMode,
   rcriSuggested, stopBangBPSuggested, RCRI_HINT, sex, smoking, bmi, ageYears,
-  blockedErrorFor, scrollToSection, shownField,
+  blockedErrorFor, scrollToSection, shownField, mhQuestions,
 }: {
   control: Control<FormInput>
   setValue: UseFormSetValue<FormInput>
@@ -32,6 +32,8 @@ export function PreopAnamnesisFields({
   blockedErrorFor: (field: string) => string | undefined
   scrollToSection: (section: PreopSection, extraOffset?: number) => void
   shownField: (field: string) => boolean
+  /** The profile questions of the MH group, under its heading (10.0.0). */
+  mhQuestions?: React.ReactNode
 }) {
   useThemeRefresh()
   return (
@@ -48,6 +50,15 @@ export function PreopAnamnesisFields({
           )} />
         ) : null}
         {shownField("latexAllergy") ? <Controller control={control} name="latexAllergy" render={({ field }) => <ClinicalYesNoRow label={tc("latexAllergy")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} /> : null}
+        {shownField("unexplainedAnaesthesiaComplications") ? <Controller control={control} name="unexplainedAnaesthesiaComplications" render={({ field }) => <ClinicalYesNoRow label={tc("unexplainedAnaesthesiaComplications")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} /> : null}
+        {shownField("dentalProsthetics") ? <Controller control={control} name="dentalProsthetics" render={({ field }) => <ClinicalYesNoRow label={tc("dentalProsthetics")} value={field.value ?? null} onValueChange={field.onChange} />} /> : null}
+        {shownField("looseTeeth") ? <Controller control={control} name="looseTeeth" render={({ field }) => <ClinicalYesNoRow label={tc("looseTeeth")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} /> : null}
+        {shownField("smoking") ? <Controller control={control} name="smoking" render={({ field }) => <ClinicalYesNoRow label={tc("smoking")} value={field.value ?? null} onValueChange={field.onChange} />} /> : null}
+        {shownField("substanceAbuse") ? <Controller control={control} name="substanceAbuse" render={({ field }) => <ClinicalYesNoRow label={tc("substanceAbuse")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} /> : null}
+        {/* Malignant hyperthermia susceptibility (10.0.0): the patient's own MH, the one
+            family-history question with what it names, and the symptoms. */}
+        <SectionHeader title={tc("mhSusceptibility")} />
+        {shownField("malignantHyperthermiaHistory") ? <Controller control={control} name="malignantHyperthermiaHistory" render={({ field }) => <ClinicalYesNoRow label={tc("malignantHyperthermiaHistory")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} /> : null}
         {shownField("familyAnesthesiaProblems") ? (
         <Controller control={control} name="familyAnesthesiaProblems" render={({ field }) => <ClinicalYesNoRow label={tc("familyAnesthesia")} value={field.value ?? null} onValueChange={(value) => {
           field.onChange(value)
@@ -55,12 +66,7 @@ export function PreopAnamnesisFields({
         }} activeColor={colors.warning} />} />
         ) : null}
         {familyAnesthesiaProblems ? <Field label={tc("familyAnesthesiaDetails")} error={blockedErrorFor("familyAnesthesiaDetails")}><Controller control={control} name="familyAnesthesiaDetails" render={({ field }) => <StyledInput value={field.value ?? ""} onChangeText={field.onChange} maxLength={500} multiline placeholder={tc("familyAnesthesiaHint")} />} /></Field> : null}
-        {shownField("unexplainedAnaesthesiaComplications") ? <Controller control={control} name="unexplainedAnaesthesiaComplications" render={({ field }) => <ClinicalYesNoRow label={tc("unexplainedAnaesthesiaComplications")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} /> : null}
-        {shownField("malignantHyperthermiaHistory") ? <Controller control={control} name="malignantHyperthermiaHistory" render={({ field }) => <ClinicalYesNoRow label={tc("malignantHyperthermiaHistory")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} /> : null}
-        {shownField("dentalProsthetics") ? <Controller control={control} name="dentalProsthetics" render={({ field }) => <ClinicalYesNoRow label={tc("dentalProsthetics")} value={field.value ?? null} onValueChange={field.onChange} />} /> : null}
-        {shownField("looseTeeth") ? <Controller control={control} name="looseTeeth" render={({ field }) => <ClinicalYesNoRow label={tc("looseTeeth")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} /> : null}
-        {shownField("smoking") ? <Controller control={control} name="smoking" render={({ field }) => <ClinicalYesNoRow label={tc("smoking")} value={field.value ?? null} onValueChange={field.onChange} />} /> : null}
-        {shownField("substanceAbuse") ? <Controller control={control} name="substanceAbuse" render={({ field }) => <ClinicalYesNoRow label={tc("substanceAbuse")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} /> : null}
+        {mhQuestions}
 
         {!pediatricMode ? <>
         <SectionHeader title={tc("rcriSection")} />

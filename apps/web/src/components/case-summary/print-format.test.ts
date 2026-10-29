@@ -12,9 +12,9 @@ describe("printed record dates and durations", () => {
   it("writes the duration in the record's language", () => {
     expect(printDuration(31, "en")).toBe("0h 31m")
     expect(printDuration(125, "en")).toBe("2h 05m")
-    expect(printDuration(31, "bg")).toBe("0 ч 31 мин")
-    expect(printDuration(125, "bg")).toBe("2 ч 5 мин")
-    expect(printTimeSpan("2026-09-27T14:43:00Z", "2026-09-27T15:14:00Z", "bg")).toBe("14:43 → 15:14 · 0 ч 31 мин")
+    expect(printDuration(31, "bg")).toBe("0 h 31 min")
+    expect(printDuration(125, "bg")).toBe("2 h 5 min")
+    expect(printTimeSpan("2026-09-27T14:43:00Z", "2026-09-27T15:14:00Z", "bg")).toBe("14:43 → 15:14 · 0 h 31 min")
     expect(printTimeSpan(null, "2026-09-27T15:14:00Z", "en")).toBeNull()
   })
 
@@ -47,6 +47,6 @@ describe("the day of the case on the printed record", () => {
       startedAt: "2026-10-15T19:40:00Z", endedAt: "2026-10-15T22:10:00Z", timezone: "Europe/Sofia",
     })
     expect(span).toBe("22:40 → 01:10 (+1 day) · 2h 30m")
-    expect(printTimeSpan("1970-01-01T08:05:00Z", "1970-01-01T09:40:00Z", "bg", null)).toBe("08:05 → 09:40 · 1 ч 35 мин")
+    expect(printTimeSpan("1970-01-01T08:05:00Z", "1970-01-01T09:40:00Z", "bg", null)).toBe("08:05 → 09:40 · 1 h 35 min")
   })
 })

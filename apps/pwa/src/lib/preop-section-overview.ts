@@ -1,3 +1,4 @@
+import { premedicationEntries } from "@lospor/core/premedication"
 import type { PreopFormData, PreopFormInput, PreopSection } from "@/lib/preop-form-schema"
 import type { ClinicalStringKey } from "@/i18n/clinical-strings"
 import { formatMessage } from "@/i18n/locale"
@@ -33,6 +34,12 @@ export type PreopSectionOverviewText = {
   familyHistory: string
   bp: string
   hr: string
+  wardOrdersHint: string
+  medInstructionsHint: string
+  orderCount: string
+  premedicationHint: string
+  plannedHint: string
+  fastingHint: string
 }
 
 /** The overview's text from the clinical strings. */
@@ -47,6 +54,9 @@ export function preopOverviewText(tc: (key: ClinicalStringKey) => string): Preop
     resultCount: tc("overviewResultCount"), allergy: tc("overviewAllergy"), smoker: tc("overviewSmoker"),
     familyHistory: tc("overviewFamilyHistory"),
     bp: tc("vitalBpShort"), hr: tc("vitalHrShort"),
+    wardOrdersHint: tc("overviewWardOrdersHint"), medInstructionsHint: tc("overviewMedInstructionsHint"),
+    orderCount: tc("overviewOrderCount"), premedicationHint: tc("overviewPremedicationHint"),
+    plannedHint: tc("overviewPlannedHint"), fastingHint: tc("overviewFastingHint"),
   }
 }
 
@@ -64,7 +74,8 @@ export function buildPreopSectionItems(
   text: PreopSectionOverviewText
 ): PreopSectionOverviewItem[] {
   const completion = evaluatePreopSectionCompletion(values as Record<string, unknown>)
-  const coreSection: Record<PreopSection, CorePreopSection> = {
+  // The order sections are optional and Core's completion does not know them.
+  const coreSection: Partial<Record<PreopSection, CorePreopSection>> = {
     patient: "demographics",
     case: "case_details",
     history: "medical_history",
@@ -131,6 +142,30 @@ export function buildPreopSectionItems(
         done = (values.labResults?.length ?? 0) > 0
         summary = done ? formatMessage(text.resultCount, { count: values.labResults?.length ?? 0 }) : text.labsHint
         break
+      case "wardOrders":
+        done = (values.preopWardOrders?.length ?? 0) > 0
+        summary = done ? formatMessage(text.orderCount, { count: values.preopWardOrders?.length ?? 0 }) : text.wardOrdersHint
+        break
+      case "medInstructions":
+        done = (values.preopMedicationInstructions?.length ?? 0) > 0
+        summary = done ? formatMessage(text.orderCount, { count: values.preopMedicationInstructions?.length ?? 0 }) : text.medInstructionsHint
+        break
+      case "premedication": {
+        const count = premedicationEntries(values.preopPremedicationOrders?.DAY_BEFORE).length + premedicationEntries(values.preopPremedicationOrders?.MORNING).length
+        done = count > 0
+        summary = done ? formatMessage(text.orderCount, { count }) : text.premedicationHint
+        break
+      }
+      case "planned": {
+        const techniques = (values.plannedAnaesthesia as { techniques?: unknown[] } | null | undefined)?.techniques ?? []
+        done = techniques.length > 0
+        summary = done ? formatMessage(text.orderCount, { count: techniques.length }) : text.plannedHint
+        break
+      }
+      case "fasting":
+        done = (values.pediatricFasting?.length ?? 0) > 0
+        summary = done ? formatMessage(text.orderCount, { count: values.pediatricFasting?.length ?? 0 }) : text.fastingHint
+        break
       case "risk":
         required = true
         done = values.asaScore != null
@@ -140,7 +175,8 @@ export function buildPreopSectionItems(
         break
     }
 
-    done = completion[coreSection[key]] === "complete"
+    const core = coreSection[key]
+    if (core) done = completion[core] === "complete"
     required = requiredSections.has(key)
     return { key, label, done, required, summary }
   })

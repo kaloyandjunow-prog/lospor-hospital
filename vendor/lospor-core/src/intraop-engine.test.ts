@@ -150,7 +150,11 @@ describe("canonical intraoperative engine", () => {
       }),
     ])
     expect(timetable.agents).toEqual([
-      expect.objectContaining({ name: "Sevoflurane", startCol: 0, endCol: 5, percent: 1.7, stopped: true }),
+      // The start keeps its own 2%; the new concentration is a change on the bar (10.0.0).
+      expect.objectContaining({
+        name: "Sevoflurane", startCol: 0, endCol: 5, percent: 2, stopped: true,
+        percentChanges: [expect.objectContaining({ eventId: "agent-change", col: 2, percent: 1.7 })],
+      }),
     ])
     expect(timetable.gasSettings).toEqual([
       expect.objectContaining({

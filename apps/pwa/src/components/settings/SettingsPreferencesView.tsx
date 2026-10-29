@@ -18,6 +18,7 @@ import { FavouritePicker } from "@/components/SettingsPickers"
 import { NotificationsCard } from "./NotificationsCard"
 import { DiagnosticsCard, type DiagState } from "./DiagnosticsCard"
 import { BulgarianNamesCard } from "./BulgarianNamesCard"
+import { UiScaleRow } from "./UiScaleRow"
 
 /**
  * Split out of settings.tsx: theme/units/automation/notifications/privacy/
@@ -41,7 +42,7 @@ export function SettingsPreferencesView({
   const { options: drugOptions } = useOptionLibrary("INTRAOP_DRUG")
   const { options: infusionOptions } = useOptionLibrary("INTRAOP_INFUSION")
   const {
-    language, setLanguage, theme, setTheme, preopLayout, setPreopLayout, t, tc,
+    language, setLanguage, theme, setTheme, preopLayout, setPreopLayout, postopLayout, setPostopLayout, t, tc,
     heightUnit, setHeightUnit, weightUnit, setWeightUnit, temperatureUnit, setTemperatureUnit, etco2Unit, setEtco2Unit, cvpUnit, setCvpUnit,
     autoFillVitalsPreferences,
     setAutoFillVitalsPreferences,
@@ -159,12 +160,20 @@ export function SettingsPreferencesView({
             subtitle={language === "bg" ? t("bulgarian") : t("english")}
             onPress={() => setLanguage(language === "bg" ? "en" : "bg")}
           />
+          {/* Each case screen sectioned or scrollable (10.0.0). Intraop is
+              always sectioned on the phone: its chart is the cockpit. */}
           <SettingsRow
             label={t("preopLayout")}
             subtitle={preopLayout === "sections" ? t("preopLayoutSections") : t("preopLayoutScroll")}
             onPress={() => setPreopLayout(preopLayout === "sections" ? "scroll" : "sections")}
+          />
+          <SettingsRow
+            label={t("postopLayout")}
+            subtitle={postopLayout === "sections" ? t("preopLayoutSections") : t("preopLayoutScroll")}
+            onPress={() => setPostopLayout(postopLayout === "sections" ? "scroll" : "sections")}
             last
           />
+          <UiScaleRow />
         </Card>
         <View style={{ height: 12 }} />
         <BulgarianNamesCard />

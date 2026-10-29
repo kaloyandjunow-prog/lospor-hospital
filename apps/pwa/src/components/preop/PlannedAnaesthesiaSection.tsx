@@ -40,11 +40,13 @@ function Chips({ options, chosen, onChange, testID }: {
  * airway devices and instruments, and ventilation after the operation. The
  * summary prints it; layout C of the consent starts from it.
  */
-export function PlannedAnaesthesiaSection({ value, onChange, language, tc }: {
+export function PlannedAnaesthesiaSection({ value, onChange, language, tc, bare = false }: {
   value: unknown
   onChange: (next: PlannedAnaesthesia) => void
   language: string
   tc: (key: ClinicalStringKey) => string
+  /** Inside a section of its own (10.0.0): no title or frame of its own. */
+  bare?: boolean
 }) {
   useThemeRefresh()
   const plan = normalizePlannedAnaesthesia(value)
@@ -64,8 +66,8 @@ export function PlannedAnaesthesiaSection({ value, onChange, language, tc }: {
   const heading = { color: colors.textMuted, fontSize: 11, fontWeight: "800" as const, letterSpacing: 1, textTransform: "uppercase" as const }
 
   return (
-    <View testID="preop-planned-anaesthesia" style={{ gap: 10, marginBottom: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 }}>
-      <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800" }}>{tc("plannedAnaesthesia")}</Text>
+    <View testID="preop-planned-anaesthesia" style={bare ? { gap: 10 } : { gap: 10, marginBottom: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 }}>
+      {bare ? null : <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800" }}>{tc("plannedAnaesthesia")}</Text>}
       <Text style={heading}>{tc("summaryTechnique")}</Text>
       {/* The intraop tab scrolls inside itself; here it gets a fixed window in the form. */}
       <View style={{ height: 360, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>

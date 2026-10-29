@@ -102,6 +102,7 @@ jobs:
         working-directory: apps/api
         run: |
           npx prisma generate
+          node ../../scripts/normalize-prisma-generated.mjs
           npx prisma migrate deploy
           npx tsx scripts/provision-preop-catalog.ts
 

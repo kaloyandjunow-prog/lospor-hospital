@@ -1,6 +1,6 @@
 {
   "name": "lospor-hospital",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -67,6 +67,7 @@
     "lint": "npm run prepare:contract && node scripts/run-all.mjs lint",
     "build": "node scripts/run-all.mjs build",
     "prepare:contract": "npm --prefix vendor/exchange-contract run build",
+    "normalize:generated": "node scripts/normalize-prisma-generated.mjs",
     "test:update-agent": "sh scripts/update-agent.test.sh",
     "test:host-observability": "sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py",
     "test:terminology-status": "sh scripts/terminology-agent.test.sh && sh scripts/terminology-db-lib.test.sh && node --test scripts/terminology-status-contract.test.mjs scripts/terminology-manifest.test.mjs",

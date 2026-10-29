@@ -26,9 +26,34 @@ const text: PreopSectionOverviewText = {
   age: "{age}y", sexMale: "M", sexFemale: "F", comorbidityCount: "{count} comorbidities",
   medicationCount: "{count} medications", resultCount: "{count} results",
   allergy: "Allergy", smoker: "Smoker", familyHistory: "Family hx", bp: "BP", hr: "HR",
+  wardOrdersHint: "orders hint", medInstructionsHint: "instructions hint", orderCount: "{count} ordered",
+  premedicationHint: "premedication hint",
+  plannedHint: "planned hint",
+  fastingHint: "fasting hint",
 }
 
 describe("preop section overview", () => {
+  it("counts the premedication ordered across both phases", () => {
+    const labels = [{ key: "premedication" as const, label: "Premedication" }]
+    expect(buildPreopSectionItems({}, labels, text)[0]).toMatchObject({ done: false, summary: "premedication hint" })
+    expect(buildPreopSectionItems({ preopPremedicationOrders: { DAY_BEFORE: "Midazolam 7.5 mg PO", MORNING: "Pantoprazole 40 mg PO; Midazolam 3.75 mg PO" } }, labels, text)[0])
+      .toMatchObject({ done: true, summary: "3 ordered" })
+  })
+
+  it("summarises the order sections from the case's own rows", () => {
+    const labels = [{ key: "wardOrders" as const, label: "Orders" }, { key: "medInstructions" as const, label: "Instructions" }]
+    expect(buildPreopSectionItems({}, labels, text).map(item => [item.done, item.required, item.summary])).toEqual([
+      [false, false, "orders hint"],
+      [false, false, "instructions hint"],
+    ])
+    const filled = buildPreopSectionItems({
+      preopWardOrders: [{ optionKey: "CORRECT_ANAEMIA" }, { optionKey: "CONSULTATION", specialtyKey: "1015" }],
+      preopMedicationInstructions: [{ id: "a", optionKey: "DO_NOT_STOP", medicationLabel: "Bisoprolol" }],
+    }, labels, text)
+    expect(filled.map(item => [item.done, item.summary])).toEqual([[true, "2 ordered"], [true, "1 ordered"]])
+  })
+
+
   it("marks required sections ready when their clinical gates are satisfied", () => {
     const items = buildPreopSectionItems({
       // An adult age, because this record carries no clinical mode and so reads

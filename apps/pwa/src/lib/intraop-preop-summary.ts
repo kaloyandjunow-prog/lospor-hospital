@@ -1,3 +1,4 @@
+import type { PremedicationOrders } from "@lospor/core/premedication"
 import { tciPatientFrom, type TciPatient } from "@lospor/core/tci"
 import type {
   ClinicalMode,
@@ -27,10 +28,19 @@ export type IntraopPreopSummary = {
   allergyDetails?: unknown
   /** The child's nil-by-mouth assignment, read as clock times once surgery starts. */
   pediatricFasting?: { category: PediatricFastingCategory; hoursBefore: number }[]
+  /** The premedication ordered at the preop visit; the record's premedication starts from it. */
+  premedicationOrders?: PremedicationOrders
 }
 
 function numberOrUndefined(value: unknown): number | undefined {
   return value != null ? Number(value) : undefined
+}
+
+function premedicationOrdersOf(value: unknown): PremedicationOrders | undefined {
+  if (!value || typeof value !== "object") return undefined
+  const orders = value as Record<string, unknown>
+  const text = (phase: string) => typeof orders[phase] === "string" ? orders[phase] as string : ""
+  return { DAY_BEFORE: text("DAY_BEFORE"), MORNING: text("MORNING") }
 }
 
 export function buildIntraopPreopSummary(
@@ -63,6 +73,7 @@ export function buildIntraopPreopSummary(
         .filter((row): row is { category: PediatricFastingCategory; hoursBefore: number } =>
           typeof row?.category === "string" && typeof row.hoursBefore === "number")
       : undefined,
+    premedicationOrders: premedicationOrdersOf(pd.preopPremedicationOrders),
   }
 }
 export function pediatricAgeFromPreop(

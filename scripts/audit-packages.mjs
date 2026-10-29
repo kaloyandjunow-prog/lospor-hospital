@@ -35,65 +35,23 @@ const FAIL_AT = new Set(["high", "critical"])
  * Removal condition is not decoration: when it is met the exception must go,
  * and the audit will start failing again if it does not.
  */
-// braces 3.0.3 (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687) is the newest release and
-// has no patched version (re-audited 2026-10-06 for 1.5.1). Every route to it is build-time tooling, and the
-// release image scans confirm no shipped image contains it (the tools and
-// migrate images strip the API's lint chain in api.Dockerfile).
-const BRACES_1_5_0 = (route) => ({
-  reason:
-    "Accepted by the maintainer for Hospital 1.5.1 only (re-audited 2026-10-06). braces 3.0.3 has no "
-    + `patched release; here it is reached only through ${route}, which runs at `
-    + "build or lint time and is not part of any shipped image.",
-  removeWhen: "braces publishes a patched version; re-audit before the next Hospital release",
-})
-
+// No advisories are accepted without a current, package-specific review. A
+// new advisory must either be fixed in the dependency tree or be added here
+// with a release-specific reason and retirement condition.
 const EXCEPTIONS = {
-  "apps/api": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("eslint-config-next (lint)"),
-  },
-  "apps/web": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("@ducanh2912/next-pwa (service-worker generation during the production build)"),
-  },
-  "apps/browser": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("eslint-config-next (lint)"),
-  },
   "apps/pwa": {
-    "GHSA-vfj7-8cjw-p6xm": BRACES_1_5_0("tailwindcss (style build)"),
-    "GHSA-86w9-cpqp-85rv": {
+    "GHSA-mrhx-c7xc-m3w5": {
       reason:
-        "Accepted by the maintainer for Hospital 1.5.1 only (re-audited 2026-10-06: "
-        + "node-forge 1.4.0 is still the newest release, and the PWA still "
-        + "reaches it through Expo 56). node-forge 1.4.0 is pulled "
-        + "transitively by Expo's code-signing certificates tooling; the PWA "
-        + "source has no node-forge import, and the production PWA is a static "
-        + "export rather than a runtime that verifies RSA signatures. GitHub "
-        + "lists no patched node-forge version, so the only available npm "
-        + "remedy would replace the reviewed Expo toolchain without a safe "
-        + "target. This is a build-time, unreachable dependency in this "
-        + "appliance release, not an assertion that the cryptographic flaw is "
-        + "harmless.",
+        "Accepted by the maintainer for Hospital 1.7.0 on 2026-10-29. "
+        + "Expo 56's @expo/cli still pins Zod 3.25.76, and no patched "
+        + "Expo 56 CLI is available. npm's suggested Expo 54 change is a "
+        + "major downgrade, not a safe remediation for this reviewed PWA "
+        + "toolchain. The dependency is used by the build-time Expo CLI; the "
+        + "shipped PWA is a static export and does not expose that CLI at runtime.",
       removeWhen:
-        "node-forge publishes a patched version, or Expo drops/replaces the "
-        + "dependency; re-audit before the next Hospital release",
+        "Expo 56 publishes a CLI with patched Zod, or the PWA moves to a reviewed Expo release whose CLI no longer carries the advisory",
     },
   },
-
-  // No other package advisories are currently accepted; a new advisory in any
-  // package must still fail the gate.
-  //
-  // Three lived here until 2026-09-06 and all three had retired without
-  // anybody noticing:
-  //
-  //   - apps/api GHSA-ggr8-5vv4-36mx (deepmerge-ts stack exhaustion) — the
-  //     `deepmerge-ts: ^8.0.1` override in apps/api already satisfied its own
-  //     removal condition.
-  //   - apps/pwa GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq (image-size
-  //     parser loops) — no longer reachable in the tree metro resolves.
-  //
-  // The reasoning they carried is recorded in the 1.3.0 tracker under Stage 6b.
-  // Not in release-inputs.json's vulnerabilityReview: that one is about the
-  // source-built PostgreSQL, zlib and ACL components, which is a different
-  // question from an npm advisory and must not become a dumping ground for one.
 }
 
 // Same shape as run-all.mjs: prefer the npm CLI script through this Node, which

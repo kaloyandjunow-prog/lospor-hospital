@@ -224,3 +224,43 @@ export function plannedProcedureText(items: unknown): string {
     .filter(Boolean)
     .join("; ")
 }
+
+/**
+ * A planned procedure not yet known (10.0.0): its extent is decided during the
+ * operation. Ticked in place of a procedure, it satisfies the planned
+ * procedure, and the procedure done must then be recorded in the postoperative
+ * record before the case can be finalised.
+ *
+ * OMOP has no concept for an undetermined procedure. It is exported as SNOMED
+ * 387713003 "Surgical procedure" (concept 4301351), which says truthfully that
+ * a surgical procedure was planned without naming one; the source value keeps
+ * why. What was done is exported from the procedure done.
+ */
+export const UNDETERMINED_PROCEDURE = Object.freeze({
+  sourceValue: "LOSPOR:PROCEDURE_UNDETERMINED",
+  vocabulary: "SNOMED",
+  code: "387713003",
+  conceptId: 4301351,
+  labelEn: "Procedure not yet known — decided during surgery",
+  labelBg: "Обемът ще се определи по време на операцията",
+})
+
+/** Whether a preoperative record names its planned procedure, or says it is not yet known. */
+export function hasPlannedProcedure(preop: { procedures?: unknown; plannedProcedure?: unknown; procedureUndetermined?: unknown } | null | undefined): boolean {
+  if (!preop) return false
+  return preop.procedureUndetermined === true
+    || (Array.isArray(preop.procedures) && preop.procedures.length > 0)
+    || (typeof preop.plannedProcedure === "string" && preop.plannedProcedure.trim().length > 0)
+}
+
+/** The planned procedure as shown: the text, or "not yet known" in the reader's language. */
+export function plannedProcedureLabel(preop: { plannedProcedure?: string | null; procedureUndetermined?: boolean | null } | null | undefined, language: string | null | undefined): string | null {
+  if (preop?.procedureUndetermined) return language?.toLowerCase().startsWith("bg") ? UNDETERMINED_PROCEDURE.labelBg : UNDETERMINED_PROCEDURE.labelEn
+  return preop?.plannedProcedure?.trim() || null
+}
+
+/** Whether a postoperative record names the procedure done. */
+export function hasPerformedProcedure(postop: { performedProcedures?: unknown; performedProceduresJson?: unknown } | null | undefined): boolean {
+  const list = postop?.performedProcedures ?? postop?.performedProceduresJson
+  return Array.isArray(list) && list.length > 0
+}

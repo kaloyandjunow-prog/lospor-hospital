@@ -53,3 +53,21 @@ describe("CaseMeta — notes are a write", () => {
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).readOnly).toBe(true)
   })
 })
+
+describe("CaseMeta — what the case header names (10.0.0)", () => {
+  it("labels a cancelled procedure with its reason", () => {
+    renderMeta({ cancelled: { reason: "No theatre time or staff" } })
+    expect(screen.getByTestId("case-cancelled").textContent).toBe("Procedure cancelled · No theatre time or staff")
+  })
+
+  it("labels it even without a reason, and says nothing on an ordinary case", () => {
+    renderMeta({ cancelled: { reason: null } })
+    expect(screen.getByTestId("case-cancelled").textContent).toBe("Procedure cancelled")
+  })
+
+  it("names the operating theatre when the case has one", () => {
+    renderMeta({ theatreName: "Theatre 3" })
+    expect(screen.getByText("Theatre 3")).toBeTruthy()
+    expect(screen.queryByTestId("case-cancelled")).toBeNull()
+  })
+})

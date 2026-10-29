@@ -25,6 +25,8 @@ export type PreferencesContextValue = {
   /** A colour written for dark, as the current theme shows it (see @/theme/shade). */
   shade: (hex: string) => string
   preopLayout: "sections" | "scroll"
+  /** The postop screen's own (10.0.0); it followed the preop one before. */
+  postopLayout: "sections" | "scroll"
   heightUnit: HeightUnit
   weightUnit: WeightUnit
   temperatureUnit: TemperatureUnit
@@ -45,6 +47,7 @@ export type PreferencesContextValue = {
   completeLoginLocaleSync: () => Promise<void>
   setTheme: (theme: ColorScheme) => Promise<void>
   setPreopLayout: (layout: "sections" | "scroll") => Promise<void>
+  setPostopLayout: (layout: "sections" | "scroll") => Promise<void>
   setHeightUnit: (unit: HeightUnit) => Promise<void>
   setWeightUnit: (unit: WeightUnit) => Promise<void>
   setTemperatureUnit: (unit: TemperatureUnit) => Promise<void>

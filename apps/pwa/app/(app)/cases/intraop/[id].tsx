@@ -21,14 +21,16 @@ import { useFluidEntry } from "@/lib/use-fluid-entry"
 import { useInfusionEntry } from "@/lib/use-infusion-entry"
 import { useDrugEntry } from "@/lib/use-drug-entry"
 import { BOLUS_SCENARIOS, INFUSION_SCENARIOS } from "@lospor/core"
+import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import { useVitalsEntry } from "@/lib/use-vitals-entry"
 import { COMPLICATION_GROUPS, COMPLICATION_ITEMS, COMPLICATION_TC_TITLES } from "@/lib/intraop-static-options"
 import { intraopTabForFocus, type IntraopTab } from "@/lib/intraop-tabs"
-import { newChartFluidsWithTimestamps } from "@/lib/intraop-chart-change"
+import { applyIntraopChartChange } from "@/lib/apply-intraop-chart-change"
 import { pediatricAgeFromPreop, useAllergyCheck, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
 import { useIntraopCaseLifecycle } from "@/lib/use-intraop-case-lifecycle"
 import { useIntraopPremedication } from "@/lib/use-intraop-premedication"
+import { useIntraopPremedicationPrefill } from "@/lib/use-intraop-premedication-prefill"
 import { useIntraopFluidStatus } from "@/lib/use-intraop-fluid-status"
 import { useCaseWeights } from "@/lib/use-case-weights"
 import { useIntraopAirwaySection } from "@/lib/use-intraop-airway-section"
@@ -117,6 +119,7 @@ export default function IntraopLiveScreen() {
   const { isWatching, isWatchingRef, takeover } = useCaseLock(id, true)
   const {
     tc,
+    language,
     etco2Unit,
     temperatureUnit,
     cvpUnit,
@@ -125,8 +128,8 @@ export default function IntraopLiveScreen() {
   } = usePreferences()
 
   const [caseInfo, setCaseInfo] = useState<{
-    caseCode: string; procedure?: string; diagnosis?: string; techniques?: string[]
-    status?: string; finalizedAt?: string | null
+    caseCode: string; procedure?: string; procedureUndetermined?: boolean; diagnosis?: string; techniques?: string[]
+    status?: string; finalizedAt?: string | null; theatre?: string | null
   } | null>(null)
 
   const [log,             setLog]             = useState<LogEvent[]>([])
@@ -328,6 +331,20 @@ export default function IntraopLiveScreen() {
     setPremedPickRoute,
     addSelectedPremedication,
   } = useIntraopPremedication(patchIntraopSection, tc("errorLabel"))
+  // The premedication starts from what the preop visit ordered (1.7.0).
+  useIntraopPremedicationPrefill({
+    ready: caseLoaded,
+    // Watching mode saves nothing, so the order waits for a take-over rather than
+    // showing as applied while the server never hears of it.
+    readOnly: isWatching || caseInfo?.status === "COMPLETE" || !!caseInfo?.finalizedAt,
+    ordered: preop?.premedicationOrders,
+    current: { evening: premedEveningText, morning: premedMorningText },
+    fill: texts => {
+      if (texts.evening != null) setPremedEveningText(texts.evening)
+      if (texts.morning != null) setPremedMorningText(texts.morning)
+      void savePremedication(texts)
+    },
+  })
 
   // Fluid status tab — urine output, blood loss and the blood products note.
   const {
@@ -590,6 +607,7 @@ export default function IntraopLiveScreen() {
     chartRows,
     jumpVerticalTimetableToNow,
     tabSwipeResponder,
+    tabMotion,
   } = useIntraopTimetableViewport({
     log,
     timetable,
@@ -636,34 +654,7 @@ export default function IntraopLiveScreen() {
     setSlotOpen,
     addComplicationFromEvent,
   })
-  function handleChartTimetableChange(newData: TimetableData) {
-    if (startRef.current) {
-      const base = roundDown5Min(startRef.current)
-      for (const { fluid: fl, ts } of newChartFluidsWithTimestamps(timetable, newData, base)) {
-        const bagVolumeMl = Number(fl.volume)
-        setActiveFluids(prev => [...prev, {
-          fluidId: fl.id,
-          name: fl.name,
-          volume: fl.volume,
-          color: fl.color,
-          fluidEntryMode: "VOLUME",
-          bagVolumeMl: Number.isFinite(bagVolumeMl) ? bagVolumeMl : undefined,
-          startTs: ts,
-        }])
-        void save({
-          type: "fluid_start",
-          fluidId: fl.id,
-          name: fl.name,
-          volume: fl.volume,
-          color: fl.color,
-          category: fl.category,
-          fluidEntryMode: "VOLUME",
-          bagVolumeMl: Number.isFinite(bagVolumeMl) ? bagVolumeMl : undefined,
-        }, ts, true)
-      }
-    }
-    setTimetable(newData)
-  }
+  const handleChartTimetableChange = (newData: TimetableData) => applyIntraopChartChange({ start: startRef.current, timetable, next: newData, onFluidStart: fluid => setActiveFluids(prev => [...prev, fluid]), save, onChange: setTimetable })
   // ─────────────────────────────── RENDER ───────────────────────────────
   return (
     <>
@@ -676,8 +667,9 @@ export default function IntraopLiveScreen() {
           onTakeover={takeover}
           monitor={{
             techniquesLabel: caseInfo?.techniques?.map(techniqueLabel).join(" · ") ?? tc("anaesthesiaLabel"),
-            procedure: caseInfo?.procedure ?? "–",
+            procedure: (caseInfo?.procedureUndetermined ? plannedProcedureLabel({ procedureUndetermined: true }, language) : null) ?? caseInfo?.procedure ?? "–",
             diagnosis: caseInfo?.diagnosis,
+            theatre: caseInfo?.theatre,
             timeStr,
             started: !!startRef.current,
             elapsedMs,
@@ -691,7 +683,7 @@ export default function IntraopLiveScreen() {
           tabBar={{ tab, onSelect: selectTab, tc, screenWidth, railRef: tabRailRef, layouts: tabLayouts }}
         >
         <IntraopRenderSurface {...{
-          screenWidth, tabSwipeResponder, tab, undoEv, chartRows, chartStart, currentCol, attention,
+          screenWidth, tabSwipeResponder, tabMotion, tab, undoEv, chartRows, chartStart, currentCol, attention,
           expandedRow, nowSlotPercent, timetable, eventRows, activeInfusions, activeFluids,
           activeAgent, activeAgents, activeGas, startRef, isWatching, verticalTimetableRef, undoLastEvent,
           setUndoEv, removalUndo, setExpandedRow, eventLabel, setInfActTgt, setInfActRate, setInfActTs,

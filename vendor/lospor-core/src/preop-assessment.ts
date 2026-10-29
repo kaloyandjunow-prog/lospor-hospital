@@ -1,3 +1,5 @@
+import type { PreopSectionConfig } from "./preop-orders"
+
 /** Shared wire contract for the API-owned, definition-driven preoperative assessment. */
 export type PreopAnswerState = "YES" | "NO" | "UNKNOWN" | "NOT_APPLICABLE" | "NOT_ASKED"
 
@@ -79,6 +81,11 @@ export type PreopAssessmentProfile = {
   status: "DRAFT" | "PUBLISHED" | "RETIRED"
   publishedAt: string | null
   questions: PreopProfileQuestion[]
+  /**
+   * Each population's sections and order rows (preop-orders). Absent from an
+   * older server: the bundled defaults apply.
+   */
+  sectionConfigs?: Partial<Record<"ADULT" | "PEDIATRIC", PreopSectionConfig>>
 }
 
 export type PreopAnswerInput = {
@@ -159,6 +166,23 @@ export function preopQuestionAppliesToMode(applicability: readonly string[], mod
   return applicability.length === 0 || !mode || applicability.includes(mode)
 }
 
+/**
+ * Questions not asked of a male patient (10.0.0): pregnancy and breastfeeding,
+ * and their follow-ups. A female, "other" or not-yet-recorded sex is asked, so
+ * nothing is hidden by a missing field.
+ */
+export const PREOP_NOT_ASKED_OF_MALE: ReadonlySet<string> = new Set([
+  "A13_PREGNANCY", "A13_GESTATIONAL_AGE_KNOWN", "A14_BREASTFEEDING", "A14_CONTINUE_BREASTFEEDING",
+])
+
+/** Whether a question is asked of a patient of this sex. */
+export function preopQuestionAppliesToSex(stableKey: string, sex: string | null | undefined): boolean {
+  return !(sex === "MALE" && PREOP_NOT_ASKED_OF_MALE.has(stableKey))
+}
+
+/** The catalogue group drawn under its own heading in the anamnesis (10.0.0). */
+export const PREOP_MH_SUSCEPTIBILITY_GROUP = "MH_SUSCEPTIBILITY"
+
 /** Whether a question is asked at this age (unknown age: asked, so nothing is hidden by a missing field). */
 export function preopQuestionAppliesToAge(minAgeYears: number | null | undefined, ageYears: number | null | undefined): boolean {
   return minAgeYears == null || ageYears == null || ageYears >= minAgeYears
@@ -204,12 +228,14 @@ export function isPreopQuestionShown(
   stableKey: string,
   mode: string | null | undefined,
   ageYears?: number | null,
+  sex?: string | null,
 ): boolean {
   if (!profile) return true
   const question = profile.questions.find(item => item.stableKey === stableKey)
   if (!question) return true
   return question.enabled && preopQuestionAppliesToMode(question.applicability, mode)
     && preopQuestionAppliesToAge(question.minAgeYears, ageYears)
+    && preopQuestionAppliesToSex(stableKey, sex)
 }
 
 /** Whether a question is required on this case's form. */
@@ -218,9 +244,10 @@ export function isPreopQuestionRequired(
   stableKey: string,
   mode: string | null | undefined,
   ageYears?: number | null,
+  sex?: string | null,
 ): boolean {
   const question = profile?.questions.find(item => item.stableKey === stableKey)
-  return Boolean(question?.required && isPreopQuestionShown(profile, stableKey, mode, ageYears))
+  return Boolean(question?.required && isPreopQuestionShown(profile, stableKey, mode, ageYears, sex))
 }
 
 /**
@@ -263,10 +290,12 @@ export function preopQuestionRows(
   mode: string | null | undefined,
   states: ReadonlyMap<string, PreopAnswerState>,
   ageYears?: number | null,
+  sex?: string | null,
 ): PreopQuestionRow[] {
   if (!profile) return []
   const shown = (question: PreopProfileQuestion) => question.enabled && preopQuestionAppliesToMode(question.applicability, mode)
     && preopQuestionAppliesToAge(question.minAgeYears, ageYears)
+    && preopQuestionAppliesToSex(question.stableKey, sex)
   const ordered = [...profile.questions].sort((left, right) => left.sortOrder - right.sortOrder)
   const children = new Map<string, PreopProfileQuestion[]>()
   for (const question of ordered) {

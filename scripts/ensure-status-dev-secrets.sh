@@ -16,7 +16,20 @@ chmod 700 "$directory"
 
 ensure_hex() {
   target="$1"
-  [ -s "$target" ] || openssl rand -hex 32 > "$target"
+  value=
+  if [ -s "$target" ]; then
+    value="$(tr -d '\r\n' < "$target")"
+    case "$value" in
+      ????????*)
+        case "$value" in
+          *[!0123456789abcdefABCDEF]*) value= ;;
+        esac
+        ;;
+      *) value= ;;
+    esac
+    [ "${#value}" -eq 64 ] || value=
+  fi
+  [ -n "${value:-}" ] || openssl rand -hex 32 > "$target"
 }
 
 ensure_hex "$directory/fixture-control-token"

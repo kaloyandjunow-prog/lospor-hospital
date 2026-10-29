@@ -7,14 +7,8 @@ import {
 } from "@/components/intraop/buildIntraopMedicationSheetProps"
 import { formatDateHHMM } from "@/lib/intraop-projection"
 import { slotIsoTimestamp } from "@/lib/intraop-row-quick-add"
-import {
-  buildPediatricPremedLibrary,
-  pediatricPremedDoseForRoute,
-  premedPatientFromPreop,
-  type PediatricPremedDrug,
-} from "@/lib/pediatric-premedication-library"
 import { buildPostopRoute } from "@/lib/postop-route"
-import { adultPremedForRoute } from "@/lib/premed-route-dose"
+import { premedicationSheetProps } from "@/components/intraop/premedication-sheet-props"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
 type SlotProps = IntraopSheetsHostProps["slot"]
@@ -115,7 +109,6 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
     setPremedPickDrug, setPremedPickDose, setPremedPickRoute, addSelectedPremedication,
     caseEnded, continuedPostopItems, tc, router, id,
   } = props
-  const pediatricMode = props.preop?.clinicalMode === "PEDIATRIC"
 
   return {
     slot: {
@@ -182,67 +175,12 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       onDecision: (key, decision) => setEndCaseDecisions((previous) => ({ ...previous, [key]: decision })),
       onFinalize: finaliseCase,
     },
-    premedicationLibrary: {
-      visible: premedPickOpen,
-      phase: premedPickPhase,
-      // Paediatric mode used to get an empty list. It now gets the same library
-      // rebuilt from this child's weight and age, minus the drugs that have no
-      // paediatric rule — never the adult amounts.
-      categories: pediatricMode
-        ? buildPediatricPremedLibrary(PREMED_LIBRARY, props.preop)
-        : PREMED_LIBRARY,
-      openCategory: premedPickCat,
-      drug: premedPickDrug,
-      dose: premedPickDose,
-      route: premedPickRoute,
-      backLabel: tc("back"),
-      onClose: () => { setPremedPickOpen(false); setPremedPickCat(null); setPremedPickDrug(null) },
-      onToggleCategory: category => setPremedPickCat((previous) => previous === category ? null : category),
-      onSelectDrug: drug => {
-        setPremedPickDrug(drug)
-        // A paediatric entry now arrives with a dose computed for this child, so
-        // it prefills like the adult one. Anything the rules would not calculate
-        // — withheld, no rule, no weight — still starts blank and has to be
-        // entered by hand.
-        const annotation = (drug as PediatricPremedDrug).pediatric
-        // An adult drug is shown as it applies to its default route.
-        const adult = pediatricMode ? null : adultPremedForRoute(drug, drug.defaultRoute, props.preop?.weight)
-        if (adult) setPremedPickDrug(adult.drug)
-        setPremedPickDose(
-          !props.prospectiveGuidanceEnabled || (pediatricMode && annotation?.kind !== "calculated")
-            ? ""
-            : adult ? adult.dose : String(drug.dose),
-        )
-        setPremedPickRoute(drug.defaultRoute)
-      },
-      onBackToLibrary: () => setPremedPickDrug(null),
-      onDoseChange: setPremedPickDose,
-      onRouteChange: route => {
-        setPremedPickRoute(route)
-        if (!props.prospectiveGuidanceEnabled) {
-          setPremedPickDose("")
-          return
-        }
-        // Changing route changes the dose: oral midazolam is 0.5 mg/kg, IV is
-        // 0.05. Leaving the previous number in place would be a tenfold error
-        // waiting to be pressed.
-        if (!premedPickDrug) return
-        if (!pediatricMode) {
-          // Adults too: the route's own dose replaces the old one, typed or not.
-          const adult = adultPremedForRoute(premedPickDrug, route, props.preop?.weight)
-          setPremedPickDrug(adult.drug)
-          setPremedPickDose(adult.dose)
-          return
-        }
-        const next = pediatricPremedDoseForRoute(
-          premedPickDrug, route, premedPatientFromPreop(props.preop),
-        )
-        setPremedPickDose(next.status === "calculated" ? String(next.dose) : "")
-      },
-      onAdd: addSelectedPremedication,
-      prospectiveGuidanceEnabled: props.prospectiveGuidanceEnabled,
-      pediatricMode,
-    },
+    premedicationLibrary: premedicationSheetProps({
+      open: premedPickOpen, phase: premedPickPhase, library: PREMED_LIBRARY, category: premedPickCat,
+      drug: premedPickDrug, dose: premedPickDose, route: premedPickRoute, setOpen: setPremedPickOpen,
+      setCategory: setPremedPickCat, setDrug: setPremedPickDrug, setDose: setPremedPickDose,
+      setRoute: setPremedPickRoute, onAdd: addSelectedPremedication,
+    }, { preop: props.preop, prospectiveGuidanceEnabled: props.prospectiveGuidanceEnabled, backLabel: tc("back") }),
     postopContinue: caseEnded ? {
       continuedItems: continuedPostopItems,
       continueLabel: tc("continuePostop"),

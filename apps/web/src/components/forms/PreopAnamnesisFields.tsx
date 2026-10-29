@@ -23,7 +23,7 @@ type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?:
  */
 export function PreopAnamnesisFields({
   control, register, setValue, watch, allergies, familyAnesthesiaProblems, isPediatric,
-  rcriSuggested, stopBangBPSuggested, shownField, rejectionOf, children,
+  rcriSuggested, stopBangBPSuggested, shownField, rejectionOf, columns = false, children, mhQuestions,
 }: {
   control: Control<PreopData>
   register: UseFormRegister<PreopData>
@@ -36,11 +36,16 @@ export function PreopAnamnesisFields({
   stopBangBPSuggested: boolean
   shownField: (field: string) => boolean
   rejectionOf: (key: string) => string | undefined
+  /** Two columns on a wide screen (the sidebar layout); the legacy page keeps one. */
+  columns?: boolean
   children?: ReactNode
+  /** The profile questions of the MH group, drawn under its heading (10.0.0). */
+  mhQuestions?: ReactNode
 }) {
   const t = useTranslations()
   return (
     <div className="space-y-3">
+      <div className={columns ? "lg:columns-2 lg:gap-x-10 [&>*]:mb-3 [&>*]:break-inside-avoid [&>[data-slot=separator]]:hidden" : "space-y-3"}>
       {/* Allergies */}
       {shownField("allergies") && (<>
       <div className="flex items-center gap-2">
@@ -83,7 +88,28 @@ export function PreopAnamnesisFields({
       </div>
       )}
       <Separator />
-      {/* Family history */}
+      {/* Personal anaesthetic history — the patient, not the family */}
+      {shownField("unexplainedAnaesthesiaComplications") && (
+      <div className="flex items-center gap-2">
+        <Controller name="unexplainedAnaesthesiaComplications" control={control} render={({ field }) => (
+          <ClinicalYesNo id="unexplainedAnaesthesiaComplications" value={field.value ?? null} tone="danger" onChange={field.onChange} />
+        )} />
+        <Label htmlFor="unexplainedAnaesthesiaComplications" className="font-normal cursor-pointer">{t("preop.unexplainedAnaesthesiaComplications")}</Label>
+      </div>
+      )}
+      <Separator />
+      {/* Malignant hyperthermia susceptibility (10.0.0): the patient's own MH,
+          the one family-history question with what it names, and the symptoms. */}
+      <div className="space-y-2" data-testid="preop-mh-susceptibility">
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("preop.mhSusceptibility")}</p>
+      {shownField("malignantHyperthermiaHistory") && (
+      <div className="flex items-center gap-2">
+        <Controller name="malignantHyperthermiaHistory" control={control} render={({ field }) => (
+          <ClinicalYesNo id="malignantHyperthermiaHistory" value={field.value ?? null} tone="danger" onChange={field.onChange} />
+        )} />
+        <Label htmlFor="malignantHyperthermiaHistory" className="font-normal cursor-pointer">{t("preop.malignantHyperthermiaHistory")}</Label>
+      </div>
+      )}
       {shownField("familyAnesthesiaProblems") && (<>
       <div className="flex items-center gap-2">
         <Controller name="familyAnesthesiaProblems" control={control} render={({ field }) => (
@@ -101,24 +127,8 @@ export function PreopAnamnesisFields({
         </>
       )}
       </>)}
-      <Separator />
-      {/* Personal anaesthetic history — the patient, not the family */}
-      {shownField("unexplainedAnaesthesiaComplications") && (
-      <div className="flex items-center gap-2">
-        <Controller name="unexplainedAnaesthesiaComplications" control={control} render={({ field }) => (
-          <ClinicalYesNo id="unexplainedAnaesthesiaComplications" value={field.value ?? null} tone="danger" onChange={field.onChange} />
-        )} />
-        <Label htmlFor="unexplainedAnaesthesiaComplications" className="font-normal cursor-pointer">{t("preop.unexplainedAnaesthesiaComplications")}</Label>
+      {mhQuestions}
       </div>
-      )}
-      {shownField("malignantHyperthermiaHistory") && (
-      <div className="flex items-center gap-2">
-        <Controller name="malignantHyperthermiaHistory" control={control} render={({ field }) => (
-          <ClinicalYesNo id="malignantHyperthermiaHistory" value={field.value ?? null} tone="danger" onChange={field.onChange} />
-        )} />
-        <Label htmlFor="malignantHyperthermiaHistory" className="font-normal cursor-pointer">{t("preop.malignantHyperthermiaHistory")}</Label>
-      </div>
-      )}
       <Separator />
       {/* Dental */}
       {shownField("dentalProsthetics") && (
@@ -239,6 +249,7 @@ export function PreopAnamnesisFields({
         })}
       </div>
       </>)}
+      </div>
       {children}
     </div>
   )

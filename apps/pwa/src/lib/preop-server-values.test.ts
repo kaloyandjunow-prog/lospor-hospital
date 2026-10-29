@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest"
 import { commaToTags, diagToTags, valuesFromServerPreop } from "./preop-server-values"
 
 describe("preop server values", () => {
+  it("reopens a case with the orders the server holds, labels and all", () => {
+    const wardOrders = [{ optionKey: "CONSULTATION", specialtyKey: "1020", labelEn: "Consultation with", labelBg: "Консултация с", status: "ACTIVE" }]
+    const instructions = [{ id: "row-1", optionKey: "STOP_BEFORE_SURGERY", medicationLabel: "Metformin", hoursBefore: 48, labelEn: "Stop taking" }]
+    const values = valuesFromServerPreop({ preopWardOrders: wardOrders, preopMedicationInstructions: instructions } as never)
+    expect(values.preopWardOrders).toEqual(wardOrders)
+    expect(values.preopMedicationInstructions).toEqual(instructions)
+    // A case from before the orders existed opens with none.
+    expect(valuesFromServerPreop({}).preopWardOrders).toEqual([])
+    expect(valuesFromServerPreop({}).preopMedicationInstructions).toEqual([])
+  })
+
+  it("reopens a case with its premedication order, a phase each", () => {
+    expect(valuesFromServerPreop({ preopPremedicationOrders: { DAY_BEFORE: "Midazolam 7.5 mg PO", MORNING: "" } } as never).preopPremedicationOrders)
+      .toEqual({ DAY_BEFORE: "Midazolam 7.5 mg PO", MORNING: "" })
+    expect(valuesFromServerPreop({}).preopPremedicationOrders).toEqual({ DAY_BEFORE: "", MORNING: "" })
+  })
+
   // Reopening a case must never answer a clinical question on the user's
   // behalf. The old default silently pre-selected MALE, so a case could be
   // finalised asserting a sex nobody had recorded.

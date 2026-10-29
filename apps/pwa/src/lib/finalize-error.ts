@@ -12,6 +12,7 @@ const FINALIZATION_MESSAGE_KEYS: Record<FinalizationErrorKind, ClinicalStringKey
   missing_technique: "finalizeMissingTechnique",
   missing_postop: "finalizeMissingPostop",
   missing_aldrete: "finalizeMissingAldrete",
+  missing_steward: "finalizeMissingSteward",
   missing_disposition: "finalizeMissingDisposition",
   missing_intraop: "finalizeMissingIntraop",
   invalid_intraop_times: "finalizeInvalidTimes",

@@ -241,6 +241,9 @@ export type PreopAssessmentProfileWhereInput = {
   publishedById?: Prisma.StringNullableFilter<"PreopAssessmentProfile"> | string | null
   createdAt?: Prisma.DateTimeFilter<"PreopAssessmentProfile"> | Date | string
   questions?: Prisma.PreopProfileQuestionListRelationFilter
+  sections?: Prisma.PreopProfileSectionListRelationFilter
+  orderOptions?: Prisma.PreopProfileOrderOptionListRelationFilter
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyListRelationFilter
   auditEvents?: Prisma.PreopAssessmentAuditEventListRelationFilter
 }
 
@@ -254,6 +257,9 @@ export type PreopAssessmentProfileOrderByWithRelationInput = {
   publishedById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   questions?: Prisma.PreopProfileQuestionOrderByRelationAggregateInput
+  sections?: Prisma.PreopProfileSectionOrderByRelationAggregateInput
+  orderOptions?: Prisma.PreopProfileOrderOptionOrderByRelationAggregateInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyOrderByRelationAggregateInput
   auditEvents?: Prisma.PreopAssessmentAuditEventOrderByRelationAggregateInput
 }
 
@@ -270,6 +276,9 @@ export type PreopAssessmentProfileWhereUniqueInput = Prisma.AtLeast<{
   publishedById?: Prisma.StringNullableFilter<"PreopAssessmentProfile"> | string | null
   createdAt?: Prisma.DateTimeFilter<"PreopAssessmentProfile"> | Date | string
   questions?: Prisma.PreopProfileQuestionListRelationFilter
+  sections?: Prisma.PreopProfileSectionListRelationFilter
+  orderOptions?: Prisma.PreopProfileOrderOptionListRelationFilter
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyListRelationFilter
   auditEvents?: Prisma.PreopAssessmentAuditEventListRelationFilter
 }, "id" | "version">
 
@@ -313,6 +322,9 @@ export type PreopAssessmentProfileCreateInput = {
   publishedById?: string | null
   createdAt?: Date | string
   questions?: Prisma.PreopProfileQuestionCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyCreateNestedManyWithoutProfileInput
   auditEvents?: Prisma.PreopAssessmentAuditEventCreateNestedManyWithoutProfileInput
 }
 
@@ -326,6 +338,9 @@ export type PreopAssessmentProfileUncheckedCreateInput = {
   publishedById?: string | null
   createdAt?: Date | string
   questions?: Prisma.PreopProfileQuestionUncheckedCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionUncheckedCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedCreateNestedManyWithoutProfileInput
   auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedCreateNestedManyWithoutProfileInput
 }
 
@@ -339,6 +354,9 @@ export type PreopAssessmentProfileUpdateInput = {
   publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   questions?: Prisma.PreopProfileQuestionUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUpdateManyWithoutProfileNestedInput
   auditEvents?: Prisma.PreopAssessmentAuditEventUpdateManyWithoutProfileNestedInput
 }
 
@@ -352,6 +370,9 @@ export type PreopAssessmentProfileUncheckedUpdateInput = {
   publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   questions?: Prisma.PreopProfileQuestionUncheckedUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUncheckedUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedUpdateManyWithoutProfileNestedInput
   auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedUpdateManyWithoutProfileNestedInput
 }
 
@@ -457,6 +478,48 @@ export type PreopAssessmentProfileUpdateOneRequiredWithoutQuestionsNestedInput =
   update?: Prisma.XOR<Prisma.XOR<Prisma.PreopAssessmentProfileUpdateToOneWithWhereWithoutQuestionsInput, Prisma.PreopAssessmentProfileUpdateWithoutQuestionsInput>, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutQuestionsInput>
 }
 
+export type PreopAssessmentProfileCreateNestedOneWithoutSectionsInput = {
+  create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutSectionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutSectionsInput>
+  connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutSectionsInput
+  connect?: Prisma.PreopAssessmentProfileWhereUniqueInput
+}
+
+export type PreopAssessmentProfileUpdateOneRequiredWithoutSectionsNestedInput = {
+  create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutSectionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutSectionsInput>
+  connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutSectionsInput
+  upsert?: Prisma.PreopAssessmentProfileUpsertWithoutSectionsInput
+  connect?: Prisma.PreopAssessmentProfileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PreopAssessmentProfileUpdateToOneWithWhereWithoutSectionsInput, Prisma.PreopAssessmentProfileUpdateWithoutSectionsInput>, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutSectionsInput>
+}
+
+export type PreopAssessmentProfileCreateNestedOneWithoutOrderOptionsInput = {
+  create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutOrderOptionsInput>
+  connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutOrderOptionsInput
+  connect?: Prisma.PreopAssessmentProfileWhereUniqueInput
+}
+
+export type PreopAssessmentProfileUpdateOneRequiredWithoutOrderOptionsNestedInput = {
+  create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutOrderOptionsInput>
+  connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutOrderOptionsInput
+  upsert?: Prisma.PreopAssessmentProfileUpsertWithoutOrderOptionsInput
+  connect?: Prisma.PreopAssessmentProfileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PreopAssessmentProfileUpdateToOneWithWhereWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUpdateWithoutOrderOptionsInput>, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutOrderOptionsInput>
+}
+
+export type PreopAssessmentProfileCreateNestedOneWithoutConsultSpecialtiesInput = {
+  create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutConsultSpecialtiesInput>
+  connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutConsultSpecialtiesInput
+  connect?: Prisma.PreopAssessmentProfileWhereUniqueInput
+}
+
+export type PreopAssessmentProfileUpdateOneRequiredWithoutConsultSpecialtiesNestedInput = {
+  create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutConsultSpecialtiesInput>
+  connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutConsultSpecialtiesInput
+  upsert?: Prisma.PreopAssessmentProfileUpsertWithoutConsultSpecialtiesInput
+  connect?: Prisma.PreopAssessmentProfileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PreopAssessmentProfileUpdateToOneWithWhereWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUpdateWithoutConsultSpecialtiesInput>, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutConsultSpecialtiesInput>
+}
+
 export type PreopAssessmentProfileCreateNestedOneWithoutAuditEventsInput = {
   create?: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutAuditEventsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutAuditEventsInput>
   connectOrCreate?: Prisma.PreopAssessmentProfileCreateOrConnectWithoutAuditEventsInput
@@ -482,6 +545,9 @@ export type PreopAssessmentProfileCreateWithoutQuestionsInput = {
   publishedAt?: Date | string | null
   publishedById?: string | null
   createdAt?: Date | string
+  sections?: Prisma.PreopProfileSectionCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyCreateNestedManyWithoutProfileInput
   auditEvents?: Prisma.PreopAssessmentAuditEventCreateNestedManyWithoutProfileInput
 }
 
@@ -494,6 +560,9 @@ export type PreopAssessmentProfileUncheckedCreateWithoutQuestionsInput = {
   publishedAt?: Date | string | null
   publishedById?: string | null
   createdAt?: Date | string
+  sections?: Prisma.PreopProfileSectionUncheckedCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedCreateNestedManyWithoutProfileInput
   auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedCreateNestedManyWithoutProfileInput
 }
 
@@ -522,6 +591,9 @@ export type PreopAssessmentProfileUpdateWithoutQuestionsInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sections?: Prisma.PreopProfileSectionUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUpdateManyWithoutProfileNestedInput
   auditEvents?: Prisma.PreopAssessmentAuditEventUpdateManyWithoutProfileNestedInput
 }
 
@@ -534,6 +606,237 @@ export type PreopAssessmentProfileUncheckedUpdateWithoutQuestionsInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sections?: Prisma.PreopProfileSectionUncheckedUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedUpdateManyWithoutProfileNestedInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedUpdateManyWithoutProfileNestedInput
+}
+
+export type PreopAssessmentProfileCreateWithoutSectionsInput = {
+  id?: string
+  version: number
+  population?: $Enums.ClinicalMode
+  catalogVersion: string
+  status?: $Enums.PreopProfileStatus
+  publishedAt?: Date | string | null
+  publishedById?: string | null
+  createdAt?: Date | string
+  questions?: Prisma.PreopProfileQuestionCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyCreateNestedManyWithoutProfileInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventCreateNestedManyWithoutProfileInput
+}
+
+export type PreopAssessmentProfileUncheckedCreateWithoutSectionsInput = {
+  id?: string
+  version: number
+  population?: $Enums.ClinicalMode
+  catalogVersion: string
+  status?: $Enums.PreopProfileStatus
+  publishedAt?: Date | string | null
+  publishedById?: string | null
+  createdAt?: Date | string
+  questions?: Prisma.PreopProfileQuestionUncheckedCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedCreateNestedManyWithoutProfileInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedCreateNestedManyWithoutProfileInput
+}
+
+export type PreopAssessmentProfileCreateOrConnectWithoutSectionsInput = {
+  where: Prisma.PreopAssessmentProfileWhereUniqueInput
+  create: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutSectionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutSectionsInput>
+}
+
+export type PreopAssessmentProfileUpsertWithoutSectionsInput = {
+  update: Prisma.XOR<Prisma.PreopAssessmentProfileUpdateWithoutSectionsInput, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutSectionsInput>
+  create: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutSectionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutSectionsInput>
+  where?: Prisma.PreopAssessmentProfileWhereInput
+}
+
+export type PreopAssessmentProfileUpdateToOneWithWhereWithoutSectionsInput = {
+  where?: Prisma.PreopAssessmentProfileWhereInput
+  data: Prisma.XOR<Prisma.PreopAssessmentProfileUpdateWithoutSectionsInput, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutSectionsInput>
+}
+
+export type PreopAssessmentProfileUpdateWithoutSectionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  population?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  catalogVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumPreopProfileStatusFieldUpdateOperationsInput | $Enums.PreopProfileStatus
+  publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  questions?: Prisma.PreopProfileQuestionUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUpdateManyWithoutProfileNestedInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUpdateManyWithoutProfileNestedInput
+}
+
+export type PreopAssessmentProfileUncheckedUpdateWithoutSectionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  population?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  catalogVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumPreopProfileStatusFieldUpdateOperationsInput | $Enums.PreopProfileStatus
+  publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  questions?: Prisma.PreopProfileQuestionUncheckedUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedUpdateManyWithoutProfileNestedInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedUpdateManyWithoutProfileNestedInput
+}
+
+export type PreopAssessmentProfileCreateWithoutOrderOptionsInput = {
+  id?: string
+  version: number
+  population?: $Enums.ClinicalMode
+  catalogVersion: string
+  status?: $Enums.PreopProfileStatus
+  publishedAt?: Date | string | null
+  publishedById?: string | null
+  createdAt?: Date | string
+  questions?: Prisma.PreopProfileQuestionCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyCreateNestedManyWithoutProfileInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventCreateNestedManyWithoutProfileInput
+}
+
+export type PreopAssessmentProfileUncheckedCreateWithoutOrderOptionsInput = {
+  id?: string
+  version: number
+  population?: $Enums.ClinicalMode
+  catalogVersion: string
+  status?: $Enums.PreopProfileStatus
+  publishedAt?: Date | string | null
+  publishedById?: string | null
+  createdAt?: Date | string
+  questions?: Prisma.PreopProfileQuestionUncheckedCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionUncheckedCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedCreateNestedManyWithoutProfileInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedCreateNestedManyWithoutProfileInput
+}
+
+export type PreopAssessmentProfileCreateOrConnectWithoutOrderOptionsInput = {
+  where: Prisma.PreopAssessmentProfileWhereUniqueInput
+  create: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutOrderOptionsInput>
+}
+
+export type PreopAssessmentProfileUpsertWithoutOrderOptionsInput = {
+  update: Prisma.XOR<Prisma.PreopAssessmentProfileUpdateWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutOrderOptionsInput>
+  create: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutOrderOptionsInput>
+  where?: Prisma.PreopAssessmentProfileWhereInput
+}
+
+export type PreopAssessmentProfileUpdateToOneWithWhereWithoutOrderOptionsInput = {
+  where?: Prisma.PreopAssessmentProfileWhereInput
+  data: Prisma.XOR<Prisma.PreopAssessmentProfileUpdateWithoutOrderOptionsInput, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutOrderOptionsInput>
+}
+
+export type PreopAssessmentProfileUpdateWithoutOrderOptionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  population?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  catalogVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumPreopProfileStatusFieldUpdateOperationsInput | $Enums.PreopProfileStatus
+  publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  questions?: Prisma.PreopProfileQuestionUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUpdateManyWithoutProfileNestedInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUpdateManyWithoutProfileNestedInput
+}
+
+export type PreopAssessmentProfileUncheckedUpdateWithoutOrderOptionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  population?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  catalogVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumPreopProfileStatusFieldUpdateOperationsInput | $Enums.PreopProfileStatus
+  publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  questions?: Prisma.PreopProfileQuestionUncheckedUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUncheckedUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedUpdateManyWithoutProfileNestedInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedUpdateManyWithoutProfileNestedInput
+}
+
+export type PreopAssessmentProfileCreateWithoutConsultSpecialtiesInput = {
+  id?: string
+  version: number
+  population?: $Enums.ClinicalMode
+  catalogVersion: string
+  status?: $Enums.PreopProfileStatus
+  publishedAt?: Date | string | null
+  publishedById?: string | null
+  createdAt?: Date | string
+  questions?: Prisma.PreopProfileQuestionCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionCreateNestedManyWithoutProfileInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventCreateNestedManyWithoutProfileInput
+}
+
+export type PreopAssessmentProfileUncheckedCreateWithoutConsultSpecialtiesInput = {
+  id?: string
+  version: number
+  population?: $Enums.ClinicalMode
+  catalogVersion: string
+  status?: $Enums.PreopProfileStatus
+  publishedAt?: Date | string | null
+  publishedById?: string | null
+  createdAt?: Date | string
+  questions?: Prisma.PreopProfileQuestionUncheckedCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionUncheckedCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedCreateNestedManyWithoutProfileInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedCreateNestedManyWithoutProfileInput
+}
+
+export type PreopAssessmentProfileCreateOrConnectWithoutConsultSpecialtiesInput = {
+  where: Prisma.PreopAssessmentProfileWhereUniqueInput
+  create: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutConsultSpecialtiesInput>
+}
+
+export type PreopAssessmentProfileUpsertWithoutConsultSpecialtiesInput = {
+  update: Prisma.XOR<Prisma.PreopAssessmentProfileUpdateWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutConsultSpecialtiesInput>
+  create: Prisma.XOR<Prisma.PreopAssessmentProfileCreateWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUncheckedCreateWithoutConsultSpecialtiesInput>
+  where?: Prisma.PreopAssessmentProfileWhereInput
+}
+
+export type PreopAssessmentProfileUpdateToOneWithWhereWithoutConsultSpecialtiesInput = {
+  where?: Prisma.PreopAssessmentProfileWhereInput
+  data: Prisma.XOR<Prisma.PreopAssessmentProfileUpdateWithoutConsultSpecialtiesInput, Prisma.PreopAssessmentProfileUncheckedUpdateWithoutConsultSpecialtiesInput>
+}
+
+export type PreopAssessmentProfileUpdateWithoutConsultSpecialtiesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  population?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  catalogVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumPreopProfileStatusFieldUpdateOperationsInput | $Enums.PreopProfileStatus
+  publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  questions?: Prisma.PreopProfileQuestionUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUpdateManyWithoutProfileNestedInput
+  auditEvents?: Prisma.PreopAssessmentAuditEventUpdateManyWithoutProfileNestedInput
+}
+
+export type PreopAssessmentProfileUncheckedUpdateWithoutConsultSpecialtiesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  population?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  catalogVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumPreopProfileStatusFieldUpdateOperationsInput | $Enums.PreopProfileStatus
+  publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  questions?: Prisma.PreopProfileQuestionUncheckedUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUncheckedUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedUpdateManyWithoutProfileNestedInput
   auditEvents?: Prisma.PreopAssessmentAuditEventUncheckedUpdateManyWithoutProfileNestedInput
 }
 
@@ -547,6 +850,9 @@ export type PreopAssessmentProfileCreateWithoutAuditEventsInput = {
   publishedById?: string | null
   createdAt?: Date | string
   questions?: Prisma.PreopProfileQuestionCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyCreateNestedManyWithoutProfileInput
 }
 
 export type PreopAssessmentProfileUncheckedCreateWithoutAuditEventsInput = {
@@ -559,6 +865,9 @@ export type PreopAssessmentProfileUncheckedCreateWithoutAuditEventsInput = {
   publishedById?: string | null
   createdAt?: Date | string
   questions?: Prisma.PreopProfileQuestionUncheckedCreateNestedManyWithoutProfileInput
+  sections?: Prisma.PreopProfileSectionUncheckedCreateNestedManyWithoutProfileInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedCreateNestedManyWithoutProfileInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedCreateNestedManyWithoutProfileInput
 }
 
 export type PreopAssessmentProfileCreateOrConnectWithoutAuditEventsInput = {
@@ -587,6 +896,9 @@ export type PreopAssessmentProfileUpdateWithoutAuditEventsInput = {
   publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   questions?: Prisma.PreopProfileQuestionUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUpdateManyWithoutProfileNestedInput
 }
 
 export type PreopAssessmentProfileUncheckedUpdateWithoutAuditEventsInput = {
@@ -599,6 +911,9 @@ export type PreopAssessmentProfileUncheckedUpdateWithoutAuditEventsInput = {
   publishedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   questions?: Prisma.PreopProfileQuestionUncheckedUpdateManyWithoutProfileNestedInput
+  sections?: Prisma.PreopProfileSectionUncheckedUpdateManyWithoutProfileNestedInput
+  orderOptions?: Prisma.PreopProfileOrderOptionUncheckedUpdateManyWithoutProfileNestedInput
+  consultSpecialties?: Prisma.PreopProfileConsultSpecialtyUncheckedUpdateManyWithoutProfileNestedInput
 }
 
 
@@ -608,11 +923,17 @@ export type PreopAssessmentProfileUncheckedUpdateWithoutAuditEventsInput = {
 
 export type PreopAssessmentProfileCountOutputType = {
   questions: number
+  sections: number
+  orderOptions: number
+  consultSpecialties: number
   auditEvents: number
 }
 
 export type PreopAssessmentProfileCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   questions?: boolean | PreopAssessmentProfileCountOutputTypeCountQuestionsArgs
+  sections?: boolean | PreopAssessmentProfileCountOutputTypeCountSectionsArgs
+  orderOptions?: boolean | PreopAssessmentProfileCountOutputTypeCountOrderOptionsArgs
+  consultSpecialties?: boolean | PreopAssessmentProfileCountOutputTypeCountConsultSpecialtiesArgs
   auditEvents?: boolean | PreopAssessmentProfileCountOutputTypeCountAuditEventsArgs
 }
 
@@ -636,6 +957,27 @@ export type PreopAssessmentProfileCountOutputTypeCountQuestionsArgs<ExtArgs exte
 /**
  * PreopAssessmentProfileCountOutputType without action
  */
+export type PreopAssessmentProfileCountOutputTypeCountSectionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PreopProfileSectionWhereInput
+}
+
+/**
+ * PreopAssessmentProfileCountOutputType without action
+ */
+export type PreopAssessmentProfileCountOutputTypeCountOrderOptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PreopProfileOrderOptionWhereInput
+}
+
+/**
+ * PreopAssessmentProfileCountOutputType without action
+ */
+export type PreopAssessmentProfileCountOutputTypeCountConsultSpecialtiesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PreopProfileConsultSpecialtyWhereInput
+}
+
+/**
+ * PreopAssessmentProfileCountOutputType without action
+ */
 export type PreopAssessmentProfileCountOutputTypeCountAuditEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.PreopAssessmentAuditEventWhereInput
 }
@@ -651,6 +993,9 @@ export type PreopAssessmentProfileSelect<ExtArgs extends runtime.Types.Extension
   publishedById?: boolean
   createdAt?: boolean
   questions?: boolean | Prisma.PreopAssessmentProfile$questionsArgs<ExtArgs>
+  sections?: boolean | Prisma.PreopAssessmentProfile$sectionsArgs<ExtArgs>
+  orderOptions?: boolean | Prisma.PreopAssessmentProfile$orderOptionsArgs<ExtArgs>
+  consultSpecialties?: boolean | Prisma.PreopAssessmentProfile$consultSpecialtiesArgs<ExtArgs>
   auditEvents?: boolean | Prisma.PreopAssessmentProfile$auditEventsArgs<ExtArgs>
   _count?: boolean | Prisma.PreopAssessmentProfileCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["preopAssessmentProfile"]>
@@ -691,6 +1036,9 @@ export type PreopAssessmentProfileSelectScalar = {
 export type PreopAssessmentProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "version" | "population" | "catalogVersion" | "status" | "publishedAt" | "publishedById" | "createdAt", ExtArgs["result"]["preopAssessmentProfile"]>
 export type PreopAssessmentProfileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   questions?: boolean | Prisma.PreopAssessmentProfile$questionsArgs<ExtArgs>
+  sections?: boolean | Prisma.PreopAssessmentProfile$sectionsArgs<ExtArgs>
+  orderOptions?: boolean | Prisma.PreopAssessmentProfile$orderOptionsArgs<ExtArgs>
+  consultSpecialties?: boolean | Prisma.PreopAssessmentProfile$consultSpecialtiesArgs<ExtArgs>
   auditEvents?: boolean | Prisma.PreopAssessmentProfile$auditEventsArgs<ExtArgs>
   _count?: boolean | Prisma.PreopAssessmentProfileCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -701,6 +1049,9 @@ export type $PreopAssessmentProfilePayload<ExtArgs extends runtime.Types.Extensi
   name: "PreopAssessmentProfile"
   objects: {
     questions: Prisma.$PreopProfileQuestionPayload<ExtArgs>[]
+    sections: Prisma.$PreopProfileSectionPayload<ExtArgs>[]
+    orderOptions: Prisma.$PreopProfileOrderOptionPayload<ExtArgs>[]
+    consultSpecialties: Prisma.$PreopProfileConsultSpecialtyPayload<ExtArgs>[]
     auditEvents: Prisma.$PreopAssessmentAuditEventPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1110,6 +1461,9 @@ readonly fields: PreopAssessmentProfileFieldRefs;
 export interface Prisma__PreopAssessmentProfileClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   questions<T extends Prisma.PreopAssessmentProfile$questionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PreopAssessmentProfile$questionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreopProfileQuestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  sections<T extends Prisma.PreopAssessmentProfile$sectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PreopAssessmentProfile$sectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreopProfileSectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  orderOptions<T extends Prisma.PreopAssessmentProfile$orderOptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PreopAssessmentProfile$orderOptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreopProfileOrderOptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  consultSpecialties<T extends Prisma.PreopAssessmentProfile$consultSpecialtiesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PreopAssessmentProfile$consultSpecialtiesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreopProfileConsultSpecialtyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   auditEvents<T extends Prisma.PreopAssessmentProfile$auditEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PreopAssessmentProfile$auditEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreopAssessmentAuditEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1562,6 +1916,78 @@ export type PreopAssessmentProfile$questionsArgs<ExtArgs extends runtime.Types.E
   take?: number
   skip?: number
   distinct?: Prisma.PreopProfileQuestionScalarFieldEnum | Prisma.PreopProfileQuestionScalarFieldEnum[]
+}
+
+/**
+ * PreopAssessmentProfile.sections
+ */
+export type PreopAssessmentProfile$sectionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PreopProfileSection
+   */
+  select?: Prisma.PreopProfileSectionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PreopProfileSection
+   */
+  omit?: Prisma.PreopProfileSectionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PreopProfileSectionInclude<ExtArgs> | null
+  where?: Prisma.PreopProfileSectionWhereInput
+  orderBy?: Prisma.PreopProfileSectionOrderByWithRelationInput | Prisma.PreopProfileSectionOrderByWithRelationInput[]
+  cursor?: Prisma.PreopProfileSectionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PreopProfileSectionScalarFieldEnum | Prisma.PreopProfileSectionScalarFieldEnum[]
+}
+
+/**
+ * PreopAssessmentProfile.orderOptions
+ */
+export type PreopAssessmentProfile$orderOptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PreopProfileOrderOption
+   */
+  select?: Prisma.PreopProfileOrderOptionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PreopProfileOrderOption
+   */
+  omit?: Prisma.PreopProfileOrderOptionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PreopProfileOrderOptionInclude<ExtArgs> | null
+  where?: Prisma.PreopProfileOrderOptionWhereInput
+  orderBy?: Prisma.PreopProfileOrderOptionOrderByWithRelationInput | Prisma.PreopProfileOrderOptionOrderByWithRelationInput[]
+  cursor?: Prisma.PreopProfileOrderOptionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PreopProfileOrderOptionScalarFieldEnum | Prisma.PreopProfileOrderOptionScalarFieldEnum[]
+}
+
+/**
+ * PreopAssessmentProfile.consultSpecialties
+ */
+export type PreopAssessmentProfile$consultSpecialtiesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PreopProfileConsultSpecialty
+   */
+  select?: Prisma.PreopProfileConsultSpecialtySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PreopProfileConsultSpecialty
+   */
+  omit?: Prisma.PreopProfileConsultSpecialtyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PreopProfileConsultSpecialtyInclude<ExtArgs> | null
+  where?: Prisma.PreopProfileConsultSpecialtyWhereInput
+  orderBy?: Prisma.PreopProfileConsultSpecialtyOrderByWithRelationInput | Prisma.PreopProfileConsultSpecialtyOrderByWithRelationInput[]
+  cursor?: Prisma.PreopProfileConsultSpecialtyWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PreopProfileConsultSpecialtyScalarFieldEnum | Prisma.PreopProfileConsultSpecialtyScalarFieldEnum[]
 }
 
 /**

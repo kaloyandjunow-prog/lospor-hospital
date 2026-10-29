@@ -179,8 +179,10 @@ describe("clinical display registry", () => {
     // subscores the research record now carries beside their total; 975 with the
     // Gupta risk field and its "elevated" band, and the three PAED bands; 976
     // with plain Ringer; 977 with the neuromuscular reversal group; 992 with
-    // the 15 infusions of 2026-10-18.
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(993)
+    // the 15 infusions of 2026-10-18; 997 with the Steward score and its three
+    // components (10.0.0); 1000 with the FLACC, FPS-R and NIPS totals (10.0.0); 1001
+    // with the cancelled procedure status (10.0.0).
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(1001)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

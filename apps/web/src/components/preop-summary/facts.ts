@@ -9,6 +9,11 @@ import {
   titledName,
 } from "@lospor/core/preop-documents"
 import { plannedAnaesthesiaText } from "@lospor/core/preop-plan"
+import { broselowZone } from "@lospor/core/broselow"
+import { specialtyLabel } from "@lospor/core/nhis-specialties"
+import { holdHoursText, medicationInstructionText, wardOrderText, type PreopMedicationInstruction, type PreopWardOrder } from "@lospor/core/preop-orders"
+import { premedicationEntries } from "@lospor/core/premedication"
+import { displayOptionEntry } from "@/lib/clinical-display"
 import type { CaseDetail } from "@/types/case-detail"
 import { printGeneratedDate } from "@/components/case-summary/print-format"
 import { preopSummaryLabels, type PreopSummaryLabels } from "./labels"
@@ -79,6 +84,29 @@ export function summaryFacts(data: PreopSummaryData, locale: string, printedAt: 
     p?.temperature ? `${L.temp} ${p.temperature} °C` : null,
   ].filter(Boolean).join(" · ")
 
+  // The case's own copy of each order, printed in the sheet's language.
+  const wardOrders = Array.isArray(p?.preopWardOrders) ? p.preopWardOrders as PreopWardOrder[] : []
+  const instructions = Array.isArray(p?.preopMedicationInstructions) ? p.preopMedicationInstructions as PreopMedicationInstruction[] : []
+  const orders = {
+    none: wardOrders.some(order => order.kind === "NONE"),
+    consults: wardOrders.filter(order => order.kind === "CONSULT").map(order => (order.specialtyKey ? specialtyLabel(order.specialtyKey, lang) : null) ?? (lang === "bg" ? order.specialtyLabelBg : order.specialtyLabelEn) ?? ""),
+    others: wardOrders.filter(order => order.kind !== "NONE" && order.kind !== "CONSULT").map(order => wardOrderText(order, lang)),
+    all: wardOrders.map(order => wardOrderText(order, lang)),
+  }
+  const medicationOrders = {
+    stop: instructions.filter(row => row.optionKey === "STOP_BEFORE_SURGERY").map(row => ({ drug: row.medicationLabel, hours: row.hoursBefore == null ? null : holdHoursText(row.hoursBefore, lang) })),
+    keep: instructions.filter(row => row.optionKey === "DO_NOT_STOP").map(row => row.medicationLabel),
+    others: instructions.filter(row => row.optionKey !== "STOP_BEFORE_SURGERY" && row.optionKey !== "DO_NOT_STOP").map(row => medicationInstructionText(row, lang)),
+    all: instructions.map(row => medicationInstructionText(row, lang)),
+  }
+
+  // The premedication ordered for the ward to give, a phase each, drug names in the sheet's language.
+  const premedOrders = (p?.preopPremedicationOrders ?? {}) as Record<string, string | null | undefined>
+  const premedication = {
+    night: premedicationEntries(premedOrders.DAY_BEFORE).map(entry => displayOptionEntry("PREMED_DRUG", entry, lang)),
+    morning: premedicationEntries(premedOrders.MORNING).map(entry => displayOptionEntry("PREMED_DRUG", entry, lang)),
+  }
+
   const consultant = personName(data.createdBy)
   const holder = personName(data.user)
 
@@ -89,6 +117,7 @@ export function summaryFacts(data: PreopSummaryData, locale: string, printedAt: 
     zone,
     ageYears,
     ageText,
+    broselow: broselowZone({ clinicalMode: data.clinicalMode ?? "ADULT", heightCm: p?.heightCm, weightKg: p?.weightKg }),
     child: ageYears != null && ageYears < CONSENT_PARENT_ONLY_BELOW_YEARS,
     bsa,
     bloodGroup: p?.bloodType ? `${p.bloodType}${p.rhFactor === "POSITIVE" ? " Rh+" : p.rhFactor === "NEGATIVE" ? " Rh−" : ""}` : null,
@@ -101,6 +130,9 @@ export function summaryFacts(data: PreopSummaryData, locale: string, printedAt: 
     allergyLine: allergyLine(listOfLabels(p?.allergyDetails).map(tag => tag.label), p?.latexAllergy === true, L.latex),
     labs: (p?.labResults ?? []).filter(lab => lab?.value),
     fasting: p?.pediatricFasting ?? [],
+    orders,
+    medicationOrders,
+    premedication,
     plannedText: plannedAnaesthesiaText(p?.plannedAnaesthesia, lang),
     scores,
     vitals,

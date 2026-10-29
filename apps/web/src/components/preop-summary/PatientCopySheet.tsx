@@ -45,8 +45,16 @@ export function PatientCopySheet({ data, locale, printedAt }: { data: PreopSumma
 
       <h3 className="text-[12px] font-bold uppercase tracking-[0.06em] border-b-2 border-slate-900 mt-5 mb-1">{facts.child ? L.medsTitleChild : L.medsTitleAdult}</h3>
       <div className="space-y-2">
-        <div>{L.takeMorning}<div className="border-b border-dotted border-slate-500 h-[8mm]" /></div>
-        <div>{L.doNotTake}<div className="border-b border-dotted border-slate-500 h-[8mm]" /></div>
+        {/* What the anaesthetist instructed, in the patient's words; the dotted line is left for anything added by hand. */}
+        <div data-testid="preop-patient-take">{L.takeMorning}
+          {facts.medicationOrders.keep.length > 0 ? <p className="font-semibold text-[14px]">{facts.medicationOrders.keep.join(", ")}</p> : null}
+          <div className="border-b border-dotted border-slate-500 h-[8mm]" />
+        </div>
+        <div data-testid="preop-patient-stop">{L.doNotTake}
+          {facts.medicationOrders.stop.map((row, index) => <p key={index} className="font-semibold text-[14px]">{row.drug}{row.hours ? ` — ${L.stopFrom.replace("{hours}", row.hours)}` : ""}</p>)}
+          {facts.medicationOrders.others.map((text, index) => <p key={`o${index}`} className="font-semibold text-[14px]">{text}</p>)}
+          <div className="border-b border-dotted border-slate-500 h-[8mm]" />
+        </div>
       </div>
 
       <h3 className="text-[12px] font-bold uppercase tracking-[0.06em] border-b-2 border-slate-900 mt-5 mb-1">{L.bringTitle}</h3>

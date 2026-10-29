@@ -46,12 +46,12 @@ export function printCaseDate(
   return printMonthYear(intraop?.monthYear, locale)
 }
 
-/** "0h 31m" / "0 ч 31 мин". */
+/** "0h 31m" / "0 h 31 min". */
 export function printDuration(minutes: number, locale: string): string {
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
   return language(locale) === "bg"
-    ? `${hours} ч ${rest} мин`
+    ? `${hours} h ${rest} min`
     : `${hours}h ${String(rest).padStart(2, "0")}m`
 }
 

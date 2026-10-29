@@ -32,6 +32,9 @@ export const postopSchema = z.object({
   aldreteCirculation:   postopNumber("aldreteCirculation").optional(),
   aldreteConsciousness: postopNumber("aldreteConsciousness").optional(),
   aldreteSpO2:          postopNumber("aldreteSpO2").optional(),
+  stewardConsciousness: postopNumber("stewardConsciousness").optional(),
+  stewardAirway:        postopNumber("stewardAirway").optional(),
+  stewardMovement:      postopNumber("stewardMovement").optional(),
   recoveryBpSystolic:   postopNumber("recoveryBpSystolic").optional(),
   recoveryBpDiastolic:  postopNumber("recoveryBpDiastolic").optional(),
   recoveryHeartRate:    postopNumber("recoveryHeartRate").optional(),
@@ -40,6 +43,24 @@ export const postopSchema = z.object({
   pediatricPainScale:   z.enum(["FLACC", "FPS_R", "NRS"]).optional(),
   pediatricPainScore:   postopNumber("pediatricPainScore").optional(),
   paedScore:            postopNumber("paedScore").optional(),
+  // Pain and delirium item by item (10.0.0); the totals are worked out by the API.
+  flaccFace:            postopNumber("flaccFace").optional(),
+  flaccLegs:            postopNumber("flaccLegs").optional(),
+  flaccActivity:        postopNumber("flaccActivity").optional(),
+  flaccCry:             postopNumber("flaccCry").optional(),
+  flaccConsolability:   postopNumber("flaccConsolability").optional(),
+  fpsrScore:            postopNumber("fpsrScore").optional(),
+  nipsFacialExpression: postopNumber("nipsFacialExpression").optional(),
+  nipsCry:              postopNumber("nipsCry").optional(),
+  nipsBreathing:        postopNumber("nipsBreathing").optional(),
+  nipsArms:             postopNumber("nipsArms").optional(),
+  nipsLegs:             postopNumber("nipsLegs").optional(),
+  nipsArousal:          postopNumber("nipsArousal").optional(),
+  paedEyeContact:       postopNumber("paedEyeContact").optional(),
+  paedPurposeful:       postopNumber("paedPurposeful").optional(),
+  paedAware:            postopNumber("paedAware").optional(),
+  paedRestless:         postopNumber("paedRestless").optional(),
+  paedInconsolable:     postopNumber("paedInconsolable").optional(),
   temperatureCelsius:   postopNumber("temperatureCelsius").optional(),
   // "Not asked" is not "absent". Defaulting to false let autosave record PONV
   // as explicitly ruled out on a patient nobody had asked.
@@ -49,6 +70,8 @@ export const postopSchema = z.object({
   recoverySpO2Unobtainable:        z.boolean().default(false),
   recoveryTemperatureUnobtainable: z.boolean().default(false),
   disposition:      z.enum(["WARD", "PACU", "ICU"]).optional(),
+  // The procedure done (10.0.0): filled in with the planned procedures.
+  performedProcedures: z.array(z.object({ label: z.string() }).passthrough()).default([]),
   dispositionNotes: z.string().optional(),
   handoverItems:    z.array(z.string()).default([]),
 }).superRefine((data, ctx) => {

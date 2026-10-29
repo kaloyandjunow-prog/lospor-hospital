@@ -427,6 +427,10 @@ export const schemas = {
     pediatricEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["adultEnabled", "pediatricEnabled", "reason"]),
+  HospitalCaseVisibilityPolicyRequest: object({
+    enabled: { type: "boolean" },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["enabled", "reason"]),
   HospitalExternalAiPolicyRequest: object({
     externalAiEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
@@ -557,6 +561,11 @@ export const schemas = {
     pediatricEnabled: { type: "boolean" },
     updatedAt: { type: "string", format: "date-time" },
   }, ["adultEnabled", "pediatricEnabled", "updatedAt"]),
+  HospitalCaseVisibilityPolicyResponse: object({
+    enabled: { type: "boolean" },
+    changedAt: { type: "string", format: "date-time" },
+    updatedAt: { type: "string", format: "date-time" },
+  }, ["enabled", "changedAt", "updatedAt"]),
   HospitalExternalAiPolicyResponse: object({
     externalAiEnabled: { type: "boolean" },
     provider: { type: "string", const: "MISTRAL" },
@@ -787,6 +796,15 @@ export const schemas = {
     updatedAt: { type: "string", format: "date-time" },
   }),
   TransferRequest: object({ toUserId: { type: "string", minLength: 1 } }, ["toUserId"]),
+  CaseTheatreRequest: object({
+    theatreId: nullable({ type: "string", minLength: 1, maxLength: 64 }),
+    expectedTheatreId: { ...nullable({ type: "string", minLength: 1, maxLength: 64 }), description: "The theatre the client showed; a case changed meanwhile is refused with 409 THEATRE_CHANGED." },
+  }, ["theatreId"]),
+  CaseTheatreResult: object({ theatreId: nullable({ type: "string" }) }, ["theatreId"]),
+  OperatingTheatreConfig: object({
+    enabled: { type: "boolean" },
+    theatres: { type: "array", items: object({ id: { type: "string" }, name: { type: "string" } }, ["id", "name"]) },
+  }, ["enabled", "theatres"]),
   TransferDecisionRequest: object({
     action: { type: "string", enum: ["accept", "decline"] },
   }, ["action"]),
@@ -813,6 +831,8 @@ export const schemas = {
     value: { type: "string" },
     label: { type: "string" },
     parentId: nullable({ type: "string" }),
+    customColor: { type: "string", pattern: "^#[0-9a-f]{6}$", description: "The hospital's own colour for a drug or infusion (10.0.0); absent when the bundled colour applies." },
+    customGroupColor: { type: "string", pattern: "^#[0-9a-f]{6}$", description: "The hospital's own colour for the option's group (10.0.0)." },
     active: { type: "boolean" },
     metadata: { type: "object", additionalProperties: true },
   }, ["id", "category", "value", "label"]),
@@ -1596,6 +1616,17 @@ add("DELETE", "/v1/cases/{id}/events/{eventId}", "Delete an intraoperative event
   result: ref("EventMutationResponse"),
 })
 
+add("POST", "/v1/cases/{id}/cancel", "Mark a case's procedure cancelled, before anaesthesia starts, with a reason", {
+  parameters: [id],
+  requestBody: body(object({ reason: { type: "string", enum: ["PATIENT_CONDITION", "PATIENT_REFUSED_OR_ABSENT", "NO_THEATRE_TIME_OR_STAFF", "EQUIPMENT_OR_BLOOD", "SURGICAL_DECISION", "OTHER"] }, note: { type: "string", maxLength: 500 } }, ["reason"])),
+})
+add("DELETE", "/v1/cases/{id}/cancel", "Undo a procedure's cancellation, returning the case to its earlier status", { parameters: [id] })
+add("POST", "/v1/cases/{id}/theatre", "Assign or clear a case's operating theatre, until intraop starts", { parameters: [id], requestBody: body(ref("CaseTheatreRequest")), result: ref("CaseTheatreResult") })
+add("GET", "/v1/indicators", "Read the unit indicators: aggregate figures over the department's cases, figures on fewer than five cases withheld", {
+  parameters: ["from", "to", "theatre", "assignee", "mode", "procedure", "asa"].map(name => ({ name, in: "query", required: false, schema: { type: "string" } })),
+  result: ref("JsonObject"),
+})
+add("GET", "/v1/operating-theatres", "Read whether operating theatres are used, and the active ones", { result: ref("OperatingTheatreConfig") })
 add("POST", "/v1/cases/{id}/transfer", "Offer a case transfer", { parameters: [id], requestBody: body(ref("TransferRequest")), status: 201, result: ref("Transfer") })
 add("PATCH", "/v1/cases/{id}/transfer", "Accept or decline a case transfer", { parameters: [id], requestBody: body(ref("TransferDecisionRequest")), result: ref("Transfer") })
 add("GET", "/v1/cases/{id}/transfers", "Read a case handover history", { parameters: [id], result: arrayOf("Transfer") })
@@ -1970,6 +2001,14 @@ add("POST", "/v1/internal/hospital/control-plane/guidance", "Set prospective adu
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalGuidancePolicyRequest")),
   result: ref("HospitalGuidancePolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/case-visibility", "Enable or disable hospital-wide read-only clinical case visibility", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalCaseVisibilityPolicyRequest")),
+  result: ref("HospitalCaseVisibilityPolicyResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

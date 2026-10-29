@@ -63,6 +63,15 @@ Then nothing needs typing, and the window follows it through:
    stopped and `sudo sh /usr/local/lib/lospor/losporctl-install.sh`, which, run
    again, offers `--resume` when the attempt left anything behind.
 
+The progress window has four stages: preparing the Ubuntu installer (about
+5 minutes), installing Ubuntu (15–20 minutes), starting the server (about
+3 minutes), and installing LOSPOR Hospital (10–40 minutes). A progress bar,
+the time spent so far, and **Show details** remain visible. During the last
+stage it also shows the server's eight installation steps: getting the release,
+checking its signature, loading application images, starting and preparing the
+database, creating the administrator, loading drug and code lists, and
+starting LOSPOR and checking that it is healthy.
+
 How the answers travel:
 
 - **Kept out of Ubuntu's setup file:** the administrator password and

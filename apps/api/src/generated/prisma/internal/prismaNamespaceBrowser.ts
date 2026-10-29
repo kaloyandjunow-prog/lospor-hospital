@@ -61,6 +61,10 @@ export const ModelName = {
   LegalAcceptance: 'LegalAcceptance',
   Institution: 'Institution',
   Case: 'Case',
+  OperatingTheatre: 'OperatingTheatre',
+  IndicatorPolicy: 'IndicatorPolicy',
+  CaseIndicatorSummary: 'CaseIndicatorSummary',
+  OperatingTheatrePolicy: 'OperatingTheatrePolicy',
   CaseLock: 'CaseLock',
   CaseCodeSequence: 'CaseCodeSequence',
   CaseTransfer: 'CaseTransfer',
@@ -72,6 +76,7 @@ export const ModelName = {
   Atc: 'Atc',
   Drug: 'Drug',
   OptionLibrary: 'OptionLibrary',
+  DrugColor: 'DrugColor',
   ConceptMap: 'ConceptMap',
   OmopVocabulary: 'OmopVocabulary',
   OmopDomain: 'OmopDomain',
@@ -97,6 +102,12 @@ export const ModelName = {
   ConsentTemplateVersion: 'ConsentTemplateVersion',
   CaseConsentPrint: 'CaseConsentPrint',
   PreopProfileQuestion: 'PreopProfileQuestion',
+  PreopProfileSection: 'PreopProfileSection',
+  PreopProfileOrderOption: 'PreopProfileOrderOption',
+  PreopProfileConsultSpecialty: 'PreopProfileConsultSpecialty',
+  PreopWardOrder: 'PreopWardOrder',
+  PreopMedicationInstruction: 'PreopMedicationInstruction',
+  PreopPremedicationOrder: 'PreopPremedicationOrder',
   PreopAssessmentAnswer: 'PreopAssessmentAnswer',
   PreopAssessmentSuggestion: 'PreopAssessmentSuggestion',
   PreopAssessmentAuditEvent: 'PreopAssessmentAuditEvent',
@@ -112,6 +123,7 @@ export const ModelName = {
   ClinicalPresetRule: 'ClinicalPresetRule',
   InstitutionClinicalRuleOverride: 'InstitutionClinicalRuleOverride',
   PreopDiagnosis: 'PreopDiagnosis',
+  PerformedProcedure: 'PerformedProcedure',
   PreopProcedure: 'PreopProcedure',
   Comorbidity: 'Comorbidity',
   LabResult: 'LabResult',
@@ -134,6 +146,7 @@ export const ModelName = {
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
   ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalCaseVisibilityPolicy: 'HospitalCaseVisibilityPolicy',
   HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
@@ -311,7 +324,14 @@ export const CaseScalarFieldEnum = {
   createdById: 'createdById',
   institutionId: 'institutionId',
   patientLinkId: 'patientLinkId',
+  operatingTheatreId: 'operatingTheatreId',
+  operatingTheatreName: 'operatingTheatreName',
   status: 'status',
+  cancelledAt: 'cancelledAt',
+  cancelledById: 'cancelledById',
+  cancellationReason: 'cancellationReason',
+  cancellationNote: 'cancellationNote',
+  statusBeforeCancel: 'statusBeforeCancel',
   clinicalMode: 'clinicalMode',
   clinicalRulesVersion: 'clinicalRulesVersion',
   awaitingReviewAt: 'awaitingReviewAt',
@@ -327,6 +347,52 @@ export const CaseScalarFieldEnum = {
 } as const
 
 export type CaseScalarFieldEnum = (typeof CaseScalarFieldEnum)[keyof typeof CaseScalarFieldEnum]
+
+
+export const OperatingTheatreScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  sortOrder: 'sortOrder',
+  active: 'active',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type OperatingTheatreScalarFieldEnum = (typeof OperatingTheatreScalarFieldEnum)[keyof typeof OperatingTheatreScalarFieldEnum]
+
+
+export const IndicatorPolicyScalarFieldEnum = {
+  id: 'id',
+  config: 'config',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IndicatorPolicyScalarFieldEnum = (typeof IndicatorPolicyScalarFieldEnum)[keyof typeof IndicatorPolicyScalarFieldEnum]
+
+
+export const CaseIndicatorSummaryScalarFieldEnum = {
+  caseId: 'caseId',
+  institutionId: 'institutionId',
+  startedAt: 'startedAt',
+  clinicalRevision: 'clinicalRevision',
+  eventRevision: 'eventRevision',
+  relationalRevision: 'relationalRevision',
+  configKey: 'configKey',
+  version: 'version',
+  payload: 'payload',
+  computedAt: 'computedAt'
+} as const
+
+export type CaseIndicatorSummaryScalarFieldEnum = (typeof CaseIndicatorSummaryScalarFieldEnum)[keyof typeof CaseIndicatorSummaryScalarFieldEnum]
+
+
+export const OperatingTheatrePolicyScalarFieldEnum = {
+  id: 'id',
+  enabled: 'enabled',
+  updatedAt: 'updatedAt'
+} as const
+
+export type OperatingTheatrePolicyScalarFieldEnum = (typeof OperatingTheatrePolicyScalarFieldEnum)[keyof typeof OperatingTheatrePolicyScalarFieldEnum]
 
 
 export const CaseLockScalarFieldEnum = {
@@ -458,6 +524,16 @@ export const OptionLibraryScalarFieldEnum = {
 } as const
 
 export type OptionLibraryScalarFieldEnum = (typeof OptionLibraryScalarFieldEnum)[keyof typeof OptionLibraryScalarFieldEnum]
+
+
+export const DrugColorScalarFieldEnum = {
+  scope: 'scope',
+  name: 'name',
+  color: 'color',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DrugColorScalarFieldEnum = (typeof DrugColorScalarFieldEnum)[keyof typeof DrugColorScalarFieldEnum]
 
 
 export const ConceptMapScalarFieldEnum = {
@@ -759,6 +835,7 @@ export const PreoperativeAssessmentScalarFieldEnum = {
   diagnosesJson: 'diagnosesJson',
   plannedProcedure: 'plannedProcedure',
   proceduresJson: 'proceduresJson',
+  procedureUndetermined: 'procedureUndetermined',
   icdCode: 'icdCode',
   teamNotes: 'teamNotes',
   physicalExamReport: 'physicalExamReport',
@@ -958,6 +1035,113 @@ export const PreopProfileQuestionScalarFieldEnum = {
 export type PreopProfileQuestionScalarFieldEnum = (typeof PreopProfileQuestionScalarFieldEnum)[keyof typeof PreopProfileQuestionScalarFieldEnum]
 
 
+export const PreopProfileSectionScalarFieldEnum = {
+  profileId: 'profileId',
+  sectionKey: 'sectionKey',
+  enabled: 'enabled'
+} as const
+
+export type PreopProfileSectionScalarFieldEnum = (typeof PreopProfileSectionScalarFieldEnum)[keyof typeof PreopProfileSectionScalarFieldEnum]
+
+
+export const PreopProfileOrderOptionScalarFieldEnum = {
+  profileId: 'profileId',
+  key: 'key',
+  list: 'list',
+  kind: 'kind',
+  labelEn: 'labelEn',
+  labelBg: 'labelBg',
+  conceptId: 'conceptId',
+  bundled: 'bundled',
+  enabled: 'enabled',
+  sortOrder: 'sortOrder',
+  hoursMode: 'hoursMode',
+  labTest: 'labTest'
+} as const
+
+export type PreopProfileOrderOptionScalarFieldEnum = (typeof PreopProfileOrderOptionScalarFieldEnum)[keyof typeof PreopProfileOrderOptionScalarFieldEnum]
+
+
+export const PreopProfileConsultSpecialtyScalarFieldEnum = {
+  profileId: 'profileId',
+  specialtyKey: 'specialtyKey',
+  enabled: 'enabled'
+} as const
+
+export type PreopProfileConsultSpecialtyScalarFieldEnum = (typeof PreopProfileConsultSpecialtyScalarFieldEnum)[keyof typeof PreopProfileConsultSpecialtyScalarFieldEnum]
+
+
+export const PreopWardOrderScalarFieldEnum = {
+  id: 'id',
+  preopId: 'preopId',
+  caseId: 'caseId',
+  optionKey: 'optionKey',
+  kind: 'kind',
+  labelEn: 'labelEn',
+  labelBg: 'labelBg',
+  conceptId: 'conceptId',
+  specialtyKey: 'specialtyKey',
+  specialtyLabelEn: 'specialtyLabelEn',
+  specialtyLabelBg: 'specialtyLabelBg',
+  labTest: 'labTest',
+  labLoinc: 'labLoinc',
+  labConceptId: 'labConceptId',
+  status: 'status',
+  authorId: 'authorId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  cancelledAt: 'cancelledAt'
+} as const
+
+export type PreopWardOrderScalarFieldEnum = (typeof PreopWardOrderScalarFieldEnum)[keyof typeof PreopWardOrderScalarFieldEnum]
+
+
+export const PreopMedicationInstructionScalarFieldEnum = {
+  id: 'id',
+  preopId: 'preopId',
+  caseId: 'caseId',
+  clientId: 'clientId',
+  optionKey: 'optionKey',
+  labelEn: 'labelEn',
+  labelBg: 'labelBg',
+  conceptId: 'conceptId',
+  medicationLabel: 'medicationLabel',
+  medicationInn: 'medicationInn',
+  medicationAtc: 'medicationAtc',
+  hoursBefore: 'hoursBefore',
+  status: 'status',
+  authorId: 'authorId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  cancelledAt: 'cancelledAt'
+} as const
+
+export type PreopMedicationInstructionScalarFieldEnum = (typeof PreopMedicationInstructionScalarFieldEnum)[keyof typeof PreopMedicationInstructionScalarFieldEnum]
+
+
+export const PreopPremedicationOrderScalarFieldEnum = {
+  id: 'id',
+  preopId: 'preopId',
+  caseId: 'caseId',
+  phase: 'phase',
+  entry: 'entry',
+  drug: 'drug',
+  atcCode: 'atcCode',
+  dose: 'dose',
+  unit: 'unit',
+  route: 'route',
+  conceptId: 'conceptId',
+  ordinal: 'ordinal',
+  status: 'status',
+  authorId: 'authorId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  cancelledAt: 'cancelledAt'
+} as const
+
+export type PreopPremedicationOrderScalarFieldEnum = (typeof PreopPremedicationOrderScalarFieldEnum)[keyof typeof PreopPremedicationOrderScalarFieldEnum]
+
+
 export const PreopAssessmentAnswerScalarFieldEnum = {
   id: 'id',
   preopId: 'preopId',
@@ -1100,6 +1284,10 @@ export const PostoperativeRecordScalarFieldEnum = {
   aldreteConsciousness: 'aldreteConsciousness',
   aldreteSpO2: 'aldreteSpO2',
   aldreteTotal: 'aldreteTotal',
+  stewardConsciousness: 'stewardConsciousness',
+  stewardAirway: 'stewardAirway',
+  stewardMovement: 'stewardMovement',
+  stewardTotal: 'stewardTotal',
   recoveryBpSystolic: 'recoveryBpSystolic',
   recoveryBpDiastolic: 'recoveryBpDiastolic',
   recoveryHeartRate: 'recoveryHeartRate',
@@ -1108,6 +1296,25 @@ export const PostoperativeRecordScalarFieldEnum = {
   pediatricPainScale: 'pediatricPainScale',
   pediatricPainScore: 'pediatricPainScore',
   paedScore: 'paedScore',
+  flaccFace: 'flaccFace',
+  flaccLegs: 'flaccLegs',
+  flaccActivity: 'flaccActivity',
+  flaccCry: 'flaccCry',
+  flaccConsolability: 'flaccConsolability',
+  flaccTotal: 'flaccTotal',
+  fpsrScore: 'fpsrScore',
+  nipsFacialExpression: 'nipsFacialExpression',
+  nipsCry: 'nipsCry',
+  nipsBreathing: 'nipsBreathing',
+  nipsArms: 'nipsArms',
+  nipsLegs: 'nipsLegs',
+  nipsArousal: 'nipsArousal',
+  nipsTotal: 'nipsTotal',
+  paedEyeContact: 'paedEyeContact',
+  paedPurposeful: 'paedPurposeful',
+  paedAware: 'paedAware',
+  paedRestless: 'paedRestless',
+  paedInconsolable: 'paedInconsolable',
   ponv: 'ponv',
   temperatureCelsius: 'temperatureCelsius',
   recoveryBpUnobtainable: 'recoveryBpUnobtainable',
@@ -1117,6 +1324,7 @@ export const PostoperativeRecordScalarFieldEnum = {
   complications: 'complications',
   disposition: 'disposition',
   dispositionNotes: 'dispositionNotes',
+  performedProceduresJson: 'performedProceduresJson',
   handoverItems: 'handoverItems',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -1295,6 +1503,28 @@ export const PreopDiagnosisScalarFieldEnum = {
 } as const
 
 export type PreopDiagnosisScalarFieldEnum = (typeof PreopDiagnosisScalarFieldEnum)[keyof typeof PreopDiagnosisScalarFieldEnum]
+
+
+export const PerformedProcedureScalarFieldEnum = {
+  id: 'id',
+  postopId: 'postopId',
+  caseId: 'caseId',
+  code: 'code',
+  group: 'group',
+  domain: 'domain',
+  description: 'description',
+  sourceVocabulary: 'sourceVocabulary',
+  sourceCode: 'sourceCode',
+  standardConceptId: 'standardConceptId',
+  mappingStatus: 'mappingStatus',
+  source: 'source',
+  clinicalSource: 'clinicalSource',
+  sourceVersion: 'sourceVersion',
+  ordinal: 'ordinal',
+  createdAt: 'createdAt'
+} as const
+
+export type PerformedProcedureScalarFieldEnum = (typeof PerformedProcedureScalarFieldEnum)[keyof typeof PerformedProcedureScalarFieldEnum]
 
 
 export const PreopProcedureScalarFieldEnum = {
@@ -1767,6 +1997,19 @@ export const ClinicalGuidancePolicyScalarFieldEnum = {
 } as const
 
 export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
+
+
+export const HospitalCaseVisibilityPolicyScalarFieldEnum = {
+  id: 'id',
+  enabled: 'enabled',
+  changedAt: 'changedAt',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalCaseVisibilityPolicyScalarFieldEnum = (typeof HospitalCaseVisibilityPolicyScalarFieldEnum)[keyof typeof HospitalCaseVisibilityPolicyScalarFieldEnum]
 
 
 export const HospitalKeyIdentityScalarFieldEnum = {

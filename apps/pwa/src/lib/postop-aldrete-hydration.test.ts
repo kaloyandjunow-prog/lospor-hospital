@@ -14,7 +14,15 @@ describe("aldreteFromServerPostop", () => {
       aldreteCirculation: undefined,
       aldreteConsciousness: undefined,
       aldreteSpO2: undefined,
+      stewardConsciousness: undefined,
+      stewardAirway: undefined,
+      stewardMovement: undefined,
     })
+  })
+
+  it("keeps a child's Steward components as recorded, a zero included (10.0.0)", () => {
+    expect(aldreteFromServerPostop({ stewardConsciousness: 0, stewardAirway: 1, stewardMovement: 2 }))
+      .toMatchObject({ stewardConsciousness: 0, stewardAirway: 1, stewardMovement: 2 })
   })
 
   it("keeps a genuinely recorded zero as zero", () => {

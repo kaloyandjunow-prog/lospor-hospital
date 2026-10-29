@@ -235,7 +235,7 @@ export function TimelineSection({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Start date + time + START CASE */}
         <div className="space-y-1">
-          <Label className={timeErrors.startTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.startTime")} {timeErrors.startTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
+          <Label className={timeErrors.startTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.startTime")} <span className="text-red-500">*</span> {timeErrors.startTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
           <div className={`flex items-center gap-2 ${timeErrors.startTime ? "ring-2 ring-red-400 rounded-lg p-0.5" : ""}`}>
             <Controller name="startTime" control={control} render={({ field }) => (
               field.value
@@ -310,7 +310,7 @@ export function TimelineSection({
 
         {/* End date + time + END CASE */}
         <div className="space-y-1">
-          <Label className={timeErrors.endTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.endTime")} {timeErrors.endTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
+          <Label className={timeErrors.endTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.endTime")} <span className="text-red-500">*</span> {timeErrors.endTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
           <div className={`flex items-center gap-2 flex-wrap ${timeErrors.endTime ? "ring-2 ring-red-400 rounded-lg p-0.5" : ""}`}>
             {/* The end date: the start's, the next day when the end time is earlier. */}
             <DayStepper

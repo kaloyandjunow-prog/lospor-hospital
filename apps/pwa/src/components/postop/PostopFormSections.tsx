@@ -6,7 +6,7 @@ import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode, toClinicalLocale } from "@/lib/clinical-display"
 import { displayPaedBand } from "@lospor/core/risk-band-display"
 import { riskColor } from "@/lib/case-detail-summary"
-import { aldreteBand, handoverGroups } from "@lospor/core/postop"
+import { handoverGroups, type AldreteBand } from "@lospor/core/postop"
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -54,11 +54,14 @@ export function ScoreRow({
   value,
   onChange,
   descriptions,
+  suggested = null,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
   descriptions: [string, string, string]
+  /** What the recovery observations suggest (10.0.0): outlined, never set. */
+  suggested?: number | null
 }) {
   useThemeRefresh()
   return (
@@ -74,7 +77,8 @@ export function ScoreRow({
               borderRadius: 14,
               borderCurve: "continuous",
               borderWidth: 1,
-              borderColor: selected ? colors.primary : colors.border,
+              borderColor: selected ? colors.primary : suggested === score ? withAlpha(colors.primary, "88") : colors.border,
+              borderStyle: !selected && suggested === score ? "dashed" : "solid",
               backgroundColor: selected ? colors.primarySoft : colors.surfaceRaised,
               paddingVertical: 12,
               paddingHorizontal: 8,
@@ -273,16 +277,28 @@ export function RecoverySummary({
   disposition,
   pain,
   ponv,
+  status,
+  steward = false,
+  compact = false,
 }: {
+  /**
+   * One line, for the sectioned layout: the card stood above every section
+   * and took a fifth of the screen (10.0.0).
+   */
+  compact?: boolean
   /** Null until every component is assessed — a partial score has no total. */
   total: number | null
+  /** Banded by the caller, on the scale the case is scored on. */
+  status: AldreteBand | null
+  /** A child's Steward score (0-6) in place of Aldrete (10.0.0). */
+  steward?: boolean
   label: string
   disposition?: "WARD" | "PACU" | "ICU"
-  pain?: number | null
+  /** The pain scales scored, as one line ("FLACC 5 / 10"), or null. */
+  pain?: string | null
   ponv?: boolean | null
 }) {
-  const { t, language } = usePreferences()
-  const status = total == null ? null : aldreteBand(total)
+  const { t, tc, language } = usePreferences()
   // Neutral while unassessed. Colouring an incomplete score red reads as a sick
   // patient rather than an unfinished form.
   const statusColor = status === null
@@ -291,13 +307,28 @@ export function RecoverySummary({
     ? colors.success
     : status === "observe" ? colors.warning : colors.danger
   const dispoColor = disposition === "ICU" ? colors.danger : disposition === "PACU" ? colors.warning : colors.success
+  if (compact) {
+    return (
+      <View testID="recovery-summary-compact" style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.surfaceRaised, borderRadius: 12, borderCurve: "continuous", borderWidth: 1, borderColor: withAlpha(statusColor, "66"), paddingHorizontal: 12, paddingVertical: 8, marginTop: 10, marginBottom: 4 }}>
+        <Text style={{ color: statusColor, fontSize: 15, fontWeight: "900", fontVariant: ["tabular-nums"] }}>
+          {t(steward ? "stewardLabel" : "aldreteLabel")} {total ?? "—"}<Text style={{ color: colors.textMuted, fontSize: 12 }}>/{steward ? 6 : 10}</Text>
+        </Text>
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.textSecondary, fontSize: 12 }}>
+          {[pain ? `${t("painLabel")} ${pain}` : null, ponv ? t("ponvPresent") : ponv === false ? t("noPONV") : null].filter(Boolean).join(" · ")}
+        </Text>
+        <Text style={{ color: disposition ? dispoColor : colors.textMuted, fontSize: 13, fontWeight: "900" }}>
+          {disposition ? displayClinicalCode("option:DISPOSITION", disposition, language) : "—"}
+        </Text>
+      </View>
+    )
+  }
   return (
     <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 16, borderCurve: "continuous", borderWidth: 1, borderColor: withAlpha(statusColor, "66"), padding: 16, marginTop: 10, marginBottom: 6 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
         <View>
-          <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>{t("aldreteLabel")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>{t(steward ? "stewardLabel" : "aldreteLabel")}</Text>
           <Text style={{ color: statusColor, fontSize: 40, fontWeight: "900", fontVariant: ["tabular-nums"], marginTop: 2 }}>
-            {total ?? "—"}<Text style={{ color: colors.textMuted, fontSize: 18 }}> / 10</Text>
+            {total ?? "—"}<Text style={{ color: colors.textMuted, fontSize: 18 }}> / {steward ? 6 : 10}</Text>
           </Text>
           <Text style={{ color: statusColor, fontSize: 13, fontWeight: "800" }}>{label}</Text>
         </View>
@@ -305,8 +336,9 @@ export function RecoverySummary({
           <Text style={{ color: disposition ? dispoColor : colors.textMuted, fontSize: 18, fontWeight: "900" }}>
             {disposition ? displayClinicalCode("option:DISPOSITION", disposition, language) : t("noDisposition")}
           </Text>
-          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{t("painLabel")} {pain ?? "-"}/10</Text>
-          <Text style={{ color: ponv ? colors.warning : colors.textMuted, fontSize: 12 }}>{ponv ? t("ponvPresent") : t("noPONV")}</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: "right" }}>{t("painLabel")} {pain ?? "-"}</Text>
+          {/* Not asked is not absent: null reads as not recorded. */}
+          <Text style={{ color: ponv ? colors.warning : colors.textMuted, fontSize: 12 }}>{ponv ? t("ponvPresent") : ponv === false ? t("noPONV") : `${tc("ponvLabel")}: ${tc("ponvNotRecorded")}`}</Text>
         </View>
       </View>
     </View>

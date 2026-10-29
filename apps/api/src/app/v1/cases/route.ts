@@ -1,4 +1,4 @@
-import { PREOP_ANSWER_REFUSED, PreopContractError, preopContractBlockedKeys, preparePreopProfile, savePreopAnswers } from "@/lib/preop/service"
+import { PREOP_ANSWER_REFUSED, PreopContractError, preopContractBlockedKeys, preparePreopProfile, savePreopAnswers, savePreopOrders } from "@/lib/preop/service"
 import { NextRequest, NextResponse, after } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
@@ -10,6 +10,7 @@ import { parseLenient, type RejectedField } from "@/lib/lenient-parse"
 import { checkClinicalPayloadPII, piiErrorBody } from "@/lib/clinical-pii"
 import { syncCaseRelationalLockedSafe } from "@/lib/relational-sync"
 import { caseCapabilitiesForUser, caseReadWhereForUser } from "@/lib/access-control"
+import { caseVisibilityCapabilityState, isHospitalWideCaseViewer } from "@/lib/hospital/case-visibility"
 import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
@@ -20,6 +21,8 @@ import { withDirectTransaction } from "@/lib/clinical-transaction"
 import { dashboardCaseCounts } from "@/lib/dashboard-case-counts"
 import { evaluateCaseFinalization } from "@lospor/core/clinical-validation"
 import { findCasesByPriority } from "@/lib/priority-case-list"
+import { caseTheatreView } from "@lospor/core/operating-theatres"
+import { operatingTheatresEnabled } from "@/lib/operating-theatres"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -235,6 +238,15 @@ export async function POST(req: NextRequest) {
               answers: (mappedPreop as Record<string, unknown>).preopAnswers as never,
               clinicalMode: pediatricDecision.clinicalMode,
             })
+            await savePreopOrders(tx, {
+              caseId: created.id,
+              preopId: created.preop.id,
+              actorId: userId,
+              clinicalMode: pediatricDecision.clinicalMode,
+              wardOrders: (mappedPreop as Record<string, unknown>).preopWardOrders as never,
+              medicationInstructions: (mappedPreop as Record<string, unknown>).preopMedicationInstructions as never,
+              premedicationOrders: (mappedPreop as Record<string, unknown>).preopPremedicationOrders as never,
+            })
           }
           return created
         })
@@ -291,10 +303,21 @@ export async function GET(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const where = caseReadWhereForUser(user)
+  const url = new URL(req.url)
+  const caseVisibilityEnabled = (await caseVisibilityCapabilityState()).enabled
+  const baseWhere = await caseReadWhereForUser(user, undefined, caseVisibilityEnabled)
+  // The dashboard's filters (10.0.0): by operating theatre ("none" for cases
+  // without one) and by the anaesthesiologist the case is assigned to. Applied
+  // here, so the counts and pages describe the filtered list.
+  const theatreFilter = url.searchParams.get("theatre")?.slice(0, 64) || null
+  const assigneeFilter = url.searchParams.get("assignee")?.slice(0, 64) || null
+  const filters: Prisma.CaseWhereInput[] = [
+    ...(theatreFilter ? [{ operatingTheatreId: theatreFilter === "none" ? null : theatreFilter }] : []),
+    ...(assigneeFilter ? [{ userId: assigneeFilter }] : []),
+  ]
+  const where: Prisma.CaseWhereInput = filters.length ? { AND: [baseWhere, ...filters] } : baseWhere
 
   // Item 28: Pagination — accept optional ?skip and ?take; cap take at 200 per request
-  const url = new URL(req.url)
   const skipRaw = Number(url.searchParams.get("skip") ?? "0")
   // Math.trunc, not just Math.max: a fractional skip/take (e.g. "1.5" from a
   // hand-built query string) is finite and would otherwise reach Prisma
@@ -306,9 +329,10 @@ export async function GET(req: NextRequest) {
   const take = Number.isFinite(takeRaw) ? Math.trunc(Math.min(200, Math.max(1, takeRaw))) : 50
 
   const include = {
-    preop:  { select: { diagnosis: true, plannedProcedure: true, ageYears: true, ageValue: true, ageUnit: true, sex: true, asaScore: true } },
+    preop:  { select: { diagnosis: true, plannedProcedure: true, procedureUndetermined: true, ageYears: true, ageValue: true, ageUnit: true, sex: true, asaScore: true } },
     postop: { select: { disposition: true, aldreteTotal: true } },
-    intraop: { select: { monthYear: true, durationMinutes: true, endTime: true } },
+    intraop: { select: { monthYear: true, durationMinutes: true, endTime: true, startedAt: true, startTime: true } },
+    operatingTheatre: { select: { name: true } },
     user: { select: { name: true } },
     patientLink: { select: { id: true, maskedIdentifier: true } },
     transfers: {
@@ -321,22 +345,35 @@ export async function GET(req: NextRequest) {
     },
   } satisfies Prisma.CaseInclude
 
-  const [cases, total, counts] = await Promise.all([
+  const [cases, total, counts, theatresOn] = await Promise.all([
     // Ordered by clinical urgency (AWAITING_REVIEW, IN_PROGRESS, DRAFT,
     // COMPLETE), not creation date or the status enum's own declared order --
     // see priority-case-list.ts. A dashboard capped at `take` rows must never
     // let the case closest to auto-closing scroll off the end behind a pile
     // of drafts or older finished cases.
-    findCasesByPriority(where, include, skip, take),
+    findCasesByPriority(
+      where,
+      include,
+      skip,
+      take,
+      isHospitalWideCaseViewer(user, caseVisibilityEnabled)
+        ? { OR: [{ userId: user.id }, { createdById: user.id }] }
+        : undefined,
+    ),
     prisma.case.count({ where }),
     dashboardCaseCounts(where, user.id),
+    operatingTheatresEnabled(prisma),
   ])
 
   return NextResponse.json({
-    cases: cases.map(record => ({
+    cases: await Promise.all(cases.map(async record => ({
       ...record,
-      capabilities: caseCapabilitiesForUser(user, record),
-    })),
+      capabilities: await caseCapabilitiesForUser(user, record, caseVisibilityEnabled),
+      operatingTheatre: undefined,
+      // Off, a case shows no theatre, unless it kept one from its start.
+      theatre: theatresOn || record.operatingTheatreName ? caseTheatreView(record) : null,
+    }))),
+    hospitalWide: isHospitalWideCaseViewer(user, caseVisibilityEnabled),
     total,
     skip,
     take,

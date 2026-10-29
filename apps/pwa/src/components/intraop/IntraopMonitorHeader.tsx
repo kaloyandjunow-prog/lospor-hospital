@@ -63,12 +63,14 @@ function IntraopSyncRow({
 // the running clock + start controls, sync state, and last vitals.
 // Presentational — markup moved verbatim from cases/intraop/[id].tsx.
 export function IntraopMonitorHeader({
-  techniquesLabel, procedure, diagnosis, timeStr, started, elapsedMs,
+  techniquesLabel, procedure, diagnosis, theatre, timeStr, started, elapsedMs,
   onStartNow, onStartAt, syncStatusStore, onRetrySync, lastVitals,
 }: {
   techniquesLabel: string
   procedure: string
   diagnosis?: string | null
+  /** The operating theatre (10.0.0), when the case has one. */
+  theatre?: string | null
   timeStr: string
   started: boolean
   elapsedMs: number
@@ -85,8 +87,9 @@ export function IntraopMonitorHeader({
       paddingHorizontal:16, borderBottomWidth:1, borderBottomColor: colors.border }}>
       <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"flex-start" }}>
         <View style={{ flex:1, marginRight:12 }}>
-          <Text style={{ color:colors.primary, fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }}>
+          <Text style={{ color:colors.primary, fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }} numberOfLines={1}>
             {techniquesLabel}
+            {theatre ? <Text testID="intraop-theatre" style={{ color:colors.textSecondary, letterSpacing:0.4, textTransform:"none" }}>{"  ·  "}{theatre}</Text> : null}
           </Text>
           <Text style={{ color:colors.textPrimary, fontSize:16, fontWeight:"700", marginTop:3 }} numberOfLines={1}>
             {procedure}

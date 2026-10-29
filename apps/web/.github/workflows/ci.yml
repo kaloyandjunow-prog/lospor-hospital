@@ -99,17 +99,17 @@ jobs:
         with:
           repository: kaloyandjunow-prog/lospor-api
           # A coordinated release-train Web PR must exercise the matching
-          # API candidate. This applies both while the vendor branch is the
-          # base and while that branch is being promoted into main; API main
-          # is intentionally merged last in the release train.
-          ref: ${{ github.event_name == 'pull_request' && (github.base_ref == 'release-9.13.5-vendor' || github.head_ref == 'release-9.13.5-vendor') && 'release-9.13.5-vendor' || 'main' }}
+          # API candidate. Release branches are deliberately promoted in
+          # order, so the companion repositories stay on the same candidate
+          # until the protected main branches are merged.
+          ref: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/') && github.head_ref || github.event_name == 'pull_request' && (github.base_ref == 'release-9.13.5-vendor' || github.head_ref == 'release-9.13.5-vendor') && 'release-9.13.5-vendor' || 'main' }}
           path: lospor-api
       - uses: actions/checkout@v6
         with:
           repository: kaloyandjunow-prog/lospor-mobile
           # Keep the cross-app run on the same coordinated release branch,
           # including the promotion PR into main.
-          ref: ${{ github.event_name == 'pull_request' && (github.base_ref == 'release-9.13.5-vendor' || github.head_ref == 'release-9.13.5-vendor') && 'release-9.13.5-vendor' || 'main' }}
+          ref: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/') && github.head_ref || github.event_name == 'pull_request' && (github.base_ref == 'release-9.13.5-vendor' || github.head_ref == 'release-9.13.5-vendor') && 'release-9.13.5-vendor' || 'main' }}
           path: lospor-mobile
       - uses: actions/setup-node@v6
         with:

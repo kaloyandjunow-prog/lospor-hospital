@@ -74,7 +74,7 @@ export function TimingTab({
 
       {/* Start time */}
       <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
-        textTransform:"uppercase", marginBottom:8 }}>{tc("anesthesiaStartTime")}</Text>
+        textTransform:"uppercase", marginBottom:8 }}>{tc("anesthesiaStartTime")}<Text style={{ color:shade("#ef4444") }}> *</Text></Text>
       {!startRef.current ? (
         <DayStepper value={startDayKey} onChange={setStartDayKey} todayKey={todayKey} min={shiftDateKey(todayKey, -14)} max={todayKey}
           language={language} label={tc("timingStartDate")} testID="intraop-start-day" />
@@ -113,7 +113,7 @@ export function TimingTab({
 
       {/* End time */}
       <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
-        textTransform:"uppercase", marginBottom:8 }}>{tc("anesthesiaEndTime")}</Text>
+        textTransform:"uppercase", marginBottom:8 }}>{tc("anesthesiaEndTime")}<Text style={{ color:shade("#ef4444") }}> *</Text></Text>
       <View style={{ flexDirection:"row", gap:10, marginBottom:8 }}>
         <TextInput
           style={{ flex:1, minWidth:0, backgroundColor:shade("#111111"), color:shade("#f8fafc"), borderRadius:10, padding:12,

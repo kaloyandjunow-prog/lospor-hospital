@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
-import { redactEventFreeText, redactExportRow } from "@/lib/omop-export-source"
+import { CASE_SELECT, redactEventFreeText, redactExportRow } from "@/lib/omop-export-source"
 
 type Row = Parameters<typeof redactExportRow>[0]
 
@@ -94,6 +94,41 @@ describe("the export policy's free-text control", () => {
     const rows = [exportRow(), exportRow()]
     const mapped = rows.map(row => redactExportRow(row, { includeRedactedText: false }))
     expect(mapped.every(row => row.preop?.allergyDetails === null)).toBe(true)
+  })
+})
+
+describe("the OMOP export source keeps all lab and airway inputs", () => {
+  it("selects timestamps, units, source coding, and thresholds for preop labs", () => {
+    const select = CASE_SELECT.preop.select
+    expect(select.labRows.select).toMatchObject({
+      test: true,
+      valueNum: true,
+      value: true,
+      unit: true,
+      unitCanon: true,
+      loincCode: true,
+      sourceVocabulary: true,
+      sourceCode: true,
+      takenAt: true,
+      referenceLow: true,
+      referenceHigh: true,
+      criticalLow: true,
+      criticalHigh: true,
+    })
+  })
+
+  it("selects intraoperative lab rows and the airway answer flags", () => {
+    const select = CASE_SELECT.intraop.select
+    expect(select).toMatchObject({
+      presentsIntubated: true,
+      airwayNotApplicable: true,
+    })
+    expect(select.labRows.select).toMatchObject({
+      unit: true,
+      takenAt: true,
+      sourceVocabulary: true,
+      sourceCode: true,
+    })
   })
 })
 

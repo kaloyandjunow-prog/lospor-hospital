@@ -3,7 +3,8 @@ import type { ClinicalStringKey } from "@/i18n/clinical-strings"
 
 export type AldreteCriterion = {
   field: keyof Pick<PostopFormData,
-    "aldreteActivity" | "aldreteRespiration" | "aldreteCirculation" | "aldreteConsciousness" | "aldreteSpO2">
+    "aldreteActivity" | "aldreteRespiration" | "aldreteCirculation" | "aldreteConsciousness" | "aldreteSpO2"
+    | "stewardConsciousness" | "stewardAirway" | "stewardMovement">
   label: string
   /** What 0, 1 and 2 mean for this component, in that order. */
   descriptions: [string, string, string]
@@ -43,6 +44,30 @@ export function aldreteCriteria(tc: (key: ClinicalStringKey) => string): Aldrete
       field: "aldreteSpO2",
       label: tc("aldreteSpO2"),
       descriptions: [tc("aldreteSpO2Low"), tc("aldreteSpO2Mid"), tc("aldreteSpO2High")],
+    },
+  ]
+}
+
+/**
+ * The three components of the Steward score, a child's recovery score in place
+ * of Aldrete (10.0.0): consciousness, airway, movement.
+ */
+export function stewardCriteria(tc: (key: ClinicalStringKey) => string): AldreteCriterion[] {
+  return [
+    {
+      field: "stewardConsciousness",
+      label: tc("stewardConsciousness"),
+      descriptions: [tc("stewardNotResponding"), tc("stewardRespondsToStimuli"), tc("stewardAwake")],
+    },
+    {
+      field: "stewardAirway",
+      label: tc("stewardAirway"),
+      descriptions: [tc("stewardAirwayMaintained"), tc("stewardGoodAirway"), tc("stewardCoughsCries")],
+    },
+    {
+      field: "stewardMovement",
+      label: tc("stewardMovement"),
+      descriptions: [tc("stewardNotMoving"), tc("stewardNonPurposeful"), tc("stewardPurposeful")],
     },
   ]
 }

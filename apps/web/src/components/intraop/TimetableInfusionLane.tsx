@@ -1,8 +1,9 @@
 "use client"
 
 import { runsOnAt } from "@lospor/core/intraop-summary"
+import { TOUCH_GRIP } from "./touch-drag"
 import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
-import { TciCellLine, tciLaneLabel, useTciLanePredictions } from "./TciLaneOverlay"
+import { useTciLanePredictions } from "./TciLaneOverlay"
 import { SaveMark } from "./SaveMark"
 import { segmentEventIds } from "@lospor/core/intraop-save-state"
 import { DiscontinuePrompt } from "./DiscontinuePrompt"
@@ -12,6 +13,14 @@ import type { TimetableDragActions, TimetableDragState } from "./use-timetable-d
 import type { TtSel } from "./timetable-types"
 import type { TimetableInfusion } from "@/types/timetable"
 import { useIntraopUiCopy } from "./ui-copy"
+import { ChangeStripCell, stripStretches, type StripStretch } from "./TimetableChangeStrip"
+import { InfusionRateStrip } from "./InfusionRateStrip"
+
+/** An infusion's applied rates as strip stretches, for the ghost drawn while it is dragged. */
+function infusionStretches(seg: TimetableInfusion): StripStretch[] {
+  return stripStretches(seg.startCol, `${seg.rate} ${seg.unit}`,
+    (seg.rateChanges ?? []).map(change => ({ col: change.col, label: `${change.rate} ${change.unit}`, planned: change.planned })))
+}
 
 /**
  * One infusion lane: a drug running over time, with the rate it ran at.
@@ -89,6 +98,8 @@ export type InfusionLaneProps = {
   dragActions: TimetableDragActions
 
   extendInfusion: (id: string, toCol: number) => void
+  /** The end grip was dropped: the shared rule decides what, if anything, is written. */
+  onEndDrop: (id: string, toCol: number) => void
   extendInfusionLeft: (id: string, toCol: number) => void
   applyInfRateChange: (infId: string, fromCol: number | null, toCol: number, change: { rate: number; unit: string; concentration?: string; volumeRateMlPerHour?: number }) => void
   /** Commit a whole-bar move; the owner decides move versus delete-prompt. */
@@ -118,6 +129,7 @@ export function InfusionLane({
   drag,
   dragActions,
   extendInfusion,
+  onEndDrop,
   extendInfusionLeft,
   applyInfRateChange,
   onMoveBar,
@@ -130,6 +142,9 @@ export function InfusionLane({
   const isBusyMovingPill = movingRatePill !== null && segments.some(s => s.id === movingRatePill.infId)
   // A TCI bar shows its target and the predicted concentration line (2026-10-18).
   const tciPredictions = useTciLanePredictions(segments)
+  // The bar being moved whole: its strip is drawn on the ghost, shifted with it.
+  const movingSeg = isBusyMovingBar ? segments.find(s => s.id === movingInf!.id) ?? null : null
+  const moveDelta = movingSeg && movingInfCol !== null ? movingInfCol - movingInf!.fromCol : 0
 
   return (
     <div
@@ -159,8 +174,11 @@ export function InfusionLane({
           ? movingInf!.origStart + (movingInfCol - movingInf!.fromCol)
           : null
         const previewEnd = previewStart !== null ? previewStart + (movingInf!.origEnd - movingInf!.origStart) : null
-        const isPreview = !seg && !rightPreviewSeg && !leftPreviewSeg
+        // The ghost is drawn over the bar's own cells too, so the whole bar and
+        // its strip are seen moving; the bar left behind fades meanwhile.
+        const isPreview = (!seg || seg.id === movingInf?.id) && !rightPreviewSeg && !leftPreviewSeg
           && previewStart !== null && previewEnd !== null && ci >= previewStart && ci <= previewEnd
+        const leftBehind = !!(seg && isBusyMovingBar && seg.id === movingInf?.id && moveDelta !== 0)
         // The drawn end follows the right grip while it is being dragged.
         const effectiveEnd = seg && extendingInf === seg.id && extInfHover !== null
           ? Math.max(extInfHover, seg.startCol)
@@ -170,6 +188,8 @@ export function InfusionLane({
         const isRowCont = !isActualStart && seg != null && ci === colStart
         const isRowExit = seg != null && barContinues(effectiveEnd, colEnd) && ci === colEnd - 1 && !isActualEnd
         const isSelected = seg != null && sel?.type === "infusion" && sel.id === seg.id
+        // Dragged back, the part the bar would give up is drawn faded, strip included.
+        const cutOff = !!(seg && extendingInf === seg.id && extInfHover !== null && ci > effectiveEnd)
         // The real start and stop inside the cell; the column rule while a grip is dragged.
         const timed = seg && effectiveEnd === seg.endCol ? barTimeInsets(seg, colW) : { left: null, right: null }
         const timedLeft = isActualStart && timed.left != null ? { left: timed.left } : {}
@@ -199,7 +219,7 @@ export function InfusionLane({
               if (extendingInf) {
                 e.preventDefault()
                 const s = segments.find(s => s.id === extendingInf)
-                if (s) extendInfusion(extendingInf, Math.max(ci, s.startCol))
+                if (s) onEndDrop(extendingInf, Math.max(ci, s.startCol))
                 dragActions.infusionExtendEnd("right")
               } else if (extendingInfLeft) {
                 e.preventDefault()
@@ -240,62 +260,10 @@ export function InfusionLane({
             })()}
             {segments.flatMap(s => (s.rateChanges ?? []).filter(rc => rc.planned && rc.col === ci))
               .map(rc => <PlannedChangeMarker key={rc.eventId ?? rc.col} value={`${rc.rate} ${rc.unit}`} />)}
-            {/* Rate strip — shares the bar's geometry so the two read as one object. */}
-            {seg && !seg.stopped && (() => {
-              // A planned change is a marker (above), not yet the running rate.
-              const sortedChanges = (seg.rateChanges ?? []).filter(rc => !rc.planned).sort((a, b) => a.col - b.col)
-              const prevChange = sortedChanges.filter(rc => rc.col <= ci).pop()
-              const curRate = prevChange?.rate ?? seg.rate
-              const curUnit = prevChange?.unit ?? seg.unit
-              const isSegStart = ci === seg.startCol || sortedChanges.some(rc => rc.col === ci)
-              const isRateChangeCol = sortedChanges.some(rc => rc.col === ci)
-              const leftStyle = (isActualStart || isRowCont) ? "left-1" : "left-0"
-              const rightStyle = (isActualEnd && !isRowExit) ? "right-3" : "right-0"
-              const tlRadius = (isActualStart || isRowCont) ? "rounded-tl-full" : ""
-              const trRadius = (isActualEnd && !isRowExit) ? "rounded-tr-sm" : ""
-              return (
-                <div
-                  className={`absolute top-0 z-20 flex items-center cursor-pointer select-none hover:opacity-90 transition-opacity overflow-hidden ${leftStyle} ${rightStyle} ${tlRadius} ${trRadius}`}
-                  style={{ height: 21, backgroundColor: color + (isSelected ? "50" : "2e"), ...timedLeft, ...timedRight }}
-                  onClick={e => {
-                    e.stopPropagation()
-                    onOpenMenu({
-                      segId: seg.id,
-                      name: seg.name,
-                      color,
-                      rect: e.currentTarget.getBoundingClientRect(),
-                      stopped: false,
-                      fromPillCol: ci,
-                    })
-                  }}
-                >
-                  {/* The boundary between two rates, draggable to another column. */}
-                  {isRateChangeCol && (
-                    <div
-                      draggable
-                      className="absolute left-0 top-1 bottom-1 w-[2px] cursor-col-resize z-30 rounded-full opacity-70 hover:opacity-100"
-                      style={{ backgroundColor: color }}
-                      onDragStart={e => {
-                        e.stopPropagation()
-                        const rc = sortedChanges.find(r => r.col === ci)!
-                        dragActions.ratePillStart({ infId: seg.id, fromCol: ci, rate: Number(rc.rate) || 0, unit: rc.unit, concentration: rc.concentration, volumeRateMlPerHour: rc.volumeRateMlPerHour })
-                      }}
-                      onDragEnd={() => dragActions.ratePillEnd()}
-                      onClick={e => e.stopPropagation()}
-                    />
-                  )}
-                  {isSegStart && (
-                    <span
-                      className="text-[8px] font-bold whitespace-nowrap truncate leading-none"
-                      style={{ color, paddingLeft: isRateChangeCol ? 10 : 5 }}
-                    >
-                      {tciLaneLabel(seg, curRate, curUnit, ci === seg.startCol) ?? `${curRate} ${curUnit}`}
-                    </span>
-                  )}
-                  <TciCellLine seg={seg} column={ci} prediction={tciPredictions.get(seg.id)} color={color} />
-                </div>
-              )
-            })()}
+            {/* Rate strip — shares the bar's geometry so the two read as one object.
+                It stays after the infusion is stopped, faded: the record of what ran
+                and at which rates is exactly what a stopped bar is for. */}
+             {seg && <InfusionRateStrip seg={seg} ci={ci} color={color} isActualStart={isActualStart} isRowCont={isRowCont} isActualEnd={isActualEnd} isRowExit={isRowExit} isSelected={isSelected} leftBehind={leftBehind} cutOff={cutOff} timedLeft={timedLeft} timedRight={timedRight} dragActions={dragActions} onOpenMenu={onOpenMenu} prediction={tciPredictions.get(seg.id)} />}
 
             {seg && (
               <>
@@ -308,7 +276,7 @@ export function InfusionLane({
                   onDragEnd={() => dragActions.infusionMoveEnd()}
                   onClick={e => { e.stopPropagation(); setSel(s => s?.type === "infusion" && s.id === seg.id ? null : { type: "infusion", id: seg.id }) }}
                   title={!seg.stopped ? copy.infusionBarHelp : undefined}
-                  className={`absolute left-0 right-0 border-y ${!seg.stopped ? "cursor-grab active:cursor-grabbing" : ""} ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-50 border-dashed" : hoverDiscontinue === seg.id ? "opacity-50" : ""}`}
+                  className={`absolute left-0 right-0 border-y ${!seg.stopped ? "cursor-grab active:cursor-grabbing" : ""} ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-50 border-dashed" : hoverDiscontinue === seg.id || cutOff ? "opacity-50" : leftBehind ? "opacity-20" : ""}`}
                   style={{
                     top: 22,
                     bottom: 4,
@@ -341,18 +309,18 @@ export function InfusionLane({
                     draggable
                     onDragStart={e => { e.stopPropagation(); dragActions.infusionExtendStart(seg.id, "left") }}
                     onDragEnd={() => dragActions.infusionExtendEnd("left")}
-                    className="absolute left-0 z-20 flex items-center justify-center cursor-col-resize rounded-l-sm"
+                    className={`absolute left-0 z-20 flex items-center justify-center cursor-col-resize rounded-l-sm ${TOUCH_GRIP}`}
                     style={{ top: 22, bottom: 4, width: 10, backgroundColor: color, ...timedLeft }}
                   >
                     <span className="text-white text-[8px] font-bold select-none">|</span>
                   </div>
                 )}
-                {isActualEnd && isSelected && !seg.stopped && !isRowExit && (
+                {isActualEnd && isSelected && !isRowExit && (
                   <div
                     draggable
                     onDragStart={e => { e.stopPropagation(); dragActions.infusionExtendStart(seg.id, "right") }}
                     onDragEnd={() => dragActions.infusionExtendEnd("right")}
-                    className="absolute right-0 z-20 flex items-center justify-center cursor-col-resize rounded-r-sm"
+                    className={`absolute right-0 z-20 flex items-center justify-center cursor-col-resize rounded-r-sm ${TOUCH_GRIP}`}
                     style={{ top: 22, bottom: 4, width: 10, backgroundColor: color, ...timedRight }}
                   >
                     <span className="text-white text-[8px] font-bold select-none">|</span>
@@ -364,7 +332,7 @@ export function InfusionLane({
                     onOpen={() => setDiscConfirmId(seg.id)}
                     onConfirm={() => { extendInfusion(seg.id, nowCol ?? seg.endCol); clearSel(); setDiscConfirmId(null) }}
                     onCancel={() => setDiscConfirmId(null)}
-                    style={{ top: 24, right: 14 }}
+                    style={{ top: 24, right: 14 + ((timedRight as { right?: number }).right ?? 0) }}
                     cancelClassName="text-[8px] text-white/60 hover:text-white px-1 whitespace-nowrap"
                   />
                 )}
@@ -373,6 +341,19 @@ export function InfusionLane({
 
             {isPreview && (
               <MoveGhost color={color} isFirst={ci === previewStart} isLast={ci === previewEnd} />
+            )}
+            {/* The rate strip travels with the bar while it is dragged (10.0.0). */}
+            {isPreview && movingSeg && (
+              <ChangeStripCell col={ci - moveDelta} stretches={infusionStretches(movingSeg)} color={color} height={21}
+                roundStart={ci === previewStart} roundEnd={ci === previewEnd} testId="infusion-strip-ghost" />
+            )}
+            {rightPreviewSeg && (
+              <ChangeStripCell col={ci} stretches={infusionStretches(rightPreviewSeg)} color={color} height={21}
+                roundStart={false} roundEnd={ci === extInfHover} faded testId="infusion-strip-ghost" />
+            )}
+            {leftPreviewSeg && (
+              <ChangeStripCell col={leftPreviewSeg.startCol} stretches={infusionStretches(leftPreviewSeg)} color={color} height={21}
+                roundStart={extInfLeftHover !== null && ci === extInfLeftHover} roundEnd={false} faded testId="infusion-strip-ghost" />
             )}
             {rightPreviewSeg && (
               <ExtendGhost

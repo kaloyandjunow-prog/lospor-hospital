@@ -1,3 +1,5 @@
+import { normalizeDrugColor } from "./drug-colors"
+
 export const LIBRARY_CATEGORIES = [
   "POSITION",
   "AIRWAY_MANAGEMENT",
@@ -60,6 +62,13 @@ export type CanonicalLibraryOption = {
   group: string | null
   parentId: string | null
   color: string | null
+  /**
+   * The hospital's own colour for a drug or infusion (10.0.0), #rrggbb: the
+   * drug's, else its group's. Absent when the bundled colour applies.
+   */
+  customColor?: string | null
+  /** The hospital's colour for the option's group, for the menus' group headers. */
+  customGroupColor?: string | null
   description: string | null
   drugId: string | null
   atcCode: string | null
@@ -202,6 +211,8 @@ export function parseLibraryOption(value: unknown): CanonicalLibraryOption | nul
     group: nullableString("group"),
     parentId: nullableString("parentId"),
     color: nullableString("color"),
+    ...(normalizeDrugColor(value.customColor) ? { customColor: normalizeDrugColor(value.customColor) } : {}),
+    ...(normalizeDrugColor(value.customGroupColor) ? { customGroupColor: normalizeDrugColor(value.customGroupColor) } : {}),
     description: nullableString("description"),
     drugId: nullableString("drugId"),
     atcCode: nullableString("atcCode"),

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DashboardSearch } from "./DashboardSearch"
 
@@ -183,5 +183,46 @@ describe("DashboardSearch status badge", () => {
   it("does not treat an UNKNOWN sex as recorded", () => {
     render1({ status: "DRAFT", preop: { ...baseCase.preop, ageYears: 34, sex: "UNKNOWN" } })
     expect(screen.queryByText("Awaiting allocation")).toBeNull()
+  })
+})
+
+describe("DashboardSearch — a cancelled procedure (10.0.0)", () => {
+  const renderRow = (over: Record<string, unknown>, canWrite = true) => render(
+    <DashboardSearch cases={[{ ...baseCase, ...over, capabilities: { canWrite } } as never]} userId="owner-1" role="CLINICIAN" />,
+  )
+
+  it("offers the cancellation beside Delete until anaesthesia starts", () => {
+    renderRow({ status: "DRAFT" })
+    const button = screen.getByTestId("cancel-procedure")
+    expect(button.getAttribute("aria-disabled")).toBeNull()
+    expect(screen.getByTestId("delete-draft")).toBeTruthy()
+  })
+
+  it("keeps it in place, inactive, once anaesthesia has started", () => {
+    renderRow({ status: "IN_PROGRESS", intraop: { startedAt: "2026-09-01T10:00:00.000Z" } })
+    expect(screen.getByTestId("cancel-procedure").getAttribute("aria-disabled")).toBe("true")
+  })
+
+  it("offers nothing to someone who cannot edit the case, and nothing on a finished one", () => {
+    renderRow({ status: "DRAFT" }, false)
+    expect(screen.queryByTestId("cancel-procedure")).toBeNull()
+    cleanup()
+    renderRow({ status: "COMPLETE" })
+    expect(screen.queryByTestId("cancel-procedure")).toBeNull()
+  })
+
+  it("labels a cancelled one, opens it read-only, and offers the undo instead of Delete", () => {
+    const { container } = renderRow({ status: "CANCELLED", cancellationReason: "PATIENT_REFUSED_OR_ABSENT" })
+    const badge = screen.getByTestId("cancelled-badge")
+    expect(badge.getAttribute("title")).toBe("The patient refused or did not come")
+    expect(container.querySelector("a")?.getAttribute("href")).toBe("/cases/case-1")
+    expect(screen.getByTestId("undo-cancellation")).toBeTruthy()
+    expect(screen.queryByTestId("delete-draft")).toBeNull()
+    expect(screen.queryByTestId("cancel-procedure")).toBeNull()
+  })
+
+  it("names a planned procedure not yet known", () => {
+    renderRow({ preop: { ...baseCase.preop, plannedProcedure: "", procedureUndetermined: true } })
+    expect(screen.getByText("Procedure not yet known — decided during surgery")).toBeTruthy()
   })
 })

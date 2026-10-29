@@ -17,6 +17,9 @@ export type LibraryOption = {
   group: string | null
   parentId: string | null
   color: string | null
+  /** The hospital's own colour (10.0.0); see CanonicalLibraryOption. */
+  customColor?: string | null
+  customGroupColor?: string | null
   description: string | null
   drugId: string | null
   atcCode: string | null

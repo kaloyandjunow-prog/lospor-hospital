@@ -2,6 +2,7 @@ import type {
   ActiveFluid,
   ActiveGasSettings,
   ActiveInfusion,
+  AgentPercentChange,
   AgentSegment,
   ClinicalEvent,
   GasSettingsSegment,
@@ -374,6 +375,20 @@ export function projectIntraopEvents(
     }
 
     if (event.type === "agent_start" && event.name) {
+      // Another start of an agent already running is a new concentration of
+      // it, as the phone records one: a change on the bar, planned while its
+      // time is still ahead, never a second bar.
+      const already = activeAgents.get(event.name)
+      if (already && event.value != null) {
+        already.percentChanges.push({
+          eventId: event.id,
+          col,
+          ts: event.ts,
+          percent: finiteNumber(event.value),
+          ...(future ? { planned: true } : {}),
+        })
+        continue
+      }
       if (future) {
         agents.push({
           ...agentSegment({
@@ -382,6 +397,7 @@ export function projectIntraopEvents(
             startEventId: event.id,
             startCol: col,
             percent: event.value == null ? undefined : finiteNumber(event.value),
+            percentChanges: [],
           }, col, false),
           planned: true,
         })
@@ -396,17 +412,15 @@ export function projectIntraopEvents(
           activeAgents.delete(name)
         }
       }
-      const running = activeAgents.get(event.name)
-      if (!running) {
+      if (!already) {
         activeAgents.set(event.name, {
           name: event.name,
           color: event.color ?? "#a855f7",
           startEventId: event.id,
           startCol: col,
           percent: event.value == null ? undefined : finiteNumber(event.value),
+          percentChanges: [],
         })
-      } else if (event.value != null) {
-        running.percent = finiteNumber(event.value)
       }
       continue
     }
@@ -602,6 +616,7 @@ type ActiveAgentEntry = {
   startEventId?: string
   startCol: number
   percent?: number
+  percentChanges: AgentPercentChange[]
   plannedStopCol?: number
   stopEventId?: string
 }
@@ -628,6 +643,7 @@ function agentSegment(running: ActiveAgentEntry, endCol: number, stopped: boolea
     startCol: running.startCol,
     endCol,
     ...(running.percent !== undefined ? { percent: running.percent } : {}),
+    ...(running.percentChanges.length > 0 ? { percentChanges: running.percentChanges } : {}),
     ...(stopped ? { stopped: true } : {}),
   }
 }
@@ -943,6 +959,15 @@ export function reverseProjectIntraop(
       color: agent.color,
       value: agent.percent == null ? undefined : String(agent.percent),
     }))
+    for (const change of agent.percentChanges ?? []) {
+      events.push(create({
+        type: "agent_start",
+        ts: timestampFor(change.col),
+        name: agent.name,
+        color: agent.color,
+        value: String(change.percent),
+      }))
+    }
     if (agent.stopped) {
       events.push(create({
         type: "agent_stop",

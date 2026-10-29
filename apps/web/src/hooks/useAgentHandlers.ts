@@ -2,6 +2,25 @@ import { useState } from "react"
 import type { RefObject } from "react"
 import type { TimetableData, AgentSegment } from "@/components/IntraopTimetable"
 
+/**
+ * What applying the agent editor at a column means (10.0.0): at the bar's
+ * start it corrects the starting percent, on an existing change it corrects
+ * that change (both edits, kept in the audit log), and anywhere else it is a
+ * new concentration from that time, as the phone records one.
+ */
+export type AgentEditMode = "start" | "change" | "new"
+
+export function agentEditMode(seg: AgentSegment, atCol: number): AgentEditMode {
+  if (atCol <= seg.startCol) return "start"
+  return (seg.percentChanges ?? []).some(change => change.col === atCol) ? "change" : "new"
+}
+
+/** The percent in force at a column: the change there if any, else the last one before it, else the start's. */
+export function agentPercentAt(seg: AgentSegment, atCol: number): number | undefined {
+  const changes = (seg.percentChanges ?? []).filter(change => change.col === atCol || (!change.planned && change.col < atCol))
+  return changes.sort((a, b) => a.col - b.col).pop()?.percent ?? seg.percent
+}
+
 // Agents carry their own picker-popover UI state (which cell's picker is
 // open, its screen position, the pending N2O selection) alongside the same
 // start/extend/resume/continue lifecycle infusions and fluids have — the
@@ -23,6 +42,8 @@ export function useAgentHandlers(
   const [pickerN2o, setPickerN2o]             = useState<number | null>(null)
   const [pickerPercent, setPickerPercent]     = useState<number | null>(null)
   const [pendingAgentName, setPendingAgentName] = useState<string | null>(null)
+  // The column the editor was opened on, which decides what applying it means.
+  const [pickerAtCol, setPickerAtCol]         = useState<number | null>(null)
 
   function closeAgentPicker() { setAgentPicker(null); setAgentPickerRect(null); setPendingAgentName(null) }
 
@@ -43,15 +64,26 @@ export function useAgentHandlers(
   function updateAgentExtras(startCol: number) {
     const n2o = pickerN2o !== null ? pickerN2o : undefined
     const percent = pickerPercent !== null ? pickerPercent : undefined
-    onChange({ ...data, agents: agents.map(a => a.startCol === startCol ? { ...a, n2o, percent } : a) })
+    onChange({ ...data, agents: agents.map(a => {
+      if (a.startCol !== startCol) return a
+      const at = pickerAtCol ?? a.startCol
+      const mode = agentEditMode(a, at)
+      if (mode === "start" || percent === undefined) return { ...a, n2o, ...(mode === "start" ? { percent } : {}) }
+      const changes = a.percentChanges ?? []
+      if (mode === "change") return { ...a, n2o, percentChanges: changes.map(change => change.col === at ? { ...change, percent } : change) }
+      // The same concentration again is not a change.
+      if (agentPercentAt(a, at) === percent) return { ...a, n2o }
+      return { ...a, n2o, percentChanges: [...changes, { col: at, percent }].sort((x, y) => x.col - y.col) }
+    }) })
     closeAgentPicker(); setPickerN2o(null); setPickerPercent(null)
   }
 
-  function openPickerForSeg(ci: number, seg: AgentSegment, rect: DOMRect) {
-    if (agentPicker === ci) { setAgentPicker(null); setAgentPickerRect(null); return }
+  function openPickerForSeg(ci: number, seg: AgentSegment, rect: DOMRect, atCol: number = ci) {
+    if (agentPicker === ci && pickerAtCol === atCol) { setAgentPicker(null); setAgentPickerRect(null); return }
     setPickerN2o(seg.n2o ?? null)
-    setPickerPercent(seg.percent ?? null)
+    setPickerPercent(agentPercentAt(seg, atCol) ?? null)
     setPendingAgentName(null)
+    setPickerAtCol(atCol)
     setAgentPicker(ci)
     setAgentPickerRect(rect)
   }
@@ -89,7 +121,7 @@ export function useAgentHandlers(
   }
 
   return {
-    agents, agentPicker, agentPickerRect, pickerN2o, setPickerN2o, pickerPercent, setPickerPercent,
+    agents, agentPicker, agentPickerRect, pickerAtCol, pickerN2o, setPickerN2o, pickerPercent, setPickerPercent,
     pendingAgentName, setPendingAgentName,
     startAgent, updateAgentExtras, openPickerForSeg, openPickerEmpty, closeAgentPicker,
     removeSegment, extendSegment, resumeSegment, continueAgent,

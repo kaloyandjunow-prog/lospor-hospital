@@ -3,11 +3,12 @@
 import type { VitalKey } from "@/types/timetable"
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useIntraopLibraryConfig } from "@/lib/use-intraop-library-config"
+import { useDarkTheme } from "@/lib/drug-tone"
 import { nowMarkerGeometry } from "@/lib/timetable-clock"
 import { clinicalProvenance } from "@/lib/intraop-provenance"
 import { useLocale, useTranslations } from "next-intl"
 import { createPortal } from "react-dom"
-import { Plus, X, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, ChevronDown, ChevronRight } from "lucide-react"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { clinicalEventName, displayClinicalCode } from "@/lib/clinical-display"
 import { useIntraopDisplay } from "@/components/intraop/useIntraopDisplay"
@@ -16,7 +17,6 @@ import { GasSettingsPopover } from "@/components/intraop/GasSettingsPopover"
 import { AgentPopover } from "@/components/intraop/AgentPopover"
 import { EventPickerPopover } from "@/components/intraop/EventPickerPopover"
 import { VitalsPopover } from "@/components/intraop/VitalsPopover"
-import { ConfirmDialog } from "@/components/intraop/ConfirmDialog"
 import { FluidPickerPopover } from "@/components/intraop/FluidPickerPopover"
 import { DoseEditPopover } from "@/components/intraop/DoseEditPopover"
 import { baseInfusionName } from "@/components/intraop/infusion-naming"
@@ -30,6 +30,7 @@ import { InfusionLane, type InfusionBarMove } from "@/components/intraop/Timetab
 import { TimetableVitalsRows } from "@/components/intraop/TimetableVitalsRows"
 import { TimetableTimeHeader } from "@/components/intraop/TimetableTimeHeader"
 import { useTimetableDrag } from "@/components/intraop/use-timetable-drag"
+import { useTouchDrag } from "@/components/intraop/touch-drag"
 import { DosingFlyout } from "@/components/intraop/DosingFlyout"
 import { flyoutInfusion } from "@/components/intraop/flyout-infusion"
 import { TciPatientContext } from "@/components/intraop/tci-patient-context"
@@ -61,8 +62,7 @@ import type {
   AgentSegment, GasSettingsSegment, TimetableData, TimetableFluid,
 } from "@/types/timetable"
 import { toast } from "sonner"
-import { EndCaseModal } from "@/components/intraop/EndCaseModal"
-import { DoseSelector } from "@/components/intraop/DoseSelector"
+import { FluidRateDialog } from "@/components/intraop/FluidRateDialog"
 import {
   MedicationPickerPortals,
   scenarioPickerLabels,
@@ -76,13 +76,18 @@ import { useVitalsHandlers } from "@/hooks/useVitalsHandlers"
 import { useClinicalEventHandlers } from "@/hooks/useClinicalEventHandlers"
 import { useInfusionHandlers } from "@/hooks/useInfusionHandlers"
 import { useFluidHandlers } from "@/hooks/useFluidHandlers"
-import { useAgentHandlers } from "@/hooks/useAgentHandlers"
+import { agentEditMode, useAgentHandlers } from "@/hooks/useAgentHandlers"
 import { useGasSettingsHandlers } from "@/hooks/useGasSettingsHandlers"
 import { useVitalDraftEntry } from "@/hooks/useVitalDraftEntry"
 import { DivChart, VITAL_ROW_DEFS } from "@/components/intraop/TimetableVitalsChart"
 import { cvpDisplayRange, cvpToDisplay } from "@lospor/core/monitoring-values"
 import { mayCommitVitalDefault } from "@lospor/core/monitoring-values"
 import { useUnitPreferences } from "@/hooks/useUnitPreferences"
+import { createDrugChipResolver } from "@/components/intraop/drug-chip-resolver"
+import { createEndDropHandlers, type PendingStop } from "@/components/intraop/end-drop-handlers"
+import { useTimetableHistory } from "@/components/intraop/useTimetableHistory"
+import { TimetableHistoryButtons } from "@/components/intraop/TimetableHistoryButtons"
+import { TimetableEndOverlays } from "@/components/intraop/TimetableEndOverlays"
 import { type IntraopVitalKey } from "@lospor/core/intraop-vitals"
 import { evaluateVitalInput } from "@/lib/intraop-vital-entry"
 import {
@@ -354,7 +359,11 @@ export function IntraopTimetable({
     FLUID_DEFAULT_CONCENTRATIONS, FLUID_CONFIGS,
     INFUSION_CONFIGS, INFUSION_WEIGHT_BASIS, INFUSION_ROUTES, QUICK_RATES,
     INFUSION_ROUTE_PROFILES,
-  } = useIntraopLibraryConfig({ drugLibOpts, fluidLibOpts, infusionLibOpts })
+  } = useIntraopLibraryConfig({ drugLibOpts, fluidLibOpts, infusionLibOpts, dark: useDarkTheme() })
+  // Each drug's chip on the chart, in the colour its menu shows (10.0.0): the
+  // hospital's own, else its group's. Drawn in the colours in use, so an
+  // earlier case follows a change too.
+  const drugChipFor = useMemo(() => createDrugChipResolver([...QUICK_DRUGS, ...HIDDEN_DRUGS]), [QUICK_DRUGS, HIDDEN_DRUGS])
 
   const getFluidColor = useCallback((name: string) => fluidColor(name, QUICK_FLUIDS), [QUICK_FLUIDS])
   const getFluidCategory = useCallback((name: string) => fluidCategory(name, QUICK_FLUIDS), [QUICK_FLUIDS])
@@ -403,12 +412,16 @@ export function IntraopTimetable({
   const [colCount, setColCount]           = useState(ROW_COLS)  // start with 1 row
   const [chartOpen, setChartOpen]         = useState(() => typeof window !== "undefined" && localStorage.getItem("vitalsExpanded") !== "false")
   // Every in-progress drag lives in one reducer; see intraop/use-timetable-drag.
+  // Bars dragged by a finger as by a mouse (10.0.0).
+  const touchDragRoot = useRef<HTMLDivElement>(null)
+  useTouchDrag(touchDragRoot)
   const [drag, dragActions] = useTimetableDrag()
   // Extending an infusion segment
   // Whole-bar drag
   // Rate-pill drag
   // Misc infusion UI state
   const [deleteInfPrompt, setDeleteInfPrompt] = useState<string | null>(null)
+  const [pendingStop, setPendingStop] = useState<PendingStop | null>(null)
   const [hoverDiscontinue, setHoverDiscontinue] = useState<string | null>(null)
   // Right-grip (extend endCol) and left-grip (extend startCol backward)
   // Item-level selection (pill or infusion bar)
@@ -536,16 +549,7 @@ export function IntraopTimetable({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [layout])
 
-  // Undo / redo history (refs → no extra renders)
-  const histPastRef   = useRef<TimetableData[]>([])
-  const histFutureRef = useRef<TimetableData[]>([])
-
-  // All user-action changes go through here — pushes to history before calling parent
-  const onChangeRef = useRef((newData: TimetableData) => {
-    histPastRef.current = [...histPastRef.current.slice(-99), dataRef.current]
-    histFutureRef.current = []
-    rawOnChangeRef.current(newData)
-  })
+  const { onChangeRef, undoRef, redoRef, depth: histDepth } = useTimetableHistory(dataRef, rawOnChangeRef)
 
   const uid = useCallback((): string => {
     return typeof crypto.randomUUID === "function"
@@ -825,7 +829,7 @@ export function IntraopTimetable({
     }
     window.addEventListener("keydown", handle)
     return () => window.removeEventListener("keydown", handle)
-  }, [sel, colCount])
+  }, [colCount, onChangeRef, sel])
 
   // Close vitals popup on Enter; arrow keys adjust slider value
   useEffect(() => {
@@ -871,18 +875,16 @@ export function IntraopTimetable({
       if (!e.ctrlKey) return
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault()
-        const prev = histPastRef.current.pop()
-        if (prev) { histFutureRef.current.push(dataRef.current); rawOnChangeRef.current(prev) }
+        undoRef.current()
       }
       if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
         e.preventDefault()
-        const next = histFutureRef.current.pop()
-        if (next) { histPastRef.current.push(dataRef.current); rawOnChangeRef.current(next) }
+        redoRef.current()
       }
     }
     window.addEventListener("keydown", handleUndoRedo)
     return () => window.removeEventListener("keydown", handleUndoRedo)
-  }, [])
+  }, [redoRef, undoRef])
 
   // Freeze and clear the live clock as soon as case ends
   const endTimeRef = useRef(endTime)
@@ -1155,7 +1157,7 @@ export function IntraopTimetable({
 
   // ── Agents ──────────────────────────────────────────────────────────────────
   const {
-    agents, agentPicker, agentPickerRect, pickerN2o, setPickerN2o, pickerPercent, setPickerPercent,
+    agents, agentPicker, agentPickerRect, pickerAtCol, pickerN2o, setPickerN2o, pickerPercent, setPickerPercent,
     pendingAgentName, setPendingAgentName,
     startAgent, updateAgentExtras, openPickerForSeg, openPickerEmpty, closeAgentPicker,
     removeSegment, extendSegment, resumeSegment, continueAgent,
@@ -1199,6 +1201,8 @@ export function IntraopTimetable({
     openPickerForSeg: openGasPickerForSeg, openPickerEmpty: openGasPickerEmpty, closeGasPicker,
     startGas, applyGasChange, stopGas,
   } = useGasSettingsHandlers(data, onChange, dataRef, onChangeRef)
+
+  const { handleEndDrop, confirmPendingStop } = createEndDropHandlers({ agents, infusions: data.infusions ?? [], fluids: data.fluids ?? [], nowCol, setPendingStop, extendAgent: extendSegment, resumeAgent: resumeSegment, extendInfusion, restoreInfusion, extendFluid, resumeFluid })
 
   function handleEndCaseConfirm(result: {
     continuedItems: string[]
@@ -1269,7 +1273,7 @@ export function IntraopTimetable({
     e.preventDefault()
     const startCol = parseInt(e.dataTransfer.getData("extend-agent"))
     if (isNaN(startCol)) return
-    extendSegment(startCol, Math.max(col, startCol))
+    handleEndDrop("agent", String(startCol), col)
     dragActions.agentExtendEnd()
   }
   function onAgentDragEnd() { dragActions.agentExtendEnd() }
@@ -1529,6 +1533,7 @@ export function IntraopTimetable({
           />
 
           <DrugLane
+            drugChip={drugChipFor}
             label={t("intraop.timetable.drugs")}
             labelWidth={LABEL_W}
             rowLabelClass={rowLabelCls}
@@ -1554,7 +1559,7 @@ export function IntraopTimetable({
               <InfusionLane
                 key={drugName} projectRunning={!endedAt}
                 drugName={drugName}
-                color={segs[0]?.color ?? "#64748b"}
+                color={INFUSION_CONFIGS[drugName]?.color ?? segs[0]?.color ?? "#64748b"}
                 segments={segs}
                 labelWidth={LABEL_W}
                 rowCols={rowCols}
@@ -1572,6 +1577,7 @@ export function IntraopTimetable({
                 drag={drag}
                 dragActions={dragActions}
                 extendInfusion={extendInfusion}
+                onEndDrop={(id, col) => handleEndDrop("infusion", id, col)}
                 extendInfusionLeft={extendInfusionLeft}
                 applyInfRateChange={applyInfRateChange}
                 onMoveBar={moveInfusionBar}
@@ -1599,7 +1605,7 @@ export function IntraopTimetable({
               displayFluidName={displayFluidName}
               drag={drag}
               dragActions={dragActions}
-              extendFluid={extendFluid}
+              onEndDrop={(id, col) => handleEndDrop("fluid", id, col)}
               resumeFluid={resumeFluid}
               continueFluid={continueFluid}
               removeFluid={removeFluid}
@@ -1634,7 +1640,7 @@ export function IntraopTimetable({
                 onDragLeave={() => dragActions.fluidDropTargetOver(null)}
                 onDrop={e => onFluidDrop(e, ci)}
                 className={`border-l border-slate-100 dark:border-[#2a2a2a] flex items-center justify-center transition-colors ${drag.fluidDragOver===ci ? "bg-cyan-100 dark:bg-cyan-900/20" : ""}`}>
-                <button type="button" tabIndex={-1}
+                <button type="button" tabIndex={-1} data-testid="add-fluid"
                   onClick={e => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setFluidPicker({ ci, rect }); setFpSearch("") }}
                   className="flex items-center justify-center gap-0.5 text-[10px] font-semibold rounded border border-dashed border-cyan-300 dark:border-cyan-700 text-cyan-400 dark:text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 px-1 py-1 transition-colors w-[72px]">
                   <Plus className="h-3 w-3" />
@@ -1650,7 +1656,8 @@ export function IntraopTimetable({
 
   return (
     <TciPatientContext.Provider value={tciPatient}>
-    <div className="space-y-3">
+    {/* A long press here picks a bar up rather than selecting its text (touch only). */}
+    <div ref={touchDragRoot} className="space-y-3 pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]">
       {/* Chart toggle + layout toggle on same row */}
       <div className="flex items-center gap-2 flex-wrap">
         <button type="button" onClick={() => setChartOpen(o => !o)}
@@ -1669,6 +1676,7 @@ export function IntraopTimetable({
             </span>
           )}
         </button>
+        <TimetableHistoryButtons depth={histDepth} undoLabel={uiCopy.timetable.undo} redoLabel={uiCopy.timetable.redo} onUndo={() => undoRef.current()} onRedo={() => redoRef.current()} />
         <button type="button" onClick={() => setShowHotkeys(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors select-none bg-white dark:bg-[#2a2a2a] border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-[#999] hover:border-slate-300 dark:hover:border-[#555]">
           ⌨ {uiCopy.timetable.shortcuts}
@@ -1852,8 +1860,16 @@ export function IntraopTimetable({
     {/* ── Agent popover ──────────────────────────────────────────────────────── */}
     {agentPicker !== null && agentPickerRect && (() => {
       const editing = agents.find(a => a.startCol === agentPicker) ?? null
+      // Opened on a later column of the bar: a change from that time (10.0.0).
+      const mode = editing ? agentEditMode(editing, pickerAtCol ?? editing.startCol) : "start"
+      const atStamp = pickerAtCol != null ? tsForCol(pickerAtCol) : null
+      const atTime = atStamp ? new Date(atStamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""
       return (
         <AgentPopover
+          editCaption={editing && mode !== "start"
+            ? t(mode === "new" ? "intraop.timetable.agentChangeFrom" : "intraop.timetable.agentEditAt", { name: displayAgentName(editing.name), time: atTime })
+            : undefined}
+          applyLabel={mode === "new" ? t("intraop.timetable.agentChangeApply", { time: atTime }) : undefined}
           anchor={agentPickerRect}
           editingName={editing?.name ?? null}
           pendingName={pendingAgentName}
@@ -1867,6 +1883,7 @@ export function IntraopTimetable({
           labels={{
             startAgentHere: t("intraop.timetable.startAgentHere"),
             optional: t("intraop.timetable.optional"),
+            editLogged: t(mode === "new" ? "intraop.timetable.agentChangeNew" : mode === "change" ? "intraop.timetable.agentChangeEdit" : "intraop.timetable.agentEditLogged"),
           }}
           onSelectAgent={agent => {
             setPendingAgentName(agent)
@@ -1876,6 +1893,7 @@ export function IntraopTimetable({
           onNitrousChange={setPickerN2o}
           onStart={agent => startAgent(agentPicker, agent)}
           onApply={() => editing && updateAgentExtras(editing.startCol)}
+          onResume={editing?.stopped ? () => { resumeSegment(editing.startCol); closeAgentPicker() } : undefined}
           onDismiss={closeAgentPicker}
         />
       )
@@ -1974,6 +1992,7 @@ export function IntraopTimetable({
           setInfMenu(null)
         }}
         onRestore={() => { restoreInfusion(infMenu.segId); setInfMenu(null) }}
+        onRemove={infMenu.stopped ? undefined : () => { setDeleteInfPrompt(infMenu.segId); setInfMenu(null) }}
         onDiscontinueHover={hovering => setHoverDiscontinue(hovering ? infMenu.segId : null)}
         onDismiss={() => setInfMenu(null)}
       />
@@ -2056,76 +2075,30 @@ export function IntraopTimetable({
         }}
       />
     )}
-    {/* Dragging an infusion bar off the left edge deletes it — easy to do by accident. */}
-    {deleteInfPrompt && (
-      <ConfirmDialog
-        title={t("intraop.timetable.deleteInfusionConfirm")}
-        detail={t("intraop.timetable.barDraggedOffTimeline")}
-        cancelLabel={uiCopy.cancel}
-        confirmLabel={uiCopy.delete}
-        onCancel={() => setDeleteInfPrompt(null)}
-        onConfirm={() => { removeInfusion(deleteInfPrompt); setDeleteInfPrompt(null) }}
-      />
-    )}
-    {showEndModal && (
-      <EndCaseModal
-        agents={agents.filter(a => !a.stopped && !a.planned)}
-        infusions={(data.infusions ?? []).filter(i => !i.stopped && !i.planned)}
-        fluids={(data.fluids ?? []).filter(f => !f.stopped && !f.planned)}
-        gasSettings={gasSettings.filter(g => !g.stopped && !g.planned)}
-        weightBasis={INFUSION_WEIGHT_BASIS} ibw={ibw} tbw={tbw}
-        afterEnd={attention?.endCaseEntries ?? []}
-        onResolveAfterEnd={(key, action) => attention?.answer(key, action, true)}
-        onDismiss={() => setShowEndModal(false)}
-        onConfirm={handleEndCaseConfirm}
-      />
-    )}
+    <TimetableEndOverlays
+      pendingStop={pendingStop}
+      displayNameForStop={stop => stop.kind === "agent" ? displayAgentName(stop.name) : stop.kind === "infusion" ? displayInfusionName(stop.name) : displayFluidName(stop.name)}
+      timeForColumn={tsForCol}
+      onCancelPending={() => setPendingStop(null)}
+      onConfirmPending={confirmPendingStop}
+      deleteInfPrompt={deleteInfPrompt}
+      onCancelDelete={() => setDeleteInfPrompt(null)}
+      onDeleteInfusion={id => { removeInfusion(id); setDeleteInfPrompt(null) }}
+      showEndModal={showEndModal}
+      agents={agents.filter(a => !a.stopped && !a.planned)}
+      infusions={(data.infusions ?? []).filter(i => !i.stopped && !i.planned)}
+      fluids={(data.fluids ?? []).filter(f => !f.stopped && !f.planned)}
+      gasSettings={gasSettings.filter(g => !g.stopped && !g.planned)}
+      weightBasis={INFUSION_WEIGHT_BASIS}
+      ibw={ibw}
+      tbw={tbw}
+      afterEnd={attention?.endCaseEntries ?? []}
+      onResolveAfterEnd={(key, action) => attention?.answer(key, action, true)}
+      onDismissEnd={() => setShowEndModal(false)}
+      onConfirmEnd={handleEndCaseConfirm}
+    />
     {showHotkeys && <HotkeysModal onClose={() => setShowHotkeys(false)} />}
-    {fluidRateDialog && (() => {
-      const fluid = (data.fluids ?? []).find(item => item.id === fluidRateDialog.id)
-      if (!fluid) return null
-      const rect = fluidRateDialog.rect
-      const width = Math.min(240, window.innerWidth - 16)
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
-      const showAbove = window.innerHeight - rect.bottom < 240
-      const top = showAbove ? rect.top - 4 : rect.bottom + 6
-      return createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setFluidRateDialog(null)} />
-          <div
-            className="fixed z-[9999] space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-[#3a3a3a] dark:bg-[#1e1e1e]"
-            style={{ left, top, width, transform: showAbove ? "translateY(-100%)" : undefined }}
-            onClick={event => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-xs font-bold text-slate-700 dark:text-slate-200">
-                {displayFluidName(fluid.name)} · {uiCopy.timetable.rateSuffix}
-              </p>
-              <button type="button" onClick={() => setFluidRateDialog(null)} className="text-slate-300 hover:text-red-400">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <DoseSelector
-              accent="cyan"
-              value={fluidRateDialog.rate}
-              onValueChange={rate => setFluidRateDialog(current => current ? { ...current, rate } : current)}
-              valuePlaceholder={uiCopy.rate}
-              min={1}
-              max={200}
-              step={1}
-              unitSuffix="mL/h"
-              confirmLabel={uiCopy.infusion.changeRate}
-              confirmDisabled={!fluidRateDialog.rate || Number(fluidRateDialog.rate) <= 0}
-              onConfirm={() => {
-                applyFluidRateChange(fluidRateDialog.id, Number(fluidRateDialog.rate))
-                setFluidRateDialog(null)
-              }}
-            />
-          </div>
-        </>,
-        document.body,
-      )
-    })()}
+    {fluidRateDialog && <FluidRateDialog state={fluidRateDialog} fluid={(data.fluids ?? []).find(item => item.id === fluidRateDialog.id)} displayName={displayFluidName} onChange={rate => setFluidRateDialog(current => current ? { ...current, rate } : current)} onClose={() => setFluidRateDialog(null)} onConfirm={(id, rate) => { applyFluidRateChange(id, rate); setFluidRateDialog(null) }} />}
     {discFluidState && (() => {
       const fluid = (data.fluids ?? []).find(f => f.id === discFluidState.id)
       if (!fluid) return null
