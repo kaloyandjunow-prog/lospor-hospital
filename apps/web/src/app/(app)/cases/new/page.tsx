@@ -155,7 +155,6 @@ export default function NewCasePage() {
     // can race the new screen and leave its sidebar absent for a render window.
     if (caseIdRef.current === continueId) return
     // Async fetch-on-mount with a loading flag - standard data-fetching effect.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     caseLoadingRef.current = true
     fetchCaseRecord(continueId)
