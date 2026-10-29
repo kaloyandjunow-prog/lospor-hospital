@@ -38,6 +38,7 @@ test("drug menus", async ({ browser }) => {
   const created = await context.request.post("/api/cases", {
     headers: JSON_HEADERS,
     data: {
+      patientNumber: `DRUG-MENUS-E2E-${Date.now()}`,
       preop: { ageYears: 45, sex: "FEMALE", heightCm: 165, weightKg: 68, clinicalMode: "ADULT" },
       intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_BALANCED"] },
     },

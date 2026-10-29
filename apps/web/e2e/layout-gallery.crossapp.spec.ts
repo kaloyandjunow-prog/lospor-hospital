@@ -26,7 +26,7 @@ async function shot(page: Page, name: string) {
 
 test("web: every step in every layout, both themes", async ({ browser }) => {
   const web = await contextFor(browser, "member-a")
-  const created = await web.request.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const created = await web.request.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `LAYOUT-GALLERY-E2E-${Date.now()}`, preop: PREOP } })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
   await web.request.patch(`/api/cases/${id}`, { headers: JSON_HEADERS, data: { postop: { recoveryBpSystolic: 120, recoverySpO2: 95 } } })
@@ -61,7 +61,7 @@ test("web: every step in every layout, both themes", async ({ browser }) => {
 
 test("phone: preop and postop sectioned and scrolling, intraop, both themes", async ({ browser }) => {
   const web = await contextFor(browser, "member-a")
-  const created = await web.request.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const created = await web.request.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `LAYOUT-GALLERY-PHONE-E2E-${Date.now()}`, preop: PREOP } })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
   try {

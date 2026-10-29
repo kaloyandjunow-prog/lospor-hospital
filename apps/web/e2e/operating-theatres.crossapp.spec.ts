@@ -40,7 +40,7 @@ test("theatres are assigned, shown, filtered and fixed at the start of intraop",
   const create = async (procedure: string) => {
     const created = await context.request.post("/api/cases", {
       headers: JSON_HEADERS,
-      data: { preop: { ageYears: 50, sex: "MALE", heightCm: 175, weightKg: 80, clinicalMode: "ADULT", plannedProcedure: procedure } },
+      data: { patientNumber: `THEATRES-E2E-${Date.now()}`, preop: { ageYears: 50, sex: "MALE", heightCm: 175, weightKg: 80, clinicalMode: "ADULT", plannedProcedure: procedure } },
     })
     expect(created.status(), await created.text()).toBe(201)
     const { id } = await created.json() as { id: string }

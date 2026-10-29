@@ -12,7 +12,7 @@ test.describe.configure({ timeout: 240_000 })
 
 test("at 130% the phone app reflows to fit, intraop and postop included", async ({ browser }) => {
   const web = await contextFor(browser, "member-a")
-  const created = await web.request.post("/api/cases", { headers: JSON_HEADERS, data: { preop: { ageYears: 50, sex: "MALE", heightCm: 175, weightKg: 80 } } })
+  const created = await web.request.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `DISPLAY-SIZE-E2E-${Date.now()}`, preop: { ageYears: 50, sex: "MALE", heightCm: 175, weightKg: 80 } } })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
   const phone = await browser.newContext({ baseURL: PWA_BASE, viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2.625 })

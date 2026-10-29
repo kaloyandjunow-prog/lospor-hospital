@@ -93,7 +93,7 @@ test("a child's recovery form scores Steward, and only once all three are in", a
 
   const created = await api.post("/api/cases", {
     headers: JSON_HEADERS,
-    data: { clinicalMode: "PEDIATRIC", preop: { ageValue: 4, ageUnit: "YEARS", sex: "MALE", heightCm: 104, weightKg: 17 } },
+    data: { patientNumber: `POSTOP-STEWARD-E2E-${Date.now()}`, clinicalMode: "PEDIATRIC", preop: { ageValue: 4, ageUnit: "YEARS", sex: "MALE", heightCm: 104, weightKg: 17 } },
   })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()

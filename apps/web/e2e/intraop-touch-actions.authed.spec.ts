@@ -27,6 +27,7 @@ async function seed(page: Page, events: (at: (min: number) => string) => Record<
   const startedAt = new Date(now - 40 * 60_000)
   const local = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false }).format(startedAt)
   const id = (await (await page.request.post("/api/cases", { headers: { Origin: ORIGIN }, data: {
+    patientNumber: `INTRAOP-TOUCH-E2E-${Date.now()}`,
     preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
     intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
   } })).json()).id as string

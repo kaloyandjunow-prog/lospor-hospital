@@ -17,7 +17,7 @@ test("a three-year-old is offered FLACC and FPS-R, scored item by item", async (
   const api = context.request
   const created = await api.post("/api/cases", {
     headers: JSON_HEADERS,
-    data: { clinicalMode: "PEDIATRIC", preop: { ageValue: 3, ageUnit: "YEARS", sex: "MALE", heightCm: 95, weightKg: 14 } },
+    data: { patientNumber: `POSTOP-PAIN-E2E-${Date.now()}`, clinicalMode: "PEDIATRIC", preop: { ageValue: 3, ageUnit: "YEARS", sex: "MALE", heightCm: 95, weightKg: 14 } },
   })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
@@ -61,7 +61,7 @@ test("an adult's recovery observations suggest Aldrete circulation and SpO2, set
   const api = context.request
   const created = await api.post("/api/cases", {
     headers: JSON_HEADERS,
-    data: { preop: { ageYears: 58, sex: "FEMALE", heightCm: 165, weightKg: 70, bpSystolic: 140 } },
+    data: { patientNumber: `POSTOP-OBS-E2E-${Date.now()}`, preop: { ageYears: 58, sex: "FEMALE", heightCm: 165, weightKg: 70, bpSystolic: 140 } },
   })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()

@@ -28,6 +28,7 @@ async function createRecentCase(page: Page) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-BAR-END-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
     },

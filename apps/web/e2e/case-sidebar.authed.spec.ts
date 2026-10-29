@@ -19,7 +19,7 @@ test("the sidebar follows the case from intraop to postop and back to preop", as
     window.localStorage.setItem("caseSidebar", "on")
     window.localStorage.setItem("tourCompleted", "1")
   })
-  const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `CASE-SIDEBAR-E2E-${Date.now()}`, preop: PREOP } })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
   try {
@@ -62,7 +62,7 @@ test("without the sidebar each screen takes its own layout, and the preop tabs h
     window.localStorage.setItem("postopLayout", "scroll")
     window.localStorage.setItem("tourCompleted", "1")
   })
-  const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `CASE-SIDEBAR-E2E-${Date.now()}`, preop: PREOP } })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
   try {

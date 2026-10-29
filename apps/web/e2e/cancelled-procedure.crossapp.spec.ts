@@ -22,7 +22,10 @@ const preop = (extra: Record<string, unknown> = {}) => ({
 })
 
 async function create(request: APIRequestContext, data: Record<string, unknown>) {
-  const created = await request.post("/api/cases", { headers: JSON_HEADERS, data })
+  const created = await request.post("/api/cases", {
+    headers: JSON_HEADERS,
+    data: { patientNumber: `CANCELLED-PROCEDURE-E2E-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...data },
+  })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json() as { id: string }
   const record = await (await request.get(`/api/cases/${id}`)).json() as { caseCode: string }

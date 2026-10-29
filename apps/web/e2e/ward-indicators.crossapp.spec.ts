@@ -28,6 +28,7 @@ async function chartCase(request: APIRequestContext, index: number): Promise<str
   const created = await request.post("/api/cases", {
     headers: JSON_HEADERS,
     data: {
+      patientNumber: `WARD-INDICATORS-E2E-${index}-${Date.now()}`,
       preop: {
         ageYears: 50, heightCm: 175, weightKg: 80, clinicalMode: "ADULT", asaScore: "II",
         // Apfel is worked out by the API: female, non-smoker and a history of PONV make 3.

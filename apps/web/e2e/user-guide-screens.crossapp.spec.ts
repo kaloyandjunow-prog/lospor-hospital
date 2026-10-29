@@ -102,6 +102,7 @@ async function finishedCase(request: APIRequestContext, index: number, labels: s
   const created = await request.post("/api/cases", {
     headers: JSON_HEADERS,
     data: {
+      patientNumber: `USER-GUIDE-E2E-${index}-${Date.now()}`,
       preop: {
         ageYears: 38 + index * 4, heightCm: female ? 164 : 178, weightKg: female ? 66 : 84, clinicalMode: "ADULT", asaScore: index % 4 === 0 ? "III" : "II",
         ...(female ? { sex: "FEMALE", smoking: false, apfelPONVHistory: index % 2 === 0 } : { sex: "MALE", smoking: index % 2 === 0 }),
@@ -166,7 +167,7 @@ async function seed(request: APIRequestContext, locale: Locale, theatres: { id: 
   await keep("finished", ids[0])
 
   const create = async (data: Record<string, unknown>) => {
-    const created = await request.post("/api/cases", { headers: JSON_HEADERS, data })
+    const created = await request.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `USER-GUIDE-SEED-E2E-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...data } })
     expect(created.status(), await created.text()).toBe(201)
     return (await created.json() as { id: string }).id
   }

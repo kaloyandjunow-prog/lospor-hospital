@@ -16,6 +16,7 @@ chmod 700 "$directory"
 
 ensure_hex() {
   target="$1"
+  value=
   if [ -s "$target" ]; then
     value="$(tr -d '\r\n' < "$target")"
     case "$value" in

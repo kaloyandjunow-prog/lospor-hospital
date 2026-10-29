@@ -28,7 +28,7 @@ type CaseBody = {
 
 async function createCase(web: BrowserContext, intraop?: Record<string, unknown>): Promise<string> {
   const response = await web.request.post("/api/cases", {
-    headers: JSON_HEADERS, data: { preop: PREOP, ...(intraop ? { intraop } : {}) },
+    headers: JSON_HEADERS, data: { patientNumber: `PREMEDICATION-E2E-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, preop: PREOP, ...(intraop ? { intraop } : {}) },
   })
   expect(response.status(), await response.text()).toBe(201)
   return (await response.json() as { id: string }).id
