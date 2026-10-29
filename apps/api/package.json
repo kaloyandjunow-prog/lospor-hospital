@@ -109,7 +109,8 @@
     "prisma": "7.9.1",
     "tsx": "^4.23.1",
     "typescript": "^5",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "@eslint/compat": "^2.1.1"
   },
   "allowScripts": {
     "prisma@7.9.1": true,
