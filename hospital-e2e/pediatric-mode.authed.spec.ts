@@ -113,8 +113,7 @@ test("a complete paediatric case can be submitted for review and finalised", asy
         headers: JSON_HEADERS,
         data: {
           postop: {
-            aldreteActivity: 2, aldreteRespiration: 2,
-            aldreteCirculation: 2, aldreteConsciousness: 2, aldreteSpO2: 2,
+            stewardConsciousness: 2, stewardAirway: 2, stewardMovement: 2,
             disposition: "WARD",
           },
         },
