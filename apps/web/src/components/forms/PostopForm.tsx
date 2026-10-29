@@ -1,7 +1,7 @@
 "use client"
 
 import { useForm, useWatch, Controller, type Resolver } from "react-hook-form"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { useScrollToReadiness } from "@/lib/readiness-focus"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -143,6 +143,11 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       ...(defaultValues?.handoverItems ? { handoverItems: normaliseHandoverCodes(defaultValues.handoverItems) } : {}),
     },
   })
+  // RHF remains the source of truth, but score totals are derived aggregates.
+  // A browser click can update a Controller field without making the parent
+  // render that reads the aggregate in the same turn. Keep an explicit render
+  // tick for score changes so the total never stays visually one answer behind.
+  const [, bumpScoreRender] = useReducer((version: number) => version + 1, 0)
 
   const allValues = useWatch({ control })
   const allValuesKey = JSON.stringify(allValues)
@@ -196,7 +201,10 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   // Pain and delirium, item by item.
   const itemValues = useWatch({ control, name: [...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key) }) as (number | null | undefined)[]
   const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, itemValues[index]])) as Record<ScoredItem, number | null | undefined>
-  const setItem = (key: ScoredItem, value: number | null) => setValue(key, value, { shouldDirty: true })
+  const setItem = (key: ScoredItem, value: number | null) => {
+    setValue(key, value, { shouldDirty: true })
+    bumpScoreRender()
+  }
   const flacc = flaccTotal(items)
   const nips = nipsTotal(items)
   const paed = paedTotal(items)
@@ -263,7 +271,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       )}
 
       {showVitals && <div className={hidden("vitals")}><RecoveryVitals control={control} setValue={setValue} isPediatric={isPediatric} rejectedFields={rejectedFields} unobtainable={{ bp: recoveryBpUTO, heartRate: recoveryHeartRateUTO, spo2: recoverySpo2UTO, temperature: recoveryTemperatureUTO }} ranges={{ bpSystolic: recoveryBpSystolicRange, bpDiastolic: recoveryBpDiastolicRange, heartRate: recoveryHeartRateRange, spo2: recoverySpo2Range, temperature: recoveryTemperatureRange }} /></div>}
-      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} /></div>
+      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} onScoreChange={bumpScoreRender} /></div>
 
       {/* Pain, emergence delirium and PONV */}
       {(showPain || showDelirium || showPonv) && (
@@ -293,7 +301,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">FPS-R</p>
                 <p className="text-xs text-slate-400">{t("postop.pain.faceHint")}</p>
                 <Controller name="fpsrScore" control={control} render={({ field }) => (
-                  <SelfReportScale kind="FPS_R" value={field.value == null ? null : Number(field.value)} onChange={field.onChange} />
+                  <SelfReportScale kind="FPS_R" value={field.value == null ? null : Number(field.value)} onChange={value => { field.onChange(value); bumpScoreRender() }} />
                 )} />
                 <ScaleTotal label="FPS-R" total={fpsr == null ? null : Number(fpsr)} max={10} band={fpsr == null ? null : selfReportBand(Number(fpsr))} language={language} />
               </div>
@@ -302,7 +310,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</p>
                 <Controller name="painScoreNRS" control={control} render={({ field }) => (
-                  <SelfReportScale kind="NRS" value={field.value == null ? null : Number(field.value)} onChange={field.onChange} />
+                  <SelfReportScale kind="NRS" value={field.value == null ? null : Number(field.value)} onChange={value => { field.onChange(value); bumpScoreRender() }} />
                 )} />
               </div>
             )}
