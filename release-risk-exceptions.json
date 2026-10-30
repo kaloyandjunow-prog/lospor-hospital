@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "exceptions": [
     {
-      "release": "1.7.0",
+      "release": "1.7.1",
       "image": "caddy",
       "vulnerabilityId": "CVE-2026-116587",
       "package": "github.com/go-jose/go-jose/v3",

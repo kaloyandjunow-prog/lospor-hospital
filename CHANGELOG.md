@@ -1,5 +1,18 @@
 # Changelog - LOSPOR Hospital
 
+## [1.7.1] - 2026-10-30
+
+Carries the verified 1.7.0 Status bundle and upstream pins into the first
+patch candidate. This release also corrects the vendored API provenance stamp
+and completes the control-plane test double for the operating-theatre models.
+
+### Fixed
+
+- Restamped `UPSTREAM_VERSIONS.json` to the API tree actually shipped.
+- Added the missing operating-theatre Prisma mocks so the Hospital control-plane
+  test covers the current projection without an unhandled query.
+- Revalidated the accepted unfixed Caddy `go-jose/v3` CVE exception for 1.7.1.
+
 ## [1.7.0] - 2026-10-29
 
 Vendors Core, API, Web and PWA 10.0.2 and Browser 0.10.0.
