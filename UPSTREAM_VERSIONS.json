@@ -1,19 +1,19 @@
 {
-  "importedAt": "2026-10-29T21:31:45.288Z",
+  "importedAt": "2026-10-30T05:20:52.540Z",
   "sources": {
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
       "version": "10.0.2",
       "commit": "49edc9c40477bd0d7cdb8f41a767a31b4b6ebd84",
       "path": "apps/api",
-      "treeOid": "67400eaa449808973053c03e544c7db810cd6e55"
+      "treeOid": "fd6bc3446cbd707b3e0c781e2efef18f7bb2b878"
     },
     "web": {
       "repository": "kaloyandjunow-prog/lospor-app",
       "version": "10.0.2",
       "commit": "a2c79a60978b589d194578a8022f65354c8ccd31",
       "path": "apps/web",
-      "treeOid": "ef90c6f5ce969817e1398bb0afc5b523bd57d61c"
+      "treeOid": "e417e2c2c809cc42542caa9d1f47f388ac42d0e4"
     },
     "pwa": {
       "repository": "kaloyandjunow-prog/lospor-mobile",
