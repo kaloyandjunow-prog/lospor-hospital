@@ -1969,9 +1969,17 @@ export function renderControlPlane(
   const baseSection = section?.startsWith("preop/") ? "preop" : section
   const requested = isLegacy() ? LEGACY_CONTROL_SECTION[baseSection ?? ""] ?? baseSection : baseSection
   const active = sections.find(entry => entry.slug === requested) ?? sections[0]
-  const subnav = `<nav class="statusnav subnav" aria-label="${escapeHtml(localize(locale, "Hospital control sections", "Раздели на управлението"))}">${
-    sections.map(entry => `<a href="/status/control/${entry.slug}"${entry.slug === active.slug ? ' aria-current="page"' : ""}>${escapeHtml(entry.label)}</a>`).join("")
-  }</nav>`
+  // The modern skins already render the active group's pages in their own
+  // navigation (the maphub chips, sidebar, index or console menu). Rendering
+  // this old control-plane subnav as well duplicates every clinical page and,
+  // on a phone, makes the modern page look as if Legacy had been opened.
+  // Legacy has no skin navigation, so it keeps the complete control surface
+  // here, including the pages added after the original four sections.
+  const subnav = isLegacy()
+    ? `<nav class="statusnav subnav control-subnav" aria-label="${escapeHtml(localize(locale, "Hospital control sections", "Раздели на управлението"))}">${
+      sections.map(entry => `<a href="/status/control/${entry.slug}"${entry.slug === active.slug ? ' aria-current="page"' : ""}>${escapeHtml(entry.label)}</a>`).join("")
+    }</nav>`
+    : ""
 
   return page(
     localize(locale, "Hospital controls", "Управление на болничната система"),

@@ -1,3 +1,5 @@
+import React from "react"
+import TestRenderer, { act } from "react-test-renderer"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const apiJson = vi.fn()
@@ -13,7 +15,7 @@ vi.mock("@/lib/api", async () => {
 })
 
 import { ApiError } from "@/lib/api"
-import { assignCaseTheatre, dashboardFilterQuery, TheatreChangedError } from "./use-operating-theatres"
+import { assignCaseTheatre, dashboardFilterQuery, TheatreChangedError, useOperatingTheatres } from "./use-operating-theatres"
 
 describe("assigning a theatre from the phone (10.0.0)", () => {
   beforeEach(() => { apiJson.mockReset() })
@@ -41,5 +43,36 @@ describe("assigning a theatre from the phone (10.0.0)", () => {
   it("puts the dashboard filters on the case list", () => {
     expect(dashboardFilterQuery({ theatre: "none", assignee: "u1" })).toBe("&theatre=none&assignee=u1")
     expect(dashboardFilterQuery({ theatre: null, assignee: null })).toBe("")
+  })
+
+  it("retries a failed config read so local theatre selection can appear", async () => {
+    vi.useFakeTimers()
+    try {
+      apiJson
+        .mockRejectedValueOnce(new Error("temporary network failure"))
+        .mockResolvedValueOnce({ enabled: true, theatres: [{ id: "t1", name: "Зала 1" }] })
+
+      let current = { enabled: false, theatres: [] as { id: string; name: string }[] }
+      function Probe() {
+        current = useOperatingTheatres().config
+        return null
+      }
+
+      let tree: TestRenderer.ReactTestRenderer | undefined
+      await act(async () => {
+        tree = TestRenderer.create(React.createElement(Probe))
+        await Promise.resolve()
+      })
+      expect(apiJson).toHaveBeenCalledTimes(1)
+      expect(current.enabled).toBe(false)
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+      expect(apiJson).toHaveBeenCalledTimes(2)
+      expect(current).toEqual({ enabled: true, theatres: [{ id: "t1", name: "Зала 1" }] })
+
+      await act(async () => { tree?.unmount() })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

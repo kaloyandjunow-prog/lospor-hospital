@@ -13,7 +13,7 @@ type PgClient = { connect(): Promise<void>; query(sql: string, values?: unknown[
 const databaseUrl = process.env.E2E_DATABASE_URL ?? "postgresql://lospor:lospor-e2e@127.0.0.1:55433/lospor_e2e"
 
 function client(): PgClient {
-  const fromApi = createRequire(join(__dirname, "..", "..", "lospor-api", "package.json"))
+  const fromApi = createRequire(join(__dirname, "..", "..", "api", "package.json"))
   const { Client } = fromApi("pg") as { Client: new (options: { connectionString: string }) => PgClient }
   return new Client({ connectionString: databaseUrl })
 }

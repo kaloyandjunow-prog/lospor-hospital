@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Hospital
 
+## [1.7.3] - 2026-10-30
+
+Improves operating-theatre assignment from the phone app and keeps the
+Hospital control surface consistent across the supported Status skins.
+
+### Fixed
+
+- The PWA retries a temporary operating-theatre configuration failure, keeps
+  the last known configuration during a network interruption, and refreshes
+  when the app returns to the foreground.
+- Added regression coverage for opening the PWA theatre menu and assigning a
+  theatre through the real cross-app flow.
+- Modern Status skins no longer render the duplicated legacy control submenu;
+  the legacy skin keeps the complete set of control-page buttons.
+- Accepted the known unfixed Caddy `go-jose/v3` CVE for this exact release.
+
 ## [1.7.2] - 2026-10-30
 
 Completes the Status navigation introduced in 1.7.1 so every supported skin
