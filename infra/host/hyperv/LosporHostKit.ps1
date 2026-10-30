@@ -389,3 +389,36 @@ function Test-LosporOfflineRelease([string] $Folder) {
 
   return [pscustomobject] @{ Version = $version; LockPath = $lock.FullName; Problems = $problems.ToArray() }
 }
+
+<#
+  How far along the installation is, 0 to 1, for the wizard's progress bar.
+  Each stage has its share of the bar, sized by how long it usually takes:
+  getting Ubuntu ready (about 5 minutes), installing Ubuntu (about 18),
+  starting the server (about 3) and installing LOSPOR (10 to 40). Within a
+  stage the bar moves with the time spent in it, slowing as it nears the
+  stage's end and never reaching it, so a long stage still moves and a short
+  one does not jump. While LOSPOR installs, the server's step ("4/8") places
+  the bar, and the time spent in that step moves it within the step.
+#>
+$LosporProgressStages = [ordered] @{
+  prepare  = @(0.00, 0.10, 300)
+  ubuntu   = @(0.10, 0.30, 1080)
+  starting = @(0.40, 0.05, 180)
+  lospor   = @(0.45, 0.55, 1500)
+}
+
+function Get-LosporProgressFraction([string] $Stage, [double] $StageSeconds, [string] $Step = "") {
+  if ($Stage -eq "installed") { return 1.0 }
+  if (-not $LosporProgressStages.Contains($Stage)) { return 0.0 }
+  $start, $span, $expected = $LosporProgressStages[$Stage]
+  $within = { param([double] $Seconds, [double] $Typical) [Math]::Min(0.95, 1.0 - [Math]::Exp(-[Math]::Max(0.0, $Seconds) / $Typical)) }
+  if ($Stage -eq "lospor" -and $Step -match '^(\d+)/(\d+)$' -and [int] $Matches[2] -gt 0) {
+    $total = [int] $Matches[2]
+    $reached = [Math]::Min([int] $Matches[1], $total)
+    # Step N is under way: the N-1 before it are done.
+    $done = [Math]::Max(0, $reached - 1) / $total
+    if ($reached -eq 0) { $done = 0 }
+    return $start + $span * ($done + (& $within $StageSeconds 240) / $total)
+  }
+  return $start + $span * (& $within $StageSeconds $expected)
+}

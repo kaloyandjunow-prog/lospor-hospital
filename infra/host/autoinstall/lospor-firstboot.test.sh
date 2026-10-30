@@ -24,6 +24,11 @@ env | grep -E '^(LOSPOR_|HOSPITAL_|ACME_EMAIL|SUDO_USER)' | sort > "$FIRSTBOOT_R
 printf '%s\n' "$*" > "$FIRSTBOOT_RECORD.args"
 cat "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE" > "$FIRSTBOOT_RECORD.password"
 rm -f "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE"
+# The steps the real installer marks, for the Windows progress window.
+if [ "${STUB_STEPS:-0}" = 1 ]; then
+  printf '4/8 Starting the database\n' > "$LOSPOR_PROGRESS_FILE"; sleep 2
+  printf '8/8 Starting LOSPOR and checking it is healthy\n' > "$LOSPOR_PROGRESS_FILE"; sleep 2
+fi
 if [ "${STUB_INSTALL_FAILS:-0}" = 1 ]; then
   echo "Готовност: сървърът изисква поне 200 GiB свободно място" >&2
   echo "Readiness: the server needs at least 200 GiB free" >&2
@@ -162,5 +167,16 @@ if run; then fail "a .pfx with the wrong password was accepted"; fi
 kvp_value LosporInstallMessage | grep -q 'could not be opened' || fail "a wrong .pfx password was not explained"
 [ ! -e "$state/tls.pfx" ] && [ ! -e "$state/admin-password" ] || fail "a refused .pfx left secrets on disk"
 ok "a hospital .pfx becomes the served chain, the key and the trusted root, and leaves the disk"
+
+# 7. Each installer step is reported to Hyper-V while it runs, with its number.
+answers local
+run STUB_STEPS=1 LOSPOR_FIRSTBOOT_POLL_SECONDS=1 || fail "an install reporting its steps failed"
+grep -q 'installing: Installing LOSPOR Hospital. This takes about 10 to 40 minutes.$' "$log" || fail "the start of the installation was not reported"
+grep -q 'installing: Installing LOSPOR Hospital: Starting the database.$' "$log" || fail "step 4 was not reported"
+grep -q 'installing: Installing LOSPOR Hospital: Starting LOSPOR and checking it is healthy.$' "$log" || fail "step 8 was not reported"
+grep -qx 'step=' "$result" || fail "the finished result still carries a step"
+[ "$(kvp_value LosporInstallState)" = installed ] || fail "Hyper-V was not told the installation finished"
+grep -qx "LOSPOR_PROGRESS_FILE=$runtime/progress" "$work/record.env" || fail "the installer was not given the progress file"
+ok "each installer step is reported to Hyper-V while it runs, with its number"
 
 printf 'firstboot tests passed (%s)\n' "$tests"

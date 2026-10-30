@@ -8,6 +8,8 @@ import {
 import { HospitalControlPlaneError } from "./control-plane"
 import { PreopContractError } from "@/lib/preop/service"
 import { PreopDocumentsContractError } from "@/lib/preop/documents"
+import { DrugColorError } from "@/lib/drug-colors"
+import { OperatingTheatreError } from "@/lib/operating-theatres"
 import { EhrTransportPolicyError } from "./ehr-transport-policy"
 import { ExternalAiPolicyError } from "./external-ai-policy"
 import { HospitalResearchControlError } from "./research-control"
@@ -18,6 +20,8 @@ export function controlPlaneError(error: unknown): NextResponse {
   const code = error instanceof HospitalControlPlaneError
     || error instanceof PreopContractError
     || error instanceof PreopDocumentsContractError
+    || error instanceof DrugColorError
+    || error instanceof OperatingTheatreError
     || error instanceof ExternalAiPolicyError
     || error instanceof EhrTransportPolicyError
     || error instanceof HospitalResearchControlError

@@ -72,9 +72,9 @@ kvp_record() {
   head -c "$((2048 - $(printf '%s' "$2" | head -c 2047 | wc -c)))" /dev/zero
 }
 
-# report STATE MESSAGE [URL]
+# report STATE MESSAGE [URL] [STEP]: STEP is "N/8", the installer step reached.
 report() {
-  printf 'state=%s\nmessage=%s\nurl=%s\n' "$1" "$2" "${3:-}" > "$result_file.tmp"
+  printf 'state=%s\nmessage=%s\nurl=%s\nstep=%s\n' "$1" "$2" "${3:-}" "${4:-}" > "$result_file.tmp"
   chmod 0644 "$result_file.tmp"
   mv "$result_file.tmp" "$result_file"
   printf '%s  %s: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> "$log"
@@ -84,6 +84,7 @@ report() {
       kvp_record LosporInstallState "$1"
       kvp_record LosporInstallMessage "$2"
       kvp_record LosporInstallUrl "${3:-}"
+      kvp_record LosporInstallStep "${4:-}"
     } > "$kvp_pool.tmp" 2>/dev/null && cat "$kvp_pool.tmp" > "$kvp_pool" 2>/dev/null || true
     rm -f "$kvp_pool.tmp"
   fi
@@ -272,11 +273,25 @@ unset LOSPOR_RELEASE_VERSION
 
 # ── Install ─────────────────────────────────────────────────────────────────
 
-report installing "Installing LOSPOR Hospital. This takes about 10 to 40 minutes."
+report installing "Installing LOSPOR Hospital. This takes about 10 to 40 minutes." "" "0/8"
 [ -f "$bootstrap" ] || stop "The LOSPOR installer is missing from this server."
-status=0
+# In the background, so each step it reaches can be reported while it runs.
+progress_file="$runtime_dir/progress"
+: > "$progress_file"
 SUDO_USER="$console_user" HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE="$runtime_dir/admin-password" \
-  sh "$bootstrap" "$@" < /dev/null >> "$log" 2>&1 || status=$?
+  LOSPOR_PROGRESS_FILE="$progress_file" sh "$bootstrap" "$@" < /dev/null >> "$log" 2>&1 &
+installer=$!
+reported=""
+while kill -0 "$installer" 2>/dev/null; do
+  reached="$(cat "$progress_file" 2>/dev/null || true)"
+  if [ -n "$reached" ] && [ "$reached" != "$reported" ]; then
+    report installing "Installing LOSPOR Hospital: ${reached#* }." "" "${reached%% *}"
+    reported="$reached"
+  fi
+  sleep "${LOSPOR_FIRSTBOOT_POLL_SECONDS:-5}"
+done
+status=0
+wait "$installer" || status=$?
 destroy "$runtime_dir/admin-password"
 
 if [ "$status" -eq 0 ] && [ -e "$appliance_home/.data/installed-release.tsv" ]; then

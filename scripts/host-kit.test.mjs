@@ -214,10 +214,11 @@ test("the composed seed carries this VM's password, key and installer, byte for 
 // ── The wizard: answers typed once on Windows, installed at first boot ───────
 
 const wizard = readFileSync(join(root, "infra/host/hyperv/Install-LosporHospital.ps1"), "utf8")
+const progressWindow = readFileSync(join(root, "infra/host/hyperv/LosporProgressWindow.ps1"), "utf8")
 const firstboot = readFileSync(join(root, "infra/host/autoinstall/lospor-firstboot.sh"), "utf8")
 
 test("the wizard is PowerShell 5.1 code Windows can read", () => {
-  for (const [name, source] of [["wizard", wizard], ["helper", readFileSync(helper, "utf8")], ["kit", kit]]) {
+  for (const [name, source] of [["wizard", wizard], ["helper", readFileSync(helper, "utf8")], ["kit", kit], ["progress window", progressWindow]]) {
     assert.doesNotMatch(source, /\?\?|\?\.|&&|\|\|/, `${name}: PowerShell 7-only operators`)
     // PowerShell ends a string at these, which broke the first Bulgarian draft.
     assert.doesNotMatch(source, /[„“”‘’]/, `${name}: typographic quotes end PowerShell strings`)
@@ -434,4 +435,65 @@ test("Hyper-V's key-value items are read back as the first boot wrote them", { s
     '"$($t.LosporInstallState)|$($t.LosporInstallUrl)|$($t.Count)"',
   ].join("\n"))
   assert.equal(output.trim(), "installed|https://lospor.hospital.bg/status/go-live|2")
+})
+
+// ── Following the installation: a progress window, not a still console ───────
+
+test("the wizard follows the installation in a window, and the console keeps its text", () => {
+  assert.match(wizard, /\. \(Join-Path \$PSScriptRoot "LosporProgressWindow\.ps1"\)/)
+  assert.match(wizard, /\$script:progressWindow = \$false/)
+  // Only after the questions in a window; Server Core, -Text and -AnswersFile keep the console.
+  assert.ok(wizard.indexOf("$script:progressWindow = $true") > wizard.indexOf("Invoke-WindowWizard"))
+  assert.match(wizard, /Show-LosporInstallProgress -KitScript \$kitScript -KitArguments \$kitArguments -ProgressPath \$progressPath -ResultPath \$resultPath/)
+  assert.match(wizard, /& \$kitScript @kitArguments/)
+  // The kit runs beside the window, so it stays responsive and can be watched.
+  assert.match(progressWindow, /BeginInvoke\(\)/)
+  assert.match(progressWindow, /System\.Windows\.Forms\.ProgressBar/)
+  // Closing it early says what is then left undone.
+  assert.match(progressWindow, /the installation media are not removed and the server is not started for you/)
+})
+
+test("the kit reports each stage, and the server's step, for the progress window", () => {
+  for (const stage of ["prepare", "ubuntu", "starting", "lospor"]) {
+    assert.match(kit, new RegExp(`Write-LosporProgress "${stage}"`), `the kit never reports ${stage}`)
+  }
+  assert.match(kit, /Step = \$step/)
+  assert.match(firstboot, /kvp_record LosporInstallStep/)
+  assert.match(firstboot, /LOSPOR_PROGRESS_FILE="\$progress_file" sh "\$bootstrap"/)
+  // The eight steps, each marked once, in order across the three installer scripts.
+  const scripts = ["scripts/losporctl-install.sh", "scripts/install-guided.sh", "scripts/install.sh"]
+    .map(path => readFileSync(join(root, path), "utf8")).join("\n")
+  const marked = [...scripts.matchAll(/^lospor_progress (\d) "/gm)].map(match => Number(match[1]))
+  assert.deepEqual(marked, [1, 2, 3, 4, 5, 6, 7, 8])
+  // The window names each step in both languages.
+  for (let step = 1; step <= 8; step += 1) assert.match(progressWindow, new RegExp(`"${step}" = \\(T "`))
+})
+
+test("the progress bar moves through each stage, never past it, and fills when installed", { skip: noPowershell }, () => {
+  const values = runPowershell([
+    "Get-LosporProgressFraction prepare 0",
+    "Get-LosporProgressFraction ubuntu 0",
+    "Get-LosporProgressFraction ubuntu 600",
+    "Get-LosporProgressFraction ubuntu 999999",
+    "Get-LosporProgressFraction starting 0",
+    "Get-LosporProgressFraction lospor 0 '0/8'",
+    "Get-LosporProgressFraction lospor 0 '4/8'",
+    "Get-LosporProgressFraction lospor 999999 '4/8'",
+    "Get-LosporProgressFraction lospor 0 '5/8'",
+    "Get-LosporProgressFraction lospor 999999 '8/8'",
+    "Get-LosporProgressFraction installed 0",
+    "Get-LosporProgressFraction failed 30",
+  ].map(line => `[string]::Format([Globalization.CultureInfo]::InvariantCulture, "{0:0.0000}", (${line}))`).join("\n"))
+    .trim().split("\n").map(Number)
+  const [prepare, ubuntuStart, ubuntuMid, ubuntuLong, starting, step0, step4, step4Long, step5, step8Long, installed, unknown] = values
+  assert.equal(prepare, 0)
+  assert.equal(ubuntuStart, 0.1)
+  assert.ok(ubuntuMid > ubuntuStart && ubuntuMid < ubuntuLong, "Ubuntu's share does not move with time")
+  // A long stage keeps short of the next one, so the bar never jumps back.
+  assert.ok(ubuntuLong < starting, `Ubuntu ran past the next stage: ${ubuntuLong} >= ${starting}`)
+  assert.ok(step0 >= 0.45 && step0 < step4, "LOSPOR's steps do not place the bar")
+  assert.ok(step4Long < step5, "a long step ran into the next one")
+  assert.ok(step8Long < 1, "the bar filled before the installation finished")
+  assert.equal(installed, 1)
+  assert.equal(unknown, 0)
 })

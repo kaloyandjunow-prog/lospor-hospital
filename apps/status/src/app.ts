@@ -78,6 +78,10 @@ import {
 } from "./update-requests.js"
 import { constantTimeEqual, isRecord, safeJsonParse, sha256 } from "./util.js"
 import { applyScoreSwitches } from "./preop-score-switches.js"
+import { PreopSectionsFormError, isPreopSectionsPart, preopSectionsUpdateFromForm } from "./preop-sections-form.js"
+import { drugColorUpdateFromForm, type DrugColorsQuery } from "./drug-colors-ui.js"
+import { theatreListChangeFromForm } from "./operating-theatres-ui.js"
+import { indicatorsUpdateFromForm } from "./indicators-ui.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -294,6 +298,17 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     PREOP_QUESTION_OTHER_POPULATION: ["A question that population is never asked cannot be in its profile. Nothing was changed.", "Въпрос, който не се задава на тази група, не може да е в нейния профил. Нищо не е променено."],
     DUPLICATE_PREOP_QUESTION_ORDER: ["Each preoperative question needs a unique order number. Nothing was changed.", "Всеки въпрос за предоперативна оценка трябва да има уникален номер за подреждане. Нищо не е променено."],
     CONSENT_TEXT_INVALID: ["The consent text was not saved: it is empty, too long, or names a field LOSPOR does not fill in or a technique tag it does not know. Nothing was changed.", "Текстът на съгласието не е запазен: празен е, твърде дълъг е или съдържа поле, което LOSPOR не попълва, или непознат етикет на техника. Нищо не е променено."],
+    MEDICATION_INSTRUCTIONS_NEED_CURRENT_MEDICATIONS: ["Medication instructions name drugs from the current medications, so they cannot be on while Current medications is off. Nothing was changed.", "Указанията за медикаментите посочват лекарства от приеманите медикаменти, затова не могат да са включени, докато „Приемани медикаменти“ е изключен. Нищо не е променено."],
+    ORDER_OPTION_LABELS_REQUIRED: ["A row of your own needs its text in both English and Bulgarian, up to 200 characters each. Nothing was changed.", "Ваш ред трябва да има текст и на английски, и на български, до 200 знака всеки. Нищо не е променено."],
+    BUNDLED_ORDER_OPTION_CANNOT_BE_REMOVED: ["A bundled row can be switched off but not removed. Nothing was changed.", "Вграден ред може да се изключи, но не и да се премахне. Нищо не е променено."],
+    UNKNOWN_PREOP_SECTION: ["That section does not exist for this population. Nothing was changed.", "Този раздел не съществува за тази група. Нищо не е променено."],
+    INDICATOR_THRESHOLD_INVALID: ["A threshold is missing or out of range: SpO₂ 50–100 %, temperature 30–38 °C, pain 0–9, PAED 1–20, MAP 10–150 mmHg, systolic 20–200 mmHg. Nothing was changed.", "Праг липсва или е извън допустимото: SpO₂ 50–100 %, температура 30–38 °C, болка 0–9, PAED 1–20, САН 10–150 mmHg, систолно 20–200 mmHg. Нищо не е променено."],
+    THEATRE_NAME_INVALID: ["A theatre needs a name of up to 60 characters. Nothing was changed.", "Залата трябва да има име до 60 знака. Нищо не е променено."],
+    THEATRE_NAME_TAKEN: ["An active theatre already has that name. Nothing was changed.", "Действаща зала вече има това име. Нищо не е променено."],
+    THEATRE_NOT_FOUND: ["That theatre is not in the list any more. Nothing was changed.", "Тази зала вече не е в списъка. Нищо не е променено."],
+    DRUG_COLOR_INVALID: ["That is not a colour LOSPOR can use. Nothing was changed.", "Това не е цвят, който LOSPOR може да използва. Нищо не е променено."],
+    DRUG_COLOR_TARGET_NOT_FOUND: ["That drug or group is not in the drug list any more. Nothing was changed.", "Това лекарство или група вече не е в списъка. Нищо не е променено."],
+    UNKNOWN_SPECIALTY: ["That specialty is not in the NHIS list. Nothing was changed.", "Тази специалност не е в списъка на НЗИС. Нищо не е променено."],
     DISABLED_QUESTION_CANNOT_BE_REQUIRED: ["A disabled preoperative question cannot be required. Nothing was changed.", "Изключен въпрос за предоперативна оценка не може да бъде задължителен. Нищо не е променено."],
     HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
     CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията не успя. Нищо не е променено."],
@@ -1206,6 +1221,7 @@ export function createStatusApp({
     medicationSearch?: MedicationSearch,
     discoveredNumberings?: readonly string[],
     fileCheck?: EhrFileCheck,
+    drugColorsQuery?: DrugColorsQuery,
   ) => {
     const current = await controlDirectory()
     return renderControlPlane(
@@ -1218,6 +1234,7 @@ export function createStatusApp({
       medicationSearch,
       discoveredNumberings,
       fileCheck,
+      drugColorsQuery,
     )
   }
 
@@ -1400,13 +1417,25 @@ export function createStatusApp({
       ), undefined, "recovery", section), 403)
     }
     const medicationSearch = section === "ehr" || section === "codes" ? await medicationSearchFor(context) : undefined
-    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch))
+    // The drug colours page's search and the colour being changed, from plain GET links (10.0.0).
+    const drugColorsQuery: DrugColorsQuery | undefined = section === "drug-colors"
+      ? { q: context.req.query("q")?.slice(0, 100), edit: context.req.query("edit")?.slice(0, 220) }
+      : undefined
+    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch, undefined, undefined, drugColorsQuery))
   }
   app.get("/status/control", context => controlGet(context))
   // One address per section, written as literals rather than a loop so the
   // navigation registry test, which scans this file for registered status
   // paths, can still see them.
   app.get("/status/control/preop", context => controlGet(context, "preop"))
+  // 1.7.0: the preoperative form's tabs, and the postoperative form.
+  app.get("/status/control/preop/sections", context => controlGet(context, "preop/sections"))
+  app.get("/status/control/preop/orders", context => controlGet(context, "preop/orders"))
+  app.get("/status/control/preop/documents", context => controlGet(context, "preop/documents"))
+  app.get("/status/control/postop", context => controlGet(context, "postop"))
+  app.get("/status/control/drug-colors", context => controlGet(context, "drug-colors"))
+  app.get("/status/control/theatres", context => controlGet(context, "theatres"))
+  app.get("/status/control/indicators", context => controlGet(context, "indicators"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))
@@ -1561,6 +1590,34 @@ export function createStatusApp({
     "preop",
   ))
 
+  // The preop sections, the postop sections, the order lists or the
+  // specialties of one population (1.7.0): each form is read on top of the
+  // configuration in use and the whole of it sent back.
+  app.post("/status/control/preop-sections", async context => {
+    const parsed = await context.req.raw.clone().formData().catch(() => null)
+    const part = parsed?.get("part")
+    const page = part === "postop" ? "postop" : part === "orders" || part === "specialties" ? "preop/orders" : "preop/sections"
+    return sensitiveControlAction(
+      context,
+      async body => {
+        const view = await controlPlane.get()
+        const sections = view.preoperative.administration?.sections
+        const population = body.population === "PEDIATRIC" ? "PEDIATRIC" : body.population === "ADULT" ? "ADULT" : null
+        if (!sections || !population || !isPreopSectionsPart(body.part)) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+        try {
+          return await controlPlane.updatePreopSections(preopSectionsUpdateFromForm(sections, population, body.part, body, formText(body, "reason", 10, 1000)))
+        } catch (error) {
+          if (error instanceof PreopSectionsFormError) throw new ControlPlaneClientError(error.code)
+          throw error
+        }
+      },
+      locale => localize(locale, "Saved and audited. Cases of that population follow the change from their next load; what a case already holds is kept.", "Запазено и записано в одитния журнал. Случаите от тази група следват промяната при следващото си отваряне; вече въведеното в случая се запазва."),
+      page,
+      undefined,
+      65_536,
+    )
+  })
+
   app.post("/status/control/preop-documents", context => sensitiveControlAction(
     context,
     body => controlPlane.updatePreopDocuments({
@@ -1571,7 +1628,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The preop summary and consent settings were saved and audited. They apply from each clinician's next preop.", "Настройките за предоперативно обобщение и съгласие са запазени и записани в одитния журнал. Важат от следващия предоперативен преглед на всеки лекар."),
-    "preop",
+    "preop/documents",
   ))
 
   app.post("/status/control/consent-template", context => sensitiveControlAction(
@@ -1587,7 +1644,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The consent text was saved as a new version and audited. Sheets printed from now on carry it; earlier sheets keep the version they were printed with.", "Текстът на съгласието е запазен като нов вариант и записан в одитния журнал. Отпечатаните отсега нататък листове го съдържат; по-рано отпечатаните запазват своя вариант."),
-    "preop",
+    "preop/documents",
     undefined,
     300_000,
   ))
@@ -1828,6 +1885,48 @@ export function createStatusApp({
     }),
     locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп до БИС са заменени и записани в одитния журнал. Status не показва и не пази стойността им."),
     "ehr",
+  ))
+
+  // The unit indicators' thresholds and names switch (10.0.0), behind the
+  // password with a reason.
+  app.post("/status/control/indicators", context => sensitiveControlAction(
+    context,
+    async body => {
+      const view = (await controlPlane.get()).indicators
+      if (!view) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      return controlPlane.updateIndicators(indicatorsUpdateFromForm(view, body, formText(body, "reason", 10, 1000)))
+    },
+    locale => localize(locale, "The unit indicators settings were saved and audited. Every case is counted against them from the next time the indicators are opened.", "Настройките на индикаторите са запазени и записани в одитния журнал. Всеки случай се отчита по тях при следващото отваряне на индикаторите."),
+    "indicators",
+  ))
+
+  // The operating theatres' switch (10.0.0): a decision for the whole site,
+  // behind the password with a reason.
+  app.post("/status/control/operating-theatres/policy", context => sensitiveControlAction(
+    context,
+    body => controlPlane.changeOperatingTheatres({ action: "policy", enabled: body.enabled === "true", reason: formText(body, "reason", 10, 1000) }),
+    locale => localize(locale, "The operating theatres switch was saved and audited. The apps follow it from their next load.", "Настройката за операционните зали е запазена и записана в одитния журнал. Приложенията я следват при следващото си зареждане."),
+    "theatres",
+  ))
+
+  // The theatres themselves: named and ordered in a sitting, audited.
+  app.post("/status/control/operating-theatres", context => bulkControlAction(
+    context,
+    body => controlPlane.changeOperatingTheatres(theatreListChangeFromForm(body)),
+    locale => localize(locale, "Saved and audited. Cases that have started keep the name their theatre had.", "Запазено и записано в одитния журнал. Започналите случаи запазват името, което залата им е имала."),
+    "theatres",
+  ))
+
+  // A drug group's or one drug's colour (10.0.0). Presentation set many at a
+  // sitting, like a code mapping: audited, not password-gated per change.
+  app.post("/status/control/drug-colors", context => bulkControlAction(
+    context,
+    async body => {
+      const view = await controlPlane.get()
+      await controlPlane.updateDrugColor(drugColorUpdateFromForm(view.drugColors, body))
+    },
+    locale => localize(locale, "The colour was saved and audited. The web and the phone show it from their next load of the drug list; every case, earlier ones too, is drawn in the colours in use.", "Цветът е запазен и записан в одитния журнал. Уеб и телефонът го показват при следващото зареждане на списъка с лекарства; всеки случай, включително по-ранните, се показва в текущите цветове."),
+    "drug-colors",
   ))
 
   app.post("/status/control/ehr-lab-codes/map", context => bulkControlAction(

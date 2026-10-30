@@ -77,6 +77,9 @@ param(
   [string] $ReleaseDirectory,
   # Where the outcome is written as JSON, for the wizard.
   [string] $ResultPath,
+  # Where the stage reached is written as JSON while the kit runs, for the
+  # wizard's progress window (stage, message, the server's step, the time).
+  [string] $ProgressPath,
   [ValidateRange(30, 600)] [int] $LosporTimeoutMinutes = 240,
   [string] $SeedPath,
   # The release's own installer; found beside infra\host in the release folder.
@@ -104,7 +107,14 @@ $KnownIsos = @{
 $DownloadIso = "ubuntu-24.04.5-live-server-amd64.iso"
 $DownloadUrl = "https://releases.ubuntu.com/24.04.5/$DownloadIso"
 
+function Write-LosporProgress([string] $Stage, [string] $Message, [string] $Step = "") {
+  if (-not $ProgressPath) { return }
+  $progress = [ordered] @{ stage = $Stage; message = $Message; step = $Step; at = (Get-Date).ToUniversalTime().ToString("o") }
+  try { [IO.File]::WriteAllText($ProgressPath, ($progress | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false))) } catch { }
+}
+
 function Write-LosporResult([string] $State, [string] $Message, [string] $Url) {
+  Write-LosporProgress $State $Message
   if (-not $ResultPath) { return }
   $result = [ordered] @{ state = $State; message = $Message; url = $Url; vm = $Name; consoleUser = "lospor" }
   [IO.File]::WriteAllText($ResultPath, ($result | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
@@ -127,7 +137,9 @@ function Get-LosporInstallProgress([string] $VmName) {
   if (-not $exchange -or -not $exchange.GuestExchangeItems) { return $null }
   $items = ConvertFrom-LosporKvpItems $exchange.GuestExchangeItems
   if (-not $items.ContainsKey("LosporInstallState")) { return $null }
-  return [pscustomobject] @{ State = $items["LosporInstallState"]; Message = $items["LosporInstallMessage"]; Url = $items["LosporInstallUrl"] }
+  # The installer step reached ("4/8"), from a first boot that reports it.
+  $step = if ($items.ContainsKey("LosporInstallStep")) { $items["LosporInstallStep"] } else { "" }
+  return [pscustomobject] @{ State = $items["LosporInstallState"]; Message = $items["LosporInstallMessage"]; Url = $items["LosporInstallUrl"]; Step = $step }
 }
 
 <#
@@ -375,6 +387,8 @@ if ($ReleaseDirectory) {
 
 # ── the Ubuntu ISO ───────────────────────────────────────────────────────────
 
+Write-LosporProgress "prepare" "Getting the Ubuntu installer ready."
+
 if ($SeedOnly) {
   if (-not $VmDirectory) { Stop-Kit "Give -VmDirectory for the seed disk." }
 } elseif (-not $IsoPath) {
@@ -385,6 +399,7 @@ if ($SeedOnly) {
       New-Item -ItemType Directory -Force -Path $DownloadDirectory | Out-Null
       [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
       $ProgressPreference = "SilentlyContinue"
+      Write-LosporProgress "prepare" "Downloading Ubuntu Server (about 3 GB)."
       Invoke-WebRequest -Uri $DownloadUrl -OutFile $IsoPath -UseBasicParsing
     }
   }
@@ -399,6 +414,7 @@ if ($SeedOnly) {
   # Nothing to verify.
 } elseif (Test-Path -LiteralPath $IsoPath) {
   Write-Host "Verifying $isoName (this reads the whole file)..."
+  Write-LosporProgress "prepare" "Checking the Ubuntu ISO."
   $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $IsoPath).Hash.ToLowerInvariant()
   if ($actual -ne $KnownIsos[$isoName]) {
     Stop-Kit "$isoName does not match Canonical's published SHA-256. Delete it and download it again."
@@ -417,6 +433,7 @@ if (-not $SeedOnly -and -not $ConfirmInstall) {
     New-Item -ItemType Directory -Force -Path $VmDirectory | Out-Null
     try {
       Write-Host "Writing an installer ISO that does not stop to ask (a few minutes)..."
+      Write-LosporProgress "prepare" "Writing an installer that does not stop to ask."
       New-AutoinstallIso -SourceIso $IsoPath -OutIso $autoinstallIso -WorkDir (Join-Path $VmDirectory "iso-build")
       $bootIso = $autoinstallIso
     } catch {
@@ -525,6 +542,7 @@ $releaseDisk = $null
 if ($ReleaseDirectory -and -not $SeedOnly) {
   $releaseDisk = Join-Path $VmDirectory "lospor-release.vhdx"
   if ($PSCmdlet.ShouldProcess($releaseDisk, "Copy the offline release onto a disk for the VM")) {
+    Write-LosporProgress "prepare" "Copying the release onto a disk for the server."
     Write-Host "Copying the offline release onto a disk for the VM..."
     New-LosporReleaseDisk -Source $ReleaseDirectory -Path $releaseDisk
   }
@@ -560,6 +578,7 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
   if ($autoinstallIso) { $manual += "   Remove-Item `"$autoinstallIso`"   # it erases the disk of any machine that boots from it" }
   $manual += "   Start-VM -Name `"$Name`""
 
+  Write-LosporProgress "ubuntu" "Ubuntu is installing on its own (about 15 to 20 minutes)."
   Write-Host ""
   Write-Host "The VM '$Name' is installing Ubuntu on its own (about 15 to 20 minutes)."
   Write-Host "Watch it with: vmconnect localhost `"$Name`""
@@ -594,6 +613,7 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
     Start-VM -VM $vm
     Write-Host ""
     Write-Host "Ubuntu is installed ($([int] ((Get-Date) - $started).TotalMinutes) minutes). The installation media are removed and the VM is starting."
+    Write-LosporProgress "starting" "Ubuntu is installed. The server is starting."
     Show-LosporLogin
   }
   if (-not $firstboot) {
@@ -615,6 +635,7 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
           Write-Host "$(Get-Date -Format HH:mm)  $($progress.Message)"
           $lastMessage = $progress.Message
         }
+        if ($progress.State -eq "installing") { Write-LosporProgress "lospor" $progress.Message $progress.Step }
         if ($progress.State -eq "installed" -or $progress.State -eq "failed") { break }
       }
       if ((Get-VM -Name $Name).State -ne "Running") {

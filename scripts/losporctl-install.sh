@@ -57,6 +57,15 @@ if [ "$test_only" = 1 ]; then
 fi
 
 say() { printf '%s\n%s\n' "$1" "$2" >&2; }
+
+# The step reached, for the Windows kit's progress window: "N/8 what", written to
+# LOSPOR_PROGRESS_FILE only when the first boot sets it (lospor-firstboot.sh), so
+# an installation at the console is unchanged. The eight steps are numbered
+# across losporctl-install.sh, install-guided.sh and install.sh.
+lospor_progress() {
+  [ -n "${LOSPOR_PROGRESS_FILE:-}" ] || return 0
+  printf '%s/8 %s\n' "$1" "$2" > "$LOSPOR_PROGRESS_FILE" 2>/dev/null || true
+}
 die() { printf '\n' >&2; say "$1" "$2"; exit "${3:-1}"; }
 
 usage() {
@@ -277,6 +286,7 @@ if [ -z "$owner" ] || ! id -u "$owner" >/dev/null 2>&1; then owner="$(id -un)"; 
 owner_group="$(id -gn "$owner")"
 install -d -m 0750 -o "$owner" -g "$owner_group" "$appliance_home"
 
+lospor_progress 1 "Getting the release"
 if [ "$mode" = online ]; then
   media="$appliance_home/downloads/$prefix"
   rm -rf "$media"
@@ -378,6 +388,7 @@ HOSPITAL_RELEASE_SIGNING_FINGERPRINT="$fingerprint" \
 
 scope=all
 [ "$mode" = offline ] || scope=deployment
+lospor_progress 2 "Checking the release signature"
 sh "$bootstrap_root/scripts/verify-release.sh" "$lock" "$sidecar" "$media" "$scope" >&2
 
 # ── The release dossier: what this release is, in one verdict ───────────────
