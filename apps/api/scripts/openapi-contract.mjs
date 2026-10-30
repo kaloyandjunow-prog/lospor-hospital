@@ -1928,6 +1928,42 @@ add("POST", "/v1/internal/hospital/control-plane/preop-profile", "Publish a new 
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/preop-sections", "Switch preoperative and postoperative form sections, the ward orders and medication instructions, and the consult specialties from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 413, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/operating-theatres", "Switch operating theatres on or off and add, rename, order, retire or restore a theatre from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/indicators", "Set the unit-indicator thresholds and whether colleagues are named, from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/drug-colors", "Set or clear the colour of a drug group or a drug from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/preop-documents", "Switch the preop summary page and written consent and choose the print layout from Status", {
   parameters: [statusControlBearer],
   requestBody: body(ref("JsonObject")),

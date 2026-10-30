@@ -1,5 +1,22 @@
 # Changelog - LOSPOR API
 
+## [10.0.2] - 2026-10-29
+
+### Changed
+
+- **Release-train follow-up:** version synchronized with the web score-race
+  hardening release; API contracts are unchanged.
+- **Postoperative partial saves:** derived Aldrete, Steward, FLACC, NIPS and
+  PAED totals now recompute from the complete persisted section and preserve
+  an incomplete score when a client sends explicit `null` values.
+
+## [10.0.1] - 2026-10-29
+
+### Changed
+
+- **Maintenance release:** the API development lint toolchain now uses ESLint
+  10.13.0; runtime and clinical contracts are unchanged.
+
 ## [10.0.0] - 2026-10-28
 
 ### Added

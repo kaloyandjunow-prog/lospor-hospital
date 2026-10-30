@@ -80,6 +80,35 @@ describe("the recovery score: Aldrete for adults, Steward for children (10.0.0)"
     renderForm({ clinicalMode: "PEDIATRIC", patientAge: { ageValue: 5, ageUnit: "YEARS", ageYears: 5 }, defaultValues: { stewardConsciousness: 2, stewardAirway: 1 } as never })
     expect(screen.getByTestId("steward-total").textContent).toContain("— / 6")
   })
+
+  it("updates the Steward total when the three answers arrive in one interaction burst", async () => {
+    renderForm({ clinicalMode: "PEDIATRIC", patientAge: { ageValue: 5, ageUnit: "YEARS", ageYears: 5 } })
+    const card = screen.getByTestId("steward-total").closest("[data-tour='postop-aldrete']") as HTMLElement
+    const rows = card.querySelectorAll("div.grid.grid-cols-3")
+
+    await act(async () => { fireEvent.click(rows[0].querySelectorAll("button")[2]) })
+    await act(async () => { fireEvent.click(rows[1].querySelectorAll("button")[1]) })
+    expect(screen.getByTestId("steward-total").textContent).toContain("— / 6")
+    await act(async () => { fireEvent.click(rows[2].querySelectorAll("button")[2]) })
+
+    expect(screen.getByTestId("steward-total").textContent).toContain("5 / 6")
+  })
+})
+
+describe("the item pain scales", () => {
+  it("updates FLACC after all five answers are entered in one interaction burst", async () => {
+    renderForm({ clinicalMode: "PEDIATRIC", patientAge: { ageValue: 3, ageUnit: "YEARS", ageYears: 3 } })
+    const scale = screen.getByTestId("flacc-scale")
+    const rows = scale.querySelectorAll(":scope > div")
+
+    for (const [row, answer] of [[0, 1], [1, 0], [2, 2], [3, 1]] as const) {
+      await act(async () => { fireEvent.click(rows[row].querySelectorAll("button")[answer]) })
+    }
+    expect(screen.getByTestId("flacc-total").textContent).toContain("— / 10")
+    await act(async () => { fireEvent.click(rows[4].querySelectorAll("button")[1]) })
+
+    expect(screen.getByTestId("flacc-total").textContent).toContain("5 / 10")
+  })
 })
 
 describe("the recovery observations suggest two Aldrete items, set only by a tap (10.0.0)", () => {

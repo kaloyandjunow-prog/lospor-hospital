@@ -1,8 +1,32 @@
 # Changelog - LOSPOR Hospital
 
+## [1.7.2] - 2026-10-30
+
+Completes the Status navigation introduced in 1.7.1 so every supported skin
+can reach the full preoperative configuration surface.
+
+### Fixed
+
+- Restored visible Status submenus in modern skins.
+- Added the four preoperative page buttons to the legacy skin as well.
+- Accepted the known unfixed Caddy `go-jose/v3` CVE for this exact release.
+
+## [1.7.1] - 2026-10-30
+
+Carries the verified 1.7.0 Status bundle and upstream pins into the first
+patch candidate. This release also corrects the vendored API provenance stamp
+and completes the control-plane test double for the operating-theatre models.
+
+### Fixed
+
+- Restamped `UPSTREAM_VERSIONS.json` to the API tree actually shipped.
+- Added the missing operating-theatre Prisma mocks so the Hospital control-plane
+  test covers the current projection without an unhandled query.
+- Revalidated the accepted unfixed Caddy `go-jose/v3` CVE exception for 1.7.1.
+
 ## [1.7.0] - 2026-10-29
 
-Vendors Core, API, Web and PWA 10.0.0; Browser stays 0.9.1.
+Vendors Core, API, Web and PWA 10.0.2 and Browser 0.10.0.
 
 ### Added
 
@@ -25,8 +49,18 @@ Vendors Core, API, Web and PWA 10.0.0; Browser stays 0.9.1.
   orders, medication instructions, premedication orders, planned-procedure
   uncertainty, Procedure done, age-appropriate pain scales, Steward/Aldrete
   recovery scores and PAED are available in the clinical forms.
-- **Theatre and medication setup.** Status can configure theatres, indicator
-  thresholds and drug colours. Broselow guidance and the new form side panels
+- **Status pages for the new forms and features.** The Preoperative form page
+  has tabs for questions, sections, ward orders and medication instructions
+  (with the NHIS consult specialties), and the summary and consent. A new
+  Postoperative form page switches its sections and lists the pain scales by
+  age and what a case needs to be finalised. New pages configure operating
+  theatres (switch, add, rename, reorder, retire, restore), unit-indicator
+  thresholds (hypotension by age band, desaturation, hypothermia, pain, PAED,
+  colleague names) and drug colours.
+- **Installer progress window.** The Windows/Hyper-V installer shows the four
+  installation stages with their expected times, a progress bar and details,
+  and ends with the address of «Пускане в работа».
+- **Broselow and side panels.** Broselow guidance and the new form side panels
   are available in the clinical apps.
 
 ### Changed
@@ -62,7 +96,7 @@ Vendors Core, API, Web and PWA 10.0.0; Browser stays 0.9.1.
 
 - This release adds hospital database migrations. The rollback policy is
   **backup-required**: take and verify the pre-update database backup before
-  activation. The release pins Core, API, Web and PWA 10.0.0 and Browser 0.9.1.
+  activation. The release pins Core, API, Web and PWA 10.0.2 and Browser 0.10.0.
 
 ## [1.6.2] - 2026-10-19
 

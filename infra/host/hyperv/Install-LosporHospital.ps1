@@ -46,6 +46,9 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 $script:Locale = "bg"
 function T([string] $En, [string] $Bg) { if ($script:Locale -eq "en") { return $En } return $Bg }
+# The window that follows the installation after the questions.
+. (Join-Path $PSScriptRoot "LosporProgressWindow.ps1")
+$script:progressWindow = $false
 
 # ── what this host and this kit have ────────────────────────────────────────
 
@@ -697,6 +700,8 @@ if ($AnswersFile) {
   if (-not (Invoke-TextWizard)) { Write-Host (T "Nothing was created." "Нищо не е създадено."); exit 0 }
 } else {
   if (-not (Invoke-WindowWizard)) { exit 0 }
+  # Asked in a window: the installation is followed in one as well.
+  $script:progressWindow = $true
 }
 
 $work = Join-Path $env:TEMP ("lospor-wizard-" + [guid]::NewGuid().ToString("N"))
@@ -744,6 +749,10 @@ try {
   if ($release) { $kitArguments.ReleaseDirectory = $release.Folder }
   if ($a.IsoPath) { $kitArguments.IsoPath = $a.IsoPath } else { $kitArguments.DownloadDirectory = Join-Path (Split-Path $a.VmDirectory -Parent) "LOSPOR Ubuntu ISO" }
 
+  $progressPath = Join-Path $work "progress.json"
+  if ($script:progressWindow) {
+    $exitCode = Show-LosporInstallProgress -KitScript $kitScript -KitArguments $kitArguments -ProgressPath $progressPath -ResultPath $resultPath
+  } else {
   Write-Host ""
   Write-Host (T "Creating the virtual machine. Keep this window open." "Създаване на виртуалната машина. Оставете този прозорец отворен.")
   try {
@@ -753,6 +762,7 @@ try {
     # The kit reports its own refusals; anything else is written here the same way.
     $failure = [ordered] @{ state = "failed"; message = $_.Exception.Message; url = ""; vm = $a.Name; consoleUser = "lospor" }
     [IO.File]::WriteAllText($resultPath, ($failure | ConvertTo-Json), $utf8)
+  }
   }
 } finally {
   # Overwritten, then deleted: the VM has its own copy now.
@@ -776,7 +786,8 @@ $message = if ($installed) {
 }
 Write-Host ""
 Write-Host $message
-if ($AnswersFile -or $Text -or $serverCore) {
+# The progress window has already shown how it ended, with Go-live.
+if ($AnswersFile -or $Text -or $serverCore -or $script:progressWindow) {
   if ($installed) { exit 0 } else { exit 1 }
 }
 Add-Type -AssemblyName System.Windows.Forms

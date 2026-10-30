@@ -30,8 +30,14 @@ import { caseVisibilityControlView } from "./case-visibility"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
 import { BUNDLED_PREOP_QUESTIONS, PREOP_CATALOG_VERSION } from "@/lib/preop/catalog"
-import { activePreopProfile, ensurePreopProfiles, questionAppliesToPopulation, readPreopProfiles, serializePreopProfile, updatePreopProfile, type ProfileQuestionInput } from "@/lib/preop/service"
+import { activePreopProfile, ensurePreopProfiles, questionAppliesToPopulation, readPreopProfiles, serializePreopProfile, updatePreopProfile, updatePreopSectionConfig, type ProfileQuestionInput } from "@/lib/preop/service"
 import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
+import { NHIS_SPECIALTIES } from "@lospor/core/nhis-specialties"
+import { drugColorsView, setDrugColor } from "@/lib/drug-colors"
+import { changeOperatingTheatres, operatingTheatresAdminView } from "@/lib/operating-theatres"
+import { readIndicatorConfig, saveIndicatorConfig } from "@/lib/indicators"
+import { DEFAULT_INDICATOR_CONFIG } from "@lospor/core/indicators"
+import { MEDICATION_HOLD_HOURS, POSTOP_FIXED_SECTIONS, PREOP_FIXED_SECTIONS, PREOP_SWITCHABLE_SECTIONS, sectionForm } from "@lospor/core/preop-orders"
 import {
   BUNDLED_CONSENT_TEMPLATES,
   CONSENT_POPULATIONS,
@@ -418,6 +424,126 @@ export const preopProfileUpdateSchema = z.object({
   questions: z.array(preopProfileQuestionSchema).min(1).max(BUNDLED_PREOP_QUESTIONS.length),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
+
+/**
+ * One population's preop and postop sections, order rows and consultation
+ * specialties (1.7.0). Every row to keep is listed, in order; a hospital row left out is
+ * removed. The service checks the rest against Core.
+ */
+export const preopSectionsUpdateSchema = z.object({
+  population: z.enum(["ADULT", "PEDIATRIC"]),
+  sections: z.record(z.string().max(64), z.boolean()),
+  orderOptions: z.array(z.object({
+    key: z.string().trim().min(1).max(80),
+    list: z.enum(["WARD_ORDER", "MEDICATION_INSTRUCTION"]),
+    enabled: z.boolean(),
+    labelEn: z.string().trim().max(200).optional(),
+    labelBg: z.string().trim().max(200).optional(),
+    hoursMode: z.enum(["REQUIRED", "OPTIONAL", "NONE"]).optional(),
+  }).strict()).max(120),
+  consultSpecialtyKeys: z.array(z.string().trim().min(1).max(20)).max(NHIS_SPECIALTIES.length),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+/**
+ * One drug group's or one drug's colour (10.0.0), or null to clear it so the
+ * group's or the bundled colour applies again. Like a code mapping, a colour
+ * is presentation an operator sets many of in a sitting: audited, not
+ * password-gated per change.
+ */
+export const drugColorUpdateSchema = z.object({
+  scope: z.enum(["GROUP", "DRUG"]),
+  name: z.string().trim().min(1).max(200),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+}).strict()
+
+/**
+ * What the audit record keeps of a colour change. The group or drug is already
+ * the record's target, and the audit guard refuses a detail field called
+ * `name` (found the first time a colour was saved against a real API: the
+ * mocked tests never ran the guard).
+ */
+export function drugColorAuditDetail(input: z.infer<typeof drugColorUpdateSchema>) {
+  return { scope: input.scope, color: input.color?.toLowerCase() ?? null }
+}
+
+export async function updateHospitalDrugColor(input: z.infer<typeof drugColorUpdateSchema>) {
+  const parsed = drugColorUpdateSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    await setDrugColor(tx, parsed)
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_DRUG_COLOR_UPDATE", `${parsed.scope}:${parsed.name}`, drugColorAuditDetail(parsed))
+    return drugColorsView(tx)
+  }, serializableTransaction)
+}
+
+/**
+ * One change to the operating theatres (10.0.0). The switch is an operator's
+ * decision for the whole site, behind the password with a reason; the list
+ * itself is named and ordered in a sitting, audited, not password-gated.
+ */
+export const operatingTheatresChangeSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("policy"), enabled: z.boolean(), reason: z.string().trim().min(10).max(1000) }).strict(),
+  z.object({ action: z.literal("add"), name: z.string().max(200) }).strict(),
+  z.object({ action: z.literal("rename"), id: z.string().min(1).max(64), name: z.string().max(200) }).strict(),
+  z.object({ action: z.literal("retire"), id: z.string().min(1).max(64) }).strict(),
+  z.object({ action: z.literal("restore"), id: z.string().min(1).max(64) }).strict(),
+  z.object({ action: z.literal("move"), id: z.string().min(1).max(64), direction: z.enum(["up", "down"]) }).strict(),
+])
+
+export async function changeHospitalOperatingTheatres(input: z.infer<typeof operatingTheatresChangeSchema>) {
+  const parsed = operatingTheatresChangeSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const { reason, ...change } = parsed as typeof parsed & { reason?: string }
+    const outcome = await changeOperatingTheatres(tx, change)
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_OPERATING_THEATRES_UPDATE", "operating-theatres", {
+      action: change.action,
+      ...outcome,
+      ...(reason ? { reasonRecorded: true } : {}),
+    })
+    return operatingTheatresAdminView(tx)
+  }, serializableTransaction)
+}
+
+/**
+ * The unit indicators' thresholds and the names switch (10.0.0), behind the
+ * password with a reason: the names switch decides whether colleagues are
+ * shown by name to the whole department.
+ */
+// The ranges Core reads them in (parseIndicatorConfig): anything outside would
+// be saved and then silently replaced by the default.
+const mapThreshold = z.number().min(10).max(150).nullable()
+const sbpThreshold = z.number().min(20).max(200).nullable()
+export const indicatorsUpdateSchema = z.object({
+  hypotensionBands: z.array(z.object({ key: z.string().min(1).max(32), mapBelow: mapThreshold, sbpBelow: sbpThreshold }).strict()).max(20),
+  spo2Below: z.number().min(50).max(100),
+  tempBelow: z.number().min(30).max(38),
+  painAbove: z.number().int().min(0).max(9),
+  paedAtLeast: z.number().int().min(1).max(20),
+  namedClinicians: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export async function updateHospitalIndicators(input: z.infer<typeof indicatorsUpdateSchema>) {
+  const { reason, ...config } = indicatorsUpdateSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const before = await readIndicatorConfig(tx)
+    const saved = await saveIndicatorConfig(tx, config)
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_INDICATORS_UPDATE", "indicators", {
+      reasonRecorded: Boolean(reason),
+      namedClinicians: { from: before.namedClinicians, to: saved.namedClinicians },
+      thresholdsChanged: JSON.stringify({ ...before, namedClinicians: null }) !== JSON.stringify({ ...saved, namedClinicians: null }),
+    })
+    return indicatorsControlView(tx)
+  }, serializableTransaction)
+}
+
+/** What Status shows: the thresholds in use and the bundled ones (Status has no Core). */
+export async function indicatorsControlView(db: Prisma.TransactionClient | typeof prisma = prisma) {
+  return { config: await readIndicatorConfig(db), defaults: DEFAULT_INDICATOR_CONFIG }
+}
 
 export const preopDocumentsUpdateSchema = z.object({
   summaryEnabled: z.boolean(),
@@ -1461,8 +1587,54 @@ export async function preoperativeControlView() {
         ADULT: serializePreopProfile(profiles.ADULT),
         PEDIATRIC: serializePreopProfile(profiles.PEDIATRIC),
       },
+      // The switchable sections and the two order lists (1.7.0). Status has no
+      // Core of its own, so the definitions travel with the choices.
+      sections: await preopSectionsControlView(),
     },
   }
+}
+
+async function preopSectionsControlView() {
+  // Read with the section rows: ensurePreopProfiles skips them.
+  const profiles = await readPreopProfiles(prisma)
+  const configOf = (population: "ADULT" | "PEDIATRIC") => profiles ? serializePreopProfile(profiles[population]).sectionConfig ?? null : null
+  return {
+    definitions: PREOP_SWITCHABLE_SECTIONS.map(section => ({
+      key: section.key,
+      labelEn: section.labelEn,
+      labelBg: section.labelBg,
+      populations: [...section.populations],
+      requires: section.requires ?? null,
+      // The postoperative form's switches are kept with the preop ones.
+      form: sectionForm(section),
+    })),
+    fixed: PREOP_FIXED_SECTIONS.map(section => ({ ...section })),
+    postopFixed: POSTOP_FIXED_SECTIONS.map(section => ({ ...section })),
+    specialties: NHIS_SPECIALTIES.map(item => ({ key: item.key, labelEn: item.labelEn, labelBg: item.labelBg, clinical: item.clinical, doctor: item.role === "Лекари" })),
+    holdHours: [...MEDICATION_HOLD_HOURS],
+    configs: { ADULT: configOf("ADULT"), PEDIATRIC: configOf("PEDIATRIC") },
+  }
+}
+
+/**
+ * An operator's change to one population's sections, order rows or
+ * consultation specialties, in place. Cases keep the orders they hold.
+ */
+export async function updateHospitalPreopSections(input: z.infer<typeof preopSectionsUpdateSchema>) {
+  const parsed = preopSectionsUpdateSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const profile = await updatePreopSectionConfig(tx, actor.id, {
+      sections: parsed.sections,
+      orderOptions: parsed.orderOptions,
+      consultSpecialtyKeys: parsed.consultSpecialtyKeys,
+    }, parsed.reason, parsed.population)
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_PREOP_SECTIONS_UPDATE", profile.id, {
+      reasonRecorded: Boolean(parsed.reason),
+      population: parsed.population,
+    })
+    return serializePreopProfile(profile).sectionConfig ?? null
+  }, serializableTransaction)
 }
 
 /**
@@ -1508,6 +1680,13 @@ export async function hospitalControlPlaneView() {
     ehrCodeSystemView(),
     preoperativeControlView(),
   ])
+  // The drug colours (10.0.0): read apart, so a database that has not been
+  // migrated yet still shows every other control.
+  const drugColors = await drugColorsView(prisma).catch(() => null)
+  // The operating theatres (10.0.0), read apart for the same reason.
+  const operatingTheatres = await operatingTheatresAdminView(prisma).catch(() => null)
+  // The unit indicators' thresholds (10.0.0).
+  const indicators = await indicatorsControlView().catch(() => null)
   // How the folder exchange is doing, for a site that uses it (1.5.0). Read
   // from the folders; a failure to read them is not a reason to hide the rest.
   // Loaded only here: the inbox reader brings the clinical vocabularies with it,
@@ -1544,6 +1723,9 @@ export async function hospitalControlPlaneView() {
     ehrCodeSystems,
     ehrFolder,
     preoperative,
+    drugColors,
+    operatingTheatres,
+    indicators,
   }
 }
 

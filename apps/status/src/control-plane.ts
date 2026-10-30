@@ -52,7 +52,135 @@ export type PreopAdministrationView = {
   activeProfile: PreopActiveProfileAdmin | null
   /** One profile for adults and one for children (1.5.5). */
   activeProfiles?: Record<PreopPopulation, PreopActiveProfileAdmin>
+  /** The switchable sections, both order lists and the specialties (1.7.0). */
+  sections?: PreopSectionsView
 }
+
+export const PREOP_ORDER_LISTS = ["WARD_ORDER", "MEDICATION_INSTRUCTION"] as const
+export type PreopOrderList = typeof PREOP_ORDER_LISTS[number]
+export const PREOP_HOURS_MODES = ["REQUIRED", "OPTIONAL", "NONE"] as const
+export type PreopHoursMode = typeof PREOP_HOURS_MODES[number]
+
+/** A section a hospital may switch off; `form` POSTOP for the postoperative form's (1.7.0). */
+export type PreopSectionDefinitionView = {
+  key: string
+  labelEn: string
+  labelBg: string
+  populations: PreopPopulation[]
+  requires: string | null
+  form?: "PREOP" | "POSTOP"
+}
+
+export type PreopFixedSectionView = { key: string; labelEn: string; labelBg: string; reasonEn: string; reasonBg: string }
+
+export type PreopOrderOptionView = {
+  key: string
+  list: PreopOrderList
+  kind: string
+  labelEn: string
+  labelBg: string
+  conceptId: number
+  bundled: boolean
+  enabled: boolean
+  sortOrder: number
+  hoursMode: PreopHoursMode
+  labTest: string | null
+}
+
+export type PreopSectionConfigView = {
+  sections: Record<string, boolean>
+  orderOptions: PreopOrderOptionView[]
+  consultSpecialtyKeys: string[]
+}
+
+/**
+ * Status has no Core of its own, so the definitions travel with the choices:
+ * which sections exist, which are always on and why, the specialties a
+ * consultation can name, and each population's configuration.
+ */
+export type PreopSectionsView = {
+  definitions: PreopSectionDefinitionView[]
+  fixed: PreopFixedSectionView[]
+  postopFixed?: PreopFixedSectionView[]
+  specialties: Array<{ key: string; labelEn: string; labelBg: string; clinical: boolean; doctor: boolean }>
+  holdHours: number[]
+  configs: Record<PreopPopulation, PreopSectionConfigView | null>
+}
+
+/** One population's whole configuration, as the API's preop-sections control takes it. */
+export type PreopSectionsUpdate = {
+  population: PreopPopulation
+  sections: Record<string, boolean>
+  orderOptions: Array<{ key: string; list: PreopOrderList; enabled: boolean; labelEn?: string; labelBg?: string; hoursMode?: PreopHoursMode }>
+  consultSpecialtyKeys: string[]
+  reason: string
+}
+
+/** One drug in Status's colour list (10.0.0): its own colour, if chosen, and the bundled one. */
+export type DrugColorDrugView = {
+  name: string
+  labelBg: string | null
+  bundledColor: string
+  color: string | null
+  bolus: boolean
+  infusion: boolean
+}
+
+export type DrugColorGroupView = {
+  name: string
+  labelEn: string
+  labelBg: string
+  bundledColor: string
+  color: string | null
+  drugs: DrugColorDrugView[]
+}
+
+/** The drug colours, by group, with the palette Status offers (Status has no Core of its own). */
+export type DrugColorsView = {
+  palette: Array<{ hex: string; labelEn: string; labelBg: string }>
+  groups: DrugColorGroupView[]
+}
+
+export type DrugColorUpdate = { scope: "GROUP" | "DRUG"; name: string; color: string | null }
+
+/** The operating theatres (10.0.0): the switch, and every theatre, retired ones included. */
+export type OperatingTheatresView = {
+  enabled: boolean
+  theatres: Array<{ id: string; name: string; active: boolean; sortOrder: number; caseCount: number }>
+}
+
+/** One age band's hypotension thresholds (10.0.0). */
+export type IndicatorBandView = { key: string; labelEn: string; labelBg: string; fromDays: number; toDays: number | null; mapBelow: number | null; sbpBelow: number | null }
+
+export type IndicatorConfigView = {
+  hypotensionBands: IndicatorBandView[]
+  spo2Below: number
+  tempBelow: number
+  painAbove: number
+  paedAtLeast: number
+  namedClinicians: boolean
+}
+
+/** The unit indicators' thresholds in use, and the bundled ones. */
+export type IndicatorsView = { config: IndicatorConfigView; defaults: IndicatorConfigView }
+
+export type IndicatorsUpdate = {
+  hypotensionBands: Array<{ key: string; mapBelow: number | null; sbpBelow: number | null }>
+  spo2Below: number
+  tempBelow: number
+  painAbove: number
+  paedAtLeast: number
+  namedClinicians: boolean
+  reason: string
+}
+
+export type OperatingTheatresChange =
+  | { action: "policy"; enabled: boolean; reason: string }
+  | { action: "add"; name: string }
+  | { action: "rename"; id: string; name: string }
+  | { action: "retire"; id: string }
+  | { action: "restore"; id: string }
+  | { action: "move"; id: string; direction: "up" | "down" }
 
 /** Who a consent text is for: children under 14, or adults and 14 to 18. */
 export type ConsentPopulation = "ADULT" | "PEDIATRIC"
@@ -398,6 +526,12 @@ export type ControlPlaneView = {
    * any other transport, and absent from an older API.
    */
   ehrFolder?: EhrFolderHealth | null
+  /** The drug colours (10.0.0); absent from an older API, null when unreadable. */
+  drugColors?: DrugColorsView | null
+  /** The operating theatres (10.0.0); absent from an older API, null when unreadable. */
+  operatingTheatres?: OperatingTheatresView | null
+  /** The unit indicators' thresholds (10.0.0); absent from an older API, null when unreadable. */
+  indicators?: IndicatorsView | null
 }
 
 export const EHR_FOLDER_REJECT_REASONS = [
@@ -632,6 +766,14 @@ export interface ControlPlanePort {
   updatePreopProfile(input: { population: PreopPopulation; reason: string; questions: Array<{ stableKey: string; enabled: boolean; required: boolean; sortOrder: number }> }): Promise<void>
   /** Switch the preop summary and the consent on or off; the consent needs the summary. */
   updatePreopDocuments(input: { summaryEnabled: boolean; consentEnabled: boolean; layout: PreopDocumentLayout; reason: string }): Promise<void>
+  /** One population's sections, order rows and consultation specialties (1.7.0). */
+  updatePreopSections(input: PreopSectionsUpdate): Promise<void>
+  /** One group's or one drug's colour, or null for the group's or bundled one (10.0.0). */
+  updateDrugColor(input: DrugColorUpdate): Promise<void>
+  /** One change to the operating theatres or their switch (10.0.0). */
+  changeOperatingTheatres(input: OperatingTheatresChange): Promise<void>
+  /** The unit indicators' thresholds and names switch (10.0.0). */
+  updateIndicators(input: IndicatorsUpdate): Promise<void>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -757,8 +899,74 @@ export function preopDocumentsShape(value: unknown): value is PreopDocumentsView
       && ((value.history as Record<string, unknown[]>)[population]!).every(historyEntry))
 }
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function indicatorsShape(value: unknown): value is IndicatorsView {
+  const nullableNumber = (entry: unknown) => entry === null || (typeof entry === "number" && Number.isFinite(entry))
+  const config = (entry: unknown) => isRecord(entry) && Array.isArray(entry.hypotensionBands) && entry.hypotensionBands.length <= 20
+    && entry.hypotensionBands.every(band => isRecord(band) && text(band.key, 32) && text(band.labelEn, 200) && text(band.labelBg, 200)
+      && finiteInteger(band.fromDays, 100_000) && (band.toDays === null || finiteInteger(band.toDays, 100_000))
+      && nullableNumber(band.mapBelow) && nullableNumber(band.sbpBelow))
+    && [entry.spo2Below, entry.tempBelow, entry.painAbove, entry.paedAtLeast].every(item => typeof item === "number" && Number.isFinite(item))
+    && typeof entry.namedClinicians === "boolean"
+  return isRecord(value) && config(value.config) && config(value.defaults)
+}
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function operatingTheatresShape(value: unknown): value is OperatingTheatresView {
+  return isRecord(value) && typeof value.enabled === "boolean" && Array.isArray(value.theatres) && value.theatres.length <= 5000
+    && value.theatres.every(entry => isRecord(entry) && text(entry.id, 64) && text(entry.name, 200) && typeof entry.active === "boolean"
+      && finiteInteger(entry.sortOrder, 1_000_000) && finiteInteger(entry.caseCount, 100_000_000))
+}
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function drugColorsShape(value: unknown): value is DrugColorsView {
+  if (!isRecord(value)) return false
+  const hex = (entry: unknown) => typeof entry === "string" && HEX_COLOR.test(entry)
+  const drug = (entry: unknown) => isRecord(entry) && text(entry.name, 200) && (entry.labelBg === null || text(entry.labelBg, 200))
+    && hex(entry.bundledColor) && (entry.color === null || hex(entry.color))
+    && typeof entry.bolus === "boolean" && typeof entry.infusion === "boolean"
+  const group = (entry: unknown) => isRecord(entry) && text(entry.name, 200) && text(entry.labelEn, 300) && text(entry.labelBg, 300)
+    && hex(entry.bundledColor) && (entry.color === null || hex(entry.color))
+    && Array.isArray(entry.drugs) && entry.drugs.length <= 2000 && entry.drugs.every(drug)
+  return Array.isArray(value.palette) && value.palette.length <= 64
+    && value.palette.every(entry => isRecord(entry) && hex(entry.hex) && text(entry.labelEn, 100) && text(entry.labelBg, 100))
+    && Array.isArray(value.groups) && value.groups.length <= 500 && value.groups.every(group)
+}
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function preopSectionsShape(value: unknown): value is PreopSectionsView {
+  if (!isRecord(value)) return false
+  const populations = ["ADULT", "PEDIATRIC"]
+  const fixedSection = (entry: unknown) => isRecord(entry) && text(entry.key, 64) && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+    && text(entry.reasonEn, 400) && text(entry.reasonBg, 400)
+  const definition = (entry: unknown) => isRecord(entry) && text(entry.key, 64) && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+    && Array.isArray(entry.populations) && entry.populations.every(item => populations.includes(item as string))
+    && (entry.requires === null || text(entry.requires, 64))
+    && (entry.form === undefined || entry.form === "PREOP" || entry.form === "POSTOP")
+  const option = (entry: unknown) => isRecord(entry) && text(entry.key, 80)
+    && (PREOP_ORDER_LISTS as readonly unknown[]).includes(entry.list) && text(entry.kind, 32)
+    && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+    && finiteInteger(entry.conceptId, 10_000_000_000) && typeof entry.bundled === "boolean" && typeof entry.enabled === "boolean"
+    && finiteInteger(entry.sortOrder, 10_000) && (PREOP_HOURS_MODES as readonly unknown[]).includes(entry.hoursMode)
+    && (entry.labTest === null || text(entry.labTest, 200))
+  const config = (entry: unknown) => entry === null || (isRecord(entry) && isRecord(entry.sections)
+    && Object.values(entry.sections).every(item => typeof item === "boolean")
+    && Array.isArray(entry.orderOptions) && entry.orderOptions.length <= 200 && entry.orderOptions.every(option)
+    && Array.isArray(entry.consultSpecialtyKeys) && entry.consultSpecialtyKeys.every(item => text(item, 20)))
+  return Array.isArray(value.definitions) && value.definitions.every(definition)
+    && Array.isArray(value.fixed) && value.fixed.every(fixedSection)
+    && (value.postopFixed === undefined || (Array.isArray(value.postopFixed) && value.postopFixed.every(fixedSection)))
+    && Array.isArray(value.specialties) && value.specialties.length <= 500 && value.specialties.every(item => isRecord(item)
+      && text(item.key, 20) && text(item.labelEn, 300) && text(item.labelBg, 300) && typeof item.clinical === "boolean" && typeof item.doctor === "boolean")
+    && Array.isArray(value.holdHours) && value.holdHours.every(item => finiteInteger(item, 10_000))
+    && isRecord(value.configs) && populations.every(population => config((value.configs as Record<string, unknown>)[population]))
+}
+
 function preopAdministrationShape(value: unknown): value is PreopAdministrationView {
   if (!isRecord(value) || !Array.isArray(value.catalog)) return false
+  if (value.sections !== undefined && !preopSectionsShape(value.sections)) return false
   const option = (entry: unknown): boolean => isRecord(entry)
     && text(entry.key, 128)
     && text(entry.labelEn, 512)
@@ -971,6 +1179,10 @@ function parseView(value: unknown): ControlPlaneView | null {
     || (value.preoperative.documents !== undefined && !preopDocumentsShape(value.preoperative.documents)))) return null
   return {
     ...value,
+    // A colour list Status cannot read hides that page only, not every control.
+    drugColors: drugColorsShape(value.drugColors) ? value.drugColors : null,
+    operatingTheatres: operatingTheatresShape(value.operatingTheatres) ? value.operatingTheatres : null,
+    indicators: indicatorsShape(value.indicators) ? value.indicators : null,
     preoperative: isRecord(value.preoperative) ? value.preoperative as ControlPlaneView["preoperative"] : {
       scope: "APPLIANCE_WIDE",
       catalogVersion: "1.4.8",
@@ -1325,6 +1537,18 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updatePreopDocuments(input: Parameters<ControlPlanePort["updatePreopDocuments"]>[0]): Promise<void> {
     return this.mutate("/preop-documents", input)
+  }
+  updateDrugColor(input: DrugColorUpdate): Promise<void> {
+    return this.mutate("/drug-colors", input)
+  }
+  changeOperatingTheatres(input: OperatingTheatresChange): Promise<void> {
+    return this.mutate("/operating-theatres", input)
+  }
+  updateIndicators(input: IndicatorsUpdate): Promise<void> {
+    return this.mutate("/indicators", input)
+  }
+  updatePreopSections(input: PreopSectionsUpdate): Promise<void> {
+    return this.mutate("/preop-sections", input)
   }
   saveConsentTemplate(input: Parameters<ControlPlanePort["saveConsentTemplate"]>[0]): Promise<void> {
     return this.mutate("/consent-templates", input)

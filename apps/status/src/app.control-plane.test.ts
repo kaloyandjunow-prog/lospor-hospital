@@ -5,6 +5,9 @@ import type { StatusConfig } from "./config.js"
 import { ControlPlaneClientError, type ControlPlanePort, type ControlPlaneView } from "./control-plane.js"
 import { StatusDatabase } from "./db.js"
 import { totpCode } from "./mfa.js"
+import { preopSectionsFixture } from "./preop-sections.fixture.js"
+import { drugColorsFixture } from "./drug-colors.fixture.js"
+import { indicatorsFixture } from "./indicators.fixture.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
 const HASH = "a".repeat(64)
@@ -303,6 +306,10 @@ function setup() {
     issueGrant: vi.fn(async () => {}),
     revokeGrant: vi.fn(async () => {}),
     approveOmop: vi.fn(async () => {}),
+    updatePreopSections: vi.fn(async () => {}),
+    updateDrugColor: vi.fn(async () => {}),
+    changeOperatingTheatres: vi.fn(async () => {}),
+    updateIndicators: vi.fn(async () => {}),
     configureCentral: vi.fn(async () => {}),
     setCentralPolicy: vi.fn(async () => {}),
     retryCentralBatch: vi.fn(async () => {}),
@@ -411,8 +418,12 @@ describe("Status Hospital control plane", () => {
     expect(legacy).toContain("Настройка за ЕГН")
     expect(legacy).toContain("Карта на лабораторните кодове")
     expect(legacy).toContain("Разрешения за изследвания")
-    // Legacy keeps the preop editor on its clinical page.
-    expect(legacy).toContain("data-preop-order-list")
+    // Both skins expose every preop page through the same tabs.
+    expect(legacy).toContain('href="/status/control/preop/sections"')
+    expect(legacy).toContain('href="/status/control/preop/orders"')
+    expect(legacy).toContain('href="/status/control/preop/documents"')
+    expect(preop).toContain('href="/status/control/preop/sections"')
+    expect(preop).not.toContain(':root:not([data-skin="legacy"]) .subnav{display:none}')
     expect(identity).toContain("Настройка за ЕГН")
     expect(codes).toContain("Карта на лабораторните кодове")
     expect(central).toContain("Изпращане към Central (само изходящо)")
@@ -1677,7 +1688,7 @@ describe("the preop summary and consent (1.6.0)", () => {
     const { app, auth, controlPlane } = setup()
     vi.mocked(controlPlane.get).mockResolvedValue(withDocuments() as never)
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop/documents", { headers: { cookie } })).text()
     expect(html).toContain('action="/status/control/preop-documents#preop-documents"')
     expect(html).toMatch(/name="summaryEnabled" value="true" checked/)
     expect(html).not.toMatch(/name="consentEnabled" value="true" checked/)
@@ -1706,7 +1717,7 @@ describe("the preop summary and consent (1.6.0)", () => {
   it("shows nothing for an API that predates it", async () => {
     const { app, auth } = setup()
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop/documents", { headers: { cookie } })).text()
     expect(html).not.toContain("/status/control/preop-documents")
   })
 
@@ -1751,5 +1762,158 @@ describe("the preop summary and consent (1.6.0)", () => {
       })
     }
     expect(controlPlane.saveConsentTemplate).not.toHaveBeenCalled()
+  })
+})
+
+describe("the preoperative and postoperative form sections (1.7.0)", () => {
+  const withSections = (): ControlPlaneView => ({
+    ...VIEW,
+    preoperative: { ...VIEW.preoperative, administration: { ...VIEW.preoperative.administration!, sections: preopSectionsFixture() } },
+  })
+
+  it("gives the postop form a page of its own and the preop form its tabs", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withSections())
+    const cookie = await passwordCookie(app, auth)
+    const postop = await (await app.request("/status/control/postop", { headers: { cookie } })).text()
+    expect(postop).toContain('name="section_POSTOP_PAIN"')
+    expect(postop).toContain('data-testid="finalise-requirements"')
+    const sections = await (await app.request("/status/control/preop/sections", { headers: { cookie } })).text()
+    expect(sections).toContain('name="section_MEDICAL_HISTORY"')
+    expect(sections).toContain('href="/status/control/preop/orders"')
+    const orders = await (await app.request("/status/control/preop/orders", { headers: { cookie } })).text()
+    expect(orders).toContain('name="newLabelEn"')
+    expect(orders).toContain('name="spec_1001"')
+  })
+
+  it("sends the whole configuration with the postop switches changed, after the password", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withSections())
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/preop-sections", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        part: "postop",
+        population: "PEDIATRIC",
+        section_POSTOP_RECOVERY_VITALS: "true",
+        section_POSTOP_PAIN: "true",
+        reason: "PONV is recorded on the ward chart",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.updatePreopSections).toHaveBeenCalledWith(expect.objectContaining({
+      population: "PEDIATRIC",
+      reason: "PONV is recorded on the ward chart",
+      sections: expect.objectContaining({ POSTOP_PONV: false, POSTOP_DELIRIUM: false, POSTOP_PAIN: true, MEDICAL_HISTORY: true }),
+      consultSpecialtyKeys: ["1001"],
+    }))
+    // It stays on the postop page.
+    expect(await response.text()).toContain('name="section_POSTOP_PAIN"')
+  })
+
+  it("names the API's refusal", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withSections())
+    vi.spyOn(controlPlane, "updatePreopSections").mockRejectedValue(new ControlPlaneClientError("MEDICATION_INSTRUCTIONS_NEED_CURRENT_MEDICATIONS"))
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/preop-sections", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ part: "sections", population: "ADULT", section_MEDICATION_INSTRUCTIONS: "true", reason: "Medication rows without the list", password: "Initial password phrase1!" }),
+    })
+    expect(await response.text()).toContain("Указанията за медикаментите посочват лекарства от приеманите медикаменти")
+  })
+})
+
+describe("the drug colours (10.0.0)", () => {
+  const withColors = (): ControlPlaneView => ({ ...VIEW, drugColors: drugColorsFixture() })
+
+  it("has a page of its own, with a search and an editor reached by plain links", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withColors())
+    const cookie = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/drug-colors?locale=en", { headers: { cookie } })).text()
+    expect(page).toContain("Opioid analgesics")
+    expect(page).toContain("/status/control/drug-colors?edit=DRUG%3AFentanyl")
+    const editing = await (await app.request("/status/control/drug-colors?q=fent&edit=DRUG%3AFentanyl", { headers: { cookie } })).text()
+    expect(editing).toContain('data-testid="drug-color-editor"')
+    expect(editing).toContain('data-testid="drug-color-results"')
+  })
+
+  it("saves one colour without asking for the password each time, and names a refusal", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withColors())
+    const cookie = await passwordCookie(app, auth)
+    const save = (fields: Record<string, string>) => app.request("/status/control/drug-colors", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams(fields).toString(),
+    })
+    const response = await save({ scope: "DRUG", name: "Fentanyl", choice: "#ec4899" })
+    expect(response.status).toBe(200)
+    expect(controlPlane.updateDrugColor).toHaveBeenCalledWith({ scope: "DRUG", name: "Fentanyl", color: "#ec4899" })
+    const refused = await save({ scope: "DRUG", name: "Fentanyl", choice: "custom", custom: "not a colour" })
+    expect(refused.status).toBe(400)
+    expect(controlPlane.updateDrugColor).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("the operating theatres (10.0.0)", () => {
+  const withTheatres = (): ControlPlaneView => ({ ...VIEW, operatingTheatres: { enabled: false, theatres: [{ id: "t1", name: "Зала 1", active: true, sortOrder: 0, caseCount: 0 }] } })
+  const post = (app: ReturnType<typeof setup>["app"], cookie: string, path: string, fields: Record<string, string>) => app.request(path, {
+    method: "POST",
+    headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+    body: new URLSearchParams(fields).toString(),
+  })
+
+  it("has a page of its own under the clinical setup", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withTheatres())
+    const cookie = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/theatres", { headers: { cookie } })).text()
+    expect(page).toContain('data-testid="theatres-policy"')
+    expect(page).toContain('value="Зала 1"')
+  })
+
+  it("switches them on only with the password and a reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withTheatres())
+    const cookie = await passwordCookie(app, auth)
+    await post(app, cookie, "/status/control/operating-theatres/policy", { enabled: "true", reason: "Theatre lists from Monday" })
+    expect(controlPlane.changeOperatingTheatres).not.toHaveBeenCalled()
+    await post(app, cookie, "/status/control/operating-theatres/policy", { enabled: "true", reason: "Theatre lists from Monday", password: "Initial password phrase1!" })
+    expect(controlPlane.changeOperatingTheatres).toHaveBeenCalledWith({ action: "policy", enabled: true, reason: "Theatre lists from Monday" })
+  })
+
+  it("adds and renames theatres without the password each time, and names a refusal", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withTheatres())
+    const cookie = await passwordCookie(app, auth)
+    expect((await post(app, cookie, "/status/control/operating-theatres", { action: "add", name: "Зала 2" })).status).toBe(200)
+    expect(controlPlane.changeOperatingTheatres).toHaveBeenCalledWith({ action: "add", name: "Зала 2" })
+    vi.spyOn(controlPlane, "changeOperatingTheatres").mockRejectedValue(new ControlPlaneClientError("THEATRE_NAME_TAKEN"))
+    const refused = await post(app, cookie, "/status/control/operating-theatres", { action: "rename", id: "t1", name: "Зала 2" })
+    expect(await refused.text()).toContain("Действаща зала вече има това име")
+  })
+})
+
+describe("the unit indicators settings (10.0.0)", () => {
+  it("has a page and saves only with the password and a reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, indicators: indicatorsFixture() })
+    const cookie = await passwordCookie(app, auth)
+    expect(await (await app.request("/status/control/indicators", { headers: { cookie } })).text()).toContain('data-testid="indicators-form"')
+    const fields = { map_INFANT: "", sbp_INFANT: "70", map_ADULT: "65", sbp_ADULT: "", spo2Below: "90", tempBelow: "36", painAbove: "3", paedAtLeast: "10", namedClinicians: "true", reason: "Agreed at the department meeting" }
+    const post = (extra: Record<string, string>) => app.request("/status/control/indicators", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...fields, ...extra }).toString(),
+    })
+    await post({})
+    expect(controlPlane.updateIndicators).not.toHaveBeenCalled()
+    await post({ password: "Initial password phrase1!" })
+    expect(controlPlane.updateIndicators).toHaveBeenCalledWith(expect.objectContaining({ namedClinicians: true, reason: "Agreed at the department meeting" }))
   })
 })

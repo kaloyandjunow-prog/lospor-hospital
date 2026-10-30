@@ -25,6 +25,7 @@ export const WINDOWS_KIT_FILES = [
   { path: "infra/host/hyperv/Install-LosporHospital.ps1", source: "infra/host/hyperv/Install-LosporHospital.ps1", eol: "crlf" },
   { path: "infra/host/hyperv/New-LosporHospitalVm.ps1", source: "infra/host/hyperv/New-LosporHospitalVm.ps1", eol: "crlf" },
   { path: "infra/host/hyperv/LosporHostKit.ps1", source: "infra/host/hyperv/LosporHostKit.ps1", eol: "crlf" },
+  { path: "infra/host/hyperv/LosporProgressWindow.ps1", source: "infra/host/hyperv/LosporProgressWindow.ps1", eol: "crlf" },
   { path: "infra/host/autoinstall/user-data", source: "infra/host/autoinstall/user-data", eol: "lf" },
   { path: "infra/host/autoinstall/lospor-firstboot.sh", source: "infra/host/autoinstall/lospor-firstboot.sh", eol: "lf" },
   { path: "scripts/losporctl-install.sh", source: "scripts/losporctl-install.sh", eol: "lf" },

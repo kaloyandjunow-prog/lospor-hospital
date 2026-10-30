@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm, Controller, type Resolver } from "react-hook-form"
+import { useForm, useWatch, Controller, type Resolver } from "react-hook-form"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { useScrollToReadiness } from "@/lib/readiness-focus"
@@ -60,6 +60,7 @@ import { ProcedureOperationPicker } from "@/components/forms/ProcedureOperationP
 import { procedureGroupTag } from "@lospor/core/procedure-codes"
 import { RecoveryVitals } from "@/components/forms/postop/RecoveryVitals"
 import { RecoveryScore, type AldreteKey } from "@/components/forms/postop/RecoveryScore"
+import { usePostopScoreProjection } from "@/components/forms/postop/usePostopScoreProjection"
 
 type ProcedureSearchItem = { code: string; group?: string; description: string; domain: string }
 export type { PostopData }
@@ -67,7 +68,6 @@ export type { PostopData }
 
 
 type ScoredItem = FlaccField | NipsField | PaedField
-
 export type HandoverGroup = Omit<CoreHandoverGroup, "id">
 
 export const normaliseHandoverCodes = normalizeHandoverCodes
@@ -126,7 +126,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   const recoveryHeartRateRange   = useRange("HEART_RATE_RANGE")
   const recoverySpo2Range        = useRange("SPO2_RANGE")
   const recoveryTemperatureRange = useRange("TEMPERATURE_RANGE")
-  const { register, handleSubmit, control, watch, setValue, getValues } = useForm<PostopData>({
+  const { register, handleSubmit, control, setValue, getValues } = useForm<PostopData>({
     // Same zod-v4/react-hook-form resolver-typing friction as IntraopForm.tsx/PreopForm.tsx
     resolver: zodResolver(postopSchema) as Resolver<PostopData>,
     defaultValues: {
@@ -143,9 +143,9 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       ...(defaultValues?.handoverItems ? { handoverItems: normaliseHandoverCodes(defaultValues.handoverItems) } : {}),
     },
   })
+  const { setScore, projected } = usePostopScoreProjection(defaultValues, setValue)
 
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const allValues = watch()
+  const allValues = useWatch({ control })
   const allValuesKey = JSON.stringify(allValues)
   // Skip the first run: this effect fires on mount, so without the guard simply
   // opening the form scheduled a save of whatever the defaults happened to be.
@@ -158,8 +158,20 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     return () => clearTimeout(timer)
   }, [allValuesKey, getValues, onAutoSave])
 
-  const aldreteVals = watch(["aldreteActivity","aldreteRespiration","aldreteCirculation","aldreteConsciousness","aldreteSpO2"])
-  const stewardVals = watch(["stewardConsciousness","stewardAirway","stewardMovement"])
+  const aldreteWatched = useWatch({ control, name: ["aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2"] })
+  const stewardWatched = useWatch({ control, name: ["stewardConsciousness", "stewardAirway", "stewardMovement"] })
+  const aldreteVals = [
+    projected("aldreteActivity", aldreteWatched[0]),
+    projected("aldreteRespiration", aldreteWatched[1]),
+    projected("aldreteCirculation", aldreteWatched[2]),
+    projected("aldreteConsciousness", aldreteWatched[3]),
+    projected("aldreteSpO2", aldreteWatched[4]),
+  ]
+  const stewardVals = [
+    projected("stewardConsciousness", stewardWatched[0]),
+    projected("stewardAirway", stewardWatched[1]),
+    projected("stewardMovement", stewardWatched[2]),
+  ]
   // A child is scored on Steward instead of Aldrete (10.0.0); the card, its
   // total and its band all follow the case's clinical mode.
   const aldreteTotal = isPediatric
@@ -176,14 +188,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   // colouring it "destructive" would read as a sick patient rather than an
   // unfinished form.
   const aldreteStatus = aldreteTotal == null ? null : isPediatric ? stewardBand(aldreteTotal) : aldreteBand(aldreteTotal)
-  const disposition   = watch("disposition")
-  const handoverItems = watch("handoverItems") ?? []
+  const disposition   = useWatch({ control, name: "disposition" })
+  const handoverItems = useWatch({ control, name: "handoverItems" }) ?? []
   const [recoveryBpUTO, recoveryHeartRateUTO, recoverySpo2UTO, recoveryTemperatureUTO] =
-    watch(["recoveryBpUnobtainable", "recoveryHeartRateUnobtainable", "recoverySpO2Unobtainable", "recoveryTemperatureUnobtainable"])
+    useWatch({ control, name: ["recoveryBpUnobtainable", "recoveryHeartRateUnobtainable", "recoverySpO2Unobtainable", "recoveryTemperatureUnobtainable"] })
 
   // What the recovery observations suggest for two Aldrete items (10.0.0):
   // shown beside the item, set only when the clinician taps it.
-  const [recoverySystolic, recoverySpO2] = watch(["recoveryBpSystolic", "recoverySpO2"])
+  const [recoverySystolic, recoverySpO2] = useWatch({ control, name: ["recoveryBpSystolic", "recoverySpO2"] })
   const suggestions: Partial<Record<AldreteKey, { score: number; text: string }>> = {}
   if (!isPediatric && sectionOn("POSTOP_RECOVERY_VITALS")) {
     const spo2 = recoverySpo2UTO ? null : suggestAldreteSpO2(recoverySpO2 == null ? null : Number(recoverySpO2))
@@ -195,13 +207,15 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   }
 
   // Pain and delirium, item by item.
-  const itemValues = watch([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key)) as (number | null | undefined)[]
-  const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, itemValues[index]])) as Record<ScoredItem, number | null | undefined>
-  const setItem = (key: ScoredItem, value: number | null) => setValue(key, value, { shouldDirty: true })
+  const itemValues = useWatch({ control, name: [...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map(item => item.key) }) as (number | null | undefined)[]
+  const items = Object.fromEntries([...FLACC_ITEMS, ...NIPS_ITEMS, ...PAED_ITEMS].map((item, index) => [item.key, projected(item.key, itemValues[index])])) as Record<ScoredItem, number | null | undefined>
+  const setItem = (key: ScoredItem, value: number | null) => setScore(key, value)
   const flacc = flaccTotal(items)
   const nips = nipsTotal(items)
   const paed = paedTotal(items)
-  const [fpsr, nrs] = watch(["fpsrScore", "painScoreNRS"])
+  const [fpsrWatched, nrsWatched] = useWatch({ control, name: ["fpsrScore", "painScoreNRS"] })
+  const fpsr = projected("fpsrScore", fpsrWatched)
+  const nrs = projected("painScoreNRS", nrsWatched)
 
   useEffect(() => {
     if (disposition === "WARD" || disposition === "PACU") return
@@ -264,7 +278,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       )}
 
       {showVitals && <div className={hidden("vitals")}><RecoveryVitals control={control} setValue={setValue} isPediatric={isPediatric} rejectedFields={rejectedFields} unobtainable={{ bp: recoveryBpUTO, heartRate: recoveryHeartRateUTO, spo2: recoverySpo2UTO, temperature: recoveryTemperatureUTO }} ranges={{ bpSystolic: recoveryBpSystolicRange, bpDiastolic: recoveryBpDiastolicRange, heartRate: recoveryHeartRateRange, spo2: recoverySpo2Range, temperature: recoveryTemperatureRange }} /></div>}
-      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} /></div>
+      <div className={hidden("score")}><RecoveryScore control={control} isPediatric={isPediatric} suggestions={suggestions} total={aldreteTotal} max={scoreMax} status={aldreteStatus} onScoreChange={setScore} /></div>
 
       {/* Pain, emergence delirium and PONV */}
       {(showPain || showDelirium || showPonv) && (
@@ -294,7 +308,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">FPS-R</p>
                 <p className="text-xs text-slate-400">{t("postop.pain.faceHint")}</p>
                 <Controller name="fpsrScore" control={control} render={({ field }) => (
-                  <SelfReportScale kind="FPS_R" value={field.value == null ? null : Number(field.value)} onChange={field.onChange} />
+                  <SelfReportScale kind="FPS_R" value={projected("fpsrScore", field.value == null ? null : Number(field.value))} onChange={value => setScore("fpsrScore", value)} />
                 )} />
                 <ScaleTotal label="FPS-R" total={fpsr == null ? null : Number(fpsr)} max={10} band={fpsr == null ? null : selfReportBand(Number(fpsr))} language={language} />
               </div>
@@ -303,7 +317,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</p>
                 <Controller name="painScoreNRS" control={control} render={({ field }) => (
-                  <SelfReportScale kind="NRS" value={field.value == null ? null : Number(field.value)} onChange={field.onChange} />
+                  <SelfReportScale kind="NRS" value={projected("painScoreNRS", field.value == null ? null : Number(field.value))} onChange={value => setScore("painScoreNRS", value)} />
                 )} />
               </div>
             )}

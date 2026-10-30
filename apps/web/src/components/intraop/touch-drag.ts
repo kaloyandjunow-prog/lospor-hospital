@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, type RefObject } from "react"
+import { useEffect, useState, type RefObject } from "react"
 
 /**
  * The timeline's bars are moved and stretched by the browser's drag and drop,
@@ -24,21 +24,27 @@ export const TOUCH_DRAG_OPTIONS = {
 } as const
 
 export function useTouchDrag(root: RefObject<HTMLElement | null>) {
+  const [ready, setReady] = useState(false)
   useEffect(() => {
     const element = root.current
     if (!element) return
     let cancelled = false
     void import("@dragdroptouch/drag-drop-touch").then(({ enableDragDropTouch }) => {
       // Its listeners live on this element, and go with it when it unmounts.
-      if (!cancelled) enableDragDropTouch(element, document, TOUCH_DRAG_OPTIONS)
+      if (!cancelled) {
+        enableDragDropTouch(element, document, TOUCH_DRAG_OPTIONS)
+        setReady(true)
+      }
     })
     const keepLift = forwardLiftFromRemovedTarget(element)
     element.addEventListener("touchstart", keepLift, { capture: true, passive: true })
     return () => {
       cancelled = true
+      setReady(false)
       element.removeEventListener("touchstart", keepLift, { capture: true })
     }
   }, [root])
+  return ready
 }
 
 /**

@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Core
 
+## [10.0.2] - 2026-10-29
+
+### Changed
+
+- **Release-train follow-up:** version synchronized with the web score-race
+  hardening release; core contracts are unchanged.
+
+## [10.0.1] - 2026-10-29
+
+### Changed
+
+- **Maintenance release:** the development lint toolchain now uses ESLint
+  10.13.0.
+
 ## [10.0.0] - 2026-10-28
 
 ### Added

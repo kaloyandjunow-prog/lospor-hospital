@@ -83,7 +83,11 @@ type Action =
 function reduce(state: TimetableDragState, action: Action): TimetableDragState {
   switch (action.type) {
     case "infusionMoveStart":
-      return { ...state, movingInf: action.move }
+      // The first dragover is not guaranteed to arrive before the first
+      // render after native dragstart. Keep the bar's original column as the
+      // initial hover so its move ghost (including the rate strip) is visible
+      // immediately, then let dragover replace it with the real target.
+      return { ...state, movingInf: action.move, movingInfCol: action.move.fromCol }
     case "infusionMoveHover":
       return { ...state, movingInfCol: action.col }
     case "infusionMoveEnd":

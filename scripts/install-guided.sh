@@ -634,6 +634,17 @@ Nothing has been installed."
 fi
 
 # ── 5. Install ───────────────────────────────────────────────────────────────
+
+# The step reached, for the Windows kit's progress window: "N/8 what", written to
+# LOSPOR_PROGRESS_FILE only when the first boot sets it (lospor-firstboot.sh), so
+# an installation at the console is unchanged. The eight steps are numbered
+# across losporctl-install.sh, install-guided.sh and install.sh.
+lospor_progress() {
+  [ -n "${LOSPOR_PROGRESS_FILE:-}" ] || return 0
+  printf '%s/8 %s\n' "$1" "$2" > "$LOSPOR_PROGRESS_FILE" 2>/dev/null || true
+}
+
+lospor_progress 3 "Loading the application images"
 if [ "$HOSPITAL_INSTALL_SUPPLY_MODE" = offline ]; then
   if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
     say "Инсталиране. Образите се зареждат от носителя и се проверяват спрямо

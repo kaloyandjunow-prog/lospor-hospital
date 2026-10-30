@@ -1,5 +1,20 @@
 # Changelog - LOSPOR Database
 
+## [0.10.0] - 2026-10-29
+
+### Fixed
+
+- **Dependency security:** Next.js is upgraded to 16.4.3, closing the current
+  image-optimization and Server Actions advisories; Vitest, Playwright, and
+  their vulnerable transitive toolchain dependencies are refreshed.
+
+### Changed
+
+- **Shared Core pin:** advanced to v10.0.2 for the coordinated upstream
+  contract release.
+- **Lint toolchain:** upgraded to ESLint 10.13.0 with the official compatibility
+  adapter for Next's legacy React rules.
+
 ## [0.9.1] - 2026-10-19
 
 ### Added

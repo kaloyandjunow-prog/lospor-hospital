@@ -43,13 +43,33 @@ const EXCEPTIONS = {
     "GHSA-mrhx-c7xc-m3w5": {
       reason:
         "Accepted by the maintainer for Hospital 1.7.0 on 2026-10-29. "
-        + "Expo 56's @expo/cli still pins Zod 3.25.76, and no patched "
-        + "Expo 56 CLI is available. npm's suggested Expo 54 change is a "
-        + "major downgrade, not a safe remediation for this reviewed PWA "
-        + "toolchain. The dependency is used by the build-time Expo CLI; the "
-        + "shipped PWA is a static export and does not expose that CLI at runtime.",
+        + "Expo 56's @expo/cli still pins Zod below 4.6.6, and npm offers "
+        + "only an Expo 54 downgrade as an automatic fix. That major downgrade "
+        + "is not a safe remediation for this reviewed PWA toolchain. The "
+        + "dependency is used by the build-time Expo CLI; the shipped PWA is a "
+        + "static export and does not expose that CLI at runtime.",
       removeWhen:
-        "Expo 56 publishes a CLI with patched Zod, or the PWA moves to a reviewed Expo release whose CLI no longer carries the advisory",
+        "Expo 56 publishes a CLI with Zod 4.6.6 or later, or the PWA moves to a reviewed Expo release whose CLI no longer carries the advisory",
+    },
+    "GHSA-vcc3-ghjq-m6fr": {
+      reason:
+        "Accepted by the maintainer for Hospital 1.7.0 on 2026-10-30. "
+        + "expo-router 56.2.20 brings query-string 7.1.3 and "
+        + "decode-uri-component 0.2.2; npm's only automatic fix is "
+        + "expo-router 58.0.28, an Expo major upgrade that is not a safe "
+        + "dependency-only change for this reviewed PWA toolchain.",
+      removeWhen:
+        "Expo 56 publishes a compatible expo-router/query-string chain with decode-uri-component above 0.5.0, or the PWA moves to a reviewed Expo release that provides that chain",
+    },
+    "GHSA-qr28-fpjm-wq7f": {
+      reason:
+        "Accepted by the maintainer for Hospital 1.7.0 on 2026-10-30. "
+        + "expo-router 56.2.20 brings query-string 7.1.3 and "
+        + "decode-uri-component 0.2.2; npm's only automatic fix is "
+        + "expo-router 58.0.28, an Expo major upgrade that is not a safe "
+        + "dependency-only change for this reviewed PWA toolchain.",
+      removeWhen:
+        "Expo 56 publishes a compatible expo-router/query-string chain with decode-uri-component above 0.5.0, or the PWA moves to a reviewed Expo release that provides that chain",
     },
   },
 }

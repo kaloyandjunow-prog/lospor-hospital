@@ -8,6 +8,15 @@ cd "$root"
 . "$root/scripts/operator-locale.sh"
 operator_locale_load "$root"
 
+# The step reached, for the Windows kit's progress window: "N/8 what", written to
+# LOSPOR_PROGRESS_FILE only when the first boot sets it (lospor-firstboot.sh), so
+# an installation at the console is unchanged. The eight steps are numbered
+# across losporctl-install.sh, install-guided.sh and install.sh.
+lospor_progress() {
+  [ -n "${LOSPOR_PROGRESS_FILE:-}" ] || return 0
+  printf '%s/8 %s\n' "$1" "$2" > "$LOSPOR_PROGRESS_FILE" 2>/dev/null || true
+}
+
 command -v docker >/dev/null 2>&1 || {
   operator_error "Docker is required." "Необходим е Docker."
   exit 1
@@ -184,12 +193,14 @@ fi
 : >> "$io_mutation_lock"
 chmod 0600 "$io_mutation_lock"
 unset io_mutation_home io_mutation_lock
+lospor_progress 4 "Starting the database"
 docker compose run --rm --interactive=false -T runtime-secrets-init
 docker compose up -d postgres
 sh scripts/postgres-update-gate.sh preflight
 # These initializers do not read input. Compose keeps stdin open by default even
 # with -T, which would consume passwords piped to this installer before the
 # prompts below can read them.
+lospor_progress 5 "Preparing the database"
 docker compose run --rm --interactive=false -T migrate
 sh scripts/postgres-update-gate.sh postflight
 docker compose --profile tools run --rm --interactive=false -T status-db-init
@@ -281,6 +292,7 @@ export \
 # then failed separately on truncated input, and that unrelated downstream
 # error was the one the operator had to diagnose. `set -e` acts on this
 # assignment, so the rejection is now authoritative and names itself.
+lospor_progress 6 "Creating the administrator"
 status_credential="$(
   printf '%s\n%s\n%s\n' \
     "$HOSPITAL_BOOTSTRAP_ADMIN_EMAIL" "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" 1 \
@@ -320,6 +332,7 @@ printf '%s' "${HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY:-}" \
   | docker compose --profile tools run --rm -T tools \
       ./node_modules/.bin/tsx --conditions=react-server scripts/configure-hospital-external-ai.ts
 unset HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY
+lospor_progress 7 "Loading the drug lists and code lists"
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-option-library.ts
 
@@ -370,6 +383,7 @@ docker compose --profile tools run --rm -T tools \
 # services to reach running state. A bounded wait turns a restart loop or an
 # unhealthy application into an installer failure instead of a green-looking
 # `compose ps` followed by "Installation complete".
+lospor_progress 8 "Starting LOSPOR and checking it is healthy"
 docker compose up -d --wait --wait-timeout 300
 
 # Prove the shipped backup image, authenticated manifest wiring, capacity

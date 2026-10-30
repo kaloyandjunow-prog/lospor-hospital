@@ -26,6 +26,11 @@ vi.mock("@/lib/prisma", () => ({
     centralDeliveryBatch: { findMany: mocks.batches, groupBy: mocks.queues },
     clinicalGuidancePolicy: { findUnique: mocks.guidance },
     hospitalCaseVisibilityPolicy: { findUnique: mocks.caseVisibility },
+    // The control-plane view now includes the Status operating-theatres
+    // policy and list. Keep this unit test's Prisma double complete even
+    // though this fixture is about the other control-plane sections.
+    operatingTheatrePolicy: { findUnique: async () => null },
+    operatingTheatre: { findMany: async () => [] },
     // A site with nothing mapped yet, which is what every site is on its first
     // day. The view has to hold up with all three lists empty.
     hospitalEhrLabCodeMap: { findMany: async () => [] },
@@ -84,6 +89,7 @@ vi.mock("@/lib/hospital/ehr-transport-policy", () => ({
 }))
 
 import {
+  drugColorAuditDetail,
   centralControlView,
   currentGuidancePolicy,
   authenticationMaterialChanged,
@@ -93,6 +99,7 @@ import {
   updateHospitalPreopProfile,
 } from "./control-plane"
 import { BUNDLED_PREOP_QUESTIONS } from "@/lib/preop/catalog"
+import { assertSafeAuditDetail } from "@/lib/audit-evidence"
 // Status, the consumer: the view must pass its own check. Loaded at test time
 // by a path tsc does not follow: the API image is built from apps/api alone.
 const STATUS_CONTROL_PLANE = new URL("../../../../status/src/control-plane.ts", import.meta.url).href
@@ -533,5 +540,17 @@ describe("a preoperative profile change from Status (1.5.5)", () => {
     await expect(updateHospitalPreopProfile({
       population: "ADULT", reason: "Sends the children's list as the adults'", questions: children,
     })).rejects.toMatchObject({ code: "PREOP_PROFILE_CATALOG_INCOMPLETE" })
+  })
+})
+
+describe("what the 1.7.0 Status controls write to the audit record", () => {
+  // The audit module is mocked above, so a record the real guard would refuse
+  // used to pass every test here and fail on the first real save: the drug
+  // colour change carried a field called "name". These run the real guard.
+  it("a drug colour change passes the audit guard, and keeps what it changed", () => {
+    const detail = drugColorAuditDetail({ scope: "GROUP", name: "IV anesthetics", color: "#AA0000" })
+    expect(() => assertSafeAuditDetail(detail)).not.toThrow()
+    expect(detail).toEqual({ scope: "GROUP", color: "#aa0000" })
+    expect(drugColorAuditDetail({ scope: "DRUG", name: "Propofol", color: null })).toEqual({ scope: "DRUG", color: null })
   })
 })
