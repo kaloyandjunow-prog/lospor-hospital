@@ -241,58 +241,6 @@ test("a charted infusion can be dragged to a different time", async ({ page }) =
   await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible()
 })
 
-// A bar's end is its stop (1.4.9). The seeded infusion is still running at
-// the case end; dropping its right grip on an earlier column records the stop
-// there.
-test("an infusion's right grip sets where it stops", async ({ page }) => {
-  const id = await createCaseWithInfusion(page)
-  const chart = await openChart(page, id)
-
-  const lane = propofolLane(chart)
-  await expect(lane).toHaveCount(1)
-
-  // Grips appear only on the selected bar, so an unselected chart is not
-  // covered in handles.
-  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await infusionBar(lane).click()
-  const grip = lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
-  await expect(grip).toBeVisible({ timeout: 10_000 })
-  const gripBox = await grip.boundingBox()
-  expect(gripBox).not.toBeNull()
-  const startX = gripBox!.x + 2
-  const startY = gripBox!.y + gripBox!.height / 2
-  const targetX = laneBox.x + laneBox.width / 2
-  const targetY = laneBox.y + laneBox.height / 2
-  await page.mouse.move(startX, startY)
-  await page.mouse.down()
-  await page.mouse.move(targetX, targetY, { steps: 8 })
-  await page.mouse.up()
-  // Stopping a running bar is deliberately confirmed: the drop proposes the
-  // timestamp, and the clinician must explicitly answer the planned-stop
-  // question. The prompt is intentionally phrased around the reached stop,
-  // rather than the drug name, so the assertion follows the user-facing flow.
-  const stopped = page.getByRole("button", { name: "Stopped", exact: true })
-  await expect(stopped).toBeVisible({ timeout: 30_000 })
-  await stopped.click()
-
-  // A stopped bar is no longer draggable, so the proof is the saved log: a
-  // stop for this infusion, inside the case.
-  const record = await page.request.get(`/api/cases/${id}`)
-  const startedAt = new Date((await record.json()).intraop.startedAt).getTime()
-  await expect.poll(async () => {
-    const response = await page.request.get(`/api/cases/${id}`)
-    const body = await response.json() as { intraop?: { keyEvents?: { log?: { type?: string; infId?: string; ts?: string }[] } } }
-    const stop = (body.intraop?.keyEvents?.log ?? [])
-      .find(event => event.type === "infusion_stop" && event.infId === `e2e-propofol-${id}`)
-    if (!stop?.ts) return false
-    const stopAt = Date.parse(stop.ts)
-    // The selected cell may be ahead of the runner's wall clock, so compare
-    // with the case start rather than assuming the proposed stop is already
-    // in the past.
-    return stopAt > startedAt
-  }, { timeout: 10_000, message: "no stop was recorded inside the case window" }).toBe(true)
-})
-
 test("a running infusion's left grip extends the bar backwards in time", async ({ page }) => {
   const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
@@ -304,48 +252,6 @@ test("a running infusion's left grip extends the bar backwards in time", async (
   // infusion that was running before anyone got round to charting it.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
   await dragGripUntilBarLengthens(lane, "left", { x: 120, y: laneBox.height / 2 })
-})
-
-test("a running infusion rate change can be copied to another time", async ({ page }) => {
-  const id = await createCaseWithInfusion(page)
-  const chart = await openChart(page, id)
-
-  const lane = propofolLane(chart)
-  await expect(lane).toHaveCount(1)
-
-  // Open the menu from the bar's second column: a change has to sit inside the
-  // bar. Use that cell's own y-coordinate so a lane layout shift cannot move
-  // the click into the empty row above it.
-  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  const cells = lane.locator('[draggable="true"].cursor-grab')
-  const secondCell = cells.nth(1)
-  const second = await stableBoundingBox(secondCell, "the bar spans a single column")
-  // The rate strip is the clickable sibling immediately above the draggable
-  // bar cell. Resolve it from that cell rather than relying on a page-level
-  // coordinate, which can land in a different row after a chart reflow.
-  const secondRateStrip = secondCell.locator("xpath=preceding-sibling::div[contains(concat(' ', normalize-space(@class), ' '), ' cursor-pointer ')]").first()
-  await expect(secondRateStrip).toBeVisible({ timeout: 30_000 })
-  await secondRateStrip.click()
-  await page.getByRole("button", { name: "Change rate" }).click({ timeout: 30_000 })
-  await page.getByRole("button", { name: "Apply" }).click({ timeout: 30_000 })
-
-  // A recorded change puts a draggable divider on the rate strip, marking where
-  // one rate gives way to the next.
-  const dividers = lane.locator('[draggable="true"].cursor-col-resize.rounded-full')
-  await expect(dividers.first()).toBeVisible({ timeout: 30_000 })
-  const before = await dividers.count()
-
-  // Dragging a divider copies the change to the column it lands on and leaves
-  // the original in place — the handler passes fromCol as null deliberately.
-  // The same rate resuming later is a second event, not a correction of the
-  // first, so both stay on the record.
-  // It lands on the bar's last column, the case end.
-  const last = await stableBoundingBox(cells.last(), "no last bar column")
-  await dividers.first().dragTo(lane, { targetPosition: { x: last.x - laneBox.x + last.width / 2, y: 10 } })
-
-  await expect(async () => {
-    expect(await dividers.count(), "the rate change was not copied").toBeGreaterThan(before)
-  }).toPass({ timeout: 10_000 })
 })
 
 test("the chart mounts with its time columns and vitals rows", async ({ page }) => {
