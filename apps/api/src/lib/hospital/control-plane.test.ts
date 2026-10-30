@@ -26,6 +26,11 @@ vi.mock("@/lib/prisma", () => ({
     centralDeliveryBatch: { findMany: mocks.batches, groupBy: mocks.queues },
     clinicalGuidancePolicy: { findUnique: mocks.guidance },
     hospitalCaseVisibilityPolicy: { findUnique: mocks.caseVisibility },
+    // The control-plane view now includes the Status operating-theatres
+    // policy and list. Keep this unit test's Prisma double complete even
+    // though this fixture is about the other control-plane sections.
+    operatingTheatrePolicy: { findUnique: async () => null },
+    operatingTheatre: { findMany: async () => [] },
     // A site with nothing mapped yet, which is what every site is on its first
     // day. The view has to hold up with all three lists empty.
     hospitalEhrLabCodeMap: { findMany: async () => [] },
