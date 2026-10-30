@@ -1,5 +1,16 @@
 # Changelog - LOSPOR Hospital
 
+## [1.7.2] - 2026-10-30
+
+Completes the Status navigation introduced in 1.7.1 so every supported skin
+can reach the full preoperative configuration surface.
+
+### Fixed
+
+- Restored visible Status submenus in modern skins.
+- Added the four preoperative page buttons to the legacy skin as well.
+- Accepted the known unfixed Caddy `go-jose/v3` CVE for this exact release.
+
 ## [1.7.1] - 2026-10-30
 
 Carries the verified 1.7.0 Status bundle and upstream pins into the first

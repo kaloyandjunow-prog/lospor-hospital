@@ -5,7 +5,7 @@
 Hospital release е приемлив само след успешни automated quality workflow и
 Linux appliance drill. Serverless демонстрацията не е част от упражнението.
 
-За клиничния кандидат 1.7.1 координираният набор е Core, API, Web и PWA 10.0.2;
+За клиничния кандидат 1.7.2 координираният набор е Core, API, Web и PWA 10.0.2;
 Browser е 0.10.0. Прегледайте и внесете промените в този ред: Core, Web, PWA,
 Browser, API. API е нарочно последен, защото маршрутите за финализиране
 използват общия Core договор. Локалните Hospital package overlay-и се запазват,

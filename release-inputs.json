@@ -55,9 +55,9 @@
     },
     "vulnerabilityReview": {
       "status": "accepted-provenance-only",
-      "release": "1.7.1",
+      "release": "1.7.2",
       "reviewedAt": "2026-10-30",
-      "rationale": "Fresh review for Hospital 1.7.1, approved on 2026-10-30. PostgreSQL 17.11, zlib 1.3.2, ACL 2.4.0, their checksums, URLs, Debian snapshot, configure flags, embedded build records, and all pinned base-image digests were reviewed for this candidate. Source-built PostgreSQL components remain provenance-only because Trivy does not vulnerability-map them; all scanner findings without fixes are handled by the exact release-scoped vulnerability exceptions.",
+      "rationale": "Fresh review for Hospital 1.7.2, approved on 2026-10-30. PostgreSQL 17.11, zlib 1.3.2, ACL 2.4.0, their checksums, URLs, Debian snapshot, configure flags, embedded build records, and all pinned base-image digests were reviewed for this candidate. Source-built PostgreSQL components remain provenance-only because Trivy does not vulnerability-map them; all scanner findings without fixes are handled by the exact release-scoped vulnerability exceptions.",
       "evidenceUrls": [
         "https://security-tracker.debian.org/tracker/CVE-2026-84782",
         "https://security-tracker.debian.org/tracker/CVE-2026-103111",

@@ -574,7 +574,6 @@ export const SKIN_STYLE = `
 :root:not([data-skin="legacy"]) body{background:var(--paper);color:var(--ink)}
 :root:not([data-skin="legacy"]) .shell{width:min(1240px,calc(100% - 2rem))}
 :root:not([data-skin="legacy"]) a{color:var(--accent)}
-:root:not([data-skin="legacy"]) .subnav{display:none}
 .skin-head{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;padding:1rem 0 .7rem}
 .skin-head .brand{font-weight:780;color:var(--ink);text-decoration:none;font-size:1.05rem;margin-right:.4rem;display:inline-flex;align-items:center;gap:.45rem}
 .lospor-symbol{width:1.15rem;height:2.2rem;flex:none}

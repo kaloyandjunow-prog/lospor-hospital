@@ -1480,7 +1480,6 @@ export function renderControlPlane(
       + clinicalBaselineFacts("Pediatric calculation guidance", "Изчислени насоки — деца", guidance.pediatricEnabled, guidance.baselines.pediatric, locale)
     : ""
   const preoperativePanel = preoperative ? `<div class="component"><h3>${localize(locale, "Preoperative assessment contract", "Правила за предоперативната оценка")}</h3><div class="facts">${textFact(localize(locale, "Profile scope", "Обхват на профила"), preoperative.scope)}${textFact(localize(locale, "Bundled catalog", "Вграден каталог"), preoperative.catalogVersion)}${textFact(localize(locale, "Catalog source", "Източник на каталога"), preoperative.source)}${textFact(localize(locale, "Clinical administration API", "API за клинично администриране"), preoperative.profileAdministrationPath)}</div><p>${localize(locale, "Questions are bundled and cannot be edited. The appliance has one profile for adults and one for children; administrators switch questions on or off, set their order and mark them required, and every case follows the profile of its mode from its next load.", "Въпросите са вградени и не могат да се редактират. Сървърът има профил за възрастни и профил за деца: администраторите включват и изключват въпроси, задават реда им и ги отбелязват като задължителни, а всеки случай следва профила на своя режим от следващото си отваряне.")}</p></div>` : ""
-  const preopAdministration = preoperative ? `${renderPreopAdministration(preoperative, locale)}${renderPreopDocuments(preoperative.documents, locale)}` : ""
   // 1.7.0: the preoperative form's page has four tabs, and the postoperative
   // form a page of its own.
   const preopSections = preoperative?.administration?.sections
@@ -1497,7 +1496,6 @@ export function renderControlPlane(
   const indicatorsPage = renderIndicatorsPage(view?.indicators, locale)
   // The preop questions, summary and consent have their own page (1.6.1);
   // the legacy skin keeps them above the guidance, where they always were.
-  const preopPage = `${preoperativePanel}${renderPreopSectionsEditor(preopSections, locale)}${preopAdministration}${renderPreopOrderListsEditor(preopSections, locale)}`
   const guidancePolicy = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
 
   const caseVisibility = view?.caseVisibility
@@ -1913,7 +1911,7 @@ export function renderControlPlane(
     {
       slug: "clinical",
       label: localize(locale, "Clinical guidance", "Клинични насоки"),
-      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${preopPage}${guidancePolicy}` : ""}${caseVisibilityControls}</div></section>`,
+      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${renderPreopTabs(preopTab, locale)}${preopTabHtml}${guidancePolicy}` : ""}${caseVisibilityControls}</div></section>`,
     },
     {
       slug: "ehr",

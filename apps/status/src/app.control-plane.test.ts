@@ -418,8 +418,12 @@ describe("Status Hospital control plane", () => {
     expect(legacy).toContain("Настройка за ЕГН")
     expect(legacy).toContain("Карта на лабораторните кодове")
     expect(legacy).toContain("Разрешения за изследвания")
-    // Legacy keeps the preop editor on its clinical page.
-    expect(legacy).toContain("data-preop-order-list")
+    // Both skins expose every preop page through the same tabs.
+    expect(legacy).toContain('href="/status/control/preop/sections"')
+    expect(legacy).toContain('href="/status/control/preop/orders"')
+    expect(legacy).toContain('href="/status/control/preop/documents"')
+    expect(preop).toContain('href="/status/control/preop/sections"')
+    expect(preop).not.toContain(':root:not([data-skin="legacy"]) .subnav{display:none}')
     expect(identity).toContain("Настройка за ЕГН")
     expect(codes).toContain("Карта на лабораторните кодове")
     expect(central).toContain("Изпращане към Central (само изходящо)")
