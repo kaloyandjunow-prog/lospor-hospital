@@ -8,18 +8,68 @@ import { ApiError, apiJson } from "@/lib/api"
  * nothing of them.
  */
 let cached: OperatingTheatreConfig | null = null
+const RETRY_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const
 
-export function useOperatingTheatres(): { config: OperatingTheatreConfig; reload: () => Promise<void> } {
+export function useOperatingTheatres(): { config: OperatingTheatreConfig; reload: () => Promise<boolean> } {
   const [config, setConfig] = useState<OperatingTheatreConfig>(cached ?? OPERATING_THEATRES_OFF)
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (): Promise<boolean> => {
     try {
       cached = parseOperatingTheatreConfig(await apiJson<unknown>("/api/operating-theatres"))
       setConfig(cached)
+      return true
     } catch {
       // Keep what was last read: a dropped connection is not the site switching theatres off.
+      return false
     }
   }, [])
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => {
+    let disposed = false
+    let inFlight = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let retryIndex = 0
+
+    const cancelRetry = () => {
+      if (retryTimer !== null) clearTimeout(retryTimer)
+      retryTimer = null
+    }
+
+    const load = async () => {
+      if (disposed || inFlight) return
+      inFlight = true
+      const success = await reload()
+      inFlight = false
+      if (disposed) return
+      if (success) {
+        retryIndex = 0
+        cancelRetry()
+        return
+      }
+      const delay = RETRY_DELAYS_MS[Math.min(retryIndex, RETRY_DELAYS_MS.length - 1)]
+      retryIndex += 1
+      retryTimer = setTimeout(() => {
+        retryTimer = null
+        void load()
+      }, delay)
+    }
+
+    const refreshWhenForeground = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
+      cancelRetry()
+      retryIndex = 0
+      void load()
+    }
+
+    void load()
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", refreshWhenForeground)
+    if (typeof window !== "undefined") window.addEventListener("focus", refreshWhenForeground)
+
+    return () => {
+      disposed = true
+      cancelRetry()
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", refreshWhenForeground)
+      if (typeof window !== "undefined") window.removeEventListener("focus", refreshWhenForeground)
+    }
+  }, [reload])
   return { config, reload }
 }
 

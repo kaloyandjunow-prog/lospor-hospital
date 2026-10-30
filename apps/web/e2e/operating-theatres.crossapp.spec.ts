@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { contextFor, EMAIL_FOR, JSON_HEADERS } from "./roles"
+import { contextFor, JSON_HEADERS, USERNAME_FOR } from "./roles"
 import { openPhone } from "./pwa"
 import { withTheatres } from "./theatres-setup"
 
@@ -84,7 +84,7 @@ test("theatres are assigned, shown, filtered and fixed at the start of intraop",
     await expect((await caseRow(stale, caseB.code)).getByTestId("theatre-button")).toBeVisible()
 
     // ── Phone: hold a case, assign its theatre ──
-    const phone = await openPhone(browser, EMAIL_FOR["member-a"])
+    const phone = await openPhone(browser, USERNAME_FOR["member-a"])
     try {
       await phone.page.goto("/", { waitUntil: "domcontentloaded" })
       const card = phone.page.getByText(caseB.code, { exact: true }).first()
