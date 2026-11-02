@@ -5,7 +5,7 @@ import { intraopFixture } from "./intraop.fixture.js"
 
 const form = (overrides: Record<string, string> = {}) => ({
   enabled: "true", group_treatmentSuggestions: "true", group_timers: "true", vitalsEnabled: "true", minCases: "200",
-  vial_20: "true", vial_250: "true",
+  vial_20: "true", vial_250: "true", "auto_card:Hypotension": "true", "auto_timer:arrest": "true",
   tail_INFANT_hr_low: "1", tail_INFANT_hr_high: "0.5", tail_INFANT_sbp_low: "0.5", tail_INFANT_sbp_high: "0.5",
   tail_ADULT_hr_low: "0,25", tail_ADULT_hr_high: "5", tail_ADULT_sbp_low: "0.5", tail_ADULT_sbp_high: "2.5",
   ...overrides,
@@ -25,6 +25,11 @@ describe("intraoperative suggestions page (10.2.0)", () => {
     expect(html).toMatch(/name="group_treatmentSuggestions" value="true" checked/)
     expect(html).not.toMatch(/name="group_reverseQuestions" value="true" checked/)
     expect(html).toContain('name="tail_ADULT_hr_low"')
+    // Each line under its group, switched off where Status has switched it off.
+    expect(html).toMatch(/name="auto_card:Hypotension" value="true" checked/)
+    expect(html).not.toMatch(/name="auto_card:Hypertension" value="true" checked/)
+    expect(html).toContain("1 / 2")
+    expect(html).toContain("1 / 1")
     expect(html).toMatch(/name="vial_250" value="true" checked/)
     expect(html).not.toMatch(/name="vial_120" value="true" checked/)
     expect(renderIntraopPage(intraopFixture(), "bg")).toContain("Предложения за лечение")
@@ -40,6 +45,8 @@ describe("intraoperative suggestions page (10.2.0)", () => {
     expect(update.enabled).toBe(true)
     expect(update.groups).toEqual({ treatmentSuggestions: true, reverseQuestions: false, timers: true })
     expect(update.dantroleneVialsMg).toEqual([20, 250])
+    // Lines left unticked are the switched-off list: only Hypotension and the arrest timer are ticked.
+    expect(update.disabled).toEqual(["card:Hypertension"])
     expect(update.vitalQuestions.minCases).toBe(200)
     expect(update.vitalQuestions.tails.ADULT.hr).toEqual({ low: 0.25, high: 5 })
     expect(update.reason).toBe("Agreed by the department")

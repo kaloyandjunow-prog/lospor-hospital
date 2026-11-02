@@ -13,6 +13,7 @@ export function intraopFixture(overrides: Partial<IntraopAutomationConfigView> =
   const config: IntraopAutomationConfigView = {
     enabled: true,
     groups: { treatmentSuggestions: true, reverseQuestions: false, timers: true },
+    disabled: ["card:Hypertension"],
     dantroleneVialsMg: [20, 250],
     vitalQuestions: {
       enabled: true,
@@ -27,6 +28,11 @@ export function intraopFixture(overrides: Partial<IntraopAutomationConfigView> =
       { key: "treatmentSuggestions", labelEn: "Treatment suggestions", labelBg: "Предложения за лечение", detailEn: "The card after a complication.", detailBg: "Картата след усложнение." },
       { key: "reverseQuestions", labelEn: "Questions after a rescue drug", labelBg: "Въпроси след спасително лекарство", detailEn: "Asks which complication.", detailBg: "Пита за кое усложнение." },
       { key: "timers", labelEn: "Follow-ups", labelBg: "Последващи стъпки", detailEn: "Timers after a treatment.", detailBg: "Таймери след лечение." },
+    ],
+    automations: [
+      { id: "card:Hypotension", group: "treatmentSuggestions", labelEn: "Hypotension", labelBg: "Хипотония", detailEn: "Doses to treat it.", detailBg: "Дози за лечение." },
+      { id: "card:Hypertension", group: "treatmentSuggestions", labelEn: "Hypertension", labelBg: "Хипертония", detailEn: "Doses to treat it.", detailBg: "Дози за лечение." },
+      { id: "timer:arrest", group: "timers", labelEn: "Cardiac arrest", labelBg: "Сърдечен арест", detailEn: "Rhythm checks.", detailBg: "Проверки на ритъма." },
     ],
     bands,
     signs,

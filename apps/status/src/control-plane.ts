@@ -178,6 +178,8 @@ export type IndicatorsUpdate = {
 export type IntraopAutomationConfigView = {
   enabled: boolean
   groups: Record<string, boolean>
+  /** The automations switched off one by one, by id; the rest of an enabled group runs. */
+  disabled: string[]
   dantroleneVialsMg: number[]
   vitalQuestions: {
     enabled: boolean
@@ -190,6 +192,8 @@ export type IntraopAutomationView = {
   config: IntraopAutomationConfigView
   /** The groups, in the order shown, with their names. */
   groups: Array<{ key: string; labelEn: string; labelBg: string; detailEn: string; detailBg: string }>
+  /** Every automation, under its group, with its name and what it does. */
+  automations: Array<{ id: string; group: string; labelEn: string; labelBg: string; detailEn: string; detailBg: string }>
   bands: Array<{ key: string; labelEn: string; labelBg: string }>
   signs: Array<{ key: string; labelEn: string; labelBg: string }>
   /** The shares of readings the slider offers, in percent. */
@@ -944,6 +948,10 @@ export function intraopAutomationShape(value: unknown): value is IntraopAutomati
   const vitals = config.vitalQuestions
   return typeof config.enabled === "boolean"
     && isRecord(config.groups) && Object.values(config.groups).every(item => typeof item === "boolean")
+    && Array.isArray(config.disabled) && config.disabled.length <= 500 && config.disabled.every(id => text(id, 100))
+    && Array.isArray(value.automations) && value.automations.length <= 500
+    && value.automations.every(item => isRecord(item) && text(item.id, 100) && text(item.group, 40)
+      && text(item.labelEn, 200) && text(item.labelBg, 200) && text(item.detailEn, 600) && text(item.detailBg, 600))
     && numbers(config.dantroleneVialsMg, 10)
     && isRecord(vitals) && typeof vitals.enabled === "boolean" && finiteInteger(vitals.minCases, 1_000_000) && isRecord(vitals.tails)
     && Array.isArray(value.groups) && value.groups.length <= 20

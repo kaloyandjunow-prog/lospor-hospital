@@ -42,6 +42,8 @@ export function intraopUpdateFromForm(view: IntraopAutomationView, body: Record<
   return {
     enabled: on("enabled"),
     groups: Object.fromEntries(view.groups.map(group => [group.key, on(`group_${group.key}`)])),
+    // A line is on when its box is ticked; the ones left unticked are the switched-off list.
+    disabled: view.automations.filter(item => !on(`auto_${item.id}`)).map(item => item.id).sort(),
     dantroleneVialsMg: vials,
     vitalQuestions: { enabled: on("vitalsEnabled"), minCases, tails },
     reason,
@@ -53,8 +55,8 @@ const percent = (value: number) => `${String(value).replace(".", ",")} %`
 /** Hospital control · Intraoperative suggestions. */
 export function renderIntraopPage(view: IntraopAutomationView | null | undefined, locale: StatusLocale): string {
   const intro = `<p>${localize(locale,
-    "Questions, suggestions and reminders on the intraoperative record. Everything starts off. Nothing is recorded without a clinician's tap, and switching a group off never changes what was already charted. Each clinician can also turn a group off for themselves in their own settings; a group that is off here is not offered to them at all.",
-    "Въпроси, предложения и напомняния в интраоперативния запис. Всичко започва изключено. Нищо не се записва без докосване от лекаря, а изключването на група никога не променя вече записаното. Всеки лекар може да изключи група и за себе си в своите настройки; група, изключена тук, не се предлага изобщо.")}</p>`
+    "Questions, suggestions and reminders on the intraoperative record. Everything starts off. Switching a group on turns on everything in it; each line can then be switched off on its own. Nothing is recorded without a clinician's tap, and switching a group off never changes what was already charted. Each clinician can also turn a group off for themselves in their own settings; a group that is off here is not offered to them at all.",
+    "Въпроси, предложения и напомняния в интраоперативния запис. Всичко започва изключено. Включването на група включва всичко в нея; всеки ред може после да се изключи поотделно. Нищо не се записва без докосване от лекаря, а изключването на група никога не променя вече записаното. Всеки лекар може да изключи група и за себе си в своите настройки; група, изключена тук, не се предлага изобщо.")}</p>`
   if (!view) {
     return `<div class="component" id="${ANCHOR}">${intro}<div class="empty">${localize(locale, "This API does not offer the intraoperative suggestions yet.", "Този API още не предлага интраоперативните предложения.")}</div></div>`
   }
@@ -63,7 +65,14 @@ export function renderIntraopPage(view: IntraopAutomationView | null | undefined
   const check = (name: string, checked: boolean, text: string, testId?: string) =>
     `<label class="check"><input type="checkbox" name="${name}" value="true"${checked ? " checked" : ""}${testId ? ` data-testid="${testId}"` : ""}> ${text}</label>`
 
-  const groups = view.groups.map(group => `<div class="intraop-group">${check(`group_${escapeHtml(group.key)}`, config.groups[group.key] === true, `<strong>${label(group)}</strong>`, `intraop-group-${escapeHtml(group.key)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? group.detailBg : group.detailEn)}</span></div>`).join("")
+  const lines = (key: string) => {
+    const items = view.automations.filter(item => item.group === key)
+    if (items.length === 0) return ""
+    const running = items.filter(item => !config.disabled.includes(item.id)).length
+    const rows = items.map(item => `<li>${check(`auto_${escapeHtml(item.id)}`, !config.disabled.includes(item.id), `${label(item)}`, `intraop-line-${escapeHtml(item.id)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? item.detailBg : item.detailEn)}</span></li>`).join("")
+    return `<details class="intraop-lines"><summary>${localize(locale, "Each one on its own", "Всяка поотделно")} · ${running} / ${items.length} ${localize(locale, "on", "включени")}</summary><ul>${rows}</ul></details>`
+  }
+  const groups = view.groups.map(group => `<div class="intraop-group">${check(`group_${escapeHtml(group.key)}`, config.groups[group.key] === true, `<strong>${label(group)}</strong>`, `intraop-group-${escapeHtml(group.key)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? group.detailBg : group.detailEn)}</span>${lines(group.key)}</div>`).join("")
 
   const tailOptions = (selected: number) => view.tailSteps.map(step => `<option value="${step}"${step === selected ? " selected" : ""}>${percent(step)}</option>`).join("")
   const bandRows = view.bands.map(band => {
@@ -100,6 +109,7 @@ ${check("vitalsEnabled", config.vitalQuestions.enabled, localize(locale, "Ask ab
 }
 
 export const INTRAOP_STYLE = `.intraop-groups{display:grid;gap:.5rem;margin:.4rem 0}.intraop-group{display:grid;gap:.15rem}.intraop-group .component-detail{margin-left:1.7rem}
+.intraop-lines{margin:.3rem 0 0 1.7rem}.intraop-lines summary{cursor:pointer;color:var(--muted)}.intraop-lines ul{list-style:none;margin:.4rem 0 0;padding:0;display:grid;gap:.45rem}.intraop-lines li{display:grid;gap:.1rem}.intraop-lines li .component-detail{margin-left:1.7rem}
 .intraop-vials{display:flex;flex-wrap:wrap;gap:1rem;margin:.4rem 0}
 .intraop-tails th,.intraop-tails td{text-align:center}.intraop-tails th:first-child,.intraop-tails th[scope=row]{text-align:left}.intraop-tails th .component-detail{display:block;font-weight:400}
 .intraop-pair{display:inline-flex;gap:.3rem}.intraop-pair select{width:auto;margin:0;padding:.35rem .4rem}
