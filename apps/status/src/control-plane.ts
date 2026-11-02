@@ -203,6 +203,11 @@ export type IntraopAutomationView = {
   minCasesRange: { min: number; max: number }
   /** The vial sizes the hospital may stock, in mg. */
   vialSizesMg: number[]
+  /**
+   * How each automation was received over the last `days` days, from the saved
+   * charts (no case or clinician named). Absent from an older API.
+   */
+  acceptance?: { days: number; cases: number; byId: Record<string, { accepted: number; dismissed: number }> } | null
 }
 
 export type IntraopAutomationUpdate = IntraopAutomationConfigView & { reason: string }
@@ -961,6 +966,13 @@ export function intraopAutomationShape(value: unknown): value is IntraopAutomati
     && numbers(value.tailSteps, 20) && typeof value.defaultTail === "number" && finiteInteger(value.defaultMinCases, 1_000_000)
     && finiteInteger(value.minCasesRange.min, 1_000_000) && finiteInteger(value.minCasesRange.max, 1_000_000)
     && numbers(value.vialSizesMg, 10)
+    && (value.acceptance == null || acceptanceShape(value.acceptance))
+}
+
+function acceptanceShape(value: unknown): boolean {
+  return isRecord(value) && finiteInteger(value.days, 3650) && finiteInteger(value.cases, 10_000_000) && isRecord(value.byId)
+    && Object.entries(value.byId).length <= 500
+    && Object.values(value.byId).every(entry => isRecord(entry) && finiteInteger(entry.accepted, 100_000_000) && finiteInteger(entry.dismissed, 100_000_000))
 }
 
 /** Exported for the API's contract test: the view it sends must pass this. */

@@ -41,5 +41,6 @@ export function intraopFixture(overrides: Partial<IntraopAutomationConfigView> =
     defaultMinCases: 100,
     minCasesRange: { min: 20, max: 10_000 },
     vialSizesMg: [20, 120, 250],
+    acceptance: { days: 90, cases: 240, byId: { "card:Hypotension": { accepted: 30, dismissed: 10 }, "card:Hypertension": { accepted: 1, dismissed: 14 } } },
   }
 }

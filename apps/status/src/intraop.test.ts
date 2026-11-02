@@ -35,6 +35,16 @@ describe("intraoperative suggestions page (10.2.0)", () => {
     expect(renderIntraopPage(intraopFixture(), "bg")).toContain("Предложения за лечение")
   })
 
+  it("shows how each line was received, and marks one that is mostly put away", () => {
+    const html = renderIntraopPage(intraopFixture(), "en")
+    expect(html).toContain('data-testid="intraop-acceptance"')
+    expect(html).toContain("30 taken · 10 not now · 75 %")
+    expect(html).toMatch(/data-noisy>1 taken · 14 not now · 7 % — rarely taken up/)
+    expect(html).toContain("no answers")
+    expect(renderIntraopPage({ ...intraopFixture(), acceptance: null }, "en")).not.toContain("intraop-acceptance")
+    expect(intraopAutomationShape({ ...intraopFixture(), acceptance: { days: 90, cases: 1, byId: { x: { accepted: "1", dismissed: 0 } } } })).toBe(false)
+  })
+
   it("degrades when the API does not offer the page yet", () => {
     expect(renderIntraopPage(null, "en")).toContain("This API does not offer the intraoperative suggestions yet.")
     expect(renderIntraopPage(undefined, "bg")).toContain("още не предлага")

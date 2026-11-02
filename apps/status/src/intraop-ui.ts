@@ -65,11 +65,23 @@ export function renderIntraopPage(view: IntraopAutomationView | null | undefined
   const check = (name: string, checked: boolean, text: string, testId?: string) =>
     `<label class="check"><input type="checkbox" name="${name}" value="true"${checked ? " checked" : ""}${testId ? ` data-testid="${testId}"` : ""}> ${text}</label>`
 
+  // How each line was received over the period, beside the switch that can turn a noisy one off.
+  const acceptance = view.acceptance
+  const received = (id: string) => {
+    if (!acceptance) return ""
+    const counts = acceptance.byId[id]
+    if (!counts || counts.accepted + counts.dismissed === 0) return ` <span class="intraop-stat" data-quiet>${localize(locale, "no answers", "няма отговори")}</span>`
+    const answered = counts.accepted + counts.dismissed
+    const share = Math.round((counts.accepted / answered) * 100)
+    // Ten answers or more with fewer than one in five taken up: worth a look.
+    const noisy = answered >= 10 && share < 20
+    return ` <span class="intraop-stat"${noisy ? " data-noisy" : ""}>${counts.accepted} ${localize(locale, "taken", "приети")} · ${counts.dismissed} ${localize(locale, "not now", "не сега")} · ${share} %${noisy ? ` — ${localize(locale, "rarely taken up", "рядко се приема")}` : ""}</span>`
+  }
   const lines = (key: string) => {
     const items = view.automations.filter(item => item.group === key)
     if (items.length === 0) return ""
     const running = items.filter(item => !config.disabled.includes(item.id)).length
-    const rows = items.map(item => `<li>${check(`auto_${escapeHtml(item.id)}`, !config.disabled.includes(item.id), `${label(item)}`, `intraop-line-${escapeHtml(item.id)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? item.detailBg : item.detailEn)}</span></li>`).join("")
+    const rows = items.map(item => `<li>${check(`auto_${escapeHtml(item.id)}`, !config.disabled.includes(item.id), `${label(item)}`, `intraop-line-${escapeHtml(item.id)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? item.detailBg : item.detailEn)}${received(item.id)}</span></li>`).join("")
     return `<details class="intraop-lines"><summary>${localize(locale, "Each one on its own", "Всяка поотделно")} · ${running} / ${items.length} ${localize(locale, "on", "включени")}</summary><ul>${rows}</ul></details>`
   }
   const groups = view.groups.map(group => `<div class="intraop-group">${check(`group_${escapeHtml(group.key)}`, config.groups[group.key] === true, `<strong>${label(group)}</strong>`, `intraop-group-${escapeHtml(group.key)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? group.detailBg : group.detailEn)}</span>${lines(group.key)}</div>`).join("")
@@ -92,6 +104,9 @@ export function renderIntraopPage(view: IntraopAutomationView | null | undefined
 ${check("enabled", config.enabled, `<strong>${localize(locale, "Use intraoperative suggestions", "Използване на интраоперативни предложения")}</strong>`, "intraop-enabled")}
 <p class="component-detail">${localize(locale, "Off: no questions and no suggestions anywhere, whatever is chosen below.", "Изключено: никакви въпроси и предложения никъде, каквото и да е избрано по-долу.")}</p>
 <h4>${localize(locale, "Groups", "Групи")}</h4>
+${acceptance ? `<p class="component-detail" data-testid="intraop-acceptance">${localize(locale,
+    `Beside each line: how often it was taken up and how often put away, over the ${acceptance.days} days before today (${acceptance.cases} cases). A line that is mostly put away may be noise; switch it off here. Reminders and follow-ups only show when put away.`,
+    `До всеки ред: колко често е приет и колко често е оставен настрана през последните ${acceptance.days} дни (${acceptance.cases} случая). Ред, който почти винаги се оставя настрана, може да е шум; изключете го тук. Напомнянията и последващите стъпки се виждат само когато са оставени настрана.`)}</p>` : ""}
 <div class="intraop-groups">${groups}</div>
 <h4>${localize(locale, "Questions from the vital signs", "Въпроси от жизнените показатели")}</h4>
 ${check("vitalsEnabled", config.vitalQuestions.enabled, localize(locale, "Ask about unusual heart rate and blood pressure", "Питане при необичаен пулс и кръвно налягане"), "intraop-vitals")}
@@ -110,6 +125,7 @@ ${check("vitalsEnabled", config.vitalQuestions.enabled, localize(locale, "Ask ab
 
 export const INTRAOP_STYLE = `.intraop-groups{display:grid;gap:.5rem;margin:.4rem 0}.intraop-group{display:grid;gap:.15rem}.intraop-group .component-detail{margin-left:1.7rem}
 .intraop-lines{margin:.3rem 0 0 1.7rem}.intraop-lines summary{cursor:pointer;color:var(--muted)}.intraop-lines ul{list-style:none;margin:.4rem 0 0;padding:0;display:grid;gap:.45rem}.intraop-lines li{display:grid;gap:.1rem}.intraop-lines li .component-detail{margin-left:1.7rem}
+.intraop-stat{display:inline-block;margin-left:.4rem;font-variant-numeric:tabular-nums}.intraop-stat[data-quiet]{opacity:.7}.intraop-stat[data-noisy]{color:var(--warn);font-weight:650}
 .intraop-vials{display:flex;flex-wrap:wrap;gap:1rem;margin:.4rem 0}
 .intraop-tails th,.intraop-tails td{text-align:center}.intraop-tails th:first-child,.intraop-tails th[scope=row]{text-align:left}.intraop-tails th .component-detail{display:block;font-weight:400}
 .intraop-pair{display:inline-flex;gap:.3rem}.intraop-pair select{width:auto;margin:0;padding:.35rem .4rem}
