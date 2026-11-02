@@ -91,6 +91,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   ] },
   { id: "clinical", en: "Clinical setup", bg: "Клинични настройки", items: [
     { id: "preop", path: "/status/control/preop", also: ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"], en: "Preoperative form", bg: "Предоперативна форма", descEn: "Its sections, the questions asked, ward orders and medication instructions, the summary page and the written consent.", descBg: "Разделите, задаваните въпроси, назначенията и указанията за медикаментите, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
+    { id: "intraop", path: "/status/control/intraop", en: "Intraoperative suggestions", bg: "Интраоперативни предложения", descEn: "The questions, suggestions and reminders on the intraoperative record, and the dantrolene vials in stock.", descBg: "Въпросите, предложенията и напомнянията в интраоперативния запис и наличните флакони дантролен.", audiences: PASSWORD },
     { id: "postop", path: "/status/control/postop", en: "Postoperative form", bg: "Следоперативна форма", descEn: "Its sections, the pain scales by age, and what a case needs to be finalised.", descBg: "Разделите, скалите за болка според възрастта и какво е нужно, за да се приключи случай.", audiences: PASSWORD },
     { id: "theatres", path: "/status/control/theatres", en: "Operating theatres", bg: "Операционни зали", descEn: "Whether cases are given a theatre, and the theatres' names.", descBg: "Дали на случаите се задава зала, и имената на залите.", audiences: PASSWORD },
     { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотония според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
@@ -665,6 +666,11 @@ export const SKIN_STYLE = `
 .chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.1rem 0 .2rem}
 .chips a{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:.25rem .8rem;font-size:.875rem;text-decoration:none;color:var(--ink)}
 .chips a[aria-current=page]{border-color:var(--accent);color:var(--accent);background:var(--glow);font-weight:650}
+/* The modern skins already title the page; a section heading that repeats it is hidden, and the preoperative form's tabs are chips like the page's own. */
+:root:not([data-skin="legacy"]) .skin-dup{display:none}
+:root:not([data-skin="legacy"]) .preop-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.1rem 0 .9rem;padding:0;border:0;background:none}
+:root:not([data-skin="legacy"]) .preop-tabs a{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:.25rem .8rem;font-size:.875rem;text-decoration:none;color:var(--ink);min-height:0;flex:none;box-shadow:none}
+:root:not([data-skin="legacy"]) .preop-tabs a[aria-current=page]{border-width:1px;box-shadow:none;border-color:var(--accent);color:var(--accent);background:var(--glow);font-weight:650}
 @keyframes grow{from{transform:scaleY(0)}}
 @keyframes sweep{to{transform:scaleX(0)}}
 @media(prefers-reduced-motion:reduce){.cases .bar,.strip::after{animation:none}.strip::after{display:none}.map .packet{display:none}}

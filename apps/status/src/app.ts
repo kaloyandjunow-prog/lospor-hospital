@@ -82,6 +82,7 @@ import { PreopSectionsFormError, isPreopSectionsPart, preopSectionsUpdateFromFor
 import { drugColorUpdateFromForm, type DrugColorsQuery } from "./drug-colors-ui.js"
 import { theatreListChangeFromForm } from "./operating-theatres-ui.js"
 import { indicatorsUpdateFromForm } from "./indicators-ui.js"
+import { intraopUpdateFromForm } from "./intraop-ui.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -302,6 +303,7 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     ORDER_OPTION_LABELS_REQUIRED: ["A row of your own needs its text in both English and Bulgarian, up to 200 characters each. Nothing was changed.", "Ваш ред трябва да има текст и на английски, и на български, до 200 знака всеки. Нищо не е променено."],
     BUNDLED_ORDER_OPTION_CANNOT_BE_REMOVED: ["A bundled row can be switched off but not removed. Nothing was changed.", "Вграден ред може да се изключи, но не и да се премахне. Нищо не е променено."],
     UNKNOWN_PREOP_SECTION: ["That section does not exist for this population. Nothing was changed.", "Този раздел не съществува за тази група. Нищо не е променено."],
+    INTRAOP_AUTOMATION_INVALID: ["A setting is out of range: the cases a band needs, a share of readings, or no dantrolene vial size ticked. Nothing was changed.", "Настройка е извън допустимото: случаите, нужни на група, дял от показанията или не е отбелязан размер флакон дантролен. Нищо не е променено."],
     INDICATOR_THRESHOLD_INVALID: ["A threshold is missing or out of range: SpO₂ 50–100 %, temperature 30–38 °C, pain 0–9, PAED 1–20, MAP 10–150 mmHg, systolic 20–200 mmHg. Nothing was changed.", "Праг липсва или е извън допустимото: SpO₂ 50–100 %, температура 30–38 °C, болка 0–9, PAED 1–20, САН 10–150 mmHg, систолно 20–200 mmHg. Нищо не е променено."],
     THEATRE_NAME_INVALID: ["A theatre needs a name of up to 60 characters. Nothing was changed.", "Залата трябва да има име до 60 знака. Нищо не е променено."],
     THEATRE_NAME_TAKEN: ["An active theatre already has that name. Nothing was changed.", "Действаща зала вече има това име. Нищо не е променено."],
@@ -1436,6 +1438,7 @@ export function createStatusApp({
   app.get("/status/control/drug-colors", context => controlGet(context, "drug-colors"))
   app.get("/status/control/theatres", context => controlGet(context, "theatres"))
   app.get("/status/control/indicators", context => controlGet(context, "indicators"))
+  app.get("/status/control/intraop", context => controlGet(context, "intraop"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))
@@ -1898,6 +1901,19 @@ export function createStatusApp({
     },
     locale => localize(locale, "The unit indicators settings were saved and audited. Every case is counted against them from the next time the indicators are opened.", "Настройките на индикаторите са запазени и записани в одитния журнал. Всеки случай се отчита по тях при следващото отваряне на индикаторите."),
     "indicators",
+  ))
+
+  // The intraoperative suggestions (10.2.0): the switches, the vitals limits
+  // and the dantrolene vials in stock, behind the password with a reason.
+  app.post("/status/control/intraop", context => sensitiveControlAction(
+    context,
+    async body => {
+      const view = (await controlPlane.get()).intraopAutomation
+      if (!view) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      return controlPlane.updateIntraopAutomation(intraopUpdateFromForm(view, body, formText(body, "reason", 10, 1000)))
+    },
+    locale => localize(locale, "The intraoperative suggestions settings were saved and audited. Open records pick them up the next time they are opened.", "Настройките на интраоперативните предложения са запазени и записани в одитния журнал. Отворените записи ги прилагат при следващото отваряне."),
+    "intraop",
   ))
 
   // The operating theatres' switch (10.0.0): a decision for the whole site,

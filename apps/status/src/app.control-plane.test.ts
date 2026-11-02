@@ -8,6 +8,8 @@ import { totpCode } from "./mfa.js"
 import { preopSectionsFixture } from "./preop-sections.fixture.js"
 import { drugColorsFixture } from "./drug-colors.fixture.js"
 import { indicatorsFixture } from "./indicators.fixture.js"
+import { intraopFixture } from "./intraop.fixture.js"
+import { NAV_GROUPS } from "./ui-shell.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
 const HASH = "a".repeat(64)
@@ -310,6 +312,7 @@ function setup() {
     updateDrugColor: vi.fn(async () => {}),
     changeOperatingTheatres: vi.fn(async () => {}),
     updateIndicators: vi.fn(async () => {}),
+    updateIntraopAutomation: vi.fn(async () => {}),
     configureCentral: vi.fn(async () => {}),
     setCentralPolicy: vi.fn(async () => {}),
     retryCentralBatch: vi.fn(async () => {}),
@@ -425,12 +428,14 @@ describe("Status Hospital control plane", () => {
     expect(legacy).toContain('href="/status/control/postop"')
     expect(legacy).toContain('href="/status/control/theatres"')
     expect(legacy).toContain('href="/status/control/indicators"')
+    expect(legacy).toContain('href="/status/control/intraop"')
     expect(legacy).toContain('href="/status/control/drug-colors"')
     expect((legacy.match(/class="statusnav subnav control-subnav"/g) ?? []).length).toBe(4)
     expect(preop).toContain('href="/status/control/preop/sections"')
     expect(preop).toContain('href="/status/control/postop"')
     expect(preop).toContain('href="/status/control/theatres"')
     expect(preop).toContain('href="/status/control/indicators"')
+    expect(preop).toContain('href="/status/control/intraop"')
     expect(preop).toContain('href="/status/control/drug-colors"')
     expect(preop).not.toContain('class="statusnav subnav control-subnav"')
     expect(preop).not.toContain(':root:not([data-skin="legacy"]) .subnav{display:none}')
@@ -1906,6 +1911,51 @@ describe("the operating theatres (10.0.0)", () => {
     vi.spyOn(controlPlane, "changeOperatingTheatres").mockRejectedValue(new ControlPlaneClientError("THEATRE_NAME_TAKEN"))
     const refused = await post(app, cookie, "/status/control/operating-theatres", { action: "rename", id: "t1", name: "Зала 2" })
     expect(await refused.text()).toContain("Действаща зала вече има това име")
+  })
+})
+
+describe("the Legacy skin keeps up with the modern ones", () => {
+  it("links to every hospital-control page the modern navigation offers", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const legacy = await app.request("/status/control", { headers: { cookie: `${cookie}; lospor_status_skin=legacy` } })
+    const html = await legacy.text()
+    // A page added to the modern navigation must be reachable here too, or it is a page one skin cannot open.
+    const modern = NAV_GROUPS.flatMap(group => group.items.flatMap(item => [item.path, ...(item.also ?? [])]))
+      .filter(path => path.startsWith("/status/control/"))
+    expect(modern.length).toBeGreaterThan(10)
+    const missing = modern.filter(path => !html.includes(`href="${path}"`))
+    // Pages that are tabs of another page (the preop tabs) are reached through that page's own tabs.
+    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"]
+    // Codes, patient identification and Central are sections of Legacy's Hospital system and Research pages (checked above).
+    const folded = ["/status/control/codes", "/status/control/identity", "/status/control/central"]
+    expect(missing.filter(path => !tabs.includes(path) && !folded.includes(path))).toEqual([])
+  })
+})
+
+describe("the intraoperative suggestions settings (10.2.0)", () => {
+  it("has a page and saves only with the password and a reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const cookie = await passwordCookie(app, auth)
+    expect(await (await app.request("/status/control/intraop", { headers: { cookie } })).text()).toContain('data-testid="intraop-form"')
+    const fields = {
+      enabled: "true", group_timers: "true", vitalsEnabled: "true", minCases: "100", vial_20: "true", vial_250: "true",
+      tail_INFANT_hr_low: "0.5", tail_INFANT_hr_high: "0.5", tail_INFANT_sbp_low: "0.5", tail_INFANT_sbp_high: "0.5",
+      tail_ADULT_hr_low: "0.5", tail_ADULT_hr_high: "0.5", tail_ADULT_sbp_low: "0.5", tail_ADULT_sbp_high: "0.5",
+      reason: "Agreed at the department meeting",
+    }
+    const post = (extra: Record<string, string>) => app.request("/status/control/intraop", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...fields, ...extra }).toString(),
+    })
+    await post({})
+    expect(controlPlane.updateIntraopAutomation).not.toHaveBeenCalled()
+    await post({ password: "Initial password phrase1!" })
+    expect(controlPlane.updateIntraopAutomation).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: true, dantroleneVialsMg: [20, 250], reason: "Agreed at the department meeting",
+    }))
   })
 })
 

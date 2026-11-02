@@ -42,6 +42,7 @@ import { preopTabFor, renderPostopFormEditor, renderPreopOrderListsEditor, rende
 import { DRUG_COLORS_STYLE, renderDrugColorsPage, type DrugColorsQuery } from "./drug-colors-ui.js"
 import { renderOperatingTheatresPage, THEATRES_STYLE } from "./operating-theatres-ui.js"
 import { INDICATORS_STYLE, renderIndicatorsPage } from "./indicators-ui.js"
+import { INTRAOP_STYLE, renderIntraopPage } from "./intraop-ui.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
 import { PREFS_STYLE, SKIN_STYLE, THEME_STYLE, htmlAttributes, isLegacy, legacyProfileLink, NAV_PATHS, skinHeader, ui, availabilityStrips, configureBody, goLiveCard, overviewMap, preferencesBody, rangeSwitch, todoList, usageCard, verdictCard, type AvailabilityRange } from "./ui-shell.js"
@@ -527,6 +528,7 @@ const PAGE_STYLE = `
 ${DRUG_COLORS_STYLE}
 ${THEATRES_STYLE}
 ${INDICATORS_STYLE}
+${INTRAOP_STYLE}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
 @media(max-width:760px){.preop-order-row{grid-template-columns:auto auto minmax(0,1fr)}.preop-row-switches,.preop-order-number,.preop-order-actions{grid-column:3}.preop-order-actions{justify-content:flex-start}.preop-fixed-row{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -1494,6 +1496,7 @@ export function renderControlPlane(
   const drugColorsPage = renderDrugColorsPage(view?.drugColors, locale, drugColorsQuery)
   const theatresPage = renderOperatingTheatresPage(view?.operatingTheatres, locale)
   const indicatorsPage = renderIndicatorsPage(view?.indicators, locale)
+  const intraopPage = renderIntraopPage(view?.intraopAutomation, locale)
   // The preop questions, summary and consent have their own page (1.6.1);
   // the legacy skin keeps them above the guidance, where they always were.
   const guidancePolicy = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
@@ -1902,10 +1905,11 @@ export function renderControlPlane(
   ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
 
   const newPages: { slug: string; label: string; html: string }[] = [
-    { slug: "postop", label: localize(locale, "Postoperative form", "Следоперативна форма"), html: `<section class="section"><h2>${localize(locale, "Postoperative form", "Следоперативна форма")}</h2><div class="card">${postopPage || `<div class="empty">${localize(locale, "This API does not offer the postoperative sections yet.", "Този API още не предлага разделите на следоперативната форма.")}</div>`}</div></section>` },
-    { slug: "theatres", label: localize(locale, "Operating theatres", "Операционни зали"), html: `<section class="section"><h2>${localize(locale, "Operating theatres", "Операционни зали")}</h2><div class="card">${theatresPage}</div></section>` },
-    { slug: "indicators", label: localize(locale, "Unit indicators", "Индикатори на отделението"), html: `<section class="section"><h2>${localize(locale, "Unit indicators", "Индикатори на отделението")}</h2><div class="card">${indicatorsPage}</div></section>` },
-    { slug: "drug-colors", label: localize(locale, "Drug colours", "Цветове на лекарствата"), html: `<section class="section"><h2>${localize(locale, "Drug colours", "Цветове на лекарствата")}</h2><div class="card">${drugColorsPage}</div></section>` },
+    { slug: "intraop", label: localize(locale, "Intraoperative suggestions", "Интраоперативни предложения"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Intraoperative suggestions", "Интраоперативни предложения")}</h2><div class="card">${intraopPage}</div></section>` },
+    { slug: "postop", label: localize(locale, "Postoperative form", "Следоперативна форма"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Postoperative form", "Следоперативна форма")}</h2><div class="card">${postopPage || `<div class="empty">${localize(locale, "This API does not offer the postoperative sections yet.", "Този API още не предлага разделите на следоперативната форма.")}</div>`}</div></section>` },
+    { slug: "theatres", label: localize(locale, "Operating theatres", "Операционни зали"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Operating theatres", "Операционни зали")}</h2><div class="card">${theatresPage}</div></section>` },
+    { slug: "indicators", label: localize(locale, "Unit indicators", "Индикатори на отделението"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Unit indicators", "Индикатори на отделението")}</h2><div class="card">${indicatorsPage}</div></section>` },
+    { slug: "drug-colors", label: localize(locale, "Drug colours", "Цветове на лекарствата"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Drug colours", "Цветове на лекарствата")}</h2><div class="card">${drugColorsPage}</div></section>` },
   ]
   const legacySections: { slug: string; label: string; html: string }[] = [
     {
@@ -1945,7 +1949,7 @@ export function renderControlPlane(
   const clinicalSection = legacySections.find(entry => entry.slug === "clinical")!
   const aiSection = legacySections.find(entry => entry.slug === "ai")!
   const skinSections: { slug: string; label: string; html: string }[] = [
-    { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2>${localize(locale, "Preoperative form", "Предоперативна форма")}</h2>${renderPreopTabs(preopTab, locale)}<div class="card">${preopTabHtml}</div></section>` },
+    { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Preoperative form", "Предоперативна форма")}</h2>${renderPreopTabs(preopTab, locale)}<div class="card">${preopTabHtml}</div></section>` },
     ...newPages,
     { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}${caseVisibilityControls}</div></section>` },
     { slug: "ehr", label: localize(locale, "Hospital system", "Болнична система"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },

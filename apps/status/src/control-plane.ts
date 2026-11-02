@@ -174,6 +174,35 @@ export type IndicatorsUpdate = {
   reason: string
 }
 
+/** The intraoperative suggestions' switches in use (10.2.0), as the API sends them (Status has no Core). */
+export type IntraopAutomationConfigView = {
+  enabled: boolean
+  groups: Record<string, boolean>
+  dantroleneVialsMg: number[]
+  vitalQuestions: {
+    enabled: boolean
+    minCases: number
+    tails: Record<string, Record<string, { low: number; high: number }>>
+  }
+}
+
+export type IntraopAutomationView = {
+  config: IntraopAutomationConfigView
+  /** The groups, in the order shown, with their names. */
+  groups: Array<{ key: string; labelEn: string; labelBg: string; detailEn: string; detailBg: string }>
+  bands: Array<{ key: string; labelEn: string; labelBg: string }>
+  signs: Array<{ key: string; labelEn: string; labelBg: string }>
+  /** The shares of readings the slider offers, in percent. */
+  tailSteps: number[]
+  defaultTail: number
+  defaultMinCases: number
+  minCasesRange: { min: number; max: number }
+  /** The vial sizes the hospital may stock, in mg. */
+  vialSizesMg: number[]
+}
+
+export type IntraopAutomationUpdate = IntraopAutomationConfigView & { reason: string }
+
 export type OperatingTheatresChange =
   | { action: "policy"; enabled: boolean; reason: string }
   | { action: "add"; name: string }
@@ -532,6 +561,8 @@ export type ControlPlaneView = {
   operatingTheatres?: OperatingTheatresView | null
   /** The unit indicators' thresholds (10.0.0); absent from an older API, null when unreadable. */
   indicators?: IndicatorsView | null
+  /** The intraoperative suggestions (10.2.0); absent from an older API, null when unreadable. */
+  intraopAutomation?: IntraopAutomationView | null
 }
 
 export const EHR_FOLDER_REJECT_REASONS = [
@@ -774,6 +805,8 @@ export interface ControlPlanePort {
   changeOperatingTheatres(input: OperatingTheatresChange): Promise<void>
   /** The unit indicators' thresholds and names switch (10.0.0). */
   updateIndicators(input: IndicatorsUpdate): Promise<void>
+  /** The intraoperative suggestions' switches, vitals limits and stocked dantrolene vials (10.2.0). */
+  updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -900,6 +933,27 @@ export function preopDocumentsShape(value: unknown): value is PreopDocumentsView
 }
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function intraopAutomationShape(value: unknown): value is IntraopAutomationView {
+  const named = (entry: unknown) => isRecord(entry) && text(entry.key, 32) && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+  const numbers = (entry: unknown, maximum: number) => Array.isArray(entry) && entry.length <= maximum
+    && entry.every(item => typeof item === "number" && Number.isFinite(item))
+  if (!isRecord(value) || !isRecord(value.config) || !isRecord(value.minCasesRange)) return false
+  const { config } = value
+  const vitals = config.vitalQuestions
+  return typeof config.enabled === "boolean"
+    && isRecord(config.groups) && Object.values(config.groups).every(item => typeof item === "boolean")
+    && numbers(config.dantroleneVialsMg, 10)
+    && isRecord(vitals) && typeof vitals.enabled === "boolean" && finiteInteger(vitals.minCases, 1_000_000) && isRecord(vitals.tails)
+    && Array.isArray(value.groups) && value.groups.length <= 20
+    && value.groups.every(group => named(group) && isRecord(group) && text(group.detailEn, 600) && text(group.detailBg, 600))
+    && Array.isArray(value.bands) && value.bands.length <= 20 && value.bands.every(named)
+    && Array.isArray(value.signs) && value.signs.length <= 20 && value.signs.every(named)
+    && numbers(value.tailSteps, 20) && typeof value.defaultTail === "number" && finiteInteger(value.defaultMinCases, 1_000_000)
+    && finiteInteger(value.minCasesRange.min, 1_000_000) && finiteInteger(value.minCasesRange.max, 1_000_000)
+    && numbers(value.vialSizesMg, 10)
+}
 
 /** Exported for the API's contract test: the view it sends must pass this. */
 export function indicatorsShape(value: unknown): value is IndicatorsView {
@@ -1183,6 +1237,7 @@ function parseView(value: unknown): ControlPlaneView | null {
     drugColors: drugColorsShape(value.drugColors) ? value.drugColors : null,
     operatingTheatres: operatingTheatresShape(value.operatingTheatres) ? value.operatingTheatres : null,
     indicators: indicatorsShape(value.indicators) ? value.indicators : null,
+    intraopAutomation: intraopAutomationShape(value.intraopAutomation) ? value.intraopAutomation : null,
     preoperative: isRecord(value.preoperative) ? value.preoperative as ControlPlaneView["preoperative"] : {
       scope: "APPLIANCE_WIDE",
       catalogVersion: "1.4.8",
@@ -1546,6 +1601,9 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updateIndicators(input: IndicatorsUpdate): Promise<void> {
     return this.mutate("/indicators", input)
+  }
+  updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void> {
+    return this.mutate("/intraop-automation", input)
   }
   updatePreopSections(input: PreopSectionsUpdate): Promise<void> {
     return this.mutate("/preop-sections", input)
