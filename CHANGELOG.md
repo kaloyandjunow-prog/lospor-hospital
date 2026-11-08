@@ -8,6 +8,13 @@
   titled with the institution's own name; an administrator changes it with the
   Status password and a reason, and the change is audited
   (`HOSPITAL_NAME_UPDATE`). Finished records show the new name too.
+- Status: an **Intraoperative suggestions** page. Every intraoperative automation
+  has its own switch, how each was received (accepted, dismissed, not now) is
+  shown beside it, and the learned event-succession table is listed; the
+  preoperative tabs are chips.
+- Status: the stocked dantrolene vial sizes, monitoring reading intervals, and a
+  person link on the national identifier (ЕГН).
+- Status dependencies updated.
 
 ## [1.7.3] - 2026-10-30
 
