@@ -310,8 +310,10 @@ describe("medication controls and explicit guidance policy", () => {
       />,
     )
     const rendered = JSON.stringify(tree.toJSON())
+    const selector = tree.root.findByType(DoseSelector)
 
-    expect(rendered).toContain('"value":"20"')
+    expect(selector.props.value).toBe("20")
+    expect(selector.props.manualEntryOnly).toBe(false)
     expect(rendered).toContain("1–2 mg/kg")
     expect(rendered).toContain('"1.5"')
     expect(rendered).toContain("/kg × ")

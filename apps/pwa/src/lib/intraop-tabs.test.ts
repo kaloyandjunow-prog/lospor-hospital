@@ -4,9 +4,9 @@ import { adjacentIntraopTab, centeredTabRailScrollX, INTRAOP_TAB_KEYS } from "./
 describe("intraop tabs", () => {
   it("keeps the canonical tab order", () => {
     expect(INTRAOP_TAB_KEYS).toEqual([
+      "timing",
       "equipment",
       "technique",
-      "timing",
       "position",
       "monitoring",
       "airway",
@@ -19,7 +19,9 @@ describe("intraop tabs", () => {
   })
 
   it("moves to adjacent tabs and clamps at the ends", () => {
-    expect(adjacentIntraopTab("equipment", -1)).toBe("equipment")
+    expect(adjacentIntraopTab("timing", -1)).toBe("timing")
+    expect(adjacentIntraopTab("timing", 1)).toBe("equipment")
+    expect(adjacentIntraopTab("equipment", -1)).toBe("timing")
     expect(adjacentIntraopTab("equipment", 1)).toBe("technique")
     // Fluid status sits directly after the timetable deliberately: it
     // summarises what the timetable records, so it is one swipe from the

@@ -1,10 +1,11 @@
 import type { RefObject } from "react"
-import { Platform, Text, TextInput, View } from "react-native"
+import { Platform, Text, TextInput, View, type TextInputInstance } from "react-native"
 import { FeedbackPressable } from "./FeedbackPressable"
+import { MonitorScanButton } from "./MonitorScanButton"
+import { vitalFeedbackText } from "./vitals-feedback-text"
 import { Sheet } from "./Sheet"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
-import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 import type { IntraopVitalKey } from "@lospor/core/intraop-vitals"
 import type { VitalEntryFeedback } from "@/lib/intraop-vital-entry"
 import { useShade } from "@/theme/shade"
@@ -19,18 +20,19 @@ type Props = {
   showBis: boolean
   showTofRatio: boolean
   showCvp: boolean
+  showIbp: boolean
   etco2Unit: string
   cvpUnit: string
   temperatureUnit: string
-  sysRef: RefObject<TextInput | null>
-  diaRef: RefObject<TextInput | null>
-  hrRef: RefObject<TextInput | null>
-  spo2Ref: RefObject<TextInput | null>
-  etco2Ref: RefObject<TextInput | null>
-  tempRef: RefObject<TextInput | null>
-  bisRef: RefObject<TextInput | null>
-  tofRatioRef: RefObject<TextInput | null>
-  cvpRef: RefObject<TextInput | null>
+  sysRef: RefObject<TextInputInstance | null>
+  diaRef: RefObject<TextInputInstance | null>
+  hrRef: RefObject<TextInputInstance | null>
+  spo2Ref: RefObject<TextInputInstance | null>
+  etco2Ref: RefObject<TextInputInstance | null>
+  tempRef: RefObject<TextInputInstance | null>
+  bisRef: RefObject<TextInputInstance | null>
+  tofRatioRef: RefObject<TextInputInstance | null>
+  cvpRef: RefObject<TextInputInstance | null>
   systolic: string
   diastolic: string
   heartRate: string
@@ -40,6 +42,9 @@ type Props = {
   bis: string
   tofRatio: string
   cvp: string
+  /** The arterial line and the cuff mean (10.2.0). systolic and diastolic above are the cuff (NIBP). */
+  ibp: Record<"ibpSystolic" | "ibpDiastolic" | "ibpMap" | "nibpMap", string>
+  onIbpChange: (field: "ibpSystolic" | "ibpDiastolic" | "ibpMap" | "nibpMap", value: string) => void
   feedback: VitalEntryFeedback
   onClose: () => void
   onScan: () => void
@@ -65,6 +70,7 @@ export function VitalsSheet({
   showBis,
   showTofRatio,
   showCvp,
+  showIbp,
   cvpUnit,
   etco2Unit,
   temperatureUnit,
@@ -86,6 +92,8 @@ export function VitalsSheet({
   bis,
   tofRatio,
   cvp,
+  ibp,
+  onIbpChange,
   feedback,
   onClose,
   onScan,
@@ -102,30 +110,7 @@ export function VitalsSheet({
 }: Props) {
   const shade = useShade()
   const { tc } = usePreferences()
-  const clinicalAi = useClinicalAiCapabilities()
-  function feedbackText(field: IntraopVitalKey): { text: string; error: boolean } | null {
-    if (feedback.errors[field]) {
-      const text = field === "bis" ? tc("vsErrorBis")
-        : field === "tofRatio" ? tc("vsErrorTofRatio")
-        : field === "spO2" ? tc("vsErrorSpo2")
-        : field === "systolic" || field === "diastolic" || field === "heartRate"
-          ? tc("vsErrorWholeNonnegative")
-          : field === "etco2" ? tc("vsErrorNonnegative")
-          : tc("vsErrorNumber")
-      return { text, error: true }
-    }
-    const warning = feedback.warnings[field]
-    if (!warning) return null
-    const low = warning === "low"
-    const key = field === "systolic" ? (low ? "vsWarningSysLow" : "vsWarningSysHigh")
-      : field === "diastolic" ? "vsWarningDiaHigh"
-      : field === "heartRate" ? (low ? "vsWarningHeartLow" : "vsWarningHeartHigh")
-      : field === "spO2" ? "vsWarningSpo2Low"
-      : field === "etco2" ? (low ? "vsWarningEtco2Low" : "vsWarningEtco2High")
-      : field === "temp" ? (low ? "vsWarningTempLow" : "vsWarningTempHigh")
-      : null
-    return key ? { text: tc(key), error: false } : null
-  }
+  const feedbackText = (field: IntraopVitalKey) => vitalFeedbackText(feedback, field, tc as never)
   function renderFeedback(field: IntraopVitalKey) {
     const message = feedbackText(field)
     return message ? (
@@ -148,38 +133,15 @@ export function VitalsSheet({
   const showExtendedFields = mode === "full" || hasExtendedHardError
   return (
     <Sheet visible={visible} onClose={onClose} title={title} full>
-      {clinicalAi.monitorOcr.enabled ? (
-        <>
-          <FeedbackPressable
-            onPress={onScan}
-            disabled={scanBusy}
-            style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:8,
-              paddingVertical:10, paddingHorizontal:16, borderRadius:12, marginBottom:16,
-              backgroundColor: scanBusy ? shade("#1e2d40") : shade("#0f2a1a"),
-              borderWidth:1, borderColor: scanBusy ? shade("#2a3a50") : shade("#22c55e55") }}>
-            <Text style={{ color: scanBusy ? shade("#64748b") : shade("#86efac"), fontSize:13, fontWeight:"700" }}>
-              {scanBusy ? tc("vsReadingMonitor") : tc("vsScanMonitor")}
-            </Text>
-          </FeedbackPressable>
-          {!scanBusy ? (
-            <Text style={{ color:shade("#475569"), fontSize:10, marginBottom:14, lineHeight:14 }}>
-              {tc("vsScanPrivacyNote")}
-            </Text>
-          ) : null}
-        </>
-      ) : (
-        <Text style={{ color:shade("#64748b"), fontSize:11, marginBottom:14, lineHeight:16 }}>
-          {tc(capabilityMessageKey(clinicalAi.monitorOcr.reason))}
-        </Text>
-      )}
+      <MonitorScanButton onScan={onScan} busy={scanBusy} />
       <Text style={{ color:shade("#ef4444"), fontSize:11, fontWeight:"700", letterSpacing:1,
-        textTransform:"uppercase", marginBottom:8 }}>{tc("vsBloodPressure")}</Text>
+        textTransform:"uppercase", marginBottom:8 }}>{showIbp ? tc("vsNibp") : tc("vsBloodPressure")}</Text>
       <View style={{ flexDirection:"row", gap:10, marginBottom:18, alignItems:"flex-start" }}>
         <View style={{ flex:1, minWidth:0 }}>
           <TextInput
             style={{ backgroundColor:shade("#111111"), color:shade("#ef4444"), borderRadius:12,
-              padding: Platform.OS === "web" ? 10 : 14,
-              fontSize: Platform.OS === "web" ? 20 : 30,
+              padding: Platform.OS === "web" ? 10 : 12,
+              fontSize: Platform.OS === "web" ? 18 : 22,
               fontWeight:"700", borderWidth:1, borderColor:feedback.errors.systolic ? shade("#f87171") : shade("#ef444444"), textAlign:"center" }}
             placeholder={tc("vsSys")}
             placeholderTextColor={shade("#3e3e3e")}
@@ -190,12 +152,11 @@ export function VitalsSheet({
           />
           {renderFeedback("systolic")}
         </View>
-        <Text style={{ color:shade("#475569"), fontSize: Platform.OS === "web" ? 20 : 28, alignSelf:"center", fontWeight:"200" }}>/</Text>
         <View style={{ flex:1, minWidth:0 }}>
           <TextInput
             style={{ backgroundColor:shade("#111111"), color:shade("#f87171"), borderRadius:12,
-              padding: Platform.OS === "web" ? 10 : 14,
-              fontSize: Platform.OS === "web" ? 20 : 30,
+              padding: Platform.OS === "web" ? 10 : 12,
+              fontSize: Platform.OS === "web" ? 18 : 22,
               fontWeight:"700", borderWidth:1, borderColor:feedback.errors.diastolic ? shade("#f87171") : shade("#ef444433"), textAlign:"center" }}
             placeholder={tc("vsDia")}
             placeholderTextColor={shade("#3e3e3e")}
@@ -206,8 +167,44 @@ export function VitalsSheet({
           />
           {renderFeedback("diastolic")}
         </View>
+        <View style={{ flex:1, minWidth:0 }}>
+          <TextInput testID="vitals-nibp-map" style={{ backgroundColor:shade("#111111"), color:shade("#f87171"), borderRadius:12,
+            padding: Platform.OS === "web" ? 10 : 12,
+            fontSize: Platform.OS === "web" ? 18 : 22,
+            fontWeight:"700", borderWidth:1, borderColor:feedback.errors.nibpMap ? shade("#f87171") : shade("#f8717144"), textAlign:"center" }}
+            placeholder={tc("vsMapInlinePlaceholder")} placeholderTextColor={shade("#3e3e3e")} keyboardType="number-pad" value={ibp.nibpMap} onChangeText={value => onIbpChange("nibpMap", value)} />
+          {renderFeedback("nibpMap")}
+        </View>
       </View>
 
+      {showIbp ? (
+        <View testID="vitals-ibp">
+          <Text style={{ color:shade("#f97316"), fontSize:11, fontWeight:"700", letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>{tc("vsIbp")}</Text>
+          <View style={{ flexDirection:"row", gap:10, marginBottom:18 }}>
+            <View style={{ flex:1, minWidth:0 }}>
+              <Text style={{ color:shade("#f97316"), fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsSys")}</Text>
+              <TextInput testID="vitals-ibp-systolic" style={{ backgroundColor:shade("#111111"), color:shade("#f97316"), borderRadius:10, padding: Platform.OS === "web" ? 8 : 10,
+                fontSize: Platform.OS === "web" ? 16 : 20, fontWeight:"700", borderWidth:1, borderColor:feedback.errors.ibpSystolic ? shade("#f87171") : shade("#f9731644"), textAlign:"center" }}
+                placeholder="-" placeholderTextColor={shade("#3e3e3e")} keyboardType="number-pad" value={ibp.ibpSystolic} onChangeText={value => onIbpChange("ibpSystolic", value)} />
+              {renderFeedback("ibpSystolic")}
+            </View>
+            <View style={{ flex:1, minWidth:0 }}>
+              <Text style={{ color:shade("#fb923c"), fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsDia")}</Text>
+              <TextInput testID="vitals-ibp-diastolic" style={{ backgroundColor:shade("#111111"), color:shade("#fb923c"), borderRadius:10, padding: Platform.OS === "web" ? 8 : 10,
+                fontSize: Platform.OS === "web" ? 16 : 20, fontWeight:"700", borderWidth:1, borderColor:feedback.errors.ibpDiastolic ? shade("#f87171") : shade("#fb923c44"), textAlign:"center" }}
+                placeholder="-" placeholderTextColor={shade("#3e3e3e")} keyboardType="number-pad" value={ibp.ibpDiastolic} onChangeText={value => onIbpChange("ibpDiastolic", value)} />
+              {renderFeedback("ibpDiastolic")}
+            </View>
+            <View style={{ flex:1, minWidth:0 }}>
+              <Text style={{ color:shade("#fdba74"), fontSize:11, fontWeight:"700", marginBottom:6 }}>{tc("vsMap")}</Text>
+              <TextInput testID="vitals-ibp-map" style={{ backgroundColor:shade("#111111"), color:shade("#fdba74"), borderRadius:10, padding: Platform.OS === "web" ? 8 : 10,
+                fontSize: Platform.OS === "web" ? 16 : 20, fontWeight:"700", borderWidth:1, borderColor:feedback.errors.ibpMap ? shade("#f87171") : shade("#fdba7444"), textAlign:"center" }}
+                placeholder="-" placeholderTextColor={shade("#3e3e3e")} keyboardType="number-pad" value={ibp.ibpMap} onChangeText={value => onIbpChange("ibpMap", value)} />
+              {renderFeedback("ibpMap")}
+            </View>
+          </View>
+        </View>
+      ) : null}
       {showExtendedFields && (
         <>
           <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>

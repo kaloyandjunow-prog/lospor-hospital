@@ -1,13 +1,15 @@
 import React from "react"
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from "react-native"
+import { View, Text, TouchableOpacity, TextInput } from "react-native"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 type TechniqueNode = { v: string; label: string; isOther?: boolean; children?: TechniqueNode[] }
 
 export function TechniqueTab({
   techPath, setTechPath, techniqueTree, techniques, setTechniques, saveTechniques,
-  techniqueColor, techniqueLabel, otherTechText, setOtherTechText, tc,
+  techniqueColor, techniqueLabel, otherTechText, setOtherTechText, tc, smart,
 }: {
   techPath: string[]
   setTechPath: (updater: (p: string[]) => string[]) => void
@@ -20,8 +22,12 @@ export function TechniqueTab({
   otherTechText: string
   setOtherTechText: (v: string) => void
   tc: (key: ClinicalStringKey) => string
+  /** Smart selection (10.2.0). Without it this is the Legacy tab, the list you drill down through. */
+  smart?: React.ReactNode
 }) {
   const shade = useShade()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
+  if (smart) return <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:14, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>{smart}</OverflowCueScrollView>
   // Current nodes to display — drill down through techPath
   let currentNodes: TechniqueNode[] = techniqueTree
   const breadcrumbs: TechniqueNode[] = []
@@ -82,7 +88,7 @@ export function TechniqueTab({
         </View>
       )}
 
-      <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:14, paddingBottom:40 }}>
+      <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:14, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
         {/* Back button */}
         {techPath.length > 0 && !showOtherInput && (
           <TouchableOpacity onPress={() => setTechPath(p => p.slice(0, -1))}
@@ -171,7 +177,7 @@ export function TechniqueTab({
             })}
           </View>
         )}
-      </ScrollView>
+      </OverflowCueScrollView>
       {/* Gas settings (FGF/carrier gas/FiO2) moved to its own timetable row —
           see the Gas Settings vertical lane, gated by the same GA-technique
           visibility this tab used to gate the old static fields with. */}

@@ -31,7 +31,7 @@ import {
   type DrugPickerOption,
   type DrugPickerSearchResult,
 } from "@/components/intraop/DrugPickerMenu"
-import { fallbackRange, type DoseCalc, type DoseSurface, type Range } from "@/components/intraop/drug-sheet-types"
+import { fallbackRange, pediatricSliderLimits, type DoseCalc, type DoseSurface, type Range } from "@/components/intraop/drug-sheet-types"
 import { createDrugDraftBuilders } from "@/components/intraop/drug-sheet-drafts"
 import { customStrengthLabel } from "@lospor/core/strength-entry"
 import { doseConfirmProblem } from "@lospor/core/infusion-entry"
@@ -45,7 +45,7 @@ export function DrugSheet({
   drugCustomConcentration, setDrugCustomConcentration, drugFormulation, setDrugFormulation,
   drugRule, applyDrugSelection,
   ranges = {}, baseProfiles = {}, routeProfiles = {},
-  doseCalcs, patientWeightKg, patientHeightCm, patientSex, pediatricMode = false,
+  doseCalcs, patientWeightKg, patientHeightCm, patientSex, techniques, pediatricMode = false,
   pediatricDrugProfiles = [], pediatricDoseProfiles = [], patientAge,
   pediatricRulesSource, pediatricRulesCachedAt, pediatricRulesLoading, pediatricRulesError,
   prospectiveGuidanceEnabled = true,
@@ -85,6 +85,8 @@ export function DrugSheet({
   patientWeightKg?: number
   patientHeightCm?: number
   patientSex?: string
+  /** The case techniques; a unilateral spinal pre-sets the intrathecal dose to hyperbaric. */
+  techniques?: readonly string[]
   pediatricMode?: boolean
   pediatricDrugProfiles?: readonly PediatricDrugProfileRule[]
   pediatricDoseProfiles?: readonly PediatricDoseProfile[]
@@ -175,6 +177,7 @@ export function DrugSheet({
     patientWeightKg,
     patientHeightCm,
     patientSex,
+    techniques,
     routes,
     baseProfiles,
     routeProfiles,
@@ -183,7 +186,7 @@ export function DrugSheet({
     doseCalcs,
   }), [
     baseProfiles, doseCalcs, dosePresets, laConcentrations, patientAge, patientHeightCm,
-    patientSex, patientWeightKg, pediatricMode, routeProfiles, routes,
+    patientSex, patientWeightKg, pediatricMode, routeProfiles, routes, techniques,
   ])
 
   function replaceSelection(selection: DrugEntryDraft) {
@@ -248,12 +251,7 @@ export function DrugSheet({
         ? Array.from(new Set(pediatricProfilesForDrug.map(profile => canonicalRoute(profile.route) ?? profile.route)))
       : canonicalRoutes(drugPick.name)
     : []
-  const pediatricStep = selectedPediatricProfile?.roundTo ?? (activeUnit === "mcg" ? 1 : 0.1)
-  const pediatricMax = Math.max(
-    selectedPediatricProfile?.maximumAmount ?? 0,
-    pediatricAmount != null ? pediatricAmount * 2 : 0,
-    pediatricStep * 10,
-  )
+  const { step: pediatricStep, max: pediatricMax } = pediatricSliderLimits(selectedPediatricProfile, pediatricAmount, activeUnit)
   const activeRange = !prospectiveGuidanceEnabled || searchOnlySelection
     ? { min: 0, max: 100_000, step: 0.1 }
     : structuredPediatricSurface

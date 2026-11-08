@@ -49,6 +49,8 @@ type UseIntraopCaseLoaderArgs = {
   setCaseTimezone: Dispatch<SetStateAction<string | null>>
   setAwTools: Dispatch<SetStateAction<string[]>>
   setAwDevices: Dispatch<SetStateAction<string[]>>
+  /** The intraop record as loaded (10.2.0: the stored airway list). */
+  onIntraopRecord?: (intraop: Record<string, unknown>) => void
   setAwLmaSize: Dispatch<SetStateAction<string | null>>
   setAwOralTubeSize: Dispatch<SetStateAction<string | null>>
   setAwOralCuffed: Dispatch<SetStateAction<boolean | null>>
@@ -114,6 +116,7 @@ export function useIntraopCaseLoader({
   setCaseTimezone,
   setAwTools,
   setAwDevices,
+  onIntraopRecord,
   setAwLmaSize,
   setAwOralTubeSize,
   setAwOralCuffed,
@@ -152,6 +155,8 @@ export function useIntraopCaseLoader({
   // Held in a ref: loadCase must keep its identity, or its effect reloads the case.
   const onEndedLoadedRef = useRef(onEndedLoaded)
   useEffect(() => { onEndedLoadedRef.current = onEndedLoaded }, [onEndedLoaded])
+  const onIntraopRecordRef = useRef(onIntraopRecord)
+  useEffect(() => { onIntraopRecordRef.current = onIntraopRecord }, [onIntraopRecord])
   // The screen starts several loads at once; the notice is said once (9.12.2).
   const autoEndNoticeShownRef = useRef(false)
   const { tc } = usePreferences()
@@ -195,6 +200,10 @@ export function useIntraopCaseLoader({
             setTechniques(hydrated.caseTechniques)
             if (hydrated.positions) setPositions(hydrated.positions)
             setMonitoring(hydrated.monitoring)
+            // Use the visible snapshot (server plus the durable local outbox)
+            // so Smart Equipment preparation and airway changes do not jump
+            // backwards while offline or while a queued patch is flushing.
+            onIntraopRecordRef.current?.((visibleData.intraop ?? {}) as Record<string, unknown>)
             if (hydrated.airway.tools) setAwTools(hydrated.airway.tools)
             if (hydrated.airway.devices) setAwDevices(hydrated.airway.devices)
             if (hydrated.airway.lmaSize != null) setAwLmaSize(hydrated.airway.lmaSize)

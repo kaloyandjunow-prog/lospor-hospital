@@ -81,9 +81,7 @@ describe("PremedicationLibrarySheet baseline boundary", () => {
 
     expect(tree.root.findByType(TextInput).props.value).toBe("")
     expect(tree.root.findAllByType(Text).some(text => text.props.children === "+")).toBe(false)
-    const ivButton = tree.root.findAllByType(TouchableOpacity).find(button =>
-      button.findAllByType(Text).some(text => text.props.children === "IV"),
-    )
+    const ivButton = tree.root.findAll(node => node.props?.testID === "dose-route-IV")[0]
     ivButton?.props.onPress()
     expect(onRouteChange).toHaveBeenCalledWith("IV")
     expect(onDoseChange).toHaveBeenLastCalledWith("")

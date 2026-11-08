@@ -186,6 +186,7 @@ export const preopFormSchema = z.object({
   // Labs additionally carry `takenAt`, the draw time, distinct from when the
   // row was entered into the form.
   labResults: z.array(z.object({
+    id: z.string().max(200).optional(),
     test: z.string(),
     value: z.string(),
     unit: z.string(),

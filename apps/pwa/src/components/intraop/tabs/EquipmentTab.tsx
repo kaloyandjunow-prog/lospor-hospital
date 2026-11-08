@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from "react-native"
+import { View, Text } from "react-native"
 import { calcEquipment } from "@/lib/equipment-calculator"
 import { getMedicationWarnings } from "@/lib/risk-derivation"
 import { allergyRecords, uncheckedAllergies } from "@lospor/core/allergy-drug-check"
@@ -11,18 +11,33 @@ import {
 import { useShade } from "@/theme/shade"
 import { PediatricIntraopReference } from "@/components/intraop/PediatricIntraopReference"
 import { BroselowChip } from "@/components/intraop/BroselowChip"
+import { EquipmentSmart } from "@/components/intraop/EquipmentSmart"
+import type { EquipmentFlagState } from "@lospor/core/equipment-smart"
+import type { AirwayDeviceEntry } from "@lospor/core/airway-device-entries"
 import { broselowZone } from "@lospor/core/broselow"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 export function EquipmentTab({
-  preop, surgeryStart, caseTimezone,
+  preop, surgeryStart, caseTimezone, smart,
 }: {
   preop: IntraopPreopSummary | null
   /** The stored start of surgery, for the nil-by-mouth clock times. */
   surgeryStart?: Date | null
   caseTimezone?: string | null
+  /** Smart selection (10.2.0): recorded clinical state plus a persisted preparation reference. */
+  smart?: {
+    flags: EquipmentFlagState
+    airwayEntries: readonly AirwayDeviceEntry[]
+    prepared: Readonly<Record<string, boolean>>
+    onFlag: (field: "urinaryCatheter" | "stomachTube") => void
+    onPreparedChange: (key: string, value: boolean) => void
+    onUseAirway: (device: "ORAL_ETT" | "LMA") => boolean
+  }
 }) {
   const shade = useShade()
   const { tc, language } = usePreferences()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
   const pediatricMode = preop?.clinicalMode === "PEDIATRIC"
   const pediatricAge = pediatricAgeFromPreop(preop)
   const hasPreop = !!preop && (
@@ -30,7 +45,7 @@ export function EquipmentTab({
       ? pediatricAge != null || preop.weight != null || preop.height != null
       : preop.age != null || preop.weight != null || preop.height != null
   )
-  const cats = translateEquipment(hasPreop && preop ? calcEquipment({
+  const rawCats = hasPreop && preop ? calcEquipment({
     clinicalMode: preop.clinicalMode,
     age: pediatricAge,
     ageYears: pediatricMode ? null : preop.age,
@@ -43,7 +58,8 @@ export function EquipmentTab({
       mouthOpeningCm: preop.mouthOpeningCm,
       cormackLehane: preop.cormackLehane,
     },
-  }) : [], language)
+  }) : []
+  const cats = translateEquipment(rawCats, language)
   const broselow = preop ? broselowZone({ clinicalMode: preop.clinicalMode, heightCm: preop.height, weightKg: preop.weight }) : null
   const medicationWarnings = getMedicationWarnings(preop?.currentMedications ?? [])
   // The recorded allergies in view while drugs are given, and any the drug
@@ -51,7 +67,7 @@ export function EquipmentTab({
   const allergies = allergyRecords(preop)
   const unchecked = uncheckedAllergies(allergies)
   return (
-    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
+    <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
       {allergies.length > 0 && (
         <View style={{ backgroundColor:shade("#1e1010"), borderRadius:14, borderWidth:1, borderColor:shade("#7f1d1d"),
           padding:14, marginBottom:16, gap:4 }}>
@@ -95,7 +111,9 @@ export function EquipmentTab({
 
           {pediatricMode && preop ? <PediatricIntraopReference preop={preop} language={language} surgeryStart={surgeryStart} timezone={caseTimezone} /> : null}
 
-          {cats.map((cat, ci) => (
+          {smart ? (
+            <EquipmentSmart raw={rawCats} shown={cats} {...smart} />
+          ) : cats.map((cat, ci) => (
             <View key={cat.cat} style={{ marginBottom: ci < cats.length - 1 ? 16 : 0 }}>
               <View style={{ flexDirection:"row", alignItems:"center", marginBottom:8, gap:8 }}>
                 <View style={{ width:3, height:14, borderRadius:2, backgroundColor: cat.color }} />
@@ -130,6 +148,6 @@ export function EquipmentTab({
           ))}
         </>
       )}
-    </ScrollView>
+    </OverflowCueScrollView>
   )
 }

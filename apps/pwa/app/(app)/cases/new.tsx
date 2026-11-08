@@ -1,19 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  Animated,
-  Easing,
-  BackHandler,
-  KeyboardAvoidingView,
-  PanResponder,
-  Platform,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native"
+import { Animated, Easing, BackHandler, KeyboardAvoidingView, PanResponder, Platform, Text, TouchableOpacity, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native"
 import { hapticTick } from "@/lib/haptic"
 import { Stack, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router"
 import Ionicons from "@expo/vector-icons/Ionicons"
@@ -137,8 +123,8 @@ export default function NewCaseScreen() {
   }, [tc, offSections])
   const { width: screenWidth } = useWindowDimensions()
   const primaryHeaderHeight = insets.top + 60
-  const scrollRef = useRef<ScrollView>(null)
-  const sectionRailRef = useRef<ScrollView>(null)
+  const scrollRef = useRef<ScrollViewInstance>(null)
+  const sectionRailRef = useRef<ScrollViewInstance>(null)
   const pillLayouts = useRef<Partial<Record<PreopSection, { x: number; width: number }>>>({})
   const sectionY = useRef<Partial<Record<PreopSection, number>>>({})
   const lastScrollY = useRef(0)

@@ -6,6 +6,8 @@ import { deriveCaseStage } from "@lospor/core/case-status"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import type { ClinicalMode, PediatricAgeUnit } from "@lospor/core/pediatric"
 import { calculateDrugTotals } from "@lospor/core/intraop-summary"
+import { airwayDeviceEntryLines, parseAirwayDeviceEntries } from "@lospor/core/airway-device-entries"
+import { localTimeOf } from "@lospor/core/intraop-time"
 import { handoverLabel } from "@lospor/core/postop"
 import type {
   CaseDetailDto,
@@ -226,8 +228,33 @@ export function calcInfusionTotals(
   return calculateInfusionTotals(infusions, ibw, tbw, weightBasis, bodySurfaceAreaM2, tciPatient)
 }
 
+/** A failed or replaced device or line, in the reader's language (10.2.0). */
+const STATE_WORDS = { en: { failed: "failed", replaced: "replaced" }, bg: { failed: "неуспешен опит", replaced: "подмяна" } } as const
+
+function caseClock(intraop: { timezone?: string | null } | null | undefined) {
+  return (iso: string) => (intraop?.timezone ? localTimeOf(new Date(iso), intraop.timezone) : null) ?? iso.slice(11, 16)
+}
+
+/** What follows a line's name once it failed: " · failed 10:42"; nothing for a working line. */
+export function failedLineSuffix(line: { failed?: boolean; failedAt?: string | null }, intraop: { timezone?: string | null } | null | undefined, locale: string): string {
+  if (!line.failed) return ""
+  const words = STATE_WORDS[locale === "bg" ? "bg" : "en"]
+  return ` · ${words.failed}${line.failedAt ? ` ${caseClock(intraop)(line.failedAt)}` : ""}`
+}
+
 export function formatAirway(intraop: CaseData["intraop"], locale: string): string {
   if (!intraop) return ""
+  // 10.2.0: each device its own line, a failed or replaced one kept ("Oral ETT 8 cuffed · failed 10:42").
+  const entries = parseAirwayDeviceEntries((intraop as { airwayDeviceEntries?: unknown }).airwayDeviceEntries)
+  if (entries.length > 0) {
+    const words = STATE_WORDS[locale === "bg" ? "bg" : "en"]
+    return airwayDeviceEntryLines(entries, {
+      device: code => displayClinicalCode("option:AIRWAY_MANAGEMENT", code, locale),
+      attribute: code => displayClinicalCode("clinicalAttribute", code, locale),
+      status: status => words[status],
+      time: caseClock(intraop as { timezone?: string | null }),
+    }).join(" + ")
+  }
   const devices = intraop.airwayDevices ?? []
   const firstDevice = devices[0]
   if (!firstDevice) return ""

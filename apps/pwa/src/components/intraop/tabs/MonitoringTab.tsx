@@ -1,103 +1,41 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native"
-import { displayClinicalCode } from "@/lib/clinical-display"
+import { Text } from "react-native"
+import type { ReactNode } from "react"
 import { usePreferences } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
+import { MonitoringGroups } from "../MonitoringGroups"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 type MonitoringOpt = { label: string; field: string; section: string }
 
+/**
+ * The Monitoring tab. Smart selection (10.2.0) arrives as `smart`; without it this is the Legacy tab,
+ * every monitor grouped by what it tells you.
+ */
 export function MonitoringTab({
-  monitoring, setMonitoring, saveMonitoring, fieldSaving, monitoringOpts, advMonOpen, setAdvMonOpen,
+  monitoring, setMonitoring, saveMonitoring, fieldSaving, monitoringOpts, smart,
 }: {
   monitoring: string[]
   setMonitoring: (next: string[]) => void
   saveMonitoring: (next: string[]) => void
   fieldSaving: string | null
   monitoringOpts: MonitoringOpt[]
-  advMonOpen: boolean
-  setAdvMonOpen: (updater: (v: boolean) => boolean) => void
+  advMonOpen?: boolean
+  setAdvMonOpen?: (updater: (v: boolean) => boolean) => void
+  smart?: ReactNode
 }) {
   const shade = useShade()
-  const { language, tc } = usePreferences()
-
+  const { tc } = usePreferences()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
+  const toggle = (field: string) => {
+    const next = monitoring.includes(field) ? monitoring.filter(item => item !== field) : [...monitoring, field]
+    setMonitoring(next)
+    saveMonitoring(next)
+  }
   return (
-    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
-      {/* Standard monitoring — always visible */}
-      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
-        textTransform:"uppercase", marginBottom:8 }}>
-        {displayClinicalCode("optionGroup", "standard", language)} {fieldSaving === "monitoring" ? `(${tc("draftSaving")})` : ""}
-      </Text>
-      <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
-        {monitoringOpts.filter(o => o.section === "standard").map(opt => {
-          const sel = monitoring.includes(opt.field)
-          return (
-            <TouchableOpacity key={opt.field} onPress={() => {
-              const next = sel ? monitoring.filter(x => x !== opt.field) : [...monitoring, opt.field]
-              setMonitoring(next)
-              saveMonitoring(next)
-            }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-              backgroundColor: sel ? shade("#0f2a1a") : shade("#111111"),
-              borderWidth:1, borderColor: sel ? shade("#22c55e") : shade("#1e2d40") }}>
-              <Text style={{ color: sel ? shade("#86efac") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>
-                {displayClinicalCode("option:MONITORING", opt.field, language, { label: opt.label })}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </View>
-
-      {/* Advanced monitoring — collapsible */}
-      {(() => {
-        const advOpts = monitoringOpts.filter(o => o.section !== "standard")
-        const advCount = advOpts.filter(o => monitoring.includes(o.field)).length
-        return (
-          <>
-            <TouchableOpacity onPress={() => setAdvMonOpen(v => !v)}
-              style={{ flexDirection:"row", alignItems:"center", justifyContent:"space-between",
-                marginBottom: advMonOpen ? 12 : 0 }}>
-              <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }}>
-                {displayClinicalCode("optionGroup", "advanced", language)} {advCount > 0 ? `(${advCount})` : ""}
-              </Text>
-              <Text style={{ color:shade("#475569"), fontSize:11, fontWeight:"700" }}>{advMonOpen ? "▲" : "▼"}</Text>
-            </TouchableOpacity>
-            {advMonOpen && [
-              { key:"respiratory",  label:tc("monitorRespiratory") },
-              { key:"haemodynamic", label:tc("monitorHaemodynamic") },
-              { key:"depth",        label:tc("monitorDepthNeuro") },
-              { key:"other",        label:tc("monitorOther") },
-            ].map(sec => {
-              const opts = advOpts.filter(o => o.section === sec.key)
-              if (!opts.length) return null
-              return (
-                <View key={sec.key} style={{ marginBottom:16 }}>
-                  <Text style={{ color:shade("#475569"), fontSize:9, fontWeight:"700", letterSpacing:1, textTransform:"uppercase",
-                    marginBottom:8, paddingLeft:4, borderLeftWidth:2, borderLeftColor:shade("#1e3a5f") }}>
-                    {displayClinicalCode("optionGroup", sec.key, language, { label: sec.label })}
-                  </Text>
-                  <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
-                    {opts.map(opt => {
-                      const sel = monitoring.includes(opt.field)
-                      return (
-                        <TouchableOpacity key={opt.field} onPress={() => {
-                          const next = sel ? monitoring.filter(x => x !== opt.field) : [...monitoring, opt.field]
-                          setMonitoring(next)
-                          saveMonitoring(next)
-                        }} style={{ paddingHorizontal:12, paddingVertical:8, borderRadius:10,
-                          backgroundColor: sel ? shade("#0f2a1a") : shade("#111111"),
-                          borderWidth:1, borderColor: sel ? shade("#22c55e") : shade("#1e2d40") }}>
-                          <Text style={{ color: sel ? shade("#86efac") : shade("#64748b"), fontSize:11, fontWeight:"700" }}>
-                            {displayClinicalCode("option:MONITORING", opt.field, language, { label: opt.label })}
-                          </Text>
-                        </TouchableOpacity>
-                      )
-                    })}
-                  </View>
-                </View>
-              )
-            })}
-          </>
-        )
-      })()}
-
-    </ScrollView>
+    <OverflowCueScrollView style={{ flex: 1 }} scrollViewStyle={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
+      {fieldSaving === "monitoring" ? <Text style={{ color: shade("#94a3b8"), fontSize: 11, marginBottom: 8 }}>{tc("draftSaving")}</Text> : null}
+      {smart ?? <MonitoringGroups monitoring={monitoring} onToggle={toggle} monitoringOpts={monitoringOpts} />}
+    </OverflowCueScrollView>
   )
 }

@@ -1,7 +1,22 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, type TextInputProps } from "react-native"
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Platform, Switch, type TextInputProps } from "react-native"
 import { colors, withAlpha, useShade, useThemeRefresh } from "@/theme/colors"
 import { usePreferences, type AppLanguage } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
+
+/**
+ * Shared boolean control. React Native Web gives a clicked switch the browser's
+ * rectangular button focus ring, which is especially distracting in the dense
+ * mobile settings rows. Keep the native switch and its semantics, but remove
+ * that web-only outline from the control itself.
+ */
+export function BooleanSwitch({ style, ...props }: React.ComponentProps<typeof Switch>) {
+  return (
+    <Switch
+      {...props}
+      style={[Platform.OS === "web" ? { outlineWidth: 0 } : undefined, style]}
+    />
+  )
+}
 
 // ─── Colors (match web dark mode exactly) ────────────────────────────────────
 // Screen bg:    #111111   →  bg-[#111111]
@@ -351,7 +366,7 @@ export function ClinicalSwitchRow({
   const shade = useShade()
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: value ? activeColor : colors.border, borderRadius: 14, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 10 }}>
-      <Switch
+      <BooleanSwitch
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: colors.borderStrong, true: withAlpha(activeColor, "66") }}

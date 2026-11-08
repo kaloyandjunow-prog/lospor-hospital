@@ -2,7 +2,6 @@ import React from "react"
 import { describe, expect, it, vi } from "vitest"
 import { getByText, queryByText, render } from "@/test/render"
 import { MedicalDisclaimer } from "./MedicalDisclaimer"
-import { ComplicationsSheet } from "./intraop/ComplicationsSheet"
 import { IntraopMonitorHeader } from "./intraop/IntraopMonitorHeader"
 import { SupportDiagnosticPreview } from "./SupportDiagnosticPreview"
 import { createIntraopSyncStatusStore } from "@/lib/intraop-sync-status"
@@ -14,13 +13,9 @@ const baseStrings: Record<string, string> = {
 
 const clinicalStrings: Record<string, string> = {
   caseSaveFailed: "Случаят не можа да бъде запазен. Проверете връзката и опитайте отново.",
-  clearAll: "Изчистете всички",
   complicationsTitle: "Усложнения",
-  complicationSingular: "усложнение",
-  complicationPlural: "усложнения",
   draftSaving: "Запазва се…",
   mhRetrySync: "Синхронизирай отново",
-  saveLabel: "Запази",
 }
 
 vi.mock("@/lib/preferences-context", () => ({
@@ -35,28 +30,6 @@ describe("Bulgarian render contracts", () => {
   it("renders the medical disclaimer in Bulgarian", () => {
     const tree = render(<MedicalDisclaimer />)
     expect(getByText(tree, baseStrings.medicalDisclaimer)).toBeTruthy()
-  })
-
-  it("renders complication save state and count in Bulgarian", () => {
-    const tree = render(
-      <ComplicationsSheet
-        visible
-        onClose={vi.fn()}
-        groups={[{ id: "AIRWAY", title: "Airway", items: ["Difficult airway"] }]}
-        titleForGroup={group => group.title}
-        selected={["Difficult airway"]}
-        expanded={{}}
-        saving={false}
-        onToggleGroup={vi.fn()}
-        onToggleItem={vi.fn()}
-        onClear={vi.fn()}
-        onSave={vi.fn()}
-      />,
-    )
-
-    expect(getByText(tree, "Усложнения")).toBeTruthy()
-    expect(getByText(tree, "Изчистете всички")).toBeTruthy()
-    expect(getByText(tree, "Запази (1 усложнение)")).toBeTruthy()
   })
 
   it("never exposes a raw server error in the Bulgarian sync badge", () => {

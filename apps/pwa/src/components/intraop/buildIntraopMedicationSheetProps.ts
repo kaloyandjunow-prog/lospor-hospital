@@ -72,6 +72,8 @@ export type IntraopMedicationSheetBuilderProps = {
   DRUG_ROUTE_PROFILES: DrugProps["routeProfiles"]
   DRUG_DOSE_CALCS: DrugProps["doseCalcs"]
   preop: IntraopPreopSummary | null
+  /** The case techniques; a unilateral spinal pre-sets the intrathecal dose to hyperbaric. */
+  techniques?: readonly string[]
   pediatricDrugProfiles: DrugProps["pediatricDrugProfiles"]
   pediatricFluidProfiles: FluidProps["pediatricFluidProfiles"]
   pediatricInfusionProfiles: InfusionProps["pediatricInfusionProfiles"]
@@ -90,6 +92,7 @@ export type IntraopMedicationSheetBuilderProps = {
     showBis: boolean
     showTofRatio: boolean
     showCvp: boolean
+    showIbp: boolean
   }
   etco2Unit: VitalsProps["etco2Unit"]
   temperatureUnit: VitalsProps["temperatureUnit"]
@@ -127,6 +130,8 @@ export type IntraopMedicationSheetBuilderProps = {
   vBis: VitalsProps["bis"]
   vTof: VitalsProps["tofRatio"]
   vCvp: VitalsProps["cvp"]
+  vIbp: VitalsProps["ibp"]
+  setIbp: VitalsProps["onIbpChange"]
   vitalFeedback: VitalsProps["feedback"]
   setVBis: VitalsProps["onBisChange"]
   setVTof: VitalsProps["onTofRatioChange"]
@@ -222,14 +227,14 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
     DRUG_LA_CONCENTRATIONS, drugConcentration, setDrugConcentration,
     drugCustomConcentration, setDrugCustomConcentration, drugFormulation, setDrugFormulation,
     drugRule, applyDrugSelection, DRUG_BASE_PROFILES,
-    DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, preop, pediatricDrugProfiles, pediatricFluidProfiles,
+    DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, preop, techniques, pediatricDrugProfiles, pediatricFluidProfiles,
     pediatricInfusionProfiles,
     pediatricDoseProfiles,
     pediatricRulesSource, pediatricRulesCachedAt, pediatricRulesLoading, pediatricRulesError,
     vitOpen, vitMode, editingVitalId,
     vitScanBusy, vitalVisibility, etco2Unit, temperatureUnit, vSysRef, vDiaRef, vHRRef,
     vSpO2Ref, vEtco2Ref, vTempRef, vBisRef, vTofRef, vCvpRef, cvpUnit,
-    vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp, vitalFeedback,
+    vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp, vIbp, setIbp, vitalFeedback,
     setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance,
     setVSys, setVDia, setVHR, setVSpO2, setVEtco2, setVTemp,
     setVBis, setVTof, setVCvp, confirmVitals, infOpen,
@@ -309,6 +314,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       patientWeightKg: preop?.weight ?? undefined,
       patientHeightCm: preop?.height ?? undefined,
       patientSex: preop?.sex ?? undefined,
+      techniques,
       pediatricMode,
       pediatricDrugProfiles,
       pediatricDoseProfiles: prospectiveGuidanceEnabled ? pediatricDoseProfiles : [],
@@ -328,6 +334,9 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       showBis: vitalVisibility.showBis,
       showTofRatio: vitalVisibility.showTofRatio,
       showCvp: vitalVisibility.showCvp,
+      showIbp: vitalVisibility.showIbp,
+      ibp: vIbp,
+      onIbpChange: setIbp,
       etco2Unit,
       temperatureUnit,
       cvpUnit: cvpUnit === "cmH2O" ? "cmH₂O" : "mmHg",

@@ -1,24 +1,33 @@
 import { useState } from "react"
-import { View, Linking, Platform, ScrollView, Switch } from "react-native"
+import { View, Text, Linking } from "react-native"
 import Constants from "expo-constants"
 import { Stack, useRouter, type Href } from "expo-router"
 import { useAuth } from "@/lib/auth-context"
-import { apiFetch } from "@/lib/api"
-import { notify, confirmAction } from "@/lib/notify"
-import { clearLocalClinicalCache } from "@/lib/local-clinical-cache"
+import { notify } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
-import { Card, SectionHeader, SettingsRow } from "@/components/ui"
+import { BooleanSwitch, Card, SectionHeader, SettingsRow } from "@/components/ui"
 import { colors } from "@/theme/colors"
 import { AppHeader } from "@/components/AppHeader"
 import { useOptionLibrary } from "@/lib/use-option-library"
 import { resolveOptionPreferenceLabels } from "@lospor/core/option-contracts"
-import { formatMessage } from "@/i18n/locale"
 import { legalDocumentUrl } from "@/lib/legal-links"
 import { FavouritePicker } from "@/components/SettingsPickers"
+import { useSettingsDangerActions } from "./useSettingsDangerActions"
 import { NotificationsCard } from "./NotificationsCard"
 import { DiagnosticsCard, type DiagState } from "./DiagnosticsCard"
 import { BulgarianNamesCard } from "./BulgarianNamesCard"
+import { AutomationGroupsCard } from "./AutomationGroupsCard"
+import { EnergyKnobSkinCard } from "./EnergyKnobSkinCard"
+import { AirwayScreenCard } from "./AirwayScreenCard"
+import { VascularScreenCard } from "./VascularScreenCard"
+import { MonitoringScreenCard } from "./MonitoringScreenCard"
+import { EquipmentScreenCard } from "./EquipmentScreenCard"
+import { TechniqueScreenCard } from "./TechniqueScreenCard"
+import { EventsScreenCard } from "./EventsScreenCard"
+import { FluidScreenCard } from "./FluidScreenCard"
+import { EventLogScreenCard } from "./EventLogScreenCard"
 import { UiScaleRow } from "./UiScaleRow"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 
 /**
  * Split out of settings.tsx: theme/units/automation/notifications/privacy/
@@ -42,7 +51,7 @@ export function SettingsPreferencesView({
   const { options: drugOptions } = useOptionLibrary("INTRAOP_DRUG")
   const { options: infusionOptions } = useOptionLibrary("INTRAOP_INFUSION")
   const {
-    language, setLanguage, theme, setTheme, preopLayout, setPreopLayout, postopLayout, setPostopLayout, t, tc,
+    language, setLanguage, theme, setTheme, preopLayout, setPreopLayout, postopLayout, setPostopLayout, caseSidebar, t, tc,
     heightUnit, setHeightUnit, weightUnit, setWeightUnit, temperatureUnit, setTemperatureUnit, etco2Unit, setEtco2Unit, cvpUnit, setCvpUnit,
     autoFillVitalsPreferences,
     setAutoFillVitalsPreferences,
@@ -52,6 +61,8 @@ export function SettingsPreferencesView({
     intraopFavouriteInfusions: favouriteInfusions,
     setIntraopFavouriteDrugs,
     setIntraopFavouriteInfusions,
+    vitalEpisodeAutoLog,
+    setVitalEpisodeAutoLog,
   } = usePreferences()
 
   const [drugFavOpen, setDrugFavOpen] = useState(false)
@@ -71,20 +82,7 @@ export function SettingsPreferencesView({
     favouriteInfusions,
   )
 
-  async function clearClinicalCache() {
-    const run = async () => {
-      const cleared = await clearLocalClinicalCache()
-      await refreshDiagnostics()
-      const detail = formatMessage(t("localCacheClearedBody"), { drafts: cleared.drafts, patches: cleared.patches, queues: cleared.intraopQueues })
-      notify(t("localCacheCleared"), detail)
-    }
-    if (Platform.OS === "web") { await run(); return }
-    void confirmAction(
-      t("clearLocalCacheTitle"),
-      t("clearLocalCacheBody"),
-      { destructive: true, confirmLabel: t("clearCacheConfirm"), cancelLabel: t("cancel") },
-    ).then(ok => { if (ok) run() })
-  }
+  const { clearClinicalCache, handleDeleteAccount } = useSettingsDangerActions({ t: t as never, refreshDiagnostics, logout })
 
   // -- Automation setters -------------------------------------------------------
   function setAutoFillVitals(v: boolean) {
@@ -123,32 +121,30 @@ export function SettingsPreferencesView({
     }
   }
 
-  function handleDeleteAccount() {
-    void confirmAction(t("deleteAccountTitle"), t("deleteAccountMsg"), { destructive: true, confirmLabel: t("deleteAccountConfirm"), cancelLabel: t("cancel") })
-      .then(ok => { if (ok) confirmDeleteAccount() })
-  }
-
-  async function confirmDeleteAccount() {
-    try {
-      const res = await apiFetch("/api/user/delete", { method: "POST" })
-      if (!res.ok) throw new Error()
-      await logout()
-    } catch {
-      notify(t("error"), t("deleteAccountError"))
-    }
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen options={{ headerShown: false }} />
       <AppHeader eyebrow="LOSPOR" title={t("settings")} showNewCase={false} onBack={onBack} />
 
-      <ScrollView
+      <OverflowCueScrollView
         style={{ flex: 1 }}
+        scrollViewStyle={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, paddingTop: 12 }}
       >
-        {/* -- UI ----------------------------------------------------------------- */}
-        <SectionHeader title={t("uiSection")} />
+        {/* -- Profile & account -------------------------------------------------- */}
+        <SectionHeader title={t("profileAccountSection")} />
+        <Card>
+          <SettingsRow
+            label={t("viewProfile")}
+            subtitle={t("profileAccountDesc")}
+            onPress={() => router.push("/(app)/account" as Href)}
+            last
+          />
+        </Card>
+
+        {/* -- Appearance --------------------------------------------------------- */}
+        <SectionHeader title={t("appearanceSection")} />
         <Card>
           <SettingsRow
             label={t("theme")}
@@ -160,8 +156,20 @@ export function SettingsPreferencesView({
             subtitle={language === "bg" ? t("bulgarian") : t("english")}
             onPress={() => setLanguage(language === "bg" ? "en" : "bg")}
           />
-          {/* Each case screen sectioned or scrollable (10.0.0). Intraop is
-              always sectioned on the phone: its chart is the cockpit. */}
+          <UiScaleRow />
+        </Card>
+        <View style={{ height: 12 }} />
+        <BulgarianNamesCard />
+        <View style={{ height: 12 }} />
+        <EnergyKnobSkinCard />
+        <SectionHeader title={t("smartFunctionsSection")} />
+        <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: -4, marginBottom: 10 }}>
+          {t("smartFunctionsDesc")}
+        </Text>
+        <Card>
+          {/* Case screens can be sectioned or scrollable. Keep these choices
+              with the account-wide smart section controls so layout and SPS
+              settings are found together. */}
           <SettingsRow
             label={t("preopLayout")}
             subtitle={preopLayout === "sections" ? t("preopLayoutSections") : t("preopLayoutScroll")}
@@ -171,12 +179,23 @@ export function SettingsPreferencesView({
             label={t("postopLayout")}
             subtitle={postopLayout === "sections" ? t("preopLayoutSections") : t("preopLayoutScroll")}
             onPress={() => setPostopLayout(postopLayout === "sections" ? "scroll" : "sections")}
-            last
           />
-          <UiScaleRow />
+          <SettingsRow
+            label={t("caseSidebarLayout")}
+            subtitle={caseSidebar ? t("caseSidebarEnabled") : t("caseSidebarDisabled")}
+            rightElement={<Text style={{ color: colors.textMuted, fontSize: 11 }}>{t("webOnly")}</Text>}
+          />
+          <AirwayScreenCard compact />
+          <VascularScreenCard compact />
+          <MonitoringScreenCard compact />
+          <EquipmentScreenCard compact />
+          <TechniqueScreenCard compact />
+          <EventsScreenCard compact />
+          <FluidScreenCard compact />
+          <EventLogScreenCard compact />
         </Card>
         <View style={{ height: 12 }} />
-        <BulgarianNamesCard />
+        <AutomationGroupsCard />
 
         {/* -- Units of measurement ------------------------------------------------
             Display-only preferences — the database always stores the canonical
@@ -215,8 +234,8 @@ export function SettingsPreferencesView({
           />
         </Card>
 
-        {/* -- Automation --------------------------------------------------------- */}
-        <SectionHeader title={t("intraoperative")} />
+        {/* -- Clinical defaults -------------------------------------------------- */}
+        <SectionHeader title={t("clinicalDefaultsSection")} />
         <Card>
           <SettingsRow
             label={t("defaultMonitoring")}
@@ -239,13 +258,29 @@ export function SettingsPreferencesView({
             subtitle={favouriteInfusionLabels.length ? favouriteInfusionLabels.join(", ") : t("chooseFavouriteInfusions")}
             onPress={() => setInfFavOpen(true)}
           />
+          {/* 10.1.0: after a yes to a vitals question, keep logging while out of range. */}
+          <SettingsRow
+            label={t("vitalEpisodeAutoLog")}
+            subtitle={t("vitalEpisodeAutoLogSub")}
+            rightElement={
+              <BooleanSwitch
+                testID="setting-vital-episode-auto-log"
+                value={vitalEpisodeAutoLog}
+                accessibilityLabel={t("vitalEpisodeAutoLog")}
+                onValueChange={value => { void setVitalEpisodeAutoLog(value) }}
+                trackColor={{ false: colors.border, true: colors.primarySoft }}
+                thumbColor={vitalEpisodeAutoLog ? colors.primary : colors.textMuted}
+              />
+            }
+          />
           <SettingsRow
             label={t("autoFillVitals")}
             subtitle={t("autoFillVitalsSub")}
             last={!autoFillVitals}
             rightElement={
-              <Switch
+              <BooleanSwitch
                 value={autoFillVitals}
+                accessibilityLabel={t("autoFillVitals")}
                 onValueChange={setAutoFillVitals}
                 trackColor={{ false: colors.border, true: colors.primarySoft }}
                 thumbColor={autoFillVitals ? colors.primary : colors.textMuted}
@@ -258,8 +293,9 @@ export function SettingsPreferencesView({
                 label={t("autoFillBpHr")}
                 subtitle={t("autoFillBpHrSub")}
                 rightElement={
-                  <Switch
+                  <BooleanSwitch
                     value={autoFillBP}
+                    accessibilityLabel={t("autoFillBpHr")}
                     onValueChange={setAutoFillBP}
                     trackColor={{ false: colors.border, true: colors.primarySoft }}
                     thumbColor={autoFillBP ? colors.primary : colors.textMuted}
@@ -271,8 +307,9 @@ export function SettingsPreferencesView({
                 subtitle={t("backgroundAutoFillSub")}
                 last
                 rightElement={
-                  <Switch
+                  <BooleanSwitch
                     value={autoFillBg}
+                    accessibilityLabel={t("backgroundAutoFill")}
                     onValueChange={setAutoFillBg}
                     trackColor={{ false: colors.border, true: colors.primarySoft }}
                     thumbColor={autoFillBg ? colors.primary : colors.textMuted}
@@ -329,7 +366,7 @@ export function SettingsPreferencesView({
         </Card>
 
         <DiagnosticsCard diag={diag} refreshDiagnostics={refreshDiagnostics} retryQueuedSaves={retryQueuedSaves} />
-      </ScrollView>
+      </OverflowCueScrollView>
       <FavouritePicker
         visible={drugFavOpen}
         title={t("favouriteBolusDrugs")}

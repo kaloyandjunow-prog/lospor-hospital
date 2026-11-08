@@ -19,6 +19,7 @@ import {
   calcDrugTotals,
   calcCaseIBW,
   calcInfusionTotals,
+  failedLineSuffix,
   formatAirway,
   formatDuration,
   formatTimeHHMM,
@@ -256,7 +257,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
                 : ""
               // A line without a recorded size is named alone (it read "undefinedundefined").
               const size = va.size != null && va.size !== "" ? ` ${va.size}${va.sizeUnit ?? ""}` : ""
-              const lbl = `${site}${size}${va.lumens ? ` ${va.lumens}L` : ""}${preexisting}`
+              const lbl = `${site}${size}${va.lumens ? ` ${va.lumens}L` : ""}${preexisting}${failedLineSuffix(va as { failed?: boolean; failedAt?: string | null }, intraop as { timezone?: string | null }, language)}`
               return <Chip key={`va-${i}`} label={lbl} color={colors.textSecondary} />
             })}
           </ChipRow>

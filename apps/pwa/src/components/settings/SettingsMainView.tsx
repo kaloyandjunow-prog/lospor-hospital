@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { NO_INSTITUTION_ID } from "@lospor/core/account"
 import { usePreferences } from "@/lib/preferences-context"
@@ -9,6 +9,7 @@ import { MedicalDisclaimer } from "@/components/MedicalDisclaimer"
 import { InstitutionPicker, type Institution } from "@/components/SettingsPickers"
 import type { AuthorityNavigation } from "@/lib/authority-navigation"
 import type { ProfileData } from "./types"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 
 /**
  * Split out of settings.tsx: the landing screen (profile, institution, the
@@ -44,8 +45,9 @@ export function SettingsMainView({
       <Stack.Screen options={{ headerShown: false }} />
       <AppHeader eyebrow="LOSPOR" title={t("settings")} showNewCase={false} />
 
-      <ScrollView
+      <OverflowCueScrollView
         style={{ flex: 1 }}
+        scrollViewStyle={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, paddingTop: 12 }}
       >
         {/* Profile card */}
@@ -188,7 +190,7 @@ export function SettingsMainView({
         <View style={{ marginTop: 28 }}>
           <MedicalDisclaimer />
         </View>
-      </ScrollView>
+      </OverflowCueScrollView>
 
       <InstitutionPicker
         visible={pickerOpen}

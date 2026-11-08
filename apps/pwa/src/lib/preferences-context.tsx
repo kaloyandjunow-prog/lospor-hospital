@@ -9,6 +9,7 @@ import React, {
 } from "react"
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
+import { LEGACY_LANGUAGE_KEY, POSTOP_LAYOUT_KEY, PREOP_LAYOUT_KEY, PRE_AUTH_LANGUAGE_KEY, THEME_KEY, loadStoredAppearance } from "@/lib/preferences-storage"
 import { applyUiScale, loadUiScale } from "@/lib/ui-scale"
 import { setColorScheme, type ColorScheme } from "@/theme/colors"
 import { ThemeSchemeContext } from "@/theme/theme-context"
@@ -44,11 +45,6 @@ export type { AppLanguage } from "@/i18n/locale"
 export type { HeightUnit, WeightUnit, TemperatureUnit, Etco2Unit, CvpUnit } from "./preferences-context-types"
 import type { ClinicalStringsMap, PreferencesContextValue, TranslationKey } from "./preferences-context-types"
 
-const PRE_AUTH_LANGUAGE_KEY = "lospor_pre_auth_locale_v1"
-const LEGACY_LANGUAGE_KEY = "lospor_language"
-const THEME_KEY = "lospor_theme"
-const PREOP_LAYOUT_KEY = "lospor_preop_layout"
-const POSTOP_LAYOUT_KEY = "lospor_postop_layout"
 
 export type { ClinicalStringKey, TranslationKey }
 
@@ -96,25 +92,23 @@ export function PreferencesProvider({
 
   const applyClinicalPreferences = useCallback((value: ClinicalPreferences) => {
     clinicalRef.current = value
+    // Layout is account-wide. Keep the legacy mobile names as a compatibility
+    // view of the canonical Core values while older screens still consume them.
+    setPreopLayoutState(value.caseLayout.preop === "tabs" ? "sections" : "scroll")
+    setPostopLayoutState(value.caseLayout.postop === "tabs" ? "sections" : "scroll")
     // Before the redraw, so every name drawn with these preferences follows the switches.
     setBulgarianNameSwitches(value.bulgarianNames)
     setClinicalPreferences(value)
   }, [])
 
   useEffect(() => {
-    void Promise.all([
-      SecureStore.getItemAsync(THEME_KEY),
-      SecureStore.getItemAsync(PREOP_LAYOUT_KEY),
-      SecureStore.getItemAsync(POSTOP_LAYOUT_KEY),
-    ]).then(([storedTheme, storedLayout, storedPostop]) => {
-      if (storedPostop === "sections" || storedPostop === "scroll") setPostopLayoutState(storedPostop)
-      if (storedTheme === "dark" || storedTheme === "light") {
+    void loadStoredAppearance().then(({ theme: storedTheme, preopLayout: storedLayout, postopLayout: storedPostop }) => {
+      if (storedPostop) setPostopLayoutState(storedPostop)
+      if (storedTheme) {
         setThemeState(storedTheme)
         setColorScheme(storedTheme)
       }
-      if (storedLayout === "sections" || storedLayout === "scroll") {
-        setPreopLayoutState(storedLayout)
-      }
+      if (storedLayout) setPreopLayoutState(storedLayout)
     }).catch(() => {})
   }, [])
 
@@ -283,15 +277,17 @@ export function PreferencesProvider({
     await SecureStore.setItemAsync(THEME_KEY, value)
   }
 
-  async function setPreopLayout(value: "sections" | "scroll") {
+  const setPreopLayout = useCallback(async (value: "sections" | "scroll") => {
     setPreopLayoutState(value)
     await SecureStore.setItemAsync(PREOP_LAYOUT_KEY, value)
-  }
+    await patchClinical({ caseLayout: { preop: value === "sections" ? "tabs" : "scroll" } })
+  }, [patchClinical])
 
-  async function setPostopLayout(value: "sections" | "scroll") {
+  const setPostopLayout = useCallback(async (value: "sections" | "scroll") => {
     setPostopLayoutState(value)
     await SecureStore.setItemAsync(POSTOP_LAYOUT_KEY, value)
-  }
+    await patchClinical({ caseLayout: { postop: value === "sections" ? "tabs" : "scroll" } })
+  }, [patchClinical])
 
   const value = useMemo<PreferencesContextValue>(() => ({
     language,
@@ -299,6 +295,7 @@ export function PreferencesProvider({
     shade: (hex: string) => shadeFor(theme, hex),
     preopLayout,
     postopLayout,
+    caseSidebar: clinicalPreferences.caseLayout.sidebar,
     heightUnit: clinicalPreferences.units.height,
     weightUnit: clinicalPreferences.units.weight,
     temperatureUnit: clinicalPreferences.units.temperature,
@@ -309,6 +306,18 @@ export function PreferencesProvider({
     intraopFavouriteDrugs: clinicalPreferences.intraopFavouriteDrugs,
     intraopFavouriteInfusions: clinicalPreferences.intraopFavouriteInfusions,
     bulgarianNames: clinicalPreferences.bulgarianNames,
+    vitalEpisodeAutoLog: clinicalPreferences.vitalEpisodeAutoLog,
+    automationGroups: clinicalPreferences.automationGroups ?? {},
+    automationLines: clinicalPreferences.automationLines ?? {},
+    energyKnobSkin: clinicalPreferences.energyKnobSkin ?? "A",
+    airwayScreen: clinicalPreferences.airwayScreen ?? "smart",
+    vascularScreen: clinicalPreferences.vascularScreen ?? "smart",
+    monitoringScreen: clinicalPreferences.monitoringScreen ?? "smart",
+    equipmentScreen: clinicalPreferences.equipmentScreen ?? "smart",
+    techniqueScreen: clinicalPreferences.techniqueScreen ?? "smart",
+    eventsScreen: clinicalPreferences.eventsScreen ?? "smart",
+    fluidsScreen: clinicalPreferences.fluidsScreen ?? "smart",
+    eventLogScreen: clinicalPreferences.eventLogScreen ?? "smart",
     localeReady,
     clinicalPreferencesReady,
     setLanguage,
@@ -333,6 +342,19 @@ export function PreferencesProvider({
     setIntraopFavouriteInfusions: intraopFavouriteInfusions =>
       patchClinical({ intraopFavouriteInfusions }),
     setBulgarianNames: bulgarianNames => patchClinical({ bulgarianNames }),
+    setVitalEpisodeAutoLog: vitalEpisodeAutoLog => patchClinical({ vitalEpisodeAutoLog }),
+    // The whole set each time, so one switch never clears another.
+    setAutomationGroups: automationGroups => patchClinical({ automationGroups }),
+    setAutomationLines: automationLines => patchClinical({ automationLines }),
+    setEnergyKnobSkin: energyKnobSkin => patchClinical({ energyKnobSkin }),
+    setAirwayScreen: airwayScreen => patchClinical({ airwayScreen }),
+    setVascularScreen: vascularScreen => patchClinical({ vascularScreen }),
+    setMonitoringScreen: monitoringScreen => patchClinical({ monitoringScreen }),
+    setEquipmentScreen: equipmentScreen => patchClinical({ equipmentScreen }),
+    setTechniqueScreen: techniqueScreen => patchClinical({ techniqueScreen }),
+    setEventsScreen: eventsScreen => patchClinical({ eventsScreen }),
+    setFluidsScreen: fluidsScreen => patchClinical({ fluidsScreen }),
+    setEventLogScreen: eventLogScreen => patchClinical({ eventLogScreen }),
     t: key => STRINGS[language][key] ?? STRINGS.en[key],
     tc: key =>
       (CLINICAL_STRINGS[language] as ClinicalStringsMap)[key]
@@ -351,6 +373,8 @@ export function PreferencesProvider({
     selectLoginLanguage,
     setLanguage,
     theme,
+    setPreopLayout,
+    setPostopLayout,
   ])
 
   return (

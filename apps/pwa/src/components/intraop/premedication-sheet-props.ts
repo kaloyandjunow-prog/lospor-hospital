@@ -1,4 +1,5 @@
 import type { ComponentProps, Dispatch, SetStateAction } from "react"
+import { adultPremedDoseForRoute } from "@lospor/core/premedication"
 import type { PremedicationLibrarySheet } from "@/components/intraop/PremedicationLibrarySheet"
 import type { IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import {
@@ -39,6 +40,10 @@ export function premedicationSheetProps(state: PremedicationSheetState, context:
 }): SheetProps {
   const { preop, prospectiveGuidanceEnabled } = context
   const pediatricMode = preop?.clinicalMode === "PEDIATRIC"
+  const manualEntryOnly = !prospectiveGuidanceEnabled || (state.drug ? pediatricMode
+    ? pediatricPremedDoseForRoute(state.drug, state.route, premedPatientFromPreop(preop)).status !== "calculated"
+    : adultPremedDoseForRoute(state.drug, state.route, preop?.weight).status !== "suggested"
+    : false)
   return {
     visible: state.open,
     phase: state.phase,
@@ -90,10 +95,26 @@ export function premedicationSheetProps(state: PremedicationSheetState, context:
         return
       }
       const next = pediatricPremedDoseForRoute(state.drug, route, premedPatientFromPreop(preop))
-      state.setDose(next.status === "calculated" ? String(next.dose) : "")
+      if (next.status === "calculated") {
+        // Keep the dose surface in sync with the selected route. The paediatric
+        // range and step can change with the route just as they do for adults.
+        state.setDrug(previous => previous ? {
+          ...previous,
+          dose: next.dose,
+          unit: next.unit,
+          min: next.min,
+          max: next.max,
+          step: next.step,
+          hint: next.hint,
+        } : previous)
+        state.setDose(String(next.dose))
+      } else {
+        state.setDose("")
+      }
     },
     onAdd: state.onAdd,
     prospectiveGuidanceEnabled,
+    manualEntryOnly,
     pediatricMode,
   }
 }

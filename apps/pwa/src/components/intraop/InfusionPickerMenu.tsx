@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Text, TextInput, TouchableOpacity, View } from "react-native"
 import { useCurrentDrugColors } from "@/lib/drug-colors"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
@@ -8,6 +8,7 @@ import { MedicationPickerPill } from "@/components/intraop/MedicationPickerPill"
 import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
+import { OverflowCueScrollView } from "./OverflowCueScrollView"
 
 export type InfusionPickerOption = { name: string; unit: string; color: string; group?: string }
 export type InfusionPickerResult = InfusionPickerOption & {
@@ -67,7 +68,7 @@ export function InfusionPickerMenu({
   const groupColor = useCurrentDrugColors().group
   if (mode === "scenario" && scenario) {
     return (
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <OverflowCueScrollView>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
           <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
@@ -82,13 +83,13 @@ export function InfusionPickerMenu({
             />
           ))}
         </View>
-      </ScrollView>
+      </OverflowCueScrollView>
     )
   }
 
   if (mode === "favourites") {
     return (
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <OverflowCueScrollView>
         <TouchableOpacity onPress={onBackHome} style={{ marginBottom:14 }}>
           <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
@@ -107,13 +108,13 @@ export function InfusionPickerMenu({
             ))}
           </View>
         )}
-      </ScrollView>
+      </OverflowCueScrollView>
     )
   }
 
   if (mode === "browse") {
     return (
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <OverflowCueScrollView>
         <TouchableOpacity onPress={() => openGroup && !query.trim() ? setOpenGroup(null) : (setOpenGroup(null), onBackHome())} style={{ marginBottom:14 }}>
           <Text style={{ color:shade("#94a3b8"), fontSize:13 }}>{tc("back")}</Text>
         </TouchableOpacity>
@@ -151,12 +152,12 @@ export function InfusionPickerMenu({
               />
             ))}
         </View>
-      </ScrollView>
+      </OverflowCueScrollView>
     )
   }
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <OverflowCueScrollView>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10, marginBottom:16 }}>
         <MedicationPickerPill
           label={tc("dsFavourites")}
@@ -186,6 +187,6 @@ export function InfusionPickerMenu({
           wide
         />
       </View>
-    </ScrollView>
+    </OverflowCueScrollView>
   )
 }

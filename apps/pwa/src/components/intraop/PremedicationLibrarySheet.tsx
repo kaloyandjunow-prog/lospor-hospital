@@ -1,6 +1,7 @@
-import { Platform, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Text, TouchableOpacity, View } from "react-native"
 import type { PremDrug } from "@/lib/intraop-types"
 import type { PediatricPremedDrug } from "@/lib/pediatric-premedication-library"
+import { DoseSelector } from "./DoseSelector"
 import { Sheet } from "./Sheet"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
@@ -29,14 +30,9 @@ type Props = {
   onRouteChange: (value: string) => void
   onAdd: () => void
   prospectiveGuidanceEnabled: boolean
+  /** True when the selected route has no governed dose suggestion. */
+  manualEntryOnly?: boolean
   pediatricMode?: boolean
-}
-
-function adjustDose(drug: PremDrug, dose: string, direction: -1 | 1): string {
-  const current = parseFloat(dose) || drug.dose
-  const next = current + direction * drug.step
-  const bounded = direction < 0 ? Math.max(drug.min, next) : Math.min(drug.max, next)
-  return String(Math.round(bounded * 1000) / 1000)
 }
 
 export function PremedicationLibrarySheet({
@@ -56,12 +52,17 @@ export function PremedicationLibrarySheet({
   onRouteChange,
   onAdd,
   prospectiveGuidanceEnabled,
+  manualEntryOnly,
 }: Props) {
   const shade = useShade()
   const { language, tc } = usePreferences()
   const drugLabel = (name: string) => displayClinicalCode("option:PREMED_DRUG", name, language, { label: name })
   const groupLabel = (name: string) => displayClinicalCode("optionGroup", name, language, { label: name })
   const pediatricAnnotation = drug ? (drug as PediatricPremedDrug).pediatric : undefined
+  const doseIsManualOnly = manualEntryOnly ?? (
+    !prospectiveGuidanceEnabled
+    || (!!pediatricAnnotation && pediatricAnnotation.kind !== "calculated")
+  )
   const phaseLabel = tc(phase === "evening" ? "premedEvening" : "premedMorning")
 
   function pediatricStatus(annotation: PediatricPremedDrug["pediatric"]): string | null {
@@ -129,32 +130,26 @@ export function PremedicationLibrarySheet({
           <Text style={{ color:shade("#f8fafc"), fontSize:16, fontWeight:"700" }}>{drugLabel(drug.name)}</Text>
 
           <View>
-            <Text style={{ color:shade("#64748b"), fontSize:11, fontWeight:"700", textTransform:"uppercase",
-              letterSpacing:1, marginBottom:8 }}>{formatMessage(tc("doseLabel"), { unit: drug.unit })}</Text>
-            <View style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
-              {prospectiveGuidanceEnabled ? <TouchableOpacity
-                onPress={() => onDoseChange(adjustDose(drug, dose, -1))}
-                style={{ width:44, height:44, borderRadius:10, backgroundColor:shade("#1e2d40"), alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:shade("#2a3a50") }}>
-                <Text style={{ color:shade("#93c5fd"), fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>-</Text>
-              </TouchableOpacity> : null}
-              <TextInput
-                style={{ flex:1, minWidth:0, backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10,
-                  padding: Platform.OS === "web" ? 9 : 12,
-                  fontSize: Platform.OS === "web" ? 18 : 22,
-                  borderWidth:1, borderColor:shade("#3e3e3e"), textAlign:"center" }}
-                keyboardType="decimal-pad"
-                value={dose}
-                onChangeText={onDoseChange}
-              />
-              {prospectiveGuidanceEnabled ? <TouchableOpacity
-                onPress={() => onDoseChange(adjustDose(drug, dose, 1))}
-                style={{ width:44, height:44, borderRadius:10, backgroundColor:shade("#1e2d40"), alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:shade("#2a3a50") }}>
-                <Text style={{ color:shade("#93c5fd"), fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>+</Text>
-              </TouchableOpacity> : null}
-            </View>
-            {prospectiveGuidanceEnabled && !!drug.hint && (
-              <Text style={{ color:shade("#475569"), fontSize:11, marginTop:6 }}>{drug.hint}</Text>
-            )}
+            <DoseSelector
+              color={shade("#3b82f6")}
+              hint={prospectiveGuidanceEnabled ? drug.hint : undefined}
+              value={dose}
+              onValueChange={onDoseChange}
+              min={drug.min}
+              max={drug.max}
+              step={drug.step}
+              manualEntryOnly={doseIsManualOnly}
+              valuePlaceholder={`${tc("dsCustomUnit")} ${drug.unit}`}
+              unitSuffix={drug.unit}
+              routes={drug.routes}
+              route={route}
+              onRouteChange={nextRoute => {
+                onRouteChange(nextRoute)
+                // A route change invalidates the previous dose, including the
+                // manual-entry baseline used when guidance is disabled.
+                onDoseChange("")
+              }}
+            />
             {prospectiveGuidanceEnabled && pediatricAnnotation?.kind === "calculated" && (
               <Text style={{ color:shade("#38bdf8"), fontSize:11, marginTop:4 }}>
                 {pediatricAnnotation.perKg} {pediatricAnnotation.unit}/kg × {pediatricAnnotation.weightUsedKg} kg
@@ -165,25 +160,6 @@ export function PremedicationLibrarySheet({
             {pediatricAnnotation && pediatricAnnotation.kind !== "calculated" && (
               <Text style={{ color:shade("#fbbf24"), fontSize:11, marginTop:4 }}>{pediatricStatus(pediatricAnnotation)}</Text>
             )}
-          </View>
-
-          <View>
-            <Text style={{ color:shade("#64748b"), fontSize:11, fontWeight:"700", textTransform:"uppercase",
-              letterSpacing:1, marginBottom:8 }}>{tc("doseRoute")}</Text>
-            <View style={{ flexDirection:"row", gap:8 }}>
-              {drug.routes.map(item => (
-                <TouchableOpacity key={item} onPress={() => {
-                  onRouteChange(item)
-                  if (!prospectiveGuidanceEnabled) onDoseChange("")
-                }}
-                  style={{ flex:1, paddingVertical:10, borderRadius:8, alignItems:"center",
-                    backgroundColor: route === item ? shade("#1e3a5f") : shade("#111111"),
-                    borderWidth:1, borderColor: route === item ? shade("#3b82f6") : shade("#2a3a4a") }}>
-                  <Text style={{ color: route === item ? shade("#93c5fd") : shade("#64748b"),
-                    fontWeight:"700", fontSize:13 }}>{item}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
 
           <TouchableOpacity

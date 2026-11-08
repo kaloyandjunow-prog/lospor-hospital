@@ -4,7 +4,7 @@ import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAc
 import { confirmAction, notify } from "@/lib/notify"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
 import { buildFinaliseCaseState, buildReopenedEndedState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
-import { buildEndCaseRunningItems, hasEndCaseRunningItems, type EndCaseStopOptions } from "@/lib/intraop-end-case-items"
+import { buildEndCaseRunningItems, type EndCaseStopOptions } from "@/lib/intraop-end-case-items"
 import type { EndCaseAfterEndItem, EndCaseCleanupItem, EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
 import type { RunningAgent } from "@/lib/use-intraop-running-state"
 import { formatDateHHMM } from "@/lib/intraop-projection"
@@ -13,6 +13,7 @@ import { intraopEndCaseStopIds } from "@lospor/core/intraop-commands"
 import { intraopAttentionItems, intraopAttentionText, type IntraopAttentionAction } from "@lospor/core/intraop-attention"
 import { localTimeOf } from "@lospor/core/intraop-time"
 import { logAfterAttentionAnswer, useIntraopAttention } from "@/lib/use-intraop-attention"
+import type { SuggestionContext } from "@lospor/core/intraop-suggestions"
 import { useCaseSaveState } from "@/lib/use-case-save-state"
 import { useResumeCountdown } from "@/lib/use-resume-countdown"
 import { promoteDraftCaseToInProgress, startAtDayProps, startInstantForEntry, type IntraopTimingOverrides } from "@/lib/intraop-timing"
@@ -29,6 +30,7 @@ import {
 } from "@lospor/core/clinical-validation"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
+import type { VitalQuestionContext } from "@lospor/core/vital-questions"
 
 const INTRAOP_ISSUE_LABEL_KEYS: Partial<Record<ClinicalIssueCode, ClinicalStringKey>> = {
   missing_start_time: "issueAnaesthesiaStart",
@@ -90,6 +92,10 @@ type UseIntraopCaseLifecycleArgs = {
     labelOf: (event: LogEvent) => string
     endedAtRef: MutableRefObject<Date | null>
     resyncActiveRef: MutableRefObject<() => void>
+    /** The vitals questions (10.1.0), when asked on this screen. */
+    vitals?: VitalQuestionContext | null
+    /** The suggestions (10.2.0), when any group is on and this screen holds the case. */
+    suggestions?: Omit<SuggestionContext, "now"> | null
   }
 }
 
@@ -136,12 +142,19 @@ export function useIntraopCaseLifecycle({
   // entered ahead and still unconfirmed, are answered before the case ends.
   // Which ones, and what each answer writes, is Core's (intraop-attention).
   const [endCaseAt, setEndCaseAt] = useState<Date | null>(null)
+  // The end chosen with End at (10.1.0): entries after it are answered in the
+  // sheet, before the case ends, and "happened" moves an entry to it. Null
+  // while the sheet says End now, which keeps the minute it opened at.
+  const [chosenEndTs, setChosenEndTs] = useState<string | null>(null)
+  const afterEndAt = chosenEndTs ? new Date(chosenEndTs) : endCaseAt
   const attention = useIntraopAttention({
     log: timeline.log,
     logRef: timeline.logRef,
     endedAtRef: timeline.endedAtRef,
     syncLog: timeline.syncLog,
     resyncActiveRef: timeline.resyncActiveRef,
+    vitals: timeline.vitals,
+    suggestions: timeline.suggestions,
   })
   const saveState = useCaseSaveState(timeline.caseId)
 
@@ -251,20 +264,12 @@ export function useIntraopCaseLifecycle({
       )
       if (!proceed) return
     }
-    const at = new Date(Math.floor(serverNow().getTime() / 60_000) * 60_000)
-    const pending = intraopAttentionItems(timeline.logRef.current, { now: at, endedAt: at })
-    setEndCaseAt(at)
-    if (pending.length > 0 || hasEndCaseRunningItems({ activeAgents, activeGas, activeInfusions, activeFluids })) {
-      setEndCaseDecisions({})
-      setEndCaseOpen(true)
-    } else {
-      const confirmed = await confirmAction(
-        tc("endCaseTitle"),
-        tc("allActiveItemsClear"),
-        { confirmLabel: tc("continuePostopShort"), cancelLabel },
-      )
-      if (confirmed) await finaliseCase([])
-    }
+    // Always the sheet, even with nothing left to answer: it is where End at
+    // lives, and a case charted afterwards usually has nothing running (10.1.0).
+    setEndCaseAt(new Date(Math.floor(serverNow().getTime() / 60_000) * 60_000))
+    setEndCaseDecisions({})
+    setChosenEndTs(null)
+    setEndCaseOpen(true)
   }
 
   async function resumeCase() {
@@ -293,7 +298,7 @@ export function useIntraopCaseLifecycle({
   // happen" deletes it with what depends on it, and an unconfirmed stop is
   // confirmed or withdrawn.
   async function resolveAfterEnd(id: string, action: IntraopAttentionAction) {
-    const at = endCaseAt ?? serverNow()
+    const at = afterEndAt ?? serverNow()
     const next = logAfterAttentionAnswer(timeline.logRef.current, id, action, { now: serverNow(), endedAt: at })
     if (next) await timeline.syncLog(next)
     timeline.resyncActiveRef.current()
@@ -302,8 +307,8 @@ export function useIntraopCaseLifecycle({
   // Times in the case's own zone, never the device's.
   const clockOf = (ts: string) =>
     (isValidTimeZone(caseTimezone) ? localTimeOf(new Date(ts), caseTimezone) : null) ?? formatDateHHMM(new Date(ts))
-  const afterEndItems: EndCaseAfterEndItem[] = endCaseAt
-    ? intraopAttentionItems(timeline.log, { now: endCaseAt, endedAt: endCaseAt }).map(item => ({
+  const afterEndItems: EndCaseAfterEndItem[] = afterEndAt
+    ? intraopAttentionItems(timeline.log, { now: afterEndAt, endedAt: afterEndAt }).map(item => ({
         id: item.key,
         kind: item.kind,
         label: intraopAttentionText(item, language),
@@ -354,6 +359,7 @@ export function useIntraopCaseLifecycle({
     endCaseRunningItems,
     afterEndItems,
     resolveAfterEnd,
-    attention: { ...attention, clockOf, labelOf: timeline.labelOf, log: timeline.log, saveState },
+    setChosenEndTs,
+    attention: { ...attention, clockOf, labelOf: timeline.labelOf, log: timeline.log, saveState, keepLogging: timeline.vitals?.keepLogging },
   }
 }

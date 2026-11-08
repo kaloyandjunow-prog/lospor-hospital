@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Text, TextInput, TouchableOpacity, View } from "react-native"
 import type { IntraopAttentionAction, IntraopAttentionKind } from "@lospor/core/intraop-attention"
 import type { PumpTotalUnit } from "@lospor/core/intraop-types"
@@ -8,6 +8,8 @@ import { PumpTotalField } from "./TciSheetFields"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
+import { DayStepper } from "@/components/DayStepper"
+import { useEndCaseTime } from "@/lib/use-end-case-time"
 
 export type EndCaseStopContext = {
   endTs: string
@@ -51,6 +53,11 @@ type Props = {
   continueLabel: string
   onDecision: (key: string, decision: "stop" | "continue") => void
   onFinalize: (continuedItems: string[], endTs: string) => void
+  /** The case start and zone, for End at (10.1.0). */
+  startedAt?: Date | null
+  timeZone?: string | null
+  /** The end chosen with End at, or null for End now: entries after it are asked about here (10.1.0). */
+  onChosenEnd?: (endTs: string | null) => void
 }
 
 export function EndCaseSheet({
@@ -63,9 +70,16 @@ export function EndCaseSheet({
   continueLabel,
   onDecision,
   onFinalize,
+  startedAt = null,
+  timeZone = null,
+  onChosenEnd,
 }: Props) {
   const shade = useShade()
-  const { tc } = usePreferences()
+  const { tc, language } = usePreferences()
+  const end = useEndCaseTime(startedAt, timeZone)
+  // Entries after a chosen end are answered before the case ends, not after.
+  const chosenEnd = end.mode === "at" ? end.endTs : null
+  useEffect(() => { onChosenEnd?.(chosenEnd) }, [chosenEnd, onChosenEnd])
   const [fluidActualVolumes, setFluidActualVolumes] = useState<Record<string, string>>({})
   const [pumpTotals, setPumpTotals] = useState<Record<string, EndCaseStopContext["pump"]>>({})
   const allDecided = items.length === 0 || items.every(item => !!decisions[item.key])
@@ -75,7 +89,7 @@ export function EndCaseSheet({
     return edited === undefined || (edited.trim() !== "" && Number.isFinite(Number(edited)) && Number(edited) >= 0)
   })
   // Nothing may remain after the end (1.4.9).
-  const canFinalize = allDecided && endedFluidVolumesValid && afterEnd.length === 0
+  const canFinalize = allDecided && endedFluidVolumesValid && afterEnd.length === 0 && end.endTs != null
 
   function close() {
     setFluidActualVolumes({})
@@ -85,6 +99,37 @@ export function EndCaseSheet({
 
   return (
     <Sheet visible={visible} onClose={close} title={tc("endCaseTitle")} full>
+      {/* End now, or at a chosen day and time -- the way Start at works (10.1.0). */}
+      <View style={{ flexDirection:"row", gap:8, marginBottom:10 }}>
+        {(["now", "at"] as const).map(mode => (
+          <TouchableOpacity key={mode} testID={`end-case-mode-${mode}`} onPress={() => end.setMode(mode)}
+            style={{ flex:1, minHeight:44, borderRadius:10, alignItems:"center", justifyContent:"center",
+              backgroundColor: end.mode === mode ? shade("#1e3a5f") : shade("#1c1c1c"),
+              borderWidth:1, borderColor: end.mode === mode ? shade("#3b82f6") : shade("#334155") }}>
+            <Text style={{ color: end.mode === mode ? shade("#93c5fd") : shade("#94a3b8"), fontWeight:"700", fontSize:13 }}>
+              {mode === "now" ? tc("endCaseNow") : tc("endCaseAt")}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {end.mode === "at" && (
+        <View testID="end-case-at" style={{ marginBottom:12 }}>
+          <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase", marginBottom:6 }}>
+            {tc("endCaseAtLabel")}
+          </Text>
+          <DayStepper value={end.dayKey} onChange={end.setDayKey} todayKey={end.todayKey} min={end.startKey} max={end.todayKey}
+            language={language} label={tc("timingEndDate")} testID="end-case-at-day" />
+          <TextInput testID="end-case-at-time" value={end.hhmm} onChangeText={end.setHhmm} placeholder="HH:MM"
+            placeholderTextColor={shade("#475569")} maxLength={5} keyboardType="numbers-and-punctuation"
+            style={{ backgroundColor:shade("#111111"), color:shade("#f8fafc"), borderRadius:10, padding:12, fontSize:22,
+              fontWeight:"700", textAlign:"center", borderWidth:1, borderColor:shade("#2a3a4a"), fontVariant:["tabular-nums"] }} />
+          {end.error === "before_start" || end.error === "future" ? (
+            <Text testID="end-case-at-error" style={{ color:shade("#f87171"), fontSize:12, marginTop:6 }}>
+              {end.error === "before_start" ? tc("endCaseAtBeforeStart") : tc("endCaseAtFuture")}
+            </Text>
+          ) : null}
+        </View>
+      )}
       <Text style={{ color:shade("#94a3b8"), fontSize:13, marginBottom:16 }}>
         {items.length === 0
           ? tc("endCaseReady")
@@ -107,7 +152,7 @@ export function EndCaseSheet({
                 </Text>
                 <TextInput
                   testID={`end-case-fluid-actual-${item.key}`}
-                  value={fluidActualVolumes[item.key] ?? String(item.fluidVolume.atEnd(new Date().toISOString()))}
+                  value={fluidActualVolumes[item.key] ?? String(item.fluidVolume.atEnd(end.endTs ?? new Date().toISOString()))}
                   onChangeText={value => setFluidActualVolumes(current => ({ ...current, [item.key]: value }))}
                   keyboardType="decimal-pad"
                   accessibilityLabel={formatMessage(tc("actualVolumeAccessibility"), { name: item.label })}
@@ -163,7 +208,8 @@ export function EndCaseSheet({
           testID="end-case-finalize"
           disabled={!canFinalize}
           onPress={async () => {
-            const endTs = new Date().toISOString()
+            if (!end.endTs) return
+            const endTs = end.endTs
             // Run all stops concurrently instead of one full round-trip at a
             // time — each item's local optimistic update no longer needs to
             // wait for the previous item's network save to finish.

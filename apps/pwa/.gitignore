@@ -75,3 +75,6 @@ CODEX_HANDOFF*.md
 Thumbs.db
 .codex/
 coverage/
+
+# Vercel project link (organisation and project ids)
+.vercel

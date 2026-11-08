@@ -1,6 +1,11 @@
 import React from "react"
 import { vi } from "vitest"
 
+// Expo's native logger reads the React Native global before any component
+// test is evaluated. Vitest runs in plain Node, so provide the same stable
+// development flag the Metro runtime supplies.
+;(globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = true
+
 function host(name: string) {
   return function Host({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) {
     return React.createElement(name, props, children)
@@ -49,6 +54,17 @@ vi.mock("react-native", () => {
   }
 })
 
+// The overflow cue uses SVG gradients at runtime. The component tests render
+// host shims rather than native SVG, which also keeps Vitest from parsing the
+// package's platform-specific entrypoint.
+vi.mock("react-native-svg", () => ({
+  default: host("Svg"),
+  Defs: host("Defs"),
+  LinearGradient: host("LinearGradient"),
+  Rect: host("Rect"),
+  Stop: host("Stop"),
+}))
+
 // expo-secure-store pulls in expo-modules-core, which references the RN
 // __DEV__ global that isn't defined outside the RN runtime. Components under
 // test only need PreferencesProvider's language persistence to no-op.
@@ -65,6 +81,14 @@ vi.mock("expo-localization", () => ({
   // Keep the established component snapshots in English; locale-specific
   // behavior (including the Bulgarian fallback) is covered by focused tests.
   getLocales: vi.fn(() => [{ languageCode: "en", languageTag: "en-GB" }]),
+}))
+
+vi.mock("expo-haptics", () => ({
+  impactAsync: vi.fn(async () => {}),
+  selectionAsync: vi.fn(async () => {}),
+  notificationAsync: vi.fn(async () => {}),
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium" },
+  NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
 }))
 
 // expo-file-system pulls in expo-modules-core for the same reason as

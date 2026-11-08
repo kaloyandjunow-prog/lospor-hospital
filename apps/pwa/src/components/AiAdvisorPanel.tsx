@@ -1,6 +1,6 @@
-import { View, Text, Switch, ActivityIndicator, type TextStyle } from "react-native"
+import { View, Text, ActivityIndicator, type TextStyle } from "react-native"
 import Ionicons from "@expo/vector-icons/Ionicons"
-import { Card, PrimaryButton, SectionHeader } from "@/components/ui"
+import { BooleanSwitch, Card, PrimaryButton, SectionHeader } from "@/components/ui"
 import { colors, withAlpha, useShade, useThemeRefresh } from "@/theme/colors"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
@@ -117,7 +117,7 @@ function GdprCard({
         <Text className="text-slate-200 text-sm font-medium flex-1 mr-3">
           {enableLabel}
         </Text>
-        <Switch
+        <BooleanSwitch
           value={aiOptIn}
           onValueChange={onToggle}
           trackColor={{ false: colors.borderStrong, true: colors.agent }}

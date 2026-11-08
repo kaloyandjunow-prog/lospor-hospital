@@ -19,7 +19,11 @@ const answerTestIds = {
   still_running: "attention-still-running",
   happened: "end-case-after-end-move",
   did_not_happen: "end-case-after-end-delete",
-} as const
+  not_now: "attention-vital-not-now",
+  log_complication: "attention-vital-log",
+  open: "attention-suggestion-open",
+  dismiss: "attention-suggestion-dismiss",
+} as const satisfies Record<import("@lospor/core/intraop-attention").IntraopAttentionAction, string>
 
 describe.each(INTRAOP_ATTENTION_SCENARIOS)("$name", scenario => {
   it("shows exactly the items Core lists, and each answer reaches Core unchanged", () => {
@@ -95,5 +99,27 @@ describe("in Bulgarian", () => {
     } finally {
       preferences.language = "en"
     }
+  })
+})
+
+describe("a question from the vitals (10.1.0)", () => {
+  it("says why the reading is unusual and when logging stops, and answers through Core", async () => {
+    const { parseIntraopAutomation } = await import("@lospor/core/intraop-automation")
+    const log = [{ id: "r1", type: "vital" as const, ts: "2026-11-01T09:00:00.000Z", heartRate: 45 }]
+    const vitals = { settings: parseIntraopAutomation({ enabled: true, vitalQuestions: { enabled: true } }), stats: null, ageDays: 40 * 365, keepLogging: true }
+    const items = intraopAttentionItems(log, { now: "2026-11-01T09:01:00.000Z", vitals })
+    const resolve = vi.fn(async () => {})
+    const tree = render(
+      <IntraopAttentionBanner attention={{ items, resolve, clockOf: () => "09:00", labelOf: () => "", keepLogging: true }} />,
+    )
+    const text = tree.root.findAll(node => String(node.type) === "Text")
+      .map(node => node.children.filter(child => typeof child === "string").join("")).join("\n")
+    expect(text).toContain("HR 45: log bradycardia?")
+    expect(text).toContain("below the fixed limit of 50 bpm")
+    expect(text).toContain("Automatic logging stops when HR is 50 or higher.")
+    act(() => { tree.root.findAll(node => node.props?.testID === "attention-vital-log-vital:bradycardia:r1")[0].props.onPress() })
+    expect(resolve).toHaveBeenLastCalledWith("vital:bradycardia:r1", "log_complication")
+    act(() => { tree.root.findAll(node => node.props?.testID === "attention-vital-not-now-vital:bradycardia:r1")[0].props.onPress() })
+    expect(resolve).toHaveBeenLastCalledWith("vital:bradycardia:r1", "not_now")
   })
 })

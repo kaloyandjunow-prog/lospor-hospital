@@ -9,6 +9,7 @@ import { dispatchRowQuickAdd, slotIsoTimestamp, type RowQuickAddAction } from "@
 import type { LogEvent } from "@/lib/intraop-log-event"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
+import { isTourniquetLabel, tourniquetSheet } from "@/lib/tourniquet-sheet"
 
 type EventLabel = (ev: LogEvent) => { text: string }
 
@@ -30,7 +31,6 @@ type UseIntraopEventActionsArgs = {
   setSlotTs: Dispatch<SetStateAction<Date | null>>
   slotTs: Date | null
   setSlotOpen: Dispatch<SetStateAction<boolean>>
-  addComplicationFromEvent: (label: string) => void
 }
 
 export function useIntraopEventActions({
@@ -51,7 +51,6 @@ export function useIntraopEventActions({
   setSlotTs,
   slotTs,
   setSlotOpen,
-  addComplicationFromEvent,
 }: UseIntraopEventActionsArgs) {
   const { tc } = usePreferences()
   const [editOpen, setEditOpen] = useState(false)
@@ -119,18 +118,23 @@ export function useIntraopEventActions({
     })
   }
 
-  function openSlotEvent(ev: { label: string; color: string }, isComplication = false) {
-    // A complication picked from the quick-pill list is a complication, not
-    // a timeline milestone -- it belongs in the case's complications list
-    // only. Saving a clinical_event here too used to record the same
-    // finding twice, in two tables with no link between them.
+  function openSlotEvent(ev: { label: string; color: string }, isComplication = false, suggestion?: string) {
+    const ts = slotIsoTimestamp(slotTs)
+    // A complication is one timed entry (10.1.0): on the timeline at the time
+    // tapped, and in the complications list and the event log from that same
+    // entry. Before 10.1.0 it went to the list only, without a time.
     if (isComplication) {
-      addComplicationFromEvent(ev.label)
+      void save({ type: "complication", label: ev.label, color: "#ef4444", complicationSource: "timeline" }, ts ?? undefined)
       setSlotOpen(false)
       return
     }
-    const ts = slotIsoTimestamp(slotTs)
-    save({ type: "clinical_event", label: ev.label, color: ev.color }, ts ?? undefined)
+    // 10.2.0: a tourniquet asks where on the body first.
+    if (ts && isTourniquetLabel(ev.label)) {
+      tourniquetSheet.open({ ts, label: ev.label, color: ev.color })
+      setSlotOpen(false)
+      return
+    }
+    save({ type: "clinical_event", label: ev.label, color: ev.color, ...(suggestion ? { suggestion } : {}) }, ts ?? undefined)
     setSlotOpen(false)
   }
 

@@ -16,7 +16,7 @@ import { STATUS_META, statusLabel } from "@/components/ui"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { AirwayCard, IntraopCard, LabCard, MedicalHistoryCard, PostopCard, PreopCard } from "@/components/case-detail/CaseDetailCards"
-import { SummaryTimetable } from "@/components/case-detail/SummaryTimetable"
+import { RecordSummary } from "@/components/case-detail/RecordSummary"
 import { CaseStatusMeta } from "@/components/case-detail/CaseStatusMeta"
 import {
   computedDisplayStatus,
@@ -41,7 +41,7 @@ export default function CaseSummaryScreen() {
   const loadCase = useCallback(async () => {
     try {
       setError(null)
-      const data = await apiJson<CaseData>(`/api/cases/${id}`)
+      const data = await apiJson<CaseData>(`/api/cases/${id}?deleted=1`)
       setCaseData(data)
     } catch {
       setError(tc("caseLoadFailed"))
@@ -358,10 +358,10 @@ export default function CaseSummaryScreen() {
             uses). Ongoing case: tap opens the live intraop cockpit. Finished
             case: tap opens the read-only timetable viewer — the cockpit is an
             editing surface and closed cases are read-only. */}
-        <SummaryTimetable
-          keyEvents={caseData.intraop?.keyEvents}
-          startISO={caseData.intraop?.startTime}
-          onPress={() => router.push(
+        <RecordSummary
+          intraop={caseData.intraop}
+          deletedEvents={(caseData as { deletedEvents?: unknown }).deletedEvents}
+          onOpenTimetable={() => router.push(
             screenActions.timetableReadOnly
               ? `/(app)/cases/timetable/${id}`
               : `/(app)/cases/intraop/${id}`,

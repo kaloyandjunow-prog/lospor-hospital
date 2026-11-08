@@ -17,6 +17,7 @@ import type { PreopFormInput } from "@/lib/preop-form-schema"
 import { randomHex } from "@/lib/random-id"
 import { formatMessage } from "@/i18n/locale"
 import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 
 type WardOrder = NonNullable<PreopFormInput["preopWardOrders"]>[number]
 type Instruction = NonNullable<PreopFormInput["preopMedicationInstructions"]>[number]
@@ -301,12 +302,21 @@ export function PreopMedicationInstructionsSection({ config, value, onChange, me
                   {!row.medicationLabel ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{tc("ordersPickMedication")}</Text> : null}
                   {option.hoursMode !== "NONE" ? (
                     <View style={{ gap: 4 }}>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 6 }}>
+                      <OverflowCueScrollView
+                        horizontal
+                        edgeColor={colors.surface}
+                        cueColor={colors.textSecondary}
+                        startLabel={language === "bg" ? "Към по-ранните срокове" : "Scroll hold times left"}
+                        endLabel={language === "bg" ? "Към следващите срокове" : "Scroll hold times right"}
+                        style={{ width: "100%" }}
+                        contentContainerStyle={{ gap: 6 }}
+                        keyboardShouldPersistTaps="handled"
+                      >
                         {option.hoursMode === "OPTIONAL" ? <Pill label="—" selected={row.hoursBefore == null} onPress={() => update(row.id, { hoursBefore: null })} /> : null}
                         {MEDICATION_HOLD_HOURS.map(hours => (
                           <Pill key={hours} label={holdHoursText(hours, language)} selected={row.hoursBefore === hours} onPress={() => update(row.id, { hoursBefore: hours })} testID={`preop-instruction-hours-${row.id}-${hours}`} />
                         ))}
-                      </ScrollView>
+                      </OverflowCueScrollView>
                       <Text style={{ color: colors.textMuted, fontSize: 12 }}>{tc("ordersBeforeSurgery")}</Text>
                     </View>
                   ) : null}

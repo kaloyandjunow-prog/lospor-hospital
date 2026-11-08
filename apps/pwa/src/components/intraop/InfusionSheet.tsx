@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ScrollView, Text, TouchableOpacity } from "react-native"
+import { Text, TouchableOpacity } from "react-native"
 import { Sheet } from "@/components/intraop/Sheet"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import type { ScenarioGroup } from "@lospor/core"
@@ -23,6 +23,7 @@ import { activeInfusionSurface, filterInfusionPickerResults, pediatricInfusionPr
 import { useInfusionRateFields } from "@/components/intraop/use-infusion-rate-fields"
 import { infusionConfirmProblem, infusionEntryWeightKg, type InfusionRecord } from "@lospor/core/infusion-entry"
 import { syringeStrengthProps } from "@/components/intraop/SyringeStrength"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 import { TciOrRate } from "@/components/intraop/TciSheetFields"
 import type { TciPatient } from "@lospor/core/tci"
 import { infusionCalculationBasis, type WeightBasisMap } from "@lospor/core/intraop-totals"
@@ -296,7 +297,7 @@ export function InfusionSheet({
   return (
     <Sheet visible={visible} onClose={onClose} title={infDrug ? infusionLabel(infDrug.name) : mode === "browse" ? tc("dsBrowseInfusions") : mode === "favourites" ? tc("dsFavouriteInfusions") : scenario ? scenarioLabel(scenario) : tc("dsStartInfusion")} full>
       {infDrug ? (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <OverflowCueScrollView>
           <TouchableOpacity onPress={() => {
             setInfDrug(null)
             setInfRate("")
@@ -369,7 +370,7 @@ export function InfusionSheet({
           />
           </TciOrRate>
           )}
-        </ScrollView>
+        </OverflowCueScrollView>
       ) : (
         <InfusionPickerMenu
           mode={mode}

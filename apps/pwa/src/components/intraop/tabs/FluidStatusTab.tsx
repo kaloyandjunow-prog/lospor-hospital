@@ -1,7 +1,10 @@
-import { View, Text, ScrollView } from "react-native"
+import { View, Text } from "react-native"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { useShade } from "@/theme/shade"
+import { FluidStatusHybrid } from "@/components/intraop/tabs/FluidStatusHybrid"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 export type FluidStatusTotalRow = {
   name: string
@@ -29,15 +32,7 @@ export type FluidStatusTotalRow = {
  * Urine, blood loss and the blood products note are the figures only the
  * anaesthetist can state, and are the only editable controls here.
  */
-export function FluidStatusTab({
-  infusionTotals, bolusTotals, weightNote,
-  crystalloidsMl, colloidsMl, bloodMl, infusionsMl = null,
-  urinaryCatheter,
-  urineMl, setUrineMl,
-  bloodLossMl, setBloodLossMl,
-  tc,
-  provisional = false,
-}: {
+export type FluidStatusTabProps = {
   infusionTotals: FluidStatusTotalRow[]
   bolusTotals: FluidStatusTotalRow[]
   weightNote: string | null
@@ -56,8 +51,26 @@ export function FluidStatusTab({
   tc: (key: ClinicalStringKey) => string
   /** Part of the totals is not yet on the server: shown with "≈"; the numbers are unchanged. */
   provisional?: boolean
-}) {
+  /** Smart is the hybrid summary; legacy preserves the original tab. */
+  screen?: "smart" | "legacy"
+}
+
+export function FluidStatusTab(props: FluidStatusTabProps) {
+  if (props.screen !== "legacy") return <FluidStatusHybrid {...props} />
+  return <LegacyFluidStatusTab {...props} />
+}
+
+function LegacyFluidStatusTab({
+  infusionTotals, bolusTotals, weightNote,
+  crystalloidsMl, colloidsMl, bloodMl, infusionsMl = null,
+  urinaryCatheter,
+  urineMl, setUrineMl,
+  bloodLossMl, setBloodLossMl,
+  tc,
+  provisional = false,
+}: FluidStatusTabProps) {
   const shade = useShade()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
   const given: { label: string; value: number | null; color: string }[] = [
     { label: tc("crystalloidsLabel"), value: crystalloidsMl, color: shade("#22d3ee") },
     { label: tc("colloidsLabel"),     value: colloidsMl,     color: shade("#a78bfa") },
@@ -68,7 +81,7 @@ export function FluidStatusTab({
   ]
 
   return (
-    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
+    <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
       {infusionTotals.length > 0 && (
         <View style={{ marginBottom:24 }}>
           <SectionLabel>{provisional ? "≈ " : ""}{tc("infusionTotalsLabel")}</SectionLabel>
@@ -137,7 +150,7 @@ export function FluidStatusTab({
         </Text>
       </View>
 
-    </ScrollView>
+    </OverflowCueScrollView>
   )
 }
 

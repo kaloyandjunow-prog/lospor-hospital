@@ -10,10 +10,11 @@ import { slotIsoTimestamp } from "@/lib/intraop-row-quick-add"
 import { buildPostopRoute } from "@/lib/postop-route"
 import { premedicationSheetProps } from "@/components/intraop/premedication-sheet-props"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
+import { defibrillationSheet } from "@/lib/defibrillation-knob"
+import { jetSheet } from "@/lib/jet-sheet"
 
 type SlotProps = IntraopSheetsHostProps["slot"]
 type EditEventProps = IntraopSheetsHostProps["editEvent"]
-type ComplicationsProps = IntraopSheetsHostProps["complications"]
 type StartAtProps = IntraopSheetsHostProps["startAt"]
 type EndCaseProps = IntraopSheetsHostProps["endCase"]
 type PremedicationLibraryProps = IntraopSheetsHostProps["premedicationLibrary"]
@@ -24,9 +25,10 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   timeStr: string
   slotEventSearch: SlotProps["eventSearch"]
   slotCompExpanded: SlotProps["complicationExpanded"]
+  likelyEvents?: SlotProps["likelyEvents"]
+  eventsScreen?: SlotProps["eventsScreen"]
+  onDismissLikely?: SlotProps["onDismissLikely"]
   CLINICAL_EVENT_CATS: SlotProps["eventCategories"]
-  COMPLICATION_GROUPS: ComplicationsProps["groups"]
-  COMPLICATION_ITEMS: SlotProps["extraComplicationLabels"]
   isGACase: SlotProps["isGACase"]
   setSlotOpen: (open: boolean) => void
   setSlotEventSearch: SlotProps["onEventSearchChange"]
@@ -46,16 +48,9 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   setEditDose: EditEventProps["onDoseChange"]
   setEditTime: EditEventProps["onTimeChange"]
   confirmEdit: EditEventProps["onConfirm"]
-  compOpen: ComplicationsProps["visible"]
-  setCompOpen: (open: boolean) => void
-  COMPLICATION_TC_TITLES: Record<string, ClinicalStringKey>
-  selectedComplications: ComplicationsProps["selected"]
-  compGroupExpanded: ComplicationsProps["expanded"]
-  compSaving: ComplicationsProps["saving"]
-  toggleComplicationGroup: ComplicationsProps["onToggleGroup"]
-  toggleComplication: ComplicationsProps["onToggleItem"]
-  setSelectedComplications: (selected: string[]) => void
-  saveComplications: ComplicationsProps["onSave"]
+  /** For End at (10.1.0): the case start and its zone. */
+  startRef: { current: Date | null }
+  caseTimezone: string | null
   startAtOpen: StartAtProps["visible"]
   startAtInput: StartAtProps["value"]
   setStartAtOpen: (open: boolean) => void
@@ -67,6 +62,7 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   endCaseRunningItems: EndCaseProps["items"]
   afterEndItems: NonNullable<EndCaseProps["afterEnd"]>
   resolveAfterEnd: NonNullable<EndCaseProps["onResolveAfterEnd"]>
+  setChosenEndTs: NonNullable<EndCaseProps["onChosenEnd"]>
   endCaseDecisions: EndCaseProps["decisions"]
   setEndCaseDecisions: (
     value: EndCaseProps["decisions"] | ((previous: EndCaseProps["decisions"]) => EndCaseProps["decisions"])
@@ -94,16 +90,14 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
 
 export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): IntraopSheetsHostProps {
   const {
-    activeAgents, activeGas, slotOpen, slotTs, timeStr, slotEventSearch, slotCompExpanded,
-    CLINICAL_EVENT_CATS, COMPLICATION_GROUPS, COMPLICATION_ITEMS, isGACase, setSlotOpen, setSlotEventSearch,
+    activeAgents, activeGas, slotOpen, slotTs, timeStr, slotEventSearch, slotCompExpanded, likelyEvents, eventsScreen, onDismissLikely,
+    CLINICAL_EVENT_CATS, isGACase, setSlotOpen, setSlotEventSearch,
     setSlotCompExpanded, openSlotEvent, openDrug, openAgent, stopAgent, stopGasSettings,
     openGasSettings,
     editOpen, editEv, editDose, editTime, setEditOpen, setEditDose, setEditTime, confirmEdit,
-    compOpen, setCompOpen, COMPLICATION_TC_TITLES, selectedComplications, compGroupExpanded,
-    compSaving, toggleComplicationGroup, toggleComplication, setSelectedComplications,
-    saveComplications, startAtOpen, startAtInput, setStartAtOpen, setStartAtInput, startCaseAt,
+    startAtOpen, startAtInput, setStartAtOpen, setStartAtInput, startCaseAt,
     startAtDay,
-    endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, endCaseDecisions, setEndCaseDecisions,
+    endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, setChosenEndTs, endCaseDecisions, setEndCaseDecisions,
     finaliseCase, premedPickOpen, premedPickPhase, PREMED_LIBRARY, premedPickCat,
     premedPickDrug, premedPickDose, premedPickRoute, setPremedPickOpen, setPremedPickCat,
     setPremedPickDrug, setPremedPickDose, setPremedPickRoute, addSelectedPremedication,
@@ -116,8 +110,10 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       title: `${slotTs ? formatDateHHMM(slotTs) : timeStr}`,
       eventSearch: slotEventSearch,
       complicationExpanded: slotCompExpanded,
+      likelyEvents,
+      eventsScreen,
+      onDismissLikely,
       eventCategories: CLINICAL_EVENT_CATS,
-      extraComplicationLabels: COMPLICATION_ITEMS,
       isGACase,
       activeAgents,
       activeGas,
@@ -126,6 +122,8 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       onToggleComplications: () => setSlotCompExpanded((value) => !value),
       onSelectEvent: openSlotEvent,
       onBrowseDrugs: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openDrug(ts) },
+      onOpenDefibrillation: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); if (ts) defibrillationSheet.open(ts) },
+      onOpenJet: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); if (ts) jetSheet.open(ts) },
       // Stops are recorded at the row the sheet was opened from.
       onStopAgent: name => { setSlotOpen(false); stopAgent(name, slotIsoTimestamp(slotTs)) },
       onOpenAgent: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openAgent(ts) },
@@ -143,19 +141,6 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       onTimeChange: setEditTime,
       onConfirm: confirmEdit,
     },
-    complications: {
-      visible: compOpen,
-      onClose: () => setCompOpen(false),
-      groups: COMPLICATION_GROUPS,
-      titleForGroup: group => COMPLICATION_TC_TITLES[group.id] ? tc(COMPLICATION_TC_TITLES[group.id]) : group.title,
-      selected: selectedComplications,
-      expanded: compGroupExpanded,
-      saving: compSaving,
-      onToggleGroup: toggleComplicationGroup,
-      onToggleItem: toggleComplication,
-      onClear: () => setSelectedComplications([]),
-      onSave: saveComplications,
-    },
     startAt: {
       visible: startAtOpen,
       value: startAtInput,
@@ -170,10 +155,13 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       items: endCaseRunningItems,
       afterEnd: afterEndItems,
       onResolveAfterEnd: resolveAfterEnd,
+      onChosenEnd: setChosenEndTs,
       decisions: endCaseDecisions,
       continueLabel: tc("continuePostop"),
       onDecision: (key, decision) => setEndCaseDecisions((previous) => ({ ...previous, [key]: decision })),
       onFinalize: finaliseCase,
+      startedAt: props.startRef.current,
+      timeZone: props.caseTimezone,
     },
     premedicationLibrary: premedicationSheetProps({
       open: premedPickOpen, phase: premedPickPhase, library: PREMED_LIBRARY, category: premedPickCat,

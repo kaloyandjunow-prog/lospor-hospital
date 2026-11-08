@@ -8,6 +8,7 @@ import {
   type IntraopEndTiming,
   type IntraopStartTiming,
 } from "@lospor/core/intraop-time"
+import type { IntraopEndCorrectionReason } from "@lospor/core/intraop-end-correction"
 
 export type IntraopTimingOverrides = {
   startTime?: IntraopStartTiming["startTime"]
@@ -22,6 +23,8 @@ export type IntraopTimingOverrides = {
   startDayKey?: string
   /** Days from the start's date to the end's, when the clinician stepped it. */
   endDayOffset?: number
+  /** Why the end of a case that had ended is changed (10.1.0); sent with that change only. */
+  endCorrectionReason?: IntraopEndCorrectionReason
 }
 
 /**
@@ -113,6 +116,7 @@ export function buildIntraopTimingPatch(
   if (startedAt !== undefined) patch.startedAt = startedAt
   if (endedAt !== undefined) patch.endedAt = endedAt
   if (timezone !== undefined) patch.timezone = timezone
+  if (overrides.endCorrectionReason) patch.endCorrectionReason = overrides.endCorrectionReason
   return patch
 }
 

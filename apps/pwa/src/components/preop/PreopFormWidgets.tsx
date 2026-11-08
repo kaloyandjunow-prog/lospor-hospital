@@ -1,17 +1,16 @@
-import { useCallback, useMemo, useRef, useState } from "react"
-import { Modal, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Modal, PanResponder, Pressable, Text, useWindowDimensions, View, type ViewInstance } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
 import type { ClinicalNumberChange } from "@/lib/clinical-number-entry"
+import { createGestureHandle } from "@/lib/gesture-lock"
+import { HELD_CONTROL_STYLE } from "@/lib/gesture-style"
 import { hapticKey, hapticTick } from "@/lib/haptic"
-import { useOptionLibrary } from "@/lib/use-option-library"
-import { displayOption } from "@/lib/clinical-display"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 import {
   getIcd10BodySystem,
   ICD10_BODY_SYSTEM_ORDER,
   type BodySystem,
 } from "@lospor/core/preop"
-import { metadataString } from "@lospor/core/option-contracts"
 import { HoldRepeatPressable } from "@/components/HoldRepeatPressable"
 
 function impact() {
@@ -73,61 +72,7 @@ export function SegmentedSelect<T extends string>({ options, value, onChange }: 
   )
 }
 
-export function BloodGrid({ bloodType, rhFactor, onChange }: {
-  bloodType?: "A" | "B" | "AB" | "O"
-  rhFactor?: "POSITIVE" | "NEGATIVE"
-  onChange: (bloodType: "A" | "B" | "AB" | "O" | undefined, rhFactor: "POSITIVE" | "NEGATIVE" | undefined) => void
-}) {
-  const { language } = usePreferences()
-  const { options: bloodGroupOptions } = useOptionLibrary("BLOOD_GROUP")
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-      {bloodGroupOptions.map(opt => {
-        const bloodTypeValue = metadataString(opt.metadata, "bloodType")
-        const rhFactorValue = metadataString(opt.metadata, "rhFactor")
-        const optionBloodType =
-          bloodTypeValue === "A"
-          || bloodTypeValue === "B"
-          || bloodTypeValue === "AB"
-          || bloodTypeValue === "O"
-            ? bloodTypeValue
-            : undefined
-        const optionRhFactor =
-          rhFactorValue === "POSITIVE" || rhFactorValue === "NEGATIVE"
-            ? rhFactorValue
-            : undefined
-        const selected =
-          bloodType === optionBloodType
-          && rhFactor === optionRhFactor
-        return (
-          <Pressable
-            key={opt.value}
-            onPress={() => {
-              impact()
-              onChange(
-                selected ? undefined : optionBloodType,
-                selected ? undefined : optionRhFactor,
-              )
-            }}
-            style={{
-              width: "23%",
-              minHeight: 48,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 14,
-              borderCurve: "continuous",
-              borderWidth: 1,
-              borderColor: selected ? colors.primary : colors.border,
-              backgroundColor: selected ? colors.primarySoft : colors.surface,
-            }}
-          >
-            <Text style={{ color: selected ? colors.primary : colors.textSecondary, fontSize: 15, fontWeight: "900" }}>{displayOption("BLOOD_GROUP", opt, language)}</Text>
-          </Pressable>
-        )
-      })}
-    </View>
-  )
-}
+export { BloodGrid } from "./BloodGrid"
 
 // The band words are clinical vocabulary, resolved in core like every other
 // clinical word. This file used to carry its own table with the same
@@ -249,7 +194,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   const [keypadText, setKeypadText] = useState("")
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [trackWidth, setTrackWidth] = useState(1)
-  const fieldRef = useRef<View>(null)
+  const fieldRef = useRef<ViewInstance>(null)
   const trackXRef = useRef(0)
   const { height: screenHeight, width: screenWidth } = useWindowDimensions()
 
@@ -271,6 +216,8 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
     commit(min + ratio * (max - min))
   }, [commit, max, min, trackWidth])
 
+  const hold = useMemo(createGestureHandle, [])
+  useEffect(() => hold.end, [hold])
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -282,12 +229,15 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
     onPanResponderTerminationRequest: () => false,
     onShouldBlockNativeResponder: () => true,
     onPanResponderGrant: (event) => {
+      hold.start()
       setFromPageX(event.nativeEvent.pageX)
     },
     onPanResponderMove: (_, gesture) => {
       setFromPageX(gesture.moveX)
     },
-  }), [setFromPageX])
+    onPanResponderRelease: () => hold.end(),
+    onPanResponderTerminate: () => hold.end(),
+  }), [hold, setFromPageX])
 
   function openKeypad() {
     setKeypadText(value != null ? formatClinicalValue(value, precision) : "")
@@ -337,6 +287,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
     <View style={{ gap: 9 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <HoldRepeatPressable
+          testID="stepper-minus"
           onStep={() => nudge(-1)}
           style={{ width: 44, height: 44, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}
         >
@@ -362,6 +313,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
         </View>
 
         <HoldRepeatPressable
+          testID="stepper-plus"
           onStep={() => nudge(1)}
           style={{ width: 44, height: 44, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}
         >
@@ -375,7 +327,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
           node.measureInWindow((x) => { trackXRef.current = x })
         }}
         onLayout={(event) => setTrackWidth(Math.max(1, event.nativeEvent.layout.width))}
-        style={{ height: 28, justifyContent: "center" }}
+        style={[{ height: 28, justifyContent: "center" }, HELD_CONTROL_STYLE]}
         {...panResponder.panHandlers}
       >
         <View style={{ height: 5, borderRadius: 999, backgroundColor: colors.borderStrong }} />

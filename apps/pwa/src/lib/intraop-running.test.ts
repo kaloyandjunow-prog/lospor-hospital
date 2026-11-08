@@ -108,3 +108,13 @@ describe("a TCI infusion's running label (2026-10-18)", () => {
     expect(runningItemsByCol(t, [4]).get(4)![0]!.label).toBe("Propofol Ce 4 mcg/mL")
   })
 })
+
+describe("jet ventilation as a running bar (10.2.0)", () => {
+  it("draws in every row from its start to its stop with the settings in force in that row", () => {
+    const t = tt({ jetSettings: [{ id: "jet-1", startCol: 2, endCol: 5, stopped: true, pressureBar: 2, rate: 150, fio2: 100, settingsChanges: [{ col: 4, pressureBar: 2.5, rate: 300, fio2: 60 }] }] })
+    expect(runningItemsAt(t, 1)).toEqual([])
+    expect(runningItemsAt(t, 3)).toEqual([{ id: "jet-1", label: "Jet 2 bar · 150/min · FiO2 100%", color: "#14b8a6" }])
+    expect(runningItemsAt(t, 5)).toEqual([{ id: "jet-1", label: "Jet 2.5 bar · 300/min · FiO2 60%", color: "#14b8a6" }])
+    expect(runningItemsAt(t, 6)).toEqual([])
+  })
+})

@@ -1,9 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native"
+import { View, Text, TouchableOpacity } from "react-native"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayOptionEntry } from "@/lib/clinical-display"
 import { useShade } from "@/theme/shade"
 import { isPremedicationAsOrdered, type PremedicationOrders } from "@lospor/core/premedication"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 export function PremedicationTab({
   premedEveningText, setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication,
@@ -21,8 +23,9 @@ export function PremedicationTab({
 }) {
   const shade = useShade()
   const { language } = usePreferences()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
   return (
-    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
+    <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
       {/* ── Evening ─────────────────────────────────────────── */}
       {(() => {
         const items = premedEveningText ? premedEveningText.split(";").map(s => s.trim()).filter(Boolean) : []
@@ -108,7 +111,7 @@ export function PremedicationTab({
           </View>
         )
       })()}
-    </ScrollView>
+    </OverflowCueScrollView>
   )
 }
 

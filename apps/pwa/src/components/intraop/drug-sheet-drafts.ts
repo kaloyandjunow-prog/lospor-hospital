@@ -6,6 +6,7 @@ import {
   resolvePediatricDrugProfileSurface,
   type PediatricDrugProfileRule,
 } from "@lospor/core/clinical-rules"
+import { withCaseFormulation } from "@lospor/core/drug-selection"
 import type { PediatricAgeInput } from "@lospor/core/pediatric"
 import type { PediatricDoseProfile } from "@lospor/core/pediatric-dose"
 import { calcSuggestedDose as calcDose } from "@/lib/dose-calc"
@@ -35,6 +36,8 @@ export type DrugDraftContext = {
   patientWeightKg?: number
   patientHeightCm?: number
   patientSex?: string
+  /** The case techniques; a unilateral spinal pre-sets the intrathecal dose to hyperbaric. */
+  techniques?: readonly string[]
   routes: Record<string, string[]>
   baseProfiles: Record<string, DoseSurface>
   routeProfiles: Record<string, Record<string, DoseSurface>>
@@ -89,7 +92,7 @@ function ruleFromStructuredProfile(
 
 export function createDrugDraftBuilders(context: DrugDraftContext): DrugDraftBuilders {
   const {
-    pediatricMode, patientAge, patientWeightKg, patientHeightCm, patientSex,
+    pediatricMode, patientAge, patientWeightKg, patientHeightCm, patientSex, techniques,
     routes, baseProfiles, routeProfiles, laConcentrations, dosePresets, doseCalcs,
   } = context
 
@@ -181,7 +184,7 @@ export function createDrugDraftBuilders(context: DrugDraftContext): DrugDraftBui
       dose: surface.dose,
       route: surface.route,
       concentration: surface.concentration || undefined,
-      formulation: surface.formulation,
+      formulation: withCaseFormulation(surface, techniques).formulation,
       rule: ruleFromStructuredProfile(profile, surface.route),
     }
   }
@@ -205,7 +208,11 @@ export function createDrugDraftBuilders(context: DrugDraftContext): DrugDraftBui
       concentration: concentrations.length
         ? profile?.suggestedConcentration ?? profile?.defaultConcentration ?? concentrations[0]
         : undefined,
-      formulation: profile?.defaultFormulation ?? profile?.formulationOptions?.[0],
+      formulation: withCaseFormulation({
+        route: canonical,
+        formulationOptions: profile?.formulationOptions,
+        formulation: profile?.defaultFormulation ?? profile?.formulationOptions?.[0],
+      }, techniques).formulation,
     }
   }
 

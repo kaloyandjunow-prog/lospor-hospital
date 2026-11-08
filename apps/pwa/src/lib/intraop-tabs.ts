@@ -1,7 +1,7 @@
 export const INTRAOP_TAB_KEYS = [
+  "timing",
   "equipment",
   "technique",
-  "timing",
   "position",
   "monitoring",
   "airway",

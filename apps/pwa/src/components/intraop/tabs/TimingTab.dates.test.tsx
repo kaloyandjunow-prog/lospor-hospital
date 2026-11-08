@@ -56,6 +56,21 @@ describe("the date beside the start and end of surgery on the PWA", () => {
     })
     expect(JSON.stringify(tree.toJSON())).toContain("Thu 15.10 · ")
     act(() => { arrows(tree, "intraop-end-day")[1]!.props.onPress() })
-    expect(saveTiming).toHaveBeenLastCalledWith({ endTime: "23:50", endDayOffset: 1 })
+    // The case has ended: moving its end asks why before anything is saved (10.1.0).
+    expect(saveTiming).not.toHaveBeenCalled()
+    act(() => { tree.root.findAll(node => node.props?.testID === "end-correction-WRONG_TIME_ENTERED")[0]!.props.onPress() })
+    expect(saveTiming).toHaveBeenLastCalledWith({ endTime: "23:50", endDayOffset: 1, endCorrectionReason: "WRONG_TIME_ENTERED" })
+  })
+
+  it("keeps the saved end when no reason is given", () => {
+    const { tree, saveTiming } = tab({
+      caseStartTime: "22:40", caseEndTime: "23:50",
+      startRef: { current: new Date("2026-10-15T19:40:00Z") },
+      endedAtRef: { current: new Date("2026-10-15T20:50:00Z") },
+    })
+    act(() => { arrows(tree, "intraop-end-day")[1]!.props.onPress() })
+    act(() => { tree.root.findAll(node => node.props?.testID === "end-correction-cancel")[0]!.props.onPress() })
+    expect(saveTiming).not.toHaveBeenCalled()
+    expect(tree.root.findAll(node => node.props?.testID === "end-correction-reasons")).toHaveLength(0)
   })
 })

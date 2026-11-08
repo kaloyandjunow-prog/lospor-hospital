@@ -130,7 +130,12 @@ export function IntraopMonitorHeader({
         <View style={{ flexDirection:"row", flexWrap:"wrap", gap:18, marginTop:10 }}>
           {lastVitals.systolic != null && lastVitals.diastolic != null && (
             <Text style={{ color:shade("#ef4444"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
-              {lastVitals.systolic}/{lastVitals.diastolic}
+              {lastVitals.ibpSystolic != null ? `${tc("mhNibp")} ` : ""}{lastVitals.systolic}/{lastVitals.diastolic}
+            </Text>
+          )}
+          {lastVitals.ibpSystolic != null && lastVitals.ibpDiastolic != null && (
+            <Text style={{ color:shade("#f97316"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+              {tc("mhIbp")} {lastVitals.ibpSystolic}/{lastVitals.ibpDiastolic}{lastVitals.ibpMap != null ? ` (${lastVitals.ibpMap})` : ""}
             </Text>
           )}
           {lastVitals.heartRate != null && (

@@ -73,7 +73,7 @@ const COPY: Record<"en" | "bg", Record<ReadinessKind, string>> = {
     missing_position: "Положение на пациента",
     missing_monitoring: "Използван мониторинг",
     missing_vascular_access: "Съдов достъп",
-    missing_vitals: "Няма витални показатели в картата",
+    missing_vitals: "Няма жизнени показатели в картата",
     missing_medications: "Няма медикаменти в картата",
     missing_fluids: "Няма инфузии в картата",
     missing_complication_documentation: "Усложнения (или „няма“)",

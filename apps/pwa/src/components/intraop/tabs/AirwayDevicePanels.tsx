@@ -1,5 +1,5 @@
 import type { RefObject } from "react"
-import { View, Text, ScrollView, TouchableOpacity } from "react-native"
+import { View, Text, TouchableOpacity } from "react-native"
 import * as Haptics from "expo-haptics"
 import { AIRWAY_HAS_SUBOPTIONS } from "@/lib/airway-ventilation"
 import { usePreferences } from "@/lib/preferences-context"
@@ -14,6 +14,7 @@ import {
   airwayDeviceSummary,
 } from "@lospor/core/intraop"
 import { useShade } from "@/theme/shade"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 type Opt = { code: string; label: string }
 
@@ -35,7 +36,7 @@ export function AirwayDevicePanels({
   awDltType, setAwDltType, awDltSide, setAwDltSide, awDltSize, setAwDltSize,
   awEbSize, setAwEbSize,
   awExpandedDevice, setAwExpandedDevice, awExpandedWasComplete,
-  airwayDevices,
+  airwayDevices, onAirwayInterventionSelected,
 }: {
   awDevices: string[]
   setAwDevices: (updater: (prev: string[]) => string[]) => void
@@ -61,6 +62,7 @@ export function AirwayDevicePanels({
   setAwExpandedDevice: (v: string | null) => void
   awExpandedWasComplete: RefObject<boolean>
   airwayDevices: Opt[]
+  onAirwayInterventionSelected: () => void
 }) {
   const shade = useShade()
   const { tc, language } = usePreferences()
@@ -98,6 +100,7 @@ export function AirwayDevicePanels({
   // reset, so after a re-edit the panel could never collapse again and the
   // device was effectively impossible to edit.
   function expandDevice(code: string) {
+    if (!awDevices.includes(code)) onAirwayInterventionSelected()
     if (awDevices.includes(code)) clearDeviceFields(code)
     awExpandedWasComplete.current = false
     setAwExpandedDevice(code)
@@ -123,6 +126,7 @@ export function AirwayDevicePanels({
             const sel = awDevices.includes(dev.code)
             return (
               <TouchableOpacity key={dev.code} onPress={() => {
+                if (!sel) onAirwayInterventionSelected()
                 setAwDevices(prev => sel ? prev.filter(x => x !== dev.code) : [...prev, dev.code])
               }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
                 backgroundColor: sel ? shade("#1e3a5f") : shade("#111111"),
@@ -157,7 +161,7 @@ export function AirwayDevicePanels({
           <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("LMA")}</Text>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awSize")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <OverflowCueScrollView horizontal edgeColor={shade("#0d1a2d")} cueColor={shade("#93c5fd")}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {LMA_SIZES.map(s => (
                 <TouchableOpacity key={s} onPress={() => setAwLmaSize(awLmaSize === s ? null : s)}
@@ -168,7 +172,7 @@ export function AirwayDevicePanels({
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
+          </OverflowCueScrollView>
         </View>
       )}
 
@@ -179,7 +183,7 @@ export function AirwayDevicePanels({
           <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("ORAL_ETT")}</Text>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awTubeSizeMmId")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:10 }}>
+          <OverflowCueScrollView horizontal edgeColor={shade("#0d1a2d")} cueColor={shade("#93c5fd")} style={{ marginBottom:10 }}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {TUBE_SIZES.map(s => (
                 <TouchableOpacity key={s} onPress={() => setAwOralTubeSize(awOralTubeSize === s ? null : s)}
@@ -190,7 +194,7 @@ export function AirwayDevicePanels({
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
+          </OverflowCueScrollView>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awCuff")}</Text>
           <View style={{ flexDirection:"row", gap:8 }}>
@@ -214,7 +218,7 @@ export function AirwayDevicePanels({
           <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("NASAL_ETT")}</Text>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awTubeSizeMmId")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:10 }}>
+          <OverflowCueScrollView horizontal edgeColor={shade("#0d1a2d")} cueColor={shade("#93c5fd")} style={{ marginBottom:10 }}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {TUBE_SIZES.map(s => (
                 <TouchableOpacity key={s} onPress={() => setAwNasalTubeSize(awNasalTubeSize === s ? null : s)}
@@ -225,7 +229,7 @@ export function AirwayDevicePanels({
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
+          </OverflowCueScrollView>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:6 }}>{tc("awCuff")}</Text>
           <View style={{ flexDirection:"row", gap:8 }}>
@@ -270,7 +274,7 @@ export function AirwayDevicePanels({
             ))}
           </View>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awSizeFr")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <OverflowCueScrollView horizontal edgeColor={shade("#0d1a2d")} cueColor={shade("#93c5fd")}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {DLT_SIZES.map(sz => (
                 <TouchableOpacity key={sz} onPress={() => setAwDltSize(awDltSize === sz ? null : sz)}
@@ -281,7 +285,7 @@ export function AirwayDevicePanels({
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
+          </OverflowCueScrollView>
         </View>
       )}
 
@@ -291,7 +295,7 @@ export function AirwayDevicePanels({
           borderColor:shade("#1e3a5f"), padding:12, marginBottom:12 }}>
           <Text style={{ color:shade("#93c5fd"), fontSize:12, fontWeight:"700", marginBottom:10 }}>{deviceName("ENDOBRONCHIAL_TUBE")}</Text>
           <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{tc("awSizeMmId")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <OverflowCueScrollView horizontal edgeColor={shade("#0d1a2d")} cueColor={shade("#93c5fd")}>
             <View style={{ flexDirection:"row", gap:6 }}>
               {ENDOBRONCHIAL_SIZES.map(sz => (
                 <TouchableOpacity key={sz} onPress={() => setAwEbSize(awEbSize === sz ? null : sz)}
@@ -302,7 +306,7 @@ export function AirwayDevicePanels({
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
+          </OverflowCueScrollView>
         </View>
       )}
     </>

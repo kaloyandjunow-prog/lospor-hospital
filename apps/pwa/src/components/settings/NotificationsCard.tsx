@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react"
-import { View, Platform, Text, Switch } from "react-native"
+import { View, Platform, Text } from "react-native"
 import * as SecureStore from "expo-secure-store"
 import { usePreferences } from "@/lib/preferences-context"
 import { ensurePermission, presentNow, getStatus, type NotifStatus } from "@/lib/notifications"
 import { REMINDERS_KEY, VITALS_INTERVAL_KEY, DEFAULT_INTERVAL_MIN } from "@/lib/use-case-reminders"
-import { Card, SectionHeader, SettingsRow } from "@/components/ui"
+import { BooleanSwitch, Card, SectionHeader, SettingsRow } from "@/components/ui"
 import { colors } from "@/theme/colors"
 
 const INTERVAL_CHOICES = [3, 5, 10, 15]
@@ -93,8 +93,9 @@ export function NotificationsCard() {
               : "")
           }
           rightElement={
-            <Switch
+            <BooleanSwitch
               value={remindersOn}
+              accessibilityLabel={t("caseReminders")}
               onValueChange={setRemindersOn}
               trackColor={{ false: colors.border, true: colors.primarySoft }}
               thumbColor={remindersOn ? colors.primary : colors.textMuted}

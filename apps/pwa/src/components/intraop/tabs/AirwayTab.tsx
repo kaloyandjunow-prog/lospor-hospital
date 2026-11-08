@@ -1,10 +1,12 @@
-import type { RefObject } from "react"
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from "react-native"
+import type { ReactNode, RefObject } from "react"
+import { View, Text, TouchableOpacity, TextInput } from "react-native"
 import { CL_GRADES } from "@/lib/airway-ventilation"
 import { usePreferences } from "@/lib/preferences-context"
-import { airwayAbsentReason } from "@lospor/core/intraop"
+import { AirwayAbsentToggles } from "./AirwayAbsentToggles"
 import { AirwayDevicePanels } from "./AirwayDevicePanels"
 import { VentilationModeSection } from "./VentilationModeSection"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 type Opt = { code: string; label: string }
 
@@ -16,7 +18,7 @@ export function AirwayTab({
   awEbSize, setAwEbSize, awVentModes, setAwVentModes, awNotes, setAwNotes,
   awPresentsIntubated, setAwPresentsIntubated, awNotApplicable, setAwNotApplicable,
   saveAirwaySection, awExpandedDevice, setAwExpandedDevice, awExpandedWasComplete,
-  airwayTools, airwayDevices, awVentExpanded, setAwVentExpanded,
+  airwayTools, airwayDevices, awVentExpanded, setAwVentExpanded, smart, onAirwayInterventionSelected, onNoAirwayInterventionSelected,
 }: {
   awTools: string[]
   setAwTools: (updater: (prev: string[]) => string[]) => void
@@ -58,45 +60,25 @@ export function AirwayTab({
   airwayDevices: Opt[]
   awVentExpanded: "assisted" | "controlled" | null
   setAwVentExpanded: (v: "assisted" | "controlled" | null) => void
+  /** Smart selection (10.2.0): stands in for the tools and the device pills; the legacy tab is untouched. */
+  smart?: ReactNode
+  onAirwayInterventionSelected: () => void
+  onNoAirwayInterventionSelected: () => void
 }) {
   const { tc, shade } = usePreferences()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
 
   return (
-    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
-      {/* Why there is no airway device of this team's own. First, because both
-          answers change what the rest of this tab means, and finding that out
-          after scrolling through tools and devices is the wrong order.
-          Independent, not exclusive: a patient can arrive from the ICU already
-          intubated AND have no airway intervention here, which is both of them
-          at once. */}
-      <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
-        {([
-          { key: "presents", on: awPresentsIntubated, label: tc("awPresentsIntubated") },
-          { key: "na", on: awNotApplicable, label: tc("awNotApplicable") },
-        ] as const).map(option => (
-          <TouchableOpacity
-            key={option.key}
-            onPress={() => {
-              // The exclusivity rule lives in core, so web and mobile cannot
-              // disagree about it the way they did when each had its own.
-              const next = airwayAbsentReason(
-                option.key === "presents" ? "presentsIntubated" : "airwayNotApplicable",
-                { presentsIntubated: awPresentsIntubated, airwayNotApplicable: awNotApplicable },
-              )
-              setAwPresentsIntubated(() => next.presentsIntubated)
-              setAwNotApplicable(() => next.airwayNotApplicable)
-            }}
-            style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
-              backgroundColor: option.on ? shade("#3f2d1a") : shade("#111111"),
-              borderWidth:1, borderColor: option.on ? shade("#f59e0b") : shade("#1e2d40") }}
-          >
-            <Text style={{ color: option.on ? shade("#fcd34d") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
+      <AirwayAbsentToggles
+        presentsIntubated={awPresentsIntubated} setPresentsIntubated={setAwPresentsIntubated}
+        notApplicable={awNotApplicable} setNotApplicable={setAwNotApplicable}
+        hasRecordedAirway={awDevices.length > 0 || awTools.length > 0}
+        onNoAirwayInterventionSelected={onNoAirwayInterventionSelected} />
 
+      {smart}
+      {smart ? null : (
+        <>
       {/* Tools used */}
       <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:10 }}>{tc("awToolsUsed")}</Text>
@@ -105,6 +87,7 @@ export function AirwayTab({
           const sel = awTools.includes(tool.code)
           return (
             <TouchableOpacity key={tool.code} onPress={() => {
+              if (!sel) onAirwayInterventionSelected()
               setAwTools(prev => sel ? prev.filter(x => x !== tool.code) : [...prev, tool.code])
             }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
               backgroundColor: sel ? shade("#1e3a5f") : shade("#111111"),
@@ -114,6 +97,9 @@ export function AirwayTab({
           )
         })}
       </View>
+
+        </>
+      )}
 
       {/* Cormack-Lehane grade */}
       {(awTools.includes("DIRECT_LARY") || awTools.includes("VIDEO_LARY")) && (
@@ -134,6 +120,8 @@ export function AirwayTab({
         </>
       )}
 
+      {smart ? null : (
+        <>
       {/* Airway devices */}
       <AirwayDevicePanels
         awDevices={awDevices} setAwDevices={setAwDevices}
@@ -148,8 +136,11 @@ export function AirwayTab({
         awEbSize={awEbSize} setAwEbSize={setAwEbSize}
         awExpandedDevice={awExpandedDevice} setAwExpandedDevice={setAwExpandedDevice}
         awExpandedWasComplete={awExpandedWasComplete}
-        airwayDevices={airwayDevices}
+        airwayDevices={airwayDevices} onAirwayInterventionSelected={onAirwayInterventionSelected}
       />
+
+        </>
+      )}
 
       {/* Ventilation mode */}
       <VentilationModeSection
@@ -171,6 +162,6 @@ export function AirwayTab({
         onBlur={saveAirwaySection}
       />
 
-    </ScrollView>
+    </OverflowCueScrollView>
   )
 }

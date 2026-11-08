@@ -1,5 +1,5 @@
 import { createRef, type ComponentProps } from "react"
-import { TextInput } from "react-native"
+import { type TextInputInstance } from "react-native"
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
@@ -14,7 +14,7 @@ import { getByText, pressByText } from "@/test/render"
 import { renderWithPreferences } from "./fluid-sheet-test-fixtures"
 import { VitalsSheet } from "./VitalsSheet"
 
-const inputRef = () => createRef<TextInput>()
+const inputRef = () => createRef<TextInputInstance>()
 
 function props(): ComponentProps<typeof VitalsSheet> {
   return {
@@ -27,6 +27,7 @@ function props(): ComponentProps<typeof VitalsSheet> {
     showBis: true,
     showTofRatio: true,
     showCvp: true,
+    showIbp: false,
     etco2Unit: "mmHg",
     temperatureUnit: "C",
     cvpUnit: "mmHg",
@@ -48,6 +49,8 @@ function props(): ComponentProps<typeof VitalsSheet> {
     bis: "",
     tofRatio: "",
     cvp: "",
+    ibp: { ibpSystolic: "", ibpDiastolic: "", ibpMap: "", nibpMap: "" },
+    onIbpChange: vi.fn(),
     feedback: { errors: {}, warnings: {}, hasHardErrors: false },
     onClose: vi.fn(),
     onScan: vi.fn(),
@@ -121,5 +124,34 @@ describe("VitalsSheet validation feedback", () => {
     const tree = renderWithPreferences(<VitalsSheet {...sheetProps} />)
 
     expect(getByText(tree, "BIS must be a whole number from 0 to 100.")).toBeTruthy()
+  })
+})
+
+describe("VitalsSheet arterial line (10.2.0)", () => {
+  const byId = (tree: ReturnType<typeof renderWithPreferences>, id: string) => tree.root.findAll(node => node.props?.testID === id)[0]
+
+  it("shows the IBP block only when the invasive pressure monitor is on, and labels the cuff NIBP", () => {
+    const off = renderWithPreferences(<VitalsSheet {...props()} />)
+    expect(byId(off, "vitals-ibp")).toBeUndefined()
+    expect(byId(off, "vitals-nibp-map")).toBeTruthy()
+    expect(byId(off, "vitals-nibp-map")!.props.placeholder).toBe("(MAP)")
+    const sheetProps = props()
+    sheetProps.showIbp = true
+    const on = renderWithPreferences(<VitalsSheet {...sheetProps} />)
+    expect(byId(on, "vitals-ibp")).toBeTruthy()
+    expect(getByText(on, "NIBP (cuff)")).toBeTruthy()
+    expect(getByText(on, "IBP (arterial line)")).toBeTruthy()
+  })
+
+  it("sends each arterial line field to the one change handler", () => {
+    const sheetProps = props()
+    sheetProps.showIbp = true
+    const tree = renderWithPreferences(<VitalsSheet {...sheetProps} />)
+    byId(tree, "vitals-ibp-systolic")!.props.onChangeText("124")
+    byId(tree, "vitals-ibp-map")!.props.onChangeText("86")
+    byId(tree, "vitals-nibp-map")!.props.onChangeText("87")
+    expect(sheetProps.onIbpChange).toHaveBeenCalledWith("ibpSystolic", "124")
+    expect(sheetProps.onIbpChange).toHaveBeenCalledWith("ibpMap", "86")
+    expect(sheetProps.onIbpChange).toHaveBeenCalledWith("nibpMap", "87")
   })
 })
