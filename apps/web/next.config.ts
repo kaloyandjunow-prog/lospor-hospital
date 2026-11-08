@@ -48,9 +48,6 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: repositoryRoot,
   turbopack: { root: repositoryRoot },
   transpilePackages: ["@lospor/core"],
-  // Keep Turbopack anchored to the monorepo so the local Core package used by
-  // the PWA build is resolved through its package exports.
-  turbopack: { root: resolve(__dirname, "..") },
 
   // Allow current local network IPs so HMR and JS hydration work when accessed from the LAN.
   ...(isDev ? { allowedDevOrigins: devHosts } : {}),
