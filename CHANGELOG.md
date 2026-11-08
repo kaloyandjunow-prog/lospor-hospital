@@ -4,6 +4,11 @@
 
 ### Added
 
+- **Update installs the release's rule baselines:** `update.sh` now runs the
+  bundled-baseline provisioner after the migrations, so the 10.2.0 v4 rule sets
+  reach an installed appliance and the platform selection moves from v3 to v4
+  where the 9.15.0 release made it. A selection an administrator made is kept.
+  A failure installs nothing, is reported, and leaves the rules in use in effect.
 - Status: "Hospital name on the record" (Clinical page). The anaesthesia record is
   titled with the institution's own name; an administrator changes it with the
   Status password and a reason, and the change is audited
