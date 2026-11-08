@@ -63,6 +63,10 @@ export const ModelName = {
   Case: 'Case',
   OperatingTheatre: 'OperatingTheatre',
   IndicatorPolicy: 'IndicatorPolicy',
+  IntraopAutomationPolicy: 'IntraopAutomationPolicy',
+  VitalStatTally: 'VitalStatTally',
+  VitalStatTallyScope: 'VitalStatTallyScope',
+  VitalStatTallyCase: 'VitalStatTallyCase',
   CaseIndicatorSummary: 'CaseIndicatorSummary',
   OperatingTheatrePolicy: 'OperatingTheatrePolicy',
   CaseLock: 'CaseLock',
@@ -197,6 +201,7 @@ export const UserScalarFieldEnum = {
   acceptedPrivacyAt: 'acceptedPrivacyAt',
   termsVersion: 'termsVersion',
   preferences: 'preferences',
+  preferencesRevision: 'preferencesRevision',
   lastLoginAt: 'lastLoginAt',
   passwordChangedAt: 'passwordChangedAt',
   mfaTotpSecretCiphertext: 'mfaTotpSecretCiphertext',
@@ -368,6 +373,46 @@ export const IndicatorPolicyScalarFieldEnum = {
 } as const
 
 export type IndicatorPolicyScalarFieldEnum = (typeof IndicatorPolicyScalarFieldEnum)[keyof typeof IndicatorPolicyScalarFieldEnum]
+
+
+export const IntraopAutomationPolicyScalarFieldEnum = {
+  id: 'id',
+  config: 'config',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntraopAutomationPolicyScalarFieldEnum = (typeof IntraopAutomationPolicyScalarFieldEnum)[keyof typeof IntraopAutomationPolicyScalarFieldEnum]
+
+
+export const VitalStatTallyScalarFieldEnum = {
+  scopeKey: 'scopeKey',
+  band: 'band',
+  sign: 'sign',
+  value: 'value',
+  count: 'count'
+} as const
+
+export type VitalStatTallyScalarFieldEnum = (typeof VitalStatTallyScalarFieldEnum)[keyof typeof VitalStatTallyScalarFieldEnum]
+
+
+export const VitalStatTallyScopeScalarFieldEnum = {
+  scopeKey: 'scopeKey',
+  band: 'band',
+  sign: 'sign',
+  cases: 'cases'
+} as const
+
+export type VitalStatTallyScopeScalarFieldEnum = (typeof VitalStatTallyScopeScalarFieldEnum)[keyof typeof VitalStatTallyScopeScalarFieldEnum]
+
+
+export const VitalStatTallyCaseScalarFieldEnum = {
+  caseId: 'caseId',
+  scopeKey: 'scopeKey',
+  contribution: 'contribution',
+  talliedAt: 'talliedAt'
+} as const
+
+export type VitalStatTallyCaseScalarFieldEnum = (typeof VitalStatTallyCaseScalarFieldEnum)[keyof typeof VitalStatTallyCaseScalarFieldEnum]
 
 
 export const CaseIndicatorSummaryScalarFieldEnum = {
@@ -737,6 +782,10 @@ export const CaseEventScalarFieldEnum = {
   bis: 'bis',
   tofRatio: 'tofRatio',
   cvp: 'cvp',
+  ibpSystolic: 'ibpSystolic',
+  ibpDiastolic: 'ibpDiastolic',
+  ibpMap: 'ibpMap',
+  nibpMap: 'nibpMap',
   fgfLitersPerMin: 'fgfLitersPerMin',
   carrierGas: 'carrierGas',
   fio2Percent: 'fio2Percent',
@@ -1224,6 +1273,9 @@ export const IntraoperativeRecordScalarFieldEnum = {
   airwayNotes: 'airwayNotes',
   cormackLehane: 'cormackLehane',
   airwayDevices: 'airwayDevices',
+  airwayDeviceEntries: 'airwayDeviceEntries',
+  equipmentPrepared: 'equipmentPrepared',
+  techniqueSides: 'techniqueSides',
   ventilationModes: 'ventilationModes',
   lmaSize: 'lmaSize',
   oralTubeSize: 'oralTubeSize',
@@ -1643,6 +1695,9 @@ export const VascularAccessScalarFieldEnum = {
   depthCm: 'depthCm',
   lumens: 'lumens',
   preexisting: 'preexisting',
+  failed: 'failed',
+  failedAt: 'failedAt',
+  insertedAt: 'insertedAt',
   sourceVocabulary: 'sourceVocabulary',
   sourceCode: 'sourceCode',
   standardConceptId: 'standardConceptId',
@@ -1687,8 +1742,10 @@ export const CaseComplicationScalarFieldEnum = {
   label: 'label',
   note: 'note',
   timestamp: 'timestamp',
+  endTimestamp: 'endTimestamp',
   source: 'source',
   eventId: 'eventId',
+  suggestion: 'suggestion',
   sourceVocabulary: 'sourceVocabulary',
   sourceCode: 'sourceCode',
   standardConceptId: 'standardConceptId',
