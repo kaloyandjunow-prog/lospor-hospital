@@ -48,11 +48,14 @@ describe("authenticated account locale profile", () => {
     const response = await PATCH(request("PATCH", { preferences: { ui: { locale: "en" } } }))
     expect(response.status).toBe(200)
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: { preferences: expect.objectContaining({
-        theme: "dark",
-        units: expect.objectContaining({ weight: "kg" }),
-        ui: { density: "compact", locale: "en" },
-      }) },
+      // The write carries the account-wide revision since 10.2.0 (optimistic concurrency), beside the preferences.
+      data: expect.objectContaining({
+        preferences: expect.objectContaining({
+          theme: "dark",
+          units: expect.objectContaining({ weight: "kg" }),
+          ui: { density: "compact", locale: "en" },
+        }),
+      }),
     }))
     expect(mocks.invalidate).toHaveBeenCalledWith("user-1")
     await expect(response.json()).resolves.toMatchObject({ preferredLocale: "en" })

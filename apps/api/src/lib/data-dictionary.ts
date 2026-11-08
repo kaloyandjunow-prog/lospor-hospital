@@ -3366,7 +3366,7 @@ export const DATA_DICTIONARY: DictionaryEntry[] = [
     missingnessRule: "NULL = the laboratory did not supply an explicit critical-low threshold",
     derivationRule: "One numeric observation is emitted only when the value is present; its value_as_string carries the analyte source and its unit columns carry the reported laboratory unit.",
     sourceTable: "LabResult", sourceColumn: "criticalLow",
-    versionIntroduced: "10.0.0",
+    versionIntroduced: "4.9.0",
   },
   {
     name: "lab.criticalHigh",
@@ -3376,6 +3376,6 @@ export const DATA_DICTIONARY: DictionaryEntry[] = [
     missingnessRule: "NULL = the laboratory did not supply an explicit critical-high threshold",
     derivationRule: "One numeric observation is emitted only when the value is present; its value_as_string carries the analyte source and its unit columns carry the reported laboratory unit.",
     sourceTable: "LabResult", sourceColumn: "criticalHigh",
-    versionIntroduced: "10.0.0",
+    versionIntroduced: "4.9.0",
   },
 ]

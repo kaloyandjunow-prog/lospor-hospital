@@ -55,7 +55,6 @@ import { submitCaseForReview, submitForReviewMessage, refetchAwaitingReviewAt } 
 import { canProgressAfterSave, type SaveOutcomeKind } from "@lospor/core/save-progression"
 import { useCaseEventLog } from "./useCaseEventLog"
 import { intraopAutosaveValues } from "@/lib/intraop-submit"
-import { StepProgress } from "./StepProgress"
 import { PendingCloseBanner } from "./PendingCloseBanner"
 
 type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }

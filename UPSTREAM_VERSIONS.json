@@ -38,8 +38,8 @@
     },
     "exchangeContract": {
       "owner": "lospor-central",
-      "version": "2.6.0",
-      "sha256": "2a496b536d12848494571af16d0da36f4abb6597504ed23810e274a06069b1fd"
+      "version": "2.8.0",
+      "sha256": "291f3f354241b40b021e2e2e579f83e13cb39104781ea6bf82f0f56e4c9e720c"
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native"
+import { Text, View } from "react-native"
 import { Controller, type Control } from "react-hook-form"
 import { STRINGS } from "@/i18n/strings"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
