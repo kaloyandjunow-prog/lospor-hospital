@@ -1,17 +1,17 @@
 {
   "src/components/IntraopTimetable.tsx": 2210,
-  "src/components/forms/PreopForm.tsx": 948,
+  "src/components/forms/PreopForm.tsx": 1130,
   "src/app/(app)/clinical-rules/page.tsx": 895,
-  "src/app/(app)/cases/new/page.tsx": 732,
-  "src/components/forms/IntraopForm.tsx": 715,
+  "src/app/(app)/cases/new/page.tsx": 790,
+  "src/components/forms/IntraopForm.tsx": 717,
   "src/components/CaseSummary.tsx": 99,
   "src/components/SettingsMenu.tsx": 780,
   "src/components/clinical-rules/DoseProfileEditor.tsx": 600,
   "src/components/clinical-rules/ClinicalRuleEditor.tsx": 646,
-  "src/components/forms/PediatricPreopSections.tsx": 342,
+  "src/components/forms/PediatricPreopSections.tsx": 319,
   "src/components/forms/sections/AirwaySection.tsx": 518,
   "src/app/(app)/admin/page.tsx": 290,
-  "src/components/forms/PostopForm.tsx": 451,
+  "src/components/forms/PostopForm.tsx": 450,
   "src/app/(app)/clinical-rules/page.test.tsx": 471,
   "src/components/LabResults.tsx": 364
 }
