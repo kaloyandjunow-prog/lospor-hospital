@@ -93,6 +93,7 @@ export type DoseCalcRule = {
   perKg?: number
   perM2?: number
   flat?: number
+  flatFromKg?: number
   basis?: "IBW" | "TBW" | "BSA_M2"
   roundTo?: number
   cap?: number
@@ -115,6 +116,7 @@ function doseRuleFrom(value: unknown): DoseCalcRule | undefined {
   const perKg = metadataNumber(record, "perKg")
   const perM2 = metadataNumber(record, "perM2")
   const flat = metadataNumber(record, "flat")
+  const flatFromKg = metadataNumber(record, "flatFromKg")
   const basis = metadataString(record, "basis")
   const roundTo = metadataNumber(record, "roundTo")
   const cap = metadataNumber(record, "cap")
@@ -122,6 +124,7 @@ function doseRuleFrom(value: unknown): DoseCalcRule | undefined {
   if (perKg != null) rule.perKg = perKg
   if (perM2 != null) rule.perM2 = perM2
   if (flat != null) rule.flat = flat
+  if (flatFromKg != null) rule.flatFromKg = flatFromKg
   if (basis === "IBW" || basis === "TBW" || basis === "BSA_M2") rule.basis = basis
   if (roundTo != null) rule.roundTo = roundTo
   if (cap != null) rule.cap = cap

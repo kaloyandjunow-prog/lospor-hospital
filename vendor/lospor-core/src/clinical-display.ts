@@ -22,10 +22,10 @@ import {
   type DynamicClinicalLabels,
   type ResolvedClinicalDisplay,
 } from "./display"
+import { ALL_COMPLICATIONS, canonicalComplicationLabel } from "./complications"
 import type { LibraryCategory } from "./option-contracts"
 import type { GasDisplaySettings } from "./intraop-summary"
 import type { LibraryOption } from "./option-library"
-import type { SummaryLaneKind, SummaryTimetableModel } from "./summary-timetable"
 export function toClinicalLocale(locale: string | null | undefined): ClinicalLocale {
   return locale?.toLocaleLowerCase("en").startsWith("bg") ? "bg" : "en"
 }
@@ -119,6 +119,9 @@ export function resolveDisplayCode(
  * still resolves an agent/infusion/fluid/position code exactly the way the
  * model-based summary does, from the one place this mapping is written.
  */
+/** The kinds of lane the record's timetable draws. */
+export type SummaryLaneKind = "agent" | "infusion" | "gas" | "fluid" | "position"
+
 export function summaryLaneDomain(kind: SummaryLaneKind): ClinicalDisplayDomain | null {
   if (kind === "agent") return "option:INHALATIONAL_AGENT"
   if (kind === "infusion") return "option:INTRAOP_INFUSION"
@@ -126,84 +129,28 @@ export function summaryLaneDomain(kind: SummaryLaneKind): ClinicalDisplayDomain 
   if (kind === "position") return "option:POSITION"
   return null
 }
-const summarySegmentDomain = summaryLaneDomain
+
+/** A complication by the complications catalogue's name, in the reader's language (10.1.0). */
+export function complicationDisplayLabel(label: string, locale: ClinicalLocale | string): string {
+  const canonical = canonicalComplicationLabel(label)
+  return clinicalDisplayLabel("complication", canonical, locale === "bg" ? "bg" : "en", { label: canonical })
+}
 
 /**
  * A clinical event's display label: a known option code resolves through the
  * option domain; anything else (free text, an older unmapped code) falls back
  * to the complication-label formatter so it still reads as a label rather
  * than a raw code. Shared so PrintTimetable's own SVG-drawn event flags agree
- * with what `localizeSummaryTimetableModel` puts on the model-based summary.
+ * with the lane names the record's timetable model uses.
  */
 export function resolveIntraopEventLabel(label: string, locale: ClinicalLocale): string {
+  // A complication reads as the complications catalogue names it, whichever
+  // button charted it: one name in the picker, the list, the log and print.
+  if (ALL_COMPLICATIONS.includes(canonicalComplicationLabel(label))) return complicationDisplayLabel(label, locale)
   const option = resolveClinicalDisplay("option:INTRAOP_EVENT", label, locale)
   return option.known
     ? option.label
     : clinicalDisplayLabel("complication", label, locale, { label })
-}
-
-function localizeSummaryGasText(
-  text: string,
-  code: string,
-  locale: ClinicalLocale,
-): string {
-  const carrierCode = code.toLocaleLowerCase("en")
-  const sourcePrefix = carrierCode === "air"
-    ? "O₂/Air"
-    : carrierCode === "n2o"
-      ? "O₂/N₂O"
-      : "O₂"
-  const resolved = resolveClinicalDisplay("carrierGas", carrierCode, locale)
-  const carrier = resolved.shortLabel ?? resolved.label
-  const localizedPrefix = carrierCode === "air" || carrierCode === "n2o"
-    ? `O₂/${carrier}`
-    : carrier
-  return text.startsWith(sourcePrefix)
-    ? `${localizedPrefix}${text.slice(sourcePrefix.length)}`
-    : text
-}
-
-export function localizeSummaryTimetableModel(
-  model: SummaryTimetableModel,
-  locale: string | ClinicalLocale,
-): SummaryTimetableModel {
-  const clinicalLocale = toClinicalLocale(locale)
-  return {
-    ...model,
-    events: model.events.map(event => ({
-      ...event,
-      label: resolveIntraopEventLabel(event.label, clinicalLocale),
-    })),
-    drugTicks: model.drugTicks.map(drug => ({
-      ...drug,
-      name: clinicalDisplayLabel("option:INTRAOP_DRUG", drug.name, clinicalLocale, { label: drug.name }),
-    })),
-    lanes: model.lanes.map(lane => {
-      if (lane.kind === "gas") {
-        return {
-          ...lane,
-          segments: lane.segments.map(segment => segment.code
-            ? { ...segment, text: localizeSummaryGasText(segment.text, segment.code, clinicalLocale) }
-            : segment),
-        }
-      }
-      const domain = summarySegmentDomain(lane.kind)
-      if (!domain) return lane
-      return {
-        ...lane,
-        segments: lane.segments.map(segment => {
-          if (!segment.code) return segment
-          const label = clinicalDisplayLabel(domain, segment.code, clinicalLocale, { label: segment.code })
-          return {
-            ...segment,
-            text: segment.text.startsWith(segment.code)
-              ? `${label}${segment.text.slice(segment.code.length)}`
-              : label,
-          }
-        }),
-      }
-    }),
-  }
 }
 
 export function displayGasMix(

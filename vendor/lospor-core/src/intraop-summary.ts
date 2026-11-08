@@ -1,5 +1,7 @@
 import type {
   GasSettingsSegment,
+  JetSegment,
+  JetSettingsChange,
   LogEvent,
   NumericText,
   TimetableData,
@@ -11,6 +13,7 @@ import { INTRAOP_COLUMN_MINUTES } from "./intraop-engine"
 import { localTimeOf } from "./intraop-time"
 import { segmentEventIds } from "./intraop-save-state"
 import { POSITIONS } from "./catalog/position"
+import { resolveIntraopEventLabel } from "./clinical-display"
 import { tciPointsUpTo, tciPrediction, type TciModel, type TciPatient, type TciSite } from "./tci"
 
 export type DrugTotal = {
@@ -58,6 +61,8 @@ export type RunningItemMarks = {
 export type RunningItem = RunningItemMarks & (
   | { kind: "agent"; id: string; name: string; color: string }
   | { kind: "gas"; id: string; fgf: number; fio2: number; color: string }
+  /** Jet ventilation (10.2.0): its own bar, like the gas settings. */
+  | { kind: "jet"; id: string; pressureBar: number; rate: number; fio2: number; color: string }
   | {
       kind: "infusion"; id: string; name: string; rate: NumericText; unit: string; color: string
       /** A TCI infusion: its model and site, and the predicted Cp or Ce at the row's end (2026-10-18). */
@@ -194,7 +199,7 @@ export function normalizeGasSettings(
  */
 export const VITAL_ABBREVIATIONS = {
   en: { bp: "BP", hr: "HR", rr: "RR", temp: "Temp", tempShort: "T", sbp: "SBP", dbp: "DBP", perMinute: "/min", bpm: "bpm" },
-  bg: { bp: "АН", hr: "СЧ", rr: "ДЧ", temp: "Темп.", tempShort: "Т", sbp: "САН", dbp: "ДАН", perMinute: "/min", bpm: "bpm" },
+  bg: { bp: "АН", hr: "СЧ", rr: "ДЧ", temp: "Темп.", tempShort: "Т", sbp: "Сис", dbp: "Диас", perMinute: "/min", bpm: "bpm" },
 } as const
 
 export function vitalAbbreviations(language?: string | null): (typeof VITAL_ABBREVIATIONS)["en" | "bg"] {
@@ -212,6 +217,9 @@ const EVENT_WORDS = {
     gasStarted: "Gas settings started", gasChanged: "Gas settings changed", gasStopped: "Gas settings stopped",
     gasSettings: "Gas settings", positionChanged: "Position changed", position: "Position",
     phaseChanged: "Phase changed", casePhase: "Case phase",
+    complication: "Complication", complicationEpisode: "Complication · episode", complicationOpen: "Complication · still logging",
+    defibrillation: "Defibrillation", cardioversion: "Cardioversion", synchronised: "synchronised", shock: "Shock",
+    jet: "Jet ventilation", jetStarted: "Jet ventilation started", jetChanged: "Jet ventilation changed", jetStopped: "Jet ventilation stopped",
   },
   bg: {
     event: "Събитие", infusion: "Инфузия", infusionStarted: "Начало на инфузия", rateChanged: "Промяна на скоростта",
@@ -221,8 +229,21 @@ const EVENT_WORDS = {
     gasStarted: "Свеж газ — начало", gasChanged: "Свеж газ — промяна", gasStopped: "Свеж газ — спрян",
     gasSettings: "Свеж газ", positionChanged: "Промяна на позицията", position: "Позиция",
     phaseChanged: "Промяна на етапа", casePhase: "Етап",
+    complication: "Усложнение", complicationEpisode: "Усложнение · епизод", complicationOpen: "Усложнение · записва се",
+    defibrillation: "Дефибрилация", cardioversion: "Кардиоверсия", synchronised: "синхронизирана", shock: "Шок",
+    jet: "Jet вентилация", jetStarted: "Jet вентилация — начало", jetChanged: "Jet вентилация — промяна", jetStopped: "Jet вентилация — спряна",
   },
 } as const
+
+/** Jet ventilation settings as the log and the print write them: "Jet 2 bar · 150/min · FiO₂ 100%". Units in English in both languages. */
+export function formatJetSettingsLabel(settings: { pressureBar?: number | null; rate?: number | null; fio2?: number | null }): string {
+  const parts = [
+    settings.pressureBar != null ? `${settings.pressureBar} bar` : null,
+    settings.rate != null ? `${settings.rate}/min` : null,
+    settings.fio2 != null ? `FiO₂ ${settings.fio2}%` : null,
+  ].filter(Boolean)
+  return parts.length ? `Jet ${parts.join(" · ")}` : "Jet"
+}
 
 // Case phases, recorded on older charts only (no screen offers them now).
 const PHASE_NAMES_BG: Readonly<Record<string, string>> = {
@@ -259,10 +280,15 @@ export function describeIntraopEvent(
       const previous = options.previousVital
       const trend = (current: number, prior: number | undefined) =>
         options.trend?.(current, prior) ?? ""
+      // The cuff is called NIBP once the arterial line reads its own pressure beside it (10.2.0).
+      const hasIbp = event.ibpSystolic != null && event.ibpDiastolic != null
       if (event.systolic != null && event.diastolic != null) {
         parts.push(
-          `${vitalAbbreviations(language).bp} ${event.systolic}${trend(event.systolic, previous?.systolic)}/${event.diastolic}`,
+          `${hasIbp ? "NIBP" : vitalAbbreviations(language).bp} ${event.systolic}${trend(event.systolic, previous?.systolic)}/${event.diastolic}`,
         )
+      }
+      if (hasIbp) {
+        parts.push(`IBP ${event.ibpSystolic}${trend(event.ibpSystolic!, previous?.ibpSystolic)}/${event.ibpDiastolic}${event.ibpMap != null ? ` (${event.ibpMap})` : ""}`)
       }
       if (event.heartRate != null) {
         parts.push(`${vitalAbbreviations(language).hr} ${event.heartRate}${trend(event.heartRate, previous?.heartRate)}`)
@@ -376,6 +402,16 @@ export function describeIntraopEvent(
         color: "#64748b",
         sub: w.gasSettings,
       }
+    case "jet_start":
+    case "jet_change":
+      return {
+        key: event.type === "jet_start" ? "jet_started" : "jet_changed",
+        text: formatJetSettingsLabel({ pressureBar: event.jetPressureBar, rate: event.jetRate, fio2: event.fio2 }),
+        color: "#0891b2",
+        sub: event.type === "jet_start" ? w.jetStarted : w.jetChanged,
+      }
+    case "jet_stop":
+      return { key: "jet_stopped", text: w.jetStopped, color: "#64748b", sub: w.jet }
     case "position_change":
       return {
         key: "position_changed",
@@ -392,6 +428,24 @@ export function describeIntraopEvent(
         color: event.color ?? "#64748b",
         sub: w.casePhase,
       }
+    case "complication":
+      return {
+        key: "complication",
+        text: event.label ? resolveIntraopEventLabel(event.label, language) : w.complication,
+        color: event.color ?? "#ef4444",
+        sub: event.endTs && event.endTs !== event.ts
+          ? w.complicationEpisode
+          : event.complicationSource === "vitals" && !event.endTs ? w.complicationOpen : w.complication,
+      }
+    case "defibrillation": {
+      const name = event.synchronized ? w.cardioversion : w.defibrillation
+      return {
+        key: "defibrillation",
+        text: [name, event.energyJ != null ? `${event.energyJ} J` : null, event.synchronized ? w.synchronised : null].filter(Boolean).join(" · "),
+        color: event.color ?? "#f59e0b",
+        sub: w.shock,
+      }
+    }
     default:
       return {
         key: "event",
@@ -399,6 +453,30 @@ export function describeIntraopEvent(
         color: event.color ?? "#64748b",
       }
   }
+}
+
+/**
+ * Whether an event belongs in an event log or on a printed record (10.1.0): a
+ * "Not now" to a question from the vitals is kept for the record of what was
+ * asked, never shown as something that happened.
+ */
+export function isChartedIntraopEvent(event: { type?: string }): boolean {
+  return event.type !== "prompt_answer"
+}
+
+/** The jet settings in force at a column: the latest change at or before it, else the start's (a planned change counts only in a projected row). */
+export function jetSettingsInForce(
+  segment: JetSegment,
+  column: number,
+  projected = false,
+): { pressureBar: number; rate: number; fio2: number; changeCol: number } {
+  let latest: JetSettingsChange | undefined
+  for (const change of (segment.settingsChanges ?? []).filter(item => projected || !item.planned)) {
+    if (change.col <= column && (!latest || change.col >= latest.col)) latest = change
+  }
+  return latest
+    ? { pressureBar: latest.pressureBar, rate: latest.rate, fio2: latest.fio2, changeCol: latest.col }
+    : { pressureBar: segment.pressureBar, rate: segment.rate, fio2: segment.fio2, changeCol: segment.startCol }
 }
 
 export function gasSettingsAtColumn(
@@ -579,6 +657,36 @@ export function runningItemsByColumn(
     }
   }
 
+  for (const jet of timetable.jetSettings ?? []) {
+    for (const column of columns) {
+      const marks = rowMarks(jet, column, project)
+      if (!marks) continue
+      const settings = jetSettingsInForce(jet, Math.min(column, marks.projected ? column : jet.endCol), marks.projected === true)
+      push(column, {
+        kind: "jet",
+        id: jet.id || "jet",
+        pressureBar: settings.pressureBar,
+        rate: settings.rate,
+        fio2: settings.fio2,
+        color: "#14b8a6",
+        eventIds: segmentEventIds(jet),
+        ...marks,
+      })
+    }
+    for (const change of jet.settingsChanges ?? []) {
+      if (!change.planned || !rows.has(change.col)) continue
+      push(change.col, {
+        kind: "jet",
+        id: `${jet.id || "jet"}-change-${change.eventId ?? change.col}`,
+        pressureBar: change.pressureBar,
+        rate: change.rate,
+        fio2: change.fio2,
+        color: "#14b8a6",
+        plannedChange: true,
+      })
+    }
+  }
+
   for (const infusion of timetable.infusions) {
     const predicted = tciPredictedByColumn(infusion, options.tciPatient)
     const allChanges = [...(infusion.rateChanges ?? [])].sort((a, b) => a.col - b.col)
@@ -724,6 +832,7 @@ export function naturalTimetableColumnCount(
     ...(timetable.fluids ?? []),
     ...(timetable.agents ?? []),
     ...(timetable.gasSettings ?? []),
+    ...(timetable.jetSettings ?? []),
     ...(timetable.positions ?? []),
     ...(timetable.phases ?? []),
   ]) {
@@ -738,6 +847,9 @@ export function vitalSummaryParts(vital?: VitalsEntry, language?: string): strin
   const parts: string[] = []
   if (vital.systolic != null && vital.diastolic != null) {
     parts.push(`${vital.systolic}/${vital.diastolic}`)
+  }
+  if (vital.ibpSystolic != null && vital.ibpDiastolic != null) {
+    parts.push(`IBP ${vital.ibpSystolic}/${vital.ibpDiastolic}`)
   }
   if (vital.heartRate != null) parts.push(`${a.hr} ${vital.heartRate}`)
   if (vital.spO2 != null) parts.push(`SpO2 ${vital.spO2}`)

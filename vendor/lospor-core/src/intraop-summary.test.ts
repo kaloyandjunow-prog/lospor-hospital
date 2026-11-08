@@ -343,3 +343,11 @@ describe("vital abbreviations on Bulgarian screens (2026-10-18)", () => {
     expect(vitalAbbreviations("en")).toMatchObject({ bp: "BP", hr: "HR", rr: "RR" })
   })
 })
+
+describe("arterial line in the summary (10.2.0)", () => {
+  it("lists the arterial line beside the cuff and calls the cuff NIBP only then", () => {
+    expect(vitalSummaryParts({ systolic: 118, diastolic: 72, ibpSystolic: 124, ibpDiastolic: 68 })).toEqual(["118/72", "IBP 124/68"])
+    expect(vitalSummaryParts({ ibpSystolic: 124, ibpDiastolic: 68 })).toEqual(["IBP 124/68"])
+    expect(vitalSummaryParts({ systolic: 118, diastolic: 72 })).toEqual(["118/72"])
+  })
+})

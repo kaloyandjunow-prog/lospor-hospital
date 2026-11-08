@@ -44,6 +44,33 @@ describe("editing a projected chart writes exactly the events that changed", () 
     expect(ops.update).toEqual([])
   })
 
+  it("a dose, infusion or fluid saved from a suggestion keeps its tag, on the event and back on the chart (10.2.0)", () => {
+    const tag = "card:Hypotension:ephedrine"
+    const { ops, next } = edit(chart => ({
+      ...chart,
+      drugs: [...chart.drugs, { colIdx: 12, name: "Ephedrine", dose: "6", unit: "mg", suggestion: tag }],
+      infusions: [...(chart.infusions ?? []), { id: "nor", name: "Noradrenaline", rate: "0.05", unit: "mcg/kg/min", color: "#f00", startCol: 12, endCol: 12, suggestion: "card:Hypotension:noradrenaline" }],
+      fluids: [...(chart.fluids ?? []), { id: "cry", name: "Ringer", category: "Crystalloids", color: "#00f", startCol: 12, endCol: 12, fluidEntryMode: "VOLUME", volume: "500", bagVolumeMl: 500, suggestion: "card:Hypotension:fluid" }],
+    }))
+    expect(ops.add).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "drug", name: "Ephedrine", suggestion: tag }),
+      expect.objectContaining({ type: "infusion_start", name: "Noradrenaline", suggestion: "card:Hypotension:noradrenaline" }),
+      expect.objectContaining({ type: "fluid_start", name: "Ringer", suggestion: "card:Hypotension:fluid" }),
+    ]))
+    const chart = projectIntraopEvents(next, { start, openThrough: now })
+    expect(chart.drugs.find(drug => drug.name === "Ephedrine")?.suggestion).toBe(tag)
+    expect(chart.infusions?.find(item => item.name === "Noradrenaline")?.suggestion).toBe("card:Hypotension:noradrenaline")
+    expect(chart.fluids?.find(item => item.id === "cry")?.suggestion).toBe("card:Hypotension:fluid")
+    expect(chart.drugs.find(drug => drug.name === "Fentanyl")?.suggestion).toBeUndefined()
+  })
+
+  it("a tourniquet keeps the limb it went on, on the event and back on the chart (10.2.0)", () => {
+    const { ops, next } = edit(chart => ({ ...chart, clinicalEvents: [...(chart.clinicalEvents ?? []), { colIdx: 12, label: "Tourniquet on", color: "#f97316", site: "LEFT_THIGH" }] }))
+    expect(ops.add).toEqual([expect.objectContaining({ type: "clinical_event", label: "Tourniquet on", site: "LEFT_THIGH" })])
+    const chart = projectIntraopEvents(next, { start, openThrough: now })
+    expect(chart.clinicalEvents?.find(item => item.label === "Tourniquet on")?.site).toBe("LEFT_THIGH")
+  })
+
   it("editing a vital updates its event; typing into an empty row adds one", () => {
     const { ops } = edit(chart => {
       const vitals = [...chart.vitals]

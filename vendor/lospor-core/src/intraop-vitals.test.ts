@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import type { LogEvent } from "./intraop-types"
 import {
+  INTRAOP_VITAL_KEYS,
+  INTRAOP_VITAL_RULES,
   activeTimetableColumnForTimestamp,
   intraopVitalHardError,
   intraopVitalWarning,
@@ -10,6 +12,7 @@ import {
   latestVitalSnapshot,
   normalizeAutoFillVitalsPreferences,
   planAutoFillVitalEvents,
+  vitalFieldVisibility,
 } from "./intraop-vitals"
 
 const vital = (ts: string, patch: Partial<LogEvent>): LogEvent => ({
@@ -191,5 +194,19 @@ describe("intraop auto-fill limits (1.4.9)", () => {
     // A future-dated draft is not activity.
     const planned = [...log, { id: "d", ts: "2026-09-26T13:00:00.000Z", type: "drug" as const, name: "X" }]
     expect(isAutoFillPaused({ log: planned, chartStart, now: minutes(61) })).toBe(true)
+  })
+})
+
+describe("arterial line vitals (10.2.0)", () => {
+  it("shows the IBP fields only when the invasive pressure monitor is ticked", () => {
+    expect(vitalFieldVisibility(false, ["invasiveBP"]).showIbp).toBe(true)
+    expect(vitalFieldVisibility(true, ["nbpMonitor"]).showIbp).toBe(false)
+  })
+
+  it("accepts the four new pressures as whole numbers from zero", () => {
+    for (const key of ["ibpSystolic", "ibpDiastolic", "ibpMap", "nibpMap"] as const) {
+      expect(INTRAOP_VITAL_KEYS).toContain(key)
+      expect(INTRAOP_VITAL_RULES[key]).toEqual({ min: 0, integer: true })
+    }
   })
 })

@@ -29,7 +29,7 @@ import {
  * never calls this file.
  */
 
-type RoutePatch = {
+export type RoutePatch = {
   calc?: DoseCalc
   max?: number
   step?: number
@@ -39,7 +39,7 @@ type RoutePatch = {
 }
 
 /** A dose per kilogram of ideal weight, never above `cap`. */
-const kg = (perKg: number, roundTo: number, cap?: number, basis: DoseCalc["basis"] = "IBW"): DoseCalc => ({
+export const kg = (perKg: number, roundTo: number, cap?: number, basis: DoseCalc["basis"] = "IBW"): DoseCalc => ({
   perKg,
   basis,
   roundTo,
@@ -55,7 +55,7 @@ const flat = (dose: number, roundTo: number): DoseCalc => ({ flat: dose, roundTo
  * dropped: a child's suggestion comes only from the patch. `"*"` patches every
  * route; `drop` removes routes not used in children.
  */
-function tuned(base: DoseProfile, patches: Record<string, RoutePatch>, drop: readonly string[] = []): DoseProfile {
+export function tuned(base: DoseProfile, patches: Record<string, RoutePatch>, drop: readonly string[] = []): DoseProfile {
   // The catalogue names routes for display ("IT", "PD"); patches use the canonical names.
   const canonical = (route: string) => normalizeAdministrationRoute(route) ?? route
   const routes = base.routes.filter(route => !drop.includes(canonical(route)))
@@ -88,12 +88,12 @@ function tuned(base: DoseProfile, patches: Record<string, RoutePatch>, drop: rea
 /** The adult surface with nothing suggested: the starting point for a drug that had no paediatric profile. */
 const blank = (entry: DrugCatalogEntry) => withoutSuggestions(adultSurface(entry))
 
-const auto = (band: BandSeed, profile: DoseProfile): BandSeed => ({ ...band, availability: "AUTO", profile })
+export const auto = (band: BandSeed, profile: DoseProfile): BandSeed => ({ ...band, availability: "AUTO", profile })
 const hidden = (band: BandSeed): BandSeed => ({ ...band, availability: "HIDDEN", manualUnit: null, profile: null })
-const profileOf = (band: BandSeed, entry: DrugCatalogEntry) => (band.profile as DoseProfile | null | undefined) ?? blank(entry)
+export const profileOf = (band: BandSeed, entry: DrugCatalogEntry) => (band.profile as DoseProfile | null | undefined) ?? blank(entry)
 
 /** Every band of the drug suggesting from the same patches. */
-const allAuto = (patches: Record<string, RoutePatch>, drop: readonly string[] = []) =>
+export const allAuto = (patches: Record<string, RoutePatch>, drop: readonly string[] = []) =>
   (entry: DrugCatalogEntry, bands: BandSeed[]) => bands.map(band => auto(band, tuned(profileOf(band, entry), patches, drop)))
 
 /** Only the band starting at `minimumAgeDays` (0 = the first) changes. */
@@ -324,9 +324,9 @@ const V3_OVERRIDES: Readonly<Record<string, Override>> = {
   "Acetylcysteine": allAuto({ IV: { calc: kg(150, 10, 16_500), max: 20_000, step: 10, quick: [1000, 2000, 5000, 10_000] } }),
 }
 
-/** The bands for one drug in v3: v2's bands, with the v3 changes above. */
-function v3Bands(entry: DrugCatalogEntry): BandSeed[] {
-  const bands = specialBands(entry, "v3") ?? [defaultBand(entry, "v3")]
+/** The bands for one drug in v3: v2's bands, with the v3 changes above. v4 starts from these. */
+export function v3Bands(entry: DrugCatalogEntry, edition: "v3" | "v4" = "v3"): BandSeed[] {
+  const bands = specialBands(entry, edition) ?? [defaultBand(entry, edition)]
   return V3_OVERRIDES[entry.name]?.(entry, bands) ?? bands
 }
 

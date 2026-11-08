@@ -19,7 +19,7 @@ import type { LogEvent } from "./intraop-types"
  * already breaks a rule can still be edited.
  */
 
-export type IntraopItemKind = "infusion" | "fluid" | "agent" | "gas"
+export type IntraopItemKind = "infusion" | "fluid" | "agent" | "gas" | "jet"
 
 export type IntraopTimelineIssueCode =
   | "STOP_BEFORE_START"
@@ -72,6 +72,9 @@ export function intraopItemRef(event: LogEvent): ItemRef | null {
     case "gas_start": return { kind: "gas", key: "gas", role: "start" }
     case "gas_change": return { kind: "gas", key: "gas", role: "change" }
     case "gas_stop": return { kind: "gas", key: "gas", role: "stop" }
+    case "jet_start": return { kind: "jet", key: "jet", role: "start" }
+    case "jet_change": return { kind: "jet", key: "jet", role: "change" }
+    case "jet_stop": return { kind: "jet", key: "jet", role: "stop" }
     default: return null
   }
 }
@@ -300,10 +303,11 @@ export function intraopEndCaseStopEvent(
     case "fluid": return { type: "fluid_end", ts, fluidId: item.key, endCaseStop: true }
     case "agent": return { type: "agent_stop", ts, name: item.key, agentMode: "concurrent", endCaseStop: true }
     case "gas": return { type: "gas_stop", ts, endCaseStop: true }
+    case "jet": return { type: "jet_stop", ts, endCaseStop: true }
   }
 }
 
-const STOP_TYPES = new Set<LogEvent["type"]>(["infusion_stop", "fluid_end", "agent_stop", "gas_stop"])
+const STOP_TYPES = new Set<LogEvent["type"]>(["infusion_stop", "fluid_end", "agent_stop", "gas_stop", "jet_stop"])
 
 /**
  * Stops entered ahead of their time whose time has come and which nobody has

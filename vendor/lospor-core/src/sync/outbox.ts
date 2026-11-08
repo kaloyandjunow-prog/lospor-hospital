@@ -111,6 +111,15 @@ export type OutboxDeps = {
    */
   shouldRetryConflict?: (ctx: ConflictRetryContext) => boolean
   /**
+   * The base a queued patch is sent on, read when it is sent, not when it was
+   * queued: a patch waits its turn behind the case's other writes, and one of
+   * them (this device's own event) may have moved the revision on since. The
+   * manager answers with the queued base advanced over revisions this device
+   * itself created, and never over anyone else's. Undecided keeps the base
+   * as queued.
+   */
+  freshenBase?: (caseId: string, section: CaseSection, base: SectionRevision | undefined) => SectionRevision | undefined
+  /**
    * Best-effort notification after any mutation of the tray (queue, clear,
    * successful save/flush) with the fresh summary — lets UI badges track the
    * queued count live instead of polling. Never awaited, errors swallowed.
@@ -616,7 +625,8 @@ export function createCaseOutbox(deps: OutboxDeps) {
     const maxAttempts = Object.keys(sendable).length + 1
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const response = await sendInOrder(caseId, section, sendable, parsed.baseUpdatedAt)
+        // The base is read inside the queued run, after the writes ahead of it have landed.
+        const response = await sendInOrder(caseId, section, sendable, () => deps.freshenBase?.(caseId, section, parsed.baseUpdatedAt) ?? parsed.baseUpdatedAt)
         if (blocked.length === 0) {
           await settleSent(caseId, section, raw, response, () => clearOne(caseId, section))
           return { result: "saved", response }

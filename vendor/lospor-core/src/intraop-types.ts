@@ -21,6 +21,12 @@ export type EventType =
   | "agent_start" | "agent_stop"
   | "gas_start" | "gas_change" | "gas_stop"
   | "position_change" | "phase_change"
+  // 10.1.0: a complication with its time (and, for an episode, its end), a
+  // shock from the defibrillator, and a "Not now" to a question from the
+  // vitals -- the last never drawn and never exported.
+  | "complication" | "defibrillation" | "prompt_answer"
+  // 10.2.0: jet ventilation as its own lane -- driving pressure, rate, FiO2.
+  | "jet_start" | "jet_change" | "jet_stop"
 
 // Time-anchored patient-position / case-phase segments, projected from
 // position_change / phase_change events the same way agent segments are:
@@ -50,6 +56,12 @@ export type LogEvent = {
   bis?: number
   tofRatio?: number
   cvp?: number
+  // The arterial line reads its own pressure (10.2.0). systolic and diastolic above are the cuff (NIBP);
+  // these four are stored beside them, never in place of them, and nibpMap is the cuff's mean.
+  ibpSystolic?: number
+  ibpDiastolic?: number
+  ibpMap?: number
+  nibpMap?: number
   label?: string
   value?: string
   infId?: string
@@ -129,6 +141,57 @@ export type LogEvent = {
   recordedAt?: string
   /** A stop entered ahead of its time, confirmed as having happened. */
   stopConfirmed?: boolean
+  /**
+   * A complication's end (10.1.0): the end of an episode logged from the
+   * vitals questions, or the same instant as `ts` for one that is a moment.
+   * Absent on a timeline complication (a moment) and on an episode still open.
+   */
+  endTs?: string
+  /**
+   * Where a complication came from: the timeline, a question from the vitals
+   * (10.1.0), a question from SpO2, EtCO2 or temperature that keeps an episode
+   * open like the vitals do ("readings"), or another suggestion (10.2.0).
+   */
+  complicationSource?: "timeline" | "vitals" | "readings" | "suggestion"
+  /**
+   * The suggestion an entry was made from (10.2.0), e.g. "card:Hypotension:ephedrine"
+   * or "reverse:lipid". Exported as a flag so research can see how often
+   * suggestions are taken; absent on everything charted by hand.
+   */
+  suggestion?: string
+  /** Stable clinical relation used to coalesce concurrent automation answers. */
+  clinicalRelation?: string
+  /** Structured airway/vascular record that this event is linked to. */
+  sourceEventId?: string
+  /**
+   * A structured airway/vascular change carried with its clinical event.
+   * The API applies this patch and the event under one case lock, so an
+   * offline replay cannot leave the record and event log out of sync.
+   * This is transport metadata, not a second clinical event.
+   */
+  intraopPatch?: Record<string, unknown>
+  /** Where a tourniquet went on or came off (10.2.0): "lThigh", "rForearm", ... */
+  site?: string
+  /** The reading a complication from the vitals questions was logged from. */
+  triggerReadingId?: string
+  /** Jet ventilation (10.2.0): driving pressure in bar and rate per minute; FiO2 in fio2. */
+  jetPressureBar?: number
+  jetRate?: number
+  /** A shock's energy in joules (10.1.0). */
+  energyJ?: number
+  /** A shock: synchronised (cardioversion) or not (defibrillation). */
+  synchronized?: boolean
+  /** The time was reconstructed, not charted as it happened (10.2.0): a dose given during an arrest and charted afterwards. */
+  timeApproximate?: boolean
+  /** The prompt or succession rule this answer belongs to. */
+  answerFor?: string
+  answerKind?: string
+  /**
+   * "not_now" is retained for ordinary questions; "dismissed" is the
+   * definitive case-scoped answer for a succession prompt; "done" closes a
+   * card or checklist so it no longer waits (10.2.0).
+   */
+  answer?: "not_now" | "dismissed" | "done"
 }
 
 export type ActiveInfusion = {
@@ -242,6 +305,12 @@ export type VitalsEntry = {
   bis?: number
   tofRatio?: number
   cvp?: number
+  // The arterial line reads its own pressure (10.2.0). systolic and diastolic above are the cuff (NIBP);
+  // these four are stored beside them, never in place of them, and nibpMap is the cuff's mean.
+  ibpSystolic?: number
+  ibpDiastolic?: number
+  ibpMap?: number
+  nibpMap?: number
 }
 
 export type TimetableDrug = {
@@ -257,6 +326,8 @@ export type TimetableDrug = {
   atcCode?: string
   inn?: string
   allergyAck?: AllergyAck[]
+  /** The suggestion it was saved from (10.2.0). */
+  suggestion?: string
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
   clinicalRuleSourceIds?: string[]
@@ -296,6 +367,8 @@ export type TimetableFluid = SegmentEventRefs & {
   unit?: string
   rateChanges?: TimetableFluidRateChange[]
   clinicalRuleKey?: string
+  /** The suggestion it was saved from (10.2.0). */
+  suggestion?: string
   clinicalRuleVersion?: string
   clinicalRuleSourceIds?: string[]
   clinicalPresetId?: string
@@ -367,6 +440,8 @@ export type TimetableInfusion = SegmentEventRefs & {
   atcCode?: string
   inn?: string
   allergyAck?: AllergyAck[]
+  /** The suggestion it was saved from (10.2.0). */
+  suggestion?: string
   rateChanges?: TimetableRateChange[]
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
@@ -414,6 +489,20 @@ export type ClinicalEvent = {
   planned?: boolean
   label: string
   color: string
+  /** Provenance of a suggestion that charted this marker. */
+  suggestion?: string
+  /**
+   * 10.1.0: the marker of a complication or a shock, drawn in the same lane.
+   * Absent on an ordinary clinical event.
+   */
+  kind?: "complication" | "defibrillation"
+  /** A shock: its energy and synchronisation, shown beside the label. */
+  energyJ?: number
+  synchronized?: boolean
+  /** A complication episode: the column it ended in (absent while open, or for a moment). */
+  endColIdx?: number
+  /** Where on the body (10.2.0): a tourniquet's limb. */
+  site?: string
 }
 
 export type GasSettingsChange = {
@@ -426,6 +515,8 @@ export type GasSettingsChange = {
   fio2: number
   fiAir?: number
   fiN2O?: number
+  /** The suggestion it was saved from (10.2.0), e.g. "card:Hypoxia / desaturation:oxygen". */
+  suggestion?: string
 }
 
 export type GasSettingsSegment = SegmentEventRefs & {
@@ -442,7 +533,32 @@ export type GasSettingsSegment = SegmentEventRefs & {
   fio2: number
   fiAir?: number
   fiN2O?: number
+  /** The suggestion the run was started from (10.2.0). */
+  suggestion?: string
   settingsChanges?: GasSettingsChange[]
+}
+
+export type JetSettingsChange = {
+  eventId?: string
+  col: number
+  planned?: boolean
+  pressureBar: number
+  rate: number
+  fio2: number
+}
+
+/** A run of jet ventilation (10.2.0), drawn as its own lane like the gas settings. */
+export type JetSegment = SegmentEventRefs & {
+  id: string
+  startCol: number
+  endCol: number
+  stopped?: boolean
+  planned?: boolean
+  plannedStopCol?: number
+  pressureBar: number
+  rate: number
+  fio2: number
+  settingsChanges?: JetSettingsChange[]
 }
 
 export type TimetableData = {
@@ -452,6 +568,7 @@ export type TimetableData = {
   agents: AgentSegment[]
   infusions: TimetableInfusion[]
   gasSettings?: GasSettingsSegment[]
+  jetSettings?: JetSegment[]
   clinicalEvents?: ClinicalEvent[]
   positions?: PositionSegment[]
   phases?: PhaseSegment[]
@@ -476,8 +593,14 @@ const EVENT_TYPES = new Set<EventType>([
   "gas_start",
   "gas_change",
   "gas_stop",
+  "jet_start",
+  "jet_change",
+  "jet_stop",
   "position_change",
   "phase_change",
+  "complication",
+  "defibrillation",
+  "prompt_answer",
 ])
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -533,7 +656,8 @@ export function parseLogEvent(value: unknown): LogEvent | null {
     "name", "unit", "category", "color", "label", "value", "infId",
     "fluidId", "drugRoute", "concentration", "atcCode",
     "drugId", "inn", "clinicalRuleKey", "clinicalRuleVersion", "calculationMethod",
-    "clinicalPresetId",
+    "clinicalPresetId", "triggerReadingId", "answerFor", "answerKind",
+    "suggestion", "clinicalRelation", "sourceEventId", "site",
   ] as const
   for (const key of stringFields) {
     const parsed = optionalString(value, key)
@@ -543,10 +667,11 @@ export function parseLogEvent(value: unknown): LogEvent | null {
   if (allergyAck) event.allergyAck = allergyAck
   const numberFields = [
     "systolic", "diastolic", "heartRate", "spO2", "etco2", "temp",
-    "bis", "tofRatio", "cvp",
+    "bis", "tofRatio", "cvp", "ibpSystolic", "ibpDiastolic", "ibpMap", "nibpMap",
     "fgf", "fio2", "fiAir", "fiN2O", "sequence", "concentrationValue",
     "calculationWeightKg", "clinicalPresetVersion",
-    "bagVolumeMl", "administeredVolumeMl", "volumeRateMlPerHour", "pumpTotal",
+    "bagVolumeMl", "administeredVolumeMl", "volumeRateMlPerHour", "pumpTotal", "energyJ",
+    "jetPressureBar", "jetRate",
   ] as const
   for (const key of numberFields) {
     const parsed = optionalNumber(value, key)
@@ -559,6 +684,12 @@ export function parseLogEvent(value: unknown): LogEvent | null {
     event.recordedAt = value.recordedAt
   }
   if (value.stopConfirmed === true) event.stopConfirmed = true
+  if (typeof value.endTs === "string" && Number.isFinite(Date.parse(value.endTs))) event.endTs = value.endTs
+  if (value.complicationSource === "timeline" || value.complicationSource === "vitals"
+    || value.complicationSource === "readings" || value.complicationSource === "suggestion") event.complicationSource = value.complicationSource
+  if (typeof value.synchronized === "boolean") event.synchronized = value.synchronized
+  if (value.timeApproximate === true) event.timeApproximate = true
+  if (value.answer === "not_now" || value.answer === "dismissed" || value.answer === "done") event.answer = value.answer
   if (TCI_MODELS.includes(value.tciModel as TciModel)) event.tciModel = value.tciModel as TciModel
   if (TCI_SITES.includes(value.tciSite as TciSite)) event.tciSite = value.tciSite as TciSite
   if (typeof value.tciOpioids === "boolean") event.tciOpioids = value.tciOpioids
@@ -610,7 +741,7 @@ export function parseLogEvents(value: unknown): LogEvent[] {
 function parseVitalsEntry(value: unknown): VitalsEntry | null {
   if (!isRecord(value)) return null
   const result: VitalsEntry = {}
-  const fields = ["systolic", "diastolic", "heartRate", "spO2", "etco2", "temp", "bis", "tofRatio", "cvp"] as const
+  const fields = ["systolic", "diastolic", "heartRate", "spO2", "etco2", "temp", "bis", "tofRatio", "cvp", "ibpSystolic", "ibpDiastolic", "ibpMap", "nibpMap"] as const
   for (const key of fields) {
     const parsed = optionalNumber(value, key)
     if (parsed !== undefined) result[key] = parsed
@@ -887,7 +1018,8 @@ function parseClinicalEvent(value: unknown): ClinicalEvent | null {
   const colIdx = requiredNumber(value, "colIdx")
   const label = requiredString(value, "label")
   if (colIdx === null || label === null) return null
-  return { colIdx, label, color: optionalString(value, "color") ?? "#ef4444" }
+  const suggestion = optionalString(value, "suggestion")
+  return { colIdx, label, color: optionalString(value, "color") ?? "#ef4444", ...(suggestion ? { suggestion } : {}) }
 }
 
 function parseGasSettingsChange(value: unknown): GasSettingsChange | null {
@@ -903,6 +1035,7 @@ function parseGasSettingsChange(value: unknown): GasSettingsChange | null {
     fio2,
     ...(optionalNumber(value, "fiAir") !== undefined ? { fiAir: optionalNumber(value, "fiAir") } : {}),
     ...(optionalNumber(value, "fiN2O") !== undefined ? { fiN2O: optionalNumber(value, "fiN2O") } : {}),
+    ...(optionalString(value, "suggestion") ? { suggestion: optionalString(value, "suggestion") } : {}),
   }
 }
 
@@ -924,6 +1057,7 @@ function parseGasSettingsSegment(value: unknown): GasSettingsSegment | null {
     ...(optionalBoolean(value, "stopped") !== undefined ? { stopped: optionalBoolean(value, "stopped") } : {}),
     ...(optionalNumber(value, "fiAir") !== undefined ? { fiAir: optionalNumber(value, "fiAir") } : {}),
     ...(optionalNumber(value, "fiN2O") !== undefined ? { fiN2O: optionalNumber(value, "fiN2O") } : {}),
+    ...(optionalString(value, "suggestion") ? { suggestion: optionalString(value, "suggestion") } : {}),
     ...(Array.isArray(value.settingsChanges)
       ? { settingsChanges: parseArray(value.settingsChanges, parseGasSettingsChange) }
       : {}),

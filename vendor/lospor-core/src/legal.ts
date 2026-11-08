@@ -144,7 +144,7 @@ export const CLOUD_DEMO_LEGAL_DOCUMENTS: readonly LegalAcceptanceReference[] = [
     version: CURRENT_TERMS_VERSION,
     effectiveDate: "2026-07-03",
     locale: "bg",
-    contentSha256: "735c415ac152ea4e0ca590d6151d1e27ed38faba3c1682e61503df4f8ae4df08",
+    contentSha256: "bcd807d29cbf22a9a9bcaf704829023760bb77dae7630aa6b2055c2ce00ec91b",
     deployment: CLOUD_DEMO_DEPLOYMENT,
   },
   {
@@ -152,7 +152,7 @@ export const CLOUD_DEMO_LEGAL_DOCUMENTS: readonly LegalAcceptanceReference[] = [
     version: CURRENT_TERMS_VERSION,
     effectiveDate: "2026-07-03",
     locale: "en",
-    contentSha256: "b67fb33c79aeff1f24569f25af1fa84bdd4378afa641261de0409c2243e9171d",
+    contentSha256: "eedd2913ec1f69c5dbf190d6ab66bb46fdb53899a4942ca841a292ca717f665e",
     deployment: CLOUD_DEMO_DEPLOYMENT,
   },
   {
@@ -160,7 +160,7 @@ export const CLOUD_DEMO_LEGAL_DOCUMENTS: readonly LegalAcceptanceReference[] = [
     version: CURRENT_TERMS_VERSION,
     effectiveDate: "2026-07-03",
     locale: "bg",
-    contentSha256: "9e25b46e55c1a31874c12fc4793cffe4a2bdd34da63798cae98a5987d051082e",
+    contentSha256: "a6e0f3908cd9207240d7b616cbe91ba7ae46b917ed943923d0f6e9640dfb441d",
     deployment: CLOUD_DEMO_DEPLOYMENT,
   },
   {
@@ -168,7 +168,7 @@ export const CLOUD_DEMO_LEGAL_DOCUMENTS: readonly LegalAcceptanceReference[] = [
     version: CURRENT_TERMS_VERSION,
     effectiveDate: "2026-07-03",
     locale: "en",
-    contentSha256: "8477edefad59f990ee72a6027248b7bd65c1db59146d89d4db3d61b744a5fc61",
+    contentSha256: "6819500edcb49fc6b531ad85367b232021faed03887f102000e5c5562bcdd3a1",
     deployment: CLOUD_DEMO_DEPLOYMENT,
   },
 ]

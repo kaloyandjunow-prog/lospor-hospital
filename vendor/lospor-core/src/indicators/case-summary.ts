@@ -126,8 +126,20 @@ export type CaseIndicatorInput = {
 const ANTIEMETICS = /ondansetron|granisetron|tropisetron|palonosetron|dexamethasone|droperidol|haloperidol|metoclopramide|dimenhydrinate|cyclizine|aprepitant|fosaprepitant|promethazine|scopolamine|hyoscine|amisulpride/i
 const AIRWAY_COMPLICATIONS = /laryngospasm|bronchospasm|aspiration|hypoxia|desaturation/i
 
+/** The lowest mean pressure a column carries, from the cuff and the arterial line. */
 function meanArterial(entry: VitalsEntry | undefined): number | null {
-  return entry?.systolic != null && entry.diastolic != null ? (entry.systolic + 2 * entry.diastolic) / 3 : null
+  if (!entry) return null
+  const means = [
+    entry.systolic != null && entry.diastolic != null ? (entry.systolic + 2 * entry.diastolic) / 3 : null,
+    entry.ibpSystolic != null && entry.ibpDiastolic != null ? (entry.ibpSystolic + 2 * entry.ibpDiastolic) / 3 : null,
+    entry.nibpMap ?? null, entry.ibpMap ?? null,
+  ].filter((value): value is number => value != null)
+  return means.length > 0 ? Math.min(...means) : null
+}
+
+const lowestSystolic = (entry: VitalsEntry): number | null => {
+  const values = [entry.systolic, entry.ibpSystolic].filter((value): value is number => value != null)
+  return values.length > 0 ? Math.min(...values) : null
 }
 
 /** A reading stands for its own column and, until the next one, up to two more (15 minutes). */
@@ -179,11 +191,11 @@ export function summarizeCaseIndicators(input: CaseIndicatorInput, config: Indic
   const bp = minutesBelow(
     timetable.vitals,
     lastColumn,
-    entry => entry.systolic != null,
+    entry => lowestSystolic(entry) != null,
     entry => {
       const map = meanArterial(entry)
       return !!band && ((band.mapBelow != null && map != null && map < band.mapBelow)
-        || (band.sbpBelow != null && entry.systolic != null && entry.systolic < band.sbpBelow))
+        || (band.sbpBelow != null && lowestSystolic(entry) != null && lowestSystolic(entry)! < band.sbpBelow))
     },
   )
   const spo2 = minutesBelow(timetable.vitals, lastColumn, entry => entry.spO2 != null, entry => (entry.spO2 ?? 100) < config.spo2Below)

@@ -5,6 +5,7 @@ describe("which family a technique belongs to", () => {
   it.each([
     ["GENERAL_INHALATION", "general"],
     ["GENERAL_TIVA", "general"],
+    ["GENERAL_TCI", "general"],
     ["SPINAL", "neuraxial"],
     ["EPIDURAL_LUMBAR", "neuraxial"],
     ["CSE", "neuraxial"],

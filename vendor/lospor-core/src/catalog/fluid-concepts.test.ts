@@ -56,6 +56,7 @@ describe("intraopFluidConcept", () => {
 
   it("lists each concept once", () => {
     expect(new Set(INTRAOP_FLUID_CONCEPT_IDS).size).toBe(INTRAOP_FLUID_CONCEPT_IDS.length)
-    expect(INTRAOP_FLUID_CONCEPT_IDS).toHaveLength(35)
+    // 10.2.0: glucose 20% and 40% joined; Glucose 5% and 10% reuse the Dextrose concepts.
+    expect(INTRAOP_FLUID_CONCEPT_IDS).toHaveLength(37)
   })
 })

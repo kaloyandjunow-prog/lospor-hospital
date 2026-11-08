@@ -231,10 +231,10 @@ describe("a running TCI infusion in the timetable rows", () => {
   })
 })
 
-describe("a TCI infusion on the case-summary chart", () => {
+describe("a TCI infusion on the record's timetable", () => {
   it("is labelled with its site, target and model", async () => {
     const { projectIntraopEvents } = await import("./intraop-engine")
-    const { buildSummaryTimetableModel } = await import("./summary-timetable")
+    const { buildRecordTimetable } = await import("./record-timetable")
     const { parseLogEvents } = await import("./intraop-types")
     const t0 = Date.UTC(2026, 9, 18, 8, 0)
     const at = (minutes: number) => new Date(t0 + minutes * 60_000).toISOString()
@@ -242,8 +242,8 @@ describe("a TCI infusion on the case-summary chart", () => {
       { id: "s", ts: at(0), type: "infusion_start", infId: "i", name: "Propofol", rate: "4", unit: "mcg/mL", tciModel: "SCHNIDER", tciSite: "EFFECT" },
       { id: "x", ts: at(30), type: "infusion_stop", infId: "i" },
     ]), { start: at(0), openThrough: at(40) })
-    const segment = buildSummaryTimetableModel(chart, "en").lanes.flatMap(lane => lane.segments).find(item => item.code === "Propofol")!
-    expect(segment.text).toBe("Propofol Ce 4 mcg/mL · Schnider")
+    const lane = buildRecordTimetable(chart, { startedAt: at(0), timezone: "UTC" }, "en").lanes.find(item => item.kind === "bars" && item.tone === "infusion" && item.name === "Propofol")!
+    expect(lane.kind === "bars" && lane.bars[0]!.label).toBe("Ce 4 mcg/mL · Schnider")
   })
 })
 

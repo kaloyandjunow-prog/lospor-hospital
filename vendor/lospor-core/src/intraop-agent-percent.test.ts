@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { projectIntraopEvents } from "./intraop-engine"
 import { applyIntraopEventOps, timetableEditToEventOps } from "./intraop-timetable-edit"
 import type { LogEvent, TimetableData } from "./intraop-types"
-import { buildSummaryTimetableModel } from "./summary-timetable"
+import { buildRecordTimetable } from "./record-timetable"
 
 // A new concentration of a running agent is another agent_start of the same
 // agent (the phone's way). The chart keeps each one as a change on the bar
@@ -85,10 +85,11 @@ describe("an agent's concentration over time", () => {
   })
 
   it("prints one stretch per concentration that has happened", () => {
-    const model = buildSummaryTimetableModel(project(log))
-    expect(model.lanes.find(lane => lane.kind === "agent")!.segments).toEqual([
-      expect.objectContaining({ startCol: 0, endCol: 3, text: "Sevoflurane 2%" }),
-      expect.objectContaining({ startCol: 4, endCol: 12, text: "1.5%" }),
+    const model = buildRecordTimetable(project(log), {}, "en")
+    const agent = model.lanes.find(lane => lane.kind === "bars" && lane.tone === "agent")!
+    expect(agent.kind === "bars" && agent.bars).toEqual([
+      expect.objectContaining({ startCol: 0, endCol: 3, label: "2 %" }),
+      expect.objectContaining({ startCol: 4, endCol: 12, label: "1.5 %" }),
     ])
   })
 })

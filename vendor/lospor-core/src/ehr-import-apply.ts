@@ -166,6 +166,12 @@ export function applyEhrSelections(input: {
    * paediatric mode: an age that would need it is refused instead.
    */
   allowModeChange?: boolean
+  /**
+   * Intraoperative labs only (11.0): the instant to give a result the hospital sent no time for, which is the
+   * moment it is added to the case. The record prints each draw at its time, and a draw with none would have
+   * nowhere to stand. Left out, an undated result stays undated, as the preoperative panel needs it to.
+   */
+  undatedLabsAt?: string
 }): EhrApplyResult {
   const byKey = new Map(input.plan.items.map(item => [item.itemKey, item]))
   const patch: Record<string, unknown> = {}
@@ -187,7 +193,9 @@ export function applyEhrSelections(input: {
     const proposed = item.proposed
     if (proposed && typeof proposed === "object") {
       if (!lists.has(item.field)) lists.set(item.field, existingList(input.current[item.field]))
-      lists.get(item.field)!.push(proposed as EhrTagValue | EhrLabValue)
+      const entry = proposed as EhrTagValue | EhrLabValue
+      const lab = entry as EhrLabValue
+      lists.get(item.field)!.push(input.undatedLabsAt && "takenAt" in lab && lab.takenAt === null ? { ...lab, takenAt: input.undatedLabsAt } : entry)
     } else {
       patch[item.field] = proposed
     }

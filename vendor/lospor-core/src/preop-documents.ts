@@ -638,7 +638,7 @@ export const PREOP_QUESTIONNAIRE_SECTION_LABELS: Record<"en" | "bg", Record<Preo
     anamnesis: "Анамнеза",
     physical_exam: "Преглед",
     airway: "Дихателни пътища",
-    labs: "Лаборатория",
+    labs: "Изследвания",
     risk_scores: "Рискови фактори",
   },
 }

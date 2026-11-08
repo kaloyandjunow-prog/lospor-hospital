@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { catalogOptions } from "../catalog"
+import { catalogOptions, FLUID_CATALOG } from "../catalog"
 import { FLUID_DISPLAY_NAMES, MEDICATION_NAMES_BG } from "../catalog/medication-names-bg"
 import {
   bulgarianNamesVersion,
@@ -23,7 +23,9 @@ describe("Bulgarian names for drugs, infusions, agents and fluids", () => {
   })
 
   it("has display names for every fluid and nothing else", () => {
-    const fluids = catalogOptions("INTRAOP_FLUID").map(option => option.label).sort()
+    // Retired fluids are off the menus but keep their names for the cases that recorded them.
+    const retired = FLUID_CATALOG.filter(entry => entry.retired).map(entry => entry.name)
+    const fluids = [...catalogOptions("INTRAOP_FLUID").map(option => option.label), ...retired].sort()
     expect(Object.keys(FLUID_DISPLAY_NAMES).sort()).toEqual(fluids)
   })
 

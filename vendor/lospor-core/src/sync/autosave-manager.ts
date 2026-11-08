@@ -136,12 +136,39 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
     revisions.set(key(caseId, section), revision)
   }
 
+  // The revisions this device's own writes created. A queued patch may move its
+  // base over these (a write of ours that landed while it waited its turn) and
+  // over nothing else: a revision someone else made in between stays a conflict.
+  const ownRevisions = new Map<string, Set<number>>()
+  function noteOwnRevision(caseId: string, section: CaseSection, revision: SectionRevision): void {
+    if (typeof revision !== "number") return
+    const seen = ownRevisions.get(key(caseId, section)) ?? new Set<number>()
+    seen.add(revision)
+    ownRevisions.set(key(caseId, section), seen)
+  }
+  function freshenBase(caseId: string, section: CaseSection, base: SectionRevision | undefined): SectionRevision | undefined {
+    if (typeof base !== "number") return base
+    const seen = ownRevisions.get(key(caseId, section))
+    if (!seen) return base
+    let next = base
+    while (seen.has(next + 1)) next += 1
+    return next
+  }
+
   function acknowledgeEvent(caseId: string, revision: SectionRevision): void {
+    noteOwnRevision(caseId, "intraop", revision)
     setRevision(caseId, "intraop", revision)
+  }
+
+  function acknowledgePatch(caseId: string, section: CaseSection, response: Parameters<typeof responseRevision>[1]): void {
+    const revision = responseRevision(section, response)
+    noteOwnRevision(caseId, section, revision)
+    setRevision(caseId, section, revision)
   }
 
   const outbox: CaseOutbox = createCaseOutbox({
     ...deps.outbox,
+    freshenBase,
     orderWrite: (caseId, _section, run) => queue.enqueue(caseId, run),
   })
   const pendingEvents: PendingEventStore = createPendingEventStore({
@@ -230,7 +257,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
           at: item.droppedAt,
           // The journal keeps the edited event, so the list can say what it was.
           change: item.kind === "event.delete" ? "delete" : "edit",
-          ...(item.kind !== "event.delete" && item.event ? { event: item.event } : {}),
+          ...(item.kind === "event.upsert" && item.event ? { event: item.event } : {}),
         }))
     } catch { /* a broken diagnostics log never blocks charting */ }
     return [...events, ...changes].filter((item) => Date.parse(item.at) > after).sort((a, b) => a.at.localeCompare(b.at))
@@ -282,7 +309,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
 
     const result = await outbox.flushOne(caseId, section)
     if (result.result === "saved") {
-      if (result.response) setRevision(caseId, section, responseRevision(section, result.response))
+      if (result.response) acknowledgePatch(caseId, section, result.response)
       if (options.partial) snapshots.merge(caseId, section, payload)
       else snapshots.confirm(caseId, section, fullPayload)
       const remainingBlock = await outbox.blockedIssue(caseId)
@@ -295,7 +322,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
         blocked: remainingBlock,
       })
     } else if (result.result === "blocked" && result.blocked) {
-      if (result.response) setRevision(caseId, section, responseRevision(section, result.response))
+      if (result.response) acknowledgePatch(caseId, section, result.response)
       if (result.savedPayload) snapshots.merge(caseId, section, result.savedPayload)
       emit(caseId, {
         status: "blocked",
@@ -385,7 +412,7 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
         await pendingEvents.updatePending(operation.caseId, (events) => events.filter((event) => event.id !== operation.eventId))
         await eventMutations.removeForEvent(operation.caseId, operation.eventId)
         await sendOrder.remove(operation.caseId, (entry) => entry.kind === "event" && entry.id === operation.eventId)
-      } else {
+      } else if (operation.kind === "event.upsert") {
         await pendingEvents.updatePending(operation.caseId, (events) => events.map((event) =>
           event.id === operation.eventId ? { ...event, ...operation.event, id: event.id } : event))
       }
@@ -434,13 +461,13 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       const result = await outbox.flushOne(caseId, section)
       if (result.result === "saved") {
         saved += 1
-        if (result.response) setRevision(caseId, section, responseRevision(section, result.response))
+        if (result.response) acknowledgePatch(caseId, section, result.response)
       } else if (result.result === "empty") {
         discarded += 1
       } else if (result.result === "blocked" && result.blocked) {
         sectionFailed += 1
         blocked ??= result.blocked
-        if (result.response) setRevision(caseId, section, responseRevision(section, result.response))
+        if (result.response) acknowledgePatch(caseId, section, result.response)
         if (result.savedPayload) snapshots.merge(caseId, section, result.savedPayload)
       } else if (result.result === "conflict" && result.conflict) {
         // First conflict in the case wins the displayed state; every one

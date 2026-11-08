@@ -514,3 +514,46 @@ describe("one flush per case section at a time", () => {
     ])).resolves.toBe("done")
   })
 })
+
+describe("a patch queued behind this device's own event", () => {
+  function gated(eventRevision: number) {
+    const kv = memoryKV()
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const postEvent = vi.fn(async () => { await gate; return { ok: true, status: 200, revision: eventRevision } })
+    const sendPatch = vi.fn().mockResolvedValue({ intraopRevision: eventRevision + 1 })
+    const autosave = createAutosaveManager({
+      outbox: { kv, sendPatch, classifyError: (error) => error instanceof TypeError ? { kind: "network" } : { kind: "other" } },
+      pendingEvents: { kv, postEvent, isNetworkError: (error) => error instanceof TypeError },
+      eventMutations: { kv, send: vi.fn().mockResolvedValue({ ok: true, status: 200, revision: eventRevision }), isNetworkError: (error) => error instanceof TypeError },
+    })
+    autosave.hydrateSection("case-1", "intraop", { monitor: true }, 1)
+    return { autosave, postEvent, sendPatch, release }
+  }
+
+  it("goes out on the revision that event made, not the one it was queued on", async () => {
+    const { autosave, postEvent, sendPatch, release } = gated(2)
+    const event = autosave.appendEvent("case-1", { id: "e1", ts: "2026-07-23T20:00:00.000Z", type: "clinical_event" })
+    await vi.waitFor(() => expect(postEvent).toHaveBeenCalled())
+    // Queued while the event is still in flight: the revision it can see is still 1.
+    const saved = autosave.saveSection("case-1", "intraop", { airwayDevices: ["ORAL_ETT"] })
+    release()
+    await event
+    await expect(saved).resolves.toMatchObject({ result: "saved" })
+    expect(sendPatch).toHaveBeenCalledTimes(1)
+    expect(sendPatch.mock.calls[0]![3]).toBe(2)
+    expect(autosave.getState("case-1").conflict).toBeNull()
+  })
+
+  it("does not move over a revision somebody else made in between", async () => {
+    // The event came back as revision 3: revision 2 was another screen's, so the patch stays on 1 and the server decides.
+    const { autosave, postEvent, sendPatch, release } = gated(3)
+    const event = autosave.appendEvent("case-1", { id: "e1", ts: "2026-07-23T20:00:00.000Z", type: "clinical_event" })
+    await vi.waitFor(() => expect(postEvent).toHaveBeenCalled())
+    const saved = autosave.saveSection("case-1", "intraop", { airwayDevices: ["ORAL_ETT"] })
+    release()
+    await event
+    await saved
+    expect(sendPatch.mock.calls[0]![3]).toBe(1)
+  })
+})

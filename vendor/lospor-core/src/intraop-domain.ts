@@ -3,6 +3,7 @@ import { normalizeOptionCode } from "./option-aliases"
 export const GENERAL_TECHNIQUES = [
   "GENERAL_INHALATION",
   "GENERAL_TIVA",
+  "GENERAL_TCI",
   "GENERAL_BALANCED",
 ] as const
 
@@ -17,7 +18,7 @@ export function isGeneralAnesthesiaTechnique(value: string): boolean {
 }
 
 export function isTivaTechnique(value: string): boolean {
-  return canonicalTechnique(value) === "GENERAL_TIVA"
+  return canonicalTechnique(value) === "GENERAL_TIVA" || canonicalTechnique(value) === "GENERAL_TCI"
 }
 
 export function isNeuraxialTechnique(value: string): boolean {
@@ -299,9 +300,10 @@ export type AirwaySectionInput = {
  * and they answer different questions. `presentsIntubated` says who placed the
  * airway; `airwayNotApplicable` says whether this team did anything to it.
  *
- * Neither excludes the device and tool lists either: a patient who arrived with
- * a tube may still have it exchanged, re-sited, ventilated through or removed,
- * and that is this team's work.
+ * `airwayNotApplicable` does exclude this team's device/tool record: choosing
+ * it clears those selections, and choosing a device clears the flag. The
+ * separate `presentsIntubated` flag may still remain true because it describes
+ * what arrived with the patient, not what this team recorded.
  */
 export function airwayAbsentReason(
   next: "presentsIntubated" | "airwayNotApplicable",
@@ -321,20 +323,21 @@ function nullableNumber(value: string | number | null | undefined): number | nul
 }
 
 export function buildAirwaySectionPatch(input: AirwaySectionInput): Record<string, unknown> {
+  const noIntervention = !!input.airwayNotApplicable
   return {
-    airwayTools: [...input.airwayTools],
-    airwayDevices: [...input.airwayDevices],
-    lmaSize: nullableNumber(input.lmaSize),
-    oralTubeSize: nullableNumber(input.oralTubeSize),
-    oralCuffed: input.oralCuffed ?? null,
-    nasalTubeSize: nullableNumber(input.nasalTubeSize),
-    nasalCuffed: input.nasalCuffed ?? null,
-    dltType: input.dltType ?? null,
-    dltSide: input.dltSide ?? null,
-    dltSize: nullableNumber(input.dltSize),
-    endobronchialSize: nullableNumber(input.endobronchialSize),
-    cormackLehane: input.cormackLehane || null,
-    ventilationModes: [...input.ventilationModes],
+    airwayTools: noIntervention ? [] : [...input.airwayTools],
+    airwayDevices: noIntervention ? [] : [...input.airwayDevices],
+    lmaSize: noIntervention ? null : nullableNumber(input.lmaSize),
+    oralTubeSize: noIntervention ? null : nullableNumber(input.oralTubeSize),
+    oralCuffed: noIntervention ? null : input.oralCuffed ?? null,
+    nasalTubeSize: noIntervention ? null : nullableNumber(input.nasalTubeSize),
+    nasalCuffed: noIntervention ? null : input.nasalCuffed ?? null,
+    dltType: noIntervention ? null : input.dltType ?? null,
+    dltSide: noIntervention ? null : input.dltSide ?? null,
+    dltSize: noIntervention ? null : nullableNumber(input.dltSize),
+    endobronchialSize: noIntervention ? null : nullableNumber(input.endobronchialSize),
+    cormackLehane: noIntervention ? null : input.cormackLehane || null,
+    ventilationModes: noIntervention ? [] : [...input.ventilationModes],
     airwayNotes: input.airwayNotes ?? "",
     // Explicit false rather than an omitted key: an absent key is dropped from
     // a patch as "not mentioned", so a flag turned back off would silently keep

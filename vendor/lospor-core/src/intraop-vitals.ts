@@ -42,6 +42,10 @@ export const INTRAOP_VITAL_KEYS = [
   "bis",
   "tofRatio",
   "cvp",
+  "ibpSystolic",
+  "ibpDiastolic",
+  "ibpMap",
+  "nibpMap",
 ] as const
 
 export type IntraopVitalKey = (typeof INTRAOP_VITAL_KEYS)[number]
@@ -272,6 +276,7 @@ export function vitalFieldVisibility(
   showBis: boolean
   showTofRatio: boolean
   showCvp: boolean
+  showIbp: boolean
 } {
   const selected = new Set(monitoringSelections)
   return {
@@ -289,6 +294,8 @@ export function vitalFieldVisibility(
     showBis: selected.has("bis"),
     showTofRatio: selected.has("tofMonitor"),
     showCvp: selected.has("cvpMonitor"),
+    // The arterial line reads its own pressure, shown only when the monitor is ticked.
+    showIbp: selected.has("invasiveBP"),
   }
 }
 
@@ -325,6 +332,11 @@ export const INTRAOP_VITAL_RULES: Readonly<Record<IntraopVitalKey, IntraopVitalR
   tofRatio:  { min: 0, max: 1 },
   // Millimetres of mercury, whatever unit the clinician entered.
   cvp:       {},
+  // The arterial line and the cuff mean. Persistence checks shape only; the warning bands below ask.
+  ibpSystolic:  { min: 0, integer: true },
+  ibpDiastolic: { min: 0, integer: true },
+  ibpMap:       { min: 0, integer: true },
+  nibpMap:      { min: 0, integer: true },
 })
 
 export type IntraopVitalHardError = "not_finite" | "not_integer" | "below_min" | "above_max"
@@ -335,6 +347,8 @@ export type IntraopVitalWarning = "low" | "high"
 export const INTRAOP_VITAL_WARNING_RULES: Readonly<Partial<Record<IntraopVitalKey, { min?: number; max?: number }>>> = Object.freeze({
   systolic: { min: 60, max: 300 },
   diastolic: { max: 150 },
+  ibpSystolic: { min: 60, max: 300 },
+  ibpDiastolic: { max: 150 },
   heartRate: { min: 40, max: 250 },
   spO2: { min: 80 },
   etco2: { min: 25, max: 60 },

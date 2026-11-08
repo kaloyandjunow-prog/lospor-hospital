@@ -261,6 +261,7 @@ export const FLUID_DISPLAY_NAMES: Readonly<Record<string, { en?: string; bg: str
   "Dextrose 5% in 0.45% saline (D5 1/2NS)": { en: "Glucose 5% + NaCl 0.45%", bg: "Глюкоза 5% + NaCl 0,45%" },
   "Dextrose 5% in Lactated Ringer's (D5LR)": { en: "Glucose 5% + Ringer's lactate", bg: "Глюкоза 5% + Рингер лактат" },
   "Dextrose 10% (D10W)": { en: "Glucose 10%", bg: "Глюкоза 10%" },
+  "Glucose": { en: "Glucose", bg: "Глюкоза" },
   "Packed red blood cells (PRBC)": { en: "Red cell concentrate", bg: "Еритроцитен концентрат" },
   "Fresh frozen plasma (FFP)": { bg: "Прясно замразена плазма (ПЗП)" },
   "Platelets": { en: "Platelet concentrate", bg: "Тромбоцитен концентрат" },

@@ -1,7 +1,7 @@
 import { HANDOVER_ITEMS } from "./catalog/handover-items"
 import { normalizeOptionCode, normalizeOptionCodes } from "./option-aliases"
 
-export const POSTOP_DISPOSITIONS = ["WARD", "PACU", "ICU"] as const
+export const POSTOP_DISPOSITIONS = ["WARD", "PACU", "ICU", "DECEASED"] as const
 export type PostopDisposition = (typeof POSTOP_DISPOSITIONS)[number]
 
 export const ALDRETE_FIELDS = [

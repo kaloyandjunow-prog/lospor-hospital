@@ -42,4 +42,12 @@ describe("the two reasons an airway section can be empty", () => {
     expect(patch).toHaveProperty("presentsIntubated", false)
     expect(patch).toHaveProperty("airwayNotApplicable", false)
   })
+
+  it("clears airway devices and instruments in a no-intervention patch", () => {
+    const patch = buildAirwaySectionPatch({
+      airwayTools: ["VIDEO_LARY"], airwayDevices: ["ORAL_ETT"], ventilationModes: ["IPPV"],
+      oralTubeSize: 7.5, oralCuffed: true, cormackLehane: "II", airwayNotApplicable: true,
+    })
+    expect(patch).toMatchObject({ airwayTools: [], airwayDevices: [], ventilationModes: [], oralTubeSize: null, oralCuffed: null, cormackLehane: null, airwayNotApplicable: true })
+  })
 })

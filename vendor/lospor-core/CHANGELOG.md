@@ -1,5 +1,166 @@
 # Changelog - LOSPOR Core
 
+## [10.2.0] - 2026-11-02
+
+### Added
+
+- **Shared account layout contract:** case sidebar, per-stage section/scroll
+  layouts, timetable layout, and vitals-chart expansion are normalized in Core
+  so web and mobile can read the same account preference safely.
+
+- **Smart intraoperative selection:** shared Smart and Legacy choices for
+  airway, vascular access, monitoring, equipment, regional technique, and the
+  event selector, with per-clinician preferences and bilingual search words.
+- **Fluid status presentation:** added the shared Smart/Legacy preference for
+  the aggregation-first Hybrid summary; timetable totals stay read-only while
+  urine output and estimated blood loss remain clinician measurements.
+- **Event log presentation:** added the shared Smart Timeline stream and Legacy
+  event-log preference; the stream keeps the chronological projection and adds
+  lightweight filters without changing the underlying clinical record.
+- **SPS — Smart Prediction System:** Likely now succession suggestions, reminders,
+  treatment cards, reading questions, timed follow-ups, and per-automation
+  switches.
+- **Context-linked suggestions:** reminder-scoped links now connect local
+  anaesthetic routes, induction agents, TCI, volatile agents, airway records,
+  technique sides, and missing placement events to exact techniques, clinical
+  times, and structured records; the first six induction agents are included.
+- **Dismissal and personal defaults:** context/succession prompts have a
+  definitive, case-scoped dismissal, while every registered automation has an
+  individual account switch and newly enabled context links start off for the
+  clinician unless they opt in.
+- **Vital-question switches:** hypotension, hypertension, bradycardia and
+  tachycardia are registered as four independent automation lines. The
+  existing Vital Questions master switch remains the gate; each question now
+  carries its line provenance into acceptance statistics.
+- **Sedation event:** added the shared `Sedation started` event so a selected
+  sedation technique and its clinical time can be recorded and mapped together.
+- **Clinical record detail:** invasive-pressure vitals, BIS/TOF monitor-scan
+  values, block sides, unilateral spinal, failed lines and airway devices,
+  jet ventilation, tourniquet details, and urinary catheter events.
+
+- **The anaesthesia record (summary and print):** the case summary, the printed
+  record and the phone's timetable are drawn from one set of pure models.
+  `record-labels` holds the record's fixed words in Bulgarian and English;
+  `record-log` builds the event log (every charted entry in time order, a
+  deleted entry kept at the minute it was charted for with the minute it was
+  deleted) and the episodes with what was given during each;
+  `record-timetable` builds the whole-case timetable (vitals, one lane per drug
+  with its doses, bars for infusions, agents, gas and fluids, episode bands),
+  timing its columns from the saved start instant and zone; and
+  `record-chart-layout` turns it into drawing instructions that the web and the
+  phone each draw.
+- **Undated EHR labs:** `applyEhrSelections` can give a laboratory result the
+  hospital sent no time for the moment it is added (`undatedLabsAt`), for
+  intraoperative labs; the preoperative panel stays undated.
+- **Timed complications, shocks and prompts (from the 10.1.0 work, which was not
+  released on its own):** `complication` events with an optional episode end,
+  `defibrillation` (1–360 J, synchronised or not, with the RCUK 2025 paediatric
+  prefill) and a hidden `prompt_answer` for "Not now". Complications and shocks
+  are markers in the events lane, so chart edits move and delete the event
+  itself.
+- **Vital questions (10.1.0 work):** age bands, fixed PALS 2020 rules, limits per
+  band and sign from the hospital's own readings, deterministic question ids,
+  episodes that close at the first reading back inside both limits, and the
+  hypertension baseline taken from a configurable first reading.
+- **Treatment cards and checklists:** one definition per agreed complication
+  (including cardiac arrest, LAST, malignant hyperthermia, anaphylaxis and
+  latex, massive haemorrhage and hyperkalaemia) becomes rows with doses
+  prefilled for this patient (adult dose, or weight-based for a child, capped,
+  empty without a weight), branch choices, conditional rows, a tick on rows
+  charted since the onset, adenosine stepping 6 → 12 → 18 mg and running totals.
+- **Reverse questions:** thirteen rules ask whether to log a complication at the
+  time of a rescue drug, fluid or shock (lipid, dantrolene, adenosine, shocks,
+  a fourth red-cell unit within an hour or blood loss over 1,500 mL, rescue
+  sugammadex, 1 mg adrenaline, calcium with insulin, a second uterotonic,
+  naloxone/flumazenil, amiodarone, salbutamol). They stay quiet when the
+  complication is already logged within 30 minutes.
+- **Questions from readings and labs:** SpO₂ under 90 %, EtCO₂ over 60 mmHg,
+  temperature under 36.0 °C, an EtCO₂ fall with an airway in, the malignant
+  hyperthermia pattern, residual blockade around extubation, and intraoperative
+  laboratory results.
+- **Warnings and checks:** local anaesthetic given against the maximum by ideal
+  weight, a malignant-hyperthermia-history warning before a volatile or
+  suxamethonium, a latex banner, PONV (ПОГП) prophylaxis at procedure end, and a
+  glucose check after two hours without a result.
+- **Timed follow-ups:** cardiac arrest (rhythm check every 2 minutes, adrenaline,
+  amiodarone, child doses by weight), LAST, anaphylaxis, malignant hyperthermia
+  (dantrolene every 10 minutes with the total in mg, mg/kg and vials) and the
+  tourniquet (90/120 minutes, 60/75 for children, per site).
+- **One waiting list:** cards, questions, reminders and timers share one list,
+  each group gated by Status and switchable by the clinician.
+- **Dantrolene vials:** `dantroleneVialPlan` plans the fewest stocked vials for a
+  dose (the hospital stocks a mix of sizes).
+- **Jet ventilation lane:** `jet_start`, `jet_change` and `jet_stop` with driving
+  pressure, rate and FiO₂ project to a running bar; a second start is refused
+  while one runs and End case stops it.
+- **Tourniquet body picker:** the geometry both apps draw, and the limb carried
+  on the event.
+- **Defibrillation energy dial:** the mapping all three knob skins draw.
+- **Arrest doses charted afterwards:** approximate times, spread inside the
+  arrest when ROSC or Death is recorded from any screen.
+- **Suggestion acceptance:** what became of each suggestion, read from the saved
+  chart.
+- **Guide reference pages** for drugs, infusions, fluids, agents and
+  premedication (adults and children) are written from Core.
+
+### Fixed
+
+- **Smart airway option parity:** Smart airway selection can now consume the
+  current configured device and instrument options instead of silently relying
+  on a smaller built-in list.
+- **Equipment state semantics:** Smart Equipment now compares suggestions with
+  actual airway/monitoring records and keeps preparation markers separate from
+  clinical use.
+
+- **Automation conflict safety:** inferred technique and block-side answers now
+  reject contradictory automation patches instead of silently merging them;
+  linked airway/vascular records carry stable provenance for deduplication.
+
+- **Succession evidence:** structured airway and vascular records are included
+  in event succession without double-counting a clinical event they already
+  explain.
+
+- **Cards no longer cancel each other:** a dose written from one complication's
+  card is not counted as a step of another's (ephedrine from Hypotension no
+  longer closes High spinal), reverse questions ignore doses written from a
+  card, and applying an addition twice replaces rather than duplicates.
+- **Hypertension baseline side:** the baseline from the first reading uses the
+  higher of the cuff and the arterial line, the same side hypertension is
+  judged on.
+- **Dose-unit precision:** `convertDoseAmount` keeps twelve significant digits
+  (64.31 mcg no longer comes back as 64 through mg).
+- **Dantrolene planner limits:** an infinite dose gives an empty plan and an
+  absurd one is not searched for ever.
+- **Bulgarian names:** blood pressure reads Сис / Диас / САН; the sugammadex
+  rescue question uses 16 mg/kg; duplicate complication names are merged.
+- **Fluid rates** in suggestion rows use mL/h, the unit the API accepts.
+
+### Changed
+
+- **Bulgarian clinical terminology:** interactive timetable language now uses
+  «времева линия», vital signs use «жизнени показатели», and complication
+  labels use «Хипотенсия»/«Хипертенсия» while retaining common synonyms.
+- **Neutral record states:** airway and vascular summaries now say
+  «неуспешен опит» and «подмяна» instead of gendered status fragments.
+- **Shared clinical projections:** timetable edits and intraoperative events
+  continue to use the common event-log and clinical-rule machinery used by the
+  web and mobile clients.
+- **Clinical baselines:** the new catalogue and dosing changes use the next
+  fingerprinted clinical-rule baseline.
+
+- **Faster times:** one cached `Intl.DateTimeFormat` per time zone, and the
+  zone check is cached too. Building a formatter for every event time cost
+  about 0.17 ms each; a record of 600 events made thousands.
+- **Contact address** in the legal text fingerprints is support@lospor.org.
+
+### Removed
+
+- **Entry points replaced by the record modules:** `@lospor/core/print` (the
+  stacked half-case panel planner) and `@lospor/core/written-event-list` are
+  gone, and `summary-timetable` keeps only `colToHHMM` and the numbered drug
+  log. The record's timetable and event log come from `record-timetable` and
+  `record-log`. Consumers of the removed entry points must move to those.
+
 ## [10.0.2] - 2026-10-29
 
 ### Changed
