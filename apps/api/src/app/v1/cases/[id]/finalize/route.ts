@@ -124,7 +124,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // only, so a finalisation is the one write that changes them. The running
     // tally gets this case's readings now; if that fails the next read catches
     // up, so it never holds up the finalisation.
-    await tallyFinalisedCase(prisma, id).catch(error => console.error("[finalize] vital tally", id, error))
+    await tallyFinalisedCase(prisma, id).catch(() => {
+      console.error("[finalize] VITAL_TALLY_FAILED")
+    })
     invalidateIntraopAutomationCaches()
     return NextResponse.json({ id, status: "COMPLETE", finalizedAt: result.finalizedAt })
   } catch (error: unknown) {

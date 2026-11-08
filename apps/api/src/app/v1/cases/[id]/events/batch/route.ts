@@ -77,7 +77,7 @@ class BatchRouteResponse extends Error {
 function batchError(error: unknown, caseId: string) {
   if (error instanceof CaseWriteError) return NextResponse.json({ error: error.message }, { status: error.status })
   if (isCaseFinalizedDatabaseError(error)) return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
-  console.error("[events batch POST]", caseId, error)
+  console.error("[events batch] CLINICAL_WRITE_FAILED")
   return NextResponse.json({ error: "Internal server error" }, { status: 500 })
 }
 
