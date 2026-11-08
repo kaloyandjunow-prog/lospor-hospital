@@ -1,6 +1,6 @@
 import React from "react"
 import { act } from "react-test-renderer"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 vi.mock("expo-haptics", () => ({}))
@@ -155,6 +155,14 @@ describe("EndCaseSheet fluid cleanup", () => {
 })
 
 describe("End at (10.1.0)", () => {
+  // The tests step the end date back to the case's start day, at most ten steps. Against today's date that
+  // stopped being enough after 2026-11-08, so the day they run on is fixed (only Date, not the timers).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-30T12:00:00.000Z"))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
   it("ends a case charted after the fact at the time chosen, never before its start", async () => {
     const onFinalize = vi.fn()
     const tree = render(
