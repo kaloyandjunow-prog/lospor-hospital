@@ -293,7 +293,7 @@ export type AuditLog = Prisma.AuditLogModel
 /**
  * Model AdministrativeReason
  * Why somebody took an action, kept beside the audit trail rather than in it.
- *
+ * 
  * AuditLog.detail is privacy-guarded: assertSafeAuditDetail rejects any key
  * ending in "reason", because operator free text is exactly what that guard
  * exists to keep out of an audit detail. But several acts legitimately require
@@ -301,7 +301,7 @@ export type AuditLog = Prisma.AuditLogModel
  * authority, correcting a patient link — and asking for one, validating it and
  * then discarding it is worse than never asking: the operator believes they
  * have left a record, and there is none.
- *
+ * 
  * So the explanation lives here and the audit row records only that one
  * exists, as `reasonRecorded: true`. A reader joins the two on action and
  * entityId. Written in the same transaction as the act it explains, so an act
@@ -546,18 +546,18 @@ export type ResearchCohort = Prisma.ResearchCohortModel
 export type ResearchExport = Prisma.ResearchExportModel
 /**
  * Model HospitalUsernameReservation
- *
+ * 
  */
 export type HospitalUsernameReservation = Prisma.HospitalUsernameReservationModel
 /**
  * Model HospitalAccountAccessToken
- *
+ * 
  */
 export type HospitalAccountAccessToken = Prisma.HospitalAccountAccessTokenModel
 /**
  * Model EhrImport
  * What the hospital system sent, before a clinician has agreed to any of it.
- *
+ * 
  * Imported values are never written into a case on arrival. Two reasons, both
  * found the hard way: the server refuses a write where age and clinical mode
  * disagree, so an unattended importer walks straight into the pediatric trap;
@@ -575,40 +575,40 @@ export type EhrImportField = Prisma.EhrImportFieldModel
 /**
  * Model EhrDelivery
  * One message queued for the hospital system.
- *
+ * 
  * There is no scheduler in the appliance, so "wait until later" is a WHERE
  * predicate rather than a job: a worker polls and asks for whatever is due.
  */
 export type EhrDelivery = Prisma.EhrDeliveryModel
 /**
  * Model PatientLink
- *
+ * 
  */
 export type PatientLink = Prisma.PatientLinkModel
 /**
  * Model CentralExportPolicy
- *
+ * 
  */
 export type CentralExportPolicy = Prisma.CentralExportPolicyModel
 /**
  * Model CaseCentralExportControl
- *
+ * 
  */
 export type CaseCentralExportControl = Prisma.CaseCentralExportControlModel
 /**
  * Model HospitalInstallation
- *
+ * 
  */
 export type HospitalInstallation = Prisma.HospitalInstallationModel
 /**
  * Model ClinicalGuidancePolicy
- *
+ * 
  */
 export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
 /**
  * Model HospitalCaseVisibilityPolicy
  * Whether clinical accounts may read cases recorded at the same hospital.
- *
+ * 
  * The default is on for a new appliance. Turning it off restores the narrow
  * owner/HOD view without changing any write permission or historical record.
  */
@@ -616,19 +616,19 @@ export type HospitalCaseVisibilityPolicy = Prisma.HospitalCaseVisibilityPolicyMo
 /**
  * Model HospitalKeyIdentity
  * Which keys this database was built under.
- *
+ * 
  * The patient keys are generated once at install and never rotate — there is
  * no rotation path, and generate-secrets.sh refuses to replace an existing
  * .env. They exist only in that file and in whatever the hospital escrowed;
  * backups carry their fingerprints, never the keys, so a lost .env means every
  * stored identifier is undecryptable and every pseudonym already at Central is
  * unmatchable forever.
- *
+ * 
  * Restoring a database without its secrets therefore produces an appliance
  * that looks completely healthy while writing into a parallel identity space.
  * Recording the fingerprints here makes that detectable: the restored database
  * remembers what it was built under, and the mismatch is loud.
- *
+ * 
  * Trust on first use. A row absent means nothing has been recorded yet — a
  * fresh install, or the first start after this shipped — and whatever keys are
  * loaded are by definition the right ones, so they are simply written down. A
@@ -638,13 +638,13 @@ export type HospitalCaseVisibilityPolicy = Prisma.HospitalCaseVisibilityPolicyMo
 export type HospitalKeyIdentity = Prisma.HospitalKeyIdentityModel
 /**
  * Model HospitalExternalAiPolicy
- *
+ * 
  */
 export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
 /**
  * Model HospitalPatientIdentifierPolicy
  * Whether this site permits an ЕГН (national identifier) link to be created.
- *
+ * 
  * ЕГН is what joins a patient's separate admissions into one person: ИЗ № is
  * issued per admission and restarts every January, so it cannot do that job
  * alone. Recording ЕГН is nonetheless a heavier privacy commitment than a
@@ -659,7 +659,7 @@ export type HospitalPatientIdentifierPolicy = Prisma.HospitalPatientIdentifierPo
  * into EhrImport staging. Absent transport (null) means the adapter is
  * disabled -- a site that has not set one up sends nothing anywhere and
  * stages nothing.
- *
+ * 
  * A watched directory needs no secret: FOLDER is a filesystem path the
  * hospital's own system writes into, read by a process already trusted with
  * the database itself. FHIR and HL7v2 reach outside that boundary to pull
@@ -672,17 +672,17 @@ export type HospitalEhrTransportPolicy = Prisma.HospitalEhrTransportPolicyModel
 /**
  * Model HospitalEhrLabCodeMap
  * What one of this hospital's laboratory codes means.
- *
+ * 
  * Which code a hospital sends for a given test is not discoverable from any
  * specification — it is a property of their laboratory system, and a hospital
  * with five analysers can have five codes for haemoglobin. So the site says,
  * once, and every later result is placed automatically.
- *
+ * 
  * Several of their codes may point at one of our tests; the reverse is not
  * allowed, which is why the unique key is theirs and not ours. A blood-gas
  * haemoglobin and a main-laboratory one are different tests in our library and
  * stay separately mapped.
- *
+ * 
  * Nothing is blocked while a code is unmapped: the result still imports under
  * whatever the hospital called it. Mapping only improves where it lands, which
  * is what makes this a screen an operator can work through at their own pace
@@ -692,7 +692,7 @@ export type HospitalEhrLabCodeMap = Prisma.HospitalEhrLabCodeMapModel
 /**
  * Model HospitalEhrVitalCodeMap
  * What a hospital's local vital-sign codes mean.
- *
+ * 
  * This is separate from the laboratory map because the destination is a
  * scalar PREOP field, not a laboratory test. Unknown local vital codes remain
  * visible in Status until an operator assigns one of the six safe destinations.
@@ -701,7 +701,7 @@ export type HospitalEhrVitalCodeMap = Prisma.HospitalEhrVitalCodeMapModel
 /**
  * Model HospitalEhrCodeSystem
  * What a hospital's coding-system addresses mean.
- *
+ * 
  * NHIS publishes no FHIR address for its lists, so every vendor invents one.
  * An address that names the list ("…/CL013", "urn:x:ksmp") is recognised on
  * its own; any other is recorded here when it arrives, and an operator says
@@ -711,33 +711,33 @@ export type HospitalEhrVitalCodeMap = Prisma.HospitalEhrVitalCodeMapModel
 export type HospitalEhrCodeSystem = Prisma.HospitalEhrCodeSystemModel
 /**
  * Model CentralDeliveryBatch
- *
+ * 
  */
 export type CentralDeliveryBatch = Prisma.CentralDeliveryBatchModel
 /**
  * Model CentralDeliveryCase
- *
+ * 
  */
 export type CentralDeliveryCase = Prisma.CentralDeliveryCaseModel
 /**
  * Model CentralExportCheckpoint
- *
+ * 
  */
 export type CentralExportCheckpoint = Prisma.CentralExportCheckpointModel
 /**
  * Model CentralExportRejection
- *
+ * 
  */
 export type CentralExportRejection = Prisma.CentralExportRejectionModel
 /**
  * Model ResearchOmopApproval
- *
+ * 
  */
 export type ResearchOmopApproval = Prisma.ResearchOmopApprovalModel
 /**
  * Model HospitalEhrMedicationCodeMap
  * What a hospital's local medication codes mean.
- *
+ * 
  * The source code and label remain the hospital's. The selected Drug is a
  * non-destructive interpretation used for the import proposal and future
  * accepted rows; nothing here rewrites an existing case or frozen export.

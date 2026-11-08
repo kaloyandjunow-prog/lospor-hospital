@@ -2012,6 +2012,15 @@ add("POST", "/v1/internal/hospital/control-plane/indicators", "Set the unit-indi
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/hospital-name", "Rename the institution, which titles the anaesthesia record, from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/drug-colors", "Set or clear the colour of a drug group or a drug from Status", {
   parameters: [statusControlBearer],
   requestBody: body(ref("JsonObject")),

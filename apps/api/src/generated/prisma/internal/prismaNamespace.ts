@@ -525,7 +525,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "operatingTheatre" | "indicatorPolicy" | "caseIndicatorSummary" | "operatingTheatrePolicy" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "drugColor" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "administrativeReason" | "customTerm" | "preoperativeAssessment" | "preopQuestionDefinition" | "preopAnswerOption" | "preopAssessmentProfile" | "preopDocumentPolicy" | "consentTemplateVersion" | "caseConsentPrint" | "preopProfileQuestion" | "preopProfileSection" | "preopProfileOrderOption" | "preopProfileConsultSpecialty" | "preopWardOrder" | "preopMedicationInstruction" | "preopPremedicationOrder" | "preopAssessmentAnswer" | "preopAssessmentSuggestion" | "preopAssessmentAuditEvent" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "performedProcedure" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "ehrDelivery" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalCaseVisibilityPolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "hospitalPatientIdentifierPolicy" | "hospitalEhrTransportPolicy" | "hospitalEhrLabCodeMap" | "hospitalEhrVitalCodeMap" | "hospitalEhrCodeSystem" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval" | "hospitalEhrMedicationCodeMap"
+    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "operatingTheatre" | "indicatorPolicy" | "intraopAutomationPolicy" | "vitalStatTally" | "vitalStatTallyScope" | "vitalStatTallyCase" | "caseIndicatorSummary" | "operatingTheatrePolicy" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "drugColor" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "administrativeReason" | "customTerm" | "preoperativeAssessment" | "preopQuestionDefinition" | "preopAnswerOption" | "preopAssessmentProfile" | "preopDocumentPolicy" | "consentTemplateVersion" | "caseConsentPrint" | "preopProfileQuestion" | "preopProfileSection" | "preopProfileOrderOption" | "preopProfileConsultSpecialty" | "preopWardOrder" | "preopMedicationInstruction" | "preopPremedicationOrder" | "preopAssessmentAnswer" | "preopAssessmentSuggestion" | "preopAssessmentAuditEvent" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "performedProcedure" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "ehrDelivery" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalCaseVisibilityPolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "hospitalPatientIdentifierPolicy" | "hospitalEhrTransportPolicy" | "hospitalEhrLabCodeMap" | "hospitalEhrVitalCodeMap" | "hospitalEhrCodeSystem" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval" | "hospitalEhrMedicationCodeMap"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -11756,168 +11756,168 @@ export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
  * Reference to a field of type 'HospitalAccountTokenPurpose'
  */
 export type EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalAccountTokenPurpose'>
-
+    
 
 
 /**
  * Reference to a field of type 'HospitalAccountTokenPurpose[]'
  */
 export type ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalAccountTokenPurpose[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'PatientIdentifierType'
  */
 export type EnumPatientIdentifierTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PatientIdentifierType'>
-
+    
 
 
 /**
  * Reference to a field of type 'PatientIdentifierType[]'
  */
 export type ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PatientIdentifierType[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrImportTransport'
  */
 export type EnumEhrImportTransportFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportTransport'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrImportTransport[]'
  */
 export type ListEnumEhrImportTransportFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportTransport[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrImportStatus'
  */
 export type EnumEhrImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportStatus'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrImportStatus[]'
  */
 export type ListEnumEhrImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportStatus[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrImportFieldStatus'
  */
 export type EnumEhrImportFieldStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportFieldStatus'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrImportFieldStatus[]'
  */
 export type ListEnumEhrImportFieldStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportFieldStatus[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrDeliveryKind'
  */
 export type EnumEhrDeliveryKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrDeliveryKind'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrDeliveryKind[]'
  */
 export type ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrDeliveryKind[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrDeliveryStatus'
  */
 export type EnumEhrDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrDeliveryStatus'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrDeliveryStatus[]'
  */
 export type ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrDeliveryStatus[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'CentralExportDecision'
  */
 export type EnumCentralExportDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralExportDecision'>
-
+    
 
 
 /**
  * Reference to a field of type 'CentralExportDecision[]'
  */
 export type ListEnumCentralExportDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralExportDecision[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'ExternalAiProvider'
  */
 export type EnumExternalAiProviderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExternalAiProvider'>
-
+    
 
 
 /**
  * Reference to a field of type 'ExternalAiProvider[]'
  */
 export type ListEnumExternalAiProviderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExternalAiProvider[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrAuthMode'
  */
 export type EnumEhrAuthModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrAuthMode'>
-
+    
 
 
 /**
  * Reference to a field of type 'EhrAuthMode[]'
  */
 export type ListEnumEhrAuthModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrAuthMode[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'HospitalEhrCodeList'
  */
 export type EnumHospitalEhrCodeListFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalEhrCodeList'>
-
+    
 
 
 /**
  * Reference to a field of type 'HospitalEhrCodeList[]'
  */
 export type ListEnumHospitalEhrCodeListFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalEhrCodeList[]'>
-
+    
 
 
 /**
  * Reference to a field of type 'CentralDeliveryStatus'
  */
 export type EnumCentralDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralDeliveryStatus'>
-
+    
 
 
 /**
  * Reference to a field of type 'CentralDeliveryStatus[]'
  */
 export type ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralDeliveryStatus[]'>
-
+    
 
 /**
  * Batch Payload for updateMany & deleteMany & createMany
