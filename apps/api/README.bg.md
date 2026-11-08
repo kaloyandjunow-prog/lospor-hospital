@@ -26,7 +26,10 @@ bearer. Той създава само клинични акаунти Member/HO
 grants; да се одобрява един точно определен frozen OMOP dataset; да се
 конфигурира push-only Central transport; отделно да се одобрява clinical
 export; да се повтарят terminal Central batches; и да се променя политиката за
-prospective guidance при възрастни/деца. Чрез него се управлява и независимата
+prospective guidance при възрастни/деца. Може и да се преименува лечебно заведение
+(`POST /v1/internal/hospital/control-plane/hospital-name`) — името, с което е
+озаглавен анестезиологичният протокол, одитирано като `HOSPITAL_NAME_UPDATE`.
+Чрез него се управлява и независимата
 Hospital политика за външен ИИ и се заменят/премахват данните за достъп до
 Mistral, които API съхранява единствено като AES-256-GCM authenticated
 ciphertext под seal key, достъпен само за API. Bearer идентифицира единствено

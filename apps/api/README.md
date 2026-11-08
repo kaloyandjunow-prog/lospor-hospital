@@ -24,7 +24,9 @@ The same private Status bearer now reaches the Hospital-only control-plane
 namespace. It can issue/revoke/supersede immutable granular research grants,
 approve one exact frozen OMOP dataset, configure push-only Central transport,
 separately approve clinical export, retry terminal Central batches, and change
-adult/pediatric prospective-guidance policy. It also controls the independent
+adult/pediatric prospective-guidance policy. It can also rename an institution
+(`POST /v1/internal/hospital/control-plane/hospital-name`), the name the
+anaesthesia record is titled with, audited as `HOSPITAL_NAME_UPDATE`. It also controls the independent
 Hospital external-AI policy and replaces/removes a Mistral credential that the
 API stores only as AES-256-GCM authenticated ciphertext under an API-only seal
 key. The bearer identifies only the
@@ -71,22 +73,6 @@ The public capabilities response may also expose the optional non-secret
 The Hospital API repeats the installer validation and fails closed for unsafe
 or malformed values. It neither receives nor transmits the Mobile/PWA
 diagnostic preview.
-
-## Clinical role supervision
-
-Clinical role changes are available only to the private Status account-control
-bearer at `PATCH /v1/internal/hospital/accounts/:id/role`. The strict request is
-`{ "role": "MEMBER" | "HEAD_OF_DEPT" | "ADMIN", "reason": string }`; the
-reason is required (10–1000 characters) but only `reasonRecorded` enters audit
-detail. Create and activate a Member/HOD account before promoting it to Admin;
-there is no chosen-password or direct-Admin provisioning route.
-
-The transaction refuses research-only or legacy authority, a HOD in an
-ineligible institution, demotion of the designated appliance operator, and
-demotion of the last active clinical Admin. Role changes revoke sessions and
-outstanding account/password-reset links. HOD demotion changes future scope
-only: it never reassigns or deletes that clinician's cases. The former
-clinical-session `PATCH /v1/admin/users/:id` role mutation returns `404`.
 
 ## Clinical role supervision
 
