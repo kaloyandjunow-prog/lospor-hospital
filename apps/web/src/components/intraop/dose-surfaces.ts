@@ -23,6 +23,7 @@ import {
 } from "@lospor/core/clinical-rules"
 import {
   resolveDrugSelectionSurface,
+  withCaseFormulation,
   type DrugSelectionSurface,
 } from "@lospor/core/drug-selection"
 import type {
@@ -102,6 +103,9 @@ export type DoseSurfaceInputs = {
 
   /** Shown instead of a number when paediatric dosing must be entered by hand. */
   manualDoseOnlyHint: string
+
+  /** The case's techniques: a unilateral spinal pre-sets the intrathecal dose to hyperbaric. */
+  techniques?: readonly string[]
 }
 
 export function createDoseSurfaces({
@@ -127,6 +131,7 @@ export function createDoseSurfaces({
   fluidConcentrations,
   fluidDefaultConcentrations,
   manualDoseOnlyHint,
+  techniques,
 }: DoseSurfaceInputs) {
   function neutralRange(unit?: string | null) {
     if (unit === "g") return { min: 0, max: 100, step: 0.01 }
@@ -184,7 +189,8 @@ export function createDoseSurfaces({
       weightKg: tbw,
       profiles: pediatricDrugProfiles,
     })
-    return profile ? pediatricProfileResolution(profile, route) : null
+    const resolution = profile ? pediatricProfileResolution(profile, route) : null
+    return resolution ? withCaseFormulation(resolution, techniques) : null
   }
 
   // Thin wrapper over the shared pure dosing logic (src/lib/dose-calc.ts).
@@ -384,6 +390,11 @@ export function createDoseSurfaces({
   }
 
   function adultBolusSurface(name: string, route?: string): DrugSelectionSurface | null {
+    const surface = adultBolusSurfaceFromRules(name, route)
+    return surface ? withCaseFormulation(surface, techniques) : null
+  }
+
+  function adultBolusSurfaceFromRules(name: string, route?: string): DrugSelectionSurface | null {
     const adultRule = adultRuleFor(name)
     if (adultRule) {
       if (adultRule.availability === "LOCAL") {

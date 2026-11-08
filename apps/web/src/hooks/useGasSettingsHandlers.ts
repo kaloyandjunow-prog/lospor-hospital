@@ -20,21 +20,25 @@ export function useGasSettingsHandlers(
   const [pickerFgf, setPickerFgf]         = useState<number | null>(null)
   const [pickerCarrierGas, setPickerCarrierGas] = useState<string | null>(null)
   const [pickerFio2, setPickerFio2]       = useState<number>(100)
+  // The treatment card the picker was opened from (10.2.0): the change it saves carries the card's tag, as a dose does.
+  const [pickerSuggestion, setPickerSuggestion] = useState<string | null>(null)
 
-  function closeGasPicker() { setGasPicker(null); setGasPickerRect(null) }
+  function closeGasPicker() { setGasPicker(null); setGasPickerRect(null); setPickerSuggestion(null) }
 
-  function openPickerForSeg(ci: number, seg: GasSettingsSegment, rect: DOMRect) {
+  function openPickerForSeg(ci: number, seg: GasSettingsSegment, rect: DOMRect, suggestion?: string) {
     if (gasPicker === ci) { closeGasPicker(); return }
     const settings = gasSettingsAtColumn(seg, ci)
     if (!settings) return
+    setPickerSuggestion(suggestion ?? null)
     setPickerFgf(settings.fgf)
     setPickerCarrierGas(settings.carrierGas)
     setPickerFio2(settings.fio2)
     setGasPicker(ci); setGasPickerRect(rect)
   }
 
-  function openPickerEmpty(ci: number, rect: DOMRect) {
+  function openPickerEmpty(ci: number, rect: DOMRect, suggestion?: string) {
     if (gasPicker === ci) { closeGasPicker(); return }
+    setPickerSuggestion(suggestion ?? null)
     setPickerFgf(null); setPickerCarrierGas(null); setPickerFio2(100)
     setGasPicker(ci); setGasPickerRect(rect)
   }
@@ -42,7 +46,7 @@ export function useGasSettingsHandlers(
   function startGas(col: number) {
     const id = `gas-${col}-${Date.now()}`
     const settings = normalizeGasSettings(pickerFgf ?? 0, pickerCarrierGas, pickerFio2)
-    onChange({ ...data, gasSettings: [...gasSettings.filter(g => g.stopped || g.endCol < col), { id, startCol: col, endCol: col, ...settings }] })
+    onChange({ ...data, gasSettings: [...gasSettings.filter(g => g.stopped || g.endCol < col), { id, startCol: col, endCol: col, ...settings, ...(pickerSuggestion ? { suggestion: pickerSuggestion } : {}) }] })
     closeGasPicker()
   }
 
@@ -51,13 +55,14 @@ export function useGasSettingsHandlers(
     if (!seg) { closeGasPicker(); return }
     const settings = normalizeGasSettings(pickerFgf ?? 0, pickerCarrierGas, pickerFio2)
     const col = gasPicker ?? seg.startCol
+    const tagged = pickerSuggestion ? { suggestion: pickerSuggestion } : {}
     onChangeRef.current({
       ...dataRef.current,
       gasSettings: (dataRef.current.gasSettings ?? []).map(g => {
         if (g.id !== segId) return g
-        if (col === g.startCol) return { ...g, ...settings }
+        if (col === g.startCol) return { ...g, ...settings, ...tagged }
         const changes = (g.settingsChanges ?? []).filter(c => c.col !== col)
-        return { ...g, settingsChanges: [...changes, { col, ...settings }].sort((a, b) => a.col - b.col) }
+        return { ...g, settingsChanges: [...changes, { col, ...settings, ...tagged }].sort((a, b) => a.col - b.col) }
       }),
     })
     closeGasPicker()

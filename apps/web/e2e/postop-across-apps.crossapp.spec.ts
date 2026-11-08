@@ -40,8 +40,11 @@ test("a child of three on the phone: FLACC and FPS-R in the Pain section, one se
   try {
     await openPostop(page, id, "sections")
     for (const key of ["vitals", "score", "pain", "discharge"]) await expect(page.getByTestId(`postop-pill-${key}`)).toBeVisible()
-    // One section at a time: the pain scales are not on the first one.
-    await expect(page.getByTestId("flacc-scale")).toHaveCount(0)
+    // One section at a time: the pain scale may stay mounted below the active
+    // section for the pager's swipe animation, but it must not be visible in
+    // the first viewport until Pain is selected.
+    await expect(page.getByTestId("flacc-scale")).toBeAttached()
+    await expect(page.getByTestId("flacc-scale")).not.toBeInViewport()
     await shot(page, "child-vitals")
 
     await page.getByTestId("postop-pill-pain").click()

@@ -1,6 +1,8 @@
 "use client"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { useLocale, useTranslations } from "next-intl"
+import { airwayDeviceEntryLines, parseAirwayDeviceEntries } from "@lospor/core/airway-device-entries"
+import { localTimeOf } from "@lospor/core/intraop-time"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { RangeSelect } from "@/components/forms/shared/RangeSelect"
 import { Label } from "@/components/ui/label"
@@ -31,7 +33,9 @@ function asPath(name: string): Path<IntraopFormFields> { return name as Path<Int
 export function AirwaySection({
   control, watch, setValue, register, airwayToolOptions, airwayDeviceOptions,
   presentsIntubated, showAirway, techniquesLength, airwayOverride, setAirwayOverride,
-  airwayNA, setAirwayNA, airwayExpandedDevice, setAirwayExpandedDevice, expandAirwayDevice,
+  airwayNA, setAirwayNA, airwayExpandedDevice, setAirwayExpandedDevice, expandAirwayDevice, smart,
+  onAirwayInterventionSelected, onAirwayDeviceConfirmed,
+  onAirwayDeviceRemoved,
 }: {
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
@@ -46,9 +50,16 @@ export function AirwaySection({
   setAirwayOverride: (v: boolean) => void
   airwayNA: boolean
   setAirwayNA: () => void
+  onAirwayInterventionSelected: () => void
+  /** Reports a newly confirmed legacy device; Smart reports its own timed event. */
+  onAirwayDeviceConfirmed?: (device: string, previousDevices: readonly string[], airwayPatch?: Record<string, unknown>) => void
+  /** Removes the matching event when a legacy device is removed from the record. */
+  onAirwayDeviceRemoved?: (device: string) => void
   airwayExpandedDevice: string | null
   setAirwayExpandedDevice: (v: string | null) => void
   expandAirwayDevice: (v: string) => void
+  /** Smart selection (10.2.0): when given, it stands in for the tools and the device pills below; the legacy tab is untouched. */
+  smart?: ReactNode
 }) {
   const t = useTranslations()
   const locale = useLocale()
@@ -84,6 +95,8 @@ export function AirwaySection({
       </div>
 
       {!airwayNA && <>
+      {smart}
+      {!smart && <>
       {/* Airway management instruments — multi-select */}
       <div className="space-y-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.instrumentsLabel")}</p>
@@ -95,7 +108,10 @@ export function AirwaySection({
             const on = tools.includes(v)
             return (
               <button key={v} type="button"
-                onClick={() => setValue("airwayTools", on ? tools.filter(t => t !== v) : [...tools, v])}
+                onClick={() => {
+                  if (!on) onAirwayInterventionSelected()
+                  setValue("airwayTools", on ? tools.filter(t => t !== v) : [...tools, v])
+                }}
                 className={`px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                   on ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white"
                      : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
@@ -107,6 +123,8 @@ export function AirwaySection({
         </div>
       </div>
 
+      </>}
+
       {/* Cormack-Lehane grade — shown when direct or video laryngoscopy performed */}
       {(watch("airwayTools") ?? []).some((t: string) => ["DIRECT_LARY","VIDEO_LARY"].includes(t)) && (
         <div className="space-y-2">
@@ -115,6 +133,7 @@ export function AirwaySection({
         </div>
       )}
 
+      {!smart && <>
       {/* Device — multi-select; devices with sub-options only confirm (and reach the DB) once complete */}
       {(() => {
         const devs: string[] = watch("airwayDevices") ?? []
@@ -147,6 +166,12 @@ export function AirwaySection({
 
         function handleSimpleDeviceClick(v: string) {
           const isOn = devs.includes(v)
+          if (!isOn) {
+            onAirwayInterventionSelected()
+            onAirwayDeviceConfirmed?.(v, devs, { airwayDevices: [...devs, v], airwayNotApplicable: false })
+          } else {
+            onAirwayDeviceRemoved?.(v)
+          }
           setValue("airwayDevices", isOn ? devs.filter(d => d !== v) : [...devs, v])
         }
 
@@ -155,6 +180,7 @@ export function AirwaySection({
         // from whatever was entered last time.
         function removeComplexDevice(v: string) {
           if (devs.includes(v)) setValue("airwayDevices", devs.filter(d => d !== v))
+          onAirwayDeviceRemoved?.(v)
           if (airwayExpandedDevice === v) setAirwayExpandedDevice(null)
           for (const field of AIRWAY_DEVICE_REQUIRED_FIELDS[v as AirwayDeviceWithProfile] ?? []) {
             setValue(asPath(field), undefined)
@@ -186,7 +212,11 @@ export function AirwaySection({
                 return (
                   <span key={v} className="inline-flex items-stretch">
                   <button type="button"
-                    onClick={() => isExpanded ? setAirwayExpandedDevice(null) : expandAirwayDevice(v)}
+                    onClick={() => {
+                      if (!isExpanded && !confirmed) onAirwayInterventionSelected()
+                      if (isExpanded) setAirwayExpandedDevice(null)
+                      else expandAirwayDevice(v)
+                    }}
                     onContextMenu={e => { e.preventDefault(); removeComplexDevice(v) }}
                     title={confirmed ? t(isExpanded ? "intraop.airway.deviceHintOpen" : "intraop.airway.deviceHintClosed") : t("intraop.airway.deviceHintNew")}
                     className={`px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${
@@ -352,6 +382,8 @@ export function AirwaySection({
         )
       })()}
 
+      </>}
+
       {/* Ventilation — hierarchical multi-select */}
       <div className="space-y-3">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.ventilationMode")}</p>
@@ -461,6 +493,24 @@ export function AirwaySection({
           placeholder={t("intraop.airway.notesPlaceholder")}
           rows={2} className="text-sm" />
       </div>
+      {(() => {
+        // 10.2.0: once a device has failed or been replaced, the list of every device used.
+        const entries = parseAirwayDeviceEntries(watch("airwayDeviceEntries"))
+        if (smart || !entries.some(entry => entry.status !== "in_use")) return null
+        const zone = watch("timezone")
+        const lines = airwayDeviceEntryLines(entries, {
+          device: code => displayClinicalCode("option:AIRWAY_MANAGEMENT", code, locale),
+          attribute: code => displayClinicalCode("clinicalAttribute", code, locale),
+          status: status => t(`intraop.airwayExchange.${status}`),
+          time: iso => (zone ? localTimeOf(new Date(iso), zone) : null) ?? iso.slice(11, 16),
+        })
+        return (
+          <div className="space-y-0.5" data-testid="airway-device-history">
+            <Label>{t("intraop.airwayExchange.history")}</Label>
+            <ul className="text-sm">{lines.map((line, index) => <li key={entries[index]!.id}>{line}</li>)}</ul>
+          </div>
+        )
+      })()}
       </>}
     </SectionCard>
   )

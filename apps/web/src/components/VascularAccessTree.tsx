@@ -121,7 +121,7 @@ function DetailForm({
   const [lumens,   setLumens]   = useState("")
   const isCentral = site.startsWith("CVK_") || site.startsWith("PICC_")
 
-  const SIZE_PRESETS_G  = ["14", "16", "18", "20", "22"]
+  const SIZE_PRESETS_G  = ["14", "16", "18", "20", "22", "24", "26"]
   const SIZE_PRESETS_Fr = ["4", "5", "6", "7", "8", "9"]
   const presets = sizeUnit === "G" ? SIZE_PRESETS_G : SIZE_PRESETS_Fr
 

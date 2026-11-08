@@ -45,7 +45,7 @@ export function BulgarianNamesSettings() {
       {BULGARIAN_NAME_SWITCH_KEYS.map(key => (
         <SettingRow key={key} label={t(LABEL_KEY[key])}>
           <span data-testid={`bulgarian-names-${key}`}>
-            <Toggle value={switches[key]} onChange={value => void change(key, value)} />
+            <Toggle label={t(LABEL_KEY[key])} value={switches[key]} onChange={value => void change(key, value)} />
           </span>
         </SettingRow>
       ))}

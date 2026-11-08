@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import bg from "../../messages/bg.json"
 import { LABELS } from "@/components/case-summary/labels"
-import { CHART_STR } from "@/components/case-summary/print-timetable-copy"
+import { RECORD_LABELS } from "@lospor/core/record-labels"
 import { clinicalRuleEditorCopy } from "@/components/clinical-rules/editor-copy"
 import { CLINICAL_RULES_PAGE_COPY } from "@/components/clinical-rules/page-copy"
 import { clinicalRuleUiCopy } from "@/components/clinical-rules/ui-copy"
@@ -22,14 +22,14 @@ describe("clinician-approved Bulgarian wording", () => {
       .toBe("Поддържаща скорост на инфузия на течности")
     expect(bg.intraop.lab.referenceRange).toBe("Референтен интервал")
     expect(bg.intraop.timetable.drugs).toBe("Медикаменти")
-    expect(CHART_STR.bg.drugs).toBe("Медикаменти")
+    expect(RECORD_LABELS.bg.drugTotals).toBe("Общо медикаменти")
   })
 
   it("keeps generic medication copy consistent outside controlled medical compounds", () => {
     const renderedCopy = JSON.stringify({
       messages: bg,
       print: LABELS.bg,
-      chart: CHART_STR.bg,
+      record: RECORD_LABELS.bg,
       rulesEditor: clinicalRuleEditorCopy(true),
       rulesPage: CLINICAL_RULES_PAGE_COPY.bg,
       rulesUi: clinicalRuleUiCopy("bg"),

@@ -204,6 +204,7 @@ export const schema = z.object({
   // typed in versus read off a photograph by AI, and when it was drawn. Both
   // are optional here because older/queued patches predate the fields.
   labResults: z.array(z.object({
+    id: z.string().max(200).optional(),
     test: z.string(),
     value: z.string(),
     unit: z.string(),

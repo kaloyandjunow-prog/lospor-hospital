@@ -55,6 +55,7 @@ import { submitCaseForReview, submitForReviewMessage, refetchAwaitingReviewAt } 
 import { canProgressAfterSave, type SaveOutcomeKind } from "@lospor/core/save-progression"
 import { useCaseEventLog } from "./useCaseEventLog"
 import { intraopAutosaveValues } from "@/lib/intraop-submit"
+import { StepProgress } from "./StepProgress"
 import { PendingCloseBanner } from "./PendingCloseBanner"
 
 type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }
@@ -235,6 +236,13 @@ export default function NewCasePage() {
           for (const operation of pendingMutations) {
             if (operation.kind === "event.delete") {
               restoredLog = restoredLog.filter((event) => event.id !== operation.eventId)
+            } else if (operation.kind === "event.batch") {
+              const remove = new Set(operation.ops.remove)
+              restoredLog = restoredLog.filter(event => !event.id || !remove.has(event.id))
+              for (const event of [...operation.ops.update, ...operation.ops.add]) {
+                const parsed = event as LogEvent
+                restoredLog = [parsed, ...restoredLog.filter(item => item.id !== parsed.id)]
+              }
             } else {
               const event = operation.event as LogEvent
               restoredLog = [event, ...restoredLog.filter((item) => item.id !== operation.eventId)]
@@ -719,6 +727,11 @@ export default function NewCasePage() {
             onBack={() => setStep(0)}
             onAutoSave={onIntraopAutoSave}
             onPostopContinued={items => setContinuedPostopItems(items)}
+            onDeath={() => {
+              const next = { ...(postopData ?? {}), disposition: "DECEASED" } as PostopData
+              setPostopData(next)
+              void saveSection("postop", next, {})
+            }}
             layoutMode={intraopLayout}
             stages={caseStages}
             eventLog={eventLog}

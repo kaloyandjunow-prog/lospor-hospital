@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { OverflowCueScroll } from "@/components/ui/OverflowCueScroll"
 
 export type JumpSection = { id: string; label: string; missing?: boolean }
 
@@ -44,7 +45,7 @@ export function SectionJumpStrip({ sections, anchorPrefix, testId, className = "
   const jump = (id: string) => document.getElementById(`${anchorPrefix}${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })
   return (
     <div className={`sticky top-20 z-20 -mx-1 space-y-1.5 border-b border-slate-200 bg-white/95 px-1 py-1.5 backdrop-blur dark:border-[#2a2a2a] dark:bg-[#111]/95 ${className}`} data-testid={testId}>
-      <div className="flex gap-1 overflow-x-auto">
+      <OverflowCueScroll horizontal className="min-w-0" contentClassName="flex gap-1" testId={testId ? `${testId}-rail` : undefined} startLabel="Scroll sections left" endLabel="Scroll sections right">
         {sections.map(section => (
           <button
             key={section.id}
@@ -61,7 +62,7 @@ export function SectionJumpStrip({ sections, anchorPrefix, testId, className = "
             {section.missing ? <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" /> : null}
           </button>
         ))}
-      </div>
+      </OverflowCueScroll>
       {children}
     </div>
   )

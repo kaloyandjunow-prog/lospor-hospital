@@ -35,7 +35,12 @@ test("at 130% the phone app reflows to fit, intraop and postop included", async 
       expect(size.inner, name).toBe(Math.round(412 / 1.3))
       expect(size.scroll, name).toBeLessThanOrEqual(size.inner)
       // Clipped overflow passes the check above: a row near the right edge must be wholly on screen.
-      if (name === "intraop") await expect(page.getByText("Male", { exact: true }).first()).toBeInViewport({ ratio: 1 })
+      if (name === "intraop") {
+        // Intraop now lands on Timing. The old check for the preop "Male"
+        // summary was tied to the previous landing tab and could pass only
+        // when navigation had not completed.
+        await expect(page.getByText(/Anaesthesia start time|Начален час на анестезията/, { exact: false }).first()).toBeInViewport({ ratio: 1 })
+      }
       else await expect(page.getByTestId("postop-pill-score")).toBeInViewport({ ratio: 1 })
       if (process.env.DISPLAY_SHOTS_DIR) await page.screenshot({ path: path.join(process.env.DISPLAY_SHOTS_DIR, `phone-130-${name}.png`) })
     }

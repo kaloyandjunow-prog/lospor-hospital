@@ -1,5 +1,6 @@
 "use client"
 
+import { usePostopAutosave } from "@/components/forms/postop/usePostopAutosave"
 import { useForm, useWatch, Controller, type Resolver } from "react-hook-form"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
@@ -145,18 +146,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   })
   const { setScore, projected } = usePostopScoreProjection(defaultValues, setValue)
 
-  const allValues = useWatch({ control })
-  const allValuesKey = JSON.stringify(allValues)
-  // Skip the first run: this effect fires on mount, so without the guard simply
-  // opening the form scheduled a save of whatever the defaults happened to be.
-  // Autosave should record what the clinician entered, never the act of looking.
-  const postopMountedRef = useRef(false)
-  useEffect(() => {
-    if (!onAutoSave) return
-    if (!postopMountedRef.current) { postopMountedRef.current = true; return }
-    const timer = setTimeout(() => onAutoSave(getValues()), 1500)
-    return () => clearTimeout(timer)
-  }, [allValuesKey, getValues, onAutoSave])
+  usePostopAutosave({ control, getValues, onAutoSave })
 
   const aldreteWatched = useWatch({ control, name: ["aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2"] })
   const stewardWatched = useWatch({ control, name: ["stewardConsciousness", "stewardAirway", "stewardMovement"] })

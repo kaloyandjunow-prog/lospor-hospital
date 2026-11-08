@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test"
-import { contextFor, EMAIL_FOR, JSON_HEADERS } from "./roles"
-import { openPhone } from "./pwa"
+import { contextFor, EMAIL_FOR, JSON_HEADERS, gotoDashboard } from "./roles"
+import { gotoPhoneHome, openPhone } from "./pwa"
 
 /**
  * A cancelled procedure, a planned procedure not yet known, and the procedure
@@ -47,14 +47,14 @@ test("a procedure is cancelled before anaesthesia, shown, closed and undone", as
     ids.push(web.id, phoneCase.id, started.id)
 
     // ── Web: cancel from the dashboard ──
-    await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
-    const row = page.locator("a").filter({ hasText: web.code }).first()
+    await gotoDashboard(page)
+    const row = page.getByTestId("case-row").filter({ hasText: web.code }).first()
     await row.getByTestId("cancel-procedure").click()
     const dialog = page.getByTestId("cancel-dialog")
     await dialog.getByLabel("No theatre time or staff").check()
     await dialog.getByTestId("cancel-confirm").click()
-    await expect(page.locator("a").filter({ hasText: web.code }).first().getByTestId("cancelled-badge")).toBeVisible({ timeout: 30_000 })
-    await expect(page.locator("a").filter({ hasText: web.code }).first().getByRole("button", { name: /Hand over|Assign/ })).toHaveCount(0)
+    await expect(page.getByTestId("case-row").filter({ hasText: web.code }).first().getByTestId("cancelled-badge")).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId("case-row").filter({ hasText: web.code }).first().getByRole("button", { name: /Hand over|Assign/ })).toHaveCount(0)
     const cancelled = await (await context.request.get(`/api/cases/${web.id}`)).json() as { status: string; cancellationReason: string }
     expect(cancelled).toMatchObject({ status: "CANCELLED", cancellationReason: "NO_THEATRE_TIME_OR_STAFF" })
 
@@ -62,7 +62,10 @@ test("a procedure is cancelled before anaesthesia, shown, closed and undone", as
     const edit = await context.request.patch(`/api/cases/${web.id}`, { headers: JSON_HEADERS, data: { preop: { weightKg: 81 } } })
     expect(edit.status()).toBe(409)
     expect((await edit.json()).code).toBe("CASE_CANCELLED")
-    await page.goto(`/cases/new?continue=${web.id}`, { waitUntil: "domcontentloaded" })
+    // A cancelled case is a read-only record, not an editable preop draft.
+    // The old `cases/new?continue` route can remain on the blank editor while
+    // the cancelled record itself is already available at its canonical URL.
+    await page.goto(`/cases/${web.id}`, { waitUntil: "domcontentloaded" })
     await expect(page).toHaveURL(new RegExp(`/cases/${web.id}$`), { timeout: 30_000 })
     await expect(page.getByTestId("case-cancelled")).toContainText("Procedure cancelled · No theatre time or staff")
     await expect(page.getByTestId("summary-cancelled")).toBeVisible()
@@ -72,8 +75,8 @@ test("a procedure is cancelled before anaesthesia, shown, closed and undone", as
     await expect(page.locator(`a[href="/cases/${web.id}/print"]`).first()).toBeVisible()
 
     // Undone: back to where it was.
-    await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
-    const cancelledRow = page.locator("a").filter({ hasText: web.code }).first()
+    await gotoDashboard(page)
+    const cancelledRow = page.getByTestId("case-row").filter({ hasText: web.code }).first()
     await cancelledRow.getByTestId("undo-cancellation").click()
     await cancelledRow.getByTestId("undo-cancellation").click()
     await expect.poll(async () => (await (await context.request.get(`/api/cases/${web.id}`)).json()).status, { timeout: 30_000 }).toBe("DRAFT")
@@ -83,7 +86,7 @@ test("a procedure is cancelled before anaesthesia, shown, closed and undone", as
     expect(late.status()).toBe(409)
     expect((await late.json()).code).toBe("CANCELLATION_TOO_LATE")
     // The button stays, visibly inactive, and a click on it does nothing.
-    const startedRow = page.locator("a").filter({ hasText: started.code }).first()
+    const startedRow = page.getByTestId("case-row").filter({ hasText: started.code }).first()
     const inactive = startedRow.getByTestId("cancel-procedure")
     await expect(inactive).toHaveAttribute("aria-disabled", "true")
     await expect(inactive).toHaveAttribute("title", /Anaesthesia has started/)
@@ -96,6 +99,7 @@ test("a procedure is cancelled before anaesthesia, shown, closed and undone", as
     const hold = async (code: string) => {
       const target = phone.page.getByText(code, { exact: true }).first()
       await expect(target).toBeVisible({ timeout: 60_000 })
+      await target.scrollIntoViewIfNeeded()
       const at = (await target.boundingBox())!
       await phone.page.mouse.move(at.x + at.width / 2, at.y + at.height / 2)
       await phone.page.mouse.down()
@@ -103,21 +107,15 @@ test("a procedure is cancelled before anaesthesia, shown, closed and undone", as
       await phone.page.mouse.up()
     }
     try {
-      await phone.page.goto("/", { waitUntil: "domcontentloaded" })
+      await gotoPhoneHome(phone.page)
       // Started: the item is there, inactive, saying why.
       await hold(started.code)
       await expect(phone.page.getByTestId("cancel-procedure-inactive")).toContainText("Anaesthesia has started", { timeout: 20_000 })
       await phone.page.getByTestId("cancel-procedure-inactive").click({ force: true })
       await expect(phone.page.getByTestId("cancel-sheet")).toHaveCount(0)
       await phone.page.keyboard.press("Escape")
-      await phone.page.goto("/", { waitUntil: "domcontentloaded" })
-      const card = phone.page.getByText(phoneCase.code, { exact: true }).first()
-      await expect(card).toBeVisible({ timeout: 60_000 })
-      const box = (await card.boundingBox())!
-      await phone.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-      await phone.page.mouse.down()
-      await phone.page.waitForTimeout(900)
-      await phone.page.mouse.up()
+      await gotoPhoneHome(phone.page)
+      await hold(phoneCase.code)
       await phone.page.getByText("Procedure cancelled…").click()
       await phone.page.getByTestId("cancel-sheet").getByText("Other", { exact: true }).click()
       await phone.page.getByPlaceholder("Say what the reason was").fill("Surgeon unwell")
@@ -157,8 +155,8 @@ test("a planned procedure not yet known, and the procedure done", async ({ brows
     expect(record.preop).toMatchObject({ procedureUndetermined: true, proceduresJson: null, plannedProcedure: "" })
     await page.goto(`/cases/new?continue=${unknown.id}&step=0`, { waitUntil: "domcontentloaded" })
     await expect(page.getByTestId("procedure-undetermined")).toBeChecked({ timeout: 60_000 })
-    await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
-    await expect(page.locator("a").filter({ hasText: unknown.code }).first()).toContainText("Procedure not yet known")
+    await gotoDashboard(page)
+    await expect(page.getByTestId("case-row").filter({ hasText: unknown.code }).first()).toContainText("Procedure not yet known")
     // The case page names it too, rather than an empty heading.
     await page.goto(`/cases/${unknown.id}`, { waitUntil: "domcontentloaded" })
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Procedure not yet known", { timeout: 60_000 })

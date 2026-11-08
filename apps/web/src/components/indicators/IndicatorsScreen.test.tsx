@@ -132,7 +132,9 @@ describe("the unit indicators screen (10.0.0)", () => {
     renderScreen()
     await waitFor(() => expect(screen.getByText(/4 cases are still being worked out/)).toBeTruthy())
     await act(async () => { vi.advanceTimersByTime(1_600) })
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    // Two reads of the figures; the limits of the vitals questions are read on their own (10.1.0).
+    const figureReads = () => fetchMock.mock.calls.filter(call => !String(call[0]).includes("/api/intraop/automation")).length
+    await waitFor(() => expect(figureReads()).toBe(2))
     await waitFor(() => expect(screen.queryByText(/still being worked out/)).toBeNull())
   })
 })

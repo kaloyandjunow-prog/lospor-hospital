@@ -16,6 +16,7 @@ import { autosaveManager } from "@/lib/autosave-manager"
 import { clearPediatricClinicalRulesCache } from "@/hooks/usePediatricClinicalRules"
 import { clearClinicalRulesCache } from "@/hooks/useClinicalRules"
 import { clearWebClinicalPreferences } from "@/lib/clinical-preferences-web"
+import { setIdbClinicalOwner } from "@/lib/kv-idb"
 import { finishLogoutLocale } from "@/app/actions/locale"
 
 export function SignOutButton() {
@@ -56,6 +57,7 @@ export function SignOutButton() {
         clearClinicalRulesCache().catch(() => {}),
       ])
       clearWebClinicalPreferences()
+      setIdbClinicalOwner(null)
       await finishLogoutLocale().catch(() => undefined)
       window.location.replace("/login")
     } catch {

@@ -19,19 +19,24 @@ describe.each(INTRAOP_ATTENTION_SCENARIOS)("$name", scenario => {
   it("shows exactly the items Core lists, and each answer writes Core's operations", () => {
     vi.useFakeTimers({ now })
     try {
-      const onEventOps = vi.fn()
-      const { result } = renderHook(() => useIntraopAttention({ log: scenario.log, endedAt, timeZone: "Europe/Sofia", onEventOps }))
-      expect(result.current.entries.map(entry => ({ key: entry.key, kind: entry.kind }))).toEqual(scenario.expected)
+      const initial = renderHook(() => useIntraopAttention({ log: scenario.log, endedAt, timeZone: "Europe/Sofia", onEventOps: vi.fn() }))
+      expect(initial.result.current.entries.map(entry => ({ key: entry.key, kind: entry.kind }))).toEqual(scenario.expected)
+      initial.unmount()
 
-      render(<IntraopAttentionPanel entries={result.current.entries} onAnswer={result.current.answer} />)
       for (const resolution of scenario.resolutions) {
+        const onEventOps = vi.fn()
+        const { result, unmount: unmountHook } = renderHook(() => useIntraopAttention({ log: scenario.log, endedAt, timeZone: "Europe/Sofia", onEventOps }))
+        const { unmount: unmountPanel } = render(<IntraopAttentionPanel entries={result.current.entries} onAnswer={result.current.answer} />)
         onEventOps.mockClear()
         act(() => { fireEvent.click(screen.getByTestId(`attention-${resolution.action}-${resolution.key}`)) })
+        expect(onEventOps).toHaveBeenCalledTimes(1)
         const next = applyIntraopEventOps(scenario.log, onEventOps.mock.calls[0][0])
         for (const removed of resolution.removes ?? []) expect(next.some(event => event.id === removed)).toBe(false)
         for (const [id, fields] of Object.entries(resolution.updates ?? {})) {
           expect(next.find(event => event.id === id)).toMatchObject(fields)
         }
+        unmountPanel()
+        unmountHook()
       }
     } finally {
       vi.useRealTimers()

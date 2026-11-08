@@ -53,9 +53,9 @@ function displayVital(
 export type VitalRowDef = (typeof VITAL_ROW_DEFS)[number]
 
 // Rows whose names are words rather than international abbreviations, said in
-// the screen's language (АН сист / АН диас); HR, SpO₂ and the rest stay as read.
+// the screen's language (АН сис / АН диас); HR, SpO₂ and the rest stay as read.
 // Bulgarian screens name these АН / СЧ / Темп. (2026-10-18); SpO₂ and EtCO₂ read the same.
-const TRANSLATED_ROW_LABELS: Partial<Record<string, string>> = { systolic: "vitalBpSys", diastolic: "vitalBpDia", heartRate: "vitalHr", temp: "vitalTemp" }
+const TRANSLATED_ROW_LABELS: Partial<Record<string, string>> = { systolic: "vitalBpSys", diastolic: "vitalBpDia", nibpMap: "vitalNibpMap", ibpSystolic: "vitalIbpSys", ibpDiastolic: "vitalIbpDia", ibpMap: "vitalIbpMap", heartRate: "vitalHr", temp: "vitalTemp" }
 
 export type VitalsPopupRequest = {
   col: number

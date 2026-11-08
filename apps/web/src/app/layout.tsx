@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages, getTranslations } from "next-intl/server"
 import { cookies } from "next/headers"
+import { GestureGuard } from "@/components/GestureGuard"
 import { parseUiScale, uiScaleFontSize, UI_SCALE_COOKIE } from "@/lib/ui-scale"
 
 // --font-sans and --font-geist-mono are declared in globals.css, alongside the
@@ -63,6 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
           <Toaster richColors position="top-right" />
         </NextIntlClientProvider>
+        <GestureGuard />
       </body>
     </html>
   )

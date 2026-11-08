@@ -136,9 +136,9 @@ export function useIntraopEventTimeline({ eventLog, startedAt, startTime, timezo
   const onTimetableChange = useCallback((after: TimetableData) => {
     if (chartStartMs === null) {
       toast.error(t("needsStart"))
-      return
+      return false
     }
-    commit(timetableEditToEventOps({
+    return commit(timetableEditToEventOps({
       log: logRef.current,
       before: timetableRef.current as Parameters<typeof timetableEditToEventOps>[0]["before"],
       after: after as Parameters<typeof timetableEditToEventOps>[0]["after"],

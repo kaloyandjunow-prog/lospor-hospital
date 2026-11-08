@@ -396,3 +396,27 @@ input[type="range"]::-moz-range-thumb {
   color: var(--tone-text-dark);
   border-color: var(--tone-border-dark);
 }
+
+/* Anything that is pressed, held or dragged never selects text, shows the touch callout or flashes on
+   tap. Text fields and plain text keep selection. (GestureGuard turns selection off for the whole page
+   while a slider or button is actually held.) */
+button,
+[role="button"],
+[role="slider"],
+[role="tab"],
+summary,
+input[type="range"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* A slider's thumb follows a horizontal drag; the browser keeps only vertical scrolling for itself. */
+input[type="range"] {
+  touch-action: pan-y;
+}
+html[data-gesture="held"],
+html[data-gesture="held"] * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}

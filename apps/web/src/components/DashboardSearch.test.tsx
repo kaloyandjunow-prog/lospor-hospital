@@ -99,6 +99,26 @@ describe("DashboardSearch permissions", () => {
   })
 })
 
+describe("DashboardSearch interactive row controls", () => {
+  it("keeps theatre controls outside the case link", () => {
+    render(
+      <DashboardSearch
+        cases={[{
+          ...baseCase,
+          capabilities: { canWrite: true },
+          theatre: { id: null, name: null, changeable: true },
+        } as never]}
+        userId="owner-1"
+        role="CLINICIAN"
+        theatres={[{ id: "theatre-1", name: "Theatre 1" }]}
+      />,
+    )
+    const row = screen.getByTestId("case-row")
+    expect(screen.getByTestId("theatre-button")).toBeTruthy()
+    expect(row.querySelector("a")?.querySelector('[data-testid="theatre-button"]')).toBeNull()
+  })
+})
+
 describe("DashboardSearch age display", () => {
   it("shows a neonate's age instead of hiding it as falsy", () => {
     render(

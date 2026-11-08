@@ -30,9 +30,13 @@ export async function withTheatres(names?: [string, string]): Promise<{ theatres
     const before = (await db.query(`SELECT enabled FROM "OperatingTheatrePolicy" WHERE id = 'local'`)).rows[0] as { enabled: boolean } | undefined
     await db.query(`INSERT INTO "OperatingTheatrePolicy" (id, enabled, "updatedAt") VALUES ('local', true, now())
       ON CONFLICT (id) DO UPDATE SET enabled = true, "updatedAt" = now()`)
-    // Far ahead of any theatre already there, so the pickers offer these first.
+    // Put this fixture ahead of every existing theatre.  A manually interrupted
+    // run can leave its temporary rows behind, so reusing the old fixed
+    // -1000/-999 values is not enough to make the API's sort order deterministic.
+    const minimum = (await db.query(`SELECT COALESCE(MIN("sortOrder"), 0) AS minimum FROM "OperatingTheatre"`)).rows[0] as { minimum: number | string }
+    const baseSortOrder = Number(minimum.minimum) - theatres.length - 1
     for (const [index, theatre] of theatres.entries()) {
-      await db.query(`INSERT INTO "OperatingTheatre" (id, name, "sortOrder", active, "updatedAt") VALUES ($1, $2, $3, true, now())`, [theatre.id, theatre.name, -1000 + index])
+      await db.query(`INSERT INTO "OperatingTheatre" (id, name, "sortOrder", active, "updatedAt") VALUES ($1, $2, $3, true, now())`, [theatre.id, theatre.name, baseSortOrder + index])
     }
     return {
       theatres,

@@ -1,10 +1,11 @@
 import { serverNow } from "@/lib/intraop-clock"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { LogEvent } from "@/types/timetable"
 import { autosaveManager, onEventRefused } from "@/lib/autosave-manager"
 import { randomId } from "@/lib/random-id"
 import { applyIntraopEventOps, type IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
+import { withArrestEndRespace } from "@lospor/core/intraop-suggestions"
 
 const EVENT_SAVE_RETRY_DELAYS_MS = [250, 750, 1_500] as const
 
@@ -37,6 +38,9 @@ const TIMELINE_RULE_CODES = new Set([
  */
 export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: string) => string) {
   const [eventLog, setEventLog] = useState<LogEvent[]>([])
+  // The log as last written, for the edit that follows before a re-render.
+  const logRef = useRef<LogEvent[]>([])
+  useEffect(() => { logRef.current = eventLog }, [eventLog])
 
   // A refused entry is said so and taken off the chart; an edit or removal the
   // server refused is undone by reading the saved log back (9.12.1).
@@ -58,12 +62,33 @@ export function useCaseEventLog(caseIdRef: { current: string | null }, t: (key: 
    * Core edit translation produced, in one state change, each staged in the
    * outbox. The chart is the projection of this log; nothing else is saved.
    */
-  async function applyEventOps(ops: IntraopEventOps) {
+  async function applyEventOps(requested: IntraopEventOps) {
     const caseId = caseIdRef.current
     if (!caseId) return
+    // ROSC or Death logged from anywhere spreads the doses tapped during that arrest (10.2.0).
+    const ops = withArrestEndRespace(logRef.current as Parameters<typeof withArrestEndRespace>[0], requested)
+    logRef.current = applyIntraopEventOps(logRef.current as Parameters<typeof applyIntraopEventOps>[0], ops) as LogEvent[]
     setEventLog(prev => applyIntraopEventOps(prev as Parameters<typeof applyIntraopEventOps>[0], ops) as LogEvent[])
     const base = () => autosaveManager.getRevision(caseId, "intraop")
     try {
+      const operationCount = ops.add.length + ops.update.length + ops.remove.length
+      if (operationCount > 1) {
+        await autosaveManager.stageEventMutation({
+          operationId: `web-batch-${randomId()}`,
+          caseId,
+          kind: "event.batch",
+          eventId: `web-batch-${randomId()}`,
+          ops: {
+            add: ops.add as unknown as Record<string, unknown>[],
+            update: ops.update as unknown as Record<string, unknown>[],
+            remove: [...ops.remove],
+          },
+          baseRevision: base(),
+          queuedAt: serverNow().toISOString(),
+        })
+        await settleEventSave(caseId)
+        return
+      }
       for (const eventId of ops.remove) {
         await autosaveManager.stageEventMutation({
           operationId: `web-delete-${randomId()}`, caseId, kind: "event.delete", eventId,

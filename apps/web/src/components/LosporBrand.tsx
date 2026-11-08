@@ -47,7 +47,10 @@ export function LosporBrand({
   )
 
   return linked ? (
-    <Link href="/login" aria-label={t("common.homeAria")} className="inline-block transition-opacity hover:opacity-80">
+    // The full mark shows "LOSPOR" and the full name, so the link is named by what it shows; an aria-label
+    // that leaves the visible words out fails WCAG 2.5.3 (Label in Name). The compact mark shows only
+    // "LOSPOR", which "LOSPOR home" contains.
+    <Link href="/login" aria-label={compact ? t("common.homeAria") : undefined} className="inline-block transition-opacity hover:opacity-80">
       {content}
     </Link>
   ) : content

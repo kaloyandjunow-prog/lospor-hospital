@@ -1,5 +1,128 @@
 # Changelog - LOSPOR Web App
 
+## [10.2.0] - 2026-11-02
+
+### Added
+
+- **Shared settings IA:** profile/account, Smart Functions, clinical defaults,
+  appearance, units, access, and privacy are grouped consistently; account-wide
+  case and timetable layout choices are synchronized through the API.
+
+- **Smart intraoperative screens:** Smart and Legacy selection for airway,
+  vascular access, monitoring, equipment, technique, and events, including
+  block sides and the unilateral spinal.
+- **Fluid status summary:** added the Hybrid summary for web, keeping timetable
+  aggregates read-only and limiting editing to urine output and blood loss;
+  Legacy remains selectable in Settings.
+- **Event log timeline:** added the filterable Smart Timeline stream for web;
+  today’s chronological event list remains available as Legacy in Settings.
+- **SPS — Smart Prediction System:** Likely now, reminders, event search, and
+  suggestion cards are available in the web chart and settings.
+- **Context links:** reminder-scoped suggestions now connect local anaesthetic,
+  induction, TCI, volatile, airway, technique-side, and placement records to
+  exact techniques and clinical times. Induction flows ask Sedation or General
+  anaesthesia, then the exact technique and airway-device choice where needed.
+- **Per-suggestion settings:** every Status-enabled automation has its own
+  account-wide switch; new context links are opt-in for the clinician, while
+  prebundled lines keep their enabled default.
+- **Vital-question settings:** the Vital Questions group now exposes separate
+  account-wide switches for hypotension, hypertension, bradycardia and
+  tachycardia, without removing the group switch.
+- **Clinical display:** invasive-pressure lanes, BIS/TOF scan values, urinary
+  catheter and equipment actions, failed devices and lines, and the updated
+  event record are shown in the chart and summaries.
+
+- **One anaesthesia record for the summary and the print:** a portrait first
+  page (patient, risk, airway assessment, history and allergies, airway,
+  vascular access, technique, then the event log and the vitals every five
+  minutes), one landscape page with the whole timetable (a lane for every drug
+  with its doses, bars for infusions, agents, gas and fluids, episode bands),
+  and a closing page (episodes with what was given, drug totals, fluid balance,
+  laboratory results, recovery, then the patient's name and ID with room to
+  write, and the signatures). It is titled with the hospital's name, grows with
+  the case instead of cutting pages off, and keeps deleted entries in the log,
+  struck through, with the minute they were deleted. Bulgarian and English
+  labels come from Core.
+- **Treatment cards and the SPS in the chart:** cards and checklists with doses
+  prefilled for the patient, opened in place on the row; an arrest card with an
+  instant Give and approximate times; reverse questions, readings, reminders
+  and timed follow-ups in one waiting list; a clickable reading chip that opens
+  the timetable entry; and the unilateral-spinal baricity pre-set.
+- **Warnings:** a malignant-hyperthermia-history warning, the local anaesthetic
+  maximum and a latex banner, each with its own switch; a death in theatre sets
+  the destination to Deceased and offers End case; dantrolene vials on the MH
+  card.
+- **Settings:** Automation lists the suggestion groups and vitals questions the
+  hospital turned on in Status, each on until the clinician turns it off; three
+  defibrillator energy-knob skins under UI.
+- **Chart entries:** a jet-ventilation lane, a tourniquet body picker, fresh gas
+  flow 0–20 L/min on the slider (typed to 100), and gas changes and shocks
+  opened from a card carry the card's tag.
+- **Rule editor:** a fixed dose from a weight, and a per-kg fluid rate.
+
+### Fixed
+
+- **Airway selection consistency:** selecting «Без намеса в дихателния път»
+  clears selected airway devices and instruments, while recording a device
+  clears that state; Smart airway uses the same configured option list as
+  Legacy.
+- **Equipment reset and ambiguity:** Smart Equipment no longer uses a
+  misleading transient checklist; recorded devices/flags are compared with
+  suggestions, and preparation markers persist through the API.
+- **Airway autosave:** an explicit empty Smart airway list clears the legacy
+  compatibility fields as well, preventing removed devices from reappearing
+  after reload.
+- **Airway events:** the device details panel now opens inline beneath the
+  selected card row, and airway additions from both Smart and Legacy record
+  the corresponding intubation, reintubation, LMA, or DLT event.
+- **Vascular access events:** confirming a line placed by the anaesthesia team
+  now records IV line, arterial line, CVC, or PICC events; clicking the selected
+  access type again collapses its panel.
+- **Suggestion dismissal:** succession and context-link prompts use a
+  definitive, persisted case-scoped **Dismiss** action; ordinary clinical
+  questions retain **Not now**.
+
+- **Automation collision handling:** linked airway/vascular writes are sent
+  atomically with their clinical events, and rapid suggestion answers are
+  serialized against the latest local event log so one answer cannot erase
+  another.
+
+- **The intraop screen no longer re-renders itself while nobody touches it.** The
+  autosave effects listed the page's inline `onAutoSave` arrow among their
+  dependencies, so each render of the page restarted the save timer, which saved
+  a second later, which changed the page's state, which rendered the page again
+  (about five times a second, whatever the case length). The timer now reads the
+  newest callback from a ref. Measured on a production build: from 4.9 commits
+  a second and 8–12 % of the main thread to 0.1 and about 1 %.
+- **Smaller feeds of the same churn:** the live fluid totals keep their object
+  when nothing changed, simultaneous preference syncs share one request, and
+  unchanged preference keys send no storage event.
+- **Text selection:** pressed, held and dragged controls never select text.
+- **Bulgarian names:** blood pressure reads Сис / Диас / САН; complication
+  picker headings and one name each.
+
+### Changed
+
+- **Bulgarian UI copy:** the interactive chart is labelled «Времева линия»,
+  vital signs use «жизнени показатели», and Smart/Legacy labels and clinical
+  suggestions use the reviewed Bulgarian wording.
+- **Neutral clinical statuses:** airway and vascular summaries use
+  «неуспешен опит» and «подмяна» consistently.
+- **Cross-app contract:** web edits use the shared Core event projection and
+  remain compatible with the mobile app and canonical API field names.
+
+- **Dependencies:** Next 16.4.5, React 19.3.1, `@sentry/nextjs` 11.11.
+- **Contact address** is support@lospor.org.
+- **Oversize components split** to meet the size budgets, with no change in
+  behaviour.
+
+### Removed
+
+- **The two-sheet print:** the fixed A4 landscape sheets that clipped, the
+  half-case panel chart with numbered pins, the drug-log and event-list
+  continuation sheets and the cap on printed laboratory results. The record
+  above replaces them.
+
 ## [10.0.2] - 2026-10-29
 
 ### Fixed

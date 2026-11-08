@@ -93,15 +93,15 @@ const TOURS: Record<TourId, { en: StepDef[]; bg: StepDef[] }> = {
   summary: {
     en: [
       { popover: { title: "Anaesthesia Protocol 📄", description: "This two-page protocol is automatically generated from all the data you've entered." } },
-      { element: "[data-tour='summary-page1']", popover: { title: "Page 1 — Intraoperative",   description: "Full intraoperative timetable with vital signs graph, drug totals, fluid balance, and key clinical information.", side: "right" } },
-      { element: "[data-tour='summary-page2']", popover: { title: "Page 2 — Pre & Postoperative", description: "Preoperative assessment, risk scores, airway evaluation, comorbidities, and postoperative recovery details.", side: "right" } },
+      { element: "[data-tour='summary-page1']", popover: { title: "Page 1 — The record",   description: "Patient, risk, airway, access, then the event log (deleted entries stay, struck through) and the vitals every five minutes.", side: "right" } },
+      { element: "[data-tour='summary-page2']", popover: { title: "The timetable",   description: "The whole case on one landscape page: vital signs, a lane for every drug, infusion, agent and fluid. The closing page has episodes, totals, recovery, and room for name and signatures.", side: "right" } },
       { element: "[data-tour='summary-print']", popover: { title: "Open printable protocol", description: "Open the printable protocol, then use the browser's Print command. Save as PDF is available only when the device offers it; LOSPOR does not generate a PDF on the server.", side: "bottom" } },
       { popover: { title: "Case complete ✓",    description: "The case is saved. It will appear in your dashboard case list. The demo walkthrough is complete — you're ready to record real cases!" } },
     ],
     bg: [
       { popover: { title: "Анестезиологичен протокол 📄", description: "Двустраничният протокол е генериран автоматично от всички въведени данни." } },
-      { element: "[data-tour='summary-page1']", popover: { title: "Страница 1 — Интраоперативна",      description: "Пълната интраоперативна таблица с графика на жизнени показатели, общо медикаменти и баланс на течности.", side: "right" } },
-      { element: "[data-tour='summary-page2']", popover: { title: "Страница 2 — Пред- и следоперативна", description: "Предоперативна оценка, рискови скали, оценка на дихателния път, придружаващи заболявания и следоперативно събуждане.", side: "right" } },
+      { element: "[data-tour='summary-page1']", popover: { title: "Страница 1 — Протоколът",      description: "Пациент, риск, дихателен път, съдов достъп, след това дневникът (изтритите записи остават, задраскани) и жизнените показатели на всеки 5 минути.", side: "right" } },
+      { element: "[data-tour='summary-page2']", popover: { title: "Времева линия", description: "Целият случай на една страница в пейзаж: жизнени показатели и ред за всеки медикамент, инфузия, анестетик и течност. Последната страница има епизоди, общо, възстановяване и място за име и подписи.", side: "right" } },
       { element: "[data-tour='summary-print']", popover: { title: "Отвори протокола за печат", description: "Отворете протокола и използвайте Печат в браузъра. Запис като PDF е възможен само ако устройството го предлага; LOSPOR не генерира PDF на сървъра.", side: "bottom" } },
       { popover: { title: "Случаят е приключен ✓", description: "Случаят е записан и ще се появи в таблото. Демото приключи — готови сте да записвате реални случаи!" } },
     ],

@@ -16,7 +16,9 @@ export function useVitalsHandlers(
     const val  = raw === "" ? undefined : Number(raw)
     const next = [...dataRef.current.vitals]
     while (next.length <= col) next.push({})
-    next[col] = { ...next[col], [key]: val }
+    // A clinician's entry makes the column's reading theirs: it is no longer an auto-filled copy, so the
+    // vitals questions and statistics (which skip auto-filled values) count it.
+    next[col] = { ...next[col], [key]: val, autoFilled: undefined }
     rawOnChangeRef.current({ ...dataRef.current, vitals: next })
   // dataRef and rawOnChangeRef are stable refs — no deps needed
   }, [dataRef, rawOnChangeRef])

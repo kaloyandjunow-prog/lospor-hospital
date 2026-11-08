@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { CLINICAL_NUMBER_RULES } from "@lospor/core/clinical-validation"
+import { INTRAOP_END_CORRECTION_REASONS } from "@lospor/core/intraop-end-correction"
 import type { TimetableData } from "@/components/IntraopTimetable"
 
 /**
@@ -29,6 +30,11 @@ const vitalsRowSchema = z.object({
   tofRatio:  intraopNumber("tofRatio").nullable().optional(),
   // Always mmHg; the entry control converts if the clinician works in cmH2O.
   cvp:       intraopNumber("cvpMmHg").nullable().optional(),
+  // The arterial line and the cuff mean (10.2.0); systolic and diastolic above are the cuff (NIBP).
+  ibpSystolic:  z.coerce.number().nullable().optional(),
+  ibpDiastolic: z.coerce.number().nullable().optional(),
+  ibpMap:       z.coerce.number().nullable().optional(),
+  nibpMap:      z.coerce.number().nullable().optional(),
   note:      z.string().optional(),
 })
 
@@ -47,12 +53,21 @@ export const schema = z.object({
   endTimeNextDay: z.boolean().default(false),
   startedAt:      z.string().nullable().optional(),
   endedAt:        z.string().nullable().optional(),
+  // 10.1.0: why the end of a case that had ended was changed. Sent with the
+  // saves after that change; the API needs it only when the end differs.
+  endCorrectionReason: z.enum(INTRAOP_END_CORRECTION_REASONS).optional(),
   timezone:       z.string().nullable().optional(),
 
   positions: z.array(z.string()).catch([]).default([]),
 
   techniques:      z.array(z.string()).catch([]).default([]),
+  // The side of a block or unilateral spinal, by technique code (10.2.0); the server keeps a side only for a technique on the list.
+  techniqueSides:  z.record(z.string(), z.string()).catch({}).default({}),
   airwayDevices:   z.array(z.string()).catch([]).default([]),
+  // 10.2.0: each airway device its own entry, a failed or replaced one kept (core airway-device-entries).
+  airwayDeviceEntries: z.array(z.record(z.string(), z.unknown())).catch([]).optional(),
+  // Smart Equipment preparation markers are not clinical use records.
+  equipmentPrepared: z.record(z.string(), z.boolean()).catch({}).optional(),
   // Why this case has no airway device of its own. Both were useState here and
   // nowhere else: they relaxed the finalisation gate and were then thrown away,
   // so the saved record showed no airway device and no reason for it.
@@ -112,6 +127,7 @@ export const schema = z.object({
   // differs. Each entry carries its own takenAt, which is what makes two
   // haemoglobins an hour apart a trend rather than one that looks corrected.
   labResults: z.array(z.object({
+    id:    z.string().max(200).optional(),
     test:  z.string(),
     value: z.string(),
     unit:  z.string().optional(),

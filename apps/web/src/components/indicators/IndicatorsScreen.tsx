@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { READINESS_COPY } from "@/components/case-summary/readiness-labels"
 import { cancellationReasonLabel } from "@lospor/core/case-cancellation"
+import { vitalSignAbbreviation } from "@lospor/core/vital-questions"
+import { VitalLimitsSection } from "@/components/indicators/VitalLimitsSection"
 import { Section, Panel, Figure, TallyList, SpreadList, TallyChart, Heatmap, FilterBar, agentName, share, spread, percent, type IndicatorResponse as Response, type IndicatorFilters as Filters } from "@/components/indicators/IndicatorWidgets"
 
 /**
@@ -212,7 +214,7 @@ export function IndicatorsScreen() {
                   <tbody>
                     {report.intraopEvents.hypotension.map(row => {
                       const band = data.config.hypotensionBands.find(item => item.key === row.band)
-                      const threshold = [band?.mapBelow != null ? `MAP < ${band.mapBelow}` : null, band?.sbpBelow != null ? `SBP < ${band.sbpBelow}` : null].filter(Boolean).join(" · ") || "—"
+                      const threshold = [band?.mapBelow != null ? `${vitalSignAbbreviation("map", locale)} < ${band.mapBelow}` : null, band?.sbpBelow != null ? `${vitalSignAbbreviation("sbp", locale)} < ${band.sbpBelow}` : null].filter(Boolean).join(" · ") || "—"
                       return (
                         <tr key={row.band} className="border-t border-slate-100 dark:border-[#2a2a2a]">
                           <td className="py-1.5 pr-2">{bandLabel(row.band)}</td>
@@ -266,6 +268,8 @@ export function IndicatorsScreen() {
               </table>
             </Panel>
           </Section>
+
+          <VitalLimitsSection />
 
           <Section id="documentation" title={t("s_documentation")}>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

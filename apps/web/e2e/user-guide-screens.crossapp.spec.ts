@@ -1,8 +1,8 @@
 import path from "path"
 import { mkdirSync } from "fs"
 import { test, expect, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test"
-import { contextFor, EMAIL_FOR, JSON_HEADERS } from "./roles"
-import { openPhone } from "./pwa"
+import { contextFor, EMAIL_FOR, JSON_HEADERS, gotoDashboard } from "./roles"
+import { gotoPhoneHome, openPhone } from "./pwa"
 import { renameInstitutionOf, widenResearchGrants, withTheatres } from "./theatres-setup"
 import { E2E_PASSWORD } from "./credentials"
 import enMessages from "../messages/en.json"
@@ -247,7 +247,7 @@ async function unseed(request: APIRequestContext, seeded: Seeded | null) {
   }
 }
 
-const row = (page: Page, code: string) => page.locator("a").filter({ hasText: code }).first()
+const row = (page: Page, code: string) => page.getByTestId("case-row").filter({ hasText: code }).first()
 
 async function holdCard(page: Page, code: string) {
   const card = page.getByText(code, { exact: true }).first()
@@ -292,7 +292,7 @@ test("the user guide's screens", async ({ browser }) => {
 
       // ── Dashboard ──
       await step("dashboard", async () => {
-        await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
+        await gotoDashboard(page)
         await expect(row(page, c.inTheatre.code)).toBeVisible({ timeout: 60_000 })
         await shot(page, locale, "web-dashboard")
         await shot(page, locale, "web-dashboard-full", { fullPage: true, wait: 200 })
@@ -305,13 +305,13 @@ test("the user guide's screens", async ({ browser }) => {
         await page.mouse.click(5, 5)
       })
       await step("handover menu", async () => {
-        await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
+        await gotoDashboard(page)
         await row(page, c.allocation.code).getByRole("button", { name: new RegExp(`${m.transfer.handOver}|${m.transfer.assign}`) }).click()
         await shot(page, locale, "web-dashboard-handover")
         await page.mouse.click(5, 5)
       })
       await step("cancel dialog", async () => {
-        await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
+        await gotoDashboard(page)
         await row(page, c.allocation.code).getByTestId("cancel-procedure").click()
         await expect(page.getByTestId("cancel-dialog")).toBeVisible()
         await shot(page, locale, "web-cancel-dialog")
@@ -382,7 +382,7 @@ test("the user guide's screens", async ({ browser }) => {
 
       // ── Settings ──
       await step("settings", async () => {
-        await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
+        await gotoDashboard(page)
         await page.getByRole("button", { name: m.settings.accountSettings }).click()
         await shot(page, locale, "web-settings")
         await page.getByText(m.settings.title, { exact: true }).last().click()
@@ -397,7 +397,7 @@ test("the user guide's screens", async ({ browser }) => {
         await lightTheme(phone.context)
         const p = phone.page
         await step("phone dashboard", async () => {
-          await p.goto("/", { waitUntil: "domcontentloaded" })
+          await gotoPhoneHome(p)
           await expect(p.getByText(c.inTheatre.code, { exact: true }).first()).toBeVisible({ timeout: 90_000 })
           await shot(p, locale, "phone-dashboard")
         })
@@ -444,7 +444,7 @@ test("the user guide's screens", async ({ browser }) => {
           await speak(head.request, locale, t.head)
           const hodPage = await head.newPage()
           await hodPage.setViewportSize(WEB)
-          await hodPage.goto("/dashboard", { waitUntil: "domcontentloaded" })
+          await gotoDashboard(hodPage)
           await expect(row(hodPage, c.inTheatre.code)).toBeVisible({ timeout: 60_000 })
           await shot(hodPage, locale, "web-hod-dashboard")
         } finally {

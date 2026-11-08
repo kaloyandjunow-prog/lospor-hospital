@@ -36,6 +36,8 @@ export type PendingFluidEntry = {
   rate?: number
   unit?: "mL/h"
   concentration?: string
+  /** The suggestion it was saved from (10.2.0). */
+  suggestion?: string
   clinicalRuleKey?: string
   clinicalRuleVersion?: string
   clinicalRuleSourceIds?: string[]
@@ -127,5 +129,7 @@ export type TtFP = {
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
   /** Started as a target-controlled infusion: the rate is the target (2026-10-18). */
   tci?: { model: TciModel; site: TciSite; opioids: boolean }
+  /** Opened from a suggestion (10.2.0): the entry it saves carries this tag. */
+  suggestion?: string
   anchor: FConflictAnchor
 }

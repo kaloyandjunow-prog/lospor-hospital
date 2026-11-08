@@ -1,8 +1,8 @@
 "use client"
-import { useLocale } from "next-intl"
+import type { ReactNode } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
+import { MonitoringGroups } from "@/components/intraop/MonitoringGroups"
 import type { LibraryOption } from "@/hooks/useOptionLibrary"
-import { displayClinicalCode, displayOption } from "@/lib/clinical-display"
 import type { Path, UseFormWatch, UseFormSetValue } from "react-hook-form"
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 
@@ -12,102 +12,32 @@ import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 // to match a real form field" rather than opting out of checking entirely.
 function asPath(name: string): Path<IntraopFormFields> { return name as Path<IntraopFormFields> }
 
-// Which monitors are "standard" is the option library's answer, carried on
-// each option's group and read the same way by the mobile sheet. This file used
-// to name the three it believed were standard, so moving a monitor between
-// groups in the library changed the phone and not the web.
-function isStandard(option: LibraryOption): boolean {
-  return (option.group ?? "other") === "standard"
-}
-
-export function MonitoringSection({ t, watch, setValue, monitoringOptions, advancedMonOpen, setAdvancedMonOpen }: {
+/**
+ * The Monitoring section. Smart selection (10.2.0) arrives as `smart`; without it this is the Legacy
+ * section, every monitor grouped by what it tells you (the same list the phone's Legacy tab shows).
+ */
+export function MonitoringSection({ t, watch, setValue, monitoringOptions, smart, onChange }: {
   t: (key: string) => string
   watch: UseFormWatch<IntraopFormFields>
   setValue: UseFormSetValue<IntraopFormFields>
   monitoringOptions: LibraryOption[]
-  advancedMonOpen: boolean
-  setAdvancedMonOpen: (updater: (v: boolean) => boolean) => void
+  advancedMonOpen?: boolean
+  setAdvancedMonOpen?: (updater: (v: boolean) => boolean) => void
+  smart?: ReactNode
+  /** The whole new monitoring list, so the form can ask its follow-up questions; without it a tap sets the one field. */
+  onChange?: (next: string[]) => void
 }) {
-  const locale = useLocale()
+  const active = monitoringOptions.filter(m => watch(asPath(m.value))).map(m => m.value)
   return (
     <SectionCard title={t("intraop.monitoringSection")} collapsible
-      badge={(() => { const tot = monitoringOptions.filter(m => watch(asPath(m.value))).length; return tot ? `${tot} active` : undefined })()}>
-
-      <div className="space-y-4">
-        {/* Standard monitoring — always visible, pre-selected */}
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{displayClinicalCode("optionGroup", "standard", locale)}</p>
-          <div className="flex flex-wrap gap-2">
-            {monitoringOptions.filter(isStandard).map(m => {
-              const on = watch(asPath(m.value)) as boolean
-              return (
-                <button key={m.value} type="button"
-                  onClick={() => setValue(asPath(m.value), !on)}
-                  className={`px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-all ${
-                    on
-                      ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white scale-105 shadow-sm"
-                      : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
-                  }`}>
-                  {displayOption("MONITORING", m, locale)}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Advanced monitoring — collapsible */}
-        {(() => {
-          const ADVANCED_FIELDS = monitoringOptions.filter(m => !isStandard(m))
-          const advCount = ADVANCED_FIELDS.filter(m => watch(asPath(m.value)) as boolean).length
-          return (
-            <div>
-              <button type="button"
-                onClick={() => setAdvancedMonOpen(v => !v)}
-                className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
-                <span className={`transition-transform ${advancedMonOpen ? "rotate-90" : ""}`}>▶</span>
-                {displayClinicalCode("optionGroup", "advanced", locale)}
-                {advCount > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-700 text-white text-[10px] font-bold">{advCount}</span>
-                )}
-              </button>
-              {advancedMonOpen && (
-                <div className="mt-3 space-y-3">
-                  {([
-                    ["respiratory", displayClinicalCode("optionGroup", "respiratory", locale)],
-                    ["haemodynamic", displayClinicalCode("optionGroup", "haemodynamic", locale)],
-                    ["depth", displayClinicalCode("optionGroup", "depth", locale)],
-                    ["other", displayClinicalCode("optionGroup", "other", locale)],
-                  ] as const).map(([cat, catLabel]) => {
-                    const items = ADVANCED_FIELDS.filter(m => m.group === cat)
-                    if (!items.length) return null
-                    return (
-                      <div key={cat}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{catLabel}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {items.map(m => {
-                            const on = watch(asPath(m.value)) as boolean
-                            return (
-                              <button key={m.value} type="button"
-                                onClick={() => setValue(asPath(m.value), !on)}
-                                className={`px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-all ${
-                                  on
-                                    ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white scale-105 shadow-sm"
-                                    : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
-                                }`}>
-                                {displayOption("MONITORING", m, locale)}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })()}
-      </div>
+      badge={active.length ? `${active.length} active` : undefined}>
+      {smart ?? (
+        <MonitoringGroups monitoring={active} monitoringOptions={monitoringOptions}
+          onToggle={field => {
+            if (onChange) onChange(active.includes(field) ? active.filter(item => item !== field) : [...active, field])
+            else setValue(asPath(field), !active.includes(field), { shouldDirty: true })
+          }} />
+      )}
     </SectionCard>
   )
 }

@@ -32,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <TourManager>
     <AccountLocaleSync
+      accountId={session.user.id}
       accountLocale={session.user.preferences?.ui?.locale ?? session.user.preferredLocale}
       currentLocale={locale}
     />

@@ -1,8 +1,9 @@
 import type { PreopLayout } from "@/lib/preop-layout"
 
 /**
- * How the case screens are laid out, a per-user setting kept in localStorage
- * (10.0.0).
+ * How the case screens are laid out. The account value is stored in Core/API;
+ * these localStorage keys remain as a migration and same-tab compatibility
+ * layer for existing case screens (10.0.0).
  *
  * One choice first: the sidebar or not. The sidebar is one panel beside every
  * step of the case -- preop, intraop and postop -- that stays as the case

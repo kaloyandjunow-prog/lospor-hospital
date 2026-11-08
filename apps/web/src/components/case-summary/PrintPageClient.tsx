@@ -12,20 +12,19 @@ const TXT = {
   en: {
     back: "Back to case",
     print: "Print / Save as PDF",
-    hint: "LOSPOR does not generate or download a PDF on the server. Use your browser's print dialog: A4 · landscape · margins None · background graphics ON. Choose Save as PDF only if your device offers it.",
-    privacy: "Patient name and ID stay blank — fill them in by hand after printing.",
+    hint: "LOSPOR does not generate or download a PDF on the server. Use your browser's print dialog: A4 · margins None · background graphics ON (the pages choose their own orientation). Choose Save as PDF only if your device offers it.",
+    privacy: "Patient name and ID stay blank at the end of the record — fill them in by hand after printing.",
   },
   bg: {
     back: "Към случая",
     print: "Печат / Запази като PDF",
-    hint: "LOSPOR не генерира и не изтегля PDF на сървъра. Използвайте диалога за печат на браузъра: A4 · пейзаж · без полета · включени фонови графики. Изберете Запази като PDF само ако устройството го предлага.",
-    privacy: "Името и ИЗ на пациента остават празни — попълват се на ръка след печат.",
+    hint: "LOSPOR не генерира и не изтегля PDF на сървъра. Използвайте диалога за печат на браузъра: A4 · без полета · включени фонови графики (страниците сами избират ориентация). Изберете Запази като PDF само ако устройството го предлага.",
+    privacy: "Името и ИЗ на пациента остават празни в края на протокола — попълват се на ръка след печат.",
   },
 }
 
-// The record sheets are laid out for A4 landscape ≈ 1123 CSS px. The stage
-// always renders at that fixed width; narrow screens show it scaled down
-// instead of reflowing and mangling the approved layout.
+// The record is portrait pages with one landscape page (≈ 1123 CSS px). On screen the stage renders at that
+// fixed width and narrow screens show it scaled down; in print the pages take their own sizes.
 const STAGE_W = 1123
 
 // The dedicated printable HTML surface. It has one honest action: open the

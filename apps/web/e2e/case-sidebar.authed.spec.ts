@@ -56,12 +56,14 @@ test("without the sidebar each screen takes its own layout, and the preop tabs h
   const context = await contextFor(browser, "member-a")
   const page = await context.newPage()
   const api = context.request
-  await page.addInitScript(() => {
-    window.localStorage.setItem("caseSidebar", "off")
-    window.localStorage.setItem("preopLayout", "tabs")
-    window.localStorage.setItem("postopLayout", "scroll")
-    window.localStorage.setItem("tourCompleted", "1")
-  })
+  // The layout is an account preference (10.2.0): the page writes the account's values over what the browser
+  // holds, so a localStorage value set here is overwritten. Set it on the account, and put the defaults back.
+  const setLayout = async (caseLayout: { sidebar: boolean; preop: "scroll" | "tabs"; intraop: "scroll" | "tabs"; postop: "scroll" | "tabs" }) => {
+    const patched = await api.patch("/api/user", { headers: JSON_HEADERS, data: { preferences: { ui: { locale: "en" }, caseLayout } } })
+    expect(patched.ok(), await patched.text()).toBe(true)
+  }
+  await page.addInitScript(() => window.localStorage.setItem("tourCompleted", "1"))
+  await setLayout({ sidebar: false, preop: "tabs", intraop: "scroll", postop: "scroll" })
   const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { patientNumber: `CASE-SIDEBAR-E2E-${Date.now()}`, preop: PREOP } })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
@@ -77,6 +79,7 @@ test("without the sidebar each screen takes its own layout, and the preop tabs h
     await expect(page.getByTestId("postop-sidebar")).toHaveCount(0)
     await expect(page.getByTestId("postop-tabs")).toHaveCount(0)
   } finally {
+    await setLayout({ sidebar: true, preop: "scroll", intraop: "scroll", postop: "scroll" }).catch(() => {})
     await api.delete(`/api/cases/${id}`, { headers: JSON_HEADERS })
     await context.close()
   }

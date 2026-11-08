@@ -68,6 +68,7 @@ export function ClinicalEventsLane({
             key={ci}
             style={{ width: colW, minWidth: colW }}
             className="group border-l border-slate-100 dark:border-[#2a2a2a] relative flex flex-col items-center justify-start py-0.5 px-0.5 cursor-pointer hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors"
+            data-testid={`events-lane-col-${ci}`}
             onClick={e => onOpenPicker(ci, (e.currentTarget as HTMLElement).getBoundingClientRect())}
           >
             {colEvents.length === 0 && (
@@ -83,7 +84,9 @@ export function ClinicalEventsLane({
                   style={{ backgroundColor: event.color + "20", color: event.color, border: `1px ${event.planned ? "dashed" : "solid"} ${event.color}40` }}
                 >
                   <SaveMark eventIds={[(event as { eventId?: string }).eventId]} />
-                  <span className="text-[8px] font-bold truncate leading-tight">{displayEventName(event.label)}</span>
+                  <span className="text-[8px] font-bold truncate leading-tight" data-testid={`events-lane-chip-${event.kind ?? "event"}`}>
+                    {displayEventName(event.label)}{event.kind === "defibrillation" && event.energyJ != null ? ` ${event.energyJ} J` : ""}
+                  </span>
                 </div>
               ))}
               {colEvents.length > MAX_VISIBLE_EVENTS && (

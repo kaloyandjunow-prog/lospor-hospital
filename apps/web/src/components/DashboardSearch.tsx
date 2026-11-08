@@ -153,8 +153,9 @@ export function DashboardSearch({
             // which the server would refuse to save from anyway.
             const href = isComplete || isCancelled || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
             return (
-              <Link key={c.id} href={href} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
-                <div className="min-w-0">
+              <div key={c.id} data-testid="case-row" data-case-code={c.caseCode ?? undefined} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
+                <Link href={href} className="min-w-0 flex-1">
+                  <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
                       {plannedProcedureLabel(c.preop, locale) || t("dashboard.untitled")}
@@ -166,7 +167,8 @@ export function DashboardSearch({
                   <p className="text-sm text-slate-500 truncate mt-0.5">
                     {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
                   </p>
-                </div>
+                  </div>
+                </Link>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
                   {asaBadge(c.preop?.asaScore ?? null)}
                   {dispositionBadge(c.postop?.disposition ?? null, locale)}
@@ -208,7 +210,7 @@ export function DashboardSearch({
                   </span>
                   <FileText className="h-4 w-4 text-slate-300" />
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

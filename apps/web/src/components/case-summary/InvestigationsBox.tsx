@@ -8,16 +8,13 @@ import type { LabDraw } from "@/components/case-summary/investigations"
  * left behind is decided in ./investigations; this only draws the answer.
  */
 export function InvestigationsBox({
-  shownDraws, omittedResults, omittedDraws, title, omittedLabel, Field,
+  shownDraws, title, Field,
 }: {
   shownDraws: LabDraw[]
-  omittedResults: number
-  omittedDraws: number
   title: string
-  omittedLabel: (results: number, draws: number) => string
   Field: (props: { label: string; value: string | null }) => React.ReactElement | null
 }) {
-  const L = { investigations: title, labsOmitted: omittedLabel }
+  const L = { investigations: title }
   const F = Field
   return (
         <div className="border border-slate-200 rounded-lg p-2 bg-white">
@@ -40,14 +37,7 @@ export function InvestigationsBox({
                   ))}
                 </div>
               ))}
-              {omittedResults > 0 && (
-                <p className="text-[7.5px] text-slate-500 border-t border-slate-100 mt-1 pt-0.5">
-                  {L.labsOmitted(omittedResults, omittedDraws)}
-                </p>
-              )}
             </div>
-          ) : omittedResults > 0 ? (
-            <p className="text-[7.5px] text-slate-500">{L.labsOmitted(omittedResults, omittedDraws)}</p>
           ) : <p className="text-[9px] text-slate-400">—</p>}
         </div>
   )
