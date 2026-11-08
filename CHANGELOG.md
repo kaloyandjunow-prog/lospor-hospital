@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+### Added
+
+- Status: "Hospital name on the record" (Clinical page). The anaesthesia record is
+  titled with the institution's own name; an administrator changes it with the
+  Status password and a reason, and the change is audited
+  (`HOSPITAL_NAME_UPDATE`). Finished records show the new name too.
+
 ## [1.7.3] - 2026-10-30
 
 Improves operating-theatre assignment from the phone app and keeps the

@@ -318,6 +318,7 @@ function setup() {
     retryCentralBatch: vi.fn(async () => {}),
     setGuidance: vi.fn(async () => {}),
     setCaseVisibilityPolicy: vi.fn(async () => {}),
+    setHospitalName: vi.fn(async () => {}),
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
@@ -713,6 +714,35 @@ describe("Status Hospital control plane", () => {
     expect(controlPlane.setCaseVisibilityPolicy).toHaveBeenCalledWith({
       enabled: false,
       reason: "Restrict colleague case reading for a review",
+    })
+  })
+
+  it("changes the hospital name on the record only with the Status password and a reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    const html = await page.text()
+    expect(html).toContain('action="/status/control/hospital-name"')
+    expect(html).toContain('data-testid="hospital-name-control"')
+
+    const refused = await app.request("/status/control/hospital-name", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ institutionId: "inst-1", name: "Sofia University Hospital", reason: "The legal name changed", password: "wrong password phrase" }),
+    })
+    expect(refused.status).toBe(401)
+    expect(controlPlane.setHospitalName).not.toHaveBeenCalled()
+
+    const response = await app.request("/status/control/hospital-name", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ institutionId: "inst-1", name: "Sofia University Hospital", reason: "The legal name changed", password: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.setHospitalName).toHaveBeenCalledWith({
+      institutionId: "inst-1",
+      name: "Sofia University Hospital",
+      reason: "The legal name changed",
     })
   })
 

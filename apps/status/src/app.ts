@@ -1554,6 +1554,17 @@ export function createStatusApp({
     "clinical",
   ))
 
+  app.post("/status/control/hospital-name", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setHospitalName({
+      institutionId: formId(formText(body, "institutionId", 1, 128)),
+      name: formText(body, "name", 2, 160),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The hospital name on the record was saved and audited. Records show it from now on, finished ones included.", "Името на болницата в протокола е запазено и записано в одитния журнал. Протоколите го показват оттук нататък, включително завършените."),
+    "clinical",
+  ))
+
   app.post("/status/control/preop-profile", context => sensitiveControlAction(
     context,
     async body => {

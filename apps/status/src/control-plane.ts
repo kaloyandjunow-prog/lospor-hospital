@@ -746,6 +746,8 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   setCaseVisibilityPolicy(input: { enabled: boolean; reason: string }): Promise<void>
+  /** The hospital's name as the anaesthesia record titles itself: the institution's own name. */
+  setHospitalName(input: { institutionId: string; name: string; reason: string }): Promise<void>
   setExternalAiPolicy(input: {
     externalAiEnabled: boolean
     reason: string
@@ -1551,6 +1553,9 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   setCaseVisibilityPolicy(input: Parameters<ControlPlanePort["setCaseVisibilityPolicy"]>[0]): Promise<void> {
     return this.mutate("/case-visibility", input)
+  }
+  setHospitalName(input: Parameters<ControlPlanePort["setHospitalName"]>[0]): Promise<void> {
+    return this.mutate("/hospital-name", input)
   }
   setExternalAiPolicy(input: Parameters<ControlPlanePort["setExternalAiPolicy"]>[0]): Promise<void> {
     return this.mutate("/external-ai/policy", input)

@@ -118,6 +118,13 @@ export const caseVisibilityPolicySchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+/** The hospital's name as the anaesthesia record titles itself (11.0): the institution's own name, changed from Status. */
+export const hospitalNameSchema = z.object({
+  institutionId: z.string().trim().min(1).max(128),
+  name: z.string().trim().min(2).max(160),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
 export const patientIdentifierPolicySchema = z.object({
   egnPermitted: z.boolean(),
   reason: z.string().trim().min(10).max(1000),
@@ -661,6 +668,24 @@ export async function setGuidancePolicy(input: z.infer<typeof guidancePolicySche
     })
     return policy
   })
+}
+
+export async function setHospitalName(input: z.infer<typeof hospitalNameSchema>) {
+  const parsed = hospitalNameSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const institution = await tx.institution.findUnique({ where: { id: parsed.institutionId }, select: { id: true, name: true } })
+    if (!institution) throw new HospitalControlPlaneError("INSTITUTION_NOT_FOUND")
+    const updated = await tx.institution.update({ where: { id: institution.id }, data: { name: parsed.name }, select: { id: true, name: true } })
+    // Cases already written keep reading the institution's current name: the record's title is the hospital's,
+    // not a copy frozen into each case.
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_NAME_UPDATE", updated.id, {
+      previousName: institution.name,
+      name: updated.name,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return updated
+  }, serializableTransaction)
 }
 
 export async function setCaseVisibilityPolicy(

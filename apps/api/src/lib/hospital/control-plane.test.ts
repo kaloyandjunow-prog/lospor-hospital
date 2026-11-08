@@ -554,3 +554,14 @@ describe("what the 1.7.0 Status controls write to the audit record", () => {
     expect(drugColorAuditDetail({ scope: "DRUG", name: "Propofol", color: null })).toEqual({ scope: "DRUG", color: null })
   })
 })
+
+describe("the hospital name on the record", () => {
+  it("takes an institution, a name and a reason, and nothing else", async () => {
+    const { hospitalNameSchema } = await import("./control-plane")
+    const ok = { institutionId: "inst-1", name: "  Sofia University Hospital ", reason: "The legal name changed" }
+    expect(hospitalNameSchema.parse(ok)).toEqual({ ...ok, name: "Sofia University Hospital" })
+    expect(() => hospitalNameSchema.parse({ ...ok, name: "A" })).toThrow()
+    expect(() => hospitalNameSchema.parse({ ...ok, reason: "short" })).toThrow()
+    expect(() => hospitalNameSchema.parse({ ...ok, extra: true })).toThrow()
+  })
+})

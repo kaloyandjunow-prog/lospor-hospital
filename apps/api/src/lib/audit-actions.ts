@@ -182,6 +182,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за външен ИИ", en: "External AI policy changed" } },
   { code: "HOSPITAL_GUIDANCE_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за изчислителни насоки", en: "Calculation-guidance policy changed" } },
   { code: "HOSPITAL_CASE_VISIBILITY_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за видимостта на случаите", en: "Case-visibility policy changed" } },
+  { code: "HOSPITAL_NAME_UPDATE", category: "SECURITY", labels: { bg: "Променено име на болницата в протокола", en: "Hospital name on the record changed" } },
   { code: "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за национален идентификатор (ЕГН)", en: "National-identifier (ЕГН) policy changed" } },
   { code: "PII_BLOCKED", category: "SECURITY", labels: { bg: "Блокирани лични данни", en: "Personal data blocked" } },
 ] as const)
