@@ -1,6 +1,6 @@
 import type { IntraopAutomationConfigView, IntraopAutomationView } from "./control-plane.js"
 
-/** The intraoperative suggestions' settings, shaped as the API sends them (10.2.0). */
+/** The SPS settings, shaped as the API sends them (10.2.0). */
 export function intraopFixture(overrides: Partial<IntraopAutomationConfigView> = {}): IntraopAutomationView {
   const signs = [
     { key: "hr", labelEn: "Heart rate", labelBg: "Пулс" },
@@ -26,12 +26,12 @@ export function intraopFixture(overrides: Partial<IntraopAutomationConfigView> =
     config,
     groups: [
       { key: "treatmentSuggestions", labelEn: "Treatment suggestions", labelBg: "Предложения за лечение", detailEn: "The card after a complication.", detailBg: "Картата след усложнение." },
-      { key: "reverseQuestions", labelEn: "Questions after a rescue drug", labelBg: "Въпроси след спасително лекарство", detailEn: "Asks which complication.", detailBg: "Пита за кое усложнение." },
+      { key: "reverseQuestions", labelEn: "Questions after a rescue drug", labelBg: "Въпроси след спасителен медикамент", detailEn: "Asks which complication.", detailBg: "Пита за кое усложнение." },
       { key: "timers", labelEn: "Follow-ups", labelBg: "Последващи стъпки", detailEn: "Timers after a treatment.", detailBg: "Таймери след лечение." },
     ],
     automations: [
-      { id: "card:Hypotension", group: "treatmentSuggestions", labelEn: "Hypotension", labelBg: "Хипотония", detailEn: "Doses to treat it.", detailBg: "Дози за лечение." },
-      { id: "card:Hypertension", group: "treatmentSuggestions", labelEn: "Hypertension", labelBg: "Хипертония", detailEn: "Doses to treat it.", detailBg: "Дози за лечение." },
+      { id: "card:Hypotension", group: "treatmentSuggestions", labelEn: "Hypotension", labelBg: "Хипотенсия", detailEn: "Doses to treat it.", detailBg: "Дози за лечение." },
+      { id: "card:Hypertension", group: "treatmentSuggestions", labelEn: "Hypertension", labelBg: "Хипертенсия", detailEn: "Doses to treat it.", detailBg: "Дози за лечение." },
       { id: "timer:arrest", group: "timers", labelEn: "Cardiac arrest", labelBg: "Сърдечен арест", detailEn: "Rhythm checks.", detailBg: "Проверки на ритъма." },
     ],
     bands,

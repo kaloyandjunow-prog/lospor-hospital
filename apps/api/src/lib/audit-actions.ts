@@ -95,6 +95,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "CASE_CONSENT_PRINTED", category: "CASE", labels: { bg: "Отпечатано информирано съгласие", en: "Informed consent printed" } },
   { code: "CASE_FINALIZED", category: "CASE", labels: { bg: "Финализиран случай", en: "Case finalised" } },
   { code: "CASE_PATIENT_LINK_CORRECTED", category: "CASE", labels: { bg: "Коригирана връзка на пациент", en: "Patient link corrected" } },
+  { code: "CASE_PATIENT_PERSON_LINKED", category: "CASE", labels: { bg: "Добавено ЕГН към случая", en: "ЕГН added to the case" } },
   { code: "CASE_SUBMITTED_FOR_REVIEW", category: "CASE", labels: { bg: "Случаят е предаден за преглед", en: "Case submitted for review" } },
   { code: "CASE_TRANSFER_ACCEPT", category: "CASE", labels: { bg: "Прието предаване на случай", en: "Case handover accepted" } },
   { code: "CASE_TRANSFER_ASSIGN", category: "CASE", labels: { bg: "Преназначен случай", en: "Case reassigned" } },

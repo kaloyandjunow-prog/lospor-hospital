@@ -15,6 +15,7 @@ import {
   type ExportContext,
 } from "@/lib/omop-mapper"
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
+import { exportIdentityByCase, personIdentifierHash } from "./export-identity"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { APPLIANCE_MANIFEST_VERSIONS } from "@/lib/hospital/appliance-versions"
 import { prisma } from "@/lib/prisma"
@@ -85,22 +86,10 @@ export function revisionsChanged(row: ExportRow): boolean {
  * One function because this was derived in two places that then had to agree,
  * and one of them was missed when the person link was added.
  */
-function personIdentifierHash(row: ExportRow): string | null {
-  return row.patientLink?.personLink?.identifierHash
-    ?? row.patientLink?.identifierHash
-    ?? null
-}
-
-function identityContext(rows: readonly ExportRow[]): NonNullable<ExportContext["identityByCase"]> {
-  return Object.fromEntries(rows.flatMap(row => {
-    const identifierHash = personIdentifierHash(row)
-    if (!identifierHash || !row.institutionId) return []
-    return [[row.id, {
-      personKey: identifierHash,
-      personSourceValue: patientExportPseudonym(row.institutionId, identifierHash),
-    }]]
-  }))
-}
+// Shared with the research and administrator exports (export-identity.ts), so
+// a patient is the same person in every OMOP file this hospital produces.
+const identityContext = (rows: readonly ExportRow[]): NonNullable<ExportContext["identityByCase"]> =>
+  exportIdentityByCase(rows)
 
 /** Exported for tests: whether a case may be offered, and under what identity. */
 export function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {

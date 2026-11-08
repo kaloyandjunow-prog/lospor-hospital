@@ -5,7 +5,7 @@ describe("readHospitalPatientReference", () => {
   it("accepts the narrow masked reference returned by the Hospital API", () => {
     expect(readHospitalPatientReference({
       patientReference: { id: "patient-link-1", maskedIdentifier: "00****45" },
-    })).toEqual({ id: "patient-link-1", maskedIdentifier: "00****45" })
+    })).toEqual({ id: "patient-link-1", maskedIdentifier: "00****45", personMaskedIdentifier: null })
   })
 
   it.each([

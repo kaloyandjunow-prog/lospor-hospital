@@ -12,6 +12,8 @@ export function CaseEditorHeader({
   saveStatus,
   saveError,
   maskedIdentifier,
+  personMaskedIdentifier = null,
+  onAddEgn,
   onPatientRelink,
   patientRelinkDisabled,
 }: {
@@ -21,6 +23,8 @@ export function CaseEditorHeader({
   saveStatus: CaseSaveStatus
   saveError: string | null
   maskedIdentifier: string | null
+  personMaskedIdentifier?: string | null
+  onAddEgn?: (nationalId: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onPatientRelink: (patientNumber: string, correctionReason: string) => Promise<{ ok: true } | { ok: false; error: string }>
   patientRelinkDisabled: boolean
 }) {
@@ -36,6 +40,8 @@ export function CaseEditorHeader({
         {caseId ? (
           <HospitalPatientReference
             maskedIdentifier={maskedIdentifier}
+            personMaskedIdentifier={personMaskedIdentifier}
+            onAddEgn={onAddEgn}
             onRelink={onPatientRelink}
             disabled={patientRelinkDisabled}
           />

@@ -1903,7 +1903,7 @@ export function createStatusApp({
     "indicators",
   ))
 
-  // The intraoperative suggestions (10.2.0): the switches, the vitals limits
+  // SPS (10.2.0): the switches, the vitals limits
   // and the dantrolene vials in stock, behind the password with a reason.
   app.post("/status/control/intraop", context => sensitiveControlAction(
     context,
@@ -1912,7 +1912,7 @@ export function createStatusApp({
       if (!view) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
       return controlPlane.updateIntraopAutomation(intraopUpdateFromForm(view, body, formText(body, "reason", 10, 1000)))
     },
-    locale => localize(locale, "The intraoperative suggestions settings were saved and audited. Open records pick them up the next time they are opened.", "Настройките на интраоперативните предложения са запазени и записани в одитния журнал. Отворените записи ги прилагат при следващото отваряне."),
+    locale => localize(locale, "The SPS settings were saved and audited. Open records pick them up the next time they are opened.", "Настройките на SPS са запазени и записани в одитния журнал. Отворените записи ги прилагат при следващото отваряне."),
     "intraop",
   ))
 

@@ -1,6 +1,8 @@
 export type HospitalPatientReference = {
   id: string
   maskedIdentifier: string
+  /** The person's ЕГН, masked, once it is recorded for this admission. */
+  personMaskedIdentifier?: string | null
 }
 
 /**
@@ -26,5 +28,7 @@ export function readHospitalPatientReference(body: unknown): HospitalPatientRefe
     || !maskedIdentifier.includes("*")
   ) return null
 
-  return { id, maskedIdentifier }
+  const person = (value as { personMaskedIdentifier?: unknown }).personMaskedIdentifier
+  const personMaskedIdentifier = typeof person === "string" && person.includes("*") && person.length <= 128 ? person : null
+  return { id, maskedIdentifier, personMaskedIdentifier }
 }

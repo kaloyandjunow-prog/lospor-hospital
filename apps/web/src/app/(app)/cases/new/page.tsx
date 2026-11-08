@@ -46,6 +46,7 @@ import { randomId } from "@/lib/random-id"
 import { CaseProgress } from "./CaseProgress"
 import { CaseEditorHeader, type CaseSaveStatus } from "./CaseEditorHeader"
 import { useHospitalPatientReference } from "@/hooks/useHospitalPatientReference"
+import { useEhrImportCapability } from "@/lib/deployment-capabilities"
 import { usePreopSubmitGate } from "@/hooks/usePreopSubmitGate"
 import { useUnsavedCaseWarning } from "@/hooks/useUnsavedCaseWarning"
 import { useRejectedFields } from "@/hooks/useRejectedFields"
@@ -100,7 +101,8 @@ export default function NewCasePage() {
   const [caseCode, setCaseCode]       = useState<string | null>(null)
   const [preopHasInput, setPreopHasInput] = useState(false)
   const [preopNeedsReview, setPreopNeedsReview] = useState(false)
-  const { reference: patientReference, acceptResponse: acceptPatientReference, relink: relinkPatient } = useHospitalPatientReference()
+  const egnPermitted = useEhrImportCapability().egnPermitted
+  const { reference: patientReference, acceptResponse: acceptPatientReference, relink: relinkPatient, addEgn: addPatientEgn } = useHospitalPatientReference()
   const { error: preopSubmitError, run: runPreopSubmit } = usePreopSubmitGate(setSubmitting)
   useUnsavedCaseWarning(preopHasInput && (!caseId || preopNeedsReview))
   const markPreopInput = useCallback(() => setPreopHasInput(true), [])
@@ -287,6 +289,7 @@ export default function NewCasePage() {
       if (!caseIdRef.current) {
         const patientNumber = section === "preop" ? (data as PreopData).patientId?.trim() : undefined
         if (!patientNumber) throw new Error("Hospital patient number is required")
+        const patientNationalId = section === "preop" ? (data as PreopData).patientNationalId?.trim() || undefined : undefined
         const acceptedPayload = { ...payload }
         let firstBlocked: BlockedSaveIssue | null = null
         let createdBody: Record<string, unknown> | null = null
@@ -298,7 +301,7 @@ export default function NewCasePage() {
           const res = await fetch("/api/cases", {
             method: "POST",
             headers: { "Content-Type": "application/json", [IDEMPOTENCY_HEADER]: createDraftIdRef.current },
-            body: JSON.stringify({ patientNumber, clinicalMode: selectedMode, preop: acceptedPayload }),
+            body: JSON.stringify({ patientNumber, ...(patientNationalId ? { patientNationalId } : {}), clinicalMode: selectedMode, preop: acceptedPayload }),
 
           })
           const body = await res.json().catch(() => ({})) as Record<string, unknown>
@@ -647,6 +650,8 @@ export default function NewCasePage() {
         saveStatus={saveStatus}
         saveError={autoSaveErrMsg}
         maskedIdentifier={patientReference?.maskedIdentifier ?? null}
+        personMaskedIdentifier={patientReference?.personMaskedIdentifier ?? null}
+        onAddEgn={egnPermitted ? nationalId => addPatientEgn(caseIdRef.current, nationalId) : undefined}
         onPatientRelink={(n, reason) => relinkPatient(caseIdRef.current, n, reason)}
         patientRelinkDisabled={isWatching}
       />

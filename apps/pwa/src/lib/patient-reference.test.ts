@@ -10,7 +10,7 @@ describe("patient reference API boundary", () => {
     expect(patientReferenceFromResponse({
       patientReference: { id: "link-1", maskedIdentifier: "HO•••01" },
       preop: { ageYears: 40 },
-    })).toEqual({ id: "link-1", maskedIdentifier: "HO•••01" })
+    })).toEqual({ id: "link-1", maskedIdentifier: "HO•••01", personMaskedIdentifier: null })
     expect(patientReferenceFromResponse({ patientReference: { id: "link-1" } })).toBeNull()
   })
 

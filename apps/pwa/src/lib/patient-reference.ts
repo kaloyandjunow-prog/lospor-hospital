@@ -3,16 +3,18 @@ import { apiFetch } from "./api"
 export type PatientReference = {
   id: string
   maskedIdentifier: string
+  /** The person's ЕГН, masked, once recorded for this admission. */
+  personMaskedIdentifier?: string | null
 }
 
 type CaseRelinkFetcher = (path: string, init?: RequestInit) => Promise<Response>
 
 function readPatientReference(value: unknown): PatientReference | null {
   if (!value || typeof value !== "object") return null
-  const { id, maskedIdentifier } = value as Record<string, unknown>
+  const { id, maskedIdentifier, personMaskedIdentifier } = value as Record<string, unknown>
   return typeof id === "string" && id.length > 0
     && typeof maskedIdentifier === "string" && maskedIdentifier.length > 0
-    ? { id, maskedIdentifier }
+    ? { id, maskedIdentifier, personMaskedIdentifier: typeof personMaskedIdentifier === "string" && personMaskedIdentifier.includes("*") ? personMaskedIdentifier : null }
     : null
 }
 
@@ -20,6 +22,35 @@ export function patientReferenceFromResponse(body: unknown): PatientReference | 
   return body && typeof body === "object"
     ? readPatientReference((body as Record<string, unknown>).patientReference)
     : null
+}
+
+export class PatientEgnError extends Error {
+  constructor(readonly code: "INVALID_EGN" | "TAKEN" | "FAILED") {
+    super(code)
+  }
+}
+
+/**
+ * Record the ЕГН of a saved case. Online only; it only fills a gap, so an
+ * admission that already has a different ЕГН is refused (an administrator's
+ * correction). Returns the masked ЕГН the server recorded.
+ */
+export async function addCasePatientEgn(
+  caseId: string,
+  nationalIdInput: string,
+  fetcher: CaseRelinkFetcher = apiFetch,
+): Promise<string> {
+  const nationalId = nationalIdInput.replace(/\s+/g, "")
+  if (!caseId || !nationalId) throw new PatientEgnError("INVALID_EGN")
+  const response = await fetcher(`/api/cases/${encodeURIComponent(caseId)}/patient-link/person`, {
+    method: "POST",
+    body: JSON.stringify({ nationalId }),
+  })
+  const body = await response.json().catch(() => null) as { code?: string; personMaskedIdentifier?: unknown } | null
+  if (!response.ok) throw new PatientEgnError(body?.code === "INVALID_EGN" ? "INVALID_EGN" : response.status === 409 ? "TAKEN" : "FAILED")
+  const masked = body?.personMaskedIdentifier
+  if (typeof masked !== "string" || !masked.includes("*")) throw new PatientEgnError("FAILED")
+  return masked
 }
 
 /**

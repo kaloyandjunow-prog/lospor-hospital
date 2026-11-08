@@ -26,6 +26,7 @@ import {
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
 import type { AuthUser } from "@/lib/mobile-auth"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
+import { exportIdentityByCase } from "@/lib/hospital/export-identity"
 import {
   researchContextForAction,
   researchGrantForExport,
@@ -895,7 +896,12 @@ async function prepareOmopExport(
       const cases = await fetchOmopPage(pageRevisions)
       const bundle = mapCasesToOmop(
         cases,
-        omopExportContext(record, definition, revisions.length, rowIdStart),
+        {
+          ...omopExportContext(record, definition, revisions.length, rowIdStart),
+          // On the appliance a patient's admissions are one person, as in the
+          // Central export; only the keyed pseudonym leaves.
+          ...(isHospitalDeployment() ? { identityByCase: exportIdentityByCase(cases) } : {}),
+        },
       )
       baseMetadata ??= bundle.metadata
       rowIdStart += sequentialOmopRows(bundle)

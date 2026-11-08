@@ -26,7 +26,7 @@ export function preopSectionsFixture(): PreopSectionsView {
       { key: "CURRENT_MEDICATIONS", labelEn: "Current medications", labelBg: "Приемани медикаменти", populations: ["ADULT", "PEDIATRIC"], requires: null },
       { key: "MEDICATION_INSTRUCTIONS", labelEn: "Medication instructions", labelBg: "Указания за медикаментите", populations: ["ADULT", "PEDIATRIC"], requires: "CURRENT_MEDICATIONS" },
       { key: "PEDIATRIC_FASTING", labelEn: "Nil by mouth", labelBg: "Гладуване", populations: ["PEDIATRIC"], requires: null },
-      { key: "POSTOP_RECOVERY_VITALS", labelEn: "Recovery vital signs", labelBg: "Витални показатели при възстановяване", populations: ["ADULT", "PEDIATRIC"], requires: null, form: "POSTOP" },
+      { key: "POSTOP_RECOVERY_VITALS", labelEn: "Recovery vital signs", labelBg: "Жизнени показатели при възстановяване", populations: ["ADULT", "PEDIATRIC"], requires: null, form: "POSTOP" },
       { key: "POSTOP_PAIN", labelEn: "Pain", labelBg: "Болка", populations: ["ADULT", "PEDIATRIC"], requires: null, form: "POSTOP" },
       { key: "POSTOP_DELIRIUM", labelEn: "Emergence delirium (PAED)", labelBg: "Делир при събуждане (PAED)", populations: ["PEDIATRIC"], requires: null, form: "POSTOP" },
       { key: "POSTOP_PONV", labelEn: "Postoperative nausea and vomiting", labelBg: "Постоперативно гадене и повръщане (ПОГП)", populations: ["ADULT", "PEDIATRIC"], requires: null, form: "POSTOP" },

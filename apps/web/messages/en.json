@@ -2136,6 +2136,10 @@
   },
   "patientReference": {
     "label": "Hospital patient number",
+    "egnAdd": "Add ЕГН",
+    "egnAdded": "ЕГН added. This patient's admissions are now joined.",
+    "egnInvalid": "This is not a valid ЕГН. Check the digits.",
+    "egnTaken": "This admission already has a different ЕГН. Ask an administrator to correct it.",
     "unavailable": "Masked number unavailable — do not continue until the link can be verified.",
     "correct": "Correct number",
     "newNumber": "New hospital patient number",

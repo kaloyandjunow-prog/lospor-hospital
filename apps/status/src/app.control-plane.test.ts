@@ -1933,7 +1933,7 @@ describe("the Legacy skin keeps up with the modern ones", () => {
   })
 })
 
-describe("the intraoperative suggestions settings (10.2.0)", () => {
+describe("the SPS settings (10.2.0)", () => {
   it("has a page and saves only with the password and a reason", async () => {
     const { app, auth, controlPlane } = setup()
     vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })

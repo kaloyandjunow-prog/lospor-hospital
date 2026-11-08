@@ -10,13 +10,31 @@ type RelinkResult = { ok: true } | { ok: false; error: string }
 
 export function HospitalPatientReference({
   maskedIdentifier,
+  personMaskedIdentifier = null,
+  onAddEgn,
   onRelink,
   disabled = false,
 }: {
   maskedIdentifier: string | null
+  /** The person's ЕГН, masked, when recorded. */
+  personMaskedIdentifier?: string | null
+  /** Present where the site permits ЕГН: lets a saved case get one. */
+  onAddEgn?: (nationalId: string) => Promise<RelinkResult>
   onRelink: (patientNumber: string, correctionReason: string) => Promise<RelinkResult>
   disabled?: boolean
 }) {
+  const [egn, setEgn] = useState("")
+  const [egnError, setEgnError] = useState<string | null>(null)
+  const [egnSaving, setEgnSaving] = useState(false)
+  async function addEgn() {
+    if (!onAddEgn || !egn.trim() || egnSaving || disabled) return
+    setEgnSaving(true)
+    setEgnError(null)
+    const result = await onAddEgn(egn.trim()).catch(() => ({ ok: false as const, error: "" }))
+    setEgnSaving(false)
+    if (result.ok) setEgn("")
+    else setEgnError(result.error || null)
+  }
   const t = useTranslations("patientReference")
   const [stage, setStage] = useState<"closed" | "edit" | "confirm">("closed")
   const [patientNumber, setPatientNumber] = useState("")
@@ -97,6 +115,23 @@ export function HospitalPatientReference({
           </Button>
         )}
       </div>
+
+      {personMaskedIdentifier ? (
+        <div className="mt-1 flex items-center gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</span>
+          <code data-testid="masked-patient-egn" className="text-sm font-semibold text-slate-700 dark:text-slate-200">{personMaskedIdentifier}</code>
+        </div>
+      ) : onAddEgn ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Label htmlFor="add-patient-egn" className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</Label>
+          <Input id="add-patient-egn" data-testid="add-patient-egn" className="h-8 w-40" autoComplete="off" inputMode="numeric" maxLength={12}
+            disabled={disabled || egnSaving} value={egn} onChange={event => { setEgn(event.target.value); if (egnError) setEgnError(null) }} />
+          <Button type="button" size="sm" variant="outline" className="h-8" disabled={disabled || egnSaving || !egn.trim()} onClick={() => void addEgn()}>
+            {t("egnAdd")}
+          </Button>
+          {egnError ? <span role="alert" className="text-xs text-red-500">{egnError}</span> : null}
+        </div>
+      ) : null}
 
       {stage === "edit" && (
         <div className="mt-3 space-y-2">

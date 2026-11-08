@@ -174,19 +174,37 @@ export type IndicatorsUpdate = {
   reason: string
 }
 
-/** The intraoperative suggestions' switches in use (10.2.0), as the API sends them (Status has no Core). */
+/** The SPS switches in use (10.2.0), as the API sends them (Status has no Core). */
 export type IntraopAutomationConfigView = {
   enabled: boolean
   groups: Record<string, boolean>
   /** The automations switched off one by one, by id; the rest of an enabled group runs. */
   disabled: string[]
   dantroleneVialsMg: number[]
+  /** Minutes after the last reading that a monitor's next one is due; absent from an older API. */
+  monitoringDueMinutes?: Record<string, number>
   vitalQuestions: {
     enabled: boolean
     minCases: number
     tails: Record<string, Record<string, { low: number; high: number }>>
+    /** Percent above the patient's baseline SBP or MAP that asks about hypertension (10-50); absent from an older API. */
+    hypertensionBaselinePercent?: number
   }
 }
+
+/** The monitors with a reading interval, and the built-in minutes (Core's DEFAULT_MONITORING_DUE_MINUTES). */
+export const MONITORING_DUE_DEFAULTS: ReadonlyArray<{ field: string; labelEn: string; labelBg: string; minutes: number }> = [
+  { field: "bis", labelEn: "BIS", labelBg: "BIS", minutes: 15 },
+  { field: "tofMonitor", labelEn: "TOF", labelBg: "TOF", minutes: 10 },
+  { field: "cvpMonitor", labelEn: "CVP", labelBg: "ЦВН", minutes: 15 },
+  { field: "etco2Monitor", labelEn: "EtCO₂", labelBg: "EtCO₂", minutes: 15 },
+  { field: "tempMonitor", labelEn: "Temperature", labelBg: "Температура", minutes: 30 },
+]
+export const MONITORING_DUE_RANGE = { min: 1, max: 120 } as const
+
+/** The hypertension baseline percentages Status offers (Core accepts 10-50). */
+export const HYPERTENSION_BASELINE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50] as const
+export const DEFAULT_HYPERTENSION_BASELINE_PERCENT = 20
 
 export type IntraopAutomationView = {
   config: IntraopAutomationConfigView
@@ -208,6 +226,29 @@ export type IntraopAutomationView = {
    * charts (no case or clinician named). Absent from an older API.
    */
   acceptance?: { days: number; cases: number; byId: Record<string, { accepted: number; dismissed: number }> } | null
+  /**
+   * What "Likely now" works from (Core's successionOverview): each link, starting value or learned from this
+   * site's finished cases. Counts only. Absent from an older API.
+   */
+  succession?: StatusSuccessionRow[] | null
+}
+
+export type StatusSuccessionRow = {
+  id: string
+  context: string
+  family: string
+  child: boolean
+  from: string
+  to: string
+  fromBg: string
+  toBg: string
+  count: number
+  total: number
+  share: number
+  gapMinutes: number
+  source: "starting" | "learned"
+  learnedCases: number
+  minCases: number
 }
 
 export type IntraopAutomationUpdate = IntraopAutomationConfigView & { reason: string }
@@ -570,7 +611,7 @@ export type ControlPlaneView = {
   operatingTheatres?: OperatingTheatresView | null
   /** The unit indicators' thresholds (10.0.0); absent from an older API, null when unreadable. */
   indicators?: IndicatorsView | null
-  /** The intraoperative suggestions (10.2.0); absent from an older API, null when unreadable. */
+  /** The SPS settings (10.2.0); absent from an older API, null when unreadable. */
   intraopAutomation?: IntraopAutomationView | null
 }
 
@@ -814,7 +855,7 @@ export interface ControlPlanePort {
   changeOperatingTheatres(input: OperatingTheatresChange): Promise<void>
   /** The unit indicators' thresholds and names switch (10.0.0). */
   updateIndicators(input: IndicatorsUpdate): Promise<void>
-  /** The intraoperative suggestions' switches, vitals limits and stocked dantrolene vials (10.2.0). */
+  /** The SPS switches, vitals limits and stocked dantrolene vials (10.2.0). */
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
@@ -967,6 +1008,17 @@ export function intraopAutomationShape(value: unknown): value is IntraopAutomati
     && finiteInteger(value.minCasesRange.min, 1_000_000) && finiteInteger(value.minCasesRange.max, 1_000_000)
     && numbers(value.vialSizesMg, 10)
     && (value.acceptance == null || acceptanceShape(value.acceptance))
+    && (value.succession == null || successionShape(value.succession))
+}
+
+function successionShape(value: unknown): boolean {
+  const count = (entry: unknown) => typeof entry === "number" && Number.isFinite(entry) && entry >= 0 && entry <= 1_000_000
+  return Array.isArray(value) && value.length <= 500 && value.every(row => isRecord(row)
+    && text(row.id, 100) && String(row.id).startsWith("succession:") && text(row.context, 40) && text(row.family, 40)
+    && typeof row.child === "boolean" && text(row.from, 100) && text(row.to, 100) && text(row.fromBg, 200) && text(row.toBg, 200)
+    && count(row.count) && count(row.total) && count(row.gapMinutes) && count(row.learnedCases) && count(row.minCases)
+    && typeof row.share === "number" && row.share >= 0 && row.share <= 1
+    && (row.source === "starting" || row.source === "learned"))
 }
 
 function acceptanceShape(value: unknown): boolean {

@@ -265,6 +265,7 @@ export default function NewCaseScreen() {
   // The record number as typed, for the import lookup. Watched rather than
   // read from getValues so the offer appears as soon as it is entered.
   const patientNumberWatch = useWatch({ control, name: "patientNumber" })
+  const patientNationalIdWatch = useWatch({ control, name: "patientNationalId" })
   const stopbangInputs = useWatch({ control, name: ["stopbangSnoring", "stopbangTired", "stopbangObserved", "stopbangBP", "stopbangNeck"] })
   // Not yet known (10.0.0): sets the procedure search aside.
   const procedureUndetermined = useWatch({ control, name: "procedureUndetermined" })
@@ -407,7 +408,7 @@ export default function NewCaseScreen() {
       return false
     }
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
-    const { patientNumber, ...clinicalValues } = values
+    const { patientNumber, patientNationalId: _patientNationalId, ...clinicalValues } = values
     // A new case anchors its draft to the hospital patient number. Until one
     // is entered there is nothing to write -- a form not yet filled in, not a
     // fault -- so autosave stays silent and validation speaks at submit.
@@ -791,7 +792,8 @@ export default function NewCaseScreen() {
   }
 
   // ИЗ № unless the site permits ЕГН and the clinician says so.
-  const [identifierType, setIdentifierType] = useState<"IZ" | "EGN">("IZ")
+  // The ЕГН finds the patient across admissions; without one, the record number.
+  const identifierType: "IZ" | "EGN" = patientNationalIdWatch?.trim() ? "EGN" : "IZ"
 
   // Accepting is what brings the case into being: the imported values are
   // usually what make it saveable. ensureCaseForAi does that and returns the
@@ -1020,8 +1022,6 @@ export default function NewCaseScreen() {
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
               <PatientIdentityField
                 caseId={caseId}
-                identifierType={identifierType}
-                onIdentifierTypeChange={setIdentifierType}
                 egnPermitted={ehrImportCapability.egnPermitted}
                 control={control}
                 error={localizedPreopValidationMessage(errors.patientNumber?.message, tc)}
@@ -1039,7 +1039,7 @@ export default function NewCaseScreen() {
                 onRequestModeChange={pediatricModeCapability.enabled
                   ? () => toggleClinicalMode(pediatricMode, getValues, setValue as never) : undefined}
                 identifierType={identifierType}
-                identifier={patientNumberWatch ?? null}
+                identifier={(patientNationalIdWatch?.trim() || patientNumberWatch) ?? null}
                 available={ehrImportCapability.enabled}
                 transport={ehrImportCapability.transport}
                 folderRequests={ehrImportCapability.folderRequests}

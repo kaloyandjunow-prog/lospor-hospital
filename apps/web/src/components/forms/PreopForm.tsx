@@ -124,7 +124,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   // identifiers and the clinician says otherwise -- the server supports
   // both and the policy allows both, but nothing ever offered the choice,
   // so every lookup went out as an ИЗ № whatever the clinician had typed.
-  const [identifierType, setIdentifierType] = useState<"IZ" | "EGN">("IZ")
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -495,34 +494,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
             </Label>
-            {/* Which numbering the typed number belongs to.
-
-                Only where the site permits national identifiers. The API has
-                accepted both since the adapter existed and the policy has
-                defaulted to permitting both, but no client ever sent
-                anything but IZ -- so an ЕГН typed here was looked up as a
-                record number and found nothing, with no way to say what it
-                actually was. */}
-            {ehrImportCapability.egnPermitted && (
-              <div className="flex gap-1" role="radiogroup" aria-label={locale === "bg" ? "Вид на номера" : "Kind of number"}>
-                {(["IZ", "EGN"] as const).map(kind => (
-                  <button
-                    key={kind}
-                    type="button"
-                    role="radio"
-                    aria-checked={identifierType === kind}
-                    onClick={() => setIdentifierType(kind)}
-                    className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
-                      identifierType === kind
-                        ? "border-sky-400 bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400"
-                        : "border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
-                    }`}
-                  >
-                    {kind === "IZ" ? (locale === "bg" ? "ИЗ №" : "Record no.") : "ЕГН"}
-                  </button>
-                ))}
-              </div>
-            )}
             <Input
               id="hospital-patient-number"
               autoComplete="off"
@@ -540,6 +511,26 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                 {locale === "bg" ? "Болничният номер е задължителен." : "Hospital patient number is required."}
               </p>
             )}
+            {/* The ЕГН joins this patient's admissions across years; the
+                record number restarts every January. Optional, and only where
+                the site permits national identifiers. */}
+            {ehrImportCapability.egnPermitted && (
+              <div className="space-y-1 pt-2">
+                <Label htmlFor="hospital-patient-egn" className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</Label>
+                <Input
+                  id="hospital-patient-egn"
+                  autoComplete="off"
+                  inputMode="numeric"
+                  maxLength={12}
+                  {...register("patientNationalId")}
+                />
+                <p className="text-xs text-slate-400">
+                  {locale === "bg"
+                    ? "По желание. Свързва постъпванията на същия пациент. Остава в болницата."
+                    : "Optional. Joins this patient's admissions. Stays in this hospital."}
+                </p>
+              </div>
+            )}
           </div>
         )}
         {/* Directly under the number, because that is what it answers. */}
@@ -553,8 +544,9 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             await flushSave()
             await onEhrAcceptedBeforeCase(importId, appliedKeys)
           })}
-          identifier={watch("patientId") ?? null}
-          identifierType={identifierType}
+          // The ЕГН finds the patient across admissions; without one, the record number.
+          identifier={(watch("patientNationalId")?.trim() || watch("patientId")) ?? null}
+          identifierType={watch("patientNationalId")?.trim() ? "EGN" : "IZ"}
           available={ehrImportCapability.enabled}
           transport={ehrImportCapability.transport}
           folderRequests={ehrImportCapability.folderRequests}

@@ -5,6 +5,8 @@ import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
 import { CaseStatus, type Prisma } from "@/generated/prisma/client"
 import { mapCasesToOmop } from "@/lib/omop-mapper"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
+import { exportIdentityByCase } from "@/lib/hospital/export-identity"
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
 
 const VALID_STATUSES = new Set<string>(Object.values(CaseStatus))
@@ -65,6 +67,8 @@ export async function GET(req: NextRequest) {
     complete:           cases.length === matchingCount,
     gitCommit:         process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? "untracked",
     forcedOverride:    force,
+    // On the appliance a patient's admissions are one person, as in the Central export.
+    ...(isHospitalDeployment() ? { identityByCase: exportIdentityByCase(cases) } : {}),
   })
 
   if (bundle.metadata.data_quality_status === "FAIL" && !force) {

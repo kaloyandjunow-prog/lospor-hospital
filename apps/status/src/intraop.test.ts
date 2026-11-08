@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { ControlPlaneClientError, intraopAutomationShape } from "./control-plane.js"
-import { intraopUpdateFromForm, renderIntraopPage } from "./intraop-ui.js"
+import { ControlPlaneClientError, intraopAutomationShape, type StatusSuccessionRow } from "./control-plane.js"
+import { intraopLines, intraopUpdateFromForm, renderIntraopPage } from "./intraop-ui.js"
 import { intraopFixture } from "./intraop.fixture.js"
 
 const form = (overrides: Record<string, string> = {}) => ({
@@ -11,7 +11,7 @@ const form = (overrides: Record<string, string> = {}) => ({
   ...overrides,
 })
 
-describe("intraoperative suggestions page (10.2.0)", () => {
+describe("SPS page (10.2.0)", () => {
   it("accepts the view the API sends", () => {
     expect(intraopAutomationShape(intraopFixture())).toBe(true)
     expect(intraopAutomationShape({ config: {} })).toBe(false)
@@ -45,8 +45,40 @@ describe("intraoperative suggestions page (10.2.0)", () => {
     expect(intraopAutomationShape({ ...intraopFixture(), acceptance: { days: 90, cases: 1, byId: { x: { accepted: "1", dismissed: 0 } } } })).toBe(false)
   })
 
+  it("shows what Likely now has learned, read-only, and gives a learned link that was never a starting one its own switch", () => {
+    const row = (over: Partial<StatusSuccessionRow>): StatusSuccessionRow => ({
+      id: "succession:Induction>Intubated", context: "general", family: "general", child: false, from: "Induction", to: "Intubated",
+      fromBg: "Увод", toBg: "Интубация", count: 11, total: 20, share: 0.55, gapMinutes: 3, source: "starting", learnedCases: 12, minCases: 30, ...over,
+    })
+    const succession = [
+      row({}),
+      row({ id: "succession:Positioned>Incision", context: "neuraxial:child", family: "neuraxial", child: true, from: "Positioned", to: "Incision", fromBg: "Позициониране", toBg: "Инцизия", count: 40, total: 44, share: 0.91, gapMinutes: 9, source: "learned", learnedCases: 44 }),
+      row({ id: "succession:Induction>OPA in", to: "OPA in", toBg: "Въздуховод", count: 5, total: 40, share: 0.13, source: "learned", learnedCases: 40 }),
+    ]
+    const base = intraopFixture()
+    const view = { ...base, succession, groups: [...base.groups, { key: "reminders", labelEn: "Reminders", labelBg: "Напомняния", detailEn: "Reminders.", detailBg: "Напомняния." }] }
+    expect(intraopAutomationShape(view)).toBe(true)
+    expect(intraopAutomationShape({ ...view, succession: [{ ...succession[0], share: 2 }] })).toBe(false)
+    expect(intraopAutomationShape({ ...view, succession: [{ ...succession[0], id: "card:Hypotension" }] })).toBe(false)
+
+    const en = renderIntraopPage(view, "en")
+    expect(en).toContain('data-testid="intraop-succession"')
+    expect(en).toContain("Starting value · 12 / 30 cases so far")
+    expect(en).toContain("Neuraxial · children")
+    expect(en).toContain("Learned · 44 cases")
+    expect(en).toContain("91 %")
+    expect(renderIntraopPage(view, "bg")).toContain("Начална стойност · 12 / 30 случая досега")
+    expect(renderIntraopPage({ ...intraopFixture(), succession: undefined }, "en")).toContain('data-testid="intraop-succession-missing"')
+
+    // The learned link outside the catalogue can be switched off; left unticked, it joins the switched-off list.
+    expect(intraopLines(view).map(item => item.id)).toContain("succession:Induction>OPA in")
+    expect(en).toContain('name="auto_succession:Induction&gt;OPA in"')
+    expect(intraopUpdateFromForm(view, form(), "x".repeat(10)).disabled).toContain("succession:Induction>OPA in")
+    expect(intraopUpdateFromForm(view, form({ "auto_succession:Induction>OPA in": "true" }), "x".repeat(10)).disabled).not.toContain("succession:Induction>OPA in")
+  })
+
   it("degrades when the API does not offer the page yet", () => {
-    expect(renderIntraopPage(null, "en")).toContain("This API does not offer the intraoperative suggestions yet.")
+    expect(renderIntraopPage(null, "en")).toContain("This API does not offer SPS yet.")
     expect(renderIntraopPage(undefined, "bg")).toContain("още не предлага")
   })
 
@@ -71,5 +103,15 @@ describe("intraoperative suggestions page (10.2.0)", () => {
     expect(() => intraopUpdateFromForm(view, form({ minCases: "" }), reason)).toThrow(ControlPlaneClientError)
     expect(() => intraopUpdateFromForm(view, form({ vial_20: "", vial_250: "" }), reason)).toThrow(ControlPlaneClientError)
     expect(intraopUpdateFromForm(view, form({ vial_20: "", vial_120: "true" }), reason).dantroleneVialsMg).toEqual([120, 250])
+  })
+
+  it("saves each monitor's reading interval, keeps the saved one when the form omits it, and refuses 0, over 120 or a fraction", () => {
+    const view = intraopFixture()
+    const reason = "x".repeat(10)
+    const update = intraopUpdateFromForm(view, form({ due_bis: "20", due_tofMonitor: "5" }), reason)
+    expect(update.monitoringDueMinutes).toMatchObject({ bis: 20, tofMonitor: 5, cvpMonitor: 15, etco2Monitor: 15, tempMonitor: 30 })
+    for (const bad of ["0", "121", "7.5", ""]) {
+      expect(() => intraopUpdateFromForm(view, form({ due_bis: bad }), reason)).toThrow(ControlPlaneClientError)
+    }
   })
 })

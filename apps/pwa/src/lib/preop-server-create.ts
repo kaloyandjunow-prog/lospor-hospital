@@ -82,6 +82,8 @@ export async function postPreopServerCase(
     const fullPayload = buildPreopPayload(values)
     const acceptedPayload: Record<string, unknown> = { ...fullPayload }
     delete acceptedPayload.patientNumber
+    delete acceptedPayload.patientNationalId
+    const patientNationalId = values.patientNationalId?.trim() || undefined
     let firstBlocked: BlockedSaveIssue | undefined
     const maxAttempts = Object.keys(fullPayload).length + 1
 
@@ -95,6 +97,7 @@ export async function postPreopServerCase(
         expectedIdentity: expectedOwner,
         body: JSON.stringify({
           patientNumber,
+          ...(patientNationalId ? { patientNationalId } : {}),
           clinicalMode: values.clinicalMode ?? "ADULT",
           preop: acceptedPayload,
         }),

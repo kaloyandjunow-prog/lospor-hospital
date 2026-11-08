@@ -1558,6 +1558,14 @@ add("POST", "/v1/cases/{id}/patient-link/correct", "Correct the patient a case b
   errors: [400, 401, 403, 404, 409, 500],
   stability: "hospital",
 })
+// The ЕГН of a saved case: it only fills a gap, never repoints a person.
+add("POST", "/v1/cases/{id}/patient-link/person", "Record the ЕГН of the patient a case is about", {
+  parameters: [id],
+  requestBody: body({ type: "object", required: ["nationalId"], properties: { nationalId: { type: "string", maxLength: 32 } } }),
+  result: { type: "object" },
+  errors: [400, 401, 403, 404, 409, 500],
+  stability: "hospital",
+})
 
 add("POST", "/v1/cases/{id}/lock", "Acquire a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("PATCH", "/v1/cases/{id}/lock", "Refresh or reclaim a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })

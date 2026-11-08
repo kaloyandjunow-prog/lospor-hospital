@@ -13,7 +13,9 @@ import { caseCapabilitiesForUser, caseReadWhereForUser } from "@/lib/access-cont
 import { caseVisibilityCapabilityState, isHospitalWideCaseViewer } from "@/lib/hospital/case-visibility"
 import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
-import { resolvePatientLink } from "@/lib/hospital/patient-link"
+import { resolvePatientIdentity, resolvePatientLink } from "@/lib/hospital/patient-link"
+import { isValidEgn } from "@/lib/hospital/patient-identity"
+import { patientIdentifierCapabilityState } from "@/lib/hospital/patient-identifier-policy"
 import { z } from "zod"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
@@ -191,6 +193,25 @@ export async function POST(req: NextRequest) {
         error: "An institution is required before a patient number can be linked",
       }, { status: 400 })
     }
+    // ЕГН, when the clinician gives one: the person behind this admission. It
+    // is what joins the same patient's admissions across years; the record
+    // number alone restarts every January.
+    const rawNationalId = body.patientNationalId
+    if (rawNationalId != null && typeof rawNationalId !== "string") {
+      return NextResponse.json({ error: "Invalid request", code: "INVALID_EGN" }, { status: 400 })
+    }
+    const nationalId = typeof rawNationalId === "string" && rawNationalId.trim() ? rawNationalId.replace(/\s+/g, "") : null
+    if (nationalId) {
+      if (!patientNumber?.trim()) {
+        return NextResponse.json({ error: "Invalid request", code: "NO_PATIENT_NUMBER" }, { status: 400 })
+      }
+      if (!isValidEgn(nationalId)) {
+        return NextResponse.json({ error: "Invalid request", code: "INVALID_EGN" }, { status: 400 })
+      }
+      if (!(await patientIdentifierCapabilityState(prisma)).egnPermitted) {
+        return NextResponse.json({ error: "Forbidden", code: "EGN_DISABLED_BY_POLICY" }, { status: 403 })
+      }
+    }
 
     // One-off catalogue and profile setup happens here, outside the case
     // transaction, so a first save never spends that transaction on it.
@@ -206,7 +227,9 @@ export async function POST(req: NextRequest) {
         // them as unanswered.
         caseRecord = await withDirectTransaction(async tx => {
           const patientReference = patientNumber && user.institutionId
-            ? await resolvePatientLink(tx, user.institutionId, patientNumber, userId)
+            ? nationalId
+              ? (await resolvePatientIdentity(tx, user.institutionId, { recordNumber: patientNumber, nationalId }, userId)).admission
+              : await resolvePatientLink(tx, user.institutionId, patientNumber, userId)
             : null
           const created = await tx.case.create({
             data: {

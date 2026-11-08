@@ -1,18 +1,20 @@
 import { useState } from "react"
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { STRINGS } from "@/i18n/strings"
-import type { PatientReference } from "@/lib/patient-reference"
+import { PatientEgnError, type PatientReference } from "@/lib/patient-reference"
 import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
   reference: PatientReference | null
   language: string
   onRelink: (patientNumber: string, correctionReason: string) => Promise<void>
+  /** Present where the site permits ЕГН: lets a saved case get one. */
+  onAddEgn?: (nationalId: string) => Promise<void>
   allowCorrection?: boolean
 }
 
 /** Shows the linked patient marker and requires an explicit confirmation to change it. */
-export function PatientReferencePanel({ reference, language, onRelink, allowCorrection = true }: Props) {
+export function PatientReferencePanel({ reference, language, onRelink, onAddEgn, allowCorrection = true }: Props) {
   const shade = useShade()
   const s = STRINGS[language as "en" | "bg"]
   const [editing, setEditing] = useState(false)
@@ -21,6 +23,23 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
   const [reason, setReason] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [egn, setEgn] = useState("")
+  const [egnSaving, setEgnSaving] = useState(false)
+  const [egnError, setEgnError] = useState<string | null>(null)
+  const addEgn = async () => {
+    if (!onAddEgn || !egn.trim() || egnSaving) return
+    setEgnSaving(true)
+    setEgnError(null)
+    try {
+      await onAddEgn(egn)
+      setEgn("")
+    } catch (failure) {
+      const code = failure instanceof PatientEgnError ? failure.code : "FAILED"
+      setEgnError(code === "INVALID_EGN" ? s.patientEgnInvalid : code === "TAKEN" ? s.patientEgnTaken : s.patientEgnFailed)
+    } finally {
+      setEgnSaving(false)
+    }
+  }
 
   const cancel = () => {
     setPatientNumber("")
@@ -79,6 +98,31 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
       >
         {reference?.maskedIdentifier ?? (language === "bg" ? "Не е потвърден" : "Not confirmed")}
       </Text>
+      {reference?.personMaskedIdentifier ? (
+        <Text testID="patient-egn-masked" style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800", marginTop: 4 }}>
+          ЕГН {reference.personMaskedIdentifier}
+        </Text>
+      ) : onAddEgn ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <TextInput
+            testID="add-patient-egn"
+            accessibilityLabel="ЕГН"
+            placeholder="ЕГН"
+            placeholderTextColor={colors.textMuted}
+            value={egn}
+            onChangeText={value => { setEgn(value); if (egnError) setEgnError(null) }}
+            maxLength={12}
+            keyboardType="number-pad"
+            editable={!egnSaving}
+            style={{ flex: 1, color: colors.textPrimary, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}
+          />
+          <TouchableOpacity accessibilityRole="button" onPress={addEgn} disabled={egnSaving || !egn.trim()}
+            style={{ borderRadius: 9, paddingVertical: 9, paddingHorizontal: 12, backgroundColor: colors.primary, opacity: egnSaving || !egn.trim() ? 0.5 : 1 }}>
+            {egnSaving ? <ActivityIndicator size="small" color={shade("#fff")} /> : <Text style={{ color: shade("#fff"), fontWeight: "900" }}>{s.patientEgnAdd}</Text>}
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {egnError ? <Text role="alert" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{egnError}</Text> : null}
 
       {!allowCorrection ? null : !editing ? (
         <TouchableOpacity onPress={() => setEditing(true)} style={{ marginTop: 10 }}>

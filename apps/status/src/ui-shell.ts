@@ -91,10 +91,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   ] },
   { id: "clinical", en: "Clinical setup", bg: "Клинични настройки", items: [
     { id: "preop", path: "/status/control/preop", also: ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"], en: "Preoperative form", bg: "Предоперативна форма", descEn: "Its sections, the questions asked, ward orders and medication instructions, the summary page and the written consent.", descBg: "Разделите, задаваните въпроси, назначенията и указанията за медикаментите, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
-    { id: "intraop", path: "/status/control/intraop", en: "Intraoperative suggestions", bg: "Интраоперативни предложения", descEn: "The questions, suggestions and reminders on the intraoperative record, and the dantrolene vials in stock.", descBg: "Въпросите, предложенията и напомнянията в интраоперативния запис и наличните флакони дантролен.", audiences: PASSWORD },
+    { id: "intraop", path: "/status/control/intraop", en: "SPS — Smart Prediction System", bg: "SPS — Система за интелигентно прогнозиране", descEn: "The questions, suggestions and reminders on the intraoperative record, and the dantrolene vials in stock.", descBg: "Въпросите, предложенията и напомнянията в интраоперативния запис и наличните флакони дантролен.", audiences: PASSWORD },
     { id: "postop", path: "/status/control/postop", en: "Postoperative form", bg: "Следоперативна форма", descEn: "Its sections, the pain scales by age, and what a case needs to be finalised.", descBg: "Разделите, скалите за болка според възрастта и какво е нужно, за да се приключи случай.", audiences: PASSWORD },
     { id: "theatres", path: "/status/control/theatres", en: "Operating theatres", bg: "Операционни зали", descEn: "Whether cases are given a theatre, and the theatres' names.", descBg: "Дали на случаите се задава зала, и имената на залите.", audiences: PASSWORD },
-    { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотония според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
+    { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотенсия според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
     { id: "drug-colors", path: "/status/control/drug-colors", en: "Drug colours", bg: "Цветове на лекарствата", descEn: "The colour of each drug group, and of any drug, on the chart and in its menus.", descBg: "Цветът на всяка група лекарства и на всяко лекарство в картата и менютата ѝ.", audiences: PASSWORD },
     { id: "guidance", path: "/status/control/clinical", en: "Calculated guidance", bg: "Изчислени насоки", descEn: "Dose guidance for adults and children, and the rule baselines it uses.", descBg: "Насоки за дозиране при възрастни и деца и базовите правила, на които се основават.", audiences: PASSWORD },
     { id: "identity", path: "/status/control/identity", en: "Patient identification", bg: "Идентификация на пациента", descEn: "Which number identifies a patient on screens and printouts.", descBg: "Кой номер идентифицира пациента на екрана и в разпечатките.", audiences: PASSWORD },
@@ -311,7 +311,7 @@ export type AvailabilityRange = "24h" | "7d" | "90d"
 export const parseRange = (value: unknown): AvailabilityRange => value === "7d" || value === "90d" ? value : "24h"
 
 export function rangeSwitch(range: AvailabilityRange, base: string, locale: StatusLocale): string {
-  const names: Record<AvailabilityRange, [string, string]> = { "24h": ["24 h", "24 ч"], "7d": ["7 d", "7 дни"], "90d": ["90 d", "90 дни"] }
+  const names: Record<AvailabilityRange, [string, string]> = { "24h": ["24 h", "24 h"], "7d": ["7 d", "7 дни"], "90d": ["90 d", "90 дни"] }
   return `<nav class="range" aria-label="${localize(locale, "Time range", "Период")}">${(["24h", "7d", "90d"] as const).map(id => `<a href="${base}?range=${id}"${current(id === range)}>${escapeHtml(localize(locale, names[id][0], names[id][1]))}</a>`).join("")}</nav>`
 }
 
@@ -384,7 +384,7 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
     const quiet = now - Date.parse(ehr.lastReceivedAt)
     const silent = localize(locale, `no data for ${span(quiet, locale)}`, `няма данни от ${span(quiet, locale)}`)
     if (quiet > EHR_QUIET_BAD_MS) return { sub: silent, state: "bad" }
-    if (ehr.readFailures24h) return { sub: localize(locale, `${ehr.readFailures24h} failed reads in 24 h`, `${ehr.readFailures24h} неуспешни четения за 24 ч`), state: "warn" }
+    if (ehr.readFailures24h) return { sub: localize(locale, `${ehr.readFailures24h} failed reads in 24 h`, `${ehr.readFailures24h} неуспешни четения за 24 h`), state: "warn" }
     if (quiet > EHR_QUIET_WARN_MS) return { sub: silent, state: "warn" }
     if (ehr.unmappedCodes) return { sub: localize(locale, `${ehr.unmappedCodes} codes not mapped`, `${ehr.unmappedCodes} несъпоставени кода`), state: "warn" }
     return { sub: relative(ehr.lastReceivedAt, now, locale), state: "good" }

@@ -137,7 +137,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           institution: { select: { name: true } },
         },
       },
-      patientLink: { select: { id: true, maskedIdentifier: true } },
+      patientLink: { select: { id: true, maskedIdentifier: true, personLink: { select: { maskedIdentifier: true } } } },
     },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -189,7 +189,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const responseRecord = {
     ...normalizedRecord,
     capabilities,
-    patientReference: record.patientLink,
+    // The admission's number, and the person's ЕГН (masked) once it is known.
+    patientReference: record.patientLink
+      ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier, personMaskedIdentifier: record.patientLink.personLink?.maskedIdentifier ?? null }
+      : null,
     ...(preopOrders && normalizedRecord.preop ? { preop: { ...normalizedRecord.preop, wardOrders: undefined, medicationInstructions: undefined, premedicationOrders: undefined, ...preopOrders } } : {}),
     // The operating theatre (10.0.0): the name it kept, and whether it can still change.
     theatre: theatresOn || record.operatingTheatreName ? caseTheatreView(record) : null,

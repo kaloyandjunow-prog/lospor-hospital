@@ -13,6 +13,7 @@ export const NEVER_PERSISTED: Record<string, string> = {
   patientFirstName: "GDPR: identity is printed by hand, never stored",
   patientLastName:  "GDPR: identity is printed by hand, never stored",
   patientId:        "GDPR: identity is printed by hand, never stored",
+  patientNationalId: "Hospital only: sent once at creation, never part of the clinical record",
 }
 
 export type RoundTrip = {

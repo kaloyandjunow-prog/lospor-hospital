@@ -39,6 +39,8 @@ export const preopFormSchema = z.object({
     valueDate: z.string().datetime().nullable().optional(),
   }).passthrough()).default([]),
   patientNumber: z.string().trim().max(128).optional(),
+  // The ЕГН that joins this patient's admissions. Sent once at creation, never stored on the device.
+  patientNationalId: z.string().trim().max(32).optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
   // nullable, not merely optional. Switching a case out of pediatric mode has
   // to clear the stored precise age, and only an explicit null survives into
