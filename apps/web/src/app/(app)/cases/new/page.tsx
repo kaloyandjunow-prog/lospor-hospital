@@ -657,8 +657,7 @@ export default function NewCasePage() {
         saveStatus={saveStatus}
         saveError={autoSaveErrMsg}
         maskedIdentifier={patientReference?.maskedIdentifier ?? null}
-        personMaskedIdentifier={patientReference?.personMaskedIdentifier ?? null}
-        patientDisplay={patientReference?.display ?? null}
+        personMaskedIdentifier={patientReference?.personMaskedIdentifier ?? null} patientDisplay={patientReference?.display ?? null}
         onAddEgn={egnPermitted ? nationalId => addPatientEgn(caseIdRef.current, nationalId) : undefined}
         onPatientRelink={(n, reason) => relinkPatient(caseIdRef.current, n, reason)}
         patientRelinkDisabled={isWatching}
