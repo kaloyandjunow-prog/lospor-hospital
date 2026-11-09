@@ -185,6 +185,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "HOSPITAL_GUIDANCE_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за изчислителни насоки", en: "Calculation-guidance policy changed" } },
   { code: "HOSPITAL_CASE_VISIBILITY_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за видимостта на случаите", en: "Case-visibility policy changed" } },
   { code: "INTRAOP_AUTOMATION_UPDATE", category: "SECURITY", labels: { bg: "Променени настройки за интраоперативните предложения", en: "Intraoperative suggestion settings changed" } },
+  { code: "HOSPITAL_LOGO_UPDATE", category: "SECURITY", labels: { bg: "Променено лого на болницата", en: "Hospital logo changed" } },
   { code: "HOSPITAL_NAME_UPDATE", category: "SECURITY", labels: { bg: "Променено име на болницата в протокола", en: "Hospital name on the record changed" } },
   { code: "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за национален идентификатор (ЕГН)", en: "National-identifier (ЕГН) policy changed" } },
   { code: "PII_BLOCKED", category: "SECURITY", labels: { bg: "Блокирани лични данни", en: "Personal data blocked" } },

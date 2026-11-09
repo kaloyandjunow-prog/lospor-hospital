@@ -51,7 +51,7 @@ export async function GET(
     const institution = snapshot.institutionId
       ? await prisma.institution.findUnique({
           where: { id: snapshot.institutionId },
-          select: { name: true, city: true },
+          select: { name: true, city: true, logoDataUrl: true },
         })
       : null
     const record = printableRecordFromSnapshot(finalization.snapshotDocument, institution)
@@ -83,7 +83,7 @@ export async function GET(
       },
       intraop: true,
       postop: true,
-      institution: { select: { name: true, city: true } },
+      institution: { select: { name: true, city: true, logoDataUrl: true } },
       operatingTheatre: { select: { name: true } },
       // The preop summary names who consulted and who has the case now.
       createdBy: { select: { name: true, title: true } },

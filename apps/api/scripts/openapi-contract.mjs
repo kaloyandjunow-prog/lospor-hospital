@@ -2023,6 +2023,23 @@ add("POST", "/v1/internal/hospital/control-plane/hospital-name", "Rename the ins
   stability: "internal",
   tag: "internal",
 })
+add("GET", "/v1/internal/hospital/control-plane/hospital-logo", "Read the logo printed on the paper documents, for the Status page", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/hospital-logo", "Set or remove the hospital logo (a small PNG or JPEG) printed on the paper documents", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("GET", "/v1/internal/hospital/control-plane/intraop-readings", "Read this hospital's vital-sign counts, limits and their history, for the Status Unusual readings page", {
   parameters: [statusControlBearer],
   status: 200,

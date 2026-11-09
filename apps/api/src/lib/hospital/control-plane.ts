@@ -26,6 +26,7 @@ import {
   sealExternalAiCredential,
 } from "./external-ai-policy"
 import { patientIdentifierControlView } from "./patient-identifier-policy"
+import { hospitalLogoAuditDetail, hospitalLogoSchema, parseHospitalLogoDataUrl } from "./hospital-logo"
 import { caseVisibilityControlView } from "./case-visibility"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
@@ -126,6 +127,8 @@ export const hospitalNameSchema = z.object({
   name: z.string().trim().min(2).max(160),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
+
+export { hospitalLogoSchema } from "./hospital-logo"
 
 export const patientIdentifierPolicySchema = z.object({
   egnPermitted: z.boolean(),
@@ -725,6 +728,27 @@ export async function setHospitalName(input: z.infer<typeof hospitalNameSchema>)
     // not a copy frozen into each case.
     await logAuditInTransaction(tx, actor.id, "HOSPITAL_NAME_UPDATE", updated.id,
       hospitalNameAuditDetail(institution.name, updated.name, Boolean(parsed.reason)))
+    return updated
+  }, serializableTransaction)
+}
+
+export async function readHospitalLogo(institutionId: string): Promise<string | null> {
+  const institution = await prisma.institution.findUnique({ where: { id: institutionId }, select: { logoDataUrl: true } })
+  if (!institution) throw new HospitalControlPlaneError("INSTITUTION_NOT_FOUND")
+  return institution.logoDataUrl
+}
+
+export async function setHospitalLogo(input: z.infer<typeof hospitalLogoSchema>) {
+  const parsed = hospitalLogoSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const institution = await tx.institution.findUnique({ where: { id: parsed.institutionId }, select: { id: true } })
+    if (!institution) throw new HospitalControlPlaneError("INSTITUTION_NOT_FOUND")
+    const updated = await tx.institution.update({ where: { id: institution.id }, data: { logoDataUrl: parsed.logoDataUrl }, select: { id: true, logoDataUrl: true } })
+    const bytes = parsed.logoDataUrl ? parseHospitalLogoDataUrl(parsed.logoDataUrl)?.bytes.length ?? 0 : 0
+    // Only the fact and the size are audited; the picture itself is not.
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_LOGO_UPDATE", updated.id,
+      hospitalLogoAuditDetail(updated.logoDataUrl !== null, bytes, Boolean(parsed.reason)))
     return updated
   }, serializableTransaction)
 }

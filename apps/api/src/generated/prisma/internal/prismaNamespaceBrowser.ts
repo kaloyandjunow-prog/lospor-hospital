@@ -314,6 +314,7 @@ export const InstitutionScalarFieldEnum = {
   id: 'id',
   name: 'name',
   city: 'city',
+  logoDataUrl: 'logoDataUrl',
   country: 'country'
 } as const
 

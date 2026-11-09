@@ -264,6 +264,8 @@ model Institution {
   id                         String                               @id @default(cuid())
   name                       String
   city                       String
+  /// The hospital logo printed at the top of the paper documents (1.8.0): a small PNG or JPEG as a data URL.
+  logoDataUrl                String?
   country                    String                               @default("Bulgaria")
   users                      User[]                               @relation("UserPrimaryInstitution")
   institutionChangeRequests  InstitutionChangeRequest[]           @relation("RequestedInstitution")
