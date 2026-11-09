@@ -1,54 +1,62 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased]
+## [1.8.0] - 2026-11-09
+
+Brings the anaesthesia record, the intraoperative suggestions and the timed complications to the appliance, vendors
+Core, API, Web and PWA 10.2.0 and the Research Browser 0.11.0, and speaks Central exchange contract 2.8.0.
+
+**Update order:** Central 2.8.0 must be deployed before a site updates to this release, because Central refuses a
+contract version it does not support. The update installs the new database migrations and the 10.2.0 clinical rule
+baselines; rollback is backup-required.
 
 ### Added
 
-- **The API side of the Status Intraoperative suggestions (SPS) page:** the control-plane view now carries the
-  settings in force, the automation catalogue in both languages, the acceptance counts and the learned
-  succession, and `POST /v1/internal/hospital/control-plane/intraop-automation` saves what Status sends,
-  audited as `INTRAOP_AUTOMATION_UPDATE` (switches and counts, never the reason). Until now the page
-  had nothing to read and nowhere to save.
-- **Update installs the release's rule baselines:** `update.sh` now runs the
-  bundled-baseline provisioner after the migrations, so the 10.2.0 v4 rule sets
-  reach an installed appliance and the platform selection moves from v3 to v4
-  where the 9.15.0 release made it. A selection an administrator made is kept.
-  A failure installs nothing, is reported, and leaves the rules in use in effect.
-- Status: "Hospital name on the record" (Clinical page). The anaesthesia record is
-  titled with the institution's own name; an administrator changes it with the
-  Status password and a reason, and the change is audited
-  (`HOSPITAL_NAME_UPDATE`). Finished records show the new name too.
-- Status: an **Intraoperative suggestions** page. Every intraoperative automation
-  has its own switch, how each was received (accepted, dismissed, not now) is
-  shown beside it, and the learned event-succession table is listed; the
-  preoperative tabs are chips.
-- Status: the stocked dantrolene vial sizes, monitoring reading intervals, and a
-  person link on the national identifier (ЕГН).
-- Status dependencies updated.
-
-### Fixed
-
-- **The informed-consent text could not be saved at its stated size:** the API read a consent request through the
-  16 KiB limit of the other control routes, so even the bundled paediatric text (17,321 bytes as JSON) was
-  refused, and the effective limit was about 8,000 Bulgarian letters, not 40,000. The route now reads up to
-  512 KiB, and Status takes a form of 1 MB.
-- **Renaming the hospital could not be saved:** its audit row used a key called `name`, which the audit
-  guard refuses. The row now keeps `previousHospitalName` and `hospitalName`.
+- **The anaesthesia record.** The case summary, the print and the phone viewer show one document: a portrait first
+  page (patient, risk, airway assessment, history, the airway, access and technique, the event log with entries
+  that were deleted kept and struck through, the vitals every five minutes), one landscape page with the whole
+  timetable, and a closing page (episodes, drug totals, fluid balance, laboratory results, recovery, and room for
+  the patient's name and ID and for signatures). It is titled with the hospital's name.
+- **Intraoperative suggestions.** Treatment cards and checklists after a complication, questions after a rescue
+  drug, fluid or shock, questions from readings and laboratory results, reminders, timed follow-ups and "Likely
+  now", learned from this hospital's own finished cases. Nothing is charted without the clinician's answer.
+- **Timed complications and shocks, vitals questions** (age bands, limits from this hospital's own readings), ending
+  a case after the fact at the time chosen, new chart entries (jet ventilation, tourniquet picker, arterial line,
+  BIS and TOF from the monitor photo, urinary catheter, unilateral spinal side) and the Smart selection screens
+  with a Legacy choice for each.
+- **Status: Intraoperative suggestions (SPS).** The page switches the suggestions on or off for the whole hospital,
+  by group and one by one, shows how each was received, sets the vitals-question limits, the monitor reading
+  intervals and the stocked dantrolene vials, and lists what "Likely now" has learned. It now has the data and
+  the route to save with: the API sends the view and `POST /v1/internal/hospital/control-plane/intraop-automation`
+  saves it, audited (`INTRAOP_AUTOMATION_UPDATE`: switches and counts, never the reason).
+- **Status: the hospital's name on the record** (Clinical page), changed with the Status password and a reason,
+  audited (`HOSPITAL_NAME_UPDATE`).
+- **Status: a person link on the national identifier (ЕГН)** so an admission and its person are one in the exports.
+- **The update installs the release's clinical rule baselines.** `update.sh` runs the bundled-baseline provisioner
+  after the migrations, so the v4 rule sets reach an installed appliance. The platform selection moves from v3
+  to v4 only where an earlier release made that selection; a ruleset an administrator chose stays chosen. A failure
+  installs nothing, is reported, and leaves the rules in use in effect.
 
 ### Changed
 
-- **The informed-consent text may be 100,000 characters** (was 40,000), from Core 10.2.0's limit.
-- **Upstream 10.2.0 vendored:** Core, API, Web and PWA at 10.2.0 and the Research Browser at 0.11.0.
-  The appliance's own edits are kept (no server-generated PDF, owner-bound encrypted offline drafts, the
-  patient-number and username sign-in, no external telemetry); the PWA also gives upstream's queued
-  clinical writes the signed-in account as owner.
-- **Central exchange contract 2.8.0** (from 2.6.0): the columns the 10.2.0 API writes, among them the
-  suggestion source on six tables, the death table, drug dose time and route, and a complication's start
-  and end. Central 2.8.0 must be deployed before a site updates to this release.
-- **The v4 rule-baseline provisioner audits through the privacy-enforcing helper**, as v2 and v3 do.
-- **Two laboratory-threshold dictionary entries** declare the dictionary version they were introduced at
-  (4.9.0), so the dictionary's own version check holds.
-- The compose defaults and the versions an exported batch declares follow the vendored 10.2.0.
+- **The informed-consent text may be 100,000 characters** (it was 40,000).
+- **Central exchange contract 2.8.0** (from 2.6.0): the suggestion an entry was saved from, the death table, the
+  moment and route of a drug, and a complication's start and end.
+- **Rule baselines v4** (adrenaline without a default dose, sugammadex to 2,000 mg, paracetamol by weight, glucose
+  as one fluid, and the children's doses) are bundled and activated; v2 and v3 are unchanged and finalised cases
+  are never rewritten.
+- The offline PWA keeps its owner-bound encrypted drafts, and gives queued clinical writes the signed-in account as
+  owner.
+
+### Fixed
+
+- **The informed-consent text could not be saved at its stated size.** The API read a consent request through the
+  16 KiB limit of the other control routes, so even the bundled paediatric text (17,321 bytes as JSON) was
+  refused and the effective limit was about 8,000 Bulgarian letters. The route now reads up to 512 KiB and Status
+  takes a form of 1 MB.
+- **Renaming the hospital could not be saved.** Its audit row used a key called `name`, which the audit guard
+  refuses. The row keeps `previousHospitalName` and `hospitalName` now.
+- The v4 baseline provisioner audits through the privacy-enforcing helper, as the earlier ones do, and two
+  laboratory-threshold dictionary entries declare the dictionary version they were introduced at.
 
 ## [1.7.3] - 2026-10-30
 
