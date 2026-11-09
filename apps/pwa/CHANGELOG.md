@@ -1,5 +1,21 @@
 # Changelog - LOSPOR Mobile
 
+## [10.3.0] - 2026-11-09
+
+### Added
+
+- **The planned procedure on the postoperative record follows a Status switch.** "Procedure done" still starts as
+  the planned procedure, now as one line of the SPS Reminders group that a hospital switches off in Status (or the
+  whole group) and a clinician for themselves. Off, the field starts empty. The screen fills the field in once the
+  policy has loaded, so a switched-off line is never overtaken by the fill.
+
+### Dependencies
+
+- Patch updates (React 19.3.1, react-native-svg, babel-preset-expo and others) and `minimatch` overridden to the
+  patched 11.0.5. The moderate advisories that remain are in the Expo tool chain (`expo`, `@expo/cli`, `glob`) and the
+  lint tool chain; their fixes are a different Expo major or a tool downgrade. None is an error under the repo's gate
+  (`npm audit --omit=dev --audit-level=high`).
+
 ## [10.2.0] - 2026-11-02
 
 ### Added
