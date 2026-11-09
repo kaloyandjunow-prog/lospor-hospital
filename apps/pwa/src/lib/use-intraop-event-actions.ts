@@ -9,6 +9,7 @@ import { dispatchRowQuickAdd, slotIsoTimestamp, type RowQuickAddAction } from "@
 import type { LogEvent } from "@/lib/intraop-log-event"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
+import { jetSheet } from "@/lib/jet-sheet"
 import { isTourniquetLabel, tourniquetSheet } from "@/lib/tourniquet-sheet"
 
 type EventLabel = (ev: LogEvent) => { text: string }
@@ -110,6 +111,7 @@ export function useIntraopEventActions({
       openFluid,
       openAgent,
       openGasSettings,
+      openJet: ts => jetSheet.open(ts),
       openLabs,
       openEvent: date => {
         setSlotTs(date)

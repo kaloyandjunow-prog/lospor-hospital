@@ -1,5 +1,24 @@
 # Changelog - LOSPOR Mobile
 
+## [10.3.1] - 2026-11-09
+
+### Fixed
+
+- **The Jet button is in the timetable.** Ticking Jet among the ventilation modes puts a Jet button beside FGF in the
+  quick-add grid of every expanded row. It opens the jet sheet at that row's time; a running jet is drawn as a strip
+  down the rows, as before. Until now it was only reachable from the Event sheet.
+- **Equipment: the airway shortcut asks the time.** "Record in Airway" on the suggested tube or LMA opens the Airway
+  tab's own panel (details, then the time: start, now or picked) and writes nothing until it is confirmed. Before, it
+  wrote the device at the start of anaesthesia without asking.
+- **The Airway tab stops suggesting a size once the device is in place.** An oral or a nasal tube in use answers the
+  single tube suggestion for both cards; an LMA in use answers its own.
+- **Overflow cues show only while something scrolls.** The edge fades and chevrons on rails and sheets appear during
+  movement and fade out after about a second and a half at rest.
+- **The preop screen has its header back.** Home and Settings sit at the top of the preop form again (the header had
+  been left empty since 10.0.0); the Home button in the section rail takes its place only once the header has
+  scrolled away.
+- **The carrier gas buttons (O2, Air, N2O) are centred**, in both directions, also when the label wraps.
+
 ## [10.3.0] - 2026-11-09
 
 ### Added

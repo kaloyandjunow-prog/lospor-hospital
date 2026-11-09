@@ -11,6 +11,7 @@ function callbacks() {
     openGasSettings: vi.fn(),
     openEvent: vi.fn(),
     openLabs: vi.fn(),
+    openJet: vi.fn(),
   }
 }
 
@@ -63,6 +64,14 @@ describe("dispatchRowQuickAdd", () => {
     dispatchRowQuickAdd(start, 6, "lab", cb)
 
     expect(cb.openLabs).toHaveBeenCalledWith("2026-01-01T08:30:00.000Z")
+  })
+})
+
+describe("the Jet quick add", () => {
+  it("opens the jet sheet at the selected row's time", () => {
+    const cb = callbacks()
+    dispatchRowQuickAdd(new Date("2026-01-01T08:00:00.000Z"), 6, "jet", cb)
+    expect(cb.openJet).toHaveBeenCalledWith("2026-01-01T08:30:00.000Z")
   })
 })
 

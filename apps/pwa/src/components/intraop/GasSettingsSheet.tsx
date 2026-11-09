@@ -66,10 +66,10 @@ export function GasSettingsSheet({
           <View style={{ flexDirection:"row", gap:8 }}>
             {CARRIER_GAS_OPTIONS.map(g => (
               <TouchableOpacity key={g.key ?? "o2"} onPress={() => onCarrierGasChange(g.key)}
-                style={{ flex:1, paddingVertical:11, borderRadius:10, alignItems:"center", borderWidth:1.5,
+                style={{ flex:1, paddingVertical:11, paddingHorizontal:6, borderRadius:10, alignItems:"center", justifyContent:"center", borderWidth:1.5,
                   borderColor: carrierGas === g.key ? shade("#6366f1") : shade("#1e2d40"),
                   backgroundColor: carrierGas === g.key ? shade("#4338ca") : shade("#111111") }}>
-                <Text style={{ color: carrierGas === g.key ? shade("#fff") : shade("#64748b"), fontSize:13, fontWeight:"800" }}>{displayClinicalCode("carrierGas", g.key ?? "o2", language, { label: g.label })}</Text>
+                <Text style={{ color: carrierGas === g.key ? shade("#fff") : shade("#64748b"), fontSize:13, fontWeight:"800", textAlign:"center" }}>{displayClinicalCode("carrierGas", g.key ?? "o2", language, { label: g.label })}</Text>
               </TouchableOpacity>
             ))}
           </View>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react"
-import { Platform, Pressable, ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewProps, type StyleProp, type ViewStyle, type ScrollViewInstance } from "react-native"
+import { Platform, Pressable, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewProps, type StyleProp, type ViewStyle, type ScrollViewInstance } from "react-native"
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg"
 import { colors, withAlpha } from "@/theme/colors"
 
@@ -21,6 +21,9 @@ type Props = Omit<ScrollViewProps, "children" | "horizontal" | "onScroll" | "onC
 }
 
 let cueId = 0
+
+/** How long the cues stay up after the last scroll movement before they fade away. */
+const CUE_IDLE_MS = 1400
 
 function CueChevron({ direction, color }: { direction: "back" | "forward" | "up" | "down"; color: string }) {
   const path = direction === "back" ? "M12.5 4.5 7 10l5.5 5.5"
@@ -68,6 +71,16 @@ export function OverflowCueScrollView({
   const [content, setContent] = useState(0)
   const offsetRef = useRef(0)
   const [cueVisibility, setCueVisibility] = useState({ start: false, end: false })
+  // The cues are a hint that content is hidden, not furniture: they show while
+  // something is moving and fade out once the rail has been still for a moment.
+  const [awake, setAwake] = useState(false)
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wake = useCallback(() => {
+    setAwake(true)
+    if (idleTimer.current) clearTimeout(idleTimer.current)
+    idleTimer.current = setTimeout(() => setAwake(false), CUE_IDLE_MS)
+  }, [])
+  useEffect(() => () => { if (idleTimer.current) clearTimeout(idleTimer.current) }, [])
   const maxOffset = Math.max(0, content - viewport)
   const canStart = cueVisibility.start
   const canEnd = cueVisibility.end
@@ -86,8 +99,9 @@ export function OverflowCueScrollView({
     const next = horizontal ? event.nativeEvent.contentOffset.x : event.nativeEvent.contentOffset.y
     offsetRef.current = Math.max(0, next)
     syncCueVisibility(offsetRef.current)
+    wake()
     onScroll?.(event)
-  }, [horizontal, onScroll, syncCueVisibility])
+  }, [horizontal, onScroll, syncCueVisibility, wake])
 
   const handleContentSizeChange = useCallback((width: number, height: number) => {
     setContent(horizontal ? width : height)
@@ -135,8 +149,10 @@ export function OverflowCueScrollView({
     if (horizontal) targetRef.current?.scrollTo({ x: next, animated: true })
     else targetRef.current?.scrollTo({ y: next, animated: true })
     syncCueVisibility(next)
+    wake()
   }
 
+  const fadeStyle = Platform.OS === "web" ? ({ transition: "opacity 220ms ease" } as object) : null
   const gradientId = `overflow-cue-${id}`
   const edgeSize = horizontal ? 34 : 36
   const fade = horizontal
@@ -165,7 +181,7 @@ export function OverflowCueScrollView({
       </ScrollView>
 
       {canStart ? (
-        <>
+        <View pointerEvents={awake ? "box-none" : "none"} style={[StyleSheet.absoluteFill, { opacity: awake ? 1 : 0 }, fadeStyle]}>
           <Svg
             pointerEvents="none"
             width={horizontal ? edgeSize : "100%"}
@@ -192,11 +208,11 @@ export function OverflowCueScrollView({
           >
             <CueChevron direction={horizontal ? "back" : "up"} color={cueColor} />
           </Pressable>
-        </>
+        </View>
       ) : null}
 
       {canEnd ? (
-        <>
+        <View pointerEvents={awake ? "box-none" : "none"} style={[StyleSheet.absoluteFill, { opacity: awake ? 1 : 0 }, fadeStyle]}>
           <Svg
             pointerEvents="none"
             width={horizontal ? edgeSize : "100%"}
@@ -223,7 +239,7 @@ export function OverflowCueScrollView({
           >
             <CueChevron direction={horizontal ? "forward" : "down"} color={cueColor} />
           </Pressable>
-        </>
+        </View>
       ) : null}
     </View>
   )

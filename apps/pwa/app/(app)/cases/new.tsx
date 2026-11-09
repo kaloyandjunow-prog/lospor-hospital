@@ -979,7 +979,7 @@ export default function NewCaseScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         {preopMode === "overview" ? <PreopOverview tc={tc} shade={shade} items={computeSectionItems()} finalizedAt={preopFinalizedAt} caseStatus={preopCaseStatus} continueId={continueId ?? undefined} saving={saving} onJump={jumpTo} onContinue={handleSubmit(onSubmit, onInvalid)} /> : <View style={{ flex: 1 }} {...(preopLayout === "sections" ? sectionSwipeResponder.panHandlers : {})}>
-        <PreopSectionRail labels={SECTION_LABELS} activeSection={activeSection} sectionRailRef={sectionRailRef} headerAnim={headerAnim} primaryHeaderHeight={primaryHeaderHeight} insetTop={insets.top} homeLabel={t("dashboard")} onHome={() => router.replace("/(app)")} onJump={jumpTo} onPillLayout={(section, event) => { pillLayouts.current[section] = { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width } }} />
+        <PreopSectionRail labels={SECTION_LABELS} activeSection={activeSection} sectionRailRef={sectionRailRef} headerAnim={headerAnim} primaryHeaderHeight={primaryHeaderHeight} insetTop={insets.top} headerHidden={appHeaderHidden} title={tc("preopTitle")} homeLabel={t("dashboard")} onHome={() => router.replace("/(app)")} onJump={jumpTo} onPillLayout={(section, event) => { pillLayouts.current[section] = { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width } }} />
 
         <Animated.ScrollView
           ref={scrollRef}

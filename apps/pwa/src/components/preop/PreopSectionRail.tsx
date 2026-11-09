@@ -4,41 +4,51 @@ import Ionicons from "@expo/vector-icons/Ionicons"
 import { colors, withAlpha } from "@/theme/colors"
 import type { PreopSection } from "@/lib/preop-form-schema"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
+import { AppHeader } from "@/components/AppHeader"
 
-export function PreopSectionRail({ labels, activeSection, sectionRailRef, headerAnim, primaryHeaderHeight, insetTop, homeLabel, onHome, onJump, onPillLayout }: {
+export function PreopSectionRail({ labels, activeSection, sectionRailRef, headerAnim, primaryHeaderHeight, insetTop, headerHidden, title, homeLabel, onHome, onJump, onPillLayout }: {
   labels: { key: PreopSection; label: string }[]
   activeSection: PreopSection
   sectionRailRef: RefObject<ScrollViewInstance | null>
   headerAnim: Animated.Value
   primaryHeaderHeight: number
   insetTop: number
+  /** The primary header has scrolled away: the rail then carries its own Home button. */
+  headerHidden: boolean
+  title: string
   homeLabel: string
   onHome: () => void
   onJump: (section: PreopSection) => void
   onPillLayout: (section: PreopSection, event: LayoutChangeEvent) => void
 }) {
   return <>
-    <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 30, height: primaryHeaderHeight, overflow: "hidden", backgroundColor: colors.background, opacity: headerAnim.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 0.2, 0] }), transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -primaryHeaderHeight] }) }] }} />
+    <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 30, height: primaryHeaderHeight, overflow: "hidden", backgroundColor: colors.background, opacity: headerAnim.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 0.2, 0] }), transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -primaryHeaderHeight] }) }] }}>
+      {/* The universal header: Home and Settings stay at the top of the screen while the form is untouched. */}
+      <AppHeader title={title} showNewCase={false} />
+    </Animated.View>
     <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 29, backgroundColor: colors.background, paddingTop: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [12, insetTop + 10] }), paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [primaryHeaderHeight, 0] }) }] }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable
-          onPress={onHome}
-          accessibilityRole="button"
-          accessibilityLabel={homeLabel}
-          style={{
-            marginLeft: 20,
-            width: 38,
-            height: 38,
-            borderRadius: 999,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: colors.surfaceRaised,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <Ionicons name="home-outline" size={20} color={colors.textSecondary} />
-        </Pressable>
+        {/* Home lives in the header at the top; this copy exists only once the header has scrolled away, so there is never a second Home button on screen. */}
+        {headerHidden ? (
+          <Pressable
+            onPress={onHome}
+            accessibilityRole="button"
+            accessibilityLabel={homeLabel}
+            style={{
+              marginLeft: 20,
+              width: 38,
+              height: 38,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.surfaceRaised,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Ionicons name="home-outline" size={20} color={colors.textSecondary} />
+          </Pressable>
+        ) : <View style={{ width: 10 }} />}
         <OverflowCueScrollView
           horizontal
           scrollRef={sectionRailRef}

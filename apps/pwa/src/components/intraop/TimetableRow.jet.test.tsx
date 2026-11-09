@@ -63,3 +63,16 @@ describe("jet ventilation in the phone's rows (10.2.0)", () => {
 })
 
 export type { RunningItem }
+
+describe("the Jet quick add in an expanded row", () => {
+  it("appears beside FGF once Jet is ticked among the ventilation modes, and not before", async () => {
+    const { jetSheet } = await import("@/lib/jet-sheet")
+    const { tree } = row(2, true)
+    const has = () => tree.root.findAll(node => node.props?.testID === "timetable-quick-add-jet").length > 0
+    expect(has()).toBe(false)
+    act(() => jetSheet.setEnabled(true))
+    expect(has()).toBe(true)
+    act(() => jetSheet.setEnabled(false))
+    expect(has()).toBe(false)
+  })
+})
