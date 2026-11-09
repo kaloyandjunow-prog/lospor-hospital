@@ -3,10 +3,10 @@
 ## [1.8.0] - 2026-11-09
 
 Brings the anaesthesia record, the intraoperative suggestions and the timed complications to the appliance, vendors
-Core, API, Web and PWA 10.2.0 and the Research Browser 0.11.0, and speaks Central exchange contract 2.8.0.
+Core, API, Web and PWA 10.3.0 and the Research Browser 0.11.1, and speaks Central exchange contract 2.8.0.
 
 **Update order:** Central 2.8.0 must be deployed before a site updates to this release, because Central refuses a
-contract version it does not support. The update installs the new database migrations and the 10.2.0 clinical rule
+contract version it does not support. The update installs the new database migrations and the 10.3.0 clinical rule
 baselines; rollback is backup-required.
 
 ### Added
@@ -77,6 +77,9 @@ baselines; rollback is backup-required.
 
 ### Changed
 
+- **The planned procedure on the postoperative record is a Status switch.** "Procedure done" still starts as the
+  planned procedure; it is now one line of the SPS Reminders group (on by default) that Status switches off, and a
+  clinician for themselves. Off, the field starts empty. It waits for the policy to load before filling the field in.
 - **The informed-consent text may be 100,000 characters** (it was 40,000).
 - **Central exchange contract 2.8.0** (from 2.6.0): the suggestion an entry was saved from, the death table, the
   moment and route of a drug, and a complication's start and end.
@@ -85,6 +88,14 @@ baselines; rollback is backup-required.
   are never rewritten.
 - The offline PWA keeps its owner-bound encrypted drafts, and gives queued clinical writes the signed-in account as
   owner.
+
+### Security
+
+- **Dependencies are audited again, and nothing is left to accept.** `minimatch` is overridden to the patched 11.0.5
+  (GHSA-g3hv-75wg-m249) in Core, the API, the Browser and Status, which clears every moderate finding there, and the
+  phone app's build chain takes `glob` 14.0.4 (GHSA-3g3m-2fjr-6pw4). The three Expo advisories this appliance had
+  accepted since 1.7.0 are gone with Expo 58, so the audit gate has no exceptions. `npm audit` finds no high or
+  critical advisory anywhere, and `release-risk-exceptions.json` stays empty.
 
 ### Fixed
 
