@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { mergeChangelog, mergePackageJson, resolveConflict } from "./vendor-conflict-rules.mjs"
+import { mergeAppJson, mergeChangelog, mergePackageJson, resolveConflict } from "./vendor-conflict-rules.mjs"
 
 const json = value => `${JSON.stringify(value, null, 2)}\n`
 
@@ -68,4 +68,24 @@ test("every other file stops for a human", () => {
   for (const path of ["src/components/forms/IntraopForm.tsx", "apps/web/package.json", "src/package.json", "CHANGELOG.bg.md", "src/generated/other.json"]) {
     assert.equal(resolveConflict(path, { base: "b", ours: "o", theirs: "t" }), null, path)
   }
+})
+
+const app = (identity, extra = {}) => json({ expo: { ...identity, orientation: "portrait", ...extra } })
+const upstreamIdentity = version => ({ name: "LOSPOR", slug: "lospor-mobile", version, scheme: "lospor" })
+const ourIdentity = { name: "LOSPOR Hospital", slug: "lospor-hospital", version: "1.0.0", scheme: "lospor-hospital" }
+
+test("app.json keeps the appliance's Expo identity and takes the rest of upstream's changes", () => {
+  const { text, notes } = mergeAppJson(app(upstreamIdentity("10.2.0")), app(ourIdentity), app(upstreamIdentity("10.3.0"), { userInterfaceStyle: "dark" }))
+  assert.deepEqual(JSON.parse(text).expo, { ...ourIdentity, orientation: "portrait", userInterfaceStyle: "dark" })
+  assert.ok(notes.some(note => note.startsWith("expo.version")))
+  assert.ok(text.endsWith("}\n"))
+})
+
+test("app.json leaves a field the appliance changed alone, and refuses when both sides changed the same one", () => {
+  const baseApp = app(upstreamIdentity("10.2.0"), { orientation: "portrait" })
+  const kept = mergeAppJson(baseApp, app(ourIdentity, { orientation: "landscape" }), app(upstreamIdentity("10.3.0"), { orientation: "portrait" }))
+  assert.equal(JSON.parse(kept.text).expo.orientation, "landscape")
+  assert.throws(() => mergeAppJson(baseApp, app(ourIdentity, { orientation: "landscape" }), app(upstreamIdentity("10.3.0"), { orientation: "default" })), /both sides changed expo.orientation/)
+  assert.equal(resolveConflict("app.json", { base: baseApp, ours: app(ourIdentity, { orientation: "landscape" }), theirs: app(upstreamIdentity("10.3.0"), { orientation: "default" }) }), null)
+  assert.equal(resolveConflict("app.json", { base: null, ours: "{}", theirs: "{}" }), null)
 })

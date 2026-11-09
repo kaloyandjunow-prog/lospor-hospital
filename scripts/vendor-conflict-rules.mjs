@@ -74,6 +74,35 @@ export function mergePackageJson(base, ours, theirs) {
   return { text: `${JSON.stringify(merged, null, 2)}\n`, notes }
 }
 
+/** The Expo identity of the appliance's phone app: LOSPOR Hospital, never upstream's LOSPOR (10.3.0). */
+const APP_IDENTITY = new Set(["name", "slug", "version", "scheme"])
+
+/**
+ * `apps/pwa/app.json`: the appliance keeps its own name, slug, version and scheme, and takes whatever else upstream
+ * changed that the appliance had left alone. Both sides changing the same other field is for a human.
+ */
+export function mergeAppJson(base, ours, theirs) {
+  const [b, o, t] = [base, ours, theirs].map(text => JSON.parse(text))
+  const merged = JSON.parse(JSON.stringify(o))
+  const notes = []
+  for (const key of new Set([...Object.keys(o.expo ?? {}), ...Object.keys(t.expo ?? {})])) {
+    if (APP_IDENTITY.has(key)) {
+      if (key in o.expo) notes.push(`expo.${key}: appliance identity kept`)
+      continue
+    }
+    const [before, mine, theirsValue] = [b.expo?.[key], o.expo?.[key], t.expo?.[key]]
+    if (same(mine, theirsValue) || same(before, theirsValue)) continue
+    if (same(before, mine)) {
+      if (theirsValue === undefined) delete merged.expo[key]
+      else merged.expo[key] = theirsValue
+      notes.push(`expo.${key}: upstream taken`)
+      continue
+    }
+    throw new RuleRefusal(`app.json: both sides changed expo.${key}, and no rule covers it`)
+  }
+  return { text: `${JSON.stringify(merged, null, 2)}\n`, notes }
+}
+
 const SECTION = /^## \[([^\]]+)\][^\n]*$/gm
 
 function sections(text) {
@@ -119,6 +148,10 @@ export function resolveConflict(relativePath, { base, ours, theirs }) {
     if (relativePath === "package.json") {
       if (base === null || ours === null || theirs === null) return null
       return { ...mergePackageJson(base, ours, theirs), rule: "package-json" }
+    }
+    if (relativePath === "app.json") {
+      if (base === null || ours === null || theirs === null) return null
+      return { ...mergeAppJson(base, ours, theirs), rule: "app-json" }
     }
     if (relativePath === "CHANGELOG.md") {
       if (base === null || ours === null || theirs === null) return null
