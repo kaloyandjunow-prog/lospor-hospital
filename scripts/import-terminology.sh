@@ -204,8 +204,11 @@ if ! database_exists "$stage_database"; then
   write_pending staged
 fi
 
+# The concept-map seed keeps all of its ~125,000 rows in memory. Node sized its heap from the container's 1 GB and ran
+# out at about half way (1.8.0 candidate run): the heap is stated here, inside the tools container's 2 GB.
 stage_run() {
   MSYS_NO_PATHCONV=1 docker compose --profile tools run --rm --no-deps --interactive=false -T \
+    -e NODE_OPTIONS=--max-old-space-size=1536 \
     -e HOSPITAL_TERMINOLOGY_DATABASE="$stage_database" tools sh -eu -c '
       case "$DATABASE_URL" in */lospor) ;; *) echo "Unexpected database URL shape." >&2; exit 1 ;; esac
       DATABASE_URL="${DATABASE_URL%/lospor}/$HOSPITAL_TERMINOLOGY_DATABASE"

@@ -103,6 +103,10 @@ baselines; rollback is backup-required.
 
 ### Fixed
 
+- **The terminology import no longer runs out of memory in the concept-map step.** The seed keeps its ~125,000 rows in
+  memory and Node sized the heap from the tools container's 1 GB, so the first 1.8.0 candidate stopped half way. The
+  heap is now stated (1.5 GB) and the tools container, which only runs for imports, has 2 GB.
+
 - **The informed-consent text could not be saved at its stated size.** The API read a consent request through the
   16 KiB limit of the other control routes, so even the bundled paediatric text (17,321 bytes as JSON) was
   refused and the effective limit was about 8,000 Bulgarian letters. The route now reads up to 512 KiB and Status
