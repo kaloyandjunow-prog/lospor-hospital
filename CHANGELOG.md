@@ -1,5 +1,33 @@
 # Changelog - LOSPOR Hospital
 
+## [1.8.1] - 2026-11-09
+
+A patch release for the phone app and the web server's cache rules. It vendors API, Web and PWA 10.3.1 (Core stays
+10.3.0, Browser 0.11.1). There is no database migration and no change to the exchange contract, so Central needs no
+update; rollback is backup-required.
+
+### Fixed
+
+- **A new release reaches the phone app without clearing anything.** The PWA's web server sent the app shell
+  (`index.html`) with no cache instruction, so Chrome chose its own lifetime and a phone could keep showing the
+  previous release's screens for days, even after the site data was cleared. The shell and the service worker are
+  now revalidated on every load; only the hashed bundles keep the long cache. A phone that is already stuck is
+  corrected by opening the app at a new address once (for example `/app/?x=1`) or by clearing the site's data.
+- **The Jet button is in the timetable.** With Jet ticked among the ventilation modes, a Jet button sits beside FGF
+  in every expanded row and opens the jet sheet at that row's time; a running jet is still drawn as a strip down the
+  rows.
+- **Equipment asks for the time when it records an airway device.** "Record in Airway" on the suggested tube or LMA
+  opens the Airway tab's panel (details, then start, now or a picked time) and writes nothing until it is confirmed.
+  The Airway tab no longer suggests a size on a card whose device is already in place; an oral or nasal tube in use
+  answers the one tube suggestion for both cards.
+- **Calmer screens.** Scroll cues on rails and sheets show only while something moves; the preop form has its Home
+  and Settings header again (empty since 10.0.0); the carrier gas buttons (O2, Air, N2O) are centred.
+
+### Accepted risk
+
+- The Caddy image still carries `go-jose/v3` (CVE-2026-116587), for which upstream has no patched release. The
+  maintainer accepted it again for this release; the exception expires on 2027-01-31. Every other image scans clean.
+
 ## [1.8.0] - 2026-11-09
 
 Brings the anaesthesia record, the intraoperative suggestions and the timed complications to the appliance, vendors
