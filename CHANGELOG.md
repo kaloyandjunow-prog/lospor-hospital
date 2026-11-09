@@ -21,6 +21,20 @@
   person link on the national identifier (ЕГН).
 - Status dependencies updated.
 
+### Changed
+
+- **Upstream 10.2.0 vendored:** Core, API, Web and PWA at 10.2.0 and the Research Browser at 0.11.0.
+  The appliance's own edits are kept (no server-generated PDF, owner-bound encrypted offline drafts, the
+  patient-number and username sign-in, no external telemetry); the PWA also gives upstream's queued
+  clinical writes the signed-in account as owner.
+- **Central exchange contract 2.8.0** (from 2.6.0): the columns the 10.2.0 API writes, among them the
+  suggestion source on six tables, the death table, drug dose time and route, and a complication's start
+  and end. Central 2.8.0 must be deployed before a site updates to this release.
+- **The v4 rule-baseline provisioner audits through the privacy-enforcing helper**, as v2 and v3 do.
+- **Two laboratory-threshold dictionary entries** declare the dictionary version they were introduced at
+  (4.9.0), so the dictionary's own version check holds.
+- The compose defaults and the versions an exported batch declares follow the vendored 10.2.0.
+
 ## [1.7.3] - 2026-10-30
 
 Improves operating-theatre assignment from the phone app and keeps the
