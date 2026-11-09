@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Database
 
+## [0.11.1] - 2026-11-09
+
+### Dependencies
+
+- `minimatch` is overridden to the patched 11.0.5 (GHSA-g3hv-75wg-m249), which clears the thirteen moderate findings
+  that came through `eslint`, `typescript-eslint` and `eslint-config-next`. `npm audit` now finds nothing. No code
+  changed; typecheck, lint and the tests pass.
+
 ## [0.11.0] - 2026-11-03
 
 ### Changed
