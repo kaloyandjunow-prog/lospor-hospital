@@ -86,6 +86,7 @@ import { intraopUpdateFromForm } from "./intraop-ui.js"
 import { readingsUpdateFromForm } from "./readings-ui.js"
 import { UNUSUAL_READINGS_SCRIPT } from "./readings-script.js"
 import { INTRAOP_SEARCH_SCRIPT } from "./intraop-search-script.js"
+import { historyQueryOf, type HistoryQuery } from "./history-ui.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -1238,11 +1239,13 @@ export function createStatusApp({
     discoveredNumberings?: readonly string[],
     fileCheck?: EhrFileCheck,
     drugColorsQuery?: DrugColorsQuery,
+    historyQuery?: HistoryQuery,
   ) => {
     const current = await controlDirectory()
     // The Unusual readings tab is large and read on its own, only when that tab is open.
     const readings = section === "intraop/readings" ? await controlPlane.intraopReadings().catch(() => null) : undefined
     const trend = section === "intraop/acceptance" ? await controlPlane.intraopAcceptance().catch(() => null) : undefined
+    const history = section === "history" && historyQuery ? await controlPlane.auditHistory(historyQuery).catch(() => null) : undefined
     return renderControlPlane(
       current.view,
       locale,
@@ -1256,6 +1259,8 @@ export function createStatusApp({
       drugColorsQuery,
       readings,
       trend,
+      history,
+      historyQuery,
     )
   }
 
@@ -1442,7 +1447,8 @@ export function createStatusApp({
     const drugColorsQuery: DrugColorsQuery | undefined = section === "drug-colors"
       ? { q: context.req.query("q")?.slice(0, 100), edit: context.req.query("edit")?.slice(0, 220) }
       : undefined
-    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch, undefined, undefined, drugColorsQuery))
+    const historyQuery = section === "history" ? historyQueryOf(name => context.req.query(name)) : undefined
+    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch, undefined, undefined, drugColorsQuery, historyQuery))
   }
   app.get("/status/control", context => controlGet(context))
   // One address per section, written as literals rather than a loop so the
@@ -1461,6 +1467,8 @@ export function createStatusApp({
   // The Unusual readings tab of the SPS page: not a page of its own in any menu.
   app.get("/status/control/intraop/readings", context => controlGet(context, "intraop/readings"))
   app.get("/status/control/intraop/acceptance", context => controlGet(context, "intraop/acceptance"))
+  // The change history: a page of its own, read from the audit rows.
+  app.get("/status/control/history", context => controlGet(context, "history"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))

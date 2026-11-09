@@ -34,6 +34,12 @@ baselines; rollback is backup-required.
   switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
   two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
   New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
+- **Status: Change history,** a page of its own (one row under People in every menu, and in Legacy). It reads the audit
+  rows: when, what was changed (hospital settings, accounts, Central, research access, clinical rules, maintenance), and
+  who did it, newest first, fifty to a page, filtered by area or by kind. It shows that a setting was changed, not why
+  or to what: the API selects only the row's id, actor, action and time, so the target id and the detail never leave the
+  database, and a reason an administrator gave stays apart from the audit rows. Sign-ins and case work are not in it.
+  The API sends it on its own (`GET …/control-plane/audit-history`).
 - **Status: Acceptance trend,** a third tab of the SPS page (still no menu entry, Legacy included). For every line, a
   month-by-month curve of how often it was taken against put away over the finished cases of the last year, the answers
   it carries, and the change of the latest three months against the three before. The rarely taken lines (ten answers or

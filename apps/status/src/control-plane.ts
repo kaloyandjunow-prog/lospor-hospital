@@ -206,6 +206,26 @@ export const MONITORING_DUE_RANGE = { min: 1, max: 120 } as const
 export const HYPERTENSION_BASELINE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50] as const
 export const DEFAULT_HYPERTENSION_BASELINE_PERCENT = 20
 
+/** The change history (10.3.0): who changed what, and when. No target id and no detail. */
+export type AuditHistoryView = {
+  rows: Array<{ id: string; at: string; action: string; category: string | null; labelEn: string; labelBg: string; who: string | null }>
+  total: number
+  page: number
+  pageSize: number
+  categories: string[]
+  actions: Array<{ code: string; category: string; labelEn: string; labelBg: string }>
+}
+
+export function auditHistoryShape(value: unknown): value is AuditHistoryView {
+  if (!isRecord(value) || !Array.isArray(value.rows) || !Array.isArray(value.categories) || !Array.isArray(value.actions)) return false
+  if (!Number.isInteger(value.total) || !Number.isInteger(value.page) || !Number.isInteger(value.pageSize) || (value.pageSize as number) < 1 || (value.pageSize as number) > 200) return false
+  if (value.rows.length > 200 || !value.categories.every(item => typeof item === "string")) return false
+  return value.rows.every(row => isRecord(row) && typeof row.id === "string" && typeof row.at === "string" && typeof row.action === "string"
+    && (row.category === null || typeof row.category === "string") && typeof row.labelEn === "string" && typeof row.labelBg === "string"
+    && (row.who === null || typeof row.who === "string"))
+    && value.actions.every(item => isRecord(item) && typeof item.code === "string" && typeof item.category === "string" && typeof item.labelEn === "string" && typeof item.labelBg === "string")
+}
+
 /** The acceptance of every SPS line by month (10.3.0): counts only. */
 export type AcceptanceTrendView = {
   months: string[]
@@ -920,6 +940,8 @@ export interface ControlPlanePort {
   intraopReadings(): Promise<IntraopReadingsView | null>
   /** How each SPS line was received, month by month; read only when that tab is open (10.3.0). */
   intraopAcceptance(): Promise<AcceptanceTrendView | null>
+  /** Who changed which setting or account, and when (10.3.0): read only. */
+  auditHistory(query: { page: number; category: string; action: string }): Promise<AuditHistoryView | null>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -1780,6 +1802,14 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void> {
     return this.mutate("/intraop-automation", input)
+  }
+  async auditHistory(query: { page: number; category: string; action: string }): Promise<AuditHistoryView | null> {
+    const params = new URLSearchParams()
+    if (query.page > 0) params.set("page", String(query.page))
+    if (query.category) params.set("category", query.category)
+    if (query.action) params.set("action", query.action)
+    const value = await this.request(`/audit-history${params.size ? `?${params}` : ""}`)
+    return auditHistoryShape(value) ? value : null
   }
   async intraopAcceptance(): Promise<AcceptanceTrendView | null> {
     const value = await this.request("/intraop-acceptance")

@@ -11,6 +11,7 @@ import { indicatorsFixture } from "./indicators.fixture.js"
 import { intraopFixture } from "./intraop.fixture.js"
 import { readingsFixture } from "./readings.fixture.js"
 import { acceptanceFixture } from "./acceptance.fixture.js"
+import { historyFixture } from "./history.fixture.js"
 import { NAV_GROUPS } from "./ui-shell.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
@@ -309,6 +310,7 @@ function setup() {
     get: vi.fn(async () => VIEW),
     intraopReadings: vi.fn(async () => null),
     intraopAcceptance: vi.fn(async () => null),
+    auditHistory: vi.fn(async () => null),
     hospitalLogo: vi.fn(async () => null),
     setHospitalLogo: vi.fn(async () => undefined),
     issueGrant: vi.fn(async () => {}),
@@ -2170,5 +2172,32 @@ describe("the Acceptance trend tab of the SPS page (10.3.0)", () => {
       expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/acceptance")
       trend.mockClear()
     }
+  })
+})
+
+describe("the Change history page (10.3.0)", () => {
+  it("is one row in every skin's menu, reads the audit rows, and keeps the filter", async () => {
+    const { app, auth, controlPlane } = setup()
+    const history = vi.spyOn(controlPlane, "auditHistory").mockResolvedValue(historyFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      const html = await page("/status/control/history?category=SECURITY&page=1", skin)
+      expect(html, skin).toContain('data-testid="history-table"')
+      expect(history).toHaveBeenLastCalledWith({ page: 1, category: "SECURITY", action: "" })
+      expect(await page("/status/control/clinical", skin), skin).not.toContain('data-testid="history-table"')
+    }
+    // Every skin but Legacy (which has no menu) lists it once among the pages.
+    for (const skin of ["maphub", "sidebar", "index", "console"]) {
+      expect(await page("/status/control/history", skin), skin).toContain('href="/status/control/history"')
+    }
+  })
+
+  it("is not read for any other page", async () => {
+    const { app, auth, controlPlane } = setup()
+    const history = vi.spyOn(controlPlane, "auditHistory").mockResolvedValue(historyFixture())
+    const cookie = await passwordCookie(app, auth)
+    await app.request("/status/control/identity", { headers: { cookie } })
+    expect(history).not.toHaveBeenCalled()
   })
 })

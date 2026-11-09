@@ -102,6 +102,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   { id: "people", en: "People", bg: "Хора", items: [
     { id: "accounts", path: "/status/accounts", en: "Accounts", bg: "Профили", descEn: "Everyone who signs in to LOSPOR, and the Status administrators.", descBg: "Всички, които влизат в LOSPOR, и администраторите на Status.", audiences: PASSWORD },
     { id: "research", path: "/status/control/research", en: "Research access", bg: "Достъп за изследвания", descEn: "Research grants and the exact OMOP exports approved.", descBg: "Разрешения за изследвания и одобрените OMOP набори.", audiences: PASSWORD },
+    { id: "history", path: "/status/control/history", en: "Change history", bg: "История на промените", descEn: "Who changed which setting or account, and when.", descBg: "Кой коя настройка или кой профил е променил, и кога.", audiences: PASSWORD },
   ] },
   { id: "care", en: "Updates and backups", bg: "Актуализации и резервни копия", items: [
     { id: "updates", path: "/status/release", en: "Updates", bg: "Актуализации", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
