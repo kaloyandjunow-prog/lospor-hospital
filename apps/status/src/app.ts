@@ -98,6 +98,7 @@ const EHR_CHECK_FILE_MAX_BYTES = 1024 * 1024
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
+  CONSENT_FORM_MAX_BYTES,
   CONSENT_TEXT_MAX_LENGTH,
   isPreopDocumentLayout,
   EHR_CODE_LIST_ANSWERS,
@@ -1660,7 +1661,8 @@ export function createStatusApp({
     locale => localize(locale, "The consent text was saved as a new version and audited. Sheets printed from now on carry it; earlier sheets keep the version they were printed with.", "Текстът на съгласието е запазен като нов вариант и записан в одитния журнал. Отпечатаните отсега нататък листове го съдържат; по-рано отпечатаните запазват своя вариант."),
     "preop/documents",
     undefined,
-    300_000,
+    // 100,000 Bulgarian characters are about 600 KB in a form body (each letter is six bytes once encoded).
+    CONSENT_FORM_MAX_BYTES,
   ))
 
   app.post("/status/control/external-ai/policy", context => sensitiveControlAction(

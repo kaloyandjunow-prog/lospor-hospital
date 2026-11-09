@@ -561,6 +561,13 @@ export const preopDocumentsUpdateSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+/**
+ * The request a consent text is saved with. The control routes read at most 16 KiB, which is less than
+ * the bundled paediatric text (17,321 bytes as JSON: Cyrillic is two bytes a letter), so a consent could not
+ * be saved from Status at all. 100,000 letters are about 200 KB; four bytes a character at most is 400 KB.
+ */
+export const CONSENT_REQUEST_MAX_BYTES = 524_288
+
 export const consentTemplateSaveSchema = z.object({
   population: z.enum(["ADULT", "PEDIATRIC"]),
   title: z.string().trim().min(1).max(CONSENT_TITLE_MAX_LENGTH),

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { ControlPlaneClient } from "./control-plane.js"
+import { CONSENT_FORM_MAX_BYTES, CONSENT_TEXT_MAX_LENGTH, ControlPlaneClient } from "./control-plane.js"
 
 const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
@@ -773,5 +773,14 @@ describe("the preop summary and consent through the control plane (1.6.0)", () =
       "http://api:3002/v1/internal/hospital/control-plane/consent-templates",
     ])
     expect(JSON.parse(String((calls[1]![1] as RequestInit).body))).toEqual({ population: "PEDIATRIC", title: "Съгласие", body: "Текст.", reason: "Текстът на болницата" })
+  })
+})
+
+describe("the consent text form (10.2.0)", () => {
+  it("takes the longest text: 100,000 Bulgarian letters, as a form encodes them", () => {
+    expect(CONSENT_TEXT_MAX_LENGTH).toBe(100_000)
+    // A form body encodes each Cyrillic letter as six bytes; a new line as six too.
+    const encoded = new URLSearchParams({ body: "я".repeat(CONSENT_TEXT_MAX_LENGTH) }).toString().length
+    expect(encoded).toBeLessThan(CONSENT_FORM_MAX_BYTES)
   })
 })

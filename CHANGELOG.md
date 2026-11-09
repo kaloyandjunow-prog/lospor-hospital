@@ -28,11 +28,16 @@
 
 ### Fixed
 
+- **The informed-consent text could not be saved at its stated size:** the API read a consent request through the
+  16 KiB limit of the other control routes, so even the bundled paediatric text (17,321 bytes as JSON) was
+  refused, and the effective limit was about 8,000 Bulgarian letters, not 40,000. The route now reads up to
+  512 KiB, and Status takes a form of 1 MB.
 - **Renaming the hospital could not be saved:** its audit row used a key called `name`, which the audit
   guard refuses. The row now keeps `previousHospitalName` and `hospitalName`.
 
 ### Changed
 
+- **The informed-consent text may be 100,000 characters** (was 40,000), from Core 10.2.0's limit.
 - **Upstream 10.2.0 vendored:** Core, API, Web and PWA at 10.2.0 and the Research Browser at 0.11.0.
   The appliance's own edits are kept (no server-generated PDF, owner-bound encrypted offline drafts, the
   patient-number and username sign-in, no external telemetry); the PWA also gives upstream's queued

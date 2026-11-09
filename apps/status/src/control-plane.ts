@@ -294,8 +294,10 @@ export type PreopDocumentsView = {
   history: Record<ConsentPopulation, ConsentHistoryEntry[]>
 }
 
-/** The longest consent text the API takes (Core CONSENT_TEXT_MAX_LENGTH). */
-export const CONSENT_TEXT_MAX_LENGTH = 40_000
+/** The longest consent text the API takes (Core CONSENT_TEXT_MAX_LENGTH, 100,000 since Core 10.2.1). */
+export const CONSENT_TEXT_MAX_LENGTH = 100_000
+/** The form a consent text is saved with: Cyrillic is six bytes a letter once a form encodes it, so 100,000 letters need about 600 KB. */
+export const CONSENT_FORM_MAX_BYTES = 1_000_000
 
 export type ResearchGrantInput = {
   userId: string
