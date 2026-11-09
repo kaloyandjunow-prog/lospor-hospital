@@ -12,7 +12,9 @@ ENV NPM_CONFIG_FETCH_RETRIES=5 \
 # Prisma's schema engine needs the OpenSSL executable while generating and
 # deploying the client. The shared OpenSSL libraries are already part of the
 # official Node Alpine image; install only the small CLI package here.
-RUN apk add --no-cache openssl
+# The operating-system packages are brought to the repository's current versions first: the migrate and tools
+# images are built from this stage and, like the runtime image, must not ship a fixable HIGH (musl, zlib in 1.8.0).
+RUN apk upgrade --no-cache && apk add --no-cache openssl
 
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY vendor/exchange-contract/package.json vendor/exchange-contract/package-lock.json ./vendor/exchange-contract/
