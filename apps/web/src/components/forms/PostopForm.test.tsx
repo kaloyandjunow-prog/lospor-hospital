@@ -2,8 +2,9 @@
 
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { defaultPreopSectionConfig } from "@lospor/core/preop-orders"
+import { parseIntraopAutomation } from "@lospor/core/intraop-automation"
 import enMessages from "../../../messages/en.json"
 
 vi.mock("@/hooks/useOptionLibrary", () => ({
@@ -14,6 +15,12 @@ vi.mock("@/hooks/useOptionLibrary", () => ({
     loading: false, source: "bundled",
   }),
   useRange: () => ({ min: 0, max: 300, step: 1, unit: "" }),
+}))
+
+const automation = vi.hoisted(() => ({ settings: undefined as unknown, ready: true }))
+vi.mock("@/lib/use-intraop-automation", () => ({
+  useIntraopAutomation: () => ({ settings: automation.settings, ready: automation.ready }),
+  useAutomationPreferences: () => ({ keepLogging: true, user: {} }),
 }))
 
 import { PostopForm } from "./PostopForm"
@@ -32,6 +39,20 @@ const performedRow = () => screen.getByTestId("performed-procedure")
 const submit = async (container: HTMLElement) => { await act(async () => { fireEvent.submit(container.querySelector("form") as HTMLFormElement) }) }
 
 describe("the procedure done (10.0.0)", () => {
+  beforeEach(() => { automation.settings = parseIntraopAutomation({ enabled: true, groups: { reminders: true } }); automation.ready = true })
+
+  it("starts empty when Status has switched the planned procedure off (10.3.0)", () => {
+    automation.settings = parseIntraopAutomation({ enabled: true, groups: { reminders: true }, disabled: ["reminder:procedurePrefill"] })
+    renderForm({ plannedProcedures: [{ label: "Cholecystectomy" }] })
+    expect(within(performedRow()).queryByText("Cholecystectomy")).toBeNull()
+  })
+
+  it("waits for the policy before filling it in", () => {
+    automation.ready = false
+    renderForm({ plannedProcedures: [{ label: "Cholecystectomy" }] })
+    expect(within(performedRow()).queryByText("Cholecystectomy")).toBeNull()
+  })
+
   it("starts as the planned procedure, and is not marked required", () => {
     renderForm({ plannedProcedures: [{ label: "Cholecystectomy" }] })
     expect(within(performedRow()).getAllByText("Cholecystectomy").length).toBeGreaterThan(0)

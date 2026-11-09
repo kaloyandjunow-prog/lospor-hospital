@@ -45,7 +45,8 @@ export function RecordSheets({ data, locale }: { data: CaseDetail; locale: strin
   const bandLocale = toClinicalLocale(locale)
   const infusionWeightBasis = useInfusionWeightBasis()
   const p = data.preop, i = data.intraop, o = data.postop, inst = data.institution
-  const timetable = ((i?.keyEvents && typeof i.keyEvents === "object" && !Array.isArray(i.keyEvents)) ? i.keyEvents : {}) as LegacyKeyEvents
+  const keyEvents = i?.keyEvents
+  const timetable = useMemo(() => ((keyEvents && typeof keyEvents === "object" && !Array.isArray(keyEvents)) ? keyEvents : {}) as LegacyKeyEvents, [keyEvents])
   const hospital = inst?.name ?? "LOSPOR"
 
   const model = useMemo(() => buildRecordTimetable(timetable, { startedAt: i?.startedAt, startISO: i?.startTime, timezone: i?.timezone }, locale), [timetable, i?.startedAt, i?.startTime, i?.timezone, locale])

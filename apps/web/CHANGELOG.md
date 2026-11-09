@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Web App
 
+## [10.3.0] - 2026-11-09
+
+### Added
+
+- **The planned procedure on the postoperative record follows a Status switch.** "Procedure done" still starts as
+  the planned procedure, but it is now one line of the SPS Reminders group: a hospital switches it off in Status (or the
+  whole group), a clinician for themselves. Off, the field starts empty. The form waits for the policy to load before
+  filling the field in, so a switched-off line is never overtaken by the fill.
+
+### Fixed
+
+- The record sheet's timetable is memoised, so the tables built from it no longer recompute on every render
+  (`react-hooks/exhaustive-deps`); the postoperative form no longer imports a hook it does not use.
+
+### Dependencies
+
+- `npm audit fix` (typescript-eslint 8.72, glob, and their tool-chain dependants) and the driver.js minor update.
+  `npm audit --omit=dev --audit-level=high` finds nothing. What is left are advisories with no patched release or
+  reached only through the development tool chain (`@ducanh2912/next-pwa` and `workbox-build`, `shadcn`'s `deepmerge`);
+  none is an error under the repo's gate.
+
 ## [10.2.0] - 2026-11-02
 
 ### Added

@@ -150,7 +150,7 @@ export function useVitalQuestionContext(preop: PreopAge, readOnly: boolean): Vit
 }
 
 /** The clinician's own switches (Settings): keep logging, and the groups turned off (10.2.0). */
-function useAutomationPreferences(): { keepLogging: boolean; user: UserAutomationSwitches } {
+export function useAutomationPreferences(): { keepLogging: boolean; user: UserAutomationSwitches } {
   const ownerId = useWebClinicalPreferencesOwner()
   const [preferences, setPreferences] = useState(() => readWebClinicalPreferences())
   useEffect(() => {
