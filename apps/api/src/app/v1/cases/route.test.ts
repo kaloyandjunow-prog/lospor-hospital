@@ -29,6 +29,7 @@ vi.mock("@/lib/dashboard-case-counts", () => ({
 // crypto behind `server-only` and cannot be imported from a test module.
 vi.mock("@/lib/hospital/patient-link", () => ({ resolvePatientLink: vi.fn(), resolvePatientIdentity: vi.fn() }))
 vi.mock("@/lib/hospital/patient-identifier-policy", () => ({ patientIdentifierCapabilityState: vi.fn().mockResolvedValue({ egnPermitted: true }) }))
+vi.mock("@/lib/hospital/patient-display", () => ({ admissionNumberVisible: vi.fn().mockResolvedValue(true), patientDisplayOf: vi.fn(() => null), patientDisplaySelect: {} }))
 vi.mock("@/lib/hospital/status-events", () => ({ emitStatusEvent: vi.fn() }))
 
 describe("GET /v1/cases pagination", () => {

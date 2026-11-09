@@ -16,10 +16,13 @@ import { displayClinicalCode } from "@/lib/clinical-display"
 import { caseIsWritable } from "@/lib/case-capabilities"
 import { displayPediatricAge } from "@lospor/core/pediatric"
 import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
+import { readPatientDisplay } from "@/lib/hospital-patient-reference"
 
 type CaseRow = {
   id: string
   caseCode: string | null
+  /** The full ИЗ № and the first six digits of a known ЕГН, while the site shows them (hospital 1.8.0). */
+  patientDisplay?: unknown
   status: string
   createdAt: Date
   userId: string
@@ -111,7 +114,7 @@ export function DashboardSearch({
 
   const filtered = query.trim()
     ? cases.filter(c => {
-        const hay = [c.preop?.plannedProcedure, c.preop?.diagnosis, c.caseCode, theatres ? c.theatre?.name : null]
+        const hay = [c.preop?.plannedProcedure, c.preop?.diagnosis, c.caseCode, readPatientDisplay(c.patientDisplay)?.admissionNumber, theatres ? c.theatre?.name : null]
           .filter(Boolean).join(" ").toLowerCase()
         return hay.includes(query.trim().toLowerCase())
       })
@@ -167,6 +170,16 @@ export function DashboardSearch({
                   <p className="text-sm text-slate-500 truncate mt-0.5">
                     {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
                   </p>
+                  {(() => {
+                    const who = readPatientDisplay(c.patientDisplay)
+                    return who ? (
+                      <p data-testid="patient-display" className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate mt-0.5">
+                        {who.admissionNumber ? <span>{t("case.admissionNumberShort")} <span className="font-mono">{who.admissionNumber}</span></span> : null}
+                        {who.admissionNumber && who.egnPrefix ? " · " : null}
+                        {who.egnPrefix ? <span>{t("case.egnPrefixShort")} <span className="font-mono">{who.egnPrefix}</span></span> : null}
+                      </p>
+                    ) : null
+                  })()}
                   </div>
                 </Link>
                 <div className="flex items-center gap-2 ml-4 shrink-0">

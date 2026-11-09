@@ -34,6 +34,7 @@ export type AggregateHospitalPatientIdentifierPolicy = {
 export type HospitalPatientIdentifierPolicyMinAggregateOutputType = {
   id: string | null
   egnPermitted: boolean | null
+  admissionNumberVisible: boolean | null
   changedAt: Date | null
   changedById: string | null
   changeReason: string | null
@@ -44,6 +45,7 @@ export type HospitalPatientIdentifierPolicyMinAggregateOutputType = {
 export type HospitalPatientIdentifierPolicyMaxAggregateOutputType = {
   id: string | null
   egnPermitted: boolean | null
+  admissionNumberVisible: boolean | null
   changedAt: Date | null
   changedById: string | null
   changeReason: string | null
@@ -54,6 +56,7 @@ export type HospitalPatientIdentifierPolicyMaxAggregateOutputType = {
 export type HospitalPatientIdentifierPolicyCountAggregateOutputType = {
   id: number
   egnPermitted: number
+  admissionNumberVisible: number
   changedAt: number
   changedById: number
   changeReason: number
@@ -66,6 +69,7 @@ export type HospitalPatientIdentifierPolicyCountAggregateOutputType = {
 export type HospitalPatientIdentifierPolicyMinAggregateInputType = {
   id?: true
   egnPermitted?: true
+  admissionNumberVisible?: true
   changedAt?: true
   changedById?: true
   changeReason?: true
@@ -76,6 +80,7 @@ export type HospitalPatientIdentifierPolicyMinAggregateInputType = {
 export type HospitalPatientIdentifierPolicyMaxAggregateInputType = {
   id?: true
   egnPermitted?: true
+  admissionNumberVisible?: true
   changedAt?: true
   changedById?: true
   changeReason?: true
@@ -86,6 +91,7 @@ export type HospitalPatientIdentifierPolicyMaxAggregateInputType = {
 export type HospitalPatientIdentifierPolicyCountAggregateInputType = {
   id?: true
   egnPermitted?: true
+  admissionNumberVisible?: true
   changedAt?: true
   changedById?: true
   changeReason?: true
@@ -169,6 +175,7 @@ export type HospitalPatientIdentifierPolicyGroupByArgs<ExtArgs extends runtime.T
 export type HospitalPatientIdentifierPolicyGroupByOutputType = {
   id: string
   egnPermitted: boolean
+  admissionNumberVisible: boolean
   changedAt: Date | null
   changedById: string | null
   changeReason: string | null
@@ -200,6 +207,7 @@ export type HospitalPatientIdentifierPolicyWhereInput = {
   NOT?: Prisma.HospitalPatientIdentifierPolicyWhereInput | Prisma.HospitalPatientIdentifierPolicyWhereInput[]
   id?: Prisma.StringFilter<"HospitalPatientIdentifierPolicy"> | string
   egnPermitted?: Prisma.BoolFilter<"HospitalPatientIdentifierPolicy"> | boolean
+  admissionNumberVisible?: Prisma.BoolFilter<"HospitalPatientIdentifierPolicy"> | boolean
   changedAt?: Prisma.DateTimeNullableFilter<"HospitalPatientIdentifierPolicy"> | Date | string | null
   changedById?: Prisma.StringNullableFilter<"HospitalPatientIdentifierPolicy"> | string | null
   changeReason?: Prisma.StringNullableFilter<"HospitalPatientIdentifierPolicy"> | string | null
@@ -211,6 +219,7 @@ export type HospitalPatientIdentifierPolicyWhereInput = {
 export type HospitalPatientIdentifierPolicyOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   egnPermitted?: Prisma.SortOrder
+  admissionNumberVisible?: Prisma.SortOrder
   changedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   changedById?: Prisma.SortOrderInput | Prisma.SortOrder
   changeReason?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -225,6 +234,7 @@ export type HospitalPatientIdentifierPolicyWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.HospitalPatientIdentifierPolicyWhereInput[]
   NOT?: Prisma.HospitalPatientIdentifierPolicyWhereInput | Prisma.HospitalPatientIdentifierPolicyWhereInput[]
   egnPermitted?: Prisma.BoolFilter<"HospitalPatientIdentifierPolicy"> | boolean
+  admissionNumberVisible?: Prisma.BoolFilter<"HospitalPatientIdentifierPolicy"> | boolean
   changedAt?: Prisma.DateTimeNullableFilter<"HospitalPatientIdentifierPolicy"> | Date | string | null
   changedById?: Prisma.StringNullableFilter<"HospitalPatientIdentifierPolicy"> | string | null
   changeReason?: Prisma.StringNullableFilter<"HospitalPatientIdentifierPolicy"> | string | null
@@ -236,6 +246,7 @@ export type HospitalPatientIdentifierPolicyWhereUniqueInput = Prisma.AtLeast<{
 export type HospitalPatientIdentifierPolicyOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   egnPermitted?: Prisma.SortOrder
+  admissionNumberVisible?: Prisma.SortOrder
   changedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   changedById?: Prisma.SortOrderInput | Prisma.SortOrder
   changeReason?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -252,6 +263,7 @@ export type HospitalPatientIdentifierPolicyScalarWhereWithAggregatesInput = {
   NOT?: Prisma.HospitalPatientIdentifierPolicyScalarWhereWithAggregatesInput | Prisma.HospitalPatientIdentifierPolicyScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"HospitalPatientIdentifierPolicy"> | string
   egnPermitted?: Prisma.BoolWithAggregatesFilter<"HospitalPatientIdentifierPolicy"> | boolean
+  admissionNumberVisible?: Prisma.BoolWithAggregatesFilter<"HospitalPatientIdentifierPolicy"> | boolean
   changedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalPatientIdentifierPolicy"> | Date | string | null
   changedById?: Prisma.StringNullableWithAggregatesFilter<"HospitalPatientIdentifierPolicy"> | string | null
   changeReason?: Prisma.StringNullableWithAggregatesFilter<"HospitalPatientIdentifierPolicy"> | string | null
@@ -262,6 +274,7 @@ export type HospitalPatientIdentifierPolicyScalarWhereWithAggregatesInput = {
 export type HospitalPatientIdentifierPolicyCreateInput = {
   id?: string
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: Date | string | null
   changeReason?: string | null
   createdAt?: Date | string
@@ -272,6 +285,7 @@ export type HospitalPatientIdentifierPolicyCreateInput = {
 export type HospitalPatientIdentifierPolicyUncheckedCreateInput = {
   id?: string
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: Date | string | null
   changedById?: string | null
   changeReason?: string | null
@@ -282,6 +296,7 @@ export type HospitalPatientIdentifierPolicyUncheckedCreateInput = {
 export type HospitalPatientIdentifierPolicyUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -292,6 +307,7 @@ export type HospitalPatientIdentifierPolicyUpdateInput = {
 export type HospitalPatientIdentifierPolicyUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -302,6 +318,7 @@ export type HospitalPatientIdentifierPolicyUncheckedUpdateInput = {
 export type HospitalPatientIdentifierPolicyCreateManyInput = {
   id?: string
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: Date | string | null
   changedById?: string | null
   changeReason?: string | null
@@ -312,6 +329,7 @@ export type HospitalPatientIdentifierPolicyCreateManyInput = {
 export type HospitalPatientIdentifierPolicyUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -321,6 +339,7 @@ export type HospitalPatientIdentifierPolicyUpdateManyMutationInput = {
 export type HospitalPatientIdentifierPolicyUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -341,6 +360,7 @@ export type HospitalPatientIdentifierPolicyOrderByRelationAggregateInput = {
 export type HospitalPatientIdentifierPolicyCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   egnPermitted?: Prisma.SortOrder
+  admissionNumberVisible?: Prisma.SortOrder
   changedAt?: Prisma.SortOrder
   changedById?: Prisma.SortOrder
   changeReason?: Prisma.SortOrder
@@ -351,6 +371,7 @@ export type HospitalPatientIdentifierPolicyCountOrderByAggregateInput = {
 export type HospitalPatientIdentifierPolicyMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   egnPermitted?: Prisma.SortOrder
+  admissionNumberVisible?: Prisma.SortOrder
   changedAt?: Prisma.SortOrder
   changedById?: Prisma.SortOrder
   changeReason?: Prisma.SortOrder
@@ -361,6 +382,7 @@ export type HospitalPatientIdentifierPolicyMaxOrderByAggregateInput = {
 export type HospitalPatientIdentifierPolicyMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   egnPermitted?: Prisma.SortOrder
+  admissionNumberVisible?: Prisma.SortOrder
   changedAt?: Prisma.SortOrder
   changedById?: Prisma.SortOrder
   changeReason?: Prisma.SortOrder
@@ -413,6 +435,7 @@ export type HospitalPatientIdentifierPolicyUncheckedUpdateManyWithoutChangedByNe
 export type HospitalPatientIdentifierPolicyCreateWithoutChangedByInput = {
   id?: string
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: Date | string | null
   changeReason?: string | null
   createdAt?: Date | string
@@ -422,6 +445,7 @@ export type HospitalPatientIdentifierPolicyCreateWithoutChangedByInput = {
 export type HospitalPatientIdentifierPolicyUncheckedCreateWithoutChangedByInput = {
   id?: string
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: Date | string | null
   changeReason?: string | null
   createdAt?: Date | string
@@ -460,6 +484,7 @@ export type HospitalPatientIdentifierPolicyScalarWhereInput = {
   NOT?: Prisma.HospitalPatientIdentifierPolicyScalarWhereInput | Prisma.HospitalPatientIdentifierPolicyScalarWhereInput[]
   id?: Prisma.StringFilter<"HospitalPatientIdentifierPolicy"> | string
   egnPermitted?: Prisma.BoolFilter<"HospitalPatientIdentifierPolicy"> | boolean
+  admissionNumberVisible?: Prisma.BoolFilter<"HospitalPatientIdentifierPolicy"> | boolean
   changedAt?: Prisma.DateTimeNullableFilter<"HospitalPatientIdentifierPolicy"> | Date | string | null
   changedById?: Prisma.StringNullableFilter<"HospitalPatientIdentifierPolicy"> | string | null
   changeReason?: Prisma.StringNullableFilter<"HospitalPatientIdentifierPolicy"> | string | null
@@ -470,6 +495,7 @@ export type HospitalPatientIdentifierPolicyScalarWhereInput = {
 export type HospitalPatientIdentifierPolicyCreateManyChangedByInput = {
   id?: string
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: Date | string | null
   changeReason?: string | null
   createdAt?: Date | string
@@ -479,6 +505,7 @@ export type HospitalPatientIdentifierPolicyCreateManyChangedByInput = {
 export type HospitalPatientIdentifierPolicyUpdateWithoutChangedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -488,6 +515,7 @@ export type HospitalPatientIdentifierPolicyUpdateWithoutChangedByInput = {
 export type HospitalPatientIdentifierPolicyUncheckedUpdateWithoutChangedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -497,6 +525,7 @@ export type HospitalPatientIdentifierPolicyUncheckedUpdateWithoutChangedByInput 
 export type HospitalPatientIdentifierPolicyUncheckedUpdateManyWithoutChangedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   egnPermitted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  admissionNumberVisible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   changedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   changeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -508,6 +537,7 @@ export type HospitalPatientIdentifierPolicyUncheckedUpdateManyWithoutChangedByIn
 export type HospitalPatientIdentifierPolicySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: boolean
   changedById?: boolean
   changeReason?: boolean
@@ -519,6 +549,7 @@ export type HospitalPatientIdentifierPolicySelect<ExtArgs extends runtime.Types.
 export type HospitalPatientIdentifierPolicySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: boolean
   changedById?: boolean
   changeReason?: boolean
@@ -530,6 +561,7 @@ export type HospitalPatientIdentifierPolicySelectCreateManyAndReturn<ExtArgs ext
 export type HospitalPatientIdentifierPolicySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: boolean
   changedById?: boolean
   changeReason?: boolean
@@ -541,6 +573,7 @@ export type HospitalPatientIdentifierPolicySelectUpdateManyAndReturn<ExtArgs ext
 export type HospitalPatientIdentifierPolicySelectScalar = {
   id?: boolean
   egnPermitted?: boolean
+  admissionNumberVisible?: boolean
   changedAt?: boolean
   changedById?: boolean
   changeReason?: boolean
@@ -548,7 +581,7 @@ export type HospitalPatientIdentifierPolicySelectScalar = {
   updatedAt?: boolean
 }
 
-export type HospitalPatientIdentifierPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "egnPermitted" | "changedAt" | "changedById" | "changeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalPatientIdentifierPolicy"]>
+export type HospitalPatientIdentifierPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "egnPermitted" | "admissionNumberVisible" | "changedAt" | "changedById" | "changeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalPatientIdentifierPolicy"]>
 export type HospitalPatientIdentifierPolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   changedBy?: boolean | Prisma.HospitalPatientIdentifierPolicy$changedByArgs<ExtArgs>
 }
@@ -567,6 +600,11 @@ export type $HospitalPatientIdentifierPolicyPayload<ExtArgs extends runtime.Type
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     egnPermitted: boolean
+    /**
+     * Whether the full ИЗ № (and the first six digits of a known ЕГН) is shown on the
+     * dashboard and the case header, beside the masked reference. On by default.
+     */
+    admissionNumberVisible: boolean
     changedAt: Date | null
     changedById: string | null
     changeReason: string | null
@@ -998,6 +1036,7 @@ export interface Prisma__HospitalPatientIdentifierPolicyClient<T, Null = never, 
 export interface HospitalPatientIdentifierPolicyFieldRefs {
   readonly id: Prisma.FieldRef<"HospitalPatientIdentifierPolicy", 'String'>
   readonly egnPermitted: Prisma.FieldRef<"HospitalPatientIdentifierPolicy", 'Boolean'>
+  readonly admissionNumberVisible: Prisma.FieldRef<"HospitalPatientIdentifierPolicy", 'Boolean'>
   readonly changedAt: Prisma.FieldRef<"HospitalPatientIdentifierPolicy", 'DateTime'>
   readonly changedById: Prisma.FieldRef<"HospitalPatientIdentifierPolicy", 'String'>
   readonly changeReason: Prisma.FieldRef<"HospitalPatientIdentifierPolicy", 'String'>

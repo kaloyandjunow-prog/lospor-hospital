@@ -22073,6 +22073,10 @@
           "egnPermitted": {
             "type": "boolean"
           },
+          "admissionNumberVisible": {
+            "type": "boolean",
+            "description": "Show the full ИЗ № while a case is open. Left as it is when omitted."
+          },
           "reason": {
             "type": "string",
             "minLength": 10,
@@ -22372,6 +22376,9 @@
         "type": "object",
         "properties": {
           "egnPermitted": {
+            "type": "boolean"
+          },
+          "admissionNumberVisible": {
             "type": "boolean"
           },
           "changedAt": {

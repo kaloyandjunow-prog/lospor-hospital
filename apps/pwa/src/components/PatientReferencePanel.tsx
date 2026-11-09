@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { STRINGS } from "@/i18n/strings"
-import { PatientEgnError, type PatientReference } from "@/lib/patient-reference"
+import { PatientEgnError, patientDisplayLine, type PatientReference } from "@/lib/patient-reference"
 import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
@@ -92,6 +92,9 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
       <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>
         {s.linkedPatient}
       </Text>
+      {patientDisplayLine(reference?.display, language) ? (
+        <Text testID="patient-display" style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "900", marginTop: 3 }}>{patientDisplayLine(reference?.display, language)}</Text>
+      ) : null}
       <Text
         accessibilityLabel={language === "bg" ? "Маскиран болничен номер" : "Masked hospital patient number"}
         style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "900", marginTop: 3 }}

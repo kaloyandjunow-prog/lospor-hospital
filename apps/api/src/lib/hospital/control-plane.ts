@@ -129,6 +129,7 @@ export const hospitalNameSchema = z.object({
 
 export const patientIdentifierPolicySchema = z.object({
   egnPermitted: z.boolean(),
+  admissionNumberVisible: z.boolean().optional(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -782,12 +783,14 @@ export async function setPatientIdentifierPolicy(
       create: {
         id: "local",
         egnPermitted: parsed.egnPermitted,
+        ...(parsed.admissionNumberVisible === undefined ? {} : { admissionNumberVisible: parsed.admissionNumberVisible }),
         changedAt: now,
         changedById: actor.id,
         changeReason: parsed.reason,
       },
       update: {
         egnPermitted: parsed.egnPermitted,
+        ...(parsed.admissionNumberVisible === undefined ? {} : { admissionNumberVisible: parsed.admissionNumberVisible }),
         changedAt: now,
         changedById: actor.id,
         changeReason: parsed.reason,
@@ -795,6 +798,7 @@ export async function setPatientIdentifierPolicy(
     })
     await logAuditInTransaction(tx, actor.id, "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", policy.id, {
       egnPermitted: policy.egnPermitted,
+      admissionNumberVisible: policy.admissionNumberVisible,
       reasonRecorded: Boolean(parsed.reason),
     })
     return policy

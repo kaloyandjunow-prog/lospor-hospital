@@ -41,7 +41,7 @@ export type TaggedItem = ClinicalTagDto
 export type VascularAccess = VascularAccessDto
 export type KeyEvent = IntraopKeyEventDto
 
-export type CaseData = CaseDetailDto & { patientReference?: PatientReference | null }
+export type CaseData = CaseDetailDto & { patientReference?: PatientReference | null; patientDisplay?: unknown }
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const BODY_SYSTEM_COLORS: Record<string, string> = {

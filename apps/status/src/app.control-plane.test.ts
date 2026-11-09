@@ -930,8 +930,25 @@ describe("Status Hospital control plane", () => {
     expect(accepted.status).toBe(200)
     expect(controlPlane.setPatientIdentifierPolicy).toHaveBeenCalledWith({
       egnPermitted: false,
+      admissionNumberVisible: false,
       reason: "Site will not hold national identifiers",
     })
+  })
+
+  it("puts the ИЗ № switch on the Patient identification page of every skin, on by default, and saves it", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      const html = await (await app.request("/status/control/identity", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+      expect(html, skin).toMatch(/data-testid="admission-number-visible"[^>]*checked/)
+    }
+    const saved = await app.request("/status/control/patient-identifier", {
+      method: "POST",
+      headers: origin({ cookie: `${cookie}; lospor_status_locale=en`, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ egnPermitted: "true", admissionNumberVisible: "true", reason: "Doctors want the number", password: "Initial password phrase1!" }),
+    })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setPatientIdentifierPolicy).toHaveBeenCalledWith({ egnPermitted: true, admissionNumberVisible: true, reason: "Doctors want the number" })
   })
 
   it("chooses an EHR import transport, treating an empty selection as disabled rather than a fourth enum value", async () => {

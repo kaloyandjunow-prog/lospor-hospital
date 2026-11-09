@@ -3225,6 +3225,9 @@ model HospitalExternalAiPolicy {
 model HospitalPatientIdentifierPolicy {
   id           String    @id @default("local")
   egnPermitted Boolean   @default(true)
+  /// Whether the full ИЗ № (and the first six digits of a known ЕГН) is shown on the
+  /// dashboard and the case header, beside the masked reference. On by default.
+  admissionNumberVisible Boolean @default(true)
   changedAt    DateTime?
   changedById  String?
   changedBy    User?     @relation("HospitalPatientIdentifierPolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)

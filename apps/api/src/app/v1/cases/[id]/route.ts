@@ -55,6 +55,7 @@ import {
 import { serializeMedicationInstruction, serializePremedicationOrders, serializeWardOrder } from "@/lib/preop/sections"
 import { keepTheatreNameAtStart, operatingTheatresEnabled } from "@/lib/operating-theatres"
 import { caseTheatreView } from "@lospor/core/operating-theatres"
+import { admissionNumberVisible, patientDisplayOf, patientDisplaySelect } from "@/lib/hospital/patient-display"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 const REVISION_HEADER = SECTION_REVISION_HEADER
@@ -145,7 +146,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           institution: { select: { name: true } },
         },
       },
-      patientLink: { select: { id: true, maskedIdentifier: true, personLink: { select: { maskedIdentifier: true } } } },
+      patientLink: { select: { maskedIdentifier: true, ...patientDisplaySelect, personLink: { select: { maskedIdentifier: true, ...patientDisplaySelect.personLink.select } } } },
     },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -198,6 +199,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ...normalizedRecord,
     capabilities,
     // The admission's number, and the person's ЕГН (masked) once it is known.
+    // The sealed identifier stays on the server: only the masked reference and `patientDisplay` leave.
+    patientLink: record.patientLink ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier } : null,
+    patientDisplay: (await admissionNumberVisible(prisma)) ? patientDisplayOf(record.patientLink) : null,
     patientReference: record.patientLink
       ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier, personMaskedIdentifier: record.patientLink.personLink?.maskedIdentifier ?? null }
       : null,

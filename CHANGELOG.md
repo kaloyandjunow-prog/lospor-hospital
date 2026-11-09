@@ -28,6 +28,12 @@ baselines; rollback is backup-required.
   intervals and the stocked dantrolene vials, and lists what "Likely now" has learned. It now has the data and
   the route to save with: the API sends the view and `POST /v1/internal/hospital/control-plane/intraop-automation`
   saves it, audited (`INTRAOP_AUTOMATION_UPDATE`: switches and counts, never the reason).
+- **The ИЗ № stays in view while a case is open.** The dashboard row, the case page and the editor header show the full
+  ИЗ № with its year and, once the person is linked, the first six digits of the ЕГН (the birth date). The masked reference
+  stays beside it. It is on by default and has one switch on Status → Patient identification (every skin, Legacy too);
+  switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
+  two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
+  New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
 - **Status: Unusual readings,** a second tab of the SPS page (it is not a menu entry, and Legacy has it too). For each
   age band and sign it draws this hospital's own readings with the limits as sliders, the fixed rules beside them and a
   scale in SD, and shows at once how many finished cases a limit would ask about, what the clinician would see, and how

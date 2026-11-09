@@ -3,6 +3,24 @@ export type HospitalPatientReference = {
   maskedIdentifier: string
   /** The person's ЕГН, masked, once it is recorded for this admission. */
   personMaskedIdentifier?: string | null
+  /** The full ИЗ № while the site shows it (Status switch, on by default). */
+  display?: PatientDisplay | null
+}
+
+/** What the API sends as `patientDisplay`: the number as written, and the first six digits of a known ЕГН. */
+export type PatientDisplay = { admissionNumber: string | null; egnPrefix: string | null }
+
+/**
+ * Read `patientDisplay` defensively: a number is digits with an optional /year,
+ * an ЕГН prefix is six digits. Anything else is dropped, never printed.
+ */
+export function readPatientDisplay(value: unknown): PatientDisplay | null {
+  if (!value || typeof value !== "object") return null
+  const number = (value as { admissionNumber?: unknown }).admissionNumber
+  const prefix = (value as { egnPrefix?: unknown }).egnPrefix
+  const admissionNumber = typeof number === "string" && /^[0-9A-Za-zА-Яа-я./-]{1,32}$/.test(number) ? number : null
+  const egnPrefix = typeof prefix === "string" && /^\d{6}$/.test(prefix) ? prefix : null
+  return admissionNumber || egnPrefix ? { admissionNumber, egnPrefix } : null
 }
 
 /**
@@ -30,5 +48,5 @@ export function readHospitalPatientReference(body: unknown): HospitalPatientRefe
 
   const person = (value as { personMaskedIdentifier?: unknown }).personMaskedIdentifier
   const personMaskedIdentifier = typeof person === "string" && person.includes("*") && person.length <= 128 ? person : null
-  return { id, maskedIdentifier, personMaskedIdentifier }
+  return { id, maskedIdentifier, personMaskedIdentifier, display: readPatientDisplay((body as { patientDisplay?: unknown }).patientDisplay) }
 }

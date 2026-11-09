@@ -2,6 +2,7 @@ import { UserRound } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { CaseMeta } from "@/components/CaseMeta"
 import { HospitalPatientReference } from "@/components/HospitalPatientReference"
+import type { PatientDisplay } from "@/lib/hospital-patient-reference"
 
 export type CaseSaveStatus = "idle" | "saving" | "saved" | "queued" | "blocked" | "error"
 
@@ -13,6 +14,7 @@ export function CaseEditorHeader({
   saveError,
   maskedIdentifier,
   personMaskedIdentifier = null,
+  patientDisplay = null,
   onAddEgn,
   onPatientRelink,
   patientRelinkDisabled,
@@ -24,6 +26,7 @@ export function CaseEditorHeader({
   saveError: string | null
   maskedIdentifier: string | null
   personMaskedIdentifier?: string | null
+  patientDisplay?: PatientDisplay | null
   onAddEgn?: (nationalId: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onPatientRelink: (patientNumber: string, correctionReason: string) => Promise<{ ok: true } | { ok: false; error: string }>
   patientRelinkDisabled: boolean
@@ -41,6 +44,7 @@ export function CaseEditorHeader({
           <HospitalPatientReference
             maskedIdentifier={maskedIdentifier}
             personMaskedIdentifier={personMaskedIdentifier}
+            display={patientDisplay}
             onAddEgn={onAddEgn}
             onRelink={onPatientRelink}
             disabled={patientRelinkDisabled}

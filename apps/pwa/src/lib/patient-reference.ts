@@ -5,6 +5,30 @@ export type PatientReference = {
   maskedIdentifier: string
   /** The person's ЕГН, masked, once recorded for this admission. */
   personMaskedIdentifier?: string | null
+  /** The full ИЗ № while the site shows it (Status switch, on by default). */
+  display?: PatientDisplay | null
+}
+
+/** What the API sends as `patientDisplay`: the number as written, and the first six digits of a known ЕГН. */
+export type PatientDisplay = { admissionNumber: string | null; egnPrefix: string | null }
+
+/** Read `patientDisplay` defensively; anything that is not a number or a six-digit prefix is dropped. */
+export function readPatientDisplay(value: unknown): PatientDisplay | null {
+  if (!value || typeof value !== "object") return null
+  const { admissionNumber: number, egnPrefix: prefix } = value as Record<string, unknown>
+  const admissionNumber = typeof number === "string" && /^[0-9A-Za-zА-Яа-я./-]{1,32}$/.test(number) ? number : null
+  const egnPrefix = typeof prefix === "string" && /^\d{6}$/.test(prefix) ? prefix : null
+  return admissionNumber || egnPrefix ? { admissionNumber, egnPrefix } : null
+}
+
+/** "ИЗ № 1234/2026 · ЕГН 800101", in the language of the app. */
+export function patientDisplayLine(display: PatientDisplay | null | undefined, language: string): string | null {
+  if (!display) return null
+  const parts = [
+    display.admissionNumber ? `${language === "bg" ? "ИЗ №" : "Record no."} ${display.admissionNumber}` : null,
+    display.egnPrefix ? `ЕГН ${display.egnPrefix}` : null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(" · ") : null
 }
 
 type CaseRelinkFetcher = (path: string, init?: RequestInit) => Promise<Response>
@@ -18,9 +42,13 @@ function readPatientReference(value: unknown): PatientReference | null {
     : null
 }
 
+function withDisplay(reference: PatientReference | null, display: unknown): PatientReference | null {
+  return reference ? { ...reference, display: readPatientDisplay(display) } : null
+}
+
 export function patientReferenceFromResponse(body: unknown): PatientReference | null {
   return body && typeof body === "object"
-    ? readPatientReference((body as Record<string, unknown>).patientReference)
+    ? withDisplay(readPatientReference((body as Record<string, unknown>).patientReference), (body as Record<string, unknown>).patientDisplay)
     : null
 }
 

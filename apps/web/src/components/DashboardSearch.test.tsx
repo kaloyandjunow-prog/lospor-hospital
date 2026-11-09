@@ -38,6 +38,22 @@ beforeEach(() => {
   mocks.push.mockReset()
 })
 
+describe("DashboardSearch patient display (1.8.0)", () => {
+  it("shows the full ИЗ № and the first six ЕГН digits on the row, and finds the case by the number", () => {
+    render(<DashboardSearch cases={[{ ...baseCase, capabilities: { canWrite: true }, patientDisplay: { admissionNumber: "1234/2026", egnPrefix: "800101" } }]} userId="owner-1" role="CLINICIAN" />)
+    const line = screen.getByTestId("patient-display")
+    expect(line.textContent).toContain("1234/2026")
+    expect(line.textContent).toContain("800101")
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "1234/2026" } })
+    expect(screen.getByTestId("case-row")).toBeTruthy()
+  })
+
+  it("shows nothing when the site has switched it off", () => {
+    render(<DashboardSearch cases={[{ ...baseCase, capabilities: { canWrite: true }, patientDisplay: null }]} userId="owner-1" role="CLINICIAN" />)
+    expect(screen.queryByTestId("patient-display")).toBeNull()
+  })
+})
+
 describe("DashboardSearch permissions", () => {
   it("links a writable, non-complete case into the edit wizard", () => {
     const { container } = render(

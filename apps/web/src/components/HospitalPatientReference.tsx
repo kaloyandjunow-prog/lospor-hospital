@@ -5,12 +5,14 @@ import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import type { PatientDisplay } from "@/lib/hospital-patient-reference"
 
 type RelinkResult = { ok: true } | { ok: false; error: string }
 
 export function HospitalPatientReference({
   maskedIdentifier,
   personMaskedIdentifier = null,
+  display = null,
   onAddEgn,
   onRelink,
   disabled = false,
@@ -18,6 +20,8 @@ export function HospitalPatientReference({
   maskedIdentifier: string | null
   /** The person's ЕГН, masked, when recorded. */
   personMaskedIdentifier?: string | null
+  /** The full ИЗ № and the first six digits of a known ЕГН, while the site shows them. */
+  display?: PatientDisplay | null
   /** Present where the site permits ЕГН: lets a saved case get one. */
   onAddEgn?: (nationalId: string) => Promise<RelinkResult>
   onRelink: (patientNumber: string, correctionReason: string) => Promise<RelinkResult>
@@ -36,6 +40,7 @@ export function HospitalPatientReference({
     else setEgnError(result.error || null)
   }
   const t = useTranslations("patientReference")
+  const tc = useTranslations("case")
   const [stage, setStage] = useState<"closed" | "edit" | "confirm">("closed")
   const [patientNumber, setPatientNumber] = useState("")
   const [patientNumberConfirmation, setPatientNumberConfirmation] = useState("")
@@ -89,6 +94,13 @@ export function HospitalPatientReference({
 
   return (
     <div className="mt-2 max-w-xl rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-[#333] dark:bg-[#181818]">
+      {display ? (
+        <p data-testid="patient-display" className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          {display.admissionNumber ? <span>{tc("admissionNumberShort")} <span className="font-mono">{display.admissionNumber}</span></span> : null}
+          {display.admissionNumber && display.egnPrefix ? " · " : null}
+          {display.egnPrefix ? <span>{tc("egnPrefixShort")} <span className="font-mono">{display.egnPrefix}</span></span> : null}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {t("label")}

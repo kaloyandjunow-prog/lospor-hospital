@@ -520,6 +520,7 @@ export const schemas = {
   }, ["credential", "reason"]),
   HospitalPatientIdentifierPolicyRequest: object({
     egnPermitted: { type: "boolean" },
+    admissionNumberVisible: { type: "boolean", description: "Show the full ИЗ № while a case is open. Left as it is when omitted." },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["egnPermitted", "reason"]),
   HospitalExternalAiCredentialRequest: object({
@@ -583,6 +584,7 @@ export const schemas = {
   }, ["provider", "credentialConfigured", "credentialConfiguredAt"]),
   HospitalPatientIdentifierPolicyResponse: object({
     egnPermitted: { type: "boolean" },
+    admissionNumberVisible: { type: "boolean" },
     changedAt: nullable({ type: "string", format: "date-time" }),
   }, ["egnPermitted", "changedAt"]),
   HospitalEhrTransportPolicyResponse: object({

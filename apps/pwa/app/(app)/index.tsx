@@ -29,6 +29,7 @@ import { type CancellationReason } from "@lospor/core/case-cancellation"
 import { dashboardMenuActions } from "@/lib/case-actions"
 import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import { ageSexLabel } from "@lospor/core/pediatric"
+import { patientDisplayLine, readPatientDisplay } from "@/lib/patient-reference"
 import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
 import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
@@ -39,6 +40,8 @@ type CaseItem = {
   id: string
   userId?: string
   caseCode: string
+  /** The full ИЗ № and the first six digits of a known ЕГН, while the site shows them. */
+  patientDisplay?: unknown
   status: string
   createdAt: string
   preop?: {
@@ -450,7 +453,7 @@ export default function DashboardScreen() {
   const filteredCases = useMemo(() => {
     const visible = cases.filter((c) => {
       if (trimmedQuery) {
-        const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+        const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, readPatientDisplay(c.patientDisplay)?.admissionNumber, c.user?.name]
           .filter(Boolean).join(" ").toLowerCase()
         if (!haystack.includes(trimmedQuery)) return false
       }
@@ -500,6 +503,11 @@ export default function DashboardScreen() {
         {ageSexLabel(item.preop, language === "bg" ? "bg" : "en") ? (
           <Text testID={`case-age-sex-${item.id}`} style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
             {ageSexLabel(item.preop, language === "bg" ? "bg" : "en")}
+          </Text>
+        ) : null}
+        {patientDisplayLine(readPatientDisplay(item.patientDisplay), language) ? (
+          <Text testID={`case-patient-display-${item.id}`} style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800", marginBottom: 4 }}>
+            {patientDisplayLine(readPatientDisplay(item.patientDisplay), language)}
           </Text>
         ) : null}
         <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800", marginBottom: 8 }}>

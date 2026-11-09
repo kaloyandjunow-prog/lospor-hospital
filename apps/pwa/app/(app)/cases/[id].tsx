@@ -203,7 +203,7 @@ export default function CaseSummaryScreen() {
               {diagnosisSubtitle}
             </Text>
           ) : null}
-          <MaskedPatientReference reference={caseData.patientReference} language={language} />
+          <MaskedPatientReference reference={caseData.patientReference} display={caseData.patientDisplay} language={language} />
 
           {metaParts.length > 0 && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>

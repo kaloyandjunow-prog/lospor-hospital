@@ -25,6 +25,7 @@ import { evaluateCaseFinalization } from "@lospor/core/clinical-validation"
 import { findCasesByPriority } from "@/lib/priority-case-list"
 import { caseTheatreView } from "@lospor/core/operating-theatres"
 import { operatingTheatresEnabled } from "@/lib/operating-theatres"
+import { admissionNumberVisible, patientDisplayOf, patientDisplaySelect } from "@/lib/hospital/patient-display"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -357,7 +358,7 @@ export async function GET(req: NextRequest) {
     intraop: { select: { monthYear: true, durationMinutes: true, endTime: true, startedAt: true, startTime: true } },
     operatingTheatre: { select: { name: true } },
     user: { select: { name: true } },
-    patientLink: { select: { id: true, maskedIdentifier: true } },
+    patientLink: { select: { maskedIdentifier: true, ...patientDisplaySelect } },
     transfers: {
       where: { status: "PENDING" as const },
       // toUserId lets a client tell "a handover addressed to me" apart from
@@ -368,7 +369,7 @@ export async function GET(req: NextRequest) {
     },
   } satisfies Prisma.CaseInclude
 
-  const [cases, total, counts, theatresOn] = await Promise.all([
+  const [cases, total, counts, theatresOn, showAdmissionNumber] = await Promise.all([
     // Ordered by clinical urgency (AWAITING_REVIEW, IN_PROGRESS, DRAFT,
     // COMPLETE), not creation date or the status enum's own declared order --
     // see priority-case-list.ts. A dashboard capped at `take` rows must never
@@ -386,11 +387,16 @@ export async function GET(req: NextRequest) {
     prisma.case.count({ where }),
     dashboardCaseCounts(where, user.id),
     operatingTheatresEnabled(prisma),
+    admissionNumberVisible(prisma),
   ])
 
   return NextResponse.json({
     cases: await Promise.all(cases.map(async record => ({
       ...record,
+      // Only the masked reference travels with the case; the full ИЗ № is sent as
+      // `patientDisplay`, and only while the site shows it (Status switch, on by default).
+      patientLink: record.patientLink ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier } : null,
+      patientDisplay: showAdmissionNumber ? patientDisplayOf(record.patientLink) : null,
       capabilities: await caseCapabilitiesForUser(user, record, caseVisibilityEnabled),
       operatingTheatre: undefined,
       // Off, a case shows no theatre, unless it kept one from its start.

@@ -501,6 +501,8 @@ export type ControlPlaneView = {
   }
   patientIdentifier: {
     egnPermitted: boolean
+    /** Show the full ИЗ № while a case is open (on unless switched off). */
+    admissionNumberVisible?: boolean
     changeReasonRecorded: boolean
     changedAt: string | null
     updatedAt: string | null
@@ -794,6 +796,7 @@ export interface ControlPlanePort {
   setExternalAiModels(input: { advisorModel: string; visionModel: string; reason: string }): Promise<void>
   setPatientIdentifierPolicy(input: {
     egnPermitted: boolean
+    admissionNumberVisible?: boolean
     reason: string
   }): Promise<void>
   setEhrTransportPolicy(input: {
@@ -1328,6 +1331,7 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !optionalModelList(value.externalAi.visionModelOptions)
     || !(value.externalAi.modelsChangedAt === undefined || nullableIso(value.externalAi.modelsChangedAt))) return null
   if (typeof value.patientIdentifier.egnPermitted !== "boolean"
+    || !(value.patientIdentifier.admissionNumberVisible === undefined || typeof value.patientIdentifier.admissionNumberVisible === "boolean")
     || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
     || !nullableIso(value.patientIdentifier.changedAt)
     || !nullableIso(value.patientIdentifier.updatedAt)) return null

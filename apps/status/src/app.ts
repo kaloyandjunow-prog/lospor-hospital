@@ -1729,6 +1729,7 @@ export function createStatusApp({
     context,
     body => controlPlane.setPatientIdentifierPolicy({
       egnPermitted: formBoolean(body, "egnPermitted"),
+      admissionNumberVisible: formBoolean(body, "admissionNumberVisible"),
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Настройката за ЕГН е запазена и записана в одитния журнал."),

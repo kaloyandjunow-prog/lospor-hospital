@@ -9,7 +9,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { loginUrlForCallback } from "@/lib/safe-navigation"
-import { readHospitalPatientReference } from "@/lib/hospital-patient-reference"
+import { readHospitalPatientReference, readPatientDisplay } from "@/lib/hospital-patient-reference"
 import { CentralCaseExportControl } from "@/components/CentralCaseExportControl"
 import { parseCentralCaseExportControl } from "@/lib/central-case-export-control"
 import { cancellationReasonLabel } from "@lospor/core/case-cancellation"
@@ -109,6 +109,16 @@ export default async function CasePage({
                 : new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(record.createdAt))}{" "}
               {record.user.institution ? `· ${record.user.institution.name}` : ""}
             </p>
+            {(() => {
+              const who = readPatientDisplay((record as { patientDisplay?: unknown }).patientDisplay)
+              return who ? (
+                <p data-testid="patient-display" className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {who.admissionNumber ? <span>{t("case.admissionNumberShort")} <span className="font-mono">{who.admissionNumber}</span></span> : null}
+                  {who.admissionNumber && who.egnPrefix ? " · " : null}
+                  {who.egnPrefix ? <span>{t("case.egnPrefixShort")} <span className="font-mono">{who.egnPrefix}</span></span> : null}
+                </p>
+              ) : null
+            })()}
             {patientReference ? (
               <p className="mt-2 text-xs font-medium text-slate-500">
                 {t("case.hospitalPatientNumber")} <code data-testid="masked-patient-identifier" className="text-slate-700">{patientReference.maskedIdentifier}</code>

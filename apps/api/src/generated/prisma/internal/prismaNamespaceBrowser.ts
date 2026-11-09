@@ -2112,6 +2112,7 @@ export type HospitalExternalAiPolicyScalarFieldEnum = (typeof HospitalExternalAi
 export const HospitalPatientIdentifierPolicyScalarFieldEnum = {
   id: 'id',
   egnPermitted: 'egnPermitted',
+  admissionNumberVisible: 'admissionNumberVisible',
   changedAt: 'changedAt',
   changedById: 'changedById',
   changeReason: 'changeReason',
