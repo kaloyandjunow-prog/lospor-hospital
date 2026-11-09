@@ -96,6 +96,9 @@ baselines; rollback is backup-required.
   phone app's build chain takes `glob` 14.0.4 (GHSA-3g3m-2fjr-6pw4). The three Expo advisories this appliance had
   accepted since 1.7.0 are gone with Expo 58, so the audit gate has no exceptions. `npm audit` finds no high or
   critical advisory anywhere.
+- **Fixable findings are fixed, not accepted.** The migrate and tools images now bring the operating-system packages to
+  the repository's current versions as the runtime image already did (musl, zlib), and the Caddy build takes
+  `golang.org/x/net` 0.62.0 (CVE-2026-78661, CVE-2026-78669).
 - **One accepted finding, for 1.8.0 only.** The Caddy image still carries CVE-2026-116587 in `go-jose/v3`, which
   the Smallstep certificate path compiles and for which upstream has published no patched v3 release (Caddy 2.11.8 and
   2.11.9 do not carry one). The maintainer accepted it on 2026-11-09; it is recorded in
