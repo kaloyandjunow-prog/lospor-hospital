@@ -74,7 +74,7 @@ class BatchRouteResponse extends Error {
   }
 }
 
-function batchError(error: unknown, caseId: string) {
+function batchError(error: unknown) {
   if (error instanceof CaseWriteError) return NextResponse.json({ error: error.message }, { status: error.status })
   if (isCaseFinalizedDatabaseError(error)) return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
   console.error("[events batch] CLINICAL_WRITE_FAILED")
@@ -286,6 +286,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       intraopRevision: result.intraop?.syncRevision,
     })
   } catch (error: unknown) {
-    return batchError(error, id)
+    return batchError(error)
   }
 }
