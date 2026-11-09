@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Web App
 
+## [10.3.1] - 2026-11-09
+
+### Fixed
+
+- **The infusion-strips end-to-end test presses the bar's body**, not its middle, which on a narrow bar can be a
+  rate-change marker or a grip and moved only the start. A test-only fix; no product code changes here. The version
+  moves with the phone app and the API (10.3.1), which carry this release's product changes.
+
 ## [10.3.0] - 2026-11-09
 
 ### Added
