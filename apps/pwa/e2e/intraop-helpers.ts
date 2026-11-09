@@ -20,6 +20,8 @@ export async function newStartedCase(page: Page, request: APIRequestContext): Pr
   const created = await request.post(`${API_BASE}/v1/cases`, {
     headers: authed,
     data: {
+      // The appliance requires the hospital patient number (HOSPITAL_REQUIRE_PATIENT_NUMBER).
+      patientNumber: `TIMETABLE-E2E-${Date.now()}`,
       preop: {
         procedureName: "Timetable e2e", diagnosis: "Timetable e2e", asaClass: 2,
         age: 54, weight: 78, height: 172, sex: "FEMALE", urgency: "ELECTIVE",
