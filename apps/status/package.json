@@ -36,6 +36,7 @@
   },
   "overrides": {
     "vite": "8.3.5",
-    "js-yaml": "4.3.2"
+    "js-yaml": "4.3.2",
+    "minimatch": "11.0.5"
   }
 }
