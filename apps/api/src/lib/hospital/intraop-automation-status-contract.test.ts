@@ -8,7 +8,7 @@ vi.mock("@/lib/intraop-automation", () => ({
 }))
 it("sends Status a view that passes the shape check Status applies to it", async () => {
   const { intraopAutomationControlView } = await import("./intraop-automation-control")
-  const { intraopAutomationShape } = await import("../../../../status/src/control-plane.js")
+  const { intraopAutomationShape } = await import(/* @vite-ignore */ new URL("../../../../status/src/control-plane.ts", import.meta.url).href)
   const view = await intraopAutomationControlView({} as never)
   expect(intraopAutomationShape(JSON.parse(JSON.stringify(view)))).toBe(true)
 })

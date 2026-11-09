@@ -68,7 +68,7 @@ describe("the Unusual readings view (10.2.0)", () => {
 
   it("sends Status a view that passes the shape check Status applies to it", async () => {
     const { intraopReadingsControlView } = await import("./intraop-readings-control")
-    const { intraopReadingsShape } = await import("../../../../status/src/control-plane.js")
+    const { intraopReadingsShape } = await import(/* @vite-ignore */ new URL("../../../../status/src/control-plane.ts", import.meta.url).href)
     const queries = [
       [{ band: "ADULT", sign: "hr", value: 70, count: 600 }, { band: "ADULT", sign: "sbp", value: 118, count: 500 }],
       [{ band: "ADULT", sign: "hr", cases: 120 }, { band: "ADULT", sign: "sbp", cases: 120 }],
