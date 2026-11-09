@@ -38,6 +38,20 @@ describe("Smart selection, the Airway tab on the phone (10.2.0)", () => {
     for (const device of ["NASAL_ETT", "DOUBLE_LUMEN_TUBE", "ENDOBRONCHIAL_TUBE", "SURGICAL_AIRWAY", "OPA", "NPA"]) expect(present(tree, `airway-smart-other-${device}`)).toBe(true)
   })
 
+  it("stops suggesting a size on a card once that device is in place", () => {
+    const texts = (tree: ReturnType<typeof render>, device: string) => byId(tree, `airway-smart-card-${device}`)!.findAll(node => String(node.type) === "Text").map(node => String(node.props.children)).join(" ")
+    const before = setup().tree
+    expect(texts(before, "ORAL_ETT")).toMatch(/[0-9]/)
+    expect(texts(before, "LMA")).toMatch(/[0-9]/)
+    const inUse = (device: string, details: object) => [{ id: device, device, details, status: "in_use" as const, insertedAt: START }]
+    const withTube = setup({ entries: inUse("ORAL_ETT", { oralTubeSize: 8, oralCuffed: true }) }).tree
+    expect(texts(withTube, "ORAL_ETT")).not.toMatch(/[0-9]/)
+    expect(texts(withTube, "LMA")).toMatch(/[0-9]/)
+    const withLma = setup({ entries: inUse("LMA", { lmaSize: 4 }) }).tree
+    expect(texts(withLma, "LMA")).not.toMatch(/[0-9]/)
+    expect(texts(withLma, "ORAL_ETT")).toMatch(/[0-9]/)
+  })
+
   it("opens the panel with this patient's size and cuff and adds the tube at the start of anaesthesia, with its tools", () => {
     const onEvent = vi.fn()
     const { tree, onChange } = setup({ onEvent })

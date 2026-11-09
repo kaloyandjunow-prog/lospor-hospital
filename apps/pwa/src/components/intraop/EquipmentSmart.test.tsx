@@ -43,6 +43,19 @@ describe("Smart selection, the Equipment tab on the phone", () => {
     expect(onUseAirway).not.toHaveBeenCalled()
   })
 
+  it("with the airway panel wired, the record button opens it to ask the time and writes nothing yet", () => {
+    const airway = {
+      entries: [], patient: { clinicalMode: "ADULT" as const, ageYears: 44, age: null, weightKg: 82, heightCm: 182, sex: "MALE" as const },
+      startedAt: "2026-11-09T08:00:00.000Z", now: () => "2026-11-09T08:30:00.000Z", timeZone: "Europe/Sofia", difficultAirway: false,
+      deviceLabel: (code: string) => code, toolLabel: (code: string) => code, toolCodes: [], conflict: () => false, onSave: vi.fn(),
+    }
+    const { tree, onUseAirway } = setup({ airway })
+    press(tree, "equipment-record-ETT-size")
+    expect(onUseAirway).not.toHaveBeenCalled()
+    expect(present(tree, "equipment-airway-panel")).toBe(true)
+    expect(airway.onSave).not.toHaveBeenCalled()
+  })
+
   it("the LMA has an explicit record action", () => {
     const { tree, onUseAirway } = setup()
     press(tree, "equipment-record-LMA-size")

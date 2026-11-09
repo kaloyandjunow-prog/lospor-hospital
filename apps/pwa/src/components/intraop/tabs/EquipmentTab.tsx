@@ -14,6 +14,7 @@ import { BroselowChip } from "@/components/intraop/BroselowChip"
 import { EquipmentSmart } from "@/components/intraop/EquipmentSmart"
 import type { EquipmentFlagState } from "@lospor/core/equipment-smart"
 import type { AirwayDeviceEntry } from "@lospor/core/airway-device-entries"
+import type { EquipmentAirwayPanel } from "@/components/intraop/EquipmentSmart"
 import { broselowZone } from "@lospor/core/broselow"
 import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
 import { OverflowCueScrollView } from "../OverflowCueScrollView"
@@ -33,6 +34,7 @@ export function EquipmentTab({
     onFlag: (field: "urinaryCatheter" | "stomachTube") => void
     onPreparedChange: (key: string, value: boolean) => void
     onUseAirway: (device: "ORAL_ETT" | "LMA") => boolean
+    airway?: EquipmentAirwayPanel
   }
 }) {
   const shade = useShade()

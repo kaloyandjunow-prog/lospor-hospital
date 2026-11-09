@@ -12,6 +12,10 @@ import { AirwaySmartPanel, type AirwaySmartChartEvent, type AirwaySmartRequest }
  * behind "More devices", and one panel that opens under them. The choices, the
  * suggested sizes and the saving are Core's (airway-smart), as on the web.
  */
+/** The calculator gives one tube size for both tube routes, so an oral or nasal tube in use answers it for both cards. */
+const TUBE_ROUTES = ["ORAL_ETT", "NASAL_ETT"]
+const sameSizeSuggestion = (inUse: string, card: string) => inUse === card || (TUBE_ROUTES.includes(inUse) && TUBE_ROUTES.includes(card))
+
 export function AirwaySmart({
   entries, onChange, onEvent, onAtomicSave, onRemove, patient, techniques, availableDevices, availableTools, startedAt, now, timeZone, difficultAirway, deviceLabel, toolLabel, describe, timeOf,
 }: {
@@ -94,7 +98,7 @@ export function AirwaySmart({
         <View key={`airway-smart-main-row-${rowIndex}`}>
           <View style={{ flexDirection: "row", gap: 8 }}>{row.map(device => {
             const suggestion = suggestedAirwayDetails(device, patient) as Record<string, unknown>
-            const hint = [suggestion.oralTubeSize ?? suggestion.nasalTubeSize ?? suggestion.lmaSize, suggestion.oralCuffed === true || suggestion.nasalCuffed === true ? tc("asmCuffed") : null].filter(item => item != null).join(" · ")
+            const hint = live.some(entry => sameSizeSuggestion(entry.device, device)) ? null : [suggestion.oralTubeSize ?? suggestion.nasalTubeSize ?? suggestion.lmaSize, suggestion.oralCuffed === true || suggestion.nasalCuffed === true ? tc("asmCuffed") : null].filter(item => item != null).join(" · ")
             const on = request?.device === device
             return (
               <TouchableOpacity key={device} testID={`airway-smart-card-${device}`} accessibilityState={{ selected: on }} onPress={() => setRequest(current => current?.device === device && current.replaces == null ? null : { device, source: "tab" })}

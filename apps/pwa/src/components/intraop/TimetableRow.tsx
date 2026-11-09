@@ -1,4 +1,5 @@
-import { memo } from "react"
+import { memo, useSyncExternalStore } from "react"
+import { jetSheet } from "@/lib/jet-sheet"
 import { LabDrawDetail, LabDrawPill, mergeRowLabDraws } from "@/components/intraop/LabDrawCell"
 import type { IntraopLabDraw } from "@lospor/core/labs"
 import { View, Text, TouchableOpacity } from "react-native"
@@ -15,9 +16,9 @@ import { useChartSaveState } from "@/lib/use-case-save-state"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 
-export type QuickAddAction = "vital" | "bp" | "drug" | "infusion" | "fluid" | "agent" | "gas" | "event" | "lab"
+export type QuickAddAction = "vital" | "bp" | "drug" | "infusion" | "fluid" | "agent" | "gas" | "jet" | "event" | "lab"
 
-function quickAddButtons(tc: (key: ClinicalStringKey) => string): { label: string; action: QuickAddAction; color: string }[] {
+function quickAddButtons(tc: (key: ClinicalStringKey) => string, jetOn: boolean): { label: string; action: QuickAddAction; color: string }[] {
   return [
     { label: tc("trRowVitals"), action: "vital", color: "#22c55e" },
     { label: tc("trRowDrug"), action: "drug", color: "#3b82f6" },
@@ -25,6 +26,8 @@ function quickAddButtons(tc: (key: ClinicalStringKey) => string): { label: strin
     { label: tc("trRowFluid"), action: "fluid", color: "#06b6d4" },
     { label: tc("trRowAgent"), action: "agent", color: "#f59e0b" },
     { label: "FGF", action: "gas", color: "#818cf8" },
+    // Jet is ticked among the ventilation modes: its sheet opens from here, at this column's time.
+    ...(jetOn ? [{ label: tc("jetRow"), action: "jet" as const, color: "#5eead4" }] : []),
     // Last of the entry pills and before Event: a lab draw is a slower,
     // deliberate act than the four above it, and putting it under the thumb
     // beside Vitals would invite mistaps during a fast induction.
@@ -78,6 +81,7 @@ function TimetableRowComponent({
 }: TimetableRowProps) {
   const shade = useShade()
   const { tc } = usePreferences()
+  const jetOn = useSyncExternalStore(jetSheet.subscribe, jetSheet.enabled, jetSheet.enabled)
   const plannedItems = running.filter(item => item.planned || item.plannedStop || item.plannedChange)
   const plannedPrefix = (item: RunningItem) =>
     `${tc(item.planned ? "plannedLabel" : item.plannedStop ? "plannedStopLabel" : "plannedChangeLabel")} · `
@@ -213,7 +217,7 @@ function TimetableRowComponent({
             letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 10,
           }}>{tc("trAddNow")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {quickAddButtons(tc).map(btn => (
+            {quickAddButtons(tc, jetOn).map(btn => (
               <TouchableOpacity
                 key={btn.action}
                 testID={`timetable-quick-add-${btn.action}`}

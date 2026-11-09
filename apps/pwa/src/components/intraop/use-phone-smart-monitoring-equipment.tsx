@@ -118,6 +118,14 @@ export function usePhoneEquipmentSmart({ equipmentScreen, isWatching, monitoring
       setEquipmentPrepared(next)
       void patchIntraopSection({ equipmentPrepared: next })
     },
+    // The button opens the same airway panel as the Airway tab, so the time (start, now, or picked) is asked there.
+    airway: {
+      entries: airwayExchange.entries(),
+      patient: smartCase.patient, startedAt: smartCase.startedAt, now: smartCase.now, timeZone: smartCase.timeZone,
+      difficultAirway: smartCase.difficultAirway, deviceLabel: smartCase.deviceLabel, toolLabel: smartCase.toolLabel, toolCodes: smartCase.availableTools,
+      conflict: (device: "ORAL_ETT" | "LMA") => airwayPrimaryConflict(airwayExchange.entries(), device) != null,
+      onSave: (next: Parameters<Exchange["save"]>[0], event?: Parameters<Exchange["save"]>[1]) => saveAirwayEntries(next, event),
+    },
     onUseAirway: (device: "ORAL_ETT" | "LMA") => {
       const entries = airwayExchange.entries()
       if (airwayPrimaryConflict(entries, device)) return false
