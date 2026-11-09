@@ -137,6 +137,9 @@
 
 ### Changed
 
+- **The informed-consent text may be up to 100,000 characters** (`CONSENT_TEXT_MAX_LENGTH`, was 40,000). The
+  bundled texts are 8,570 and 9,472 characters. Only the limit changes: a longer text prints on more pages, as
+  the shorter ones always did.
 - **Bulgarian clinical terminology:** interactive timetable language now uses
   «времева линия», vital signs use «жизнени показатели», and complication
   labels use «Хипотенсия»/«Хипертенсия» while retaining common synonyms.

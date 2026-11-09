@@ -69,8 +69,8 @@ export const CONSENT_FIELDS = ["hospital", "diagnosis", "procedure", "date", "an
 export type ConsentField = typeof CONSENT_FIELDS[number]
 export type ConsentFieldValues = Partial<Record<ConsentField, string | null>>
 
-/** The longest text Status accepts: the bundled ones are about a third of it. */
-export const CONSENT_TEXT_MAX_LENGTH = 40_000
+/** The longest text Status accepts: the bundled ones are under a tenth of it (10.2.1; it was 40,000). */
+export const CONSENT_TEXT_MAX_LENGTH = 100_000
 export const CONSENT_TITLE_MAX_LENGTH = 200
 
 /** The techniques a heading can be tagged with, in the order the bundled texts describe them. */
