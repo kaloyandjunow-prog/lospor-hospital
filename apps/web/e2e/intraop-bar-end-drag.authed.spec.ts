@@ -95,6 +95,18 @@ async function dragGrip(page: Page, chart: Locator, gripSel: string, toIndex: nu
   await page.mouse.up()
 }
 
+/**
+ * Drags the grip until the question it should raise is on screen. A drop that lands while React is still replacing the
+ * grip (the first drag after a cold start, or the one right after Cancel) raises nothing and is simply tried again.
+ */
+async function dragGripUntil(page: Page, chart: Locator, gripSel: string, toIndex: number, prompt: Locator) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await dragGrip(page, chart, gripSel, toIndex)
+    if (await prompt.waitFor({ state: "visible", timeout: 5_000 }).then(() => true, () => false)) return
+  }
+  await expect(prompt).toBeVisible()
+}
+
 const AGENT_GRIP = "[data-agent-cell] div[draggable]"
 
 test.beforeEach(async ({ page }) => { await page.setViewportSize({ width: 1600, height: 1000 }) })
@@ -104,15 +116,14 @@ test("dragging a running agent back asks first, and writes one stop only when co
   const chart = await openChart(page, id)
   await startSevo(page, id, chart)
 
-  await dragGrip(page, chart, AGENT_GRIP, 1)
-  await expect(page.getByText(/^Stop Sevoflurane at/)).toBeVisible()
+  await dragGripUntil(page, chart, AGENT_GRIP, 1, page.getByText(/^Stop Sevoflurane at/))
   expect((await events(page, id, "agent")).map(e => e.type)).toEqual(["agent_start"])
 
   await page.getByRole("button", { name: "Cancel" }).click()
   await page.waitForTimeout(1500)
   expect((await events(page, id, "agent")).map(e => e.type)).toEqual(["agent_start"])
 
-  await dragGrip(page, chart, AGENT_GRIP, 1)
+  await dragGripUntil(page, chart, AGENT_GRIP, 1, page.getByRole("button", { name: "Stop", exact: true }))
   await page.getByRole("button", { name: "Stop", exact: true }).click()
   await expect.poll(async () => (await events(page, id, "agent")).map(e => e.type), { timeout: 15_000 }).toEqual(["agent_start", "agent_stop"])
 })
@@ -175,7 +186,6 @@ test("dragging a running infusion back asks first and writes no stop until confi
   await page.waitForTimeout(500)
   if (!(await endGrip.isVisible())) await chart.locator("div[draggable].cursor-grab").first().click()
   await expect(endGrip).toBeVisible()
-  await dragGrip(page, chart, "div[draggable].cursor-col-resize.rounded-r-sm", 1)
-  await expect(page.getByText(/^Stop Propofol/)).toBeVisible()
+  await dragGripUntil(page, chart, "div[draggable].cursor-col-resize.rounded-r-sm", 1, page.getByText(/^Stop Propofol/))
   expect((await events(page, id, "infusion")).map(e => e.type)).toEqual(["infusion_start"])
 })

@@ -61,7 +61,7 @@ test("synthetic preop to finalised record remains visible and research-safe", as
         response.request().method() === "POST"
         && new URL(response.url()).pathname === "/api/cases",
       )
-      await form.getByRole("button", { name: "Continue to Intraoperative" }).click()
+      await form.getByRole("button", { name: "Continue to Intraoperative" }).last().click()
       const created = await createdResponsePromise
       expect(created.status(), await created.text()).toBe(201)
       const identity = await created.json()
@@ -78,7 +78,15 @@ test("synthetic preop to finalised record remains visible and research-safe", as
       await expect(page.locator('form input[type="number"]').nth(0)).toHaveValue("47")
       await expect(page.getByText("Acute appendicitis", { exact: true }).first()).toBeVisible()
       await expect(page.getByTestId("masked-patient-identifier")).toHaveText(identity.patientReference.maskedIdentifier)
-      expect(await page.locator("body").innerText()).not.toContain(patientNumber)
+      // 1.8.0: the full ИЗ № is shown while a case is open, in one place (beside the masked reference) and by a switch of
+      // the hospital's, on by default. Everywhere else on the page it stays masked.
+      await expect(page.getByTestId("patient-display")).toContainText(patientNumber)
+      const outsideTheDisplay = await page.locator("body").evaluate(body => {
+        const copy = body.cloneNode(true) as HTMLElement
+        copy.querySelectorAll('[data-testid="patient-display"]').forEach(element => element.remove())
+        return copy.textContent ?? ""
+      })
+      expect(outsideTheDisplay).not.toContain(patientNumber)
 
       // The UI's free-text procedure proves browser creation. Add a synthetic
       // code afterwards so this broad flow can still address its research row
@@ -171,7 +179,11 @@ test("synthetic preop to finalised record remains visible and research-safe", as
       const record = await beforeFinalise.json()
       expect(record.preop.ageYears).toBe(47)
       expect(record.patientReference?.maskedIdentifier).toBeTruthy()
-      expect(JSON.stringify(record)).not.toContain(patientNumber)
+      // 1.8.0: the case carries the full ИЗ № once, as `patientDisplay` (the hospital's switch, on by default); the rest of
+      // the record, and everything that leaves for research, stays masked.
+      const { patientDisplay, ...recordWithoutDisplay } = record
+      expect(patientDisplay?.admissionNumber).toContain(patientNumber)
+      expect(JSON.stringify(recordWithoutDisplay)).not.toContain(patientNumber)
       expect(record.intraop.crystalloidsMl).toBe(500)
       expect(Array.isArray(record.intraop.keyEvents?.vitals)).toBeTruthy()
       expect(record.intraop.keyEvents.vitals.some((entry: unknown) => entry != null)).toBeTruthy()
@@ -197,10 +209,12 @@ test("synthetic preop to finalised record remains visible and research-safe", as
       await expect(page).not.toHaveURL(/\/login/)
       await expect(page.getByText(/47y/).first()).toBeVisible({ timeout: 20_000 })
       await expect(page.getByText("Fentanyl", { exact: true }).first()).toBeVisible()
-      const chart = page.locator("svg.timetable-svg").first()
+      const chart = page.getByTestId("record-chart").first()
       await expect(chart).toBeVisible()
-      await expect.poll(() => chart.evaluate(node => node.textContent ?? "")).toContain("121/74")
-      await expect.poll(() => chart.evaluate(node => node.textContent ?? "")).toContain("68")
+      // The record (1.8.0) prints the vitals as a table beside the chart, not inside it.
+      const vitals = page.getByTestId("record-vitals")
+      await expect.poll(() => vitals.evaluate(node => node.textContent ?? "")).toContain("121/74")
+      await expect.poll(() => vitals.evaluate(node => node.textContent ?? "")).toContain("68")
       const crystalloid = page.getByText("Crystalloid", { exact: true }).first().locator("..")
       await expect(crystalloid).toContainText("500")
       const aldrete = page.getByText("Aldrete total", { exact: true }).first().locator("..")

@@ -11,8 +11,10 @@ import {
 import {
   createLosporAdultV2Draft,
   createLosporAdultV3Draft,
+  createLosporAdultV4Draft,
   createLosporPediatricV2Draft,
   createLosporPediatricV3Draft,
+  createLosporPediatricV4Draft,
 } from "@lospor/core/platform-clinical-drafts"
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
@@ -221,10 +223,12 @@ function sameProfileCounts(
     && left.total === right.total
 }
 
-function expectedBaseline(mode: ClinicalRuleMode, version: 2 | 3): ClinicalBaselineIdentity {
-  const draft = version === 3
-    ? (mode === "ADULT" ? createLosporAdultV3Draft() : createLosporPediatricV3Draft())
-    : (mode === "ADULT" ? createLosporAdultV2Draft() : createLosporPediatricV2Draft())
+function expectedBaseline(mode: ClinicalRuleMode, version: 2 | 3 | 4): ClinicalBaselineIdentity {
+  const draft = version === 4
+    ? (mode === "ADULT" ? createLosporAdultV4Draft() : createLosporPediatricV4Draft())
+    : version === 3
+      ? (mode === "ADULT" ? createLosporAdultV3Draft() : createLosporPediatricV3Draft())
+      : (mode === "ADULT" ? createLosporAdultV2Draft() : createLosporPediatricV2Draft())
   if (draft.clinicalMode !== mode || draft.version !== version || !draft.publishable
     || draft.blockers.length > 0) {
     throw new Error(`Bundled ${mode} v${version} clinical baseline is not publishable`)
@@ -253,18 +257,19 @@ function expectedBaseline(mode: ClinicalRuleMode, version: 2 | 3): ClinicalBasel
   }
 }
 
-// Every release-owned baseline a selection may rightly be (1.6.0): v3, which
-// the update installs and selects where 1.2.0 made the selection, and v2,
+// Every release-owned baseline a selection may rightly be (1.8.0): v4, which the
+// update installs and selects where the release itself made the selection; v3,
+// which 1.6.0 installed and selected where 1.2.0 made the selection, and v2,
 // which stays selected where v3 could not be (an administrator's own platform
 // v3 collides, fail-closed). Each is still matched exactly, rule for rule.
 // v3 alone used to fail every updated appliance as IDENTITY_MISMATCH, which
 // switched paediatric dose guidance off.
 const RELEASE_OWNED_BASELINES = {
-  ADULT: [expectedBaseline("ADULT", 3), expectedBaseline("ADULT", 2)],
-  PEDIATRIC: [expectedBaseline("PEDIATRIC", 3), expectedBaseline("PEDIATRIC", 2)],
+  ADULT: [expectedBaseline("ADULT", 4), expectedBaseline("ADULT", 3), expectedBaseline("ADULT", 2)],
+  PEDIATRIC: [expectedBaseline("PEDIATRIC", 4), expectedBaseline("PEDIATRIC", 3), expectedBaseline("PEDIATRIC", 2)],
 } as const
 
-/** The current release-owned baseline (v3), as Status names it. */
+/** The current release-owned baseline (v4), as Status names it. */
 export function expectedHospitalClinicalBaseline(
   mode: ClinicalRuleMode,
 ): ClinicalBaselineIdentity {
