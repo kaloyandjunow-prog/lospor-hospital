@@ -137,3 +137,4 @@ export function SyncBadge({ state, detail }: { state: "saved" | "saving" | "fail
     </View>
   )
 }
+export { PatientDisplayText } from "./MaskedPatientReference"; export { readPatientDisplay } from "@/lib/patient-reference"

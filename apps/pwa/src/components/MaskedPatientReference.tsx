@@ -3,6 +3,12 @@ import { STRINGS } from "@/i18n/strings"
 import { patientDisplayLine, readPatientDisplay, type PatientReference } from "@/lib/patient-reference"
 import { colors, withAlpha } from "@/theme/colors"
 
+/** The ИЗ № line of a case row. */
+export function PatientDisplayText({ display, language, testID }: { display?: unknown; language: string; testID?: string }) {
+  const line = patientDisplayLine(readPatientDisplay(display), language)
+  return line ? <Text testID={testID} style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800", marginBottom: 4 }}>{line}</Text> : null
+}
+
 export function MaskedPatientReference({
   reference,
   display,

@@ -13,7 +13,7 @@ import { getAllLocalCaseDrafts, localDraftOwnerFromIdentity, type LocalCaseDraft
 import { localDraftRecoveryParams, shouldShowLocalDraft } from "@/lib/local-draft-review"
 import { usePreferences } from "@/lib/preferences-context"
 import { ASABadge, DispositionBadge, StatusBadge, statusLabel } from "@/components/ui"
-import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
+import { PatientDisplayText, readPatientDisplay, ScreenState, WorkflowPill } from "@/components/clinical-ui"
 import { AppHeader } from "@/components/AppHeader"
 import { LocalCaseDraftCard } from "@/components/LocalCaseDraftCard"
 import { colors, withAlpha } from "@/theme/colors"
@@ -29,7 +29,6 @@ import { type CancellationReason } from "@lospor/core/case-cancellation"
 import { dashboardMenuActions } from "@/lib/case-actions"
 import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import { ageSexLabel } from "@lospor/core/pediatric"
-import { patientDisplayLine, readPatientDisplay } from "@/lib/patient-reference"
 import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
 import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
@@ -39,9 +38,7 @@ const USE_NATIVE_DRIVER = Platform.OS !== "web"
 type CaseItem = {
   id: string
   userId?: string
-  caseCode: string
-  /** The full ИЗ № and the first six digits of a known ЕГН, while the site shows them. */
-  patientDisplay?: unknown
+  caseCode: string; patientDisplay?: unknown // the full ИЗ № and ЕГН prefix, while the site shows them
   status: string
   createdAt: string
   preop?: {
@@ -499,15 +496,10 @@ export default function DashboardScreen() {
             ) : null}
           </View>
           <StatusBadge status={derivedStatus(item)} />
-        </View>
+        </View><PatientDisplayText display={item.patientDisplay} language={language} testID={`case-patient-display-${item.id}`} />
         {ageSexLabel(item.preop, language === "bg" ? "bg" : "en") ? (
           <Text testID={`case-age-sex-${item.id}`} style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
             {ageSexLabel(item.preop, language === "bg" ? "bg" : "en")}
-          </Text>
-        ) : null}
-        {patientDisplayLine(readPatientDisplay(item.patientDisplay), language) ? (
-          <Text testID={`case-patient-display-${item.id}`} style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800", marginBottom: 4 }}>
-            {patientDisplayLine(readPatientDisplay(item.patientDisplay), language)}
           </Text>
         ) : null}
         <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800", marginBottom: 8 }}>
