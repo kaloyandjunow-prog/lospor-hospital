@@ -1242,6 +1242,7 @@ export function createStatusApp({
     const current = await controlDirectory()
     // The Unusual readings tab is large and read on its own, only when that tab is open.
     const readings = section === "intraop/readings" ? await controlPlane.intraopReadings().catch(() => null) : undefined
+    const trend = section === "intraop/acceptance" ? await controlPlane.intraopAcceptance().catch(() => null) : undefined
     return renderControlPlane(
       current.view,
       locale,
@@ -1254,6 +1255,7 @@ export function createStatusApp({
       fileCheck,
       drugColorsQuery,
       readings,
+      trend,
     )
   }
 
@@ -1458,6 +1460,7 @@ export function createStatusApp({
   app.get("/status/control/intraop", context => controlGet(context, "intraop"))
   // The Unusual readings tab of the SPS page: not a page of its own in any menu.
   app.get("/status/control/intraop/readings", context => controlGet(context, "intraop/readings"))
+  app.get("/status/control/intraop/acceptance", context => controlGet(context, "intraop/acceptance"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))

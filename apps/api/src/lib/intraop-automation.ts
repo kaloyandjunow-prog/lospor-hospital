@@ -537,6 +537,86 @@ export async function suggestionAcceptance(
 }
 
 /**
+ * The same counts month by month (10.3.0), for the Status acceptance trend: per
+ * automation, how many answers were taken and how many put away, by the month
+ * the case started (UTC), over the last `months` months. Read from the saved
+ * charts like `suggestionAcceptance`, cached ten minutes, and asked for only
+ * when that tab is open -- never on a clinician's screen. Counts only.
+ */
+const TREND_CASES_MAX = 10_000
+const trendCache = new Map<string, { at: number; value: SuggestionTrend }>()
+
+export type SuggestionTrend = {
+  /** "YYYY-MM", oldest first, ending with the current month. */
+  months: string[]
+  /** Finished cases started in each month. */
+  cases: number[]
+  /** Per automation, one { accepted, dismissed } per month, aligned with `months`. */
+  byId: Record<string, Array<{ accepted: number; dismissed: number }>>
+}
+
+export function trendMonths(months: number, now: number): string[] {
+  const at = new Date(now)
+  return Array.from({ length: months }, (_, index) => {
+    const month = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() - (months - 1 - index), 1))
+    return month.toISOString().slice(0, 7)
+  })
+}
+
+export async function suggestionAcceptanceTrend(
+  db: Db,
+  months = 12,
+  now = Date.now(),
+  scope: Prisma.CaseWhereInput = {},
+): Promise<SuggestionTrend> {
+  const cacheKey = JSON.stringify({ months, scope })
+  const cached = trendCache.get(cacheKey)
+  if (cached && now - cached.at < STATS_TTL_MS) return cached.value
+  const keys = trendMonths(months, now)
+  const since = new Date(`${keys[0]}-01T00:00:00.000Z`)
+  const value = await repeatableRead(db, async snapshot => {
+    const cases = await snapshot.case.findMany({
+      where: { AND: [scope, { status: "COMPLETE" }, { intraop: { startedAt: { gte: since } } }] },
+      select: { id: true, intraop: { select: { startedAt: true } } },
+      orderBy: { createdAt: "desc" },
+      take: TREND_CASES_MAX,
+    })
+    const monthOfCase = new Map(cases.map(item => [item.id, item.intraop?.startedAt ? item.intraop.startedAt.toISOString().slice(0, 7) : null]))
+    const perMonth = new Map<string, SuggestionCounts>(keys.map(key => [key, {}]))
+    const caseCounts = keys.map(() => 0)
+    for (const month of monthOfCase.values()) {
+      const index = month ? keys.indexOf(month) : -1
+      if (index >= 0) caseCounts[index]! += 1
+    }
+    for (let from = 0; from < cases.length; from += ACCEPTANCE_BATCH) {
+      const ids = cases.slice(from, from + ACCEPTANCE_BATCH).map(item => item.id)
+      const rows = await snapshot.caseEvent.findMany({
+        where: { caseId: { in: ids }, status: "active" },
+        select: { caseId: true, logicalId: true, version: true, metadataJson: true },
+      })
+      const latest = new Map<string, Map<string, { version: number; event: LogEvent }>>()
+      for (const row of rows) {
+        const events = latest.get(row.caseId) ?? new Map()
+        latest.set(row.caseId, events)
+        const current = events.get(row.logicalId)
+        if (!current || row.version > current.version) events.set(row.logicalId, { version: row.version, event: row.metadataJson as LogEvent })
+      }
+      for (const [caseId, events] of latest) {
+        const bucket = perMonth.get(monthOfCase.get(caseId) ?? "")
+        if (!bucket) continue
+        addOutcomes(bucket, suggestionOutcomes([...events.entries()].map(([logicalId, entry]) => ({ ...entry.event, id: entry.event.id ?? logicalId }))))
+      }
+    }
+    const ids = new Set([...perMonth.values()].flatMap(counts => Object.keys(counts)))
+    const byId: SuggestionTrend["byId"] = {}
+    for (const id of [...ids].sort()) byId[id] = keys.map(key => ({ accepted: perMonth.get(key)![id]?.accepted ?? 0, dismissed: perMonth.get(key)![id]?.dismissed ?? 0 }))
+    return { months: keys, cases: caseCounts, byId }
+  })
+  trendCache.set(cacheKey, { at: now, value })
+  return value
+}
+
+/**
  * Closes episodes from the vitals questions still open at the case end: the
  * screen that holds a case closes them as readings come back, but a case
  * ended automatically, or finalised from another screen, may still have one

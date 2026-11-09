@@ -10,6 +10,7 @@ import { drugColorsFixture } from "./drug-colors.fixture.js"
 import { indicatorsFixture } from "./indicators.fixture.js"
 import { intraopFixture } from "./intraop.fixture.js"
 import { readingsFixture } from "./readings.fixture.js"
+import { acceptanceFixture } from "./acceptance.fixture.js"
 import { NAV_GROUPS } from "./ui-shell.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
@@ -307,6 +308,7 @@ function setup() {
   const controlPlane: ControlPlanePort = {
     get: vi.fn(async () => VIEW),
     intraopReadings: vi.fn(async () => null),
+    intraopAcceptance: vi.fn(async () => null),
     hospitalLogo: vi.fn(async () => null),
     setHospitalLogo: vi.fn(async () => undefined),
     issueGrant: vi.fn(async () => {}),
@@ -2039,7 +2041,7 @@ describe("the Legacy skin keeps up with the modern ones", () => {
     const missing = modern.filter(path => !html.includes(`href="${path}"`))
     // Pages that are tabs of another page (the preop tabs) are reached through that page's own tabs.
     // The SPS page's Unusual readings tab is the same: its link is on the SPS page, checked below.
-    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents", "/status/control/intraop/readings"]
+    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents", "/status/control/intraop/readings", "/status/control/intraop/acceptance"]
     // Codes, patient identification and Central are sections of Legacy's Hospital system and Research pages (checked above).
     const folded = ["/status/control/codes", "/status/control/identity", "/status/control/central"]
     expect(missing.filter(path => !tabs.includes(path) && !folded.includes(path))).toEqual([])
@@ -2151,5 +2153,22 @@ describe("the unit indicators settings (10.0.0)", () => {
     expect(controlPlane.updateIndicators).not.toHaveBeenCalled()
     await post({ password: "Initial password phrase1!" })
     expect(controlPlane.updateIndicators).toHaveBeenCalledWith(expect.objectContaining({ namedClinicians: true, reason: "Agreed at the department meeting" }))
+  })
+})
+
+describe("the Acceptance trend tab of the SPS page (10.3.0)", () => {
+  it("is a tab in every skin, not a menu entry, and is read only when it is open", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const trend = vi.spyOn(controlPlane, "intraopAcceptance").mockResolvedValue(acceptanceFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      expect(await page("/status/control/intraop", skin), skin).toContain('href="/status/control/intraop/acceptance"')
+      expect(trend, skin).not.toHaveBeenCalled()
+      expect(await page("/status/control/intraop/acceptance", skin), skin).toContain('data-testid="trend-table"')
+      expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/acceptance")
+      trend.mockClear()
+    }
   })
 })

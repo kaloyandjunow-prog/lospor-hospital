@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { buildRow } from "@/lib/case-events"
-import { closeOpenVitalEpisodes, intraopAutomationForClient, readIntraopAutomation, saveIntraopAutomation, suggestionAcceptance, vitalStats } from "@/lib/intraop-automation"
+import { closeOpenVitalEpisodes, intraopAutomationForClient, readIntraopAutomation, saveIntraopAutomation, suggestionAcceptance, suggestionAcceptanceTrend, trendMonths, vitalStats } from "@/lib/intraop-automation"
 import { mapIntraopToOmop } from "@/lib/omop-mapper/domains/intraop"
 import { mapComplicationsToOmop } from "@/lib/omop-mapper/domains/complications"
 import { OMOP_COLUMNS } from "@/lib/omop-columns"
@@ -51,6 +51,47 @@ describe("how the suggestions were received (10.2.0)", () => {
     expect(db.case.findMany).toHaveBeenCalledTimes(1)
     await suggestionAcceptance(db as never, 45, at + 11 * 60_000)
     expect(db.case.findMany).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("the acceptance trend by month (10.3.0)", () => {
+  const NOW = Date.parse("2026-11-09T10:00:00.000Z")
+  const row = (caseId: string, logicalId: string, metadataJson: Record<string, unknown>) => ({ caseId, logicalId, version: 1, metadataJson })
+
+  it("lists the months, oldest first, ending with this one", () => {
+    expect(trendMonths(3, NOW)).toEqual(["2026-09", "2026-10", "2026-11"])
+    expect(trendMonths(12, NOW)[0]).toBe("2025-12")
+  })
+
+  it("counts each case in the month it started, and aligns every automation with the months", async () => {
+    const db = {
+      case: { findMany: vi.fn().mockResolvedValue([
+        { id: "c1", intraop: { startedAt: new Date("2026-10-03T08:00:00Z") } },
+        { id: "c2", intraop: { startedAt: new Date("2026-11-02T08:00:00Z") } },
+        { id: "c3", intraop: { startedAt: new Date("2026-11-05T08:00:00Z") } },
+      ]) },
+      caseEvent: { findMany: vi.fn().mockResolvedValue([
+        row("c1", "a1", { id: "a1", type: "prompt_answer", answerKind: "reverse:adenosine", answerFor: "d1", answer: "not_now" }),
+        row("c2", "a2", { id: "a2", type: "prompt_answer", answerKind: "reverse:adenosine", answerFor: "d2", answer: "not_now" }),
+        row("c3", "q3", { id: "q3", type: "complication", label: "Local anaesthetic systemic toxicity (LAST)", suggestion: "reverse:lipid" }),
+      ]) },
+    }
+    const trend = await suggestionAcceptanceTrend(db as never, 3, NOW)
+    expect(trend.months).toEqual(["2026-09", "2026-10", "2026-11"])
+    expect(trend.cases).toEqual([0, 1, 2])
+    expect(trend.byId["reverse:adenosine"]).toEqual([{ accepted: 0, dismissed: 0 }, { accepted: 0, dismissed: 1 }, { accepted: 0, dismissed: 1 }])
+    expect(trend.byId["reverse:lipid"]).toEqual([{ accepted: 0, dismissed: 0 }, { accepted: 0, dismissed: 0 }, { accepted: 1, dismissed: 0 }])
+    // Counts only: nothing names a case.
+    expect(JSON.stringify(trend)).not.toMatch(/c1|c2|c3/)
+  })
+
+  it("is kept ten minutes, and only the cases of the window are asked for", async () => {
+    const db = { case: { findMany: vi.fn().mockResolvedValue([]) }, caseEvent: { findMany: vi.fn().mockResolvedValue([]) } }
+    const at = NOW + 50_000_000
+    await suggestionAcceptanceTrend(db as never, 6, at)
+    await suggestionAcceptanceTrend(db as never, 6, at + 60_000)
+    expect(db.case.findMany).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(db.case.findMany.mock.calls[0]![0].where)).toContain("startedAt")
   })
 })
 

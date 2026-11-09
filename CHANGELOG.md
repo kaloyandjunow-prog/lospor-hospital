@@ -34,6 +34,12 @@ baselines; rollback is backup-required.
   switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
   two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
   New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
+- **Status: Acceptance trend,** a third tab of the SPS page (still no menu entry, Legacy included). For every line, a
+  month-by-month curve of how often it was taken against put away over the finished cases of the last year, the answers
+  it carries, and the change of the latest three months against the three before. The rarely taken lines (ten answers or
+  more, under a fifth taken) come first, so a line to switch off or reword is found by the numbers. Counts only. The API
+  works it out from the saved charts, keeps it ten minutes, and sends it only when that tab is open
+  (`GET …/control-plane/intraop-acceptance`); a clinician's screen never asks for it.
 - **A logo on the paper documents.** Status → Clinical has a "Hospital logo" form beside the hospital name: a PNG,
   JPEG or WebP up to 1 MB, kept on the hospital's own server (SVG is refused, and the bytes must be what the file says they
   are). It prints at the top of every page of the preoperative summary, the informed consent and the anaesthesia record,

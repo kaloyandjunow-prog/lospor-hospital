@@ -2023,6 +2023,14 @@ add("POST", "/v1/internal/hospital/control-plane/hospital-name", "Rename the ins
   stability: "internal",
   tag: "internal",
 })
+add("GET", "/v1/internal/hospital/control-plane/intraop-acceptance", "Read how each SPS line was received, month by month, for the Status Acceptance trend tab", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("GET", "/v1/internal/hospital/control-plane/hospital-logo", "Read the logo printed on the paper documents, for the Status page", {
   parameters: [statusControlBearer],
   status: 200,

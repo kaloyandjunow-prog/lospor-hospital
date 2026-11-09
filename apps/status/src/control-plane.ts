@@ -206,6 +206,23 @@ export const MONITORING_DUE_RANGE = { min: 1, max: 120 } as const
 export const HYPERTENSION_BASELINE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50] as const
 export const DEFAULT_HYPERTENSION_BASELINE_PERCENT = 20
 
+/** The acceptance of every SPS line by month (10.3.0): counts only. */
+export type AcceptanceTrendView = {
+  months: string[]
+  cases: number[]
+  byId: Record<string, Array<{ accepted: number; dismissed: number }>>
+}
+
+export function acceptanceTrendShape(value: unknown): value is AcceptanceTrendView {
+  if (!isRecord(value) || !Array.isArray(value.months) || !Array.isArray(value.cases) || !isRecord(value.byId)) return false
+  const length = value.months.length
+  if (length === 0 || length > 36 || value.cases.length !== length) return false
+  if (!value.months.every(month => typeof month === "string" && /^\d{4}-\d{2}$/.test(month))) return false
+  if (!value.cases.every(count => Number.isInteger(count) && count >= 0)) return false
+  return Object.values(value.byId).every(series => Array.isArray(series) && series.length === length
+    && series.every(item => isRecord(item) && Number.isInteger(item.accepted) && Number.isInteger(item.dismissed) && (item.accepted as number) >= 0 && (item.dismissed as number) >= 0))
+}
+
 export type IntraopAutomationView = {
   config: IntraopAutomationConfigView
   /** The groups, in the order shown, with their names. */
@@ -901,6 +918,8 @@ export interface ControlPlanePort {
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void>
   /** The readings, limits and their history behind the Unusual readings page (10.2.0); null from an API that lacks it. */
   intraopReadings(): Promise<IntraopReadingsView | null>
+  /** How each SPS line was received, month by month; read only when that tab is open (10.3.0). */
+  intraopAcceptance(): Promise<AcceptanceTrendView | null>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -1761,6 +1780,10 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void> {
     return this.mutate("/intraop-automation", input)
+  }
+  async intraopAcceptance(): Promise<AcceptanceTrendView | null> {
+    const value = await this.request("/intraop-acceptance")
+    return acceptanceTrendShape(value) ? value : null
   }
   async intraopReadings(): Promise<IntraopReadingsView | null> {
     const value = await this.request("/intraop-readings")
