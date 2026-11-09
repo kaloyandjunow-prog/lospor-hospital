@@ -70,3 +70,16 @@ describe("every automation has its own switch (10.2.0)", () => {
     ]) expect(AUTOMATION_IDS.has(id), id).toBe(true)
   })
 })
+
+describe("10.3.0: the planned procedure on the postoperative record", () => {
+  it("is listed under Reminders, on by default, and switched off on its own line or by the clinician", async () => {
+    const { parseIntraopAutomation } = await import("../intraop-automation")
+    const { AUTOMATIONS, REMINDER_IDS, procedurePrefillEnabled } = await import("./automations")
+    expect(AUTOMATIONS.find(item => item.id === REMINDER_IDS.procedurePrefill)).toMatchObject({ group: "reminders" })
+    const on = parseIntraopAutomation({ enabled: true, groups: { reminders: true } })
+    expect(procedurePrefillEnabled(on)).toBe(true)
+    expect(procedurePrefillEnabled(parseIntraopAutomation({ enabled: true, groups: { reminders: true }, disabled: [REMINDER_IDS.procedurePrefill] }))).toBe(false)
+    expect(procedurePrefillEnabled(on, { reminders: false })).toBe(false)
+    expect(procedurePrefillEnabled(parseIntraopAutomation({ enabled: true, groups: { reminders: false } }))).toBe(false)
+  })
+})

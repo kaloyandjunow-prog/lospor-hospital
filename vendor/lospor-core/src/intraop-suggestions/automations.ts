@@ -1,4 +1,4 @@
-import { AUTOMATION_GROUPS, VITAL_QUESTION_KINDS, vitalQuestionAutomationId, type AutomationGroup, type VitalQuestionKind } from "../intraop-automation"
+import { AUTOMATION_GROUPS, VITAL_QUESTION_KINDS, automationEnabled, type IntraopAutomationSettings, type UserAutomationSwitches, vitalQuestionAutomationId, type AutomationGroup, type VitalQuestionKind } from "../intraop-automation"
 import { clinicalDisplayLabel } from "../display"
 import { SUGGESTION_CARDS } from "./catalogue"
 import { SEED_SUCCESSION, successionAutomationId, type SuccessionLink } from "../event-succession"
@@ -112,13 +112,24 @@ export const REMINDER_IDS = {
   latex: "reminder:latex",
   mhHistory: "reminder:mhHistory",
   localAnaestheticMax: "reminder:localAnaestheticMax",
+  procedurePrefill: "reminder:procedurePrefill",
 } as const
+
+/**
+ * Whether the postoperative record's "procedure done" starts as the planned
+ * procedure (10.3.0): on unless Status, or this clinician, has switched it off.
+ * Callers treat a policy that has not loaded yet as on, as it was before.
+ */
+export function procedurePrefillEnabled(settings: IntraopAutomationSettings | null | undefined, user?: UserAutomationSwitches | null): boolean {
+  return automationEnabled(settings, "reminders", REMINDER_IDS.procedurePrefill, user)
+}
 
 const REMINDERS: AutomationDef[] = [
   def(REMINDER_IDS.ponv, "reminders", ["Postoperative nausea and vomiting", "Постоперативно гадене и повръщане"], ["Reminds about prophylaxis for a high risk score.", "Напомня за профилактика при висок рисков скор."]),
   def(REMINDER_IDS.glucose, "reminders", ["Glucose check", "Проверка на глюкозата"], ["Reminds a diabetic patient's glucose is due.", "Напомня, че е време за проверка на глюкозата на пациент с диабет."]),
   def(REMINDER_IDS.latex, "reminders", ["Latex allergy banner", "Лента за алергия към латекс"], ["A banner over the record for a latex allergy.", "Лента над записа при алергия към латекс."]),
   def(REMINDER_IDS.mhHistory, "reminders", ["Malignant hyperthermia history", "Анамнеза за малигнена хипертермия"], ["Asks before a volatile agent or suxamethonium.", "Пита преди инхалационен анестетик или суксаметоний."]),
+  def(REMINDER_IDS.procedurePrefill, "reminders", ["Planned procedure on the postoperative record", "Планирана операция в следоперативния запис"], ["Fills in the procedure done with the planned one; change it when the operation was different. Off, it starts empty.", "Попълва извършената операция с планираната; променя се, когато операцията е била различна. Изключено, започва празна."]),
   def(REMINDER_IDS.localAnaestheticMax, "reminders", ["Local anaesthetic maximum", "Максимална доза локален анестетик"], ["Shows the total and the maximum when a dose goes over.", "Показва общото и максимума, когато дозата ги надвиши."]),
 ]
 
