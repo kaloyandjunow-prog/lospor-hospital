@@ -782,7 +782,7 @@ describe("Status Hospital control plane", () => {
       expect(saved.status).toBe(200)
       expect(controlPlane.setHospitalLogo).toHaveBeenCalledWith({ institutionId: "inst-1", logoDataUrl: `data:image/png;base64,${PNG.toString("base64")}`, reason: fields.reason })
 
-      controlPlane.setHospitalLogo.mockClear()
+      vi.mocked(controlPlane.setHospitalLogo).mockClear()
       await send(upload({ ...fields, removeLogo: "true", password: "Initial password phrase1!" }))
       expect(controlPlane.setHospitalLogo).toHaveBeenCalledWith({ institutionId: "inst-1", logoDataUrl: null, reason: fields.reason })
     })
@@ -793,7 +793,7 @@ describe("Status Hospital control plane", () => {
       const send = (form: FormData) => app.request("/status/control/hospital-logo", { method: "POST", headers: origin({ cookie }), body: form })
       const fields = { institutionId: "inst-1", reason: "The hospital's new logo", password: "Initial password phrase1!" }
       await send(upload(fields, new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" })))
-      await send(upload(fields, new File([Buffer.alloc(300 * 1024)], "big.png", { type: "image/png" })))
+      await send(upload(fields, new File([Buffer.alloc(1100 * 1024)], "big.png", { type: "image/png" })))
       await send(upload(fields))
       expect(controlPlane.setHospitalLogo).not.toHaveBeenCalled()
     })

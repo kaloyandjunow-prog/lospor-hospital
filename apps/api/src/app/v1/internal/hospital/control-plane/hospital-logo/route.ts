@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const denied = await authorizeAccountControl(request)
   if (denied) return denied
   try {
-    const input = hospitalLogoSchema.parse(await boundedJson(request, 400 * 1024))
+    const input = hospitalLogoSchema.parse(await boundedJson(request, 1.5 * 1024 * 1024))
     const institution = await setHospitalLogo(input)
     return NextResponse.json({ institutionId: institution.id, configured: institution.logoDataUrl !== null }, { headers: ACCOUNT_CONTROL_HEADERS })
   } catch (error) {

@@ -5,13 +5,13 @@
  * summary, a consent that runs over several sheets and the anaesthesia record
  * all carry it without any of them knowing about it. It sits in the page's top
  * margin, which every one of those documents leaves empty. On screen it is not
- * drawn. Only a PNG or JPEG data URL is accepted; the server checked it too.
+ * drawn. Only a PNG, JPEG or WebP data URL is accepted; the server checked it too.
  */
-const LOGO = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/
+const LOGO = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/
 
 export function hospitalLogoOf(institution: unknown): string | null {
   const value = institution && typeof institution === "object" ? (institution as { logoDataUrl?: unknown }).logoDataUrl : null
-  return typeof value === "string" && value.length < 400_000 && LOGO.test(value) ? value : null
+  return typeof value === "string" && value.length < 1_500_000 && LOGO.test(value) ? value : null
 }
 
 export function PrintLogo({ institution, right = "13mm" }: { institution: unknown; right?: string }) {

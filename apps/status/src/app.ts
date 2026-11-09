@@ -1579,7 +1579,7 @@ export function createStatusApp({
     const institutionId = context.req.query("institutionId") ?? ""
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(institutionId)) return context.text("Not found", 404)
     const dataUrl = await controlPlane.hospitalLogo(institutionId).catch(() => null)
-    const match = dataUrl ? /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl) : null
+    const match = dataUrl ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl) : null
     if (!match) return context.text("Not found", 404)
     return context.body(Buffer.from(match[2]!, "base64"), 200, { "content-type": match[1]!, "cache-control": "no-store", "x-content-type-options": "nosniff" })
   })
@@ -1591,7 +1591,7 @@ export function createStatusApp({
       const file = body.logo
       let logoDataUrl: string | null = null
       if (!remove) {
-        if (!(file instanceof File) || file.size === 0 || file.size > 256 * 1024 || (file.type !== "image/png" && file.type !== "image/jpeg")) {
+        if (!(file instanceof File) || file.size === 0 || file.size > 1024 * 1024 || (file.type !== "image/png" && file.type !== "image/jpeg" && file.type !== "image/webp")) {
           throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
         }
         logoDataUrl = `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`
@@ -1604,7 +1604,7 @@ export function createStatusApp({
       : localize(locale, "The hospital logo was saved and audited. It prints at the top of the preop summary, the consent and the anaesthesia record.", "Логото на болницата е запазено и записано в одитния журнал. Печата се най-горе на предоперативното обобщение, съгласието и анестезиологичния протокол."),
     "clinical",
     undefined,
-    400 * 1024,
+    1.5 * 1024 * 1024,
   ))
 
   app.post("/status/control/hospital-name", context => sensitiveControlAction(

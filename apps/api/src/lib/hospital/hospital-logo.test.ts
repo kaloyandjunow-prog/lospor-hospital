@@ -35,3 +35,11 @@ describe("the hospital logo (1.8.0)", () => {
     expect(JSON.stringify(detail)).not.toContain("data:")
   })
 })
+
+describe("a WebP logo (1.8.0)", () => {
+  const WEBP = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x24, 0, 0, 0]), Buffer.from("WEBP"), Buffer.alloc(40, 4)])
+  it("is accepted when the bytes are a WebP, and refused when they are not", () => {
+    expect(parseHospitalLogoDataUrl(`data:image/webp;base64,${WEBP.toString("base64")}`)?.mime).toBe("image/webp")
+    expect(parseHospitalLogoDataUrl(`data:image/webp;base64,${PNG.toString("base64")}`)).toBeNull()
+  })
+})

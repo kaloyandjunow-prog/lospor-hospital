@@ -34,8 +34,8 @@ baselines; rollback is backup-required.
   switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
   two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
   New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
-- **A logo on the paper documents.** Status → Clinical has a "Hospital logo" form beside the hospital name: a PNG or
-  JPEG up to 256 KB, kept on the hospital's own server (SVG is refused, and the bytes must be what the file says they
+- **A logo on the paper documents.** Status → Clinical has a "Hospital logo" form beside the hospital name: a PNG,
+  JPEG or WebP up to 1 MB, kept on the hospital's own server (SVG is refused, and the bytes must be what the file says they
   are). It prints at the top of every page of the preoperative summary, the informed consent and the anaesthesia record,
   including a consent that runs over several sheets. Saving and removing need the administrator password and a reason,
   and are audited by size only, never the picture. New column `Institution.logoDataUrl` (migration
