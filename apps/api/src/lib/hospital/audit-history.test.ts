@@ -32,7 +32,7 @@ describe("the change history (10.3.0)", () => {
     const db = store([])
     await auditHistory(db as never)
     const all = db.auditLog.findMany.mock.calls[0]![0].where.action.in as string[]
-    const byCode = new Map(AUDIT_ACTION_REGISTRY.map(item => [item.code, item.category]))
+    const byCode = new Map<string, string>(AUDIT_ACTION_REGISTRY.map(item => [item.code, item.category]))
     expect(all.every(code => (AUDIT_HISTORY_CATEGORIES as readonly string[]).includes(byCode.get(code) as string))).toBe(true)
     expect(all.some(code => byCode.get(code) === "AUTHENTICATION" || byCode.get(code) === "CASE")).toBe(false)
 

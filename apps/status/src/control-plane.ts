@@ -206,6 +206,48 @@ export const MONITORING_DUE_RANGE = { min: 1, max: 120 } as const
 export const HYPERTENSION_BASELINE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50] as const
 export const DEFAULT_HYPERTENSION_BASELINE_PERCENT = 20
 
+/** A treatment card for a sample patient (10.3.0): what the clinician sees, no case. */
+export type CardPreviewRow = {
+  id: string
+  kind: string
+  titleEn: string
+  titleBg: string
+  noteEn: string | null
+  noteBg: string | null
+  dose: { en: string; bg: string } | null
+  branches: string[] | null
+  step: { index: number; of: number } | null
+  total: { amount: number; max: number; unit: string } | null
+}
+
+export type CardPreviewView = {
+  patients: Array<{ key: string; labelEn: string; labelBg: string }>
+  preview: {
+    complication: string
+    complicationBg: string
+    kind: string
+    redStrip: boolean
+    question: { en: string; bg: string } | null
+    branches: { prompt: { en: string; bg: string } | null; options: Array<{ id: string; title: { en: string; bg: string } }> } | null
+    patient: { key: string; labelEn: string; labelBg: string }
+    rows: CardPreviewRow[]
+  } | null
+}
+
+const words = (value: unknown): boolean => isRecord(value) && typeof value.en === "string" && typeof value.bg === "string"
+
+export function cardPreviewShape(value: unknown): value is CardPreviewView {
+  if (!isRecord(value) || !Array.isArray(value.patients) || value.patients.length > 10) return false
+  if (!value.patients.every(item => isRecord(item) && typeof item.key === "string" && typeof item.labelEn === "string" && typeof item.labelBg === "string")) return false
+  if (value.preview === null) return true
+  const card = value.preview
+  if (!isRecord(card) || typeof card.complication !== "string" || typeof card.complicationBg !== "string" || typeof card.kind !== "string" || typeof card.redStrip !== "boolean") return false
+  if (!(card.question === null || words(card.question)) || !isRecord(card.patient) || typeof card.patient.labelEn !== "string" || typeof card.patient.labelBg !== "string") return false
+  if (!(card.branches === null || (isRecord(card.branches) && Array.isArray(card.branches.options) && card.branches.options.every(option => isRecord(option) && words(option.title))))) return false
+  return Array.isArray(card.rows) && card.rows.length <= 60 && card.rows.every(row => isRecord(row) && typeof row.id === "string" && typeof row.kind === "string"
+    && typeof row.titleEn === "string" && typeof row.titleBg === "string" && (row.dose === null || words(row.dose)))
+}
+
 /** The change history (10.3.0): who changed what, and when. No target id and no detail. */
 export type AuditHistoryView = {
   rows: Array<{ id: string; at: string; action: string; category: string | null; labelEn: string; labelBg: string; who: string | null }>
@@ -942,6 +984,8 @@ export interface ControlPlanePort {
   intraopAcceptance(): Promise<AcceptanceTrendView | null>
   /** Who changed which setting or account, and when (10.3.0): read only. */
   auditHistory(query: { page: number; category: string; action: string }): Promise<AuditHistoryView | null>
+  /** A treatment card as a clinician sees it, for a sample patient (10.3.0): read only. */
+  cardPreview(query: { complication: string; patient: string }): Promise<CardPreviewView | null>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -1802,6 +1846,12 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void> {
     return this.mutate("/intraop-automation", input)
+  }
+  async cardPreview(query: { complication: string; patient: string }): Promise<CardPreviewView | null> {
+    const params = new URLSearchParams({ patient: query.patient })
+    if (query.complication) params.set("complication", query.complication)
+    const value = await this.request(`/intraop-card-preview?${params}`)
+    return cardPreviewShape(value) ? value : null
   }
   async auditHistory(query: { page: number; category: string; action: string }): Promise<AuditHistoryView | null> {
     const params = new URLSearchParams()

@@ -19,11 +19,12 @@ const ANCHOR = "intraop-readings"
 const fail = () => new ControlPlaneClientError("INTRAOP_AUTOMATION_INVALID")
 
 /** The tabs of the SPS page, in the chips every skin uses for a page's tabs (the preoperative form's are the same). */
-export function renderIntraopTabs(active: "switches" | "readings" | "acceptance", locale: StatusLocale): string {
-  const tabs: Array<["switches" | "readings" | "acceptance", string, string]> = [
+export function renderIntraopTabs(active: "switches" | "readings" | "acceptance" | "cards", locale: StatusLocale): string {
+  const tabs: Array<["switches" | "readings" | "acceptance" | "cards", string, string]> = [
     ["switches", "/status/control/intraop", localize(locale, "Switches", "Превключватели")],
     ["readings", INTRAOP_READINGS_PATH, localize(locale, "Unusual readings", "Необичайни показания")],
     ["acceptance", INTRAOP_ACCEPTANCE_PATH, localize(locale, "Acceptance trend", "Тенденция на приемане")],
+    ["cards", "/status/control/intraop/cards", localize(locale, "Card preview", "Преглед на карти")],
   ]
   return `<nav class="statusnav subnav preop-tabs" aria-label="${localize(locale, "SPS — Smart Prediction System", "SPS — Система за интелигентно прогнозиране")}">${tabs.map(([id, href, name]) =>
     `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${name}</a>`).join("")}</nav>`

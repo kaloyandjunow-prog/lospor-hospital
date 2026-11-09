@@ -34,6 +34,12 @@ baselines; rollback is backup-required.
   switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
   two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
   New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
+- **Status: Card preview,** a fourth tab of the SPS page (no menu entry, Legacy included). Choose a treatment card and a
+  sample patient (an adult of 80 kg, a child of 5 years and 18 kg, an infant of 6 months and 7 kg) and see the card as
+  the clinician sees it after the complication: the question, the rows with their doses worked out on that age and
+  weight, the steps and running totals, and whether the card is switched on for this hospital. The API resolves it from
+  the same Core definition the screens use, so the preview cannot differ from the card; no case is read and nothing is
+  charted (`GET …/control-plane/intraop-card-preview`).
 - **Status: Change history,** a page of its own (one row under People in every menu, and in Legacy). It reads the audit
   rows: when, what was changed (hospital settings, accounts, Central, research access, clinical rules, maintenance), and
   who did it, newest first, fifty to a page, filtered by area or by kind. It shows that a setting was changed, not why

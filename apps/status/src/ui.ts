@@ -46,7 +46,8 @@ import { INTRAOP_STYLE, renderIntraopPage } from "./intraop-ui.js"
 import { READINGS_STYLE, renderReadingsPage } from "./readings-ui.js"
 import { ACCEPTANCE_STYLE, renderAcceptancePage } from "./acceptance-ui.js"
 import { HISTORY_STYLE, renderHistoryPage, type HistoryQuery } from "./history-ui.js"
-import type { AcceptanceTrendView, AuditHistoryView, IntraopReadingsView } from "./control-plane.js"
+import { CARD_PREVIEW_STYLE, renderCardPreviewPage, type CardQuery } from "./card-preview-ui.js"
+import type { AcceptanceTrendView, AuditHistoryView, CardPreviewView, IntraopReadingsView } from "./control-plane.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
 import { PREFS_STYLE, SKIN_STYLE, THEME_STYLE, htmlAttributes, isLegacy, legacyProfileLink, NAV_PATHS, skinHeader, ui, availabilityStrips, configureBody, goLiveCard, overviewMap, preferencesBody, rangeSwitch, todoList, usageCard, verdictCard, type AvailabilityRange } from "./ui-shell.js"
@@ -533,7 +534,7 @@ ${DRUG_COLORS_STYLE}
 ${THEATRES_STYLE}
 ${INDICATORS_STYLE}
 ${INTRAOP_STYLE}
-${READINGS_STYLE}${ACCEPTANCE_STYLE}${HISTORY_STYLE}
+${READINGS_STYLE}${ACCEPTANCE_STYLE}${HISTORY_STYLE}${CARD_PREVIEW_STYLE}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
 @media(max-width:760px){.preop-order-row{grid-template-columns:auto auto minmax(0,1fr)}.preop-row-switches,.preop-order-number,.preop-order-actions{grid-column:3}.preop-order-actions{justify-content:flex-start}.preop-fixed-row{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -1398,6 +1399,9 @@ export function renderControlPlane(
   /** The Change history page's rows (10.3.0) and the filter they were read with; undefined on every other page. */
   history?: AuditHistoryView | null,
   historyQuery?: HistoryQuery,
+  /** The Card preview tab's card and the sample patient it was resolved for (10.3.0); undefined on every other page. */
+  cardPreview?: CardPreviewView | null,
+  cardQuery?: CardQuery,
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1510,6 +1514,7 @@ export function renderControlPlane(
   // Three tabs on one page: the switches, the Unusual readings and the acceptance trend. None is a menu entry of its own.
   const intraopPage = section === "intraop/readings" ? renderReadingsPage(readings, locale)
     : section === "intraop/acceptance" ? renderAcceptancePage(trend, view?.intraopAutomation, locale)
+    : section === "intraop/cards" ? renderCardPreviewPage(cardPreview, view?.intraopAutomation, cardQuery ?? { complication: "", patient: "adult" }, locale)
     : renderIntraopPage(view?.intraopAutomation, locale)
   // The preop questions, summary and consent have their own page (1.6.1);
   // the legacy skin keeps them above the guidance, where they always were.

@@ -12,6 +12,7 @@ import { intraopFixture } from "./intraop.fixture.js"
 import { readingsFixture } from "./readings.fixture.js"
 import { acceptanceFixture } from "./acceptance.fixture.js"
 import { historyFixture } from "./history.fixture.js"
+import { cardPreviewFixture } from "./card-preview.fixture.js"
 import { NAV_GROUPS } from "./ui-shell.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
@@ -311,6 +312,7 @@ function setup() {
     intraopReadings: vi.fn(async () => null),
     intraopAcceptance: vi.fn(async () => null),
     auditHistory: vi.fn(async () => null),
+    cardPreview: vi.fn(async () => null),
     hospitalLogo: vi.fn(async () => null),
     setHospitalLogo: vi.fn(async () => undefined),
     issueGrant: vi.fn(async () => {}),
@@ -2043,7 +2045,7 @@ describe("the Legacy skin keeps up with the modern ones", () => {
     const missing = modern.filter(path => !html.includes(`href="${path}"`))
     // Pages that are tabs of another page (the preop tabs) are reached through that page's own tabs.
     // The SPS page's Unusual readings tab is the same: its link is on the SPS page, checked below.
-    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents", "/status/control/intraop/readings", "/status/control/intraop/acceptance"]
+    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents", "/status/control/intraop/readings", "/status/control/intraop/acceptance", "/status/control/intraop/cards"]
     // Codes, patient identification and Central are sections of Legacy's Hospital system and Research pages (checked above).
     const folded = ["/status/control/codes", "/status/control/identity", "/status/control/central"]
     expect(missing.filter(path => !tabs.includes(path) && !folded.includes(path))).toEqual([])
@@ -2199,5 +2201,23 @@ describe("the Change history page (10.3.0)", () => {
     const cookie = await passwordCookie(app, auth)
     await app.request("/status/control/identity", { headers: { cookie } })
     expect(history).not.toHaveBeenCalled()
+  })
+})
+
+describe("the Card preview tab of the SPS page (10.3.0)", () => {
+  it("is a tab in every skin, not a menu entry, and is read only when it is open", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const preview = vi.spyOn(controlPlane, "cardPreview").mockResolvedValue(cardPreviewFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      expect(await page("/status/control/intraop", skin), skin).toContain('href="/status/control/intraop/cards"')
+      expect(preview, skin).not.toHaveBeenCalled()
+      expect(await page("/status/control/intraop/cards?complication=Hypotension&patient=child", skin), skin).toContain('data-testid="card-preview-form"')
+      expect(preview).toHaveBeenLastCalledWith({ complication: "Hypotension", patient: "child" })
+      expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/cards")
+      preview.mockClear()
+    }
   })
 })

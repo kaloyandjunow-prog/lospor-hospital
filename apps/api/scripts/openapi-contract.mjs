@@ -2039,6 +2039,14 @@ add("GET", "/v1/internal/hospital/control-plane/audit-history", "Read who change
   stability: "internal",
   tag: "internal",
 })
+add("GET", "/v1/internal/hospital/control-plane/intraop-card-preview", "Read a treatment card as a clinician sees it, for a sample patient, for the Status Card preview tab", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("GET", "/v1/internal/hospital/control-plane/hospital-logo", "Read the logo printed on the paper documents, for the Status page", {
   parameters: [statusControlBearer],
   status: 200,
