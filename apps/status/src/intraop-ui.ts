@@ -161,6 +161,8 @@ export function renderIntraopPage(view: IntraopAutomationView | null | undefined
 <h4>${localize(locale, "Master switch", "Главен превключвател")}</h4>
 ${check("enabled", config.enabled, `<strong>${localize(locale, "Use SPS", "Използване на SPS")}</strong>`, "intraop-enabled")}
 <p class="component-detail">${localize(locale, "Off: no questions and no suggestions anywhere, whatever is chosen below.", "Изключено: никакви въпроси и предложения никъде, каквото и да е избрано по-долу.")}</p>
+<div class="intraop-search"><input type="search" data-testid="intraop-search" autocomplete="off" placeholder="${localize(locale, "Search the lines", "Търсене сред редовете")}" aria-label="${localize(locale, "Search the lines", "Търсене сред редовете")}"><span class="component-detail" data-testid="intraop-search-count" aria-live="polite"></span></div>
+<script src="/status/intraop-search.js" defer></script>
 <h4>${localize(locale, "Groups", "Групи")}</h4>
 ${acceptance ? `<p class="component-detail" data-testid="intraop-acceptance">${localize(locale,
     `Beside each line: how often it was taken up and how often put away, over the ${acceptance.days} days before today (${acceptance.cases} cases). A line that is mostly put away may be noise; switch it off here. Reminders and follow-ups only show when put away.`,
@@ -186,7 +188,7 @@ ${check("vitalsEnabled", config.vitalQuestions.enabled, localize(locale, "Ask ab
 }
 
 export const INTRAOP_STYLE = `.intraop-groups{display:grid;gap:.5rem;margin:.4rem 0}.intraop-group{display:grid;gap:.15rem}.intraop-group .component-detail{margin-left:1.7rem}
-.intraop-lines{margin:.3rem 0 0 1.7rem}.intraop-lines summary{cursor:pointer;color:var(--muted)}.intraop-lines ul{list-style:none;margin:.4rem 0 0;padding:0;display:grid;gap:.45rem}.intraop-lines li{display:grid;gap:.1rem}.intraop-lines li .component-detail{margin-left:1.7rem}
+.intraop-lines{margin:.3rem 0 0 1.7rem}.intraop-lines summary{cursor:pointer;color:var(--muted)}.intraop-lines ul{list-style:none;margin:.4rem 0 0;padding:0;display:grid;gap:.45rem}.intraop-lines li{display:grid;gap:.1rem}.intraop-lines li .component-detail{margin-left:1.7rem}.intraop-lines[hidden],.intraop-lines li[hidden]{display:none}.intraop-search{display:flex;align-items:center;gap:.6rem;margin:.6rem 0}.intraop-search input{flex:1;max-width:26rem}.intraop-search [data-empty="1"]{color:var(--danger,#b42318)}
 .intraop-stat{display:inline-block;margin-left:.4rem;font-variant-numeric:tabular-nums}.intraop-stat[data-quiet]{opacity:.7}.intraop-stat[data-noisy]{color:var(--warn);font-weight:650}
 .intraop-vials{display:flex;flex-wrap:wrap;gap:1rem;margin:.4rem 0}
 .intraop-succession td:nth-child(4),.intraop-succession td:nth-child(5){font-variant-numeric:tabular-nums;text-align:right}.intraop-succession [data-source=starting]{color:var(--muted)}

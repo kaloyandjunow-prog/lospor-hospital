@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { ControlPlaneClientError, intraopAutomationShape, type StatusSuccessionRow } from "./control-plane.js"
 import { intraopLines, intraopUpdateFromForm, renderIntraopPage } from "./intraop-ui.js"
 import { intraopFixture } from "./intraop.fixture.js"
+import { INTRAOP_SEARCH_SCRIPT } from "./intraop-search-script.js"
 
 const form = (overrides: Record<string, string> = {}) => ({
   enabled: "true", group_treatmentSuggestions: "true", group_timers: "true", vitalsEnabled: "true", minCases: "200",
@@ -115,5 +116,47 @@ describe("SPS page (10.2.0)", () => {
     for (const bad of ["0", "121", "7.5", ""]) {
       expect(() => intraopUpdateFromForm(view, form({ due_bis: bad }), reason)).toThrow(ControlPlaneClientError)
     }
+  })
+})
+
+describe("the search over the SPS lines (10.2.0)", () => {
+  it("has a search box with the script of its own, and the script filters the lines and restores them", () => {
+    const html = renderIntraopPage(intraopFixture(), "en")
+    expect(html).toContain('data-testid="intraop-search"')
+    expect(html).toContain('src="/status/intraop-search.js"')
+
+    // A fake DOM is enough: three lines in two groups.
+    const listeners: Record<string, (event?: unknown) => void> = {}
+    const box = { value: "", addEventListener: (name: string, fn: () => void) => { listeners[name] = fn } }
+    const li = (text: string) => ({ textContent: text, hidden: false })
+    const lines = [li("Hypotension card"), li("Lipid emulsion"), li("Latex allergy banner")]
+    const group = (members: ReturnType<typeof li>[], open: boolean) => ({
+      open, hidden: false, attrs: {} as Record<string, string>,
+      setAttribute(name: string, value: string) { this.attrs[name] = value },
+      getAttribute(name: string) { return this.attrs[name] },
+      querySelector: () => (members.some(item => !item.hidden) ? {} : null),
+    })
+    const groups = [group([lines[0]!, lines[1]!], false), group([lines[2]!], true)]
+    const count = { textContent: "", attrs: {} as Record<string, string>, setAttribute(name: string, value: string) { this.attrs[name] = value } }
+    const form = { querySelectorAll: (selector: string) => (selector === ".intraop-lines li" ? lines : groups) }
+    const document = { querySelector: (selector: string) => selector.includes("search-count") ? count : selector.includes("intraop-search") ? box : form }
+    new Function("document", INTRAOP_SEARCH_SCRIPT)(document)
+
+    box.value = "lipid"
+    listeners.input!()
+    expect(lines.map(item => item.hidden)).toEqual([true, false, true])
+    expect(groups.map(item => item.hidden)).toEqual([false, true])
+    expect(groups[0]!.open).toBe(true)
+    expect(count.textContent).toBe("1 / 3")
+
+    box.value = "zzz"
+    listeners.input!()
+    expect(count.attrs["data-empty"]).toBe("1")
+
+    box.value = ""
+    listeners.input!()
+    expect(lines.every(item => !item.hidden)).toBe(true)
+    expect(groups.map(item => item.open)).toEqual([false, true])
+    expect(count.textContent).toBe("")
   })
 })

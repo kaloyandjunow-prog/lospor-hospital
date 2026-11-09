@@ -104,6 +104,7 @@ describe("the navigation registry", () => {
       "/status/admin-link.js",
       "/status/ui.js",
       "/status/unusual-readings.js",
+      "/status/intraop-search.js",
       "/status/brand/periop-laboratories.png",
       "/status/preop-order.js",
       "/status/maintenance/support-bundle",

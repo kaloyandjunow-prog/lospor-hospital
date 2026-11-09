@@ -85,6 +85,7 @@ import { indicatorsUpdateFromForm } from "./indicators-ui.js"
 import { intraopUpdateFromForm } from "./intraop-ui.js"
 import { readingsUpdateFromForm } from "./readings-ui.js"
 import { UNUSUAL_READINGS_SCRIPT } from "./readings-script.js"
+import { INTRAOP_SEARCH_SCRIPT } from "./intraop-search-script.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -527,6 +528,11 @@ export function createStatusApp({
   ))
   app.get("/status/admin-link.js", context => context.body(
     STATUS_ADMIN_FRAGMENT_SCRIPT,
+    200,
+    { "content-type": "text/javascript; charset=utf-8" },
+  ))
+  app.get("/status/intraop-search.js", context => context.body(
+    INTRAOP_SEARCH_SCRIPT,
     200,
     { "content-type": "text/javascript; charset=utf-8" },
   ))
