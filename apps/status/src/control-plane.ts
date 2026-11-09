@@ -784,6 +784,9 @@ export interface ControlPlanePort {
   setCaseVisibilityPolicy(input: { enabled: boolean; reason: string }): Promise<void>
   /** The hospital's name as the anaesthesia record titles itself: the institution's own name. */
   setHospitalName(input: { institutionId: string; name: string; reason: string }): Promise<void>
+  /** The picture printed at the top of the paper documents, as a data URL; null when there is none. */
+  hospitalLogo(institutionId: string): Promise<string | null>
+  setHospitalLogo(input: { institutionId: string; logoDataUrl: string | null; reason: string }): Promise<void>
   setExternalAiPolicy(input: {
     externalAiEnabled: boolean
     reason: string
@@ -1626,6 +1629,13 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   setHospitalName(input: Parameters<ControlPlanePort["setHospitalName"]>[0]): Promise<void> {
     return this.mutate("/hospital-name", input)
+  }
+  async hospitalLogo(institutionId: string): Promise<string | null> {
+    const value = await this.request(`/hospital-logo?institutionId=${encodeURIComponent(institutionId)}`)
+    return isRecord(value) && typeof value.logoDataUrl === "string" ? value.logoDataUrl : null
+  }
+  setHospitalLogo(input: Parameters<ControlPlanePort["setHospitalLogo"]>[0]): Promise<void> {
+    return this.mutate("/hospital-logo", input)
   }
   setExternalAiPolicy(input: Parameters<ControlPlanePort["setExternalAiPolicy"]>[0]): Promise<void> {
     return this.mutate("/external-ai/policy", input)

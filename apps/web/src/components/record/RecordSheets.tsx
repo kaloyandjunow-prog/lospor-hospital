@@ -28,6 +28,7 @@ import { accessLabel, deviceLabel, formatBmi } from "@/components/case-summary/s
 import { RecordChart } from "./RecordChart"
 import { EventLogTable, VitalsTable } from "./RecordTables"
 import { recordPageCss } from "./record-page-css"
+import { PrintLogo } from "@/components/PrintLogo"
 
 /**
  * The anaesthesia record (mock E): one document for the case summary on the web and for the print sheet.
@@ -96,6 +97,7 @@ export function RecordSheets({ data, locale }: { data: CaseDetail; locale: strin
   return (
     <div className="record-root text-slate-900" data-testid="record-sheets">
       <style>{recordPageCss(hospital, R.page, R.of)}</style>
+      <PrintLogo institution={inst} right="12mm" />
 
       {/* ── Portrait: who, risk, airway, access, the event log, the vitals ── */}
       <section className="rec-port rec-sheet" data-testid="record-page-1" data-tour="summary-page1">

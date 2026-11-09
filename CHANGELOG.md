@@ -34,6 +34,14 @@ baselines; rollback is backup-required.
   switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
   two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
   New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
+- **A logo on the paper documents.** Status → Clinical has a "Hospital logo" form beside the hospital name: a PNG or
+  JPEG up to 256 KB, kept on the hospital's own server (SVG is refused, and the bytes must be what the file says they
+  are). It prints at the top of every page of the preoperative summary, the informed consent and the anaesthesia record,
+  including a consent that runs over several sheets. Saving and removing need the administrator password and a reason,
+  and are audited by size only, never the picture. New column `Institution.logoDataUrl` (migration
+  `20261109110000_institution_logo`, `schema_max` updated).
+- **Status: a search box over the SPS lines.** The Switches tab filters its 100-odd lines as you type, opens the groups
+  that still have a match and puts everything back when cleared. Without script the page is the whole list, as before.
 - **Status: Unusual readings,** a second tab of the SPS page (it is not a menu entry, and Legacy has it too). For each
   age band and sign it draws this hospital's own readings with the limits as sliders, the fixed rules beside them and a
   scale in SD, and shows at once how many finished cases a limit would ask about, what the clinician would see, and how

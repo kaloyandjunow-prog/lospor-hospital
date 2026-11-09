@@ -307,6 +307,8 @@ function setup() {
   const controlPlane: ControlPlanePort = {
     get: vi.fn(async () => VIEW),
     intraopReadings: vi.fn(async () => null),
+    hospitalLogo: vi.fn(async () => null),
+    setHospitalLogo: vi.fn(async () => undefined),
     issueGrant: vi.fn(async () => {}),
     revokeGrant: vi.fn(async () => {}),
     approveOmop: vi.fn(async () => {}),
@@ -745,6 +747,67 @@ describe("Status Hospital control plane", () => {
       institutionId: "inst-1",
       name: "Sofia University Hospital",
       reason: "The legal name changed",
+    })
+  })
+
+  describe("the hospital logo on the paper documents (1.8.0)", () => {
+    const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)])
+    const upload = (fields: Record<string, string>, file?: File) => {
+      const form = new FormData()
+      for (const [name, value] of Object.entries(fields)) form.set(name, value)
+      if (file) form.set("logo", file)
+      return form
+    }
+
+    it("sits beside the hospital name on the clinical page, in every skin", async () => {
+      const { app, auth } = setup()
+      const cookie = await passwordCookie(app, auth)
+      for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+        const html = await (await app.request("/status/control/clinical", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+        expect(html, skin).toContain('data-testid="hospital-logo-control"')
+        expect(html, skin).toContain('enctype="multipart/form-data"')
+      }
+    })
+
+    it("saves a PNG only with the password and a reason, as a data URL, and removes it on request", async () => {
+      const { app, auth, controlPlane } = setup()
+      const cookie = await passwordCookie(app, auth)
+      const send = (form: FormData) => app.request("/status/control/hospital-logo", { method: "POST", headers: origin({ cookie }), body: form })
+      const fields = { institutionId: "inst-1", reason: "The hospital's new logo" }
+
+      expect((await send(upload({ ...fields, password: "wrong password phrase" }, new File([PNG], "logo.png", { type: "image/png" })))).status).toBe(401)
+      expect(controlPlane.setHospitalLogo).not.toHaveBeenCalled()
+
+      const saved = await send(upload({ ...fields, password: "Initial password phrase1!" }, new File([PNG], "logo.png", { type: "image/png" })))
+      expect(saved.status).toBe(200)
+      expect(controlPlane.setHospitalLogo).toHaveBeenCalledWith({ institutionId: "inst-1", logoDataUrl: `data:image/png;base64,${PNG.toString("base64")}`, reason: fields.reason })
+
+      controlPlane.setHospitalLogo.mockClear()
+      await send(upload({ ...fields, removeLogo: "true", password: "Initial password phrase1!" }))
+      expect(controlPlane.setHospitalLogo).toHaveBeenCalledWith({ institutionId: "inst-1", logoDataUrl: null, reason: fields.reason })
+    })
+
+    it("refuses a file that is not a PNG or JPEG, or too large, or none at all", async () => {
+      const { app, auth, controlPlane } = setup()
+      const cookie = await passwordCookie(app, auth)
+      const send = (form: FormData) => app.request("/status/control/hospital-logo", { method: "POST", headers: origin({ cookie }), body: form })
+      const fields = { institutionId: "inst-1", reason: "The hospital's new logo", password: "Initial password phrase1!" }
+      await send(upload(fields, new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" })))
+      await send(upload(fields, new File([Buffer.alloc(300 * 1024)], "big.png", { type: "image/png" })))
+      await send(upload(fields))
+      expect(controlPlane.setHospitalLogo).not.toHaveBeenCalled()
+    })
+
+    it("previews the logo from the administrator's session only", async () => {
+      const { app, auth, controlPlane } = setup()
+      expect((await app.request("/status/hospital-logo?institutionId=inst-1")).status).toBe(403)
+      const cookie = await passwordCookie(app, auth)
+      vi.spyOn(controlPlane, "hospitalLogo").mockResolvedValue(`data:image/png;base64,${PNG.toString("base64")}`)
+      const response = await app.request("/status/hospital-logo?institutionId=inst-1", { headers: { cookie } })
+      expect(response.status).toBe(200)
+      expect(response.headers.get("content-type")).toBe("image/png")
+      expect(Buffer.from(await response.arrayBuffer()).equals(PNG)).toBe(true)
+      expect((await app.request("/status/hospital-logo?institutionId=../x", { headers: { cookie } })).status).toBe(404)
     })
   })
 

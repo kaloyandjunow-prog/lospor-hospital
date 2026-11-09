@@ -14,6 +14,7 @@ import {
 import { consentTemplateFor, preopDocumentLayout, preopDocumentPages } from "./PreopDocumentPages"
 import { preopSummaryLabels } from "./labels"
 import type { PreopSummaryData } from "./facts"
+import { PrintLogo } from "@/components/PrintLogo"
 
 const TXT = {
   en: {
@@ -124,6 +125,7 @@ export function PreopSummaryPrintClient({ caseId, data, printToken, pdfMode, ini
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
+      <PrintLogo institution={data.institution} />
       <div className="max-w-[820px] mx-auto">
         {!pdfMode ? (
           <div className="preop-print-chrome flex flex-wrap items-center gap-2 mb-3">
