@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { downloadPersonalExport, requestRole } from "@/lib/account-actions"
 import { Settings, Sun, Moon, X, User, LayoutList, Rows3, PanelRight } from "lucide-react"
 import { useCaseLayout } from "@/hooks/useCaseLayout"
@@ -9,23 +9,32 @@ import { applyUiScale, parseUiScale, UI_SCALE_COOKIE, UI_SCALE_DEFAULT } from "@
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { caseOutbox } from "@/lib/case-outbox"
-import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { FavouritesEditor } from "@/components/intraop/FavouritesEditor"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { normalizeAutoFillVitalsPreferences } from "@lospor/core/intraop-vitals"
 import { NO_INSTITUTION_ID } from "@lospor/core/account"
 import { patchWebClinicalPreferences, syncWebClinicalPreferences } from "@/lib/clinical-preferences-web"
-import {
-  canonicalizeOptionPreferences,
-  resolveOptionPreferenceLabels,
-} from "@lospor/core/option-contracts"
 import { useAccountLocale } from "@/hooks/useAccountLocale"
 import { SettingRow, Toggle } from "@/components/settings/SettingControls"
+import { VitalEpisodeSetting } from "@/components/settings/VitalEpisodeSetting"
+import { AutomationGroupsSetting } from "@/components/settings/AutomationGroupsSetting"
+import { EnergyKnobSkinSetting } from "@/components/settings/EnergyKnobSkinSetting"
+import { AirwayScreenSetting } from "@/components/settings/AirwayScreenSetting"
+import { VascularScreenSetting } from "@/components/settings/VascularScreenSetting"
+import { MonitoringScreenSetting } from "@/components/settings/MonitoringScreenSetting"
+import { EquipmentScreenSetting } from "@/components/settings/EquipmentScreenSetting"
+import { TechniqueScreenSetting } from "@/components/settings/TechniqueScreenSetting"
+import { EventsScreenSetting } from "@/components/settings/EventsScreenSetting"
+import { FluidScreenSetting } from "@/components/settings/FluidScreenSetting"
+import { EventLogScreenSetting } from "@/components/settings/EventLogScreenSetting"
 import { BulgarianNamesSettings } from "@/components/settings/BulgarianNamesSettings"
+import { useFavouriteOptions } from "@/components/settings/useFavouriteOptions"
+import { useUnitSettings } from "@/components/settings/useUnitSettings"
 import { PillGroup } from "@/components/settings/PillGroup"
 import { UiScaleSetting } from "@/components/settings/UiScaleSetting"
+import { OverflowCueScroll } from "@/components/ui/OverflowCueScroll"
 
-type Category = "ui" | "units" | "automation" | "access" | "privacy"
+type Category = "account" | "appearance" | "units" | "clinicalDefaults" | "smartFunctions" | "access" | "privacy"
 
 type RoleReq = { id: string; status: string; requestedAt: string; resolvedAt: string | null } | null
 
@@ -40,7 +49,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   const t = useTranslations()
   const [open, setOpen]                     = useState(false)
   const [modalOpen, setModalOpen]           = useState(false)
-  const [category, setCategory]             = useState<Category>("ui")
+  const [category, setCategory]             = useState<Category>("account")
   const [instEdit, setInstEdit]             = useState(false)
   const [instList, setInstList]             = useState<{ id: string; name: string; city: string }[]>([])
   const [instQuery, setInstQuery]           = useState("")
@@ -76,63 +85,8 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   const [exporting, setExporting]   = useState(false)
   const [exportError, setExportError] = useState("")
 
-  // Intraop favourites. Server-side (not localStorage like the toggles above)
-  // because the whole point is that they follow the clinician onto the phone.
-  const { options: drugLibOpts }     = useOptionLibrary("INTRAOP_DRUG")
-  const { options: infusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
-  const favDrugOptions     = useMemo(() => [...new Set(drugLibOpts.map(o => o.label))].sort(), [drugLibOpts])
-  const favInfusionOptions = useMemo(() => [...new Set(infusionLibOpts.map(o => o.label))].sort(), [infusionLibOpts])
-  const [favDrugs, setFavDrugs]         = useState<string[]>([])
-  const [favInfusions, setFavInfusions] = useState<string[]>([])
-  const [favSaving, setFavSaving]       = useState(false)
-  const selectedFavDrugs = useMemo(
-    () => resolveOptionPreferenceLabels(
-      "INTRAOP_DRUG",
-      drugLibOpts,
-      favDrugs,
-    ),
-    [drugLibOpts, favDrugs],
-  )
-  const selectedFavInfusions = useMemo(
-    () => resolveOptionPreferenceLabels(
-      "INTRAOP_INFUSION",
-      infusionLibOpts,
-      favInfusions,
-    ),
-    [infusionLibOpts, favInfusions],
-  )
-
-  async function saveFavourites(
-    key: "intraopFavouriteDrugs" | "intraopFavouriteInfusions",
-    next: string[],
-    apply: (v: string[]) => void,
-  ) {
-    const previous = key === "intraopFavouriteDrugs" ? favDrugs : favInfusions
-    next = key === "intraopFavouriteDrugs"
-      ? canonicalizeOptionPreferences("INTRAOP_DRUG", drugLibOpts, next)
-      : canonicalizeOptionPreferences(
-          "INTRAOP_INFUSION",
-          infusionLibOpts,
-          next,
-        )
-    apply(next)                     // optimistic — the list is small and local
-    setFavSaving(true)
-    try {
-      await patchWebClinicalPreferences({ [key]: next })
-    } catch {
-      apply(previous)               // put it back rather than lie about saving
-    } finally {
-      setFavSaving(false)
-    }
-  }
-  // Display-only — the database always stores the canonical value
-  // (cm/kg/°C/mmHg); these just convert what's shown/typed in vitals entry.
-  // Drugs, infusions, fluids, and labs are not affected.
-  const [heightUnit, setHeightUnitState]           = useState<"cm" | "in">("cm")
-  const [weightUnit, setWeightUnitState]           = useState<"kg" | "lb">("kg")
-  const [temperatureUnit, setTemperatureUnitState] = useState<"C" | "F">("C")
-  const [etco2Unit, setEtco2UnitState]             = useState<"mmHg" | "kPa">("mmHg")
-  const [cvpUnit, setCvpUnitState]                 = useState<"cmH2O" | "mmHg">("cmH2O")
+  const { favDrugOptions, favInfusionOptions, setFavDrugs, setFavInfusions, favSaving, selectedFavDrugs, selectedFavInfusions, saveFavourites } = useFavouriteOptions()
+  const { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, loadStoredUnits, applyServerUnits, applyHeightUnit, applyWeightUnit, applyTemperatureUnit, applyEtco2Unit, applyCvpUnit } = useUnitSettings()
   const [roleReq, setRoleReq]       = useState<RoleReq | undefined>(undefined)
   const [reqLoading, setReqLoading] = useState(false)
   const router   = useRouter()
@@ -165,27 +119,16 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
     setAutoFillBP(autoFillPreferences.includeBloodPressure)
     setAutoFillBg(autoFillPreferences.backfillOnReopen)
 
-    const hu = localStorage.getItem("heightUnit")
-    if (hu === "cm" || hu === "in") setHeightUnitState(hu)
-    const wu = localStorage.getItem("weightUnit")
-    if (wu === "kg" || wu === "lb") setWeightUnitState(wu)
-    const tu = localStorage.getItem("temperatureUnit")
-    if (tu === "C" || tu === "F") setTemperatureUnitState(tu)
-    const eu = localStorage.getItem("etco2Unit")
-    const cu = localStorage.getItem("cvpUnit")
-    if (eu === "mmHg" || eu === "kPa") setEtco2UnitState(eu)
-    if (cu === "cmH2O" || cu === "mmHg") setCvpUnitState(cu)
+    loadStoredUnits()
 
     void syncWebClinicalPreferences().then(preferences => {
       setDefMon(preferences.defaultMonitoring)
+      setTtLayout(preferences.timetableLayout)
+      setVitalsExp(preferences.vitalsChartExpanded)
       setAutoFill(preferences.autoFillVitals.enabled)
       setAutoFillBP(preferences.autoFillVitals.includeBloodPressure)
       setAutoFillBg(preferences.autoFillVitals.backfillOnReopen)
-      setHeightUnitState(preferences.units.height)
-      setWeightUnitState(preferences.units.weight)
-      setTemperatureUnitState(preferences.units.temperature)
-      setEtco2UnitState(preferences.units.etco2)
-      setCvpUnitState(preferences.units.cvp)
+      applyServerUnits(preferences.units)
       setFavDrugs(preferences.intraopFavouriteDrugs)
       setFavInfusions(preferences.intraopFavouriteInfusions)
     }).catch(() => {})
@@ -195,7 +138,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
       fetch("/api/role-request").then(r => r.json()).then(setRoleReq).catch(() => setRoleReq(null))
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [role])
+  }, [role, loadStoredUnits, applyServerUnits, setFavDrugs, setFavInfusions])
 
   useEffect(() => {
     if (!open) return
@@ -217,12 +160,20 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
     setSetting("theme", next ? "dark" : "light")
     document.cookie = `theme=${next ? "dark" : "light"}; path=/; max-age=31536000; SameSite=Lax`
   }
-  function applyTtLayout(mode: "expand" | "scroll") { setTtLayout(mode); setSetting("timetableLayout", mode) }
+  function applyTtLayout(mode: "expand" | "scroll") {
+    setTtLayout(mode)
+    setSetting("timetableLayout", mode)
+    void patchWebClinicalPreferences({ timetableLayout: mode })
+  }
   function applyDefMon(mode: "standard" | "advanced") {
     setDefMon(mode)
     void patchWebClinicalPreferences({ defaultMonitoring: mode })
   }
-  function applyVitalsExp(val: boolean) { setVitalsExp(val); setSetting("vitalsExpanded", val ? "true" : "false") }
+  function applyVitalsExp(val: boolean) {
+    setVitalsExp(val)
+    setSetting("vitalsExpanded", val ? "true" : "false")
+    void patchWebClinicalPreferences({ vitalsChartExpanded: val })
+  }
   function applyAutoFill(val: boolean) {
     setAutoFill(val)
     if (!val) {
@@ -244,30 +195,6 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   function applyAutoFillBg(val: boolean) {
     setAutoFillBg(val)
     void patchWebClinicalPreferences({ autoFillVitals: { backfillOnReopen: val } })
-  }
-  function applyHeightUnit(u: "cm" | "in") {
-    setHeightUnitState(u)
-    void patchWebClinicalPreferences({ units: { height: u } })
-  }
-  function applyWeightUnit(u: "kg" | "lb") {
-    setWeightUnitState(u)
-    void patchWebClinicalPreferences({ units: { weight: u } })
-  }
-  function applyTemperatureUnit(u: "C" | "F") {
-    setTemperatureUnitState(u)
-    void patchWebClinicalPreferences({ units: { temperature: u } })
-  }
-  function applyEtco2Unit(u: "mmHg" | "kPa") {
-    setEtco2UnitState(u)
-    void patchWebClinicalPreferences({ units: { etco2: u } })
-  }
-
-  // Display only. Central venous pressure is stored and exported in mmHg
-  // whatever is chosen here, so switching re-renders existing cases rather
-  // than altering them.
-  function applyCvpUnit(u: "cmH2O" | "mmHg") {
-    setCvpUnitState(u)
-    void patchWebClinicalPreferences({ units: { cvp: u } })
   }
 
   const isMember = role === "MEMBER" || role === "CLINICIAN" || role === "RESEARCHER"
@@ -295,9 +222,11 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   }
 
   const CATS: { id: Category; label: string }[] = [
-    { id: "ui",         label: t("settings.cats.ui")         },
+    { id: "account", label: t("settings.cats.account") },
+    { id: "smartFunctions", label: t("settings.cats.smartFunctions") },
+    { id: "clinicalDefaults", label: t("settings.cats.clinicalDefaults") },
+    { id: "appearance", label: t("settings.cats.appearance") },
     { id: "units",      label: t("settings.cats.units")        },
-    { id: "automation", label: t("settings.cats.automation")  },
     ...(role !== "ADMIN" ? [{ id: "access" as Category, label: t("settings.cats.access") }] : []),
     { id: "privacy",    label: t("settings.cats.privacy")    },
   ]
@@ -315,9 +244,11 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   return (
     <>
       <div className="relative" ref={menuRef}>
-        <button type="button" onClick={() => setOpen(v => !v)} title={t("settings.accountSettings")}
+        <button type="button" data-testid="account-settings-trigger" onClick={() => { setOpen(false); setModalOpen(true) }}
+          aria-label={t("settings.accountSettings")} aria-haspopup="dialog" aria-expanded={modalOpen}
+          title={t("settings.accountSettings")}
           className={`p-2 rounded-lg transition-colors ${
-            open
+            open || modalOpen
               ? "bg-slate-100 dark:bg-[#2a2a2a] text-slate-700 dark:text-slate-200"
               : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a]"
           }`}>
@@ -486,8 +417,31 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6">
-                {category === "ui" && (
+              <OverflowCueScroll
+                className="flex-1"
+                contentClassName="h-full px-6"
+                testId="settings-content"
+                startLabel={t("settings.scrollUp")}
+                endLabel={t("settings.scrollDown")}
+              >
+                {category === "account" && (
+                  <div className="py-4 space-y-4">
+                    <div className="rounded-xl bg-slate-50 dark:bg-[#1a1a1a] border border-slate-100 dark:border-[#2a2a2a] px-4 py-4">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{userName || institutionName || "—"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("settings.profileAccountDesc")}</p>
+                    </div>
+                    <button type="button" onClick={() => { setModalOpen(false); router.push("/account") }}
+                      className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors">
+                      {t("settings.viewProfile")}
+                    </button>
+                    <button type="button" data-testid="account-actions" onClick={() => { setModalOpen(false); setOpen(true) }}
+                      className="w-full rounded-lg border border-slate-200 dark:border-[#333] px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-blue-400 transition-colors">
+                      {t("settings.accountActions")}
+                    </button>
+                  </div>
+                )}
+
+                {category === "appearance" && (
                   <>
                     <SettingRow label={t("settings.theme")}>
                       <PillGroup value={dark ? "dark" : "light"} onChange={v => applyTheme(v === "dark")}
@@ -505,31 +459,22 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                         ]} />
                     </SettingRow>
 
-                    {/* The case screens (10.0.0): the sidebar first, which overrides
-                        the rest; without it, each screen sectioned or scrollable. */}
-                    <SettingRow label={t("settings.caseLayout")} description={t("settings.caseLayoutDesc")}>
-                      <PillGroup value={caseLayout.sidebar ? "sidebar" : "none"} onChange={v => setCaseLayout({ sidebar: v === "sidebar" })}
-                        options={[
-                          { value: "sidebar", label: t("settings.layoutSidebar"), icon: <PanelRight className="h-3 w-3" /> },
-                          { value: "none",    label: t("settings.layoutNoSidebar"), icon: <Rows3 className="h-3 w-3" /> },
-                        ]} />
-                    </SettingRow>
-
-                    {!caseLayout.sidebar && (["preop", "intraop", "postop"] as const).map(screen => (
-                      <SettingRow key={screen} label={t(`settings.screenLayout.${screen}`)}>
-                        <PillGroup value={caseLayout[screen]} onChange={v => setCaseLayout({ [screen]: v as ScreenLayout })}
-                          options={[
-                            { value: "tabs",   label: t("settings.layoutSectioned"), icon: <LayoutList className="h-3 w-3" /> },
-                            { value: "scroll", label: t("settings.layoutScrollable"), icon: <Rows3 className="h-3 w-3" /> },
-                          ]} />
-                      </SettingRow>
-                    ))}
+                    <EnergyKnobSkinSetting />
 
                     {/* Everything on the page larger or smaller, on this device (10.0.0). */}
                     <SettingRow label={t("settings.uiScale")} description={t("settings.uiScaleDesc")}>
                       <UiScaleSetting value={uiScale} onChange={changeUiScale} />
                     </SettingRow>
 
+                    <BulgarianNamesSettings />
+                  </>
+                )}
+
+                {category === "clinicalDefaults" && (
+                  <>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 pt-2 pb-1 leading-relaxed">
+                      {t("settings.clinicalDefaultsDesc")}
+                    </p>
                     <SettingRow label={t("settings.timetableLayout")} description={t("settings.timetableLayoutDesc")}>
                       <PillGroup value={ttLayout} onChange={v => applyTtLayout(v as "expand" | "scroll")}
                         options={[
@@ -537,7 +482,6 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                           { value: "scroll", label: t("settings.layoutScrollable") },
                         ]} />
                     </SettingRow>
-
                     <SettingRow label={t("settings.defaultMonitoring")} description={t("settings.defaultMonitoringDesc")}>
                       <PillGroup value={defMon} onChange={v => applyDefMon(v as "standard" | "advanced")}
                         options={[
@@ -545,11 +489,9 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                           { value: "advanced", label: t("settings.monitoringAdvanced") },
                         ]} />
                     </SettingRow>
-
                     <SettingRow label={t("settings.vitalsChart")} description={t("settings.vitalsChartDesc")}>
-                      <Toggle value={vitalsExp} onChange={applyVitalsExp} />
+                      <Toggle label={t("settings.vitalsChart")} value={vitalsExp} onChange={applyVitalsExp} />
                     </SettingRow>
-                    <BulgarianNamesSettings />
                   </>
                 )}
 
@@ -596,18 +538,52 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                   </>
                 )}
 
-                {category === "automation" && (
+                {category === "smartFunctions" && (
                   <>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 pt-2 pb-1 leading-relaxed">
+                      {t("settings.smartFunctionsDesc")}
+                    </p>
+                    <AirwayScreenSetting />
+                    <VascularScreenSetting />
+                    <MonitoringScreenSetting />
+                    <EquipmentScreenSetting />
+                    <TechniqueScreenSetting />
+                    <EventsScreenSetting />
+                    <FluidScreenSetting />
+                    <EventLogScreenSetting />
+
+                    {/* Account-wide case layout choices belong with the section
+                        layouts and SPS controls rather than general appearance. */}
+                    <SettingRow label={t("settings.caseLayout")} description={t("settings.caseLayoutDesc")}>
+                      <PillGroup value={caseLayout.sidebar ? "sidebar" : "none"} onChange={v => setCaseLayout({ sidebar: v === "sidebar" })}
+                        options={[
+                          { value: "sidebar", label: t("settings.layoutSidebar"), icon: <PanelRight className="h-3 w-3" /> },
+                          { value: "none",    label: t("settings.layoutNoSidebar"), icon: <Rows3 className="h-3 w-3" /> },
+                        ]} />
+                    </SettingRow>
+
+                    {(["preop", "intraop", "postop"] as const).map(screen => (
+                      <SettingRow key={screen} label={t(`settings.screenLayout.${screen}`)} description={caseLayout.sidebar ? t("settings.layoutOverridden") : undefined}>
+                        <PillGroup disabled={caseLayout.sidebar} value={caseLayout[screen]} onChange={v => setCaseLayout({ [screen]: v as ScreenLayout })}
+                          options={[
+                            { value: "tabs",   label: t("settings.layoutSectioned"), icon: <LayoutList className="h-3 w-3" /> },
+                            { value: "scroll", label: t("settings.layoutScrollable"), icon: <Rows3 className="h-3 w-3" /> },
+                          ]} />
+                      </SettingRow>
+                    ))}
+
+                    <VitalEpisodeSetting />
+                    <AutomationGroupsSetting />
                     <SettingRow label={t("settings.autoFillVitals")} description={t("settings.autoFillVitalsDesc")}>
-                      <Toggle value={autoFill} onChange={applyAutoFill} />
+                      <Toggle label={t("settings.autoFillVitals")} value={autoFill} onChange={applyAutoFill} />
                     </SettingRow>
                     {autoFill && (
                       <div className="ml-4 border-l-2 border-slate-200 dark:border-[#2e2e2e] pl-4">
                         <SettingRow label={t("settings.autoFillBP")} description={t("settings.autoFillBPDesc")}>
-                          <Toggle value={autoFillBP} onChange={applyAutoFillBP} />
+                          <Toggle label={t("settings.autoFillBP")} value={autoFillBP} onChange={applyAutoFillBP} />
                         </SettingRow>
                         <SettingRow label={t("settings.autoFillBackground")} description={t("settings.autoFillBackgroundDesc")}>
-                          <Toggle value={autoFillBg} onChange={applyAutoFillBg} />
+                          <Toggle label={t("settings.autoFillBackground")} value={autoFillBg} onChange={applyAutoFillBg} />
                         </SettingRow>
                       </div>
                     )}
@@ -793,7 +769,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                     </div>
                   </div>
                 )}
-              </div>
+              </OverflowCueScroll>
             </div>
           </div>
         </div>

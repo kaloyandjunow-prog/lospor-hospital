@@ -7,7 +7,7 @@ import "server-only"
  */
 export function printableRecordFromSnapshot(
   snapshotDocument: string,
-  institution: { name: string; city: string } | null,
+  institution: { name: string; city: string; logoDataUrl?: string | null } | null,
 ): Record<string, unknown> | null {
   try {
     const snapshot = JSON.parse(snapshotDocument) as unknown

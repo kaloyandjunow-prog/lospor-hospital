@@ -4,7 +4,7 @@
 // EXPO_PUBLIC_* values are inlined at build time, so the API address is baked
 // into the bundle rather than read when it runs. The dist left behind by an
 // ordinary `npm run export:web` carries whatever was in .env.local — a LAN
-// address like 192.168.0.105:3002 — and a suite run against it does not fail
+// address like 192.168.x.x:3002 — and a suite run against it does not fail
 // loudly: the app loads, every request goes to a host that is not there, and
 // the tests look like the app is broken.
 //

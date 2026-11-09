@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Animated, FlatList, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Animated, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -13,7 +13,7 @@ import { getAllLocalCaseDrafts, localDraftOwnerFromIdentity, type LocalCaseDraft
 import { localDraftRecoveryParams, shouldShowLocalDraft } from "@/lib/local-draft-review"
 import { usePreferences } from "@/lib/preferences-context"
 import { ASABadge, DispositionBadge, StatusBadge, statusLabel } from "@/components/ui"
-import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
+import { PatientDisplayText, readPatientDisplay, ScreenState, WorkflowPill } from "@/components/clinical-ui"
 import { AppHeader } from "@/components/AppHeader"
 import { LocalCaseDraftCard } from "@/components/LocalCaseDraftCard"
 import { colors, withAlpha } from "@/theme/colors"
@@ -28,15 +28,17 @@ import { assignCaseTheatre, dashboardFilterQuery, TheatreChangedError, useOperat
 import { type CancellationReason } from "@lospor/core/case-cancellation"
 import { dashboardMenuActions } from "@/lib/case-actions"
 import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
+import { ageSexLabel } from "@lospor/core/pediatric"
 import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
 import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
 type CaseItem = {
   id: string
   userId?: string
-  caseCode: string
+  caseCode: string; patientDisplay?: unknown // the full ИЗ № and ЕГН prefix, while the site shows them
   status: string
   createdAt: string
   preop?: {
@@ -448,7 +450,7 @@ export default function DashboardScreen() {
   const filteredCases = useMemo(() => {
     const visible = cases.filter((c) => {
       if (trimmedQuery) {
-        const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+        const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, readPatientDisplay(c.patientDisplay)?.admissionNumber, c.user?.name]
           .filter(Boolean).join(" ").toLowerCase()
         if (!haystack.includes(trimmedQuery)) return false
       }
@@ -494,7 +496,12 @@ export default function DashboardScreen() {
             ) : null}
           </View>
           <StatusBadge status={derivedStatus(item)} />
-        </View>
+        </View><PatientDisplayText display={item.patientDisplay} language={language} testID={`case-patient-display-${item.id}`} />
+        {ageSexLabel(item.preop, language === "bg" ? "bg" : "en") ? (
+          <Text testID={`case-age-sex-${item.id}`} style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
+            {ageSexLabel(item.preop, language === "bg" ? "bg" : "en")}
+          </Text>
+        ) : null}
         <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800", marginBottom: 8 }}>
           {t(nextActionKey(item, hasQueuedIntraop))}
         </Text>
@@ -610,11 +617,19 @@ export default function DashboardScreen() {
                 t={t}
               />
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }} style={{ marginBottom: 14 }}>
+              <OverflowCueScrollView
+                horizontal
+                edgeColor={colors.background}
+                cueColor={colors.textSecondary}
+                startLabel={language === "bg" ? "Към предишните филтри" : "Scroll filters left"}
+                endLabel={language === "bg" ? "Към следващите филтри" : "Scroll filters right"}
+                style={{ width: "100%", marginBottom: 14 }}
+                contentContainerStyle={{ gap: 8, paddingRight: 20 }}
+              >
                 {FILTER_TABS.map((tab) => (
                   <WorkflowPill key={tab} label={`${t(FILTER_TAB_LABEL_KEYS[tab])} ${tabCounts[tab]}`} selected={activeTab === tab} onPress={() => setActiveTab(tab)} />
                 ))}
-              </ScrollView>
+              </OverflowCueScrollView>
 
               {/* The theatre and anaesthesiologist filters (10.0.0). */}
               <View testID="dashboard-filters" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
@@ -659,7 +674,7 @@ export default function DashboardScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
-            ) : null
+            ) : undefined
           }
         />
       )}

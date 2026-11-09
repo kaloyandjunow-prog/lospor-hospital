@@ -2,6 +2,9 @@ import {
   drugCatalogAtRelease120,
   fluidCatalogAtRelease120,
   infusionCatalogAtRelease120,
+  drugCatalogAtRelease9150,
+  fluidCatalogAtRelease9150,
+  infusionCatalogAtRelease9150,
   type InfusionCatalogEntry,
   type DoseProfile,
   type DrugCatalogEntry,
@@ -18,6 +21,7 @@ import {
 import {
   LOSPOR_ADULT_V2_RULESET_VERSION,
   LOSPOR_ADULT_V3_RULESET_VERSION,
+  LOSPOR_ADULT_V4_RULESET_VERSION,
   type ClinicalRuleSeed,
   type PlatformClinicalDraft,
 } from "./types"
@@ -315,8 +319,9 @@ export function createLosporAdultV2Draft(): PlatformClinicalDraft {
 }
 
 /**
- * Adult v3: the v2 model over the current catalogues -- drugs in their
- * corrected groups, plain Ringer and mannitol 20% (2026-10-18).
+ * Adult v3: the v2 model over the catalogues as released in 9.15.0 -- drugs
+ * in their corrected groups, plain Ringer and mannitol 20% (2026-10-18).
+ * Released and fingerprinted; see release-9-15-0.ts.
  */
 export function createLosporAdultV3Draft(): PlatformClinicalDraft {
   return {
@@ -328,6 +333,33 @@ export function createLosporAdultV3Draft(): PlatformClinicalDraft {
       + "and baricity behaviour, and every other profile are unchanged from v2.",
     clinicalMode: "ADULT",
     version: LOSPOR_ADULT_V3_RULESET_VERSION,
+    publishable: true,
+    blockers: [],
+    rules: adultProfileRules({
+      drugs: drugCatalogAtRelease9150(),
+      infusions: infusionCatalogAtRelease9150(),
+      fluids: fluidCatalogAtRelease9150(),
+    }),
+  }
+}
+
+/**
+ * Adult v4 (10.2.0): the v3 model over the current catalogues -- adrenaline
+ * without a default dose and with an IM route, sugammadex to 2,000 mg,
+ * paracetamol 15 mg/kg under 50 kg, inhaled salbutamol, a starting rate for
+ * lipid emulsion and glucose as one fluid at 5, 10, 20 and 40%.
+ */
+export function createLosporAdultV4Draft(): PlatformClinicalDraft {
+  return {
+    id: "lospor-adults-v4",
+    key: LOSPOR_ADULT_RULESET_KEY,
+    name: "LOSPOR adult drugs profile",
+    description: "Adult v3 rules over the current catalogues: adrenaline opens without a default dose and gains "
+      + "an IM route, sugammadex goes to 2,000 mg for rescue reversal, paracetamol suggests 15 mg/kg under 50 kg, "
+      + "salbutamol can be given inhaled (0.1 mg puffs or nebulised), glucagon IM, lipid emulsion 20% has a starting infusion rate of "
+      + "0.25 mL/kg/min, and glucose is one fluid offered at 5, 10, 20 and 40%. Every other profile is unchanged from v3.",
+    clinicalMode: "ADULT",
+    version: LOSPOR_ADULT_V4_RULESET_VERSION,
     publishable: true,
     blockers: [],
     rules: adultProfileRules({}),

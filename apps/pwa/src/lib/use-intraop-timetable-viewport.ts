@@ -1,6 +1,6 @@
 import { sideSwipeExitMs, sideSwipeFade, sideSwipeFollow, sideSwipeGate, sideSwipeStep } from "./side-swipe"
 import { useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from "react"
-import { Animated, Easing, FlatList, PanResponder, ScrollView } from "react-native"
+import { Animated, Easing, FlatList, PanResponder, type ScrollViewInstance } from "react-native"
 
 import type { TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/lib/intraop-log-event"
@@ -28,7 +28,7 @@ type UseIntraopTimetableViewportArgs = {
   setTab: Dispatch<SetStateAction<IntraopTab>>
   expandedRow: number | null
   tabLayouts: MutableRefObject<Partial<Record<string, { x: number; width: number }>>>
-  tabRailRef: RefObject<ScrollView | null>
+  tabRailRef: RefObject<ScrollViewInstance | null>
   screenWidth: number
 }
 

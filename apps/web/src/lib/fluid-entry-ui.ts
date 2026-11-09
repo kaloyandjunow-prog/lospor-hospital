@@ -152,6 +152,10 @@ export function resolveFluidSelectorDefaults(input: {
     && maintenanceWeight != null
       ? calculatePediatricMaintenanceRateMlPerHour(maintenanceWeight)
       : null
+  // 10.2.0: a rate authored per kilogram (lipid emulsion 15 mL/kg/h), on actual weight.
+  const perKgPerHour = profile.fluidRate.suggestedMlPerKgPerHour
+  const weightKg = input.totalBodyWeightKg != null && input.totalBodyWeightKg > 0 ? input.totalBodyWeightKg : null
+  const perKgRate = calculatedRate == null && perKgPerHour != null && weightKg != null ? Math.round(perKgPerHour * weightKg) : null
   const calculationBasis = input.useIdealBodyWeight ? "McLaren IBW" : "TBW"
   const rateProfile: ResolvedFluidEntryModeProfile["fluidRate"] = {
     ...profile.fluidRate,
@@ -164,13 +168,15 @@ export function resolveFluidSelectorDefaults(input: {
   return {
     availableModes: profile.fluidEntryModes,
     defaultMode: profile.defaultFluidEntryMode,
-    rate: calculatedRate == null ? "" : String(calculatedRate),
+    rate: calculatedRate != null ? String(calculatedRate) : perKgRate != null ? String(perKgRate) : "",
     rateProfile,
     ...(profile.fluidRate.calculation === "HOLLIDAY_SEGAR_4_2_1"
       ? calculatedRate == null
         ? { rateHint: "Enter weight in preop to calculate the 4/2/1 rate." }
         : { rateHint: `4/2/1 · ${calculationBasis} ${Math.round((maintenanceWeight ?? 0) * 10) / 10} kg` }
-      : {}),
+      : perKgRate != null
+        ? { rateHint: `${perKgPerHour} mL/kg/h · TBW ${Math.round(weightKg! * 10) / 10} kg` }
+        : {}),
   }
 }
 

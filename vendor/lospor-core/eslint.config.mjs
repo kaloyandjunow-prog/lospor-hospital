@@ -19,6 +19,7 @@ export default [
       "node_modules/**",
       "**/*.d.ts",
       "coverage/**",
+      ".guide-gen/**",
     ],
   },
   js.configs.recommended,

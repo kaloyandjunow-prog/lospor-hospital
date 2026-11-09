@@ -1,6 +1,7 @@
 "use client"
 
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
+import { clinicalDisplayLabel } from "@lospor/core/display"
 import type { IntraopAttentionAction, IntraopAttentionKind } from "@lospor/core/intraop-attention"
 
 import type { IntraopAttentionEntry, RefusedLine } from "@/lib/use-intraop-attention"
@@ -19,18 +20,41 @@ const ANSWERS: Record<IntraopAttentionKind, { action: IntraopAttentionAction; la
     { action: "still_running", label: "stopStillRunning", yes: false },
     { action: "stopped", label: "stopConfirmedStopped", yes: true },
   ],
+  // 10.1.0: a reading outside its limits. Nothing is logged without the yes.
+  vital_deviation: [
+    { action: "not_now", label: "vitalNotNow", yes: false },
+    { action: "log_complication", label: "vitalLogIt", yes: true },
+  ],
+  // 10.2.0: a suggestion -- a card, follow-up or reminder opens; a question logs.
+  suggestion: [
+    { action: "not_now", label: "vitalNotNow", yes: false },
+    { action: "dismiss", label: "suggestionDismiss", yes: false },
+    { action: "open", label: "suggestionOpen", yes: true },
+    { action: "log_complication", label: "vitalLogIt", yes: true },
+  ],
 }
 
-export function IntraopAttentionPanel({ entries, onAnswer, endCase = false, refused = [], onDismissRefused }: {
+/** A question that offers several complications to pick from (a shock, EtCO2 near zero). */
+function choicesOf(entry: IntraopAttentionEntry): readonly string[] {
+  const item = entry.suggestion?.item
+  if (item?.type === "reverse" && item.question.choices.length > 1) return item.question.choices
+  if (item?.type === "reading" && item.question.kind === "nearZero") return item.question.choices
+  return []
+}
+
+export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = false, refused = [], onDismissRefused }: {
   entries: IntraopAttentionEntry[]
   /** Changes the server refused for good, listed until seen (9.13.0). */
   refused?: RefusedLine[]
   onDismissRefused?: () => void
-  onAnswer?: (key: string, action: IntraopAttentionAction) => void
+  onAnswer?: (key: string, action: IntraopAttentionAction, atEndCase?: boolean, choice?: string) => void
+  /** A suggestion line's Open: its card, follow-up or reminder beside the chart (10.2.0). */
+  onOpen?: (key: string) => void
   /** In End case: says the case cannot end until each is answered. */
   endCase?: boolean
 }) {
   const tr = useTranslations("intraop.timelineRules")
+  const locale = useLocale()
   if (entries.length === 0 && refused.length === 0) return null
   return (
     <div
@@ -61,14 +85,23 @@ export function IntraopAttentionPanel({ entries, onAnswer, endCase = false, refu
           <span className="flex-1 min-w-[12rem] break-words">
             {entry.time ? `${entry.time} · ` : ""}{entry.label}
             {entry.kind === "unconfirmed_stop" ? ` — ${tr("stopUnconfirmed")}` : ""}
+            {entry.detail ? <span className="block text-xs text-slate-600 dark:text-slate-300" data-testid={`attention-detail-${entry.key}`}>{entry.detail}</span> : null}
+            {entry.stop ? <span className="block text-xs text-slate-500 dark:text-slate-400">{entry.stop}</span> : null}
           </span>
-          {ANSWERS[entry.kind].map(answer => (
+          {choicesOf(entry).map(choice => (
+            <button key={choice} type="button" data-testid={`attention-choice-${choice}-${entry.key}`} disabled={!onAnswer}
+              onClick={() => onAnswer?.(entry.key, "log_complication", false, choice)}
+              className="text-xs px-2.5 py-1 rounded-full border border-emerald-400 text-emerald-600 disabled:opacity-50">
+              {clinicalDisplayLabel("complication", choice, locale === "bg" ? "bg" : "en", { label: choice })}
+            </button>
+          ))}
+          {ANSWERS[entry.kind].filter(answer => entry.actions.includes(answer.action) && !(answer.action === "log_complication" && choicesOf(entry).length > 0)).map(answer => (
             <button
               key={answer.action}
               type="button"
               data-testid={`attention-${answer.action}-${entry.key}`}
-              disabled={!onAnswer}
-              onClick={() => onAnswer?.(entry.key, answer.action)}
+              disabled={answer.action === "open" ? !onOpen : !onAnswer}
+              onClick={() => answer.action === "open" ? onOpen?.(entry.key) : onAnswer?.(entry.key, answer.action)}
               className={`text-xs px-2.5 py-1 rounded-full border disabled:opacity-50 ${answer.yes ? "border-emerald-400 text-emerald-600" : "border-red-300 text-red-500"}`}
             >
               {tr(answer.label)}

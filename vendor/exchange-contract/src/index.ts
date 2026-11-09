@@ -30,6 +30,10 @@ export const OMOP_TABLES = [
   // had nowhere to land.
   "device_exposure",
   "observation",
+  // 2.8.0: a death in theatre, one row per person, from the Death event. The
+  // cause is not recorded. Linked to its case through PERSON, since DEATH has
+  // no visit column.
+  "death",
 ] as const
 
 export type OmopTableName = typeof OMOP_TABLES[number]
@@ -71,12 +75,26 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
   ],
   condition_occurrence: [
     "condition_occurrence_id", "person_id", "condition_concept_id", "condition_start_date",
+    // 2.7.0: a complication's instant, and the end of an episode logged from
+    // the vitals questions. Blank for a diagnosis, which carries a date only.
+    "condition_start_datetime", "condition_end_date", "condition_end_datetime",
     "condition_type_concept_id", "condition_source_value", "visit_occurrence_id",
+    // 2.8.0: the intraoperative suggestion the entry was made from (a
+    // treatment card row, a reverse question, a reading, lab or reminder).
+    // Null for an entry charted by hand.
+    "suggestion_source_value",
   ],
   drug_exposure: [
-    "drug_exposure_id", "person_id", "drug_concept_id", "drug_exposure_start_date", "drug_exposure_end_date",
+    "drug_exposure_id", "person_id", "drug_concept_id", "drug_exposure_start_date",
+    // 2.8.0: the moment a dose was given and the moment an infusion, fluid or agent stopped. Blank for a drug
+    // known by its day only (a premedication, an order, a home medicine) and for a dose whose time was
+    // reconstructed afterwards.
+    "drug_exposure_start_datetime", "drug_exposure_end_date", "drug_exposure_end_datetime",
     "drug_type_concept_id", "drug_source_value", "drug_source_concept_id", "dose_value",
-    "dose_unit_source_value", "route_source_value", "visit_occurrence_id",
+    // 2.8.0: the standard route concept (SNOMED Route domain), 0 when the route is not a known one; the route
+    // as written stays in route_source_value.
+    "dose_unit_source_value", "route_concept_id", "route_source_value", "visit_occurrence_id",
+    "suggestion_source_value",
   ],
   measurement: [
     "measurement_id", "person_id", "measurement_concept_id", "measurement_date",
@@ -90,6 +108,7 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
     "unit_concept_id",
     "unit_source_value", "measurement_source_value", "value_source_value",
     "range_low", "range_high", "visit_occurrence_id",
+    "suggestion_source_value",
   ],
   procedure_occurrence: [
     "procedure_occurrence_id", "person_id", "procedure_concept_id", "procedure_date",
@@ -101,6 +120,7 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
     // operation rather than an operation of its own.
     "modifier_concept_id", "modifier_source_value",
     "procedure_source_value", "visit_occurrence_id",
+    "suggestion_source_value",
   ],
   device_exposure: [
     "device_exposure_id", "person_id", "device_concept_id",
@@ -110,6 +130,7 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
     // DRUG_EXPOSURE. Empty for an airway device, which is one of itself.
     "device_type_concept_id", "quantity", "device_source_value", "visit_occurrence_id",
     "unit_concept_id", "unit_source_value",
+    "suggestion_source_value",
   ],
   observation: [
     "observation_id", "person_id", "observation_concept_id", "observation_date",
@@ -125,6 +146,11 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
     "qualifier_concept_id", "qualifier_source_value",
     "unit_concept_id", "unit_source_value",
     "observation_source_value", "visit_occurrence_id",
+    "suggestion_source_value",
+  ],
+  death: [
+    "person_id", "death_date", "death_datetime", "death_type_concept_id",
+    "cause_concept_id", "cause_source_value", "cause_source_concept_id",
   ],
 }
 

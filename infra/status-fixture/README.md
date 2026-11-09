@@ -1,10 +1,65 @@
-# Hospital status fixture
+# Hospital status fixture / Тестова среда за Status
+
+## Български
+
+Това е един контейнер само за разработка, който симулира Hospital appliance за
+тестовата среда на Status от два контейнера. Той няма зависимости и не съдържа
+клинични данни.
+
+### Интерфейс
+
+Fixture слуша на `FIXTURE_HOST:FIXTURE_PORT` (по подразбиране `0.0.0.0:8080`).
+Тестовата среда трябва да публикува порта само на loopback на хоста, например
+`127.0.0.1:18080:8080`. Status и fixture споделят записваем том със сигнали.
+
+Маршрути за състоянието:
+
+- `GET /api/health/live`
+- `GET /api/health/ready`
+- `GET /database/health`
+- `GET /web/health`
+- `GET /pwa/health`
+- `GET /browser/health`
+- `GET /caddy/health`
+
+`GET /internal/appliance-status` изисква bearer токен, прочетен от
+`FIXTURE_SNAPSHOT_TOKEN_FILE`.
+
+Управляващите маршрути изискват bearer токен, прочетен от
+`FIXTURE_CONTROL_TOKEN_FILE`:
+
+- `GET /__control/state`
+- `POST /__control/scenarios/<scenario>`
+
+Приеманите сценарии са `healthy`, `recovery`, `api-down`, `api-not-ready`,
+`database-down`, `web-down`, `pwa-down`, `browser-down`, `caddy-down`,
+`backup-failure`, `worker-stale`, `worker-failure`, `low-storage`,
+`central-standalone`, `mail-unconfigured` и `migration-pending`. Произволно
+състояние и свободен текст се отхвърлят.
+
+### Договор за сигналите
+
+Fixture записва атомарно `backup-status.v1.json` и
+`delivery-worker-status.v1.json` в `HOSPITAL_SIGNALS_DIR`. И двата използват
+`schemaVersion: 1`, фиксиран `signalType`, ISO-8601 `observedAt` и стойности на
+`state` и `resultCode` от разрешен списък. Успешното резервно копие съдържа
+само числовия `artifactBytes` и алгоритъма на `sha256`. Неуспех на worker може да
+съдържа едноцифрена категория на HTTP статуса. Нито един от договорите не
+допуска пътища, идентификатори, изход от команди или свободен текст.
+
+Тестовете на договора, без зависимости, се изпълняват с:
+
+```sh
+node --test infra/status-fixture/server.test.mjs
+```
+
+## English
 
 This is a single development-only container that simulates the Hospital
 appliance for the two-container Status test harness. It has no dependencies and
 does not contain clinical data.
 
-## Interface
+### Interface
 
 The fixture listens on `FIXTURE_HOST:FIXTURE_PORT` (`0.0.0.0:8080` by default).
 The harness must publish the port on host loopback only, for example
@@ -35,7 +90,7 @@ Accepted scenarios are `healthy`, `recovery`, `api-down`, `api-not-ready`,
 `central-standalone`, `mail-unconfigured`, and `migration-pending`. Arbitrary
 state and free text are rejected.
 
-## Signal contract
+### Signal contract
 
 The fixture writes `backup-status.v1.json` and
 `delivery-worker-status.v1.json` atomically under `HOSPITAL_SIGNALS_DIR`.

@@ -67,7 +67,9 @@ describe("the consent text format", () => {
   it("refuses an empty, overlong or unknown-field text", () => {
     expect(consentTextProblems({ title: "Съгласие", body: "Текст" })).toEqual([])
     expect(consentTextProblems({ title: " ", body: "" })).toEqual(["TITLE_EMPTY", "EMPTY"])
-    expect(consentTextProblems({ title: "Съгласие", body: "x".repeat(40_001) })).toEqual(["TOO_LONG"])
+    // The longest text is 100,000 characters (10.2.1; it was 40,000).
+    expect(consentTextProblems({ title: "Съгласие", body: "x".repeat(100_000) })).toEqual([])
+    expect(consentTextProblems({ title: "Съгласие", body: "x".repeat(100_001) })).toEqual(["TOO_LONG"])
     expect(consentTextProblems({ title: "Съгласие", body: "{{surgeon}}" })).toEqual(["UNKNOWN_FIELD"])
   })
 })

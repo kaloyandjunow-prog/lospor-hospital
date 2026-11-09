@@ -31,6 +31,20 @@ Hierarchical multi-select tree:
 Multiple techniques can be selected simultaneously.
 Selected technique pills include their clinical category, for example **General Inhalational**, **Regional Neuraxial Epidural Lumbar**, or **Regional Femoral nerve**.
 
+### Smart and Legacy selectors
+
+The technique, airway, vascular-access, monitoring, equipment, and event
+selectors each have a clinician preference in Settings. **Smart** is the
+default: it groups common choices, shows relevant follow-up controls, and
+keeps less common choices behind an expandable list. **Legacy** keeps the
+complete button-based selector for clinicians who prefer that layout. Both
+surfaces write the same canonical values, so changing the preference never
+changes an existing record.
+
+Smart technique entry also records the side of a block when applicable
+(left, right, or both) and supports a unilateral spinal. The side is stored
+with the technique code rather than in free text.
+
 ---
 
 ### Volatile agent and fresh gas
@@ -58,12 +72,16 @@ The legacy separate O2/N2O percentage and flow columns remain in the database fo
 
 | Group | Monitors |
 |-------|---------|
-| Standard | ECG, SpO₂, NBP, EtCO₂, Temperature |
+| Standard | ECG, SpO₂, NIBP, EtCO₂, Temperature |
 | Haemodynamic | IBP, CVP, PA catheter, TEE |
 | Depth / Neuro | BIS, Entropy, NIRS, SSEP/MEP, TOF/NMT |
 | Other | Blood glucose, ABG, Urinary catheter, NGT |
 
 Selecting a monitor automatically adds its vital row to the timetable.
+NIBP (cuff pressure) and IBP (invasive arterial pressure) are separate
+modalities and remain separate in the chart, monitor scan, API, and research
+export. A urinary catheter is its own monitoring/equipment concept rather than
+an undocumented note.
 
 ---
 
@@ -81,6 +99,9 @@ Selecting a monitor automatically adds its vital row to the timetable.
 | Airway notes | Free text, 2,000 chars |
 | Double-lumen tube | Type (left/right Robertshaw, etc.), side, size (Fr) |
 | Endobronchial blocker | Size (mm) |
+
+Repeated airway attempts are retained: a failed or replaced device remains in
+the airway history and the successful device is recorded as a separate entry.
 
 ---
 
@@ -135,7 +156,8 @@ Rows appear dynamically based on which monitors are selected in the form:
 
 | Row | Display |
 |-----|---------|
-| BP (Systolic / Diastolic) | Stacked bar with numeric label |
+| NIBP (Systolic / Diastolic) | Cuff-pressure values with numeric labels |
+| IBP (Systolic / Diastolic / MAP) | Invasive arterial-pressure values with numeric labels |
 | Heart rate | Numeric |
 | SpO₂ | Numeric |
 | EtCO₂ | Numeric |
@@ -172,7 +194,7 @@ Rows appear dynamically based on which monitors are selected in the form:
 - Sevoflurane, Desflurane, Isoflurane
 - Rendered as a continuous agent bar
 - Switching agents auto-stops the previous one
-### Auto-fill
+### Auto-fill and reminders
 
 Three automation settings (Settings -> Automation) share one canonical rule set
 with the mobile app:
@@ -185,6 +207,31 @@ with the mobile app:
 
 Turning off **Auto-fill vitals** also turns off the child options on both web
 and mobile, so stale background settings cannot generate observations later.
+
+Case reminders are available from the same automation settings. They are on by
+default when the deployment exposes reminders and can be set to 3, 5, 10, or
+15 minutes. A reminder is a documentation prompt, not a clinical alarm, and
+recording a set of vitals resets its timer. The installed app can notify in the
+background; the PWA can notify while it is open and the browser permits it.
+
+### SPS — Smart Prediction System
+
+When the deployment enables SPS groups, the chart can show Likely now
+events, event-search synonyms, treatment cards, reading questions, reminders,
+and timed follow-ups. Suggestions never write a clinical record by themselves:
+the clinician must open and confirm an action. Ordinary clinical questions can
+be put aside with **Not now**; Likely now and context-link suggestions use a
+definitive **Dismiss** for that case, saved in the case log and hidden after
+reload or on another device. Context links are listed under **Reminders** and
+have their own account-wide switches. Newly enabled context links start off
+for the clinician, while prebundled lines retain their enabled default.
+
+Context links ask for an exact technique rather than creating a generic one.
+For local anaesthetic routes they can record the matching epidural, block or
+spinal event at the selected clinical time; peripheral blocks also ask for the
+side. For an induction agent from the first six induction agents in the shared
+catalogue, the flow asks whether this was sedation or general anaesthesia,
+then the exact technique and whether an airway device was introduced.
 
 Automatically carried-forward values are saved as real events through the shared API, so they are visible on the other client and survive timetable reconstruction. Since v5 this applies to the **web** timetable too: every vitals column typed, auto-filled, or backfilled on web is persisted as a `vital` event (one stable id per 5-minute column - `web-vital-N`, the same scheme mobile and the server bridge use - emitted ~1.2 s after the last edit; re-editing a column supersedes the event instead of stacking a duplicate). Previously web vitals lived only inside the projected timetable blob and could be lost when the projection was rebuilt. The server additionally bridges grid vitals from older cached web clients into events.
 

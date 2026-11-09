@@ -1,7 +1,6 @@
-import { Switch } from "react-native"
 import { BULGARIAN_NAME_SWITCH_KEYS, type BulgarianNameSwitches } from "@lospor/core/display"
 import { usePreferences, type TranslationKey } from "@/lib/preferences-context"
-import { Card, SettingsRow } from "@/components/ui"
+import { BooleanSwitch, Card, SettingsRow } from "@/components/ui"
 import { colors } from "@/theme/colors"
 
 const LABEL: Record<keyof BulgarianNameSwitches, TranslationKey> = {
@@ -27,9 +26,10 @@ export function BulgarianNamesCard() {
           label={t(LABEL[key])}
           last={index === BULGARIAN_NAME_SWITCH_KEYS.length - 1}
           rightElement={
-            <Switch
+            <BooleanSwitch
               testID={`bulgarian-names-${key}`}
               value={bulgarianNames[key]}
+              accessibilityLabel={t(LABEL[key])}
               onValueChange={value => void setBulgarianNames({ [key]: value })}
               trackColor={{ false: colors.border, true: colors.primarySoft }}
               thumbColor={bulgarianNames[key] ? colors.primary : colors.textMuted}

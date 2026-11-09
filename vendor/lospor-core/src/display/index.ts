@@ -6,7 +6,9 @@ import {
   catalogOption,
   catalogOptions,
   findOptionPath,
+  FLUID_CATALOG,
   formatTechniquePath,
+  slugOptionValue,
 } from "../catalog"
 import { COMPLICATION_CATEGORIES } from "../complications"
 import { LAB_CATEGORIES } from "../labs"
@@ -112,6 +114,13 @@ const DISPLAY_OPTION_CATEGORIES = [
   "HANDOVER_ITEM",
 ] as const satisfies readonly LibraryCategory[]
 
+/** A fluid off the menus (10.2.0) still reads by its catalogue name on the cases that recorded it. */
+function retiredFluidOption(code: string, label: string): Pick<CanonicalLibraryOption, "value" | "label" | "labelBg" | "description"> | undefined {
+  const entry = FLUID_CATALOG.find(fluid => fluid.retired
+    && (slugOptionValue(fluid.name) === code || fluid.name.toLocaleLowerCase("en") === label))
+  return entry ? { value: slugOptionValue(entry.name), label: entry.name, labelBg: entry.name, description: null } : undefined
+}
+
 function optionTerms(): ClinicalDisplayTerm[] {
   const terms: ClinicalDisplayTerm[] = []
   for (const category of DISPLAY_OPTION_CATEGORIES) {
@@ -124,6 +133,10 @@ function optionTerms(): ClinicalDisplayTerm[] {
         { descriptionEn: option.description, descriptionBg: catalogDescriptionBg(category, option.value) },
       ))
     }
+  }
+  // Retired fluids are off the menus but still named on the cases that recorded them.
+  for (const entry of FLUID_CATALOG.filter(fluid => fluid.retired)) {
+    terms.push(pendingTerm(optionDomain("INTRAOP_FLUID"), slugOptionValue(entry.name), entry.name, entry.name, {}))
   }
   return terms
 }
@@ -244,6 +257,7 @@ export function resolveClinicalDisplay(
           candidate.label.toLocaleLowerCase("en") === sourceLabel
           || candidate.labelBg?.toLocaleLowerCase("bg") === sourceCode.toLocaleLowerCase("bg"),
         )
+        ?? (category === "INTRAOP_FLUID" ? retiredFluidOption(canonicalCode, sourceLabel) : undefined)
       if (option) {
         // Drugs, infusions, agents and fluids: the reader's switches decide the names.
         const switched = catalogDisplayNames(category, option.label)

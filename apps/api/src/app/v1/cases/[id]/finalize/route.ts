@@ -5,6 +5,8 @@ import { corsHeaders } from "@/lib/cors"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { invalidateIntraopAutomationCaches, tallyFinalisedCase } from "@/lib/intraop-automation"
+import { prisma } from "@/lib/prisma"
 import {
   CaseFinalizationStepError,
   finalizeCaseWithinTransaction,
@@ -118,6 +120,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     if (result instanceof Response) return result
+    // The vitals statistics, Likely now and acceptance read finalised cases
+    // only, so a finalisation is the one write that changes them. The running
+    // tally gets this case's readings now; if that fails the next read catches
+    // up, so it never holds up the finalisation.
+    await tallyFinalisedCase(prisma, id).catch(() => {
+      console.error("[finalize] VITAL_TALLY_FAILED")
+    })
+    invalidateIntraopAutomationCaches()
     return NextResponse.json({ id, status: "COMPLETE", finalizedAt: result.finalizedAt })
   } catch (error: unknown) {
     if (error instanceof FinalizeResponse) return error.response

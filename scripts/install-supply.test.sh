@@ -210,6 +210,13 @@ assert_order "$root/scripts/install.sh" \
   './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts' \
   './node_modules/.bin/tsx scripts/seed-concept-maps.ts' \
   'scripts/provision-bundled-clinical-baselines.ts --apply'
+# Rule baselines a release ships reach an installed site only through the
+# provisioner, so update runs it after the migrations, and a failure is reported
+# without stopping the update: the rules already in use stay in effect.
+assert_order "$root/scripts/update.sh"   'docker compose run --rm -T migrate'   'scripts/provision-bundled-clinical-baselines.ts --apply'   'docker compose up -d status'
+grep -Fq 'The clinical rule baselines of this release were not installed' "$root/scripts/update.sh"   || { echo "FAIL: update.sh does not report a failed baseline install" >&2; exit 1; }
+tests=$((tests + 1)); printf 'ok %s - update installs the release rule baselines after migrating
+' "$tests"
 # The option seed must stop the update like any other step; the research-link
 # refresh must not, because the links it would replace are still valid.
 awk '/scripts\/seed-option-library.ts/ { getline next_line; if (next_line ~ /\|\||; then|&&/) bad = 1 } END { exit bad }' \

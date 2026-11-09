@@ -12,6 +12,7 @@ import {
   endDayOffsetLabel,
   endInstantForWallClock,
   formatDateKeyLong,
+  isValidTimeZone,
   instantFromDateKey,
   instantFromLocalTime,
   localDateKey,
@@ -165,5 +166,26 @@ describe("the date of a record", () => {
     expect(endDayOffsetLabel(1, "en")).toBe("+1 day")
     expect(endDayOffsetLabel(2, "bg")).toBe("+2 дни")
     expect(endDayOffsetLabel(0, "en")).toBeNull()
+  })
+})
+
+describe("zone lookups are cached (11.0)", () => {
+  it("answers the same on every call, for a valid zone and for one that is not", () => {
+    for (let call = 0; call < 3; call += 1) {
+      expect(isValidTimeZone("Europe/Sofia")).toBe(true)
+      expect(isValidTimeZone("Mars/Olympus")).toBe(false)
+      expect(isValidTimeZone("")).toBe(false)
+      expect(isValidTimeZone(undefined)).toBe(false)
+      expect(localTimeOf(new Date("2026-11-07T08:05:00.000Z"), "Europe/Sofia")).toBe("10:05")
+      expect(localTimeOf(new Date("2026-11-07T08:05:00.000Z"), "America/New_York")).toBe("03:05")
+    }
+  })
+
+  it("is fast enough to do per event: a thousand lookups in a fraction of the time a fresh formatter each took", () => {
+    const base = Date.UTC(2026, 10, 7, 8, 0)
+    const started = Date.now()
+    for (let i = 0; i < 1000; i += 1) localTimeOf(new Date(base + i * 60_000), "Europe/Sofia")
+    // Measured at about 170 ms before the cache on the development machine; a generous bound keeps this stable.
+    expect(Date.now() - started).toBeLessThan(120)
   })
 })

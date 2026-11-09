@@ -1,7 +1,8 @@
 "use client"
 
+import { usePostopAutosave } from "@/components/forms/postop/usePostopAutosave"
 import { useForm, useWatch, Controller, type Resolver } from "react-hook-form"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { useScrollToReadiness } from "@/lib/readiness-focus"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -47,6 +48,7 @@ import {
   type PaedField,
 } from "@lospor/core/postop-pain"
 import { paedRiskBand } from "@lospor/core/risk"
+import { usePostopProcedurePrefill } from "@/components/forms/postop/usePostopProcedurePrefill"
 import { preopSectionConfigFor, type PreopSectionConfig } from "@lospor/core/preop-orders"
 import type { PediatricAgeUnit } from "@lospor/core/pediatric"
 import { ItemScale, ScaleTotal, SelfReportScale } from "@/components/forms/postop/PainScales"
@@ -137,26 +139,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
       // so simply opening it recorded a blood pressure, pulse, saturation and
       // temperature that nobody had taken.
       ...Object.fromEntries(Object.entries(defaultValues ?? {}).filter(([, v]) => v !== undefined && v !== null)),
-      // The procedure done starts as the one planned (10.0.0): the usual case
-      // needs no typing, and a different operation is a change.
-      performedProcedures: defaultValues?.performedProcedures?.length ? defaultValues.performedProcedures : plannedProcedures,
+      performedProcedures: defaultValues?.performedProcedures?.length ? defaultValues.performedProcedures : [],
       ...(defaultValues?.handoverItems ? { handoverItems: normaliseHandoverCodes(defaultValues.handoverItems) } : {}),
     },
   })
+  usePostopProcedurePrefill({ getValues, setValue, plannedProcedures })
   const { setScore, projected } = usePostopScoreProjection(defaultValues, setValue)
 
-  const allValues = useWatch({ control })
-  const allValuesKey = JSON.stringify(allValues)
-  // Skip the first run: this effect fires on mount, so without the guard simply
-  // opening the form scheduled a save of whatever the defaults happened to be.
-  // Autosave should record what the clinician entered, never the act of looking.
-  const postopMountedRef = useRef(false)
-  useEffect(() => {
-    if (!onAutoSave) return
-    if (!postopMountedRef.current) { postopMountedRef.current = true; return }
-    const timer = setTimeout(() => onAutoSave(getValues()), 1500)
-    return () => clearTimeout(timer)
-  }, [allValuesKey, getValues, onAutoSave])
+  usePostopAutosave({ control, getValues, onAutoSave })
 
   const aldreteWatched = useWatch({ control, name: ["aldreteActivity", "aldreteRespiration", "aldreteCirculation", "aldreteConsciousness", "aldreteSpO2"] })
   const stewardWatched = useWatch({ control, name: ["stewardConsciousness", "stewardAirway", "stewardMovement"] })

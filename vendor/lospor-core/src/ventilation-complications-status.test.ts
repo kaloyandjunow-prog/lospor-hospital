@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { VENT_ASSISTED, VENT_CONTROLLED, expandedVentilationPanelForModes } from "./ventilation"
-import { COMPLICATION_CATEGORIES, ALL_COMPLICATIONS } from "./complications"
+import { COMPLICATION_CATEGORIES, ALL_COMPLICATIONS, RETIRED_COMPLICATIONS } from "./complications"
 import { CASE_STATUS_LABELS, type CaseStatus } from "./case-status"
 
 describe("ventilation", () => {
@@ -29,9 +29,11 @@ describe("complications", () => {
     }
   })
 
-  it("flattens every category into ALL_COMPLICATIONS", () => {
+  it("holds every offered category and then the retired names, each once (10.1.0)", () => {
     const expectedLength = COMPLICATION_CATEGORIES.reduce((n, c) => n + c.items.length, 0)
-    expect(ALL_COMPLICATIONS).toHaveLength(expectedLength)
+    expect(ALL_COMPLICATIONS).toHaveLength(expectedLength + RETIRED_COMPLICATIONS.length)
+    expect(new Set(ALL_COMPLICATIONS).size).toBe(ALL_COMPLICATIONS.length)
+    expect(ALL_COMPLICATIONS.slice(expectedLength)).toEqual([...RETIRED_COMPLICATIONS])
     expect(ALL_COMPLICATIONS).toContain("Hypotension")
     expect(ALL_COMPLICATIONS).toContain("Seizure")
   })

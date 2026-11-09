@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const policy = await setPatientIdentifierPolicy(input)
     return NextResponse.json({
       egnPermitted: policy.egnPermitted,
+      admissionNumberVisible: policy.admissionNumberVisible,
       changedAt: policy.changedAt,
     }, { headers: ACCOUNT_CONTROL_HEADERS })
   } catch (error) {

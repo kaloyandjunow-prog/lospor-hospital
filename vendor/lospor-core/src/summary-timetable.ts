@@ -1,48 +1,11 @@
 import { INTRAOP_COLUMN_MINUTES } from "./intraop-engine"
 import { eventClockTimes } from "./intraop-summary"
-import { tciTargetText, type TciModel, type TciSite } from "./tci"
 
-// Pure model for the read-only case-summary timetable card.
-//
-// The /api/cases/[id] response carries intraop.keyEvents = the WEB-projected
-// timetable blob (vitals/drugs/agents/infusions/fluids/gasSettings/
-// clinicalEvents/positions + raw log). This normalizes that blob into a small
-// render model so the SVG component stays dumb and the logic stays testable.
-// No react / react-native imports here.
+// Column times of the projected chart (the legacy wall-clock convention) and the numbered drug log. The
+// summary, the web and the print draw the chart from `record-timetable`; what is left here is the two
+// time helpers the record's time tests and its fallback still use.
 
-export type ProjectedVital = { systolic?: number; diastolic?: number; heartRate?: number; spO2?: number; etco2?: number; temp?: number }
-export type ProjectedSeg   = { startCol?: number; endCol?: number }
-
-export type ProjectedTimetable = {
-  vitals?: ProjectedVital[]
-  drugs?: { eventId?: string; colIdx?: number; name?: string; dose?: string; unit?: string }[]
-  agents?: (ProjectedSeg & { name?: string; percent?: number; percentChanges?: { col: number; percent: number; planned?: boolean }[] })[]
-  infusions?: (ProjectedSeg & { name?: string; rate?: number | string; unit?: string; tciModel?: TciModel; tciSite?: TciSite })[]
-  gasSettings?: (ProjectedSeg & { fgf?: number; carrierGas?: string | null; fio2?: number })[]
-  fluids?: (ProjectedSeg & { name?: string; volume?: string })[]
-  clinicalEvents?: { colIdx?: number; label?: string }[]
-  positions?: (ProjectedSeg & { position?: string })[]
-  [k: string]: unknown
-}
-
-export type SummaryLaneKind = "agent" | "infusion" | "gas" | "fluid" | "position"
-
-export type SummaryLane = {
-  kind: SummaryLaneKind
-  label: string
-  color: string
-  segments: { startCol: number; endCol: number; text: string; code?: string }[]
-}
-
-export type SummaryTimetableModel = {
-  nCols: number
-  vitals: ProjectedVital[]
-  events: { col: number; label: string }[]
-  /** Time-sorted; `n` matches the printed record's numbered drug log (① ② …). */
-  drugTicks: { col: number; name: string; n: number }[]
-  lanes: SummaryLane[]
-  hasData: boolean
-}
+type ProjectedDrug = { eventId?: string; colIdx?: number; name?: string; dose?: string; unit?: string }
 
 export function colToHHMM(col: number, startISO?: string | null): string {
   if (!startISO) return `+${col * INTRAOP_COLUMN_MINUTES}m`
@@ -56,8 +19,7 @@ export function colToHHMM(col: number, startISO?: string | null): string {
   return `${String(Math.floor(mins / 60) % 24).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`
 }
 
-// Numbered drug administration log — same colIdx-sorted numbering as the
-// printed record's log box and the chart pins.
+// Numbered drug administration log, sorted by column.
 export type DrugLogEntry = { n: number; col: number; time: string; name: string; dose: string }
 /**
  * The numbered log. With the case's time zone each dose is timed from its own
@@ -65,7 +27,7 @@ export type DrugLogEntry = { n: number; col: number; time: string; name: string;
  * row. A dose given at 14:50 printed as its row's label before 9.13.0.
  */
 export function buildDrugLogEntries(kev: unknown, startISO?: string | null, timeZone?: string | null): DrugLogEntry[] {
-  const t: ProjectedTimetable = (kev && typeof kev === "object" && !Array.isArray(kev)) ? kev as ProjectedTimetable : {}
+  const t = (kev && typeof kev === "object" && !Array.isArray(kev) ? kev : {}) as { drugs?: ProjectedDrug[] }
   const drugs = Array.isArray(t.drugs) ? t.drugs : []
   const log = (kev as { log?: unknown } | null)?.log
   const exact = eventClockTimes(Array.isArray(log) ? log : [], timeZone)
@@ -79,128 +41,4 @@ export function buildDrugLogEntries(kev: unknown, startISO?: string | null, time
       name: String(d.name ?? ""),
       dose: `${d.dose ?? ""} ${d.unit ?? ""}`.trim(),
     }))
-}
-
-// ── Semantic zoom (finished-case viewer) ─────────────────────────────────────
-// colW = pixels per timetable column. The numeric-grid sampling step follows
-// the zoom: wide columns → q5 detail, narrow columns → coarse q15/q30 like the
-// printed record. Traces/pins/events/lanes are never thinned by zoom.
-export const MIN_COL_W = 6
-export const MAX_COL_W = 44
-/** Px a "118/72" numeric cell needs to stay legible. */
-const CELL_PX = 40
-
-export function clampColW(v: number): number {
-  if (!Number.isFinite(v)) return MIN_COL_W
-  return Math.min(MAX_COL_W, Math.max(MIN_COL_W, Math.round(v)))
-}
-
-/** Smallest sampling step (in timetable columns) that keeps numeric cells legible. */
-export function stepForColW(colW: number): 1 | 2 | 3 | 4 | 6 {
-  for (const step of [1, 2, 3, 4, 6] as const) {
-    if (colW * step >= CELL_PX) return step
-  }
-  return 6
-}
-
-const LANE_COLORS = {
-  agent:    "#0d9488",
-  infusion: "#2563eb",
-  gas:      "#0284c7",
-  fluid:    "#0ea5e9",
-  position: "#475569",
-}
-
-function segEnd(s: ProjectedSeg): number { return s.endCol ?? s.startCol ?? 0 }
-
-/**
- * One stretch per concentration, so 2% then 1.5% reads as two, not as one bar
- * at either value (10.0.0). A planned change has not happened and is left out.
- */
-function agentStretches(a: NonNullable<ProjectedTimetable["agents"]>[number]): SummaryLane["segments"] {
-  const start = a.startCol ?? 0
-  const end = segEnd(a)
-  const changes = (a.percentChanges ?? [])
-    .filter(change => !change.planned && change.col > start && change.col <= end)
-    .sort((x, y) => x.col - y.col)
-  const stretches = [{ col: start, percent: a.percent }, ...changes]
-  return stretches.map((stretch, i) => ({
-    startCol: stretch.col,
-    endCol: i + 1 < stretches.length ? stretches[i + 1].col - 1 : end,
-    text: `${i === 0 ? a.name ?? "" : ""}${stretch.percent != null ? ` ${stretch.percent}%` : ""}`.trim(),
-    code: a.name,
-  }))
-}
-
-// Lane labels sit in a narrow left gutter, so the Bulgarian ones stay short —
-// the same abbreviations used on the printed record.
-export const LANE_LABELS = {
-  en: { agent: "Agent", infusion: "Inf",  gas: "Gas",         fluid: "Fluid",  position: "Pos" },
-  bg: { agent: "Агент", infusion: "Инф",  gas: "Газова смес", fluid: "Флуиди", position: "Позиция" },
-} as const
-
-export function buildSummaryTimetableModel(kev: unknown, lang: "en" | "bg" = "en"): SummaryTimetableModel {
-  const L = LANE_LABELS[lang] ?? LANE_LABELS.en
-  const t: ProjectedTimetable = (kev && typeof kev === "object" && !Array.isArray(kev)) ? kev as ProjectedTimetable : {}
-  const vitals    = Array.isArray(t.vitals) ? t.vitals : []
-  const drugs     = Array.isArray(t.drugs) ? t.drugs : []
-  const agents    = Array.isArray(t.agents) ? t.agents : []
-  const infusions = Array.isArray(t.infusions) ? t.infusions : []
-  const gas       = Array.isArray(t.gasSettings) ? t.gasSettings : []
-  const fluids    = Array.isArray(t.fluids) ? t.fluids : []
-  const events    = Array.isArray(t.clinicalEvents) ? t.clinicalEvents : []
-  const positions = Array.isArray(t.positions) ? t.positions : []
-
-  const nCols = Math.max(
-    vitals.length,
-    drugs.length     ? Math.max(...drugs.map(d => d.colIdx ?? 0)) + 1 : 0,
-    agents.length    ? Math.max(...agents.map(segEnd)) + 1 : 0,
-    infusions.length ? Math.max(...infusions.map(segEnd)) + 1 : 0,
-    gas.length       ? Math.max(...gas.map(segEnd)) + 1 : 0,
-    fluids.length    ? Math.max(...fluids.map(segEnd)) + 1 : 0,
-    events.length    ? Math.max(...events.map(e => e.colIdx ?? 0)) + 1 : 0,
-    positions.length ? Math.max(...positions.map(segEnd)) + 1 : 0,
-    12,
-  ) + 1
-
-  // Agents, infusions and fluids run side by side, so each bar has its own row,
-  // as on the printed record; in one shared row they hid one another (2026-10-19).
-  // Gas and position follow one another and keep one row each.
-  const lanes: SummaryLane[] = []
-  for (const a of agents) lanes.push({ kind: "agent", label: L.agent, color: LANE_COLORS.agent, segments: agentStretches(a) })
-  for (const f of infusions) lanes.push({
-    kind: "infusion", label: L.infusion, color: LANE_COLORS.infusion,
-    segments: [{ startCol: f.startCol ?? 0, endCol: segEnd(f), text: `${f.name ?? ""} ${tciTargetText(f) ?? `${f.rate ?? ""}${f.unit ? ` ${f.unit}` : ""}`}`.trim(), code: f.name }],
-  })
-  if (gas.length) lanes.push({
-    kind: "gas", label: L.gas, color: LANE_COLORS.gas,
-    segments: gas.map(g => {
-      const carrierCode = String(g.carrierGas ?? "").toLowerCase()
-      const carrier = carrierCode === "n2o" ? "N₂O" : carrierCode === "air" ? "Air" : null
-      const parts = [carrier ? `O₂/${carrier}` : "O₂"]
-      if (g.fgf != null) parts.push(`FGF ${g.fgf} L/min`)
-      if (g.fio2 != null) parts.push(`FiO₂ ${g.fio2}%`)
-      return { startCol: g.startCol ?? 0, endCol: segEnd(g), text: parts.join(" · "), code: carrierCode || "o2" }
-    }),
-  })
-  for (const f of fluids) lanes.push({
-    kind: "fluid", label: L.fluid, color: LANE_COLORS.fluid,
-    segments: [{ startCol: f.startCol ?? 0, endCol: segEnd(f), text: `${f.name ?? ""}${f.volume ? ` ${f.volume} mL` : ""}`.trim(), code: f.name }],
-  })
-  if (positions.length) lanes.push({
-    kind: "position", label: L.position, color: LANE_COLORS.position,
-    segments: positions.map(p => ({ startCol: p.startCol ?? 0, endCol: segEnd(p), text: String(p.position ?? ""), code: p.position })),
-  })
-
-  return {
-    nCols,
-    vitals,
-    events: events.filter(e => e.label).map(e => ({ col: e.colIdx ?? 0, label: String(e.label) })),
-    drugTicks: drugs
-      .slice()
-      .sort((a, b) => (a.colIdx ?? 0) - (b.colIdx ?? 0))
-      .map((d, i) => ({ col: d.colIdx ?? 0, name: String(d.name ?? ""), n: i + 1 })),
-    lanes,
-    hasData: !!(vitals.length || drugs.length || agents.length || infusions.length || fluids.length || gas.length),
-  }
 }

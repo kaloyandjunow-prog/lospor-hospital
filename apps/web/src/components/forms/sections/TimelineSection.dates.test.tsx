@@ -10,7 +10,7 @@ const SOFIA = "Europe/Sofia"
 // 16 Oct 2026, 10:00 in Sofia.
 const NOW = new Date("2026-10-16T07:00:00Z")
 
-function Harness({ defaults, onSave }: { defaults: Partial<IntraopFormFields>; onSave: (data: Record<string, unknown>) => void }) {
+function Harness({ defaults, onSave, onEndCorrectionOpen }: { defaults: Partial<IntraopFormFields>; onSave: (data: Record<string, unknown>) => void; onEndCorrectionOpen?: (open: boolean) => void }) {
   const { control, watch, setValue, getValues } = useForm<IntraopFormFields>({ defaultValues: { timezone: SOFIA, ...defaults } as never })
   return (
     <TimelineSection
@@ -25,6 +25,7 @@ function Harness({ defaults, onSave }: { defaults: Partial<IntraopFormFields>; o
       monDefaultsAppliedRef={{ current: false }}
       setAdvancedMonOpen={() => {}}
       setAirwayExpandedDevice={() => {}}
+      onEndCorrectionOpen={onEndCorrectionOpen}
     />
   )
 }
@@ -84,12 +85,56 @@ describe("the date beside the start and end of surgery", () => {
     />)
     const stepper = screen.getByTestId("intraop-end-day")
     expect(stepper.textContent).toContain("Yesterday")
+    // The case has ended: moving its end asks why before anything is saved (10.1.0).
+    const before = saves.length
     act(() => { fireEvent.click(stepper.querySelectorAll("button")[1]!) })
-    expect(saves.at(-1)).toMatchObject({ endedAt: "2026-10-16T20:50:00.000Z", endTimeNextDay: true })
+    expect(saves.length).toBe(before)
+    act(() => { fireEvent.click(screen.getByTestId("end-correction-WRONG_TIME_ENTERED")) })
+    expect(saves.at(-1)).toMatchObject({ endedAt: "2026-10-16T20:50:00.000Z", endTimeNextDay: true, endCorrectionReason: "WRONG_TIME_ENTERED" })
     // It cannot go before the start's date.
     const back = screen.getByTestId("intraop-end-day").querySelectorAll("button")[0] as HTMLButtonElement
     act(() => { fireEvent.click(back) })
-    expect(saves.at(-1)).toMatchObject({ endedAt: "2026-10-15T20:50:00.000Z", endTimeNextDay: false })
+    act(() => { fireEvent.click(screen.getByTestId("end-correction-DEVICE_CLOCK")) })
+    expect(saves.at(-1)).toMatchObject({ endedAt: "2026-10-15T20:50:00.000Z", endTimeNextDay: false, endCorrectionReason: "DEVICE_CLOCK" })
     expect((screen.getByTestId("intraop-end-day").querySelectorAll("button")[0] as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("keeps the saved end when the reason is cancelled, and asks nothing when the end does not move (10.1.0)", () => {
+    const saves: Record<string, unknown>[] = []
+    render(<Harness
+      defaults={{ startTime: "09:00", startedAt: "2026-10-16T06:00:00.000Z", endTime: "09:50", endedAt: "2026-10-16T06:50:00.000Z" } as never}
+      onSave={data => saves.push(data)}
+    />)
+    // The end picker is an hour and a minute select; the started case shows its start locked.
+    const selects = document.querySelectorAll("select")
+    const endTime = selects[selects.length - 1] as HTMLSelectElement
+    act(() => { fireEvent.change(endTime, { target: { value: "40" } }) })
+    expect(screen.getByTestId("end-correction-reasons")).toBeTruthy()
+    act(() => { fireEvent.click(screen.getByTestId("end-correction-cancel")) })
+    expect(screen.queryByTestId("end-correction-reasons")).toBeNull()
+    expect(saves).toEqual([])
+    act(() => { fireEvent.change(endTime, { target: { value: "50" } }) })
+    expect(screen.queryByTestId("end-correction-reasons")).toBeNull()
+  })
+
+  // The floating "Waiting for your answer" panel covered the last reasons.
+  it("tells the form while the reasons are open, so the floating questions step aside", () => {
+    const open = vi.fn()
+    const view = render(<Harness
+      defaults={{ startTime: "09:00", startedAt: "2026-10-16T06:00:00.000Z", endTime: "09:50", endedAt: "2026-10-16T06:50:00.000Z" } as never}
+      onSave={() => {}}
+      onEndCorrectionOpen={open}
+    />)
+    expect(open).toHaveBeenLastCalledWith(false)
+    const selects = document.querySelectorAll("select")
+    act(() => { fireEvent.change(selects[selects.length - 1]!, { target: { value: "40" } }) })
+    expect(open).toHaveBeenLastCalledWith(true)
+    act(() => { fireEvent.click(screen.getByTestId("end-correction-DEVICE_CLOCK")) })
+    expect(open).toHaveBeenLastCalledWith(false)
+    act(() => { fireEvent.change(selects[selects.length - 1]!, { target: { value: "30" } }) })
+    expect(open).toHaveBeenLastCalledWith(true)
+    // Leaving the section while they are open brings the questions back.
+    view.unmount()
+    expect(open).toHaveBeenLastCalledWith(false)
   })
 })

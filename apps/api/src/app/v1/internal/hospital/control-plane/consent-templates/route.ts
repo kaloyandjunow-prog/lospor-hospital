@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import {
+  CONSENT_REQUEST_MAX_BYTES,
   consentTemplateSaveSchema,
   saveHospitalConsentTemplate,
 } from "@/lib/hospital/control-plane"
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
   const denied = await authorizeAccountControl(request)
   if (denied) return denied
   try {
-    const result = await saveHospitalConsentTemplate(consentTemplateSaveSchema.parse(await boundedJson(request)))
+    const result = await saveHospitalConsentTemplate(consentTemplateSaveSchema.parse(await boundedJson(request, CONSENT_REQUEST_MAX_BYTES)))
     return NextResponse.json(result ?? { ok: true }, { status: 201, headers: ACCOUNT_CONTROL_HEADERS })
   } catch (error) {
     return controlPlaneError(error)

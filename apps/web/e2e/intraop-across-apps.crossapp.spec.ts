@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test"
 import { contextFor, JSON_HEADERS } from "./roles"
+import { SYNTHETIC_MONTH, sofia, sofiaIso } from "./synthetic-day"
 import { E2E_MEMBER_A_USERNAME } from "./credentials"
 import { openPhone, openPhoneIntraop, PWA_BASE } from "./pwa"
 
@@ -17,8 +18,8 @@ import { openPhone, openPhoneIntraop, PWA_BASE } from "./pwa"
 // machine (~80-90s locally vs. hitting the ceiling in CI).
 test.describe.configure({ timeout: 300_000 })
 
-const STARTED_AT = "2026-08-23T05:55:00.000Z" // 08:55 in Europe/Sofia
-const SYNTHETIC_END_NOW = new Date("2026-08-23T10:00:30+03:00")
+const STARTED_AT = sofiaIso(8, 55) // 08:55 in Europe/Sofia, yesterday
+const SYNTHETIC_END_NOW = sofia(10, 0, 30)
 const PREOP = {
   ageYears: 44,
   sex: "MALE" as const,
@@ -73,7 +74,7 @@ async function createStartedCase(context: BrowserContext): Promise<string> {
       patientNumber: `INTRAOP-CROSSAPP-E2E-${Date.now()}`,
       preop: PREOP,
       intraop: {
-        monthYear: "2026-08",
+        monthYear: SYNTHETIC_MONTH,
         startTime: "08:55",
         startedAt: STARTED_AT,
         timezone: "Europe/Sofia",
@@ -252,7 +253,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         id: drugId,
         type: "drug",
-        ts: "2026-08-23T05:59:59.000Z",
+        ts: sofiaIso(8, 59, 59),
         name: "Propofol",
         dose: "50",
         unit: "mg",
@@ -270,7 +271,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         id: vitalId,
         type: "vital",
-        ts: "2026-08-23T06:00:00.000Z",
+        ts: sofiaIso(9, 0, 0),
         systolic: 121,
         diastolic: 76,
         heartRate: 68,
@@ -293,7 +294,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         id: vitalId,
         type: "vital",
-        ts: "2026-08-23T06:00:00.000Z",
+        ts: sofiaIso(9, 0, 0),
         systolic: 121,
         diastolic: 76,
         heartRate: 68,
@@ -321,7 +322,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       },
       data: {
         type: "drug",
-        ts: "2026-08-23T05:59:59.000Z",
+        ts: sofiaIso(8, 59, 59),
         name: "Propofol",
         dose: "60",
         unit: "mg",
@@ -338,7 +339,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         id: fluidId,
         type: "fluid_start",
-        ts: "2026-08-23T06:00:01.000Z",
+        ts: sofiaIso(9, 0, 1),
         fluidId,
         name: "Ringer lactate",
         volume: 500,
@@ -381,7 +382,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         id: eventId,
         type: "clinical_event",
-        ts: "2026-08-23T06:30:30.000Z",
+        ts: sofiaIso(9, 30, 30),
         label: "Position checked",
       },
     })
@@ -407,7 +408,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
           data: {
             id,
             type: "vital",
-            ts: `2026-08-23T06:${String(minute).padStart(2, "0")}:00.000Z`,
+            ts: sofiaIso(9, minute, 0),
             systolic: 120 + minute,
             diastolic: 70 + Math.floor(minute / 5),
             heartRate: 65 + Math.floor(minute / 5),
@@ -427,7 +428,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         id: checkpointId,
         type: "clinical_event",
-        ts: "2026-08-23T06:59:59.000Z",
+        ts: sofiaIso(9, 59, 59),
         label: "One-hour checkpoint",
       },
     })
@@ -513,7 +514,7 @@ test("Web and PWA alternate across an hour boundary with conflict, retry, correc
       data: {
         intraop: {
           endTime: "10:05",
-          endedAt: "2026-08-23T07:05:00.000Z",
+          endedAt: sofiaIso(10, 5, 0),
         },
         postop: {
           aldreteActivity: 2,

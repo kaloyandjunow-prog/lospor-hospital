@@ -1,20 +1,15 @@
+import { fluidsTabTotals } from "./fluids-tab-totals"
+import { jetSheet } from "@/lib/jet-sheet"
 import type { ComponentProps, MutableRefObject } from "react"
 import { VascularTab } from "@/components/intraop/tabs/VascularTab"
 import type { IntraopTabContentHostProps } from "@/components/intraop/IntraopTabContentHost"
-import { calculateDrugTotals } from "@lospor/core/intraop-summary"
-import { totalsProvisional } from "@lospor/core/intraop-save-state"
 // Core's own totals, not the case-detail wrapper: that wrapper narrows `rate`
 // to string, while a live timetable's rate is NumericText. Core accepts both.
 import {
-  calcInfusionTotals,
-  calculateDeliveredFluidTotals, deliveredInfusionVolumesByName,
-  formatInfusionTotal,
-  infusionLocalAnaestheticMg,
   type WeightBasisMap,
 } from "@lospor/core/intraop-totals"
 import { formatComplications } from "@/lib/intraop-complications"
-import { tciPatientFromPreop } from "@/lib/intraop-preop-summary"; import { tciTotalNote } from "@/components/intraop/TciSheetFields"
-import { timeAtCol } from "@/lib/intraop-projection"
+import { tciPatientFromPreop } from "@/lib/intraop-preop-summary"; import { timeAtCol } from "@/lib/intraop-projection"
 import { buildRowSummary } from "@/lib/intraop-running"
 import { confirmAction } from "@/lib/notify"
 import { techniqueColor } from "@/lib/intraop-technique"
@@ -32,6 +27,7 @@ type TechniqueProps = ContentFor<"technique">
 type TimingProps = ContentFor<"timing">
 type PositionProps = ContentFor<"position">
 type MonitoringProps = ContentFor<"monitoring">
+type EquipmentProps = ContentFor<"equipment">
 type AirwayProps = ContentFor<"airway">
 type PremedicationProps = ContentFor<"premedication">
 type EventsProps = ContentFor<"events">
@@ -137,6 +133,8 @@ export type IntraopTabContentBuilderProps = {
   setAwPresentsIntubated: AirwayProps["setAwPresentsIntubated"]
   awNotApplicable: AirwayProps["awNotApplicable"]
   setAwNotApplicable: AirwayProps["setAwNotApplicable"]
+  onAirwayInterventionSelected: AirwayProps["onAirwayInterventionSelected"]
+  onNoAirwayInterventionSelected: AirwayProps["onNoAirwayInterventionSelected"]
   setAwNotes: AirwayProps["setAwNotes"]
   saveAirwaySection: AirwayProps["saveAirwaySection"]
   awExpandedDevice: AirwayProps["awExpandedDevice"]
@@ -144,12 +142,19 @@ export type IntraopTabContentBuilderProps = {
   awExpandedWasComplete: AirwayProps["awExpandedWasComplete"]
   AIRWAY_TOOLS: AirwayProps["airwayTools"]
   AIRWAY_DEVICES: AirwayProps["airwayDevices"]
+  /** Smart selection (10.2.0), when the clinician uses it. */
+  airwaySmart?: AirwayProps["smart"]
   awVentExpanded: AirwayProps["awVentExpanded"]
   setAwVentExpanded: AirwayProps["setAwVentExpanded"]
   vascularAccesses: VascularProps["vascularAccesses"]
   setVascularAccesses: VascularProps["setVascularAccesses"]
   saveVascularAccesses: VascularProps["saveVascularAccesses"]
   vascularSaving: VascularProps["vascularSaving"]
+  /** Smart selection for vascular access (10.2.0), when the clinician uses it. */
+  vascularSmart?: VascularProps["smart"]
+  monitoringSmart?: MonitoringProps["smart"]
+  equipmentSmart?: EquipmentProps["smart"]
+  techniqueSmart?: TechniqueProps["smart"]
   vascSiteColor: VascularProps["vascSiteColor"]
   VASC_TREE: VascularProps["vascTree"]
   vascDefaultUnit: VascularProps["vascDefaultUnit"]
@@ -165,7 +170,7 @@ export type IntraopTabContentBuilderProps = {
   complicationsNotes: EventsProps["complicationsNotes"]
   setComplicationsNotes: EventsProps["onComplicationsNotesChange"]
   saveComplications: () => void
-  setCompOpen: (open: boolean) => void
+  removeLegacyComplication: EventsProps["onRemoveLegacyComplication"]
   eventActions: EventsProps["onEventActions"]
   promptDelete: EventsProps["onPromptDelete"]
   prevVitalFor: EventsProps["previousVitalFor"]
@@ -183,6 +188,8 @@ export type IntraopTabContentBuilderProps = {
   setUrineMl: FluidsProps["setUrineMl"]
   bloodLossMl: FluidsProps["bloodLossMl"]
   setBloodLossMl: FluidsProps["setBloodLossMl"]
+  fluidsScreen?: FluidsProps["screen"]
+  eventLogScreen?: EventsProps["eventLogScreen"]
 }
 
 export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps): IntraopTabContentHostProps {
@@ -203,16 +210,16 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     setAwNasalTubeSize, awNasalCuffed, setAwNasalCuffed, awDltType, setAwDltType,
     awDltSide, setAwDltSide, awDltSize, setAwDltSize, awEbSize, setAwEbSize, awVentModes,
     setAwVentModes, awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated,
-    awNotApplicable, setAwNotApplicable, saveAirwaySection, awExpandedDevice,
-    setAwExpandedDevice, awExpandedWasComplete, AIRWAY_TOOLS, AIRWAY_DEVICES,
+    awNotApplicable, setAwNotApplicable, onAirwayInterventionSelected, onNoAirwayInterventionSelected, saveAirwaySection, awExpandedDevice,
+    setAwExpandedDevice, awExpandedWasComplete, AIRWAY_TOOLS, AIRWAY_DEVICES, airwaySmart,
     awVentExpanded, setAwVentExpanded, vascularAccesses, setVascularAccesses,
-    saveVascularAccesses, vascularSaving, vascSiteColor, VASC_TREE, vascDefaultUnit,
+    saveVascularAccesses, vascularSaving, vascularSmart, monitoringSmart, equipmentSmart, techniqueSmart, vascSiteColor, VASC_TREE, vascDefaultUnit,
     VASC_PREEXISTING_QUICK, premedEveningText, setPremedEveningText, premedMorningText,
     setPremedMorningText, savePremedication, openPremedPicker, log, selectedComplications,
-    complicationsNotes, setComplicationsNotes, saveComplications, setCompOpen, eventActions,
+    complicationsNotes, setComplicationsNotes, saveComplications, removeLegacyComplication, eventActions,
     promptDelete, prevVitalFor,
     logEventText, logBuildSummary,
-    caseIbw, caseTbw, caseBsa = null, infusionWeightBasis, urineMl, setUrineMl, bloodLossMl, setBloodLossMl,
+    caseIbw, caseTbw, caseBsa = null, infusionWeightBasis, urineMl, setUrineMl, bloodLossMl, setBloodLossMl, fluidsScreen, eventLogScreen,
   } = props
 
   // One case per tab, and only the active one runs. Building all eleven groups
@@ -251,6 +258,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       // Stops and changes are recorded at the row they were entered in.
       onEndFluid: (fluid, col) => openFluidEnd(fluid, col != null ? timeAtCol(chartStart, col).toISOString() : null),
       onEditGas: c => { if (activeGas) openGasSettings(timeAtCol(chartStart, c).toISOString(), activeGas, "change") },
+      onEditJet: c => jetSheet.open(timeAtCol(chartStart, c).toISOString()),
       onStopAgent: (name, col) => {
         void confirmAction(
           formatMessage(tc("stopAgentQuestion"), { name }),
@@ -266,7 +274,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     } }
 
     case "equipment": return { tab, content: {
-      preop, surgeryStart: startRef.current, caseTimezone,
+      preop, surgeryStart: startRef.current, caseTimezone, smart: equipmentSmart,
     } }
 
     case "technique": return { tab, content: {
@@ -281,6 +289,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       otherTechText,
       setOtherTechText,
       tc,
+      smart: techniqueSmart,
     } }
 
     case "timing": return { tab, content: {
@@ -303,7 +312,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
 
     case "monitoring": return { tab, content: {
       monitoring, setMonitoring, saveMonitoring, fieldSaving,
-      monitoringOpts: MONITORING_OPTS, advMonOpen, setAdvMonOpen,
+      monitoringOpts: MONITORING_OPTS, advMonOpen, setAdvMonOpen, smart: monitoringSmart,
     } }
 
     case "airway": return { tab, content: {
@@ -315,7 +324,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated,
       awNotApplicable, setAwNotApplicable, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
       awExpandedWasComplete, airwayTools: AIRWAY_TOOLS, airwayDevices: AIRWAY_DEVICES,
-      awVentExpanded, setAwVentExpanded,
+      awVentExpanded, setAwVentExpanded, smart: airwaySmart, onAirwayInterventionSelected, onNoAirwayInterventionSelected,
     } }
 
     case "vascular": return { tab, content: (
@@ -324,6 +333,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
         setVascularAccesses={setVascularAccesses}
         saveVascularAccesses={saveVascularAccesses}
         vascularSaving={vascularSaving}
+        smart={vascularSmart}
         vascSiteColor={vascSiteColor}
         vascTree={VASC_TREE}
         vascDefaultUnit={vascDefaultUnit}
@@ -343,43 +353,16 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       ordered: preop?.premedicationOrders,
     } }
 
-    // Totals are derived, not held in state: a pure function of the timetable,
-    // computed only while this tab is shown.
-    case "fluids": return { tab, content: (() => {
-      const infusionRows = calcInfusionTotals(
-        timetable.infusions ?? [], caseIbw, caseTbw, infusionWeightBasis, caseBsa, tciPatientFromPreop(preop),
-      )
-      const weighted = infusionRows.filter(row => row.weightUsed != null)
-      const ibwUsed = weighted.some(row => row.weightBasis === "IBW") ? caseIbw : null
-      const tbwUsed = weighted.some(row => row.weightBasis === "TBW") ? caseTbw : null
-      const weightParts: string[] = []
-      if (ibwUsed != null) weightParts.push(`IBW ${Math.round(ibwUsed * 10) / 10} kg`)
-      if (tbwUsed != null) weightParts.push(`TBW ${Math.round(tbwUsed * 10) / 10} kg`)
-      const bsaUsed = infusionRows.find(row => row.bsaUsed != null)?.bsaUsed
-      if (bsaUsed != null) weightParts.push(`BSA ${bsaUsed} m²`)
-      // Delivered volume, not the stored `volume` (written only when a fluid stops, so a running one read 0).
-      // Infusions count in the balance by their pump rates, each drug's mL beside its amount (2026-10-18).
-      const fluidTotals = calculateDeliveredFluidTotals(timetable.fluids, new Date(), timetable.infusions ?? [], tciPatientFromPreop(preop))
-      const volumeByName = deliveredInfusionVolumesByName(timetable.infusions ?? [], new Date(), tciPatientFromPreop(preop))
-      return {
-        infusionTotals: infusionRows.map(row => ({
-          ...row,
-          mgTotal: infusionLocalAnaestheticMg(row.name, row.total, row.unit),
-          // Per kg without a weight, both totals of a unit switch, and which
-          // weight was used when the drug's own could not be (9.12.3).
-          display: [formatInfusionTotal(row), volumeByName.get(row.name) != null ? `${volumeByName.get(row.name)} mL` : null, row.tci ? tciTotalNote(row.tci, row.unit, tc) : null].filter(Boolean).join(" · "),
-        })),
-        bolusTotals: calculateDrugTotals(timetable), provisional: !!attention?.saveState && totalsProvisional(timetable, attention.saveState),
-        weightNote: weightParts.length ? `† ${weightParts.join(" / ")}` : null,
-        crystalloidsMl: fluidTotals.crystalloids, colloidsMl: fluidTotals.colloids, bloodMl: fluidTotals.blood, infusionsMl: fluidTotals.infusions,
-        urinaryCatheter: monitoring.includes("urinaryCatheter"),
-        urineMl,
-        setUrineMl,
-        bloodLossMl,
-        setBloodLossMl,
-        tc,
-      }
-    })() }
+    case "fluids": return { tab, content: {
+      ...fluidsTabTotals({ timetable, preop, caseIbw, caseTbw, caseBsa, infusionWeightBasis, tc, attention }),
+      urinaryCatheter: monitoring.includes("urinaryCatheter"),
+      urineMl,
+      setUrineMl,
+      bloodLossMl,
+      setBloodLossMl,
+      screen: fluidsScreen ?? "smart",
+      tc,
+    } }
 
     case "events": return { tab, content: {
       log,
@@ -389,11 +372,12 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       complicationsNotes,
       onComplicationsNotesChange: setComplicationsNotes,
       onComplicationsNotesBlur: () => { if (formatComplications(selectedComplications, complicationsNotes) !== null) saveComplications() },
-      onOpenComplications: () => setCompOpen(true),
+      onRemoveLegacyComplication: removeLegacyComplication,
       onEventActions: eventActions,
       onPromptDelete: promptDelete,
       eventLabel,
       previousVitalFor: prevVitalFor,
+      eventLogScreen: eventLogScreen ?? "smart",
     } }
   }
 }

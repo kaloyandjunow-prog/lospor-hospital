@@ -26,6 +26,7 @@ import {
   sealExternalAiCredential,
 } from "./external-ai-policy"
 import { patientIdentifierControlView } from "./patient-identifier-policy"
+import { hospitalLogoAuditDetail, hospitalLogoSchema, parseHospitalLogoDataUrl } from "./hospital-logo"
 import { caseVisibilityControlView } from "./case-visibility"
 import { FHIR_VITAL_FIELDS } from "./ehr-fhir-vitals"
 import { ehrVitalCodeMapView } from "./ehr-vital-code-map"
@@ -35,6 +36,8 @@ import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
 import { NHIS_SPECIALTIES } from "@lospor/core/nhis-specialties"
 import { drugColorsView, setDrugColor } from "@/lib/drug-colors"
 import { changeOperatingTheatres, operatingTheatresAdminView } from "@/lib/operating-theatres"
+import { saveIntraopAutomation, readIntraopAutomation } from "@/lib/intraop-automation"
+import { intraopAutomationControlView } from "./intraop-automation-control"
 import { readIndicatorConfig, saveIndicatorConfig } from "@/lib/indicators"
 import { DEFAULT_INDICATOR_CONFIG } from "@lospor/core/indicators"
 import { MEDICATION_HOLD_HOURS, POSTOP_FIXED_SECTIONS, PREOP_FIXED_SECTIONS, PREOP_SWITCHABLE_SECTIONS, sectionForm } from "@lospor/core/preop-orders"
@@ -118,8 +121,18 @@ export const caseVisibilityPolicySchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+/** The hospital's name as the anaesthesia record titles itself (11.0): the institution's own name, changed from Status. */
+export const hospitalNameSchema = z.object({
+  institutionId: z.string().trim().min(1).max(128),
+  name: z.string().trim().min(2).max(160),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export { hospitalLogoSchema } from "./hospital-logo"
+
 export const patientIdentifierPolicySchema = z.object({
   egnPermitted: z.boolean(),
+  admissionNumberVisible: z.boolean().optional(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -552,6 +565,13 @@ export const preopDocumentsUpdateSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+/**
+ * The request a consent text is saved with. The control routes read at most 16 KiB, which is less than
+ * the bundled paediatric text (17,321 bytes as JSON: Cyrillic is two bytes a letter), so a consent could not
+ * be saved from Status at all. 100,000 letters are about 200 KB; four bytes a character at most is 400 KB.
+ */
+export const CONSENT_REQUEST_MAX_BYTES = 524_288
+
 export const consentTemplateSaveSchema = z.object({
   population: z.enum(["ADULT", "PEDIATRIC"]),
   title: z.string().trim().min(1).max(CONSENT_TITLE_MAX_LENGTH),
@@ -663,6 +683,76 @@ export async function setGuidancePolicy(input: z.infer<typeof guidancePolicySche
   })
 }
 
+/**
+ * What the audit row for a rename keeps. Not a key called "name": the audit guard refuses that one, as it
+ * would a person's name, and a rename that failed on its own audit row would never be saved.
+ */
+/** What Status sends to save the SPS switches: the settings, which Core's parser checks and clamps, and why. */
+export const intraopAutomationUpdateSchema = z.object({ reason: z.string().trim().min(10).max(1000) }).passthrough()
+
+/** The audit row for a change of the SPS switches: which are off and how many, never a reason or a clinician. */
+export function intraopAutomationAuditDetail(settings: Awaited<ReturnType<typeof readIntraopAutomation>>) {
+  return {
+    enabled: settings.enabled,
+    groupsOff: Object.entries(settings.groups).filter(([, on]) => !on).map(([key]) => key).sort(),
+    linesOff: settings.disabled.length,
+    vitalQuestionsEnabled: settings.vitalQuestions.enabled,
+    dantroleneVialsMg: settings.dantroleneVialsMg,
+    reasonRecorded: true,
+  }
+}
+
+export async function setHospitalIntraopAutomation(input: unknown) {
+  const { reason, ...config } = intraopAutomationUpdateSchema.parse(input)
+  void reason
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const saved = await saveIntraopAutomation(tx, config)
+    await logAuditInTransaction(tx, actor.id, "INTRAOP_AUTOMATION_UPDATE", "local", intraopAutomationAuditDetail(saved))
+    return saved
+  }, serializableTransaction)
+}
+
+export function hospitalNameAuditDetail(previous: string, next: string, reasonRecorded: boolean) {
+  return { previousHospitalName: previous, hospitalName: next, reasonRecorded }
+}
+
+export async function setHospitalName(input: z.infer<typeof hospitalNameSchema>) {
+  const parsed = hospitalNameSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const institution = await tx.institution.findUnique({ where: { id: parsed.institutionId }, select: { id: true, name: true } })
+    if (!institution) throw new HospitalControlPlaneError("INSTITUTION_NOT_FOUND")
+    const updated = await tx.institution.update({ where: { id: institution.id }, data: { name: parsed.name }, select: { id: true, name: true } })
+    // Cases already written keep reading the institution's current name: the record's title is the hospital's,
+    // not a copy frozen into each case.
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_NAME_UPDATE", updated.id,
+      hospitalNameAuditDetail(institution.name, updated.name, Boolean(parsed.reason)))
+    return updated
+  }, serializableTransaction)
+}
+
+export async function readHospitalLogo(institutionId: string): Promise<string | null> {
+  const institution = await prisma.institution.findUnique({ where: { id: institutionId }, select: { logoDataUrl: true } })
+  if (!institution) throw new HospitalControlPlaneError("INSTITUTION_NOT_FOUND")
+  return institution.logoDataUrl
+}
+
+export async function setHospitalLogo(input: z.infer<typeof hospitalLogoSchema>) {
+  const parsed = hospitalLogoSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const institution = await tx.institution.findUnique({ where: { id: parsed.institutionId }, select: { id: true } })
+    if (!institution) throw new HospitalControlPlaneError("INSTITUTION_NOT_FOUND")
+    const updated = await tx.institution.update({ where: { id: institution.id }, data: { logoDataUrl: parsed.logoDataUrl }, select: { id: true, logoDataUrl: true } })
+    const bytes = parsed.logoDataUrl ? parseHospitalLogoDataUrl(parsed.logoDataUrl)?.bytes.length ?? 0 : 0
+    // Only the fact and the size are audited; the picture itself is not.
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_LOGO_UPDATE", updated.id,
+      hospitalLogoAuditDetail(updated.logoDataUrl !== null, bytes, Boolean(parsed.reason)))
+    return updated
+  }, serializableTransaction)
+}
+
 export async function setCaseVisibilityPolicy(
   input: z.infer<typeof caseVisibilityPolicySchema>,
 ) {
@@ -717,12 +807,14 @@ export async function setPatientIdentifierPolicy(
       create: {
         id: "local",
         egnPermitted: parsed.egnPermitted,
+        ...(parsed.admissionNumberVisible === undefined ? {} : { admissionNumberVisible: parsed.admissionNumberVisible }),
         changedAt: now,
         changedById: actor.id,
         changeReason: parsed.reason,
       },
       update: {
         egnPermitted: parsed.egnPermitted,
+        ...(parsed.admissionNumberVisible === undefined ? {} : { admissionNumberVisible: parsed.admissionNumberVisible }),
         changedAt: now,
         changedById: actor.id,
         changeReason: parsed.reason,
@@ -730,6 +822,7 @@ export async function setPatientIdentifierPolicy(
     })
     await logAuditInTransaction(tx, actor.id, "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", policy.id, {
       egnPermitted: policy.egnPermitted,
+      admissionNumberVisible: policy.admissionNumberVisible,
       reasonRecorded: Boolean(parsed.reason),
     })
     return policy
@@ -1687,6 +1780,8 @@ export async function hospitalControlPlaneView() {
   const operatingTheatres = await operatingTheatresAdminView(prisma).catch(() => null)
   // The unit indicators' thresholds (10.0.0).
   const indicators = await indicatorsControlView().catch(() => null)
+  // The intraoperative suggestion switches (10.2.0), read apart as well: an older database still shows every other control.
+  const intraopAutomation = await intraopAutomationControlView(prisma).catch(() => null)
   // How the folder exchange is doing, for a site that uses it (1.5.0). Read
   // from the folders; a failure to read them is not a reason to hide the rest.
   // Loaded only here: the inbox reader brings the clinical vocabularies with it,
@@ -1726,6 +1821,7 @@ export async function hospitalControlPlaneView() {
     drugColors,
     operatingTheatres,
     indicators,
+    intraopAutomation,
   }
 }
 

@@ -25,3 +25,9 @@ export function fallbackRange(unit: string): Range {
 
 export type Calc = { perKg?: number; flat?: number; basis?: string; roundTo?: number; cap?: number }
 export type DoseCalc = Calc & { hint: string; byRoute?: Record<string, Calc> }
+
+/** Step and ceiling of the pediatric dose slider: the profile's rounding and maximum, never less than twice the amount shown or ten steps. */
+export function pediatricSliderLimits(profile: { roundTo?: number | null; maximumAmount?: number | null } | null | undefined, amount: number | null | undefined, unit: string) {
+  const step = profile?.roundTo ?? (unit === "mcg" ? 1 : 0.1)
+  return { step, max: Math.max(profile?.maximumAmount ?? 0, amount != null ? amount * 2 : 0, step * 10) }
+}

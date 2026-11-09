@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
-import { contextFor, JSON_HEADERS, USERNAME_FOR } from "./roles"
-import { openPhone } from "./pwa"
+import { contextFor, JSON_HEADERS, USERNAME_FOR, gotoDashboard } from "./roles"
+import { gotoPhoneHome, openPhone } from "./pwa"
 import { withTheatres } from "./theatres-setup"
 
 /**
@@ -23,7 +23,12 @@ test.describe.configure({ timeout: 240_000 })
 type Theatre = { id: string; name: string }
 
 async function caseRow(page: Page, caseCode: string) {
-  return page.locator("a").filter({ hasText: caseCode }).first()
+  const row = page.getByTestId("case-row").filter({ hasText: caseCode }).first()
+  // Playwright actions have no default timeout.  Make a missing/unauthenticated
+  // dashboard fail at the point of the contract instead of hanging forever on
+  // the first theatre button click.
+  await expect(row).toBeVisible({ timeout: 30_000 })
+  return row
 }
 
 test("theatres are assigned, shown, filtered and fixed at the start of intraop", async ({ browser }) => {
@@ -53,7 +58,7 @@ test("theatres are assigned, shown, filtered and fixed at the start of intraop",
 
   try {
     // ── Web: assign from the dashboard ──
-    await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
+    await gotoDashboard(page)
     const rowA = await caseRow(page, caseA.code)
     await rowA.getByTestId("theatre-button").click()
     await page.getByTestId("theatre-menu").getByRole("button", { name: first.name }).click()
@@ -61,34 +66,36 @@ test("theatres are assigned, shown, filtered and fixed at the start of intraop",
 
     // The theatre filter keeps A and drops B; "no theatre" the other way round.
     await page.getByTestId("filter-theatre").selectOption(first.id)
-    await expect(page.locator("a").filter({ hasText: caseA.code })).toHaveCount(1)
-    await expect(page.locator("a").filter({ hasText: caseB.code })).toHaveCount(0)
+    await expect(page.getByTestId("case-row").filter({ hasText: caseA.code })).toHaveCount(1)
+    await expect(page.getByTestId("case-row").filter({ hasText: caseB.code })).toHaveCount(0)
     await page.getByTestId("filter-theatre").selectOption("none")
-    await expect(page.locator("a").filter({ hasText: caseB.code })).toHaveCount(1)
-    await expect(page.locator("a").filter({ hasText: caseA.code })).toHaveCount(0)
+    await expect(page.getByTestId("case-row").filter({ hasText: caseB.code })).toHaveCount(1)
+    await expect(page.getByTestId("case-row").filter({ hasText: caseA.code })).toHaveCount(0)
     // The anaesthesiologist filter: both are this clinician's.
     await page.getByRole("button", { name: /Clear filters/ }).click()
     await expect(page.getByTestId("filter-theatre")).toHaveValue("")
     const me = await (await context.request.get("/api/user")).json() as { id: string }
     await page.getByTestId("filter-assignee").selectOption(me.id)
-    await expect(page.locator("a").filter({ hasText: caseA.code })).toHaveCount(1)
-    await expect(page.locator("a").filter({ hasText: caseB.code })).toHaveCount(1)
+    await expect(page.getByTestId("case-row").filter({ hasText: caseA.code })).toHaveCount(1)
+    await expect(page.getByTestId("case-row").filter({ hasText: caseB.code })).toHaveCount(1)
 
     // The case header shows it.
     await page.goto(`/cases/new?continue=${caseA.id}&step=0`, { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("case-theatre")).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId("case-theatre")).toContainText(first.name, { timeout: 30_000 })
 
     // A web dashboard left open: it will be out of date once the phone acts.
     const stale = await context.newPage()
-    await stale.goto("/dashboard", { waitUntil: "domcontentloaded" })
+    await gotoDashboard(stale)
     await expect((await caseRow(stale, caseB.code)).getByTestId("theatre-button")).toBeVisible()
 
     // ── Phone: hold a case, assign its theatre ──
     const phone = await openPhone(browser, USERNAME_FOR["member-a"])
     try {
-      await phone.page.goto("/", { waitUntil: "domcontentloaded" })
+      await gotoPhoneHome(phone.page)
       const card = phone.page.getByText(caseB.code, { exact: true }).first()
       await expect(card).toBeVisible({ timeout: 60_000 })
+      await card.scrollIntoViewIfNeeded()
       const box = (await card.boundingBox())!
       await phone.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
       await phone.page.mouse.down()
@@ -133,7 +140,7 @@ test("theatres are assigned, shown, filtered and fixed at the start of intraop",
     const locked = await (await context.request.get(`/api/cases/${caseA.id}`)).json() as { theatre: { name: string; changeable: boolean } }
     expect(locked.theatre).toMatchObject({ name: first.name, changeable: false })
 
-    await page.goto("/dashboard", { waitUntil: "domcontentloaded" })
+    await gotoDashboard(page)
     const lockedRow = await caseRow(page, caseA.code)
     await expect(lockedRow).toContainText(first.name)
     await expect(lockedRow.getByTestId("theatre-button")).toHaveCount(0)

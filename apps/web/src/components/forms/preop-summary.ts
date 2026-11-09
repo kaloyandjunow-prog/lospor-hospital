@@ -27,8 +27,14 @@ export type PreopSummary = {
   difficultAirwayHistory?: boolean | null
   allergies?: boolean | null
   allergyDetails?: { label: string; inn?: string; atcCode?: string; source?: string }[]
-  comorbidities?: { label: string }[]
+  comorbidities?: { label: string; sub?: string; code?: string }[]
   currentMedications?: { label: string; atcCode?: string }[]
+  // What SPS reads (10.2.0): P1 MH, P4 latex, P3 ПОГП.
+  malignantHyperthermiaHistory?: boolean | null
+  familyAnesthesiaProblems?: boolean | null
+  latexAllergy?: boolean | null
+  apfelScore?: number | null
+  apfelPONVHistory?: boolean | null
   labResults?: { test: string; value: string; unit: string }[]
   diagnosis?: string | null
   plannedProcedure?: string | null
@@ -37,4 +43,6 @@ export type PreopSummary = {
   pediatricFasting?: { category: PediatricFastingCategory; hoursBefore: number }[] | null
   /** The premedication ordered at the preop visit; the record's premedication starts from it. */
   premedicationOrders?: PremedicationOrders | null
+  /** Technique codes planned at the preop visit (Core preop-plan). */
+  plannedTechniques?: string[]
 }

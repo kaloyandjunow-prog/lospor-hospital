@@ -1,7 +1,7 @@
 import path from "path"
 import { test, expect, type APIRequestContext } from "@playwright/test"
 import { contextFor, EMAIL_FOR, JSON_HEADERS } from "./roles"
-import { openPhone } from "./pwa"
+import { gotoPhoneHome, openPhone } from "./pwa"
 
 /**
  * The unit indicators across both apps (10.0.0). Six cases with one procedure
@@ -129,7 +129,7 @@ test("the unit indicators count the department's cases on web and phone", async 
     // ── Phone ──
     const phone = await openPhone(browser, EMAIL_FOR["member-a"])
     try {
-      await phone.page.goto("/", { waitUntil: "domcontentloaded" })
+      await gotoPhoneHome(phone.page)
       await phone.page.getByTestId("open-indicators").click({ timeout: 60_000 })
       await expect(phone.page.getByTestId("indicators-cases")).toBeVisible({ timeout: 60_000 })
       await expect(phone.page.getByText("Hypotension: cases · median minutes")).toBeVisible()

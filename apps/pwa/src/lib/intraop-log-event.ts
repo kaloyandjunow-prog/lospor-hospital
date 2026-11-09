@@ -51,6 +51,7 @@ export type LogEvent = Omit<CoreLogEvent, "type"> & {
   fluidEntryMode?: FluidEntryMode
   bagVolumeMl?: number
   administeredVolumeMl?: number
+  intraopPatch?: Record<string, unknown>
 }
 
 export function normalizeDrugFormulation(value: unknown): DrugFormulation | undefined {
@@ -90,6 +91,9 @@ export function parseLogEvent(value: unknown): LogEvent | null {
     ...(typeof raw.rate === "string" ? { rate: raw.rate } : {}),
     ...(typeof raw.unit === "string" ? { unit: raw.unit } : {}),
     ...(typeof raw.color === "string" ? { color: raw.color } : {}),
+    ...(raw.intraopPatch && typeof raw.intraopPatch === "object" && !Array.isArray(raw.intraopPatch)
+      ? { intraopPatch: raw.intraopPatch as Record<string, unknown> }
+      : {}),
   }
 }
 

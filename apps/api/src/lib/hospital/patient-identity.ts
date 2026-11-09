@@ -201,3 +201,18 @@ export function decryptPatientIdentifier(
   ]).toString("utf8")
 }
 
+
+/**
+ * Whether a string is a well-formed ЕГН: ten digits whose last is the checksum
+ * of the first nine (weights 2 4 8 5 10 9 7 3 6, modulo 11, 10 counting as 0).
+ * Spaces are ignored. A wrong digit is refused before it can join the wrong
+ * patient's admissions.
+ */
+export function isValidEgn(value: string): boolean {
+  const digits = value.replace(/\s+/g, "")
+  if (!/^\d{10}$/.test(digits)) return false
+  const weights = [2, 4, 8, 5, 10, 9, 7, 3, 6]
+  const sum = weights.reduce((total, weight, index) => total + weight * Number(digits[index]), 0)
+  const check = sum % 11 === 10 ? 0 : sum % 11
+  return check === Number(digits[9])
+}

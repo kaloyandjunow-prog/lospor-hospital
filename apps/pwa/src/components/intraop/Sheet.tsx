@@ -1,12 +1,22 @@
-import React from "react"
-import { View, Text, Modal, TouchableOpacity, ScrollView, Pressable, KeyboardAvoidingView, Platform, useWindowDimensions } from "react-native"
+import React, { useEffect } from "react"
+import { View, Text, Modal, TouchableOpacity, Pressable, KeyboardAvoidingView, Platform, useWindowDimensions } from "react-native"
 import { useShade } from "@/theme/shade"
+import { inlineSheet, useInlineSheetId } from "./inline-sheet"
+import { OverflowCueScrollView } from "./OverflowCueScrollView"
 
-export function Sheet({ visible, onClose, title, children, footer, full }: {
+export function Sheet({ visible, onClose, title, children, footer, full, allowInline = true }: {
   visible: boolean; onClose: () => void; title: string
   children: React.ReactNode; footer?: React.ReactNode; full?: boolean
+  /** False for a sheet that is itself the card the controls open inside. */
+  allowInline?: boolean
 }) {
   const shade = useShade()
+  // A suggestion card's row holds the slot while its controls are open (10.2.0):
+  // this sheet then draws under that row instead of opening a modal.
+  const heldBy = useInlineSheetId()
+  const inline = allowInline && visible && heldBy !== null
+  useEffect(() => { if (inline) inlineSheet.publish({ node: children, title, footer, close: onClose }) })
+  useEffect(() => { if (allowInline && !visible) inlineSheet.release() }, [allowInline, visible])
   const { width: screenWidth } = useWindowDimensions()
   // Cap width at 430 on wide screens; on phones this is just screenWidth.
   const sheetWidth = Math.min(screenWidth, 430)
@@ -17,6 +27,7 @@ export function Sheet({ visible, onClose, title, children, footer, full }: {
   const sheetMarginLeft = Platform.OS === "web" && sheetWidth < screenWidth
     ? (screenWidth - sheetWidth) / 2
     : 0
+  if (inline) return null
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       {/* Android already resizes the window under the keyboard (Expo's default
@@ -39,15 +50,15 @@ export function Sheet({ visible, onClose, title, children, footer, full }: {
               <Text style={{ color:shade("#94a3b8"), fontSize:20 }}>✕</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
+          <OverflowCueScrollView
             testID="sheet-scroll"
             style={{ flexShrink: 1 }}
+            scrollViewStyle={{ flexShrink: 1 }}
             contentContainerStyle={footer ? { paddingBottom: 12 } : undefined}
-            showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             {children}
-          </ScrollView>
+          </OverflowCueScrollView>
           {footer ? <View testID="sheet-footer">{footer}</View> : null}
         </View>
       </KeyboardAvoidingView>

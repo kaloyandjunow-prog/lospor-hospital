@@ -1,13 +1,14 @@
-import { Animated, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from "react-native"
+import { Animated, Pressable, Text, View, type LayoutChangeEvent, type ScrollViewInstance } from "react-native"
 import type { RefObject } from "react"
 import Ionicons from "@expo/vector-icons/Ionicons"
 import { colors, withAlpha } from "@/theme/colors"
 import type { PreopSection } from "@/lib/preop-form-schema"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 
 export function PreopSectionRail({ labels, activeSection, sectionRailRef, headerAnim, primaryHeaderHeight, insetTop, homeLabel, onHome, onJump, onPillLayout }: {
   labels: { key: PreopSection; label: string }[]
   activeSection: PreopSection
-  sectionRailRef: RefObject<ScrollView | null>
+  sectionRailRef: RefObject<ScrollViewInstance | null>
   headerAnim: Animated.Value
   primaryHeaderHeight: number
   insetTop: number
@@ -38,7 +39,16 @@ export function PreopSectionRail({ labels, activeSection, sectionRailRef, header
         >
           <Ionicons name="home-outline" size={20} color={colors.textSecondary} />
         </Pressable>
-        <ScrollView ref={sectionRailRef} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingRight: 20, gap: 10 }}>
+        <OverflowCueScrollView
+          horizontal
+          scrollRef={sectionRailRef}
+          style={{ flex: 1 }}
+          edgeColor={colors.background}
+          cueColor={colors.textSecondary}
+          startLabel="Scroll sections left"
+          endLabel="Scroll sections right"
+          contentContainerStyle={{ paddingRight: 20, gap: 10 }}
+        >
         {labels.map(section => {
           const isActive = activeSection === section.key
           return <View key={section.key} style={{ alignItems: "center" }} onLayout={event => onPillLayout(section.key, event)}>
@@ -48,7 +58,7 @@ export function PreopSectionRail({ labels, activeSection, sectionRailRef, header
             {isActive && <View style={{ height: 2, borderRadius: 1, backgroundColor: colors.primary, width: "80%", marginTop: 3 }} />}
           </View>
         })}
-        </ScrollView>
+        </OverflowCueScrollView>
       </View>
     </Animated.View>
   </>

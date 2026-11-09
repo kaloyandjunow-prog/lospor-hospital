@@ -33,7 +33,7 @@ const ASA_RULES: ASARule[] = [
   ["F10.2", 5, 3, "alcohol_dependence", "Alcohol dependence", "Алкохолна зависимост"],
   ["F19.2", 5, 3, "substance_dependence", "Substance dependence", "Зависимост към психоактивни вещества"],
   ["Z86.7", 5, 2, "cardiovascular_history", "History of circulatory disease", "Анамнеза за заболяване на кръвообращението"],
-  ["I10", 3, 2, "hypertension", "Hypertension", "Артериална хипертония"],
+  ["I10", 3, 2, "hypertension", "Hypertension", "Артериална хипертенсия"],
   ["I11", 3, 2, "hypertensive_heart_disease", "Hypertensive heart disease", "Хипертонична болест на сърцето"],
   ["I48", 3, 2, "atrial_fibrillation", "Atrial fibrillation", "Предсърдно мъждене"],
   ["I49", 3, 2, "arrhythmia", "Arrhythmia", "Ритъмно нарушение"],

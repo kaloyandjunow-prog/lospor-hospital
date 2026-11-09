@@ -554,3 +554,35 @@ describe("what the 1.7.0 Status controls write to the audit record", () => {
     expect(drugColorAuditDetail({ scope: "DRUG", name: "Propofol", color: null })).toEqual({ scope: "DRUG", color: null })
   })
 })
+
+describe("the consent text request", () => {
+  it("is read in full: the bundled texts and the longest text fit, which the 16 KiB control default did not", async () => {
+    const { CONSENT_REQUEST_MAX_BYTES } = await import("./control-plane")
+    const { BUNDLED_CONSENT_TEMPLATES } = await import("@lospor/core/preop-documents")
+    const bytes = (body: string) => Buffer.byteLength(JSON.stringify({ population: "ADULT", title: "т".repeat(200), body, reason: "р".repeat(1000) }))
+    // The bundled paediatric text alone is over what every other control route reads.
+    expect(bytes(BUNDLED_CONSENT_TEMPLATES.PEDIATRIC.body)).toBeGreaterThan(16_384)
+    expect(bytes(BUNDLED_CONSENT_TEMPLATES.PEDIATRIC.body)).toBeLessThan(CONSENT_REQUEST_MAX_BYTES)
+    // 100,000 letters, a new line every second one (a new line is two bytes escaped).
+    expect(bytes("я\n".repeat(50_000))).toBeLessThan(CONSENT_REQUEST_MAX_BYTES)
+  })
+})
+
+describe("the hospital name on the record", () => {
+  it("takes an institution, a name and a reason, and nothing else", async () => {
+    const { hospitalNameSchema } = await import("./control-plane")
+    const ok = { institutionId: "inst-1", name: "  Sofia University Hospital ", reason: "The legal name changed" }
+    expect(hospitalNameSchema.parse(ok)).toEqual({ ...ok, name: "Sofia University Hospital" })
+    expect(() => hospitalNameSchema.parse({ ...ok, name: "A" })).toThrow()
+    expect(() => hospitalNameSchema.parse({ ...ok, reason: "short" })).toThrow()
+    expect(() => hospitalNameSchema.parse({ ...ok, extra: true })).toThrow()
+  })
+
+  it("keeps an audit detail the audit guard accepts when a hospital is renamed", async () => {
+    const { hospitalNameAuditDetail } = await import("./control-plane")
+    const { assertSafeAuditDetail } = await import("@/lib/audit-evidence")
+    expect(() => assertSafeAuditDetail(hospitalNameAuditDetail("Old", "New", true))).not.toThrow()
+    // The guard is what refused the first version of this row.
+    expect(() => assertSafeAuditDetail({ name: "New" })).toThrow()
+  })
+})

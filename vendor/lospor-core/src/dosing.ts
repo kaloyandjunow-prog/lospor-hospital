@@ -5,6 +5,8 @@ import type { ClinicalMode, PediatricAgeInput } from "./pediatric"
 export type DoseRule = {
   perKg?: number
   flat?: number
+  /** With flat: below this actual weight the dose is perKg instead. */
+  flatFromKg?: number
   basis?: string
   roundTo?: number
   cap?: number
@@ -70,7 +72,8 @@ export function suggestedDoseFromWeights(
   }
   const hint = entry.hint ?? ""
   const dc: DoseRule = routeRule ?? entry
-  if (dc.flat !== undefined) return { dose: String(dc.flat), hint }
+  const belowFlatWeight = dc.flatFromKg != null && dc.perKg != null && tbw != null && tbw > 0 && tbw < dc.flatFromKg
+  if (dc.flat !== undefined && !belowFlatWeight) return { dose: String(dc.flat), hint }
   if (dc.perKg !== undefined) {
     const w = dosingWeightKg(dc.basis, ibw, tbw, dc.capAtActualWeight ?? true)
     if (!w) return { dose: "", hint }

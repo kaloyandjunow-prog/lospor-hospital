@@ -148,6 +148,7 @@ function isNetworkError(error: unknown): boolean {
 }
 
 async function mutationRequest(operation: EventMutation, revision: SectionRevision) {
+  const batch = operation.kind === "event.batch"
   const headers: Record<string, string> = {
     [SOURCE_HEADER]: "mobile",
     [OPERATION_ID_HEADER]: operation.operationId,
@@ -156,11 +157,15 @@ async function mutationRequest(operation: EventMutation, revision: SectionRevisi
     ...buildSectionRevisionHeaders("intraop", revision),
   }
   const response = await autosaveFetch(
-    `/api/cases/${operation.caseId}/events/${encodeURIComponent(operation.eventId)}`,
+    batch
+      ? `/api/cases/${operation.caseId}/events/batch`
+      : `/api/cases/${operation.caseId}/events/${encodeURIComponent(operation.eventId)}`,
     {
-      method: operation.kind === "event.delete" ? "DELETE" : "PUT",
+      method: batch ? "POST" : operation.kind === "event.delete" ? "DELETE" : "PUT",
       headers,
-      body: operation.kind === "event.upsert" ? JSON.stringify(operation.event) : undefined,
+      body: batch
+        ? JSON.stringify(operation.ops)
+        : operation.kind === "event.upsert" ? JSON.stringify(operation.event) : undefined,
     },
   )
   const body = await response.json().catch(() => ({})) as {

@@ -36,6 +36,8 @@ export const schema = z.object({
   patientFirstName: z.string().optional(),
   patientLastName:  z.string().optional(),
   patientId:        z.string().optional(),
+  // Hospital only: the ЕГН that joins this patient's admissions. Never part of the clinical payload.
+  patientNationalId: z.string().optional(),
 
   // Demographics
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
@@ -202,6 +204,7 @@ export const schema = z.object({
   // typed in versus read off a photograph by AI, and when it was drawn. Both
   // are optional here because older/queued patches predate the fields.
   labResults: z.array(z.object({
+    id: z.string().max(200).optional(),
     test: z.string(),
     value: z.string(),
     unit: z.string(),

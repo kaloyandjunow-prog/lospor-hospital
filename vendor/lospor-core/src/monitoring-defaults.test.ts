@@ -14,6 +14,7 @@ describe("the monitoring a technique implies", () => {
 
   it("adds depth of anaesthesia for TIVA", () => {
     expect(requiredMonitoringFieldsForTechniques(["GENERAL_TIVA"])).toContain("bis")
+    expect(requiredMonitoringFieldsForTechniques(["GENERAL_TCI"])).toContain("bis")
   })
 
   it("asks for nothing when no technique has been chosen", () => {

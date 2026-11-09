@@ -174,6 +174,196 @@ export type IndicatorsUpdate = {
   reason: string
 }
 
+/** The SPS switches in use (10.2.0), as the API sends them (Status has no Core). */
+export type IntraopAutomationConfigView = {
+  enabled: boolean
+  groups: Record<string, boolean>
+  /** The automations switched off one by one, by id; the rest of an enabled group runs. */
+  disabled: string[]
+  dantroleneVialsMg: number[]
+  /** Minutes after the last reading that a monitor's next one is due; absent from an older API. */
+  monitoringDueMinutes?: Record<string, number>
+  vitalQuestions: {
+    enabled: boolean
+    minCases: number
+    tails: Record<string, Record<string, { low: number; high: number }>>
+    /** Percent above the patient's baseline SBP or MAP that asks about hypertension (10-50); absent from an older API. */
+    hypertensionBaselinePercent?: number
+  }
+}
+
+/** The monitors with a reading interval, and the built-in minutes (Core's DEFAULT_MONITORING_DUE_MINUTES). */
+export const MONITORING_DUE_DEFAULTS: ReadonlyArray<{ field: string; labelEn: string; labelBg: string; minutes: number }> = [
+  { field: "bis", labelEn: "BIS", labelBg: "BIS", minutes: 15 },
+  { field: "tofMonitor", labelEn: "TOF", labelBg: "TOF", minutes: 10 },
+  { field: "cvpMonitor", labelEn: "CVP", labelBg: "ЦВН", minutes: 15 },
+  { field: "etco2Monitor", labelEn: "EtCO₂", labelBg: "EtCO₂", minutes: 15 },
+  { field: "tempMonitor", labelEn: "Temperature", labelBg: "Температура", minutes: 30 },
+]
+export const MONITORING_DUE_RANGE = { min: 1, max: 120 } as const
+
+/** The hypertension baseline percentages Status offers (Core accepts 10-50). */
+export const HYPERTENSION_BASELINE_STEPS = [10, 15, 20, 25, 30, 35, 40, 45, 50] as const
+export const DEFAULT_HYPERTENSION_BASELINE_PERCENT = 20
+
+/** A treatment card for a sample patient (10.3.0): what the clinician sees, no case. */
+export type CardPreviewRow = {
+  id: string
+  kind: string
+  titleEn: string
+  titleBg: string
+  noteEn: string | null
+  noteBg: string | null
+  dose: { en: string; bg: string } | null
+  branches: string[] | null
+  step: { index: number; of: number } | null
+  total: { amount: number; max: number; unit: string } | null
+}
+
+export type CardPreviewView = {
+  patients: Array<{ key: string; labelEn: string; labelBg: string }>
+  preview: {
+    complication: string
+    complicationBg: string
+    kind: string
+    redStrip: boolean
+    question: { en: string; bg: string } | null
+    branches: { prompt: { en: string; bg: string } | null; options: Array<{ id: string; title: { en: string; bg: string } }> } | null
+    patient: { key: string; labelEn: string; labelBg: string }
+    rows: CardPreviewRow[]
+  } | null
+}
+
+const words = (value: unknown): boolean => isRecord(value) && typeof value.en === "string" && typeof value.bg === "string"
+
+export function cardPreviewShape(value: unknown): value is CardPreviewView {
+  if (!isRecord(value) || !Array.isArray(value.patients) || value.patients.length > 10) return false
+  if (!value.patients.every(item => isRecord(item) && typeof item.key === "string" && typeof item.labelEn === "string" && typeof item.labelBg === "string")) return false
+  if (value.preview === null) return true
+  const card = value.preview
+  if (!isRecord(card) || typeof card.complication !== "string" || typeof card.complicationBg !== "string" || typeof card.kind !== "string" || typeof card.redStrip !== "boolean") return false
+  if (!(card.question === null || words(card.question)) || !isRecord(card.patient) || typeof card.patient.labelEn !== "string" || typeof card.patient.labelBg !== "string") return false
+  if (!(card.branches === null || (isRecord(card.branches) && Array.isArray(card.branches.options) && card.branches.options.every(option => isRecord(option) && words(option.title))))) return false
+  return Array.isArray(card.rows) && card.rows.length <= 60 && card.rows.every(row => isRecord(row) && typeof row.id === "string" && typeof row.kind === "string"
+    && typeof row.titleEn === "string" && typeof row.titleBg === "string" && (row.dose === null || words(row.dose)))
+}
+
+/** The change history (10.3.0): who changed what, and when. No target id and no detail. */
+export type AuditHistoryView = {
+  rows: Array<{ id: string; at: string; action: string; category: string | null; labelEn: string; labelBg: string; who: string | null }>
+  total: number
+  page: number
+  pageSize: number
+  categories: string[]
+  actions: Array<{ code: string; category: string; labelEn: string; labelBg: string }>
+}
+
+export function auditHistoryShape(value: unknown): value is AuditHistoryView {
+  if (!isRecord(value) || !Array.isArray(value.rows) || !Array.isArray(value.categories) || !Array.isArray(value.actions)) return false
+  if (!Number.isInteger(value.total) || !Number.isInteger(value.page) || !Number.isInteger(value.pageSize) || (value.pageSize as number) < 1 || (value.pageSize as number) > 200) return false
+  if (value.rows.length > 200 || !value.categories.every(item => typeof item === "string")) return false
+  return value.rows.every(row => isRecord(row) && typeof row.id === "string" && typeof row.at === "string" && typeof row.action === "string"
+    && (row.category === null || typeof row.category === "string") && typeof row.labelEn === "string" && typeof row.labelBg === "string"
+    && (row.who === null || typeof row.who === "string"))
+    && value.actions.every(item => isRecord(item) && typeof item.code === "string" && typeof item.category === "string" && typeof item.labelEn === "string" && typeof item.labelBg === "string")
+}
+
+/** The acceptance of every SPS line by month (10.3.0): counts only. */
+export type AcceptanceTrendView = {
+  months: string[]
+  cases: number[]
+  byId: Record<string, Array<{ accepted: number; dismissed: number }>>
+}
+
+export function acceptanceTrendShape(value: unknown): value is AcceptanceTrendView {
+  if (!isRecord(value) || !Array.isArray(value.months) || !Array.isArray(value.cases) || !isRecord(value.byId)) return false
+  const length = value.months.length
+  if (length === 0 || length > 36 || value.cases.length !== length) return false
+  if (!value.months.every(month => typeof month === "string" && /^\d{4}-\d{2}$/.test(month))) return false
+  if (!value.cases.every(count => Number.isInteger(count) && count >= 0)) return false
+  return Object.values(value.byId).every(series => Array.isArray(series) && series.length === length
+    && series.every(item => isRecord(item) && Number.isInteger(item.accepted) && Number.isInteger(item.dismissed) && (item.accepted as number) >= 0 && (item.dismissed as number) >= 0))
+}
+
+export type IntraopAutomationView = {
+  config: IntraopAutomationConfigView
+  /** The groups, in the order shown, with their names. */
+  groups: Array<{ key: string; labelEn: string; labelBg: string; detailEn: string; detailBg: string }>
+  /** Every automation, under its group, with its name and what it does. */
+  automations: Array<{ id: string; group: string; labelEn: string; labelBg: string; detailEn: string; detailBg: string }>
+  bands: Array<{ key: string; labelEn: string; labelBg: string }>
+  signs: Array<{ key: string; labelEn: string; labelBg: string }>
+  /** The shares of readings the slider offers, in percent. */
+  tailSteps: number[]
+  defaultTail: number
+  defaultMinCases: number
+  minCasesRange: { min: number; max: number }
+  /** The vial sizes the hospital may stock, in mg. */
+  vialSizesMg: number[]
+  /**
+   * How each automation was received over the last `days` days, from the saved
+   * charts (no case or clinician named). Absent from an older API.
+   */
+  acceptance?: { days: number; cases: number; byId: Record<string, { accepted: number; dismissed: number }> } | null
+  /**
+   * What "Likely now" works from (Core's successionOverview): each link, starting value or learned from this
+   * site's finished cases. Counts only. Absent from an older API.
+   */
+  succession?: StatusSuccessionRow[] | null
+}
+
+export type StatusSuccessionRow = {
+  id: string
+  context: string
+  family: string
+  child: boolean
+  from: string
+  to: string
+  fromBg: string
+  toBg: string
+  count: number
+  total: number
+  share: number
+  gapMinutes: number
+  source: "starting" | "learned"
+  learnedCases: number
+  minCases: number
+}
+
+export type IntraopAutomationUpdate = IntraopAutomationConfigView & { reason: string }
+
+/**
+ * What the Unusual readings page works from (10.2.0): this hospital's vital-sign readings as counts per whole value,
+ * per age band and sign; each finished case's lowest and highest figures (five numbers, in `caseColumns` order);
+ * the limit at every tail step month by month; and the fixed rules. Counts and figures only.
+ */
+export type IntraopReadingsView = {
+  generatedAt: string
+  config: {
+    enabled: boolean
+    minCases: number
+    tails: Record<string, Record<string, { low: number; high: number }>>
+    hypertensionBaselinePercent?: number
+  }
+  /** False since 10.2.0: a high blood-pressure limit asks nothing; hypertension is judged on the patient's baseline. */
+  hypertensionUsesStatistics: boolean
+  bands: Array<{
+    key: string
+    labelEn: string
+    labelBg: string
+    fixed: { tachycardiaAbove: number; bradycardiaBelow: number; hypotension: { sign: string; from: number; to: number } | null }
+  }>
+  signs: Array<{ key: string; labelEn: string; labelBg: string; shortEn: string; shortBg: string; unit: string }>
+  tailSteps: number[]
+  defaultTail: number
+  defaultMinCases: number
+  minCasesRange: { min: number; max: number }
+  stats: Record<string, Record<string, { min: number; counts: number[]; cases: number }>>
+  caseColumns: string[]
+  cases: Record<string, Array<Array<number | null>>>
+  history: Array<{ month: string; limits: Record<string, Record<string, { cases: number; low: Array<number | null>; high: Array<number | null> }>> }>
+}
+
 export type OperatingTheatresChange =
   | { action: "policy"; enabled: boolean; reason: string }
   | { action: "add"; name: string }
@@ -215,8 +405,10 @@ export type PreopDocumentsView = {
   history: Record<ConsentPopulation, ConsentHistoryEntry[]>
 }
 
-/** The longest consent text the API takes (Core CONSENT_TEXT_MAX_LENGTH). */
-export const CONSENT_TEXT_MAX_LENGTH = 40_000
+/** The longest consent text the API takes (Core CONSENT_TEXT_MAX_LENGTH, 100,000 since Core 10.2.1). */
+export const CONSENT_TEXT_MAX_LENGTH = 100_000
+/** The form a consent text is saved with: Cyrillic is six bytes a letter once a form encodes it, so 100,000 letters need about 600 KB. */
+export const CONSENT_FORM_MAX_BYTES = 1_000_000
 
 export type ResearchGrantInput = {
   userId: string
@@ -388,6 +580,8 @@ export type ControlPlaneView = {
   }
   patientIdentifier: {
     egnPermitted: boolean
+    /** Show the full ИЗ № while a case is open (on unless switched off). */
+    admissionNumberVisible?: boolean
     changeReasonRecorded: boolean
     changedAt: string | null
     updatedAt: string | null
@@ -532,6 +726,8 @@ export type ControlPlaneView = {
   operatingTheatres?: OperatingTheatresView | null
   /** The unit indicators' thresholds (10.0.0); absent from an older API, null when unreadable. */
   indicators?: IndicatorsView | null
+  /** The SPS settings (10.2.0); absent from an older API, null when unreadable. */
+  intraopAutomation?: IntraopAutomationView | null
 }
 
 export const EHR_FOLDER_REJECT_REASONS = [
@@ -665,6 +861,11 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   setCaseVisibilityPolicy(input: { enabled: boolean; reason: string }): Promise<void>
+  /** The hospital's name as the anaesthesia record titles itself: the institution's own name. */
+  setHospitalName(input: { institutionId: string; name: string; reason: string }): Promise<void>
+  /** The picture printed at the top of the paper documents, as a data URL; null when there is none. */
+  hospitalLogo(institutionId: string): Promise<string | null>
+  setHospitalLogo(input: { institutionId: string; logoDataUrl: string | null; reason: string }): Promise<void>
   setExternalAiPolicy(input: {
     externalAiEnabled: boolean
     reason: string
@@ -677,6 +878,7 @@ export interface ControlPlanePort {
   setExternalAiModels(input: { advisorModel: string; visionModel: string; reason: string }): Promise<void>
   setPatientIdentifierPolicy(input: {
     egnPermitted: boolean
+    admissionNumberVisible?: boolean
     reason: string
   }): Promise<void>
   setEhrTransportPolicy(input: {
@@ -774,6 +976,16 @@ export interface ControlPlanePort {
   changeOperatingTheatres(input: OperatingTheatresChange): Promise<void>
   /** The unit indicators' thresholds and names switch (10.0.0). */
   updateIndicators(input: IndicatorsUpdate): Promise<void>
+  /** The SPS switches, vitals limits and stocked dantrolene vials (10.2.0). */
+  updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void>
+  /** The readings, limits and their history behind the Unusual readings page (10.2.0); null from an API that lacks it. */
+  intraopReadings(): Promise<IntraopReadingsView | null>
+  /** How each SPS line was received, month by month; read only when that tab is open (10.3.0). */
+  intraopAcceptance(): Promise<AcceptanceTrendView | null>
+  /** Who changed which setting or account, and when (10.3.0): read only. */
+  auditHistory(query: { page: number; category: string; action: string }): Promise<AuditHistoryView | null>
+  /** A treatment card as a clinician sees it, for a sample patient (10.3.0): read only. */
+  cardPreview(query: { complication: string; patient: string }): Promise<CardPreviewView | null>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -900,6 +1112,79 @@ export function preopDocumentsShape(value: unknown): value is PreopDocumentsView
 }
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function intraopAutomationShape(value: unknown): value is IntraopAutomationView {
+  const named = (entry: unknown) => isRecord(entry) && text(entry.key, 32) && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+  const numbers = (entry: unknown, maximum: number) => Array.isArray(entry) && entry.length <= maximum
+    && entry.every(item => typeof item === "number" && Number.isFinite(item))
+  if (!isRecord(value) || !isRecord(value.config) || !isRecord(value.minCasesRange)) return false
+  const { config } = value
+  const vitals = config.vitalQuestions
+  return typeof config.enabled === "boolean"
+    && isRecord(config.groups) && Object.values(config.groups).every(item => typeof item === "boolean")
+    && Array.isArray(config.disabled) && config.disabled.length <= 500 && config.disabled.every(id => text(id, 100))
+    && Array.isArray(value.automations) && value.automations.length <= 500
+    && value.automations.every(item => isRecord(item) && text(item.id, 100) && text(item.group, 40)
+      && text(item.labelEn, 200) && text(item.labelBg, 200) && text(item.detailEn, 600) && text(item.detailBg, 600))
+    && numbers(config.dantroleneVialsMg, 10)
+    && isRecord(vitals) && typeof vitals.enabled === "boolean" && finiteInteger(vitals.minCases, 1_000_000) && isRecord(vitals.tails)
+    && Array.isArray(value.groups) && value.groups.length <= 20
+    && value.groups.every(group => named(group) && isRecord(group) && text(group.detailEn, 600) && text(group.detailBg, 600))
+    && Array.isArray(value.bands) && value.bands.length <= 20 && value.bands.every(named)
+    && Array.isArray(value.signs) && value.signs.length <= 20 && value.signs.every(named)
+    && numbers(value.tailSteps, 20) && typeof value.defaultTail === "number" && finiteInteger(value.defaultMinCases, 1_000_000)
+    && finiteInteger(value.minCasesRange.min, 1_000_000) && finiteInteger(value.minCasesRange.max, 1_000_000)
+    && numbers(value.vialSizesMg, 10)
+    && (value.acceptance == null || acceptanceShape(value.acceptance))
+    && (value.succession == null || successionShape(value.succession))
+}
+
+function successionShape(value: unknown): boolean {
+  const count = (entry: unknown) => typeof entry === "number" && Number.isFinite(entry) && entry >= 0 && entry <= 1_000_000
+  return Array.isArray(value) && value.length <= 500 && value.every(row => isRecord(row)
+    && text(row.id, 100) && String(row.id).startsWith("succession:") && text(row.context, 40) && text(row.family, 40)
+    && typeof row.child === "boolean" && text(row.from, 100) && text(row.to, 100) && text(row.fromBg, 200) && text(row.toBg, 200)
+    && count(row.count) && count(row.total) && count(row.gapMinutes) && count(row.learnedCases) && count(row.minCases)
+    && typeof row.share === "number" && row.share >= 0 && row.share <= 1
+    && (row.source === "starting" || row.source === "learned"))
+}
+
+function acceptanceShape(value: unknown): boolean {
+  return isRecord(value) && finiteInteger(value.days, 3650) && finiteInteger(value.cases, 10_000_000) && isRecord(value.byId)
+    && Object.entries(value.byId).length <= 500
+    && Object.values(value.byId).every(entry => isRecord(entry) && finiteInteger(entry.accepted, 100_000_000) && finiteInteger(entry.dismissed, 100_000_000))
+}
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function intraopReadingsShape(value: unknown): value is IntraopReadingsView {
+  const count = (entry: unknown, maximum = 100_000_000) => typeof entry === "number" && Number.isInteger(entry) && entry >= 0 && entry <= maximum
+  const reading = (entry: unknown) => typeof entry === "number" && Number.isFinite(entry) && entry >= -1000 && entry <= 10_000
+  const nullableReading = (entry: unknown) => entry === null || reading(entry)
+  const named = (entry: unknown) => isRecord(entry) && text(entry.key, 32) && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+  if (!isRecord(value) || !text(value.generatedAt, 64) || !isRecord(value.config) || !isRecord(value.minCasesRange)) return false
+  const { config } = value
+  return typeof config.enabled === "boolean" && finiteInteger(config.minCases, 1_000_000) && isRecord(config.tails)
+    && typeof value.hypertensionUsesStatistics === "boolean"
+    && Array.isArray(value.bands) && value.bands.length <= 20 && value.bands.every(band => named(band) && isRecord(band) && isRecord(band.fixed)
+      && finiteInteger(band.fixed.tachycardiaAbove, 1000) && finiteInteger(band.fixed.bradycardiaBelow, 1000)
+      && (band.fixed.hypotension === null || (isRecord(band.fixed.hypotension) && text(band.fixed.hypotension.sign, 8)
+        && finiteInteger(band.fixed.hypotension.from, 1000) && finiteInteger(band.fixed.hypotension.to, 1000))))
+    && Array.isArray(value.signs) && value.signs.length <= 20 && value.signs.every(sign => named(sign) && isRecord(sign)
+      && text(sign.shortEn, 16) && text(sign.shortBg, 16) && text(sign.unit, 16))
+    && Array.isArray(value.tailSteps) && value.tailSteps.length <= 20 && value.tailSteps.every(step => typeof step === "number" && Number.isFinite(step) && step > 0 && step <= 50)
+    && typeof value.defaultTail === "number" && finiteInteger(value.defaultMinCases, 1_000_000)
+    && finiteInteger(value.minCasesRange.min, 1_000_000) && finiteInteger(value.minCasesRange.max, 1_000_000)
+    && isRecord(value.stats) && Object.values(value.stats).every(signs => isRecord(signs) && Object.values(signs).every(entry => isRecord(entry)
+      && reading(entry.min) && count(entry.cases) && Array.isArray(entry.counts) && entry.counts.length <= 2_000 && entry.counts.every(item => count(item))))
+    && Array.isArray(value.caseColumns) && value.caseColumns.length <= 12 && value.caseColumns.every(column => text(column, 32))
+    && isRecord(value.cases) && Object.values(value.cases).every(list => Array.isArray(list) && list.length <= 5_000
+      && list.every(row => Array.isArray(row) && row.length === (value.caseColumns as unknown[]).length && row.every(nullableReading)))
+    && Array.isArray(value.history) && value.history.length <= 120 && value.history.every(month => isRecord(month) && text(month.month, 16) && isRecord(month.limits)
+      && Object.values(month.limits).every(signs => isRecord(signs) && Object.values(signs).every(entry => isRecord(entry) && count(entry.cases)
+        && Array.isArray(entry.low) && entry.low.length <= 20 && entry.low.every(nullableReading)
+        && Array.isArray(entry.high) && entry.high.length <= 20 && entry.high.every(nullableReading))))
+}
 
 /** Exported for the API's contract test: the view it sends must pass this. */
 export function indicatorsShape(value: unknown): value is IndicatorsView {
@@ -1134,6 +1419,7 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !optionalModelList(value.externalAi.visionModelOptions)
     || !(value.externalAi.modelsChangedAt === undefined || nullableIso(value.externalAi.modelsChangedAt))) return null
   if (typeof value.patientIdentifier.egnPermitted !== "boolean"
+    || !(value.patientIdentifier.admissionNumberVisible === undefined || typeof value.patientIdentifier.admissionNumberVisible === "boolean")
     || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
     || !nullableIso(value.patientIdentifier.changedAt)
     || !nullableIso(value.patientIdentifier.updatedAt)) return null
@@ -1183,6 +1469,7 @@ function parseView(value: unknown): ControlPlaneView | null {
     drugColors: drugColorsShape(value.drugColors) ? value.drugColors : null,
     operatingTheatres: operatingTheatresShape(value.operatingTheatres) ? value.operatingTheatres : null,
     indicators: indicatorsShape(value.indicators) ? value.indicators : null,
+    intraopAutomation: intraopAutomationShape(value.intraopAutomation) ? value.intraopAutomation : null,
     preoperative: isRecord(value.preoperative) ? value.preoperative as ControlPlaneView["preoperative"] : {
       scope: "APPLIANCE_WIDE",
       catalogVersion: "1.4.8",
@@ -1425,6 +1712,16 @@ export class ControlPlaneClient implements ControlPlanePort {
   setCaseVisibilityPolicy(input: Parameters<ControlPlanePort["setCaseVisibilityPolicy"]>[0]): Promise<void> {
     return this.mutate("/case-visibility", input)
   }
+  setHospitalName(input: Parameters<ControlPlanePort["setHospitalName"]>[0]): Promise<void> {
+    return this.mutate("/hospital-name", input)
+  }
+  async hospitalLogo(institutionId: string): Promise<string | null> {
+    const value = await this.request(`/hospital-logo?institutionId=${encodeURIComponent(institutionId)}`)
+    return isRecord(value) && typeof value.logoDataUrl === "string" ? value.logoDataUrl : null
+  }
+  setHospitalLogo(input: Parameters<ControlPlanePort["setHospitalLogo"]>[0]): Promise<void> {
+    return this.mutate("/hospital-logo", input)
+  }
   setExternalAiPolicy(input: Parameters<ControlPlanePort["setExternalAiPolicy"]>[0]): Promise<void> {
     return this.mutate("/external-ai/policy", input)
   }
@@ -1546,6 +1843,31 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updateIndicators(input: IndicatorsUpdate): Promise<void> {
     return this.mutate("/indicators", input)
+  }
+  updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void> {
+    return this.mutate("/intraop-automation", input)
+  }
+  async cardPreview(query: { complication: string; patient: string }): Promise<CardPreviewView | null> {
+    const params = new URLSearchParams({ patient: query.patient })
+    if (query.complication) params.set("complication", query.complication)
+    const value = await this.request(`/intraop-card-preview?${params}`)
+    return cardPreviewShape(value) ? value : null
+  }
+  async auditHistory(query: { page: number; category: string; action: string }): Promise<AuditHistoryView | null> {
+    const params = new URLSearchParams()
+    if (query.page > 0) params.set("page", String(query.page))
+    if (query.category) params.set("category", query.category)
+    if (query.action) params.set("action", query.action)
+    const value = await this.request(`/audit-history${params.size ? `?${params}` : ""}`)
+    return auditHistoryShape(value) ? value : null
+  }
+  async intraopAcceptance(): Promise<AcceptanceTrendView | null> {
+    const value = await this.request("/intraop-acceptance")
+    return acceptanceTrendShape(value) ? value : null
+  }
+  async intraopReadings(): Promise<IntraopReadingsView | null> {
+    const value = await this.request("/intraop-readings")
+    return intraopReadingsShape(value) ? value : null
   }
   updatePreopSections(input: PreopSectionsUpdate): Promise<void> {
     return this.mutate("/preop-sections", input)

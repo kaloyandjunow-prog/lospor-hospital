@@ -67,6 +67,8 @@ export function useIntraopOptionSets(
 
   // Auto-filled vitals are copies, not readings: the log says so.
   const autoFilledTag = tc("autoFilledTag")
+  // A dose tapped during an arrest and spread across it afterwards: its time is approximate.
+  const approximateTimeTag = tc("approximateTimeTag")
   // Events are saved in English and shown in the clinician's language (9.14.2).
   const eventNames = useMemo(() => CLINICAL_EVENT_CATS.flatMap(cat => cat.events), [CLINICAL_EVENT_CATS])
   const writtenByApp = useMemo(() => ({ "Anaesthesia start": tc("evAnaesthesiaStart") }), [tc])
@@ -82,8 +84,9 @@ export function useIntraopOptionSets(
     const label = ev.type === "clinical_event"
       ? { ...built, text: localizedClinicalEventText(built.text, language, eventNames, writtenByApp) }
       : built
-    return ev.autoFilled ? { ...label, text: `${label.text} · ${autoFilledTag}` } : label
-  }, [autoFilledTag, bulgarianNames, clinicalEventColor, drugColor, drugColors, eventNames, language, writtenByApp])
+    const tagged = ev.autoFilled ? { ...label, text: `${label.text} · ${autoFilledTag}` } : label
+    return ev.timeApproximate ? { ...tagged, text: `${tagged.text} · ≈ ${approximateTimeTag}` } : tagged
+  }, [approximateTimeTag, autoFilledTag, bulgarianNames, clinicalEventColor, drugColor, drugColors, eventNames, language, writtenByApp])
 
   const techniqueLabel = useCallback((value: string): string =>
     techniqueDisplayLabel(value, TECHNIQUE_TREE),

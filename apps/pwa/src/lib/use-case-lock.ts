@@ -75,7 +75,7 @@ export function useCaseLock(caseId: string, enabled = true): {
   const isWatchingRef = useRef(false)
   const leaseRef = useRef<CaseLockLease | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState)
+  const appStateRef = useRef<AppStateStatus>((AppState.currentState ?? "active") as AppStateStatus)
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatRef.current) clearInterval(heartbeatRef.current)

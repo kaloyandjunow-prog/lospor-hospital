@@ -58,6 +58,8 @@ export type ClinicalItemSource = "manual" | "ai-scan" | "import"
  * and neither a trend nor a safe deduplication is possible.
  */
 export type LabResult = {
+  /** Stable row identity for undated results and prompt provenance. */
+  id?: string
   test: string
   value: string
   unit: string

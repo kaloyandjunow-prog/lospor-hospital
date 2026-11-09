@@ -1,7 +1,6 @@
 import type { ComponentProps } from "react"
 
 import { AgentSheet } from "@/components/intraop/AgentSheet"
-import { ComplicationsSheet } from "@/components/intraop/ComplicationsSheet"
 import { DrugSheet } from "@/components/intraop/DrugSheet"
 import { EditEventSheet } from "@/components/intraop/EditEventSheet"
 import { EndCaseSheet } from "@/components/intraop/EndCaseSheet"
@@ -27,7 +26,6 @@ export type IntraopSheetsHostProps = {
   fluidEnd: ComponentProps<typeof FluidEndSheet>
   agent: ComponentProps<typeof AgentSheet>
   editEvent: ComponentProps<typeof EditEventSheet>
-  complications: ComponentProps<typeof ComplicationsSheet>
   startAt: ComponentProps<typeof StartAtSheet>
   endCase: ComponentProps<typeof EndCaseSheet>
   premedicationLibrary: ComponentProps<typeof PremedicationLibrarySheet>
@@ -58,7 +56,6 @@ export function IntraopSheetsHost({
   fluidEnd,
   agent,
   editEvent,
-  complications,
   startAt,
   endCase,
   premedicationLibrary,
@@ -76,7 +73,6 @@ export function IntraopSheetsHost({
       {fluidEnd.visible ? <FluidEndSheet {...fluidEnd} /> : null}
       {agent.visible ? <AgentSheet {...agent} /> : null}
       {editEvent.visible ? <EditEventSheet {...editEvent} /> : null}
-      {complications.visible ? <ComplicationsSheet {...complications} /> : null}
       {startAt.visible ? <StartAtSheet {...startAt} /> : null}
       {endCase.visible ? <EndCaseSheet {...endCase} /> : null}
       {premedicationLibrary.visible ? <PremedicationLibrarySheet {...premedicationLibrary} /> : null}

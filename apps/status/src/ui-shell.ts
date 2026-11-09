@@ -91,9 +91,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   ] },
   { id: "clinical", en: "Clinical setup", bg: "Клинични настройки", items: [
     { id: "preop", path: "/status/control/preop", also: ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"], en: "Preoperative form", bg: "Предоперативна форма", descEn: "Its sections, the questions asked, ward orders and medication instructions, the summary page and the written consent.", descBg: "Разделите, задаваните въпроси, назначенията и указанията за медикаментите, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
+    { id: "intraop", path: "/status/control/intraop", also: ["/status/control/intraop/readings", "/status/control/intraop/acceptance", "/status/control/intraop/cards"], en: "SPS — Smart Prediction System", bg: "SPS — Система за интелигентно прогнозиране", descEn: "The questions, suggestions and reminders on the intraoperative record, and the dantrolene vials in stock.", descBg: "Въпросите, предложенията и напомнянията в интраоперативния запис и наличните флакони дантролен.", audiences: PASSWORD },
     { id: "postop", path: "/status/control/postop", en: "Postoperative form", bg: "Следоперативна форма", descEn: "Its sections, the pain scales by age, and what a case needs to be finalised.", descBg: "Разделите, скалите за болка според възрастта и какво е нужно, за да се приключи случай.", audiences: PASSWORD },
     { id: "theatres", path: "/status/control/theatres", en: "Operating theatres", bg: "Операционни зали", descEn: "Whether cases are given a theatre, and the theatres' names.", descBg: "Дали на случаите се задава зала, и имената на залите.", audiences: PASSWORD },
-    { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотония според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
+    { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотенсия според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
     { id: "drug-colors", path: "/status/control/drug-colors", en: "Drug colours", bg: "Цветове на лекарствата", descEn: "The colour of each drug group, and of any drug, on the chart and in its menus.", descBg: "Цветът на всяка група лекарства и на всяко лекарство в картата и менютата ѝ.", audiences: PASSWORD },
     { id: "guidance", path: "/status/control/clinical", en: "Calculated guidance", bg: "Изчислени насоки", descEn: "Dose guidance for adults and children, and the rule baselines it uses.", descBg: "Насоки за дозиране при възрастни и деца и базовите правила, на които се основават.", audiences: PASSWORD },
     { id: "identity", path: "/status/control/identity", en: "Patient identification", bg: "Идентификация на пациента", descEn: "Which number identifies a patient on screens and printouts.", descBg: "Кой номер идентифицира пациента на екрана и в разпечатките.", audiences: PASSWORD },
@@ -101,6 +102,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   { id: "people", en: "People", bg: "Хора", items: [
     { id: "accounts", path: "/status/accounts", en: "Accounts", bg: "Профили", descEn: "Everyone who signs in to LOSPOR, and the Status administrators.", descBg: "Всички, които влизат в LOSPOR, и администраторите на Status.", audiences: PASSWORD },
     { id: "research", path: "/status/control/research", en: "Research access", bg: "Достъп за изследвания", descEn: "Research grants and the exact OMOP exports approved.", descBg: "Разрешения за изследвания и одобрените OMOP набори.", audiences: PASSWORD },
+    { id: "history", path: "/status/control/history", en: "Change history", bg: "История на промените", descEn: "Who changed which setting or account, and when.", descBg: "Кой коя настройка или кой профил е променил, и кога.", audiences: PASSWORD },
   ] },
   { id: "care", en: "Updates and backups", bg: "Актуализации и резервни копия", items: [
     { id: "updates", path: "/status/release", en: "Updates", bg: "Актуализации", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
@@ -310,7 +312,7 @@ export type AvailabilityRange = "24h" | "7d" | "90d"
 export const parseRange = (value: unknown): AvailabilityRange => value === "7d" || value === "90d" ? value : "24h"
 
 export function rangeSwitch(range: AvailabilityRange, base: string, locale: StatusLocale): string {
-  const names: Record<AvailabilityRange, [string, string]> = { "24h": ["24 h", "24 ч"], "7d": ["7 d", "7 дни"], "90d": ["90 d", "90 дни"] }
+  const names: Record<AvailabilityRange, [string, string]> = { "24h": ["24 h", "24 h"], "7d": ["7 d", "7 дни"], "90d": ["90 d", "90 дни"] }
   return `<nav class="range" aria-label="${localize(locale, "Time range", "Период")}">${(["24h", "7d", "90d"] as const).map(id => `<a href="${base}?range=${id}"${current(id === range)}>${escapeHtml(localize(locale, names[id][0], names[id][1]))}</a>`).join("")}</nav>`
 }
 
@@ -383,7 +385,7 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
     const quiet = now - Date.parse(ehr.lastReceivedAt)
     const silent = localize(locale, `no data for ${span(quiet, locale)}`, `няма данни от ${span(quiet, locale)}`)
     if (quiet > EHR_QUIET_BAD_MS) return { sub: silent, state: "bad" }
-    if (ehr.readFailures24h) return { sub: localize(locale, `${ehr.readFailures24h} failed reads in 24 h`, `${ehr.readFailures24h} неуспешни четения за 24 ч`), state: "warn" }
+    if (ehr.readFailures24h) return { sub: localize(locale, `${ehr.readFailures24h} failed reads in 24 h`, `${ehr.readFailures24h} неуспешни четения за 24 h`), state: "warn" }
     if (quiet > EHR_QUIET_WARN_MS) return { sub: silent, state: "warn" }
     if (ehr.unmappedCodes) return { sub: localize(locale, `${ehr.unmappedCodes} codes not mapped`, `${ehr.unmappedCodes} несъпоставени кода`), state: "warn" }
     return { sub: relative(ehr.lastReceivedAt, now, locale), state: "good" }
@@ -665,6 +667,11 @@ export const SKIN_STYLE = `
 .chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.1rem 0 .2rem}
 .chips a{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:.25rem .8rem;font-size:.875rem;text-decoration:none;color:var(--ink)}
 .chips a[aria-current=page]{border-color:var(--accent);color:var(--accent);background:var(--glow);font-weight:650}
+/* The modern skins already title the page; a section heading that repeats it is hidden, and the preoperative form's tabs are chips like the page's own. */
+:root:not([data-skin="legacy"]) .skin-dup{display:none}
+:root:not([data-skin="legacy"]) .preop-tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.1rem 0 .9rem;padding:0;border:0;background:none}
+:root:not([data-skin="legacy"]) .preop-tabs a{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:.25rem .8rem;font-size:.875rem;text-decoration:none;color:var(--ink);min-height:0;flex:none;box-shadow:none}
+:root:not([data-skin="legacy"]) .preop-tabs a[aria-current=page]{border-width:1px;box-shadow:none;border-color:var(--accent);color:var(--accent);background:var(--glow);font-weight:650}
 @keyframes grow{from{transform:scaleY(0)}}
 @keyframes sweep{to{transform:scaleX(0)}}
 @media(prefers-reduced-motion:reduce){.cases .bar,.strip::after{animation:none}.strip::after{display:none}.map .packet{display:none}}

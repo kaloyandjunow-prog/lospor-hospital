@@ -1,6 +1,8 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native"
+import { View, Text, TouchableOpacity } from "react-native"
 import { usePreferences } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
+import { useIntraopHeaderScroll } from "../IntraopHeaderCollapse"
+import { OverflowCueScrollView } from "../OverflowCueScrollView"
 
 type PositionOption = { code: string; label: string; desc: string; color: string }
 
@@ -13,8 +15,9 @@ export function PositionTab({ positions, setPositions, savePositions, fieldSavin
 }) {
   const shade = useShade()
   const { tc } = usePreferences()
+  const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
   return (
-    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
+    <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
       <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:12 }}>
         {tc("patientPosition")} {fieldSaving === "positions" ? tc("savingParenthetical") : ""}
@@ -44,6 +47,6 @@ export function PositionTab({ positions, setPositions, savePositions, fieldSavin
           )
         })}
       </View>
-    </ScrollView>
+    </OverflowCueScrollView>
   )
 }

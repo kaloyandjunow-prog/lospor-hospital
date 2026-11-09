@@ -14,7 +14,7 @@ export type NeckMobility = "FULL" | "LIMITED" | "FIXED"
 export type UpperLipBiteTest = "CLASS_I" | "CLASS_II" | "CLASS_III"
 export type CormackLehane = "I" | "IIa" | "IIb" | "III" | "IV"
 export type ASAScore = "I" | "II" | "III" | "IV" | "V" | "VI"
-export type Disposition = "WARD" | "PACU" | "ICU"
+export type Disposition = "WARD" | "PACU" | "ICU" | "DECEASED"
 export type AirwayDevice = "FACE_MASK" | "LMA" | "ORAL_ETT" | "NASAL_ETT" | "SURGICAL_AIRWAY"
 export type VolatileAgent = "SEVOFLURANE" | "DESFLURANE" | "ISOFLURANE"
 
@@ -38,6 +38,10 @@ export type VascularAccessDto = {
   sizeUnit: string
   lumens?: string
   preexisting?: boolean
+  /** 10.2.0: a line that failed stays on the list, marked with the time. */
+  insertedAt?: string | null
+  failed?: boolean
+  failedAt?: string | null
   [key: string]: unknown
 }
 
@@ -232,6 +236,10 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   airwayNotes: string | null
   cormackLehane: CormackLehane | null
   airwayDevices: string[] | null
+  /** 10.2.0: each airway device its own entry (see airway-device-entries.ts); absent before. */
+  airwayDeviceEntries?: import("./airway-device-entries").AirwayDeviceEntry[] | null
+  /** Smart Equipment preparation markers; separate from clinical use records. */
+  equipmentPrepared?: Record<string, boolean> | null
   ventilationModes: string[] | null
   lmaSize: number | null
   oralTubeSize: number | null

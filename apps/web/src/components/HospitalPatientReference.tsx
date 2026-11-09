@@ -5,19 +5,42 @@ import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import type { PatientDisplay } from "@/lib/hospital-patient-reference"
 
 type RelinkResult = { ok: true } | { ok: false; error: string }
 
 export function HospitalPatientReference({
   maskedIdentifier,
+  personMaskedIdentifier = null,
+  display = null,
+  onAddEgn,
   onRelink,
   disabled = false,
 }: {
   maskedIdentifier: string | null
+  /** The person's ЕГН, masked, when recorded. */
+  personMaskedIdentifier?: string | null
+  /** The full ИЗ № and the first six digits of a known ЕГН, while the site shows them. */
+  display?: PatientDisplay | null
+  /** Present where the site permits ЕГН: lets a saved case get one. */
+  onAddEgn?: (nationalId: string) => Promise<RelinkResult>
   onRelink: (patientNumber: string, correctionReason: string) => Promise<RelinkResult>
   disabled?: boolean
 }) {
+  const [egn, setEgn] = useState("")
+  const [egnError, setEgnError] = useState<string | null>(null)
+  const [egnSaving, setEgnSaving] = useState(false)
+  async function addEgn() {
+    if (!onAddEgn || !egn.trim() || egnSaving || disabled) return
+    setEgnSaving(true)
+    setEgnError(null)
+    const result = await onAddEgn(egn.trim()).catch(() => ({ ok: false as const, error: "" }))
+    setEgnSaving(false)
+    if (result.ok) setEgn("")
+    else setEgnError(result.error || null)
+  }
   const t = useTranslations("patientReference")
+  const tc = useTranslations("case")
   const [stage, setStage] = useState<"closed" | "edit" | "confirm">("closed")
   const [patientNumber, setPatientNumber] = useState("")
   const [patientNumberConfirmation, setPatientNumberConfirmation] = useState("")
@@ -71,6 +94,13 @@ export function HospitalPatientReference({
 
   return (
     <div className="mt-2 max-w-xl rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-[#333] dark:bg-[#181818]">
+      {display ? (
+        <p data-testid="patient-display" className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          {display.admissionNumber ? <span>{tc("admissionNumberShort")} <span className="font-mono">{display.admissionNumber}</span></span> : null}
+          {display.admissionNumber && display.egnPrefix ? " · " : null}
+          {display.egnPrefix ? <span>{tc("egnPrefixShort")} <span className="font-mono">{display.egnPrefix}</span></span> : null}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {t("label")}
@@ -97,6 +127,23 @@ export function HospitalPatientReference({
           </Button>
         )}
       </div>
+
+      {personMaskedIdentifier ? (
+        <div className="mt-1 flex items-center gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</span>
+          <code data-testid="masked-patient-egn" className="text-sm font-semibold text-slate-700 dark:text-slate-200">{personMaskedIdentifier}</code>
+        </div>
+      ) : onAddEgn ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Label htmlFor="add-patient-egn" className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</Label>
+          <Input id="add-patient-egn" data-testid="add-patient-egn" className="h-8 w-40" autoComplete="off" inputMode="numeric" maxLength={12}
+            disabled={disabled || egnSaving} value={egn} onChange={event => { setEgn(event.target.value); if (egnError) setEgnError(null) }} />
+          <Button type="button" size="sm" variant="outline" className="h-8" disabled={disabled || egnSaving || !egn.trim()} onClick={() => void addEgn()}>
+            {t("egnAdd")}
+          </Button>
+          {egnError ? <span role="alert" className="text-xs text-red-500">{egnError}</span> : null}
+        </div>
+      ) : null}
 
       {stage === "edit" && (
         <div className="mt-3 space-y-2">

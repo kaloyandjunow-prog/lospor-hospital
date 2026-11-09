@@ -34,12 +34,12 @@ describe("patient identifier policy", () => {
     // means nobody has made this decision, and doing nothing must not silently
     // narrow what the appliance can record.
     await expect(patientIdentifierCapabilityState(policyDb(null)))
-      .resolves.toEqual({ egnPermitted: true })
+      .resolves.toEqual({ egnPermitted: true, admissionNumberVisible: true })
   })
 
   it("honours a site that has turned it off", async () => {
     await expect(patientIdentifierCapabilityState(policyDb({ egnPermitted: false })))
-      .resolves.toEqual({ egnPermitted: false })
+      .resolves.toEqual({ egnPermitted: false, admissionNumberVisible: true })
   })
 
   it("refuses an ЕГН link loudly rather than quietly not making one", async () => {
@@ -61,6 +61,6 @@ describe("patient identifier policy", () => {
     process.env.HOSPITAL_EGN_POLICY_DEFAULT = "false"
     expect(configuredEgnPolicyDefault()).toBe(false)
     await expect(patientIdentifierCapabilityState(policyDb(null)))
-      .resolves.toEqual({ egnPermitted: false })
+      .resolves.toEqual({ egnPermitted: false, admissionNumberVisible: true })
   })
 })

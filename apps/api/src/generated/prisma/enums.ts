@@ -390,7 +390,8 @@ export type VolatileAgent = (typeof VolatileAgent)[keyof typeof VolatileAgent]
 export const Disposition = {
   WARD: 'WARD',
   PACU: 'PACU',
-  ICU: 'ICU'
+  ICU: 'ICU',
+  DECEASED: 'DECEASED'
 } as const
 
 export type Disposition = (typeof Disposition)[keyof typeof Disposition]

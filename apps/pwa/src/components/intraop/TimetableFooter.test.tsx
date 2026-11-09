@@ -62,4 +62,11 @@ describe("TimetableFooter chart button", () => {
     const labels = buttonLabels(render(<TimetableFooter {...base} started={false} onViewChart={() => {}} />))
     expect(labels).toContain("tfViewChart")
   })
+
+  it("centers every footer label", () => {
+    const tree = render(<TimetableFooter {...base} onViewChart={() => {}} />)
+    const textNodes = tree.root.findAll(node => String(node.type) === "Text")
+    expect(textNodes).toHaveLength(3)
+    expect(textNodes.every(node => node.props.style.textAlign === "center")).toBe(true)
+  })
 })

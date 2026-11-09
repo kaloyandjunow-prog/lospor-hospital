@@ -10,6 +10,10 @@
 - **RevokedToken:** JWT identifier, revocation time, expiry.
 - **AuditLog:** user, action, affected entity, optional JSON detail, timestamp.
 - **RateLimit:** rate-limit key, request count, window start.
+- User clinical preferences include the selected Smart/Legacy surface for
+  airway, vascular access, monitoring, equipment, technique, and events, plus
+  per-group intraoperative automation switches. These are presentation and
+  prompting preferences; they do not create a second clinical schema.
 
 ## Case lifecycle and collaboration
 
@@ -22,7 +26,11 @@
 ## Intraoperative event source
 
 - **CaseEvent:** append-only intraoperative timeline event table. Every row carries case/user, logical event ID, version, status (`active`, `superseded`, `deleted`), event type, timestamp, typed values, source/provenance, schema/source version, idempotency key, and raw JSON metadata.
-- Typed columns include BP, HR, SpO2, EtCO2, temperature, serum/peripheral glucose, LOINC glucose code/unit, FGF, carrier gas, FiO2, FiAir, FiN2O, ATC, drugId, INN, route, infusion/fluid IDs, rate, concentration, volume, fluid category, agent percent, and clinical event code.
+- Typed columns include NIBP and IBP systolic/diastolic/MAP values, HR, SpO2,
+  EtCO2, temperature, BIS, TOF ratio, serum/peripheral glucose, LOINC glucose
+  code/unit, FGF, carrier gas, FiO2, FiAir, FiN2O, ATC, drugId, INN, route,
+  infusion/fluid IDs, rate, concentration, volume, fluid category, agent
+  percent, and clinical event code.
 - `IntraoperativeRecord.keyEvents` is a projection/cache rebuilt from active `CaseEvent` rows for legacy chart/PDF readers.
 
 ## Clinical terminology and canonical libraries
@@ -59,8 +67,12 @@
 ## Intraoperative record
 
 - Timing: month/year, duration, start time, end time.
-- Position/technique: positions JSON, techniques JSON.
-- Airway/ventilation: airway device, legacy tube/cuff fields for old rows, PEEP, IPPV, jet, FOB, airway tools, airway notes, Cormack-Lehane, airway devices JSON, ventilation modes JSON, LMA/ETT/DLT/endobronchial details.
+- Position/technique: positions JSON, techniques JSON, and `techniqueSides`
+  for left/right/bilateral blocks and unilateral spinal.
+- Airway/ventilation: airway device, legacy tube/cuff fields for old rows, PEEP,
+  IPPV, jet, FOB, airway tools, airway notes, Cormack-Lehane,
+  `airwayDeviceEntries` (including failed/replaced attempts), airway devices
+  JSON, ventilation modes JSON, LMA/ETT/DLT/endobronchial details.
 - Monitoring: ECG, SpO2, NBP, invasive BP, CVP, EtCO2, temperature, glucose, blood gas, neuro, PA catheter, TEE, BIS, entropy, NIRS, evoked potentials, TOF, urinary catheter, stomach tube.
 - Gas settings are stored over time in `CaseEvent`, not the active scalar UI. Legacy gas scalar columns remain for old rows/compatibility only.
 - Medication/balance: premedication text fields, drug JSON compatibility fields, crystalloids, colloids, blood, blood-product notes, urine.
@@ -72,6 +84,9 @@
 - **PremedicationAdministration:** phase, drugId, raw name, INN, ATC code, dose, route, source mapping, provenance, ordinal.
 - **CaseSelection:** case, section, category, value, source mapping, provenance, ordinal.
 - **CaseComplication:** case, section, label, note, timestamp, source/event ID, source mapping, source version, ordinal.
+- **IntraopAutomationPolicy:** per-user automation settings. The default
+  policy keeps case reminders enabled while allowing the other suggestion
+  groups to be switched on by the deployment and adjusted by the clinician.
 
 ## Postoperative record
 

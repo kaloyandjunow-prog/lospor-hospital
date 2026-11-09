@@ -106,10 +106,13 @@ function emitEventCount(): void {
 }
 
 async function sendMutation(operation: EventMutation, revision: SectionRevision) {
+  const batch = operation.kind === "event.batch"
   const response = await observedFetch(
-    `/api/cases/${operation.caseId}/events/${encodeURIComponent(operation.eventId)}`,
+    batch
+      ? `/api/cases/${operation.caseId}/events/batch`
+      : `/api/cases/${operation.caseId}/events/${encodeURIComponent(operation.eventId)}`,
     {
-      method: operation.kind === "event.delete" ? "DELETE" : "PUT",
+      method: batch ? "POST" : operation.kind === "event.delete" ? "DELETE" : "PUT",
       headers: {
         "Content-Type": "application/json",
         [SOURCE_HEADER]: "web",
@@ -118,7 +121,9 @@ async function sendMutation(operation: EventMutation, revision: SectionRevision)
         [MADE_AT_HEADER]: operation.queuedAt,
         ...buildSectionRevisionHeaders("intraop", revision),
       },
-      body: operation.kind === "event.upsert" ? JSON.stringify(operation.event) : undefined,
+      body: batch
+        ? JSON.stringify(operation.ops)
+        : operation.kind === "event.upsert" ? JSON.stringify(operation.event) : undefined,
     },
   )
   const body = await response.json().catch(() => ({})) as {

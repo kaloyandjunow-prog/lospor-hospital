@@ -39,12 +39,16 @@ export function storedPatientIdentifierPolicy(db: Database = prisma) {
 /** Whether creating an EGN link is currently permitted at this site. */
 export async function patientIdentifierCapabilityState(
   db: PolicyDatabase = prisma,
-): Promise<{ egnPermitted: boolean }> {
+): Promise<{ egnPermitted: boolean; admissionNumberVisible: boolean }> {
   const policy = await db.hospitalPatientIdentifierPolicy.findUnique({
     where: { id: "local" },
-    select: { egnPermitted: true },
+    select: { egnPermitted: true, admissionNumberVisible: true },
   })
-  return { egnPermitted: policy?.egnPermitted ?? configuredEgnPolicyDefault() }
+  return {
+    egnPermitted: policy?.egnPermitted ?? configuredEgnPolicyDefault(),
+    // On unless a hospital switched it off in Status.
+    admissionNumberVisible: policy?.admissionNumberVisible ?? true,
+  }
 }
 
 /**
@@ -63,6 +67,7 @@ export async function patientIdentifierControlView(db: Database = prisma) {
   const policy = await storedPatientIdentifierPolicy(db)
   return {
     egnPermitted: policy?.egnPermitted ?? configuredEgnPolicyDefault(),
+    admissionNumberVisible: policy?.admissionNumberVisible ?? true,
     // The actor identifier itself is deliberately not returned to Status,
     // matching how the transport lock and the external-AI credential owner
     // are withheld: the fact that a change happened, and why, is a safe fact;

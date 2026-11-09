@@ -144,6 +144,14 @@ audited; neither Status SQLite nor any response retains the key. See
 [guidance policy](../../docs/clinical-guidance-policy.md), plus
 [external AI control](../../docs/external-ai-control.md).
 
+The **Hospital name on the record** control (Clinical page) renames an
+institution. The anaesthesia record is titled with that name, on screen and on
+paper, finished records included. It asks for the Status password and a reason
+and writes the audited action `HOSPITAL_NAME_UPDATE` (the previous and new
+name, no patient data). It changes the institution's own name, so the name
+changes wherever the institution is named. The online demo has no such control:
+it shows the account's institution.
+
 Account roles and Central queue/batch states are mapped to explicit Bulgarian
 and English operator labels. Status renders only bounded queue totals and the
 current batch state; it never prints the control-plane JSON object or exposes

@@ -21,17 +21,30 @@ type ZonedParts = {
   second: number
 }
 
+// One formatter per zone. Building an Intl.DateTimeFormat costs far more than using one (about 0.17 ms here,
+// more on a phone's engine), and every event time on a case goes through it: a record of 600 events made
+// thousands of them.
+const zoneFormatters = new Map<string, Intl.DateTimeFormat>()
+function zoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = zoneFormatters.get(timeZone)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+    zoneFormatters.set(timeZone, formatter)
+  }
+  return formatter
+}
+
 function partsInZone(instant: Date, timeZone: string): ZonedParts {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(instant)
+  const parts = zoneFormatter(timeZone).formatToParts(instant)
 
   const result: Record<string, number> = {}
   for (const part of parts) {
@@ -86,14 +99,23 @@ function instantFromCalendarTime(
   return Number.isNaN(instant.getTime()) ? null : instant
 }
 
+// The answer per name, so a zone is validated once rather than once per event.
+const zoneValidity = new Map<string, boolean>()
+
 export function isValidTimeZone(value: unknown): value is string {
   if (typeof value !== "string" || !value) return false
+  const known = zoneValidity.get(value)
+  if (known !== undefined) return known
+  let valid: boolean
   try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value })
-    return true
+    zoneFormatter(value)
+    valid = true
   } catch {
-    return false
+    valid = false
   }
+  // Bounded: a name that is not a zone is client input and must not grow the table without end.
+  if (zoneValidity.size < 200) zoneValidity.set(value, valid)
+  return valid
 }
 
 export function resolvedTimeZone(): string | null {

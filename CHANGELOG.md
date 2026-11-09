@@ -1,5 +1,117 @@
 # Changelog - LOSPOR Hospital
 
+## [1.8.0] - 2026-11-09
+
+Brings the anaesthesia record, the intraoperative suggestions and the timed complications to the appliance, vendors
+Core, API, Web and PWA 10.3.0 and the Research Browser 0.11.1, and speaks Central exchange contract 2.8.0.
+
+**Update order:** Central 2.8.0 must be deployed before a site updates to this release, because Central refuses a
+contract version it does not support. The update installs the new database migrations and the 10.3.0 clinical rule
+baselines; rollback is backup-required.
+
+### Added
+
+- **The anaesthesia record.** The case summary, the print and the phone viewer show one document: a portrait first
+  page (patient, risk, airway assessment, history, the airway, access and technique, the event log with entries
+  that were deleted kept and struck through, the vitals every five minutes), one landscape page with the whole
+  timetable, and a closing page (episodes, drug totals, fluid balance, laboratory results, recovery, and room for
+  the patient's name and ID and for signatures). It is titled with the hospital's name.
+- **Intraoperative suggestions.** Treatment cards and checklists after a complication, questions after a rescue
+  drug, fluid or shock, questions from readings and laboratory results, reminders, timed follow-ups and "Likely
+  now", learned from this hospital's own finished cases. Nothing is charted without the clinician's answer.
+- **Timed complications and shocks, vitals questions** (age bands, limits from this hospital's own readings), ending
+  a case after the fact at the time chosen, new chart entries (jet ventilation, tourniquet picker, arterial line,
+  BIS and TOF from the monitor photo, urinary catheter, unilateral spinal side) and the Smart selection screens
+  with a Legacy choice for each.
+- **Status: Intraoperative suggestions (SPS).** The page switches the suggestions on or off for the whole hospital,
+  by group and one by one, shows how each was received, sets the vitals-question limits, the monitor reading
+  intervals and the stocked dantrolene vials, and lists what "Likely now" has learned. It now has the data and
+  the route to save with: the API sends the view and `POST /v1/internal/hospital/control-plane/intraop-automation`
+  saves it, audited (`INTRAOP_AUTOMATION_UPDATE`: switches and counts, never the reason).
+- **The ИЗ № stays in view while a case is open.** The dashboard row, the case page and the editor header show the full
+  ИЗ № with its year and, once the person is linked, the first six digits of the ЕГН (the birth date). The masked reference
+  stays beside it. It is on by default and has one switch on Status → Patient identification (every skin, Legacy too);
+  switched off, the API sends nothing and the screens show only the masked reference. The API decrypts only these
+  two figures, cuts the ЕГН before it leaves, and an unreadable row shows nothing instead of failing the list.
+  New column `admissionNumberVisible` (migration `20261109100000_admission_number_visible`, `schema_max` updated).
+- **Status: Card preview,** a fourth tab of the SPS page (no menu entry, Legacy included). Choose a treatment card and a
+  sample patient (an adult of 80 kg, a child of 5 years and 18 kg, an infant of 6 months and 7 kg) and see the card as
+  the clinician sees it after the complication: the question, the rows with their doses worked out on that age and
+  weight, the steps and running totals, and whether the card is switched on for this hospital. The API resolves it from
+  the same Core definition the screens use, so the preview cannot differ from the card; no case is read and nothing is
+  charted (`GET …/control-plane/intraop-card-preview`).
+- **Status: Change history,** a page of its own (one row under People in every menu, and in Legacy). It reads the audit
+  rows: when, what was changed (hospital settings, accounts, Central, research access, clinical rules, maintenance), and
+  who did it, newest first, fifty to a page, filtered by area or by kind. It shows that a setting was changed, not why
+  or to what: the API selects only the row's id, actor, action and time, so the target id and the detail never leave the
+  database, and a reason an administrator gave stays apart from the audit rows. Sign-ins and case work are not in it.
+  The API sends it on its own (`GET …/control-plane/audit-history`).
+- **Status: Acceptance trend,** a third tab of the SPS page (still no menu entry, Legacy included). For every line, a
+  month-by-month curve of how often it was taken against put away over the finished cases of the last year, the answers
+  it carries, and the change of the latest three months against the three before. The rarely taken lines (ten answers or
+  more, under a fifth taken) come first, so a line to switch off or reword is found by the numbers. Counts only. The API
+  works it out from the saved charts, keeps it ten minutes, and sends it only when that tab is open
+  (`GET …/control-plane/intraop-acceptance`); a clinician's screen never asks for it.
+- **A logo on the paper documents.** Status → Clinical has a "Hospital logo" form beside the hospital name: a PNG,
+  JPEG or WebP up to 1 MB, kept on the hospital's own server (SVG is refused, and the bytes must be what the file says they
+  are). It prints at the top of every page of the preoperative summary, the informed consent and the anaesthesia record,
+  including a consent that runs over several sheets. Saving and removing need the administrator password and a reason,
+  and are audited by size only, never the picture. New column `Institution.logoDataUrl` (migration
+  `20261109110000_institution_logo`, `schema_max` updated).
+- **Status: a search box over the SPS lines.** The Switches tab filters its 100-odd lines as you type, opens the groups
+  that still have a match and puts everything back when cleared. Without script the page is the whole list, as before.
+- **Status: Unusual readings,** a second tab of the SPS page (it is not a menu entry, and Legacy has it too). For each
+  age band and sign it draws this hospital's own readings with the limits as sliders, the fixed rules beside them and a
+  scale in SD, and shows at once how many finished cases a limit would ask about, what the clinician would see, and how
+  the limits moved month by month (dotted until the band reached its minimum). A high blood-pressure limit is greyed:
+  since 10.2.0 hypertension is judged on the patient's own baseline. It saves only the limits and the cases a band needs,
+  so it can never switch a group off by omission. The API sends the readings on their own
+  (`GET …/control-plane/intraop-readings`), counts and figures only.
+- **Status: the hospital's name on the record** (Clinical page), changed with the Status password and a reason,
+  audited (`HOSPITAL_NAME_UPDATE`).
+- **Status: a person link on the national identifier (ЕГН)** so an admission and its person are one in the exports.
+- **The update installs the release's clinical rule baselines.** `update.sh` runs the bundled-baseline provisioner
+  after the migrations, so the v4 rule sets reach an installed appliance. The platform selection moves from v3
+  to v4 only where an earlier release made that selection; a ruleset an administrator chose stays chosen. A failure
+  installs nothing, is reported, and leaves the rules in use in effect.
+
+### Changed
+
+- **The planned procedure on the postoperative record is a Status switch.** "Procedure done" still starts as the
+  planned procedure; it is now one line of the SPS Reminders group (on by default) that Status switches off, and a
+  clinician for themselves. Off, the field starts empty. It waits for the policy to load before filling the field in.
+- **The informed-consent text may be 100,000 characters** (it was 40,000).
+- **Central exchange contract 2.8.0** (from 2.6.0): the suggestion an entry was saved from, the death table, the
+  moment and route of a drug, and a complication's start and end.
+- **Rule baselines v4** (adrenaline without a default dose, sugammadex to 2,000 mg, paracetamol by weight, glucose
+  as one fluid, and the children's doses) are bundled and activated; v2 and v3 are unchanged and finalised cases
+  are never rewritten.
+- The offline PWA keeps its owner-bound encrypted drafts, and gives queued clinical writes the signed-in account as
+  owner.
+
+### Security
+
+- **Dependencies are audited again, and nothing is left to accept.** `minimatch` is overridden to the patched 11.0.5
+  (GHSA-g3hv-75wg-m249) in Core, the API, the Browser and Status, which clears every moderate finding there, and the
+  phone app's build chain takes `glob` 14.0.4 (GHSA-3g3m-2fjr-6pw4). The three Expo advisories this appliance had
+  accepted since 1.7.0 are gone with Expo 58, so the audit gate has no exceptions. `npm audit` finds no high or
+  critical advisory anywhere.
+- **One accepted finding, for 1.8.0 only.** The Caddy image still carries CVE-2026-116587 in `go-jose/v3`, which
+  the Smallstep certificate path compiles and for which upstream has published no patched v3 release (Caddy 2.11.8 and
+  2.11.9 do not carry one). The maintainer accepted it on 2026-11-09; it is recorded in
+  `release-risk-exceptions.json` against release 1.8.0 and expires on 2027-01-31. The other nine images scan clean.
+
+### Fixed
+
+- **The informed-consent text could not be saved at its stated size.** The API read a consent request through the
+  16 KiB limit of the other control routes, so even the bundled paediatric text (17,321 bytes as JSON) was
+  refused and the effective limit was about 8,000 Bulgarian letters. The route now reads up to 512 KiB and Status
+  takes a form of 1 MB.
+- **Renaming the hospital could not be saved.** Its audit row used a key called `name`, which the audit guard
+  refuses. The row keeps `previousHospitalName` and `hospitalName` now.
+- The v4 baseline provisioner audits through the privacy-enforcing helper, as the earlier ones do, and two
+  laboratory-threshold dictionary entries declare the dictionary version they were introduced at.
+
 ## [1.7.3] - 2026-10-30
 
 Improves operating-theatre assignment from the phone app and keeps the

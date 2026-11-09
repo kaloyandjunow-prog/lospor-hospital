@@ -123,7 +123,7 @@ describe("CaseSummary — Aldrete banding", () => {
     expect(within(tile).getByText("5 / 6")).toBeTruthy()
     // Ready to leave recovery at 4 or more.
     expect(tile.className).toMatch(/green/)
-    expect(screen.getByText("Airway")).toBeTruthy()
+    expect(within(screen.getByTestId("record-recovery")).getByText("Airway")).toBeTruthy()
     expect(screen.queryByText("Aldrete total")).toBeNull()
   })
 
@@ -139,17 +139,13 @@ describe("CaseSummary — Aldrete banding", () => {
 })
 
 describe("CaseSummary — neonatal age", () => {
-  it("prints an age of 0 years on the continuation sheet header", () => {
-    // 400 columns ≈ 33 h — three panels, so a continuation sheet exists and
-    // renders the compact patient line.
-    naturalMaxCols.mockReturnValue(400)
+  it("prints an age of 0 years in the patient box", () => {
     render(<CaseSummary caseId="case-1" initialData={caseFixture({
       preop: { ageYears: 0, sex: "MALE" } as unknown as CaseDetail["preop"],
     })} />)
 
-    // Control: the continuation sheet really is on the page.
-    expect(screen.getByText(/identity fields on Sheet 1/)).toBeTruthy()
-    expect(screen.getByText(/0y · M/)).toBeTruthy()
+    // A neonate's age in years is legitimately 0; the record must not drop it.
+    expect(screen.getByText(/0 y · M/)).toBeTruthy()
   })
 })
 

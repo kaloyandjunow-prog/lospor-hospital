@@ -14,6 +14,12 @@ vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ state: "unauthenticated" as const }),
 }))
 
+const clinicalSave = vi.hoisted(() => ({ patch: vi.fn(async () => {}) }))
+vi.mock("@/lib/clinical-preferences-mobile", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/clinical-preferences-mobile")>(),
+  patchMobileClinicalPreferences: clinicalSave.patch,
+}))
+
 import { PreferencesProvider, usePreferences } from "./preferences-context"
 
 let current: ReturnType<typeof usePreferences> | undefined
@@ -56,6 +62,26 @@ describe("login locale race", () => {
 
     expect(current?.language).toBe("en")
     expect(current?.localeReady).toBe(true)
+    act(() => tree?.unmount())
+  })
+})
+
+describe("keep logging after a yes to a vitals question (10.1.0)", () => {
+  it("is on by default, and a switch to off shows at once and is saved to the account", async () => {
+    applianceLocale.load.mockResolvedValue("en")
+    let tree: TestRenderer.ReactTestRenderer | undefined
+    await act(async () => {
+      tree = TestRenderer.create(
+        <PreferencesProvider>
+          <PreferenceProbe />
+        </PreferencesProvider>,
+      )
+      await Promise.resolve()
+    })
+    expect(current?.vitalEpisodeAutoLog).toBe(true)
+    await act(async () => { await current?.setVitalEpisodeAutoLog(false) })
+    expect(current?.vitalEpisodeAutoLog).toBe(false)
+    expect(clinicalSave.patch).toHaveBeenLastCalledWith(expect.anything(), { vitalEpisodeAutoLog: false })
     act(() => tree?.unmount())
   })
 })

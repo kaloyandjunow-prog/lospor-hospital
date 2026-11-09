@@ -39,6 +39,8 @@ export const preopFormSchema = z.object({
     valueDate: z.string().datetime().nullable().optional(),
   }).passthrough()).default([]),
   patientNumber: z.string().trim().max(128).optional(),
+  // The ЕГН that joins this patient's admissions. Sent once at creation, never stored on the device.
+  patientNationalId: z.string().trim().max(32).optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
   // nullable, not merely optional. Switching a case out of pediatric mode has
   // to clear the stored precise age, and only an explicit null survives into
@@ -184,6 +186,7 @@ export const preopFormSchema = z.object({
   // Labs additionally carry `takenAt`, the draw time, distinct from when the
   // row was entered into the form.
   labResults: z.array(z.object({
+    id: z.string().max(200).optional(),
     test: z.string(),
     value: z.string(),
     unit: z.string(),

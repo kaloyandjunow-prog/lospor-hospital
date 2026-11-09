@@ -30,7 +30,7 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
             backgroundColor: shade("#0f1828"), borderWidth: 1, borderColor: shade("#38bdf855"),
           }}
         >
-          <Text style={{ color: shade("#7dd3fc"), fontSize: 13, fontWeight: "800" }}>{tc("tfViewChart")}</Text>
+          <Text style={{ color: shade("#7dd3fc"), fontSize: 13, fontWeight: "800", textAlign: "center" }}>{tc("tfViewChart")}</Text>
         </TouchableOpacity>
       ) : null}
       <TouchableOpacity
@@ -43,9 +43,10 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
           opacity: started ? 1 : 0.35,
         }}
       >
-        <Text style={{ color: shade("#fb923c"), fontSize: 13, fontWeight: "800" }}>{tc("tfJumpToNow")}</Text>
+        <Text style={{ color: shade("#fb923c"), fontSize: 13, fontWeight: "800", textAlign: "center" }}>{tc("tfJumpToNow")}</Text>
       </TouchableOpacity>
       <TouchableOpacity
+        testID="timetable-end-case"
         onPress={() => { if (!isWatching) onEndCase() }}
         disabled={isWatching}
         style={{
@@ -54,7 +55,7 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
           opacity: isWatching ? 0.4 : 1,
         }}
       >
-        <Text style={{ color: shade("#fb923c"), fontSize: 13, fontWeight: "800" }}>{tc("tfEndCase")}</Text>
+        <Text style={{ color: shade("#fb923c"), fontSize: 13, fontWeight: "800", textAlign: "center" }}>{tc("tfEndCase")}</Text>
       </TouchableOpacity>
     </View>
   )

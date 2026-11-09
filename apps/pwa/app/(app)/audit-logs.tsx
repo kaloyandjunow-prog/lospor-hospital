@@ -142,6 +142,7 @@ export default function AuditLogsScreen() {
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>{new Date(item.createdAt).toLocaleString(language === "bg" ? "bg-BG" : "en-GB")}</Text>
                 </View>
                 <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "700" }}>{userLabel(item.user, t("unknownUser"))}</Text>
+
               </View>
             )}
             ListFooterComponent={loadingMore ? (
@@ -152,7 +153,7 @@ export default function AuditLogsScreen() {
               <TouchableOpacity onPress={loadMore} style={{ alignItems: "center", paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: withAlpha(colors.primary, "66") }}>
                 <Text style={{ color: colors.primary, fontWeight: "800" }}>{t("loadMore")}</Text>
               </TouchableOpacity>
-            ) : null}
+            ) : undefined}
           />
         )}
         <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>

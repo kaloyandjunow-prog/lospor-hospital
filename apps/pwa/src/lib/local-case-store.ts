@@ -80,7 +80,7 @@ function containsPatientNumberField(value: unknown, seen = new Set<object>()): b
   seen.add(value)
   if (Array.isArray(value)) return value.some(item => containsPatientNumberField(item, seen))
   return Object.entries(value).some(([key, child]) => (
-    key === "patientNumber" || containsPatientNumberField(child, seen)
+    key === "patientNumber" || key === "patientNationalId" || containsPatientNumberField(child, seen)
   ))
 }
 

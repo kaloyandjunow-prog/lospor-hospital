@@ -28,6 +28,7 @@ export type InstitutionMinAggregateOutputType = {
   id: string | null
   name: string | null
   city: string | null
+  logoDataUrl: string | null
   country: string | null
 }
 
@@ -35,6 +36,7 @@ export type InstitutionMaxAggregateOutputType = {
   id: string | null
   name: string | null
   city: string | null
+  logoDataUrl: string | null
   country: string | null
 }
 
@@ -42,6 +44,7 @@ export type InstitutionCountAggregateOutputType = {
   id: number
   name: number
   city: number
+  logoDataUrl: number
   country: number
   _all: number
 }
@@ -51,6 +54,7 @@ export type InstitutionMinAggregateInputType = {
   id?: true
   name?: true
   city?: true
+  logoDataUrl?: true
   country?: true
 }
 
@@ -58,6 +62,7 @@ export type InstitutionMaxAggregateInputType = {
   id?: true
   name?: true
   city?: true
+  logoDataUrl?: true
   country?: true
 }
 
@@ -65,6 +70,7 @@ export type InstitutionCountAggregateInputType = {
   id?: true
   name?: true
   city?: true
+  logoDataUrl?: true
   country?: true
   _all?: true
 }
@@ -145,6 +151,7 @@ export type InstitutionGroupByOutputType = {
   id: string
   name: string
   city: string
+  logoDataUrl: string | null
   country: string
   _count: InstitutionCountAggregateOutputType | null
   _min: InstitutionMinAggregateOutputType | null
@@ -173,6 +180,7 @@ export type InstitutionWhereInput = {
   id?: Prisma.StringFilter<"Institution"> | string
   name?: Prisma.StringFilter<"Institution"> | string
   city?: Prisma.StringFilter<"Institution"> | string
+  logoDataUrl?: Prisma.StringNullableFilter<"Institution"> | string | null
   country?: Prisma.StringFilter<"Institution"> | string
   users?: Prisma.UserListRelationFilter
   institutionChangeRequests?: Prisma.InstitutionChangeRequestListRelationFilter
@@ -194,6 +202,7 @@ export type InstitutionOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   city?: Prisma.SortOrder
+  logoDataUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   country?: Prisma.SortOrder
   users?: Prisma.UserOrderByRelationAggregateInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestOrderByRelationAggregateInput
@@ -218,6 +227,7 @@ export type InstitutionWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.InstitutionWhereInput | Prisma.InstitutionWhereInput[]
   name?: Prisma.StringFilter<"Institution"> | string
   city?: Prisma.StringFilter<"Institution"> | string
+  logoDataUrl?: Prisma.StringNullableFilter<"Institution"> | string | null
   country?: Prisma.StringFilter<"Institution"> | string
   users?: Prisma.UserListRelationFilter
   institutionChangeRequests?: Prisma.InstitutionChangeRequestListRelationFilter
@@ -239,6 +249,7 @@ export type InstitutionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   city?: Prisma.SortOrder
+  logoDataUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   country?: Prisma.SortOrder
   _count?: Prisma.InstitutionCountOrderByAggregateInput
   _max?: Prisma.InstitutionMaxOrderByAggregateInput
@@ -252,6 +263,7 @@ export type InstitutionScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"Institution"> | string
   name?: Prisma.StringWithAggregatesFilter<"Institution"> | string
   city?: Prisma.StringWithAggregatesFilter<"Institution"> | string
+  logoDataUrl?: Prisma.StringNullableWithAggregatesFilter<"Institution"> | string | null
   country?: Prisma.StringWithAggregatesFilter<"Institution"> | string
 }
 
@@ -259,6 +271,7 @@ export type InstitutionCreateInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -280,6 +293,7 @@ export type InstitutionUncheckedCreateInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -301,6 +315,7 @@ export type InstitutionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -322,6 +337,7 @@ export type InstitutionUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -343,6 +359,7 @@ export type InstitutionCreateManyInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
 }
 
@@ -350,6 +367,7 @@ export type InstitutionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
 }
 
@@ -357,6 +375,7 @@ export type InstitutionUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
 }
 
@@ -369,6 +388,7 @@ export type InstitutionCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   city?: Prisma.SortOrder
+  logoDataUrl?: Prisma.SortOrder
   country?: Prisma.SortOrder
 }
 
@@ -376,6 +396,7 @@ export type InstitutionMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   city?: Prisma.SortOrder
+  logoDataUrl?: Prisma.SortOrder
   country?: Prisma.SortOrder
 }
 
@@ -383,6 +404,7 @@ export type InstitutionMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   city?: Prisma.SortOrder
+  logoDataUrl?: Prisma.SortOrder
   country?: Prisma.SortOrder
 }
 
@@ -603,6 +625,7 @@ export type InstitutionCreateWithoutUsersInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
@@ -623,6 +646,7 @@ export type InstitutionUncheckedCreateWithoutUsersInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
@@ -659,6 +683,7 @@ export type InstitutionUpdateWithoutUsersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
@@ -679,6 +704,7 @@ export type InstitutionUncheckedUpdateWithoutUsersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
@@ -699,6 +725,7 @@ export type InstitutionCreateWithoutCasesInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -719,6 +746,7 @@ export type InstitutionUncheckedCreateWithoutCasesInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -755,6 +783,7 @@ export type InstitutionUpdateWithoutCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -775,6 +804,7 @@ export type InstitutionUncheckedUpdateWithoutCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -795,6 +825,7 @@ export type InstitutionCreateWithoutInstitutionChangeRequestsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
@@ -815,6 +846,7 @@ export type InstitutionUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
@@ -851,6 +883,7 @@ export type InstitutionUpdateWithoutInstitutionChangeRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
@@ -871,6 +904,7 @@ export type InstitutionUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
@@ -891,6 +925,7 @@ export type InstitutionCreateWithoutClinicalPresetsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -911,6 +946,7 @@ export type InstitutionUncheckedCreateWithoutClinicalPresetsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -947,6 +983,7 @@ export type InstitutionUpdateWithoutClinicalPresetsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -967,6 +1004,7 @@ export type InstitutionUncheckedUpdateWithoutClinicalPresetsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -987,6 +1025,7 @@ export type InstitutionCreateWithoutClinicalPresetSelectionsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1007,6 +1046,7 @@ export type InstitutionUncheckedCreateWithoutClinicalPresetSelectionsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1043,6 +1083,7 @@ export type InstitutionUpdateWithoutClinicalPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1063,6 +1104,7 @@ export type InstitutionUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1083,6 +1125,7 @@ export type InstitutionCreateWithoutClinicalRuleOverridesInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1103,6 +1146,7 @@ export type InstitutionUncheckedCreateWithoutClinicalRuleOverridesInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1139,6 +1183,7 @@ export type InstitutionUpdateWithoutClinicalRuleOverridesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1159,6 +1204,7 @@ export type InstitutionUncheckedUpdateWithoutClinicalRuleOverridesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1179,6 +1225,7 @@ export type InstitutionCreateWithoutResearchAccessGrantsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1199,6 +1246,7 @@ export type InstitutionUncheckedCreateWithoutResearchAccessGrantsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1235,6 +1283,7 @@ export type InstitutionUpdateWithoutResearchAccessGrantsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1255,6 +1304,7 @@ export type InstitutionUncheckedUpdateWithoutResearchAccessGrantsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1275,6 +1325,7 @@ export type InstitutionCreateWithoutResearchSelfAuthorizationsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1295,6 +1346,7 @@ export type InstitutionUncheckedCreateWithoutResearchSelfAuthorizationsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1331,6 +1383,7 @@ export type InstitutionUpdateWithoutResearchSelfAuthorizationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1351,6 +1404,7 @@ export type InstitutionUncheckedUpdateWithoutResearchSelfAuthorizationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1371,6 +1425,7 @@ export type InstitutionCreateWithoutResearchCohortsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1391,6 +1446,7 @@ export type InstitutionUncheckedCreateWithoutResearchCohortsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1427,6 +1483,7 @@ export type InstitutionUpdateWithoutResearchCohortsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1447,6 +1504,7 @@ export type InstitutionUncheckedUpdateWithoutResearchCohortsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1467,6 +1525,7 @@ export type InstitutionCreateWithoutResearchExportsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1487,6 +1546,7 @@ export type InstitutionUncheckedCreateWithoutResearchExportsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1523,6 +1583,7 @@ export type InstitutionUpdateWithoutResearchExportsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1543,6 +1604,7 @@ export type InstitutionUncheckedUpdateWithoutResearchExportsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1563,6 +1625,7 @@ export type InstitutionCreateWithoutEhrImportsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1583,6 +1646,7 @@ export type InstitutionUncheckedCreateWithoutEhrImportsInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1619,6 +1683,7 @@ export type InstitutionUpdateWithoutEhrImportsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1639,6 +1704,7 @@ export type InstitutionUncheckedUpdateWithoutEhrImportsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1659,6 +1725,7 @@ export type InstitutionCreateWithoutEhrDeliveriesInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1679,6 +1746,7 @@ export type InstitutionUncheckedCreateWithoutEhrDeliveriesInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1715,6 +1783,7 @@ export type InstitutionUpdateWithoutEhrDeliveriesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1735,6 +1804,7 @@ export type InstitutionUncheckedUpdateWithoutEhrDeliveriesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1755,6 +1825,7 @@ export type InstitutionCreateWithoutPatientLinksInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1775,6 +1846,7 @@ export type InstitutionUncheckedCreateWithoutPatientLinksInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1811,6 +1883,7 @@ export type InstitutionUpdateWithoutPatientLinksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1831,6 +1904,7 @@ export type InstitutionUncheckedUpdateWithoutPatientLinksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1851,6 +1925,7 @@ export type InstitutionCreateWithoutCentralExportPolicyInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
@@ -1871,6 +1946,7 @@ export type InstitutionUncheckedCreateWithoutCentralExportPolicyInput = {
   id?: string
   name: string
   city: string
+  logoDataUrl?: string | null
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
@@ -1907,6 +1983,7 @@ export type InstitutionUpdateWithoutCentralExportPolicyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
@@ -1927,6 +2004,7 @@ export type InstitutionUncheckedUpdateWithoutCentralExportPolicyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
+  logoDataUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
@@ -2086,6 +2164,7 @@ export type InstitutionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   id?: boolean
   name?: boolean
   city?: boolean
+  logoDataUrl?: boolean
   country?: boolean
   users?: boolean | Prisma.Institution$usersArgs<ExtArgs>
   institutionChangeRequests?: boolean | Prisma.Institution$institutionChangeRequestsArgs<ExtArgs>
@@ -2108,6 +2187,7 @@ export type InstitutionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   name?: boolean
   city?: boolean
+  logoDataUrl?: boolean
   country?: boolean
 }, ExtArgs["result"]["institution"]>
 
@@ -2115,6 +2195,7 @@ export type InstitutionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   name?: boolean
   city?: boolean
+  logoDataUrl?: boolean
   country?: boolean
 }, ExtArgs["result"]["institution"]>
 
@@ -2122,10 +2203,11 @@ export type InstitutionSelectScalar = {
   id?: boolean
   name?: boolean
   city?: boolean
+  logoDataUrl?: boolean
   country?: boolean
 }
 
-export type InstitutionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "city" | "country", ExtArgs["result"]["institution"]>
+export type InstitutionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "city" | "logoDataUrl" | "country", ExtArgs["result"]["institution"]>
 export type InstitutionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   users?: boolean | Prisma.Institution$usersArgs<ExtArgs>
   institutionChangeRequests?: boolean | Prisma.Institution$institutionChangeRequestsArgs<ExtArgs>
@@ -2168,6 +2250,10 @@ export type $InstitutionPayload<ExtArgs extends runtime.Types.Extensions.Interna
     id: string
     name: string
     city: string
+    /**
+     * The hospital logo printed at the top of the paper documents (1.8.0): a small PNG or JPEG as a data URL.
+     */
+    logoDataUrl: string | null
     country: string
   }, ExtArgs["result"]["institution"]>
   composites: {}
@@ -2609,6 +2695,7 @@ export interface InstitutionFieldRefs {
   readonly id: Prisma.FieldRef<"Institution", 'String'>
   readonly name: Prisma.FieldRef<"Institution", 'String'>
   readonly city: Prisma.FieldRef<"Institution", 'String'>
+  readonly logoDataUrl: Prisma.FieldRef<"Institution", 'String'>
   readonly country: Prisma.FieldRef<"Institution", 'String'>
 }
     

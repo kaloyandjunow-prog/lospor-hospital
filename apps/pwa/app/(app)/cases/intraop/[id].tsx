@@ -1,10 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
  
-import {
-  View, ScrollView, FlatList,
-  TextInput,
-  unstable_batchedUpdates, useWindowDimensions,
-} from "react-native"
+import { View, FlatList, unstable_batchedUpdates, useWindowDimensions, type ScrollViewInstance } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import type { VascularEntry } from "@/lib/intraop-types"
 import { formatHHMM } from "@/lib/intraop-format"
@@ -14,6 +10,19 @@ import { usePreferences } from "@/lib/preferences-context"
 import { emptyTimetable, type TimetableData } from "@/components/IntraopTimetable"
 import { colors } from "@/theme/colors"
 import { useCaseLock } from "@/lib/use-case-lock"
+import { useSuggestionContext, useVitalQuestionContext } from "@/lib/use-intraop-automation"
+import { DefibrillationHost } from "@/components/intraop/DefibrillationHost"
+import { confirmAction } from "@/lib/notify"
+import { autosaveManager } from "@/lib/autosave-manager"
+import { usePhoneDeathPrompt } from "@/lib/use-phone-death-prompt"
+import { jetSheet } from "@/lib/jet-sheet"
+import { JetHost } from "@/components/intraop/JetHost"
+import { TourniquetHost } from "@/components/intraop/TourniquetHost"
+import { preopAgeDays } from "@lospor/core/vital-questions"
+import { parseTechniqueSides, type TechniqueSide } from "@lospor/core/technique-smart"
+import { useLikelyEvents } from "@/lib/use-likely-events"
+import { usePhoneAirwayExchange } from "@/lib/use-phone-airway-exchange"
+import { defibrillationSheet } from "@/lib/defibrillation-knob"
 import { VASC_PREEXISTING_QUICK, vascDefaultUnit, vascSiteColor } from "@/lib/vascular-access-tree"
 import { useAgentEntry } from "@/lib/use-agent-entry"
 import { useGasSettingsEntry } from "@/lib/use-gas-settings-entry"
@@ -23,8 +32,7 @@ import { useDrugEntry } from "@/lib/use-drug-entry"
 import { BOLUS_SCENARIOS, INFUSION_SCENARIOS } from "@lospor/core"
 import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import { useVitalsEntry } from "@/lib/use-vitals-entry"
-import { COMPLICATION_GROUPS, COMPLICATION_ITEMS, COMPLICATION_TC_TITLES } from "@/lib/intraop-static-options"
-import { intraopTabForFocus, type IntraopTab } from "@/lib/intraop-tabs"
+import { COMPLICATION_ITEMS } from "@/lib/intraop-static-options"
 import { applyIntraopChartChange } from "@/lib/apply-intraop-chart-change"
 import { pediatricAgeFromPreop, useAllergyCheck, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
@@ -40,7 +48,19 @@ import { useIntraopComplicationState } from "@/lib/use-intraop-complication-stat
 import { useIntraopAutofillVitals } from "@/lib/use-intraop-autofill-vitals"
 import { useIntraopSectionPatch } from "@/lib/use-intraop-section-patch"
 import { useIntraopTimetableViewport } from "@/lib/use-intraop-timetable-viewport"
+import { usePhoneAirwayCharting, useRetryLegacyAirwayEvents } from "@/lib/use-phone-airway-charting"
+import { airwayExchangePersist } from "@/lib/airway-exchange-persist"
+import { usePhoneAirwaySmart, usePhoneVascularSmart } from "@/components/intraop/use-phone-smart-airway-vascular"
+import { usePhoneMonitoringSmart, usePhoneEquipmentSmart, usePhoneTechniqueSmart } from "@/components/intraop/use-phone-smart-monitoring-equipment"
+import { IntraopSmartSheets } from "@/components/intraop/IntraopSmartSheets"
+import { useIntraopTabTiming } from "@/lib/use-intraop-tab-timing"
+import { usePhoneSuggestionFacts } from "@/lib/use-phone-suggestion-facts"
+import { PhoneSuggestionSheetsHost } from "@/components/intraop/PhoneSuggestionSheetsHost"
+import { usePhoneTaggedSave } from "@/lib/use-phone-tagged-save"
+import { intraopReadinessInput } from "@/lib/intraop-readiness-input"
+import { useVitalInputRefs } from "@/lib/use-vital-input-refs"
 import { useIntraopFavourites } from "@/lib/use-intraop-favourites"
+
 import { useIntraopEventPersistence } from "@/lib/use-intraop-event-persistence"
 import { useIntraopEventActions } from "@/lib/use-intraop-event-actions"
 import { useIntraopLabs } from "@/lib/use-intraop-labs"
@@ -52,7 +72,6 @@ import { useIntraopAutofillPreferences } from "@/lib/use-intraop-autofill-prefer
 import { useIntraopClinicalViewState } from "@/lib/use-intraop-clinical-view-state"
 import { useClinicalRules } from "@/lib/pediatric-clinical-rules"
 import { enqueueIntraopCaseWrite } from "@/lib/intraop-write-queue"
-import { recordIntraopTabTiming, takeRenderPhases } from "@/lib/diagnostics"
 import { IntraopScreenChrome } from "@/components/intraop/IntraopScreenChrome"
 import { IntraopRenderSurface } from "@/components/intraop/IntraopRenderSurface"
 import type { LogEvent } from "@/lib/intraop-log-event"
@@ -63,7 +82,7 @@ import { useIntraopRunningState } from "@/lib/use-intraop-running-state"
 // on the PWA. React 18+ auto-batches async setState anyway, so the fallback simply
 // runs the updates directly on web while preserving explicit batching on native.
 const runBatched: (fn: () => void) => void =
-  typeof unstable_batchedUpdates === "function" ? unstable_batchedUpdates : (fn) => fn()
+  typeof unstable_batchedUpdates === "function" ? (unstable_batchedUpdates as unknown as (fn: () => void) => void) : (fn) => fn()
 
 // This module holds the screen and nothing else. Colour palettes, value types,
 // the technique tree and the format helpers live in
@@ -117,14 +136,10 @@ export default function IntraopLiveScreen() {
     router.push(`/(app)/cases/timetable/${id}`)
   }, [router, id])
   const { isWatching, isWatchingRef, takeover } = useCaseLock(id, true)
+  const vitalQuestionContext = useVitalQuestionContext(preop, isWatching) // vitals questions (10.1.0)
   const {
-    tc,
-    language,
-    etco2Unit,
-    temperatureUnit,
-    cvpUnit,
-    defaultMonitoring,
-    clinicalPreferencesReady,
+    tc, language, etco2Unit, temperatureUnit, cvpUnit, defaultMonitoring, clinicalPreferencesReady, airwayScreen, vascularScreen, monitoringScreen,
+    equipmentScreen, techniqueScreen, eventsScreen, fluidsScreen, eventLogScreen,
   } = usePreferences()
 
   const [caseInfo, setCaseInfo] = useState<{
@@ -140,42 +155,13 @@ export default function IntraopLiveScreen() {
     activeGas, setActiveGas, applyActiveState, resyncActiveRef, endedAtRef, projectTimetable } = useIntraopRunningState(logRef)
 
   const { width: screenWidth } = useWindowDimensions()
-  const tabRailRef  = useRef<ScrollView>(null)
+  const tabRailRef  = useRef<ScrollViewInstance>(null)
   const tabLayouts  = useRef<Partial<Record<string, { x: number; width: number }>>>({})
 
-  const [tab,       setTab]       = useState<IntraopTab>(() => intraopTabForFocus(focus) ?? "equipment")
-  // Time from the tap to the committed render of the new tab — the number the
-  // clinician actually experiences, readable later on the diagnostics screen.
-  const tabSwitchStartedAt = useRef<number | null>(null)
-  const tabRenderStartedAt = useRef<number | null>(null)
-  const selectTab = useCallback((next: React.SetStateAction<IntraopTab>) => {
-    tabSwitchStartedAt.current = Date.now()
-    tabRenderStartedAt.current = null
-    setTab(next)
-  }, [])
-  // Marks the start of the render that shows the new tab. The gap between the
-  // tap and this point is time React never got — the JS thread was busy with
-  // something else, which is a different problem from a slow render.
-  if (tabSwitchStartedAt.current !== null && tabRenderStartedAt.current === null) {
-    tabRenderStartedAt.current = Date.now()
-  }
-  useEffect(() => {
-    const startedAt = tabSwitchStartedAt.current
-    if (startedAt == null) return
-    const renderStartedAt = tabRenderStartedAt.current ?? startedAt
-    tabSwitchStartedAt.current = null
-    tabRenderStartedAt.current = null
-    const now = Date.now()
-    recordIntraopTabTiming(now - startedAt, {
-      tab,
-      blockedMs: renderStartedAt - startedAt,
-      renderMs: now - renderStartedAt,
-      pendingSaves: pendingSaveCountRef.current,
-      renderPhases: takeRenderPhases(),
-    })
-  }, [tab])
+  const { tab, selectTab } = useIntraopTabTiming(focus, () => pendingSaveCountRef.current)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [caseLoaded, setCaseLoaded] = useState(false)
+  const [equipmentPrepared, setEquipmentPrepared] = useState<Record<string, boolean>>({})
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const startRef                  = useRef<Date | null>(null)
   const verticalTimetableRef      = useRef<FlatList<number>>(null)
@@ -205,15 +191,7 @@ export default function IntraopLiveScreen() {
   [id])
   // Vitals sheet — text input refs for auto-advance focus chaining (state +
   // logic now in useVitalsEntry, called further down once setTimetable exists)
-  const vSysRef = useRef<TextInput | null>(null)
-  const vDiaRef = useRef<TextInput | null>(null)
-  const vHRRef = useRef<TextInput | null>(null)
-  const vSpO2Ref = useRef<TextInput | null>(null)
-  const vEtco2Ref = useRef<TextInput | null>(null)
-  const vTempRef = useRef<TextInput | null>(null)
-  const vBisRef = useRef<TextInput | null>(null)
-  const vTofRef = useRef<TextInput | null>(null)
-  const vCvpRef = useRef<TextInput | null>(null)
+  const { vSysRef, vDiaRef, vHRRef, vSpO2Ref, vEtco2Ref, vTempRef, vBisRef, vTofRef, vCvpRef } = useVitalInputRefs()
   const [timetable,  setTimetable]  = useState<TimetableData>(emptyTimetable())
   const [ttColCount, setTtColCount] = useState(12)
   const [chartPage,  setChartPage]  = useState(0)
@@ -228,26 +206,15 @@ export default function IntraopLiveScreen() {
     setUndoEv,
   } = useIntraopEventPersistence({
     caseId: id,
-    entryTs,
-    setEntryTs,
-    log,
-    logRef,
-    startRef,
-    legacyWebLogNeedsSyncRef,
-    baseIntraopUpdatedAtRef,
-    enqueueEventSave,
-    setLog,
-    setTimetable,
-    setElapsedMs,
-    setSyncState,
-    setLastSavedAt,
-    setPendingCount,
+    entryTs, setEntryTs, log, logRef, startRef, legacyWebLogNeedsSyncRef, baseIntraopUpdatedAtRef, enqueueEventSave, setLog, setTimetable,
+    setElapsedMs, setSyncState, setLastSavedAt, setPendingCount,
     noteVitalsRef, resyncActiveRef, endedAtRef, watchingRef: isWatchingRef,
   })
 
   // Pediatric cases remain manually chartable but must not inherit unreviewed
   // adult dose, rate, concentration, fluid, gas, or equipment presets.
   const allergyCheck = useAllergyCheck(preop, tc) // infusion + drug sheets check recorded allergies (1.5.0)
+  const { saveTagged, pendingSuggestion, suggestionContextRef } = usePhoneTaggedSave({ save, logRef, language, tc: tc as never })
   const {
     infOpen, setInfOpen, infDrug, setInfDrug, infRate, setInfRate,
     infRoute, setInfRoute, infConcentration, setInfConcentration,
@@ -256,7 +223,7 @@ export default function IntraopLiveScreen() {
     infActOpen, setInfActOpen, infActTgt, setInfActTgt, infActRate, setInfActRate,
     infActConcentration, setInfActConcentration, infActTs, setInfActTs,
     openInfusion, confirmInfusion, stopInfusion, changeRate,
-  } = useInfusionEntry(save, setEntryTs, setActiveInfusions, INFUSION_CODES, INFUSION_WEIGHT_BASIS, allergyCheck)
+  } = useInfusionEntry(saveTagged, setEntryTs, setActiveInfusions, INFUSION_CODES, INFUSION_WEIGHT_BASIS, allergyCheck)
 
   // Drug sheet
   const {
@@ -264,16 +231,9 @@ export default function IntraopLiveScreen() {
     drugRoute, setDrugRoute, drugConcentration, setDrugConcentration,
     drugCustomConcentration, setDrugCustomConcentration, drugFormulation, setDrugFormulation,
     drugRule, applyDrugSelection,
-    openDrug, confirmDrug, startDrugAsInfusion,
+    openDrug, confirmDrug, startDrugAsInfusion, openDrugPreset,
   } = useDrugEntry(
-    save,
-    setEntryTs,
-    DRUG_CATS,
-    INF_DRUGS,
-    setInfDrug,
-    setInfRate,
-    setInfOpen,
-    DRUG_CODES,
+    saveTagged, setEntryTs, DRUG_CATS, INF_DRUGS, setInfDrug, setInfRate, setInfOpen, DRUG_CODES,
     pediatricMode ? {} : INFUSION_QUICK_RATES,
     pediatricMode ? {} : DRUG_DOSE_CALCS, allergyCheck,
   )
@@ -286,50 +246,28 @@ export default function IntraopLiveScreen() {
     flEndOpen, setFlEndOpen, flEndTarget, flEndCustom, setFlEndCustom,
     flEndRate, setFlEndRate, changeFluidRate,
     openFluid, confirmFluid, openFluidEnd, confirmFluidEnd, stopFluidDirect,
-  } = useFluidEntry(save, setEntryTs, setActiveFluids, stampFor)
+  } = useFluidEntry(saveTagged, setEntryTs, setActiveFluids, stampFor)
+  // (Cleared below, once the gas and shock sheets are known: a card can open those too.)
 
   // Agent sheet
   const { agOpen, setAgOpen, agPick, setAgPick, agPercent, setAgPercent, openAgent, confirmAgent, stopAgent } =
-    useAgentEntry(save, setEntryTs, activeAgents, setActiveAgents)
+    useAgentEntry(saveTagged, setEntryTs, activeAgents, setActiveAgents)
   // Gas settings sheet (FGF/carrier gas/FiO2) - event-based gas_start/gas_change/gas_stop.
   const { gasOpen, setGasOpen, gasFgf, setGasFgf, gasCarrierGas, setGasCarrierGas, gasFio2, setGasFio2, openGasSettings, confirmGasSettings, stopGasSettings } =
-    useGasSettingsEntry(save, setEntryTs, activeGas, setActiveGas)
+    useGasSettingsEntry(saveTagged, setEntryTs, activeGas, setActiveGas)
+  // A card can open the gas and shock sheets too: leave no tag behind when every sheet is closed unsaved.
+  const defibOpen = useSyncExternalStore(defibrillationSheet.subscribe, defibrillationSheet.current, defibrillationSheet.current) != null
+  useEffect(() => { if (!drugOpen && !infOpen && !flOpen && !gasOpen && !defibOpen) pendingSuggestion.current = null }, [drugOpen, infOpen, flOpen, gasOpen, defibOpen, pendingSuggestion])
   const { favouriteDrugs, favouriteInfusions } = useIntraopFavourites()
 
   const {
-    compOpen,
-    setCompOpen,
-    selectedComplications,
-    setSelectedComplications,
-    complicationsNotes,
-    setComplicationsNotes,
-    compGroupExpanded,
-    compSaving,
-    addComplicationFromEvent,
-    saveComplications,
-    toggleComplication,
-    toggleComplicationGroup,
+    selectedComplications, setSelectedComplications, complicationsNotes, setComplicationsNotes, removeLegacyComplication, saveComplications,
   } = useIntraopComplicationState(patchIntraopSection, tc("errorLabel"))
 
   const {
-    premedEveningText,
-    setPremedEveningText,
-    premedMorningText,
-    setPremedMorningText,
-    savePremedication,
-    openPremedPicker,
-    premedPickOpen,
-    setPremedPickOpen,
-    premedPickPhase,
-    premedPickCat,
-    setPremedPickCat,
-    premedPickDrug,
-    setPremedPickDrug,
-    premedPickDose,
-    setPremedPickDose,
-    premedPickRoute,
-    setPremedPickRoute,
-    addSelectedPremedication,
+    premedEveningText, setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication, openPremedPicker, premedPickOpen,
+    setPremedPickOpen, premedPickPhase, premedPickCat, setPremedPickCat, premedPickDrug, setPremedPickDrug, premedPickDose, setPremedPickDose,
+    premedPickRoute, setPremedPickRoute, addSelectedPremedication,
   } = useIntraopPremedication(patchIntraopSection, tc("errorLabel"))
   // The premedication starts from what the preop visit ordered (1.7.0).
   useIntraopPremedicationPrefill({
@@ -373,84 +311,72 @@ export default function IntraopLiveScreen() {
   const [positions,      setPositions]      = useState<string[]>([])
   const [monitoring,     setMonitoring]     = useState<string[]>([])
   const [techniques,     setTechniques]     = useState<string[]>([])
+  // The side of a block or unilateral spinal, by technique code (10.2.0).
+  const [techniqueSides, setTechniqueSides] = useState<Record<string, TechniqueSide>>({})
   const {
-    timingSaving,
-    fieldSaving,
-    vascularSaving,
-    saveTiming,
-    saveVascularAccesses,
-    savePositions,
-    saveMonitoring,
-    saveTechniques,
+    timingSaving, fieldSaving, fieldSaveError, vascularSaving, saveTiming, saveVascularAccesses, savePositions, saveMonitoring, saveTechniques,
   } = useIntraopSectionSaves({
     patchIntraopSection,
     monitoringOptions: MONITORING_OPTS,
-    monitoring,
-    setMonitoring,
-    setCaseInfo,
-    caseMonthYear,
-    caseStartTime,
-    caseEndTime,
-    caseEndNextDay,
-    caseTimezone,
+    monitoring, setMonitoring, setCaseInfo, caseMonthYear, caseStartTime, caseEndTime, caseEndNextDay, caseTimezone,
     startRef, endedAtRef, setCaseMonthYear,
   })
 
+  // SPS (10.2.0), when any group is on and this screen holds the case.
+  const startedAtIso = startRef.current?.toISOString() ?? null
+  const endedAtIso = endedAtRef.current?.toISOString() ?? null
+  const { chartAirwayEvent, chartVascularEvent, chartLegacyAirwayDevice, removeLegacyAirwayEvents, pendingLegacyAirwayEventsRef } =
+    usePhoneAirwayCharting({ log, save, startRef, syncLog, tc: tc as never })
   const {
-    endCaseOpen,
-    setEndCaseOpen,
-    startAtOpen,
-    setStartAtOpen,
-    startAtInput,
-    setStartAtInput,
-    startAtDay, openStartAt,
-    endCaseDecisions,
-    setEndCaseDecisions,
-    continuedPostopItems,
-    caseEnded,
-    resumeSecsLeft,
-    startCaseNow,
-    startCaseAt,
-    openEndCase,
-    finaliseCase,
-    resumeCase, resumeUnlimited, restoreEndedCase,
-    endCaseRunningItems, afterEndItems, resolveAfterEnd, attention,
-  } = useIntraopCaseLifecycle({
-    startRef,
-    setElapsedMs,
-    setCaseInfo,
-    setCaseStartTime,
-    setCaseEndTime,
-    setCaseEndNextDay,
-    caseTimezone,
-    save,
-    saveTiming,
-    patchIntraopSection,
-    cancelLabel: tc("cancelLabel"),
-    activeAgents,
-    activeGas,
-    activeInfusions,
-    activeFluids,
-    timeline: { caseId: id ?? null, log, logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef },
-    stopAgent,
-    stopGasSettings,
-    stopInfusion,
-    stopFluidDirect,
-    getReadinessInput: () => ({
-      startedAt: startRef.current?.toISOString(),
-      startTime: caseStartTime,
-      techniques,
-      airwayDevices: awDevices,
-      ventilationModes: awVentModes,
-      positions,
-      vascularAccesses,
-      ...Object.fromEntries(monitoring.map(field => [field, true])),
-      timetableData: timetable,
-      keyEvents: log,
-      complications: selectedComplications.length > 0 || complicationsNotes.trim()
-        ? selectedComplications.join(", ") || complicationsNotes
-        : "",
+    awTools, setAwTools, awDevices, setAwDevices, awLmaSize, setAwLmaSize, awOralTubeSize, setAwOralTubeSize, awOralCuffed, setAwOralCuffed,
+    awNasalTubeSize, setAwNasalTubeSize, awNasalCuffed, setAwNasalCuffed, awDltType, setAwDltType, awDltSide, setAwDltSide, awDltSize, setAwDltSize,
+    awEbSize, setAwEbSize, awExpandedDevice, setAwExpandedDevice, awExpandedWasComplete, awClGrade, setAwClGrade, awVentModes, setAwVentModes,
+    awVentExpanded, setAwVentExpanded, awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated, awNotApplicable, setAwNotApplicable,
+    saveAirwaySection,
+  } = useIntraopAirwaySection(caseLoaded, patchIntraopSection, tc("errorLabel"), airwayScreen === "legacy" ? chartLegacyAirwayDevice : undefined, airwayScreen === "legacy" ? removeLegacyAirwayEvents : undefined)
+  useRetryLegacyAirwayEvents({ startRef, isWatching, airwayScreen, awDevices, caseStartTime, chartLegacyAirwayDevice, pendingRef: pendingLegacyAirwayEventsRef })
+  // Keep structured airway entries in the suggestion context as well as the
+  // legacy device list. An exchanged tube must not look like a second active
+  // primary airway to the induction link.
+  const airwayExchange = usePhoneAirwayExchange({
+    log, active: caseLoaded && !isWatching, smart: airwayScreen === "smart",
+    legacy: () => ({ airwayDevices: awDevices, lmaSize: awLmaSize, oralTubeSize: awOralTubeSize, oralCuffed: awOralCuffed, nasalTubeSize: awNasalTubeSize,
+      nasalCuffed: awNasalCuffed, dltType: awDltType, dltSide: awDltSide, dltSize: awDltSize, endobronchialSize: awEbSize }),
+    persist: airwayExchangePersist({
+      setters: { setAwDevices, setAwLmaSize, setAwOralTubeSize, setAwOralCuffed, setAwNasalTubeSize, setAwNasalCuffed, setAwDltType, setAwDltSide, setAwDltSize, setAwEbSize, setAwTools },
+      awTools, save, patchIntraopSection,
     }),
+  })
+  // 10.2.0: Jet ticked among the ventilation modes puts a Jet button in each column's sheet.
+  useEffect(() => { jetSheet.setEnabled(awVentModes.includes("Jet")) }, [awVentModes])
+  const suggestionContext = useSuggestionContext(preop, usePhoneSuggestionFacts({
+    caseIbw, monitoring, labResults, bloodLossMl, startedAtIso, endedAtIso, caseTimezone, techniques, techniqueSides,
+    awDevices, airwayExchange, awPresentsIntubated,
+  }), isWatching)
+  suggestionContextRef.current = suggestionContext
+
+  const {
+    endCaseOpen, setEndCaseOpen, startAtOpen, setStartAtOpen, startAtInput, setStartAtInput,
+    startAtDay, openStartAt,
+    endCaseDecisions, setEndCaseDecisions, continuedPostopItems, caseEnded, resumeSecsLeft, startCaseNow, startCaseAt, openEndCase, finaliseCase,
+    resumeCase, resumeUnlimited, restoreEndedCase,
+    endCaseRunningItems, afterEndItems, resolveAfterEnd, setChosenEndTs, attention,
+  } = useIntraopCaseLifecycle({
+    startRef, setElapsedMs, setCaseInfo, setCaseStartTime, setCaseEndTime, setCaseEndNextDay, caseTimezone, save, saveTiming, patchIntraopSection,
+    cancelLabel: tc("cancelLabel"),
+    activeAgents, activeGas, activeInfusions, activeFluids,
+    timeline: { caseId: id ?? null, log, logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef, vitals: vitalQuestionContext, suggestions: suggestionContext },
+    stopAgent, stopGasSettings, stopInfusion, stopFluidDirect,
+    getReadinessInput: () => intraopReadinessInput({
+      startRef, caseStartTime, techniques, awDevices, awVentModes, positions, vascularAccesses, monitoring, timetable, log, selectedComplications, complicationsNotes,
+    }),
+  })
+
+  // 10.2.0: a death charted here sets the postop destination to Deceased and offers End case.
+  usePhoneDeathPrompt(log, !isWatching && caseLoaded, () => {
+    if (id) void autosaveManager.saveSection(id, "postop", { disposition: "DECEASED" }, { partial: true })
+    void confirmAction(tc("sgEndCase"), tc("sgDeathEndCase"), { confirmLabel: tc("sgEndCase"), cancelLabel: tc("vitalNotNow"), labelledOnWeb: true })
+      .then(yes => { if (yes) openEndCase() })
   })
 
   // Vitals reminder notifications (opt-in; reset on each manual vitals entry)
@@ -469,49 +395,43 @@ export default function IntraopLiveScreen() {
   // Carry vitals forward as the timetable advances, when enabled in Settings.
   useIntraopAutofillVitals(caseLoaded, autoFillVitals, autoFillBP, autoFillBg, log, logRef, startRef, save, { endedAtRef, onEndCase: openEndCase })
 
-  const {
-    awTools,
-    setAwTools,
-    awDevices,
-    setAwDevices,
-    awLmaSize,
-    setAwLmaSize,
-    awOralTubeSize,
-    setAwOralTubeSize,
-    awOralCuffed,
-    setAwOralCuffed,
-    awNasalTubeSize,
-    setAwNasalTubeSize,
-    awNasalCuffed,
-    setAwNasalCuffed,
-    awDltType,
-    setAwDltType,
-    awDltSide,
-    setAwDltSide,
-    awDltSize,
-    setAwDltSize,
-    awEbSize,
-    setAwEbSize,
-    awExpandedDevice,
-    setAwExpandedDevice,
-    awExpandedWasComplete,
-    awClGrade,
-    setAwClGrade,
-    awVentModes,
-    setAwVentModes,
-    awVentExpanded,
-    setAwVentExpanded,
-    awNotes,
-    setAwNotes,
-    awPresentsIntubated,
-    setAwPresentsIntubated,
-    awNotApplicable,
-    setAwNotApplicable,
-    saveAirwaySection,
-  } = useIntraopAirwaySection(caseLoaded, patchIntraopSection, tc("errorLabel"))
+  const onAirwayInterventionSelected = () => {
+    if (awNotApplicable) setAwNotApplicable(() => false)
+  }
+  const clinicalModeTyped = clinicalMode as "ADULT" | "PEDIATRIC"
+  const { saveAirwayEntries, onNoAirwayInterventionSelected, airwaySmart, smartCase, smartClock, airwayLabel } = usePhoneAirwaySmart({
+    airwayScreen, isWatching, airwayExchange, setAwNotApplicable, log, syncLog, removeEvent, chartAirwayEvent, preop, clinicalMode: clinicalModeTyped,
+    techniques, startRef, AIRWAY_DEVICES, AIRWAY_TOOLS, clockOf: attention?.clockOf,
+  })
 
   // Vascular access tab
   const [vascularAccesses, setVascularAccesses] = useState<VascularEntry[]>([])
+  const { vascularLines, applyVascularLines, vascularEvents, vascularCase, vascularSmart } = usePhoneVascularSmart({
+    vascularScreen, isWatching, caseLoaded, log, save, vascularAccesses, setVascularAccesses, saveVascularAccesses, vascularSaving,
+    fieldSaveError, preop, clinicalMode: clinicalModeTyped, startRef, language, techniques, smartClock, chartVascularEvent,
+  })
+  const { monitoringSmart, applyMonitoring, saveMonitoringAsking } = usePhoneMonitoringSmart({
+    monitoringScreen, isWatching, log, save, monitoring, setMonitoring, saveMonitoring, techniques, airwayExchange, vascularLines,
+    startRef, suggestionContext, tc: tc as never, MONITORING_OPTS, fieldSaving, fieldSaveError, onReading: () => openVitals("full"),
+  })
+  const equipmentSmart = usePhoneEquipmentSmart({
+    equipmentScreen, isWatching, monitoring, applyMonitoring, airwayExchange, equipmentPrepared, setEquipmentPrepared,
+    patchIntraopSection, smartCase, saveAirwayEntries,
+  })
+  const techniqueSmart = usePhoneTechniqueSmart({
+    techniqueScreen, isWatching, caseLoaded, log, techniques, setTechniques, techniqueSides, setTechniqueSides, saveTechniques,
+    TECHNIQUE_TREE, techniqueLabel, plannedTechniques: preop?.plannedTechniques, fieldSaving, fieldSaveError,
+  })
+
+  // The events likely to come next (10.2.0), in the event selector: only ones not charted yet. What is likely is Core's (event-succession).
+  const likelyEvents = useLikelyEvents({
+    log,
+    structured: { airway: airwayExchange.entries(), vascular: vascularLines() },
+    techniques,
+    child: clinicalMode === "PEDIATRIC",
+    enabled: caseLoaded && !isWatching && eventsScreen === "smart",
+    save,
+  })
 
   // Technique tree navigation
   const [techPath,      setTechPath]      = useState<string[]>([])
@@ -520,7 +440,7 @@ export default function IntraopLiveScreen() {
   const {
     vitOpen, setVitOpen, vitMode, vitScanBusy, editingVitalId, setEditingVitalId,
     vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp,
-    vBis, setVBis, vTof, setVTof, vCvp, setVCvp,
+    vBis, setVBis, vTof, setVTof, vCvp, setVCvp, vIbp, setIbp,
     vitalFeedback, openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
   } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, projectTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit, cvpUnit)
 
@@ -529,85 +449,33 @@ export default function IntraopLiveScreen() {
     monitoringOptions: MONITORING_OPTS,
     complicationItems: COMPLICATION_ITEMS,
     errorLabel: tc("errorLabel"),
-    enqueueEventSave,
-    runBatched,
-    pendingSaveCountRef,
-    legacyWebLogNeedsSyncRef,
-    baseIntraopUpdatedAtRef,
-    startRef,
-    setCaseInfo,
-    setTechniques,
-    setPositions,
-    setMonitoring,
-    setPreop,
-    setCaseMonthYear,
-    setCaseStartTime,
-    setCaseEndTime,
-    setCaseEndNextDay,
-    setCaseTimezone,
-    setAwTools,
+    enqueueEventSave, runBatched, pendingSaveCountRef, legacyWebLogNeedsSyncRef, baseIntraopUpdatedAtRef, startRef, setCaseInfo, setTechniques,
+    setPositions, setMonitoring, setPreop, setCaseMonthYear, setCaseStartTime, setCaseEndTime, setCaseEndNextDay, setCaseTimezone, setAwTools,
     setAwDevices,
-    setAwLmaSize,
-    setAwOralTubeSize,
-    setAwOralCuffed,
-    setAwNasalTubeSize,
-    setAwNasalCuffed,
-    setAwDltType,
-    setAwDltSide,
-    setAwDltSize,
-    setAwEbSize,
-    setAwClGrade,
-    setAwVentModes,
-    setAwVentExpanded,
-    setAwNotes,
-    setAwPresentsIntubated,
-    setAwNotApplicable,
-    setAdvMonOpen,
-    setVascularAccesses,
-    setPremedEveningText,
-    setPremedMorningText,
-    setSelectedComplications,
-    setComplicationsNotes,
-    hydrateFluidStatus,
-    hydrateLabs,
-    setPendingCount,
-    setSyncState,
-    setSyncErrorMessage,
-    setLog,
-    setElapsedMs,
-    applyActiveState,
-    endedAtRef,
-    setTimetable,
-    setTtColCount,
-    setCaseLoaded,
+    onIntraopRecord: record => {
+      airwayExchange.hydrate(record)
+      setTechniqueSides(parseTechniqueSides(record.techniqueSides))
+      const prepared = record.equipmentPrepared
+      setEquipmentPrepared(prepared && typeof prepared === "object" && !Array.isArray(prepared) ? Object.fromEntries(Object.entries(prepared).filter(([, value]) => typeof value === "boolean")) : {})
+    },
+    setAwLmaSize, setAwOralTubeSize, setAwOralCuffed, setAwNasalTubeSize, setAwNasalCuffed, setAwDltType, setAwDltSide, setAwDltSize, setAwEbSize,
+    setAwClGrade, setAwVentModes, setAwVentExpanded, setAwNotes, setAwPresentsIntubated, setAwNotApplicable, setAdvMonOpen, setVascularAccesses,
+    setPremedEveningText, setPremedMorningText, setSelectedComplications, setComplicationsNotes, hydrateFluidStatus, hydrateLabs, setPendingCount,
+    setSyncState, setSyncErrorMessage, setLog, setElapsedMs, applyActiveState, endedAtRef, setTimetable, setTtColCount, setCaseLoaded,
   })
   useIntraopRuntimeEffects({
     log,
     logRef,
     startRef, endedAtRef,
-    setElapsedMs,
-    setTimetable,
-    projectTimetable,
-    resyncActiveRef,
+    setElapsedMs, setTimetable, projectTimetable, resyncActiveRef,
   })
   // ── Computed ──────────────────────────────────────────────────────────
 
   const {
-    lastVitals,
-    timeStr,
-    prevVitalFor,
-    isGACase,
-    vitalVisibility,
+    lastVitals, timeStr, prevVitalFor, isGACase, vitalVisibility,
   } = useIntraopClinicalViewState(log, techniques, caseInfo, monitoring)
   const {
-    chartStart,
-    currentCol,
-    nowSlotPercent,
-    eventRows,
-    chartRows,
-    jumpVerticalTimetableToNow,
-    tabSwipeResponder,
-    tabMotion,
+    chartStart, currentCol, nowSlotPercent, eventRows, chartRows, jumpVerticalTimetableToNow, tabSwipeResponder, tabMotion,
   } = useIntraopTimetableViewport({
     log,
     timetable,
@@ -615,24 +483,11 @@ export default function IntraopLiveScreen() {
     verticalTimetableRef,
     tab,
     setTab: selectTab,
-    expandedRow,
-    tabLayouts,
-    tabRailRef,
-    screenWidth,
+    expandedRow, tabLayouts, tabRailRef, screenWidth,
   })
 
   const {
-    editOpen,
-    setEditOpen,
-    editEv,
-    editDose,
-    setEditDose,
-    editTime,
-    setEditTime,
-    eventActions,
-    confirmEdit,
-    promptDelete,
-    openRowQuickAdd,
+    editOpen, setEditOpen, editEv, editDose, setEditDose, editTime, setEditTime, eventActions, confirmEdit, promptDelete, openRowQuickAdd,
     openSlotEvent,
   } = useIntraopEventActions({
     log,
@@ -641,18 +496,7 @@ export default function IntraopLiveScreen() {
     removeEvent: deleteEvent, // a clinician's delete offers Undo (9.14.2)
     eventLabel,
     cancelLabel: tc("cancelLabel"),
-    chartStart,
-    openVitals,
-    openDrug,
-    openInfusion,
-    openFluid,
-    openAgent,
-    openGasSettings,
-    openLabs,
-    setSlotTs,
-    slotTs,
-    setSlotOpen,
-    addComplicationFromEvent,
+    chartStart, openVitals, openDrug, openInfusion, openFluid, openAgent, openGasSettings, openLabs, setSlotTs, slotTs, setSlotOpen,
   })
   const handleChartTimetableChange = (newData: TimetableData) => applyIntraopChartChange({ start: startRef.current, timetable, next: newData, onFluidStart: fluid => setActiveFluids(prev => [...prev, fluid]), save, onChange: setTimetable })
   // ─────────────────────────────── RENDER ───────────────────────────────
@@ -699,25 +543,27 @@ export default function IntraopLiveScreen() {
           saveTechniques, techniqueLabel, otherTechText, setOtherTechText, caseMonthYear,
           setCaseMonthYear, caseStartTime, setCaseStartTime, caseEndTime, setCaseEndTime,
           caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming, endedAtRef, caseTimezone, positions, setPositions,
-          savePositions, fieldSaving, POSITIONS_LIST, monitoring, setMonitoring, saveMonitoring,
+          savePositions, fieldSaving, POSITIONS_LIST, monitoring, setMonitoring, saveMonitoring: saveMonitoringAsking,
           MONITORING_OPTS, advMonOpen, setAdvMonOpen, awTools, setAwTools, awClGrade,
           setAwClGrade, awDevices, setAwDevices, awLmaSize, setAwLmaSize, awOralTubeSize,
           setAwOralTubeSize, awOralCuffed, setAwOralCuffed, awNasalTubeSize, setAwNasalTubeSize,
           awNasalCuffed, setAwNasalCuffed, awDltType, setAwDltType, awDltSide, setAwDltSide,
           awDltSize, setAwDltSize, awEbSize, setAwEbSize, awVentModes, setAwVentModes,
           awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated,
-          awNotApplicable, setAwNotApplicable, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
-          awExpandedWasComplete, AIRWAY_TOOLS, AIRWAY_DEVICES, awVentExpanded, setAwVentExpanded,
-          vascularAccesses, setVascularAccesses, saveVascularAccesses, vascularSaving,
+          awNotApplicable, setAwNotApplicable, onAirwayInterventionSelected, onNoAirwayInterventionSelected, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
+          awExpandedWasComplete, AIRWAY_TOOLS, AIRWAY_DEVICES, airwaySmart, awVentExpanded, setAwVentExpanded,
+          vascularAccesses, setVascularAccesses, saveVascularAccesses, vascularSaving, vascularSmart, monitoringSmart, equipmentSmart, techniqueSmart,
           vascSiteColor, VASC_TREE, vascDefaultUnit, VASC_PREEXISTING_QUICK, premedEveningText,
           setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication,
           openPremedPicker, log, selectedComplications, complicationsNotes, setComplicationsNotes,
-          saveComplications, setCompOpen, eventActions, promptDelete, prevVitalFor, ttColCount,
+          saveComplications, removeLegacyComplication, eventActions, promptDelete, prevVitalFor, ttColCount,
           caseIbw, caseTbw, caseBsa, infusionWeightBasis: INFUSION_WEIGHT_BASIS,
           urineMl, setUrineMl, bloodLossMl, setBloodLossMl,
+          fluidsScreen,
+          eventLogScreen,
           chartPage, caseEnded, resumeSecsLeft, resumeCase, setChartPage, setTtColCount,
           handleChartTimetableChange, setEntryTs, slotOpen, slotTs, timeStr, slotEventSearch,
-          slotCompExpanded, CLINICAL_EVENT_CATS, COMPLICATION_GROUPS, COMPLICATION_ITEMS, isGACase, setSlotOpen,
+          slotCompExpanded, likelyEvents: likelyEvents.likely, eventsScreen, onDismissLikely: likelyEvents.dismiss, CLINICAL_EVENT_CATS, isGACase, setSlotOpen,
           setSlotEventSearch, setSlotCompExpanded, openSlotEvent, openDrug, openAgent,
           stopGasSettings, gasOpen, gasFgf, setGasOpen, setGasFgf, gasCarrierGas,
           setGasCarrierGas, gasFio2, setGasFio2, confirmGasSettings, drugOpen, setDrugOpen,
@@ -730,7 +576,7 @@ export default function IntraopLiveScreen() {
           DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, vitOpen, vitMode, editingVitalId, vitScanBusy,
           vitalVisibility, etco2Unit, temperatureUnit, cvpUnit, vSysRef, vDiaRef, vHRRef, vSpO2Ref,
           vEtco2Ref, vTempRef, vBisRef, vTofRef, vCvpRef,
-          vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp, vitalFeedback,
+          vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp, vIbp, setIbp, vitalFeedback,
           setVBis, setVTof, setVCvp, confirmVitals,
           setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance, setVSys, setVDia,
           setVHR, setVSpO2, setVEtco2, setVTemp, infOpen, setInfOpen,
@@ -752,10 +598,9 @@ export default function IntraopLiveScreen() {
           changeFluidRate, confirmFluidEnd, agOpen,
           setAgOpen, setAgPick, setAgPercent, VOLATILE_AGENTS, agPick, confirmAgent,
           AGENT_QUICK_PERCENTS, agPercent, editOpen, editEv, editDose, editTime, setEditOpen,
-          setEditDose, setEditTime, confirmEdit, compOpen, COMPLICATION_TC_TITLES,
-          compGroupExpanded, compSaving, toggleComplicationGroup, toggleComplication,
-          setSelectedComplications, startAtOpen, startAtInput, setStartAtOpen, setStartAtInput,
-          startAtDay, startCaseAt, endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, endCaseDecisions,
+          setEditDose, setEditTime, confirmEdit,
+          startAtOpen, startAtInput, setStartAtOpen, setStartAtInput,
+          startAtDay, startCaseAt, endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, setChosenEndTs, endCaseDecisions,
           setEndCaseDecisions, finaliseCase, premedPickOpen, premedPickPhase, PREMED_LIBRARY,
           premedPickCat, premedPickDrug, premedPickDose, premedPickRoute, setPremedPickOpen,
           setPremedPickCat, setPremedPickDrug, setPremedPickDose, setPremedPickRoute,
@@ -767,6 +612,14 @@ export default function IntraopLiveScreen() {
           sheet needs only the draw list and the case id, and passing it through
           that props object would add six more names to a list that is already
           the reason this screen is hard to read. */}
+      <DefibrillationHost log={log} save={saveTagged} preop={preop} />
+      {!isWatching ? <JetHost log={log} save={save} clockOf={attention?.clockOf ?? (iso => iso.slice(11, 16))} /> : null}
+      {!isWatching ? <TourniquetHost log={log} save={save} sex={preop?.sex} clockOf={attention?.clockOf ?? (iso => iso.slice(11, 16))}
+        ageDays={preopAgeDays(preop ? { ageValue: preop.ageValue, ageUnit: preop.ageUnit, ageYears: preop.age, ageApproxDays: preop.ageApproxDays } : null)} /> : null}
+      <IntraopSmartSheets {...{ isWatching, vascularEvents, vascularCase, vascularLines, applyVascularLines, airwayExchange, smartCase, airwayLabel, saveAirwayEntries, AIRWAY_DEVICES }} tc={tc as never} />
+      <PhoneSuggestionSheetsHost {...{ attention, isWatching, pendingSuggestion, openLabs, openGasSettings, openAgent, eventLabel, setInfActTgt, setInfActRate, setInfActOpen, save, airwayExchange, vascularAccesses, setVascularAccesses, saveVascularAccesses }}
+        active={{ activeGas, activeAgents, activeInfusions }}
+        sheetArgs={{ setEntryTs, drugCats: DRUG_CATS, openDrugPreset, infusions: INF_DRUGS, setInfDrug, setInfRate, setInfOpen, fluids: FLUID_LIST, log, openFluid, setFlFluid, setFlVol, setFlEntryMode, setFlRate }} />
       {labsTs ? (
         <LabsSheet
           visible={labsOpen}

@@ -18,6 +18,6 @@ export const MONITORING = [
   { field: "nirsMonitor", label: "Cerebral oximetry (NIRS / rSO₂)", labelBg: "Мозъчна оксиметрия (NIRS / rSO₂)", cat: "depth" },
   { field: "evokedPotentials", label: "Somatosensory / motor evoked potentials (SSEP / MEP)", labelBg: "Соматосензорни / моторни евокирани потенциали (SSEP / MEP)", cat: "depth" },
   { field: "tofMonitor", label: "Neuromuscular monitoring (TOF / NMT)", labelBg: "Невромускулен мониторинг (TOF / NMT)", cat: "depth" },
-  { field: "urinaryCatheter", label: "Urine output", labelBg: "Диуреза", cat: "other" },
+  { field: "urinaryCatheter", label: "Urinary catheter", labelBg: "Уринарен катетър", cat: "other" },
   { field: "stomachTube", label: "Nasogastric tube (NGT)", labelBg: "Назогастрална сонда (НГС)", cat: "other" },
 ]

@@ -63,6 +63,14 @@ describe("fluid selector defaults", () => {
     expect(defaults.rate).toBe("")
   })
 
+  it("suggests a rate authored per kilogram on actual weight (lipid emulsion 15 mL/kg/h, 10.2.0)", () => {
+    const profile = { kind: "fluid", fluidRate: { min: 1, max: 200, step: 1, allowManualOutsideRange: true, suggestedMlPerKgPerHour: 15 } } as unknown as Parameters<typeof resolveFluidSelectorDefaults>[0]["profile"]
+    const defaults = resolveFluidSelectorDefaults({ clinicalMode: "ADULT", name: "Lipid emulsion 20%", category: "Other", profile, totalBodyWeightKg: 70 })
+    expect(defaults.rate).toBe("1050")
+    expect(defaults.rateHint).toBe("15 mL/kg/h · TBW 70 kg")
+    expect(resolveFluidSelectorDefaults({ clinicalMode: "ADULT", name: "Lipid emulsion 20%", category: "Other", profile }).rate).toBe("")
+  })
+
   it("defaults pediatric maintenance fluid to a rounded 4/2/1 rate", () => {
     const defaults = resolveFluidSelectorDefaults({
       clinicalMode: "PEDIATRIC",

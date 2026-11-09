@@ -1,4 +1,5 @@
-import { displayNamedOption } from "@lospor/core/clinical-display"
+import { complicationDisplayLabel, displayNamedOption } from "@lospor/core/clinical-display"
+import { ALL_COMPLICATIONS, canonicalComplicationLabel } from "@lospor/core/complications"
 import type { LibraryOption } from "@lospor/core/option-library"
 
 /**
@@ -15,6 +16,9 @@ export function clinicalEventName(
   locale: string,
   writtenByApp: Readonly<Record<string, string>>,
 ): string {
+  // A complication by the complications catalogue's name, as its list and the
+  // event log name it (10.1.0) -- whole, since its name may end in "(...)".
+  if (ALL_COMPLICATIONS.includes(canonicalComplicationLabel(label))) return complicationDisplayLabel(label, locale)
   const open = label.indexOf(" (")
   const base = open >= 0 ? label.slice(0, open) : label
   const detail = open >= 0 ? label.slice(open) : ""

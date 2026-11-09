@@ -29,8 +29,14 @@ export const VITAL_ROW_DEFS: {
    */
   toPlotValue?: (v: number) => number
 }[] = [
-  { key:"systolic",  label:"BP Sys",  unit:"mmHg",  color:"#ef4444", min:0,  max:300, step:1,   defaultVal:120, monitors:["nbpMonitor","invasiveBP"] },
-  { key:"diastolic", label:"BP Dia",  unit:"mmHg",  color:"#ef4444", min:0,  max:200, step:1,   defaultVal:80,  monitors:["nbpMonitor","invasiveBP"] },
+  { key:"systolic",  label:"NIBP Sys",  unit:"mmHg",  color:"#ef4444", min:0,  max:300, step:1,   defaultVal:120, monitors:["nbpMonitor","invasiveBP"] },
+  { key:"diastolic", label:"NIBP Dia",  unit:"mmHg",  color:"#ef4444", min:0,  max:200, step:1,   defaultVal:80,  monitors:["nbpMonitor","invasiveBP"] },
+  // The cuff keeps showing when only the arterial line is ticked, so a case charted before the arterial
+  // line had its own lanes does not lose its readings.
+  { key:"nibpMap",   label:"NIBP MAP", unit:"mmHg", color:"#f87171", min:0,  max:250, step:1,   defaultVal:90,  monitors:["nbpMonitor"]             },
+  { key:"ibpSystolic",  label:"IBP Sys", unit:"mmHg", color:"#f97316", min:0, max:300, step:1, defaultVal:120, monitors:["invasiveBP"] },
+  { key:"ibpDiastolic", label:"IBP Dia", unit:"mmHg", color:"#fb923c", min:0, max:200, step:1, defaultVal:80,  monitors:["invasiveBP"] },
+  { key:"ibpMap",       label:"IBP MAP", unit:"mmHg", color:"#fdba74", min:0, max:250, step:1, defaultVal:90,  monitors:["invasiveBP"] },
   { key:"heartRate", label:"HR",      unit:"bpm",   color:"#22c55e", min:0,  max:300, step:1,   defaultVal:70,  monitors:["ecg","spO2Monitor"]       },
   { key:"spO2",      label:"SpO₂",   unit:"%",     color:"#06b6d4", min:0,  max:100, step:1,   defaultVal:98,  monitors:["spO2Monitor"]             },
   { key:"etco2",     label:"EtCO₂",  unit:"mmHg",  color:"#f59e0b", min:0,  max:80,  step:1,   defaultVal:35,  monitors:["etco2Monitor"]            },

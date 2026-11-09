@@ -27,6 +27,14 @@ textarea:focus,
   box-shadow: 0 0 0 2px #3b82f660;
 }
 
+/* React Native Web renders Switch as an input[type=checkbox][role=switch].
+   Remove the mouse/tap focus rectangle from the internal control, while
+   retaining the keyboard-visible focus cue for keyboard users. */
+input[type="checkbox"][role="switch"]:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Prevent text selection cursor showing up on tap in clinical UI */
 * {
   -webkit-tap-highlight-color: transparent;

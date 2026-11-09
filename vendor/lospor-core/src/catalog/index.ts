@@ -45,6 +45,7 @@ export * from "./intraop-drugs"
 export * from "./intraop-events"
 export * from "./intraop-fluids"
 export * from "./release-1-2-0"
+export * from "./release-9-15-0"
 export * from "./regional-adjuvants"
 export * from "./drug-groups"
 export * from "./intraop-infusions"
@@ -224,7 +225,7 @@ function buildCatalog(): CatalogOption[] {
     },
   )))
 
-  FLUID_CATALOG.forEach((entry, index) => rows.push(row(
+  FLUID_CATALOG.filter(entry => !entry.retired).forEach((entry, index) => rows.push(row(
     "INTRAOP_FLUID",
     slugOptionValue(entry.name),
     entry.name,

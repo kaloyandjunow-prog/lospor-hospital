@@ -40,7 +40,7 @@ export function resolveRowStamp(
  * timeline rules refuse the entry.
  */
 export type SaveIntraopEvent = (
-  partial: Omit<LogEvent, "id" | "ts">,
+  partial: Omit<LogEvent, "id" | "ts"> & { id?: LogEvent["id"] },
   tsOverride?: string | RowStamp,
   silent?: boolean,
 ) => Promise<LogEvent | null>

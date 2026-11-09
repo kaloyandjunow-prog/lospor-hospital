@@ -59,5 +59,29 @@ export function useHospitalPatientReference() {
     }
   }, [reference, t])
 
-  return { reference, acceptResponse, relink }
+  // The ЕГН of a saved case: it only fills a gap, so the server refuses to
+  // replace one already recorded (that is an administrator's correction).
+  const addEgn = useCallback(async (caseId: string | null, nationalId: string) => {
+    if (!caseId || !reference) return { ok: false as const, error: t("updateFailed") }
+    try {
+      const response = await fetch(`/api/cases/${caseId}/patient-link/person`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nationalId }),
+      })
+      const body = await response.json().catch(() => ({})) as { code?: string; personMaskedIdentifier?: unknown }
+      if (!response.ok) {
+        const key = body.code === "INVALID_EGN" ? "egnInvalid" : response.status === 409 ? "egnTaken" : "updateFailed"
+        return { ok: false as const, error: t(key) }
+      }
+      const masked = typeof body.personMaskedIdentifier === "string" && body.personMaskedIdentifier.includes("*") ? body.personMaskedIdentifier : null
+      setReference(current => current ? { ...current, personMaskedIdentifier: masked } : current)
+      toast.success(t("egnAdded"))
+      return { ok: true as const }
+    } catch {
+      return { ok: false as const, error: t("updateFailed") }
+    }
+  }, [reference, t])
+
+  return { reference, acceptResponse, relink, addEgn }
 }

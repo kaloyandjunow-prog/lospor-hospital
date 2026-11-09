@@ -36,7 +36,8 @@ describe("the web chart's event journal", () => {
     await act(async () => {
       await result.current.applyEventOps({ add: [ev("c")], update: [ev("b", { dose: "50" })], remove: ["a"] } as never)
     })
-    expect(calls.staged).toEqual(["event.delete:a", "event.upsert:b", "append:c"])
+    expect(calls.staged).toHaveLength(1)
+    expect(calls.staged[0]).toMatch(/^event\.batch:web-batch-/)
     expect(result.current.eventLog.map(event => event.id)).toEqual(["b", "c"])
   })
 

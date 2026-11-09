@@ -13,6 +13,8 @@ import {
   stripIntraopLogSyncStatuses,
 } from "@/lib/pending-intraop-events"
 import { uid, type LogEvent } from "@/lib/intraop-log-event"
+import { applyIntraopEventOps } from "@lospor/core/intraop-timetable-edit"
+import { arrestEndRespace } from "@lospor/core/intraop-suggestions"
 import { removalOf, restoreRemoved } from "@/lib/intraop-removal-undo"
 import { planEventMutations } from "@/lib/intraop-event-mutations"
 import { notify } from "@/lib/notify"
@@ -151,7 +153,7 @@ export function useIntraopEventPersistence({
 
   // Returns null when the timeline rules refuse the entry; nothing is saved.
   async function save(
-    partial: Omit<LogEvent, "id" | "ts">,
+    partial: Omit<LogEvent, "id" | "ts"> & { id?: LogEvent["id"] },
     tsOverride?: string | RowStamp,
     silent = false,
   ): Promise<LogEvent | null> {
@@ -162,7 +164,7 @@ export function useIntraopEventPersistence({
       ? tsOverride
       : resolveRowStamp(tsOverride ? tsOverride.rowTs : entryTs, chartStart)
     const event: LogEvent = {
-      id: uid(),
+      id: partial.id ?? uid(),
       ts,
       // When it was entered, beside when it happened: a stop dated ahead of
       // its entry is asked about when its time comes (9.13.0).
@@ -174,7 +176,15 @@ export function useIntraopEventPersistence({
       setEntryTs(null)
       return null
     }
-    const next = [event, ...logRef.current]
+    // An existing logical event can receive its structured airway/vascular
+    // patch after the clinician finishes the inline panel. Keep one optimistic
+    // row locally; the server stores the same id as a new version and the
+    // active projection likewise exposes one row.
+    const next = logRef.current.some(item => item.id === event.id)
+      ? logRef.current.map(item => item.id === event.id ? event : item)
+      : [event, ...logRef.current]
+    // ROSC or Death logged from anywhere spreads the doses tapped during that arrest (10.2.0).
+    const respace = arrestEndRespace(logRef.current as never, next as never)
     logRef.current = next
     setLog(next)
     setSyncState("saving")
@@ -207,6 +217,7 @@ export function useIntraopEventPersistence({
       }
     }
     setEntryTs(null)
+    if (respace.update.length) await syncLog(applyIntraopEventOps(logRef.current as never, respace) as LogEvent[])
     return event
   }
 
@@ -217,6 +228,9 @@ export function useIntraopEventPersistence({
     // step can edit right after a save, before the screen re-renders, and a
     // diff against the rendered log re-sent the entry just saved.
     const previousLog = logRef.current
+    // ROSC or Death added or moved in an edit spreads the doses tapped during that arrest (10.2.0).
+    const respace = arrestEndRespace(previousLog as never, edited as never)
+    if (respace.update.length) edited = applyIntraopEventOps(edited as never, respace) as LogEvent[]
     if (refused(previousLog, edited)) return false
     // Re-timed events get a new entry time; a moved stop is a new guess.
     const newLog = stampEnteredEvents(previousLog, edited, serverNow())
@@ -228,7 +242,26 @@ export function useIntraopEventPersistence({
     setSyncState("saving")
 
     try {
-      for (const mutation of planEventMutations(previousLog, newLog)) {
+      const mutations = planEventMutations(previousLog, newLog)
+      if (mutations.length > 1) {
+        await autosaveManager.stageEventMutation({
+          operationId: uid(),
+          caseId,
+          kind: "event.batch",
+          eventId: `mobile-batch-${uid()}`,
+          ops: {
+            add: mutations
+              .filter((mutation): mutation is Extract<typeof mutation, { kind: "event.upsert" }> => mutation.kind === "event.upsert")
+              .map(mutation => mutation.event),
+            update: [],
+            remove: mutations
+              .filter((mutation): mutation is Extract<typeof mutation, { kind: "event.delete" }> => mutation.kind === "event.delete")
+              .map(mutation => mutation.eventId),
+          },
+          baseRevision: autosaveManager.getRevision(caseId, "intraop"),
+          queuedAt: serverNow().toISOString(),
+        })
+      } else for (const mutation of mutations) {
         await autosaveManager.stageEventMutation({
           operationId: uid(),
           caseId,

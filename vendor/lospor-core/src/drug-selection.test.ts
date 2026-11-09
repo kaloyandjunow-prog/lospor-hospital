@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { parseDoseProfile } from "./catalog"
+import type { LocalAnaestheticFormulation } from "./catalog/dose-profile"
 import {
   canonicalConcentrationSelection,
   resolveDrugSelectionSurface,
+  caseFormulationPreference,
+  withCaseFormulation,
 } from "./drug-selection"
 
 const profile = parseDoseProfile("Bupivacaine", "bolus", {
@@ -205,5 +208,25 @@ describe("quick values are kept plausible for the patient in front of you", () =
     })
     expect(surface.dose).toBe("")
     expect(surface.quickValues).toEqual([5, 10, 20, 50, 100, 200, 400])
+  })
+})
+
+describe("case baricity (unilateral spinal)", () => {
+  const surface = { route: "INTRATHECAL", formulationOptions: ["ISOBARIC", "HYPERBARIC"] as LocalAnaestheticFormulation[], formulation: "ISOBARIC" as LocalAnaestheticFormulation }
+
+  it("pre-sets hyperbaric for an intrathecal dose in a unilateral spinal", () => {
+    expect(caseFormulationPreference("INTRATHECAL", ["SPINAL_UNILATERAL"])).toBe("HYPERBARIC")
+    expect(withCaseFormulation(surface, ["GA_ETT", "SPINAL_UNILATERAL"]).formulation).toBe("HYPERBARIC")
+  })
+
+  it("leaves every other case and route alone", () => {
+    expect(caseFormulationPreference("INTRATHECAL", ["SPINAL_SINGLE"])).toBeUndefined()
+    expect(caseFormulationPreference("EPIDURAL", ["SPINAL_UNILATERAL"])).toBeUndefined()
+    expect(withCaseFormulation({ ...surface, route: "IV" }, ["SPINAL_UNILATERAL"])).toEqual({ ...surface, route: "IV" })
+  })
+
+  it("does nothing when the drug has no hyperbaric form", () => {
+    const iso = { ...surface, formulationOptions: ["ISOBARIC"] as LocalAnaestheticFormulation[] }
+    expect(withCaseFormulation(iso, ["SPINAL_UNILATERAL"]).formulation).toBe("ISOBARIC")
   })
 })

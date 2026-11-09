@@ -18,7 +18,7 @@ const emptyInput = (): VitalEntryInput => ({
   temp: "",
   bis: "",
   tofRatio: "",
-  cvp: "",
+  cvp: "", ibpSystolic: "", ibpDiastolic: "", ibpMap: "", nibpMap: "",
 })
 
 const identityConversions = { etco2: Number, temp: Number, cvp: Number }
@@ -61,5 +61,13 @@ describe("intraoperative vital entry", () => {
     expect(edited.event).toMatchObject({ id: original.id, ts: original.ts, bis: 60 })
     expect(edited.log.map(event => event.id)).toEqual([other.id, original.id])
     expect(edited.log.filter(event => event.id === original.id)).toHaveLength(1)
+  })
+})
+
+describe("arterial line fields in a vital entry (10.2.0)", () => {
+  it("builds the four pressures beside the cuff pair and leaves empty ones out", () => {
+    const entry = buildVitalEntry({ ...emptyInput(), systolic: "118", diastolic: "72", ibpSystolic: "124", ibpDiastolic: "68", ibpMap: "86", nibpMap: "" }, identityConversions)
+    expect(entry).toMatchObject({ systolic: 118, diastolic: 72, ibpSystolic: 124, ibpDiastolic: 68, ibpMap: 86 })
+    expect(entry.nibpMap).toBeUndefined()
   })
 })

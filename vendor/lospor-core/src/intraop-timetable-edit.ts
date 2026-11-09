@@ -1,9 +1,11 @@
+import { canonicalComplicationLabel } from "./complications"
 import { intraopStampForColumn } from "./intraop-commands"
 import { INTRAOP_COLUMN_MS } from "./intraop-engine"
 import type {
   AgentSegment,
   ClinicalEvent,
   GasSettingsSegment,
+  JetSegment,
   LogEvent,
   PhaseSegment,
   PositionSegment,
@@ -57,10 +59,10 @@ export type TimetableEditContext = {
 const DRUG_FIELDS = [
   "drugId", "atcCode", "inn", "allergyAck", "concentration", "concentrationValue", "concentrationUnit", "formulation",
   "calculationBasis", "calculationWeightKg", "calculationMethod", "clinicalRuleKey", "clinicalRuleVersion",
-  "clinicalRuleSourceIds", "clinicalPresetId", "clinicalPresetVersion", "clinicalPresetScope",
+  "clinicalRuleSourceIds", "clinicalPresetId", "clinicalPresetVersion", "clinicalPresetScope", "suggestion",
 ] as const
 
-const VITAL_KEYS = ["systolic", "diastolic", "heartRate", "spO2", "etco2", "temp", "bis", "tofRatio", "cvp"] as const
+const VITAL_KEYS = ["systolic", "diastolic", "heartRate", "spO2", "etco2", "temp", "bis", "tofRatio", "cvp", "ibpSystolic", "ibpDiastolic", "ibpMap", "nibpMap"] as const
 
 function defined<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T
@@ -97,6 +99,7 @@ export function timetableEditToEventOps(context: TimetableEditContext): IntraopE
   fluids(context, { stamp, update, add, remove })
   agents(context, { stamp, update, add, remove })
   gas(context, { stamp, update, add, remove })
+  jet(context, { stamp, update, add, remove })
   markers(context, { stamp, update, add, remove }, "positions")
   markers(context, { stamp, update, add, remove }, "phases")
 
@@ -199,13 +202,26 @@ function clinicalEvents(context: TimetableEditContext, w: Writers) {
   for (const item of gone) w.remove(item.eventId)
   for (const { before, after } of pairs) {
     if (!before) {
-      w.add({ type: "clinical_event", ts: w.stamp(after.colIdx, after.eventId), label: after.label, color: after.color })
+      // A complication or a shock drawn on the chart is saved as what it is (10.1.0).
+      w.add({
+        type: after.kind ?? "clinical_event",
+        ts: w.stamp(after.colIdx, after.eventId),
+        label: after.kind === "complication" ? canonicalComplicationLabel(after.label) : after.label,
+        color: after.color,
+        ...(after.kind === "complication" ? { complicationSource: "timeline" as const } : {}),
+        ...(after.kind === "defibrillation" && after.energyJ != null ? { energyJ: after.energyJ } : {}),
+        ...(after.kind === "defibrillation" && after.synchronized != null ? { synchronized: after.synchronized } : {}),
+        ...(after.suggestion ? { suggestion: after.suggestion } : {}),
+        ...(after.site ? { site: after.site } : {}),
+      })
       continue
     }
     if (sameJson(before, after)) continue
     w.update(after.eventId, {
       label: after.label,
       color: after.color,
+      ...(before.suggestion !== after.suggestion ? { suggestion: after.suggestion } : {}),
+      ...(before.site !== after.site ? { site: after.site } : {}),
       ...(before.colIdx !== after.colIdx ? { ts: w.stamp(after.colIdx) } : {}),
     })
   }
@@ -266,7 +282,7 @@ function infusionStart(item: TimetableInfusion): Partial<LogEvent> {
     concentration: item.concentration, formulation: item.formulation, drugRoute: item.route,
     drugId: item.drugId, atcCode: item.atcCode, inn: item.inn, allergyAck: item.allergyAck, calculationBasis: item.calculationBasis,
     calculationWeightKg: item.calculationWeightKg, volumeRateMlPerHour: item.volumeRateMlPerHour,
-    tciModel: item.tciModel, tciSite: item.tciSite, tciOpioids: item.tciOpioids,
+    tciModel: item.tciModel, tciSite: item.tciSite, tciOpioids: item.tciOpioids, suggestion: item.suggestion,
     clinicalRuleKey: item.clinicalRuleKey, clinicalRuleVersion: item.clinicalRuleVersion,
     clinicalRuleSourceIds: item.clinicalRuleSourceIds, clinicalPresetId: item.clinicalPresetId,
     clinicalPresetVersion: item.clinicalPresetVersion, clinicalPresetScope: item.clinicalPresetScope,
@@ -308,7 +324,7 @@ function fluidStart(item: TimetableFluid): Partial<LogEvent> {
   return {
     fluidId: item.id, name: item.name, category: item.category, color: item.color, volume: item.bagVolumeMl != null ? String(item.bagVolumeMl) : item.volume,
     fluidEntryMode: item.fluidEntryMode, bagVolumeMl: item.bagVolumeMl,
-    rate: item.rate == null ? undefined : String(item.rate), unit: item.unit, concentration: item.concentration,
+    rate: item.rate == null ? undefined : String(item.rate), unit: item.unit, concentration: item.concentration, suggestion: item.suggestion,
     clinicalRuleKey: item.clinicalRuleKey, clinicalRuleVersion: item.clinicalRuleVersion,
     clinicalRuleSourceIds: item.clinicalRuleSourceIds, clinicalPresetId: item.clinicalPresetId,
     clinicalPresetVersion: item.clinicalPresetVersion, clinicalPresetScope: item.clinicalPresetScope,
@@ -380,8 +396,8 @@ function gas(context: TimetableEditContext, w: Writers) {
   const { pairs, gone } = matchByRef<GasSettingsSegment>(context.before.gasSettings ?? [], context.after.gasSettings ?? [], item => item.startEventId)
   for (const item of gone) removeSegment(w, item, item.settingsChanges)
   for (const { before, after } of pairs) {
-    const settings = (item: { fgf: number; carrierGas: string | null; fio2: number; fiAir?: number; fiN2O?: number }) =>
-      ({ fgf: item.fgf, carrierGas: item.carrierGas, fio2: item.fio2, fiAir: item.fiAir, fiN2O: item.fiN2O })
+    const settings = (item: { fgf: number; carrierGas: string | null; fio2: number; fiAir?: number; fiN2O?: number; suggestion?: string }) =>
+      ({ fgf: item.fgf, carrierGas: item.carrierGas, fio2: item.fio2, fiAir: item.fiAir, fiN2O: item.fiN2O, ...(item.suggestion ? { suggestion: item.suggestion } : {}) })
     const stop = () => ({ type: "gas_stop" as const })
     if (!before) {
       w.add({ type: "gas_start", ts: w.stamp(after.startCol, after.startEventId), ...settings(after) })
@@ -399,6 +415,29 @@ function gas(context: TimetableEditContext, w: Writers) {
   }
 }
 
+/** The jet lane (10.2.0), edited like the gas settings: pressure, rate and FiO2. */
+function jet(context: TimetableEditContext, w: Writers) {
+  const { pairs, gone } = matchByRef<JetSegment>(context.before.jetSettings ?? [], context.after.jetSettings ?? [], item => item.startEventId)
+  for (const item of gone) removeSegment(w, item, item.settingsChanges)
+  for (const { before, after } of pairs) {
+    const settings = (item: { pressureBar: number; rate: number; fio2: number }) => ({ jetPressureBar: item.pressureBar, jetRate: item.rate, fio2: item.fio2 })
+    const stop = () => ({ type: "jet_stop" as const })
+    if (!before) {
+      w.add({ type: "jet_start", ts: w.stamp(after.startCol, after.startEventId), ...settings(after) })
+      for (const change of after.settingsChanges ?? []) w.add({ type: "jet_change", ...settings(change), ts: w.stamp(change.col, change.eventId) })
+      if (after.stopped) w.add({ ...stop(), ts: w.stamp(Math.max(after.endCol, after.startCol), after.stopEventId) })
+      continue
+    }
+    if (sameJson(before, after)) continue
+    segmentLifecycle(w, before, after, sameJson(settings(before), settings(after)) ? {} : settings(after), stop, {
+      before: before.settingsChanges ?? [],
+      after: after.settingsChanges ?? [],
+      add: change => ({ type: "jet_change", ...settings(change as NonNullable<JetSegment["settingsChanges"]>[number]) }),
+      patch: change => settings(change as NonNullable<JetSegment["settingsChanges"]>[number]),
+    })
+  }
+}
+
 function markers(context: TimetableEditContext, w: Writers, lane: "positions" | "phases") {
   const type = lane === "positions" ? "position_change" : "phase_change"
   const nameOf = (item: PositionSegment | PhaseSegment) => "position" in item ? item.position : item.phase
@@ -411,14 +450,25 @@ function markers(context: TimetableEditContext, w: Writers, lane: "positions" | 
   }
 }
 
-/** The log after applying operations: removals, then updates in place, then additions. */
+/**
+ * The log after applying operations: removals, then updates in place, then additions.
+ *
+ * An addition whose id is already on the log replaces that entry instead of joining it, as the server does (the same
+ * id is the same event): a tap made twice, or an answer that arrives from another screen on top of the local one,
+ * must not leave two entries with one id -- two complications under one card key, two answers to one question.
+ */
 export function applyIntraopEventOps(log: LogEvent[], ops: IntraopEventOps): LogEvent[] {
   const removed = new Set(ops.remove)
   const updates = new Map(ops.update.map(event => [event.id, event]))
-  return [
-    ...log.filter(event => !removed.has(event.id)).map(event => updates.get(event.id) ?? event),
-    ...ops.add,
-  ]
+  const added = new Map<string, LogEvent>()
+  const unnamed: LogEvent[] = []
+  for (const event of ops.add) {
+    if (typeof event.id === "string" && event.id) added.set(event.id, event)
+    else unnamed.push(event)
+  }
+  const kept = log.filter(event => !removed.has(event.id)).map(event => updates.get(event.id) ?? added.get(event.id) ?? event)
+  const present = new Set(kept.map(event => event.id))
+  return [...kept, ...[...added.values()].filter(event => !present.has(event.id)), ...unnamed]
 }
 
 /** True when there is nothing to write. */

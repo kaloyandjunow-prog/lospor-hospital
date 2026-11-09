@@ -16,12 +16,15 @@ import type {
   LoginResult,
 } from "./administrator-mfa"
 import type { LoginCredential } from "./login-identifier"
+import { setClinicalSyncOwner } from "./clinical-sync-kv"
 
 type AuthState = "loading" | "unauthenticated" | "authenticated"
 
 type AuthContextValue = {
   state: AuthState
   identity: AuthenticatedIdentity | null
+  /** The signed-in account's id: the owner of its queued clinical writes and its settings. */
+  accountId: string | null
   login: (
     credential: LoginCredential,
     password: string,
@@ -39,7 +42,12 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>("loading")
-  const [identity, setIdentity] = useState<AuthenticatedIdentity | null>(null)
+  const [identity, setIdentityState] = useState<AuthenticatedIdentity | null>(null)
+  // Queued clinical writes belong to the account that made them (10.2.0): every change of identity moves the owner too.
+  const setIdentity = (next: AuthenticatedIdentity | null) => {
+    setClinicalSyncOwner(next?.userId ?? null)
+    setIdentityState(next)
+  }
 
   useEffect(() => {
     // An expired session never reaches logout(), so the device would otherwise
@@ -141,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       state,
       identity,
+      accountId: identity?.userId ?? null,
       login,
       completeAdministratorMfa,
       finishAdministratorMfaLogin,

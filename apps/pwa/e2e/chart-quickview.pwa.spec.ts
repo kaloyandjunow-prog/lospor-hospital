@@ -88,7 +88,14 @@ test("chart quickview, from the live cockpit", async ({ page, request }) => {
   // react-native-svg, which getByText cannot reach on web. Asserting them
   // failed here for two runs while the feature itself was fine.
   await expect(page.getByText("No intraoperative data recorded")).toHaveCount(0)
-  await expect(page.locator("svg").first()).toBeVisible({ timeout: 30_000 })
+  // The first svg on the page is a 34px icon that is hidden behind a zero-height parent, so "first svg"
+  // is not the chart. The chart is the one svg that is actually drawn at a size a chart needs.
+  await expect.poll(async () => page.evaluate(() =>
+    [...document.querySelectorAll("svg")].some(svg => {
+      const box = svg.getBoundingClientRect()
+      return box.width >= 150 && box.height >= 100
+    }),
+  ), { timeout: 30_000, message: "no chart-sized svg was drawn" }).toBe(true)
   await page.waitForTimeout(800)
   await page.screenshot({ path: join(SHOTS, "2-chart-quickview.png"), fullPage: false })
   await page.screenshot({ path: join(SHOTS, "3-chart-quickview-full.png"), fullPage: true })

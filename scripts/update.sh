@@ -187,6 +187,19 @@ else
 fi
 unset terminology_state
 
+# The clinical rule baselines a release ships (v4 in 10.2.0) reach an installed
+# site only through this provisioner; install runs it once and nothing else ever
+# did. It verifies what is installed, adds the release's baselines beside it, and
+# moves the platform selection only where an earlier release made that selection;
+# a ruleset an administrator chose stays chosen. It fails closed and writes
+# nothing on an identity collision, partial state or verification failure, so the
+# rules already in use keep working and the operator is told to look.
+if docker compose --profile tools run --rm -T tools     ./node_modules/.bin/tsx scripts/provision-bundled-clinical-baselines.ts --apply; then
+  operator_say "Clinical rule baselines are up to date." "Клиничните базови правила са актуални."
+else
+  operator_error "The clinical rule baselines of this release were not installed; the rules already in use stay in effect. Check the output above, then run the update again." "Клиничните базови правила на това издание не бяха инсталирани; действащите правила остават в сила. Прегледайте изхода по-горе и изпълнете обновяването отново."
+fi
+
 docker compose up -d status
 
 # The first status-enabled upgrade needs one explicit operator selection. Both

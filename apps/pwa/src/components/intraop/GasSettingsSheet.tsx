@@ -1,5 +1,6 @@
 import { Text, TouchableOpacity, View } from "react-native"
 import { VitalStepper } from "@/components/VitalStepper"
+import { FRESH_GAS_FLOW, snapFreshGasFlow, stepFreshGasFlow } from "@lospor/core/gas-ranges"
 import { Sheet } from "./Sheet"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
@@ -56,7 +57,9 @@ export function GasSettingsSheet({
             <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700" }}>FGF</Text>
             <Text style={{ color:shade("#a5b4fc"), fontWeight:"700" }}>{fgf != null ? `${fgf} L/min` : "—"}</Text>
           </View>
-          <VitalStepper value={fgf} onChange={onFgfChange} min={0} max={10} step={0.5} precision={1} unit="L/min" />
+          {/* 10.2.0: 0-20 L/min, 0.1 steps to 5 (low flow) and 0.5 above; typed to 100 (core gas-ranges). */}
+          <VitalStepper value={fgf} onChange={onFgfChange} min={FRESH_GAS_FLOW.min} max={FRESH_GAS_FLOW.sliderMax} manualMax={FRESH_GAS_FLOW.typedMax}
+            step={FRESH_GAS_FLOW.fineStep} precision={1} unit="L/min" snap={snapFreshGasFlow} stepBy={stepFreshGasFlow} />
         </View>
         <View>
           <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", marginBottom:8 }}>{tc("carrierGasLabel")}</Text>

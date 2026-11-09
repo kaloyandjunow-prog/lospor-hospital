@@ -188,29 +188,21 @@ describe("the investigations box", () => {
   })
 
   /**
-   * The cap is 48, measured against the real stylesheet rather than chosen:
-   * sixty still drew ten items past the bottom edge once the per-draw headings
-   * were counted.
+   * The record's pages grow with the case (11.0), so no result is left off the paper: ten draws of twelve
+   * results print all one hundred and twenty, and a draw larger than a page is not cut.
    */
-  it("caps what it prints and says how much it left behind", () => {
+  it("prints every result, however many there are", () => {
     const times = Array.from({ length: 10 }, (_, n) =>
       new Date(Date.parse("2026-09-04T07:20:00.000Z") + n * 20 * 60000).toISOString())
     const el = investigations(labsAt(times, 12))
 
-    expect(el.querySelectorAll(".lab-entry").length).toBe(48)
-    // Not silent about it. A short record is fine; a short record that looks
-    // complete is not.
-    expect(el.textContent).toContain("+72 earlier results")
+    expect(el.querySelectorAll(".lab-entry").length).toBe(120)
+    expect(el.textContent).not.toContain("earlier results")
   })
 
-  /**
-   * A single panel larger than the cap used to be dropped whole, taking the
-   * box from full to empty -- and the empty branch printed a dash, so the
-   * sheet said no investigations were done on a patient who had ten gases.
-   */
-  it("shows part of an oversized draw rather than none of it", () => {
+  it("prints an oversized draw whole", () => {
     const el = investigations(labsAt(["2026-09-04T07:20:00.000Z"], 60))
-    expect(el.querySelectorAll(".lab-entry").length).toBe(48)
-    expect(el.textContent).toContain("+12 earlier results")
+    expect(el.querySelectorAll(".lab-entry").length).toBe(60)
+    expect(el.textContent).not.toContain("earlier results")
   })
 })

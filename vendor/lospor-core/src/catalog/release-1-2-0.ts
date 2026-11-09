@@ -3,12 +3,14 @@
  * v2) were built from them. Those baselines are fingerprinted, and every
  * appliance that installed them checks its copy against the fingerprint on
  * update, so a later catalogue change must not reach them: it belongs in a
- * new baseline version (v3 onwards reads the live catalogues). The menus
- * always read the live catalogues.
+ * new baseline version. The overrides here are relative to the catalogues
+ * as released in 9.15.0 (release-9-15-0.ts), the baseline v3 was built from.
+ * The menus always read the live catalogues.
  */
-import { DRUG_CATALOG, type DrugCatalogEntry } from "./intraop-drugs"
-import { FLUID_CATALOG, type FluidCatalogEntry } from "./intraop-fluids"
-import { INFUSION_CATALOG, type InfusionCatalogEntry } from "./intraop-infusions"
+import type { DrugCatalogEntry } from "./intraop-drugs"
+import type { FluidCatalogEntry } from "./intraop-fluids"
+import type { InfusionCatalogEntry } from "./intraop-infusions"
+import { drugCatalogAtRelease9150, fluidCatalogAtRelease9150, infusionCatalogAtRelease9150 } from "./release-9-15-0"
 
 /** Fluids added after release 1.2.0. */
 const FLUIDS_ADDED_AFTER_RELEASE_1_2_0 = new Set(["Ringer's solution"])
@@ -104,14 +106,14 @@ const INFUSIONS_ADDED_AFTER_RELEASE_1_2_0 = new Set([
 ])
 
 export function infusionCatalogAtRelease120(): InfusionCatalogEntry[] {
-  return INFUSION_CATALOG.filter(entry => !INFUSIONS_ADDED_AFTER_RELEASE_1_2_0.has(entry.name)).map(entry => {
+  return infusionCatalogAtRelease9150().filter(entry => !INFUSIONS_ADDED_AFTER_RELEASE_1_2_0.has(entry.name)).map(entry => {
     const profile = INFUSION_PROFILES_AT_RELEASE_1_2_0[entry.name]
     return profile ? { ...entry, profile } : entry
   })
 }
 
 export function fluidCatalogAtRelease120(): FluidCatalogEntry[] {
-  return FLUID_CATALOG
+  return fluidCatalogAtRelease9150()
     .filter(entry => !FLUIDS_ADDED_AFTER_RELEASE_1_2_0.has(entry.name))
     .map(entry => {
       const strengths = FLUID_STRENGTHS_AT_RELEASE_1_2_0[entry.name]
@@ -120,7 +122,7 @@ export function fluidCatalogAtRelease120(): FluidCatalogEntry[] {
 }
 
 export function drugCatalogAtRelease120(): DrugCatalogEntry[] {
-  return DRUG_CATALOG.map(entry => {
+  return drugCatalogAtRelease9150().map(entry => {
     const group = DRUG_GROUPS_AT_RELEASE_1_2_0[entry.name]
     const profile = DRUG_PROFILES_AT_RELEASE_1_2_0[entry.name]
     return {

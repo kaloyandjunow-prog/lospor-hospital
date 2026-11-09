@@ -1,5 +1,6 @@
+import type { Disposition } from "@lospor/core/case-detail"
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { View, Text, TouchableOpacity, type LayoutChangeEvent, type ScrollView } from "react-native"
+import { View, Text, TouchableOpacity, type LayoutChangeEvent, type ScrollViewInstance } from "react-native"
 import { useMemo } from "react"
 import { colors, withAlpha, useThemeRefresh } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
@@ -25,7 +26,7 @@ export function SectionHeader({ title, onLayout }: { title: string; onLayout?: (
  * scrolls.
  */
 export function usePostopFocusScroll(focus: string | null | undefined) {
-  const ref = useRef<ScrollView>(null)
+  const ref = useRef<ScrollViewInstance>(null)
   const done = useRef(false)
   const mark = useCallback((key: "recovery" | "disposition") => (event: LayoutChangeEvent) => {
     if (done.current || focus !== key) return
@@ -156,20 +157,22 @@ export function DispositionPicker({
   pacuLabel,
   icuLabel,
 }: {
-  value: "WARD" | "PACU" | "ICU" | undefined
-  onChange: (v: "WARD" | "PACU" | "ICU" | undefined) => void
+  value: Disposition | undefined
+  onChange: (v: Disposition | undefined) => void
   wardLabel: string
   pacuLabel: string
   icuLabel: string
 }) {
   const { language } = usePreferences()
-  const OPTIONS: { v: "WARD" | "PACU" | "ICU"; label: string; color: string }[] = [
+  const OPTIONS: { v: Disposition; label: string; color: string }[] = [
     { v: "WARD", label: wardLabel, color: colors.success },
     { v: "PACU", label: pacuLabel, color: colors.warning },
     { v: "ICU",  label: icuLabel,  color: colors.danger },
+    // 10.2.0: a death in theatre.
+    { v: "DECEASED", label: "Deceased", color: colors.textMuted },
   ]
   return (
-    <View className="flex-row gap-3">
+    <View className="flex-row flex-wrap gap-3">
       {OPTIONS.map((opt) => {
         const selected = value === opt.v
         return (
@@ -293,7 +296,7 @@ export function RecoverySummary({
   /** A child's Steward score (0-6) in place of Aldrete (10.0.0). */
   steward?: boolean
   label: string
-  disposition?: "WARD" | "PACU" | "ICU"
+  disposition?: Disposition
   /** The pain scales scored, as one line ("FLACC 5 / 10"), or null. */
   pain?: string | null
   ponv?: boolean | null
@@ -306,7 +309,7 @@ export function RecoverySummary({
     : status === "ready"
     ? colors.success
     : status === "observe" ? colors.warning : colors.danger
-  const dispoColor = disposition === "ICU" ? colors.danger : disposition === "PACU" ? colors.warning : colors.success
+  const dispoColor = disposition === "ICU" ? colors.danger : disposition === "PACU" ? colors.warning : disposition === "DECEASED" ? colors.textMuted : colors.success
   if (compact) {
     return (
       <View testID="recovery-summary-compact" style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.surfaceRaised, borderRadius: 12, borderCurve: "continuous", borderWidth: 1, borderColor: withAlpha(statusColor, "66"), paddingHorizontal: 12, paddingVertical: 8, marginTop: 10, marginBottom: 4 }}>

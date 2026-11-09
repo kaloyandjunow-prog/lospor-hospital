@@ -304,3 +304,23 @@ describe("accepting into a list never drops what the clinician typed", () => {
     expect(result.patch.diagnoses as unknown[]).toHaveLength(1)
   })
 })
+
+describe("a lab the hospital sent no time for (intraoperative labs, 11.0)", () => {
+  const fields = { labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89" }, { test: "Lactate", unit: "mmol/L", value: "2.1", takenAt: "2026-09-01T08:00:00Z" }] }
+  const run = (undatedLabsAt?: string) => {
+    const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields })
+    const plan = buildEhrReviewPlan({ canonical, current: {} })
+    return applyEhrSelections({ plan, selectedKeys: plan.items.map(item => item.itemKey), current: {}, undatedLabsAt })
+  }
+
+  it("takes the time it was added, and leaves a dated result alone", () => {
+    const labs = run("2026-11-08T12:00:00.000Z").patch.labResults as Array<{ test: string; takenAt: string | null }>
+    expect(labs.find(l => l.test === "Haemoglobin (Hb)")!.takenAt).toBe("2026-11-08T12:00:00.000Z")
+    expect(labs.find(l => l.test === "Lactate")!.takenAt).toBe("2026-09-01T08:00:00.000Z")
+  })
+
+  it("stays undated when no time is given, as the preoperative panel needs", () => {
+    const labs = run().patch.labResults as Array<{ test: string; takenAt: string | null }>
+    expect(labs.find(l => l.test === "Haemoglobin (Hb)")!.takenAt).toBeNull()
+  })
+})

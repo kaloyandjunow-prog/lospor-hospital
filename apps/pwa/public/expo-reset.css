@@ -12,3 +12,22 @@ body {
   height: 100%;
   flex: 1;
 }
+
+/* Anything pressed, held or dragged: the browser's own long-press selection, callout menu and tap
+   flash stay out of it. Text fields keep selection. */
+[role="button"],
+[role="slider"],
+[role="adjustable"],
+[tabindex="0"]:not(input):not(textarea):not([contenteditable="true"]) {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* While a slider, the knob or a held +/- has the finger (gesture-lock.ts), nothing on the page is selectable. */
+html[data-gesture="held"],
+html[data-gesture="held"] * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}

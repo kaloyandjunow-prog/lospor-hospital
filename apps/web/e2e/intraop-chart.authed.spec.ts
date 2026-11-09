@@ -272,9 +272,9 @@ test("the chart mounts with its time columns and vitals rows", async ({ page }) 
   await expect(chart.getByText("08:55", { exact: true }).first()).toBeVisible()
 
   // The vitals lanes are the chart's reason to exist. The labels are cased in
-  // the DOM as "BP Sys" and uppercased by CSS, so match the source text.
-  await expect(chart.getByText("BP Sys", { exact: true }).first()).toBeVisible()
-  await expect(chart.getByText("BP Dia", { exact: true }).first()).toBeVisible()
+  // the DOM as "NIBP Sys" and uppercased by CSS, so match the source text.
+  await expect(chart.getByText("NIBP Sys", { exact: true }).first()).toBeVisible()
+  await expect(chart.getByText("NIBP Dia", { exact: true }).first()).toBeVisible()
 
   // No inhalational technique on this case, so no agent or gas lane. This is
   // also the negative control for the lane test below, which would otherwise

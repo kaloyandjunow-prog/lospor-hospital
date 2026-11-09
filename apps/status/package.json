@@ -18,24 +18,25 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "hono": "^4.9.8",
-    "pg": "^8.20.0",
+    "hono": "^4.13.17",
+    "pg": "^8.23.1",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^24.10.1",
-    "@types/pg": "^8.15.6",
-    "@types/qrcode": "^1.5.5",
-    "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.13.0",
-    "tsx": "^4.20.6",
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
+    "@vitest/coverage-v8": "^4.1.12",
+    "eslint": "^10.14.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.4",
-    "vitest": "^4.0.8"
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "vite": "8.3.5",
-    "js-yaml": "4.3.2"
+    "js-yaml": "4.3.2",
+    "minimatch": "11.0.5"
   }
 }

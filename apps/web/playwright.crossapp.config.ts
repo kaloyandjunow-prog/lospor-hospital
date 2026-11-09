@@ -74,6 +74,10 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: e2eWebBaseUrl,
+    // Playwright actions otherwise wait forever.  A missing selector is a
+    // harness/product failure and must produce a diagnostic rather than leave
+    // the cross-app run stuck until a human interrupts it.
+    actionTimeout: 20_000,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

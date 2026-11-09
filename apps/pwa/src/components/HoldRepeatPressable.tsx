@@ -1,4 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react"
+import { createGestureHandle } from "@/lib/gesture-lock"
+import { HELD_CONTROL_STYLE } from "@/lib/gesture-style"
 import { Platform, Pressable, type StyleProp, type ViewStyle } from "react-native"
 
 /**
@@ -28,12 +30,13 @@ export function HoldRepeatPressable({ onStep, disabled, style, children, testID 
   const timers = useRef<{ faster?: ReturnType<typeof setTimeout>; repeat?: ReturnType<typeof setInterval> }>({})
   const nodeRef = useRef<unknown>(null)
 
+  const hold = useRef(createGestureHandle()).current
   function stop() {
     clearTimeout(timers.current.faster)
     clearInterval(timers.current.repeat)
     timers.current = {}
   }
-  useEffect(() => stop, [])
+  useEffect(() => () => { stop(); hold.end() }, [hold])
 
   function repeat() {
     stop()
@@ -71,10 +74,14 @@ export function HoldRepeatPressable({ onStep, disabled, style, children, testID 
       disabled={disabled}
       // After a long press Pressable does not call onPress, so a hold is not also a tap.
       onPress={() => stepRef.current()}
+      // From the first touch the finger belongs to this button: a drift sideways is not a tab swipe.
+      onPressIn={hold.start}
+      onTouchEnd={hold.end}
+      onTouchCancel={hold.end}
       onLongPress={repeat}
       delayLongPress={420}
       onPressOut={stop}
-      style={style}
+      style={[style, HELD_CONTROL_STYLE]}
     >
       {children}
     </Pressable>

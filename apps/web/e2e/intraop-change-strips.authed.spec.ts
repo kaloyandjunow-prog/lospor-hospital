@@ -90,8 +90,12 @@ async function colX(chart: Locator, index: number) {
   return box.x + box.width / 2
 }
 
-/** Presses on `from`, moves to column `toIndex` and stays there; the caller screenshots, then releases. */
-async function startDrag(page: Page, chart: Locator, from: Locator, toIndex: number) {
+/**
+ * Presses on `from`, moves to column `toIndex` and stays there; the caller screenshots, then releases.
+ * `grabX` is where to press, in pixels from the element's left edge (its middle when absent): a bar's middle can sit on a
+ * rate-change marker or on a grip, which moves something else than the bar, depending on how wide the bar happens to be.
+ */
+async function startDrag(page: Page, chart: Locator, from: Locator, toIndex: number, grabX?: number) {
   await page.evaluate(() => {
     const w = window as unknown as { __dragStarted?: boolean; __dragListener?: boolean }
     w.__dragStarted = false
@@ -102,17 +106,19 @@ async function startDrag(page: Page, chart: Locator, from: Locator, toIndex: num
   const target = await colX(chart, toIndex)
   for (let attempt = 0; attempt < 4; attempt++) {
     g = (await from.boundingBox())!
-    await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
+    const x = grabX == null ? g.x + g.width / 2 : g.x + grabX
+    await page.mouse.move(x, g.y + g.height / 2)
     await page.mouse.down()
-    await page.mouse.move(g.x + g.width / 2 + (target < g.x ? -8 : 8), g.y + g.height / 2, { steps: 4 })
+    await page.mouse.move(x + (target < g.x ? -8 : 8), g.y + g.height / 2, { steps: 4 })
     await page.waitForTimeout(150)
     if (await started()) break
     await page.mouse.up()
     await page.waitForTimeout(400)
   }
   expect(await started(), "the drag never started").toBe(true)
+  const fromX = grabX == null ? g.x + g.width / 2 : g.x + grabX
   for (let i = 1; i <= 6; i++) {
-    await page.mouse.move(g.x + g.width / 2 + (target - (g.x + g.width / 2)) * i / 6, g.y + g.height / 2, { steps: 4 })
+    await page.mouse.move(fromX + (target - fromX) * i / 6, g.y + g.height / 2, { steps: 4 })
     await page.waitForTimeout(120)
   }
   await page.mouse.move(target + 2, g.y + g.height / 2, { steps: 2 })
@@ -158,7 +164,8 @@ test("a strip travels with its bar while the bar is dragged, and the rate change
   const id = await seed(page)
   const chart = await openChart(page, id)
   const before = await log(page, id)
-  const bar = chart.locator('[data-testid="infusion-lane"] div[draggable="true"]').first()
+  // The bar's body (not its grips), pressed a little inside its left edge, clear of the rate-change markers.
+  const bar = chart.locator('[data-testid="infusion-lane"] div[draggable="true"].cursor-grab').first()
   // Into the middle of the screen: at the bottom edge the sticky footer covers it.
   await bar.evaluate(el => el.scrollIntoView({ block: "center" }))
   const barBox = await bar.boundingBox()
@@ -170,7 +177,7 @@ test("a strip travels with its bar while the bar is dragged, and the rate change
   const startIndex = await chart.locator("[data-agent-cell]").evaluateAll((cells, x) => cells.findIndex(c => {
     const r = c.getBoundingClientRect(); return x >= r.left && x <= r.right
   }), ((await bar.boundingBox())!.x + 5))
-  await startDrag(page, chart, bar, startIndex - 1)
+  await startDrag(page, chart, bar, startIndex - 1, 16)
   await expect(chart.getByTestId("infusion-strip-ghost").first()).toBeVisible()
   await lanes(page, "4-infusion-mid-move")
   await page.mouse.up()

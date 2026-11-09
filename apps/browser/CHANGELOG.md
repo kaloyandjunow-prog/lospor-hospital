@@ -1,5 +1,31 @@
 # Changelog - LOSPOR Database
 
+## [0.11.1] - 2026-11-09
+
+### Dependencies
+
+- `minimatch` is overridden to the patched 11.0.5 (GHSA-g3hv-75wg-m249), which clears the thirteen moderate findings
+  that came through `eslint`, `typescript-eslint` and `eslint-config-next`. `npm audit` now finds nothing. No code
+  changed; typecheck, lint and the tests pass.
+
+## [0.11.0] - 2026-11-03
+
+### Changed
+
+- **Research exports carry three more tables** without a change here: the export screen takes its tables from the
+  API, which now writes `care_site`, `device_exposure` (airway devices and blood units) and `death` (a death in
+  theatre) as well, and the case view shows an arterial line pressure as IBP. The Browser itself needed no code
+  change for 10.2.0: its typecheck, lint and 65 tests pass against Core 10.2.0.
+- **Shared Core pin:** advanced to v10.2.0 for the coordinated upstream
+  release train. The Browser remains a separate product with its own 0.11.0
+  version.
+- **Research-contract compatibility:** the Browser continues to consume the
+  versioned `/v1/research/*` API and the Core 10.2 clinical vocabulary for
+  techniques, airway devices, monitoring, events, and OMOP labels. No clinical
+  editing or automation UI is duplicated in this read-only product.
+- **Release documentation:** corrected the release pairing in the README so
+  deployment instructions no longer refer to the old 1.2.0 line.
+
 ## [0.10.0] - 2026-10-29
 
 ### Fixed
@@ -169,7 +195,7 @@
 
 - **Depends on Core 9.9.1** (was 9.0.0).
 
-## [0.6.0] - 2026-08-24 - 1.2.1 Browser wave
+## [0.6.0] - 2026-08-24 - 1.2.0 Browser wave
 
 ### Added
 

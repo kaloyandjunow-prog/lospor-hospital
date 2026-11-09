@@ -69,7 +69,7 @@ export const postopSchema = z.object({
   recoveryHeartRateUnobtainable:   z.boolean().default(false),
   recoverySpO2Unobtainable:        z.boolean().default(false),
   recoveryTemperatureUnobtainable: z.boolean().default(false),
-  disposition:      z.enum(["WARD", "PACU", "ICU"]).optional(),
+  disposition:      z.enum(["WARD", "PACU", "ICU", "DECEASED"]).optional(),
   // The procedure done (10.0.0): filled in with the planned procedures.
   performedProcedures: z.array(z.object({ label: z.string() }).passthrough()).default([]),
   dispositionNotes: z.string().optional(),

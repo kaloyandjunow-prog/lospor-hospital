@@ -1,3 +1,5 @@
+import { gestureHeld } from "./gesture-lock"
+
 /**
  * When a sideways swipe changes the section (preop) or the tab (intraop).
  *
@@ -83,6 +85,8 @@ export function sideSwipeGate() {
   return {
     start(): false { scrolling = false; return false },
     claims(dx: number, dy: number): boolean {
+      // A slider, the knob or a held +/- has the finger: it is never a swipe, however far it has gone sideways.
+      if (gestureHeld()) return false
       if (scrolling) return false
       if (Math.abs(dy) >= SIDE_SWIPE_VERTICAL_LOCK_PX && Math.abs(dy) >= Math.abs(dx)) { scrolling = true; return false }
       return claimsSideSwipe(dx, dy)

@@ -10,7 +10,7 @@ describe("patient reference API boundary", () => {
     expect(patientReferenceFromResponse({
       patientReference: { id: "link-1", maskedIdentifier: "HO•••01" },
       preop: { ageYears: 40 },
-    })).toEqual({ id: "link-1", maskedIdentifier: "HO•••01" })
+    })).toEqual({ id: "link-1", maskedIdentifier: "HO•••01", personMaskedIdentifier: null, display: null })
     expect(patientReferenceFromResponse({ patientReference: { id: "link-1" } })).toBeNull()
   })
 
@@ -42,5 +42,24 @@ describe("patient reference API boundary", () => {
     const fetcher = vi.fn(async () => response(false, 409, { error: `Bad ${sentinel}` }))
     await expect(relinkCasePatientReference("case-1", "link-0", sentinel, "typo", fetcher))
       .rejects.not.toThrow(sentinel)
+  })
+})
+
+describe("patient display (hospital 1.8.0)", () => {
+  it("reads the number and a six-digit ЕГН prefix, and never anything longer", async () => {
+    const { patientDisplayLine, readPatientDisplay } = await import("./patient-reference")
+    expect(patientDisplayLine(readPatientDisplay({ admissionNumber: "1234/2026", egnPrefix: "800101" }), "bg")).toBe("ИЗ № 1234/2026 · ЕГН 800101")
+    expect(patientDisplayLine(readPatientDisplay({ admissionNumber: "1234/2026", egnPrefix: null }), "en")).toBe("Record no. 1234/2026")
+    expect(readPatientDisplay({ admissionNumber: null, egnPrefix: "8001010008" })).toBeNull()
+    expect(readPatientDisplay(undefined)).toBeNull()
+  })
+
+  it("rides along with the reference of a response", async () => {
+    const { patientReferenceFromResponse } = await import("./patient-reference")
+    const reference = patientReferenceFromResponse({
+      patientReference: { id: "p1", maskedIdentifier: "12**" },
+      patientDisplay: { admissionNumber: "12/2026", egnPrefix: null },
+    })
+    expect(reference?.display).toEqual({ admissionNumber: "12/2026", egnPrefix: null })
   })
 })

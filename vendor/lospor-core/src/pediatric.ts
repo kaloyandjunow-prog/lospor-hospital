@@ -525,3 +525,18 @@ export function fastingClockTimes(
   }
   return rows.sort((a, b) => a.hoursBefore - b.hoursBefore)
 }
+
+/**
+ * Age and sex in one short label for case lists and headers: "64 г. · М", "3 mo · F". Age 0 is a
+ * recorded age, not a missing one. Empty when neither is known.
+ */
+export function ageSexLabel(
+  preop: { ageYears?: number | null; ageValue?: number | null; ageUnit?: PediatricAgeInput["unit"] | null; sex?: string | null } | null | undefined,
+  locale: "en" | "bg" = "en",
+): string {
+  const age = preop?.ageValue != null && preop.ageUnit
+    ? displayPediatricAge({ value: preop.ageValue, unit: preop.ageUnit }, locale)
+    : preop?.ageYears != null ? `${preop.ageYears}${locale === "bg" ? " г." : "y"}` : ""
+  const sex = preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""
+  return [age, sex].filter(Boolean).join(" · ")
+}

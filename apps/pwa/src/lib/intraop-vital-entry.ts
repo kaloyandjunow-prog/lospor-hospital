@@ -46,6 +46,10 @@ export function buildVitalEntry(
     bis: parseVitalEntryNumber(input.bis),
     tofRatio: parseVitalEntryNumber(input.tofRatio),
     cvp: cvp == null ? undefined : conversions.cvp(cvp),
+    ibpSystolic: parseVitalEntryNumber(input.ibpSystolic),
+    ibpDiastolic: parseVitalEntryNumber(input.ibpDiastolic),
+    ibpMap: parseVitalEntryNumber(input.ibpMap),
+    nibpMap: parseVitalEntryNumber(input.nibpMap),
   }
 }
 

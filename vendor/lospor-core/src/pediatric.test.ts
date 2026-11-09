@@ -220,3 +220,13 @@ describe("nil-by-mouth assignments as clock times", () => {
     expect(fastingClockTimes([], "2026-10-16T05:30:00Z", "Europe/Sofia")).toEqual([])
   })
 })
+
+describe("age and sex for case lists", () => {
+  it("keeps age 0, the precise unit for a baby, and the sex letter in each language", async () => {
+    const { ageSexLabel } = await import("./pediatric")
+    expect(ageSexLabel({ ageYears: 64, sex: "MALE" }, "bg")).toBe("64 г. · М")
+    expect(ageSexLabel({ ageYears: 0, sex: "FEMALE" }, "en")).toBe("0y · F")
+    expect(ageSexLabel({ ageValue: 3, ageUnit: "MONTHS", ageYears: 0 }, "en")).toBe("3 months")
+    expect(ageSexLabel(null)).toBe("")
+  })
+})

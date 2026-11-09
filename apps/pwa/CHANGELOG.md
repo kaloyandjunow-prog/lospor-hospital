@@ -1,5 +1,135 @@
 # Changelog - LOSPOR Mobile
 
+## [10.3.0] - 2026-11-09
+
+### Added
+
+- **The planned procedure on the postoperative record follows a Status switch.** "Procedure done" still starts as
+  the planned procedure, now as one line of the SPS Reminders group that a hospital switches off in Status (or the
+  whole group) and a clinician for themselves. Off, the field starts empty. The screen fills the field in once the
+  policy has loaded, so a switched-off line is never overtaken by the fill.
+
+### Dependencies
+
+- Patch updates (React 19.3.1, react-native-svg, babel-preset-expo and others) and `minimatch` overridden to the
+  patched 11.0.5. The moderate advisories that remain are in the Expo tool chain (`expo`, `@expo/cli`, `glob`) and the
+  lint tool chain; their fixes are a different Expo major or a tool downgrade. None is an error under the repo's gate
+  (`npm audit --omit=dev --audit-level=high`).
+
+## [10.2.0] - 2026-11-02
+
+### Added
+
+- **Shared settings IA:** profile/account, Smart Functions, clinical defaults,
+  appearance, units, notifications, and privacy are grouped consistently;
+  case-layout choices follow the account while web/tablet sidebar behavior is
+  shown explicitly as web/tablet-only.
+
+- **Smart intraoperative screens:** Smart and Legacy selection for airway,
+  vascular access, monitoring, equipment, technique, and events, with fast
+  thumb-friendly entry and bilingual search.
+- **Fluid status summary:** added the Hybrid summary for mobile, keeping
+  timetable aggregates read-only and limiting editing to urine output and blood
+  loss; Legacy remains selectable in Settings.
+- **Event log timeline:** added the filterable Smart Timeline stream for mobile;
+  today’s chronological event list remains available as Legacy in Settings.
+- **SPS — Smart Prediction System:** Likely now, reminders, learned succession,
+  treatment cards, reading questions, and timed follow-ups.
+- **Context links:** reminder-scoped suggestions now connect local anaesthetic,
+  induction, TCI, volatile, airway, technique-side, and placement records to
+  exact techniques and clinical times. Induction flows ask Sedation or General
+  anaesthesia, then the exact technique and airway-device choice where needed.
+- **Per-suggestion settings:** every Status-enabled automation has its own
+  account-wide switch; new context links are opt-in for the clinician, while
+  prebundled lines keep their enabled default.
+- **Vital-question settings:** the Vital Questions group now exposes separate
+  account-wide switches for hypotension, hypertension, bradycardia and
+  tachycardia, without removing the group switch.
+- **Clinical record detail:** invasive-pressure vitals, BIS/TOF monitor scans,
+  block sides, unilateral spinal, urinary catheter, failed devices and lines,
+  and the expanded event log.
+
+- **The anaesthesia record on the phone and in the PWA:** the case summary shows
+  a timetable card (the vitals graph and a lane for every drug with its doses,
+  bars for infusions, agents, gas and fluids, episode bands), the event log with
+  deleted entries struck through, the vitals every five minutes behind a
+  "View table" button, and the episodes with what was given. The read-only
+  timetable viewer (the 📊 Chart button, and finished cases) draws the same
+  record on one chart, with pinch or − / + zoom that widens it.
+- **Treatment cards and the SPS on the phone:** cards with in-place dosing
+  controls, an arrest card (Give / Now / At with approximate times, re-spread on
+  ROSC or Death from any screen), monitoring reading intervals from Status, and
+  one waiting list with reminders and timed follow-ups.
+- **Warnings:** malignant-hyperthermia-history warning, local anaesthetic
+  maximum, latex banner (each with its own switch), a death in theatre, and the
+  dantrolene vials on the MH card.
+- **Chart entries:** a jet-ventilation lane drawn as a running bar, the
+  tourniquet body picker, an airway picker and failed lines, and fresh gas flow
+  0–20 L/min (typed to 100).
+- **Settings:** defibrillator energy-knob skins and the suggestion switches.
+- **Timed complications, shocks and End at (from the 10.1.0 work):** vitals
+  questions, complications with their own times and shocks, and End at asking
+  about entries after the chosen end in its sheet.
+- **PWA end-to-end coverage:** infusions, agents, gas, labs, undo and remove,
+  suggestion cards, and the hold-and-drag gestures (56 tests).
+
+### Fixed
+
+- **Airway selection consistency:** selecting «Без намеса в дихателния път»
+  clears selected airway devices and instruments, while recording a device
+  clears that state; Smart airway uses the same configured option list as
+  Legacy.
+- **Equipment reset and ambiguity:** Smart Equipment no longer uses a
+  misleading transient checklist; recorded devices/flags are compared with
+  suggestions, and preparation markers persist through the API.
+- **Airway autosave:** Smart airway writes the canonical list together with its
+  legacy compatibility fields; clearing the list now persists as a real clear
+  instead of returning the old devices after reload.
+- **Airway events:** the device details panel now opens inline beneath the
+  selected card row, and airway additions from both Smart and Legacy record
+  the corresponding intubation, reintubation, LMA, or DLT event.
+- **Vascular access events:** confirming a line placed by the anaesthesia team
+  now records IV line, arterial line, CVC, or PICC events; tapping the selected
+  access type again collapses its panel.
+- **Suggestion dismissal:** succession and context-link prompts use a
+  definitive, persisted case-scoped **Dismiss** action; ordinary clinical
+  questions retain **Not now**.
+
+- **Automation collision handling:** linked airway/vascular writes are sent
+  atomically with their clinical events, and rapid suggestion answers are
+  serialized against the latest local event log so one answer cannot erase
+  another.
+
+- **Hold and drag controls keep the finger:** sliders and press-and-hold buttons
+  cannot be swiped into a tab change and never select text (PWA).
+- **End case always opens its sheet,** and a chart is kept when an episode closes
+  on load.
+- **Bulgarian names:** blood pressure reads Сис / Диас / САН; Струйна вентилация.
+
+### Changed
+
+- **Bulgarian UI copy:** the interactive timetable is labelled «Времева линия»,
+  vital signs use «жизнени показатели», and Smart/Legacy labels and clinical
+  suggestions use the reviewed Bulgarian wording.
+- **Neutral clinical statuses:** airway and vascular summaries use
+  «неуспешен опит» and «подмяна» consistently.
+- **PWA parity:** the phone app and exported PWA use the canonical web/API
+  fields and shared Core clinical logic.
+
+- **Expo SDK 58** (React Native 0.88, React 19.3, react-native-gesture-handler 3),
+  merged after the PWA end-to-end run; the native build is not yet exercised on
+  a device.
+- **Reads less:** the timetable viewer asks for the chart alone
+  (`?view=timetable&deleted=1`).
+- **Dependencies** within SDK 56 were updated first; **contact address** in the
+  Play Store listing is support@lospor.org.
+
+### Removed
+
+- **The written event list card, the old summary card and its chart model, the
+  half-case panel viewer and its numbered pins** are replaced by the record
+  above; the old complications tick-list sheet is gone.
+
 ## [10.0.2] - 2026-10-29
 
 ### Changed

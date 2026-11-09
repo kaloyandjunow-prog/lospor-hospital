@@ -5,6 +5,9 @@ import {
   fluidCatalogAtRelease120,
   INFUSION_CATALOG,
   infusionCatalogAtRelease120,
+  drugCatalogAtRelease9150,
+  fluidCatalogAtRelease9150,
+  infusionCatalogAtRelease9150,
   type DrugCatalogEntry,
   type FluidCatalogEntry,
 } from "../catalog"
@@ -23,12 +26,14 @@ import { PEDIATRIC_SOURCE_REFERENCES } from "../pediatric"
 import { createPediatricInfusionProfileSeeds } from "../pediatric-infusion-profiles"
 import { createPediatricDrugProfileV2Payloads } from "../pediatric-drug-profiles-v2"
 import { createPediatricDrugProfileV3Payloads } from "../pediatric-drug-profiles-v3"
+import { createPediatricDrugProfileV4Payloads } from "../pediatric-drug-profiles-v4"
 import {
   LOSPOR_PEDIATRIC_RULESET_KEY,
   LOSPOR_PEDIATRIC_RULESET_NAME,
   LOSPOR_PEDIATRIC_RULESET_VERSION,
   LOSPOR_PEDIATRIC_V2_RULESET_VERSION,
   LOSPOR_PEDIATRIC_V3_RULESET_VERSION,
+  LOSPOR_PEDIATRIC_V4_RULESET_VERSION,
   PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE,
   type ClinicalRuleSeed,
   type DrugPolicyOverride,
@@ -464,8 +469,21 @@ function parsedPediatricFluidProfile(
  * carry a 4/2/1 calculation marker; special fluids remain manual in Rate mode
  * and blood products remain volume-only.
  */
-function pediatricFluidSeeds(fluids: readonly FluidCatalogEntry[] = FLUID_CATALOG): ClinicalRuleSeed[] {
+/**
+ * Blood products by weight (v4, 10.2.0): red cells and plasma 15 mL/kg,
+ * platelets 10 mL/kg, cryoprecipitate 5 mL/kg, by actual weight. Earlier
+ * editions offered the adult bag volumes.
+ */
+const V4_BLOOD_PRODUCT_ML_PER_KG: Readonly<Record<string, number>> = {
+  "Packed red blood cells (PRBC)": 15,
+  "Fresh frozen plasma (FFP)": 15,
+  "Platelets": 10,
+  "Cryoprecipitate": 5,
+}
+
+function pediatricFluidSeeds(fluids: readonly FluidCatalogEntry[] = FLUID_CATALOG, edition: "v1" | "v2" | "v3" | "v4" = "v3"): ClinicalRuleSeed[] {
   return fluids.map(entry => {
+    const perKg = edition === "v4" ? V4_BLOOD_PRODUCT_ML_PER_KG[entry.name] : undefined
     const identity = {
       name: entry.name,
       category: entry.category,
@@ -483,6 +501,7 @@ function pediatricFluidSeeds(fluids: readonly FluidCatalogEntry[] = FLUID_CATALO
       maximumAgeDaysExclusive: PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE,
       profile: {
         ...entry.profile,
+        ...(perKg == null ? {} : { doseCalc: { perKg, basis: "TBW" as const, roundTo: 5 }, suggestedVolume: undefined, hint: `${perKg} mL/kg` }),
         fluidEntryModes: bloodProduct ? ["VOLUME"] : ["VOLUME", "RATE"],
         defaultFluidEntryMode: bloodProduct ? "VOLUME" : "RATE",
         ...(bloodProduct
@@ -490,6 +509,9 @@ function pediatricFluidSeeds(fluids: readonly FluidCatalogEntry[] = FLUID_CATALO
           : {
               fluidRate: {
                 ...FLUID_RATE_SLIDER,
+                ...(entry.profile.fluidRate?.suggestedMlPerKgPerHour != null
+                  ? { suggestedMlPerKgPerHour: entry.profile.fluidRate.suggestedMlPerKgPerHour }
+                  : {}),
                 ...(maintenanceCompatible
                   ? { calculation: "HOLLIDAY_SEGAR_4_2_1" as const }
                   : {}),
@@ -518,7 +540,7 @@ export function createLosporPediatricPlatformDraft(): PlatformClinicalDraft {
     ...drugPolicies,
     ...pediatricAutofillSeeds(),
     ...createPediatricInfusionProfileSeeds(infusionCatalogAtRelease120(), "v2"),
-    ...pediatricFluidSeeds(fluidCatalogAtRelease120()),
+    ...pediatricFluidSeeds(fluidCatalogAtRelease120(), "v1"),
   ]
   const pending = drugPolicies.filter(seed =>
     seed.payload.kind === "PEDIATRIC_DRUG_POLICY"
@@ -551,7 +573,7 @@ function pediatricProfileRules(
   drugs: readonly DrugCatalogEntry[],
   infusions: readonly { name: string }[],
   fluids: readonly FluidCatalogEntry[],
-  edition: "v2" | "v3",
+  edition: "v2" | "v3" | "v4",
 ): ClinicalRuleSeed[] {
   const sourceRefsByMedication = new Map(
     drugs.map(entry => {
@@ -559,7 +581,9 @@ function pediatricProfileRules(
       return [entry.name, policy.sourceRefs] as const
     }),
   )
-  const payloads = edition === "v3" ? createPediatricDrugProfileV3Payloads(drugs) : createPediatricDrugProfileV2Payloads(drugs, edition)
+  const payloads = edition === "v4"
+    ? createPediatricDrugProfileV4Payloads(drugs)
+    : edition === "v3" ? createPediatricDrugProfileV3Payloads(drugs) : createPediatricDrugProfileV2Payloads(drugs, edition)
   const drugProfiles = payloads.map(payload => ({
     payload,
     sourceRefs: [...(sourceRefsByMedication.get(payload.medicationKey) ?? [])],
@@ -567,7 +591,7 @@ function pediatricProfileRules(
   return [
     ...drugProfiles,
     ...createPediatricInfusionProfileSeeds(infusions, edition),
-    ...pediatricFluidSeeds(fluids),
+    ...pediatricFluidSeeds(fluids, edition),
   ]
 }
 
@@ -587,8 +611,9 @@ export function createLosporPediatricV2Draft(): PlatformClinicalDraft {
 }
 
 /**
- * Pediatric v3: the v2 model over the current catalogues -- drugs in their
- * corrected groups, plain Ringer and mannitol 20% (2026-10-18).
+ * Pediatric v3: the v2 model over the catalogues as released in 9.15.0 --
+ * drugs in their corrected groups, plain Ringer and mannitol 20%
+ * (2026-10-18). Released and fingerprinted; see release-9-15-0.ts.
  */
 export function createLosporPediatricV3Draft(): PlatformClinicalDraft {
   return {
@@ -600,6 +625,24 @@ export function createLosporPediatricV3Draft(): PlatformClinicalDraft {
     version: LOSPOR_PEDIATRIC_V3_RULESET_VERSION,
     publishable: true,
     blockers: [],
-    rules: pediatricProfileRules(DRUG_CATALOG, INFUSION_CATALOG, FLUID_CATALOG, "v3"),
+    rules: pediatricProfileRules(drugCatalogAtRelease9150(), infusionCatalogAtRelease9150(), fluidCatalogAtRelease9150(), "v3"),
+  }
+}
+
+/**
+ * Pediatric v4 (10.2.0): the v3 model over the current catalogues, with the
+ * doses SPS relies on.
+ */
+export function createLosporPediatricV4Draft(): PlatformClinicalDraft {
+  return {
+    id: "lospor-pediatrics-v4",
+    key: LOSPOR_PEDIATRIC_RULESET_KEY,
+    name: "LOSPOR pediatric drugs profile",
+    description: "Pediatric v3 rules over the current catalogues, with the doses SPS relies on: hydrocortisone 4 mg/kg (never above 100 mg) at every age, furosemide 1 mg/kg capped at 40 mg, sugammadex up to 2,000 mg for rescue reversal, adrenaline IM 10 mcg/kg capped at 500 mcg, salbutamol inhaled in single 0.1 mg puffs beside the nebulised doses, and blood products by weight (red cells and plasma 15 mL/kg, platelets 10 mL/kg, cryoprecipitate 5 mL/kg). Glucose is one fluid offered at 5, 10, 20 and 40%, and lipid emulsion 20% has a starting infusion rate. Every other profile is unchanged from v3.",
+    clinicalMode: "PEDIATRIC",
+    version: LOSPOR_PEDIATRIC_V4_RULESET_VERSION,
+    publishable: true,
+    blockers: [],
+    rules: pediatricProfileRules(DRUG_CATALOG, INFUSION_CATALOG, FLUID_CATALOG, "v4"),
   }
 }

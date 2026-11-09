@@ -58,7 +58,8 @@ vi.mock("expo-secure-store", () => ({
 async function freshOutbox() {
   vi.resetModules()
   fs.files.clear()
-  const { clinicalSyncKv } = await import("./clinical-sync-kv")
+  const { clinicalSyncKv, setClinicalSyncOwner } = await import("./clinical-sync-kv")
+  setClinicalSyncOwner("test-user")
   return createCaseOutbox({
     kv: clinicalSyncKv,
     sendPatch: async () => ({}),
@@ -102,7 +103,8 @@ describe("clinical sync storage budget", () => {
   it("stops consulting SecureStore on reads once migration has succeeded", async () => {
     vi.resetModules()
     fs.files.clear()
-    const { clinicalSyncKv } = await import("./clinical-sync-kv")
+    const { clinicalSyncKv, setClinicalSyncOwner } = await import("./clinical-sync-kv")
+    setClinicalSyncOwner("test-user")
 
     await clinicalSyncKv.get("lospor_patchq_case-3_intraop") // absorbs migration
     calls.reset()
@@ -132,7 +134,8 @@ describe("clinical sync storage budget", () => {
     })
     vi.mocked(legacy.writeAsStringAsync).mockRejectedValue(new Error("disk full"))
 
-    const { clinicalSyncKv } = await import("./clinical-sync-kv")
+    const { clinicalSyncKv, setClinicalSyncOwner } = await import("./clinical-sync-kv")
+    setClinicalSyncOwner("test-user")
     await clinicalSyncKv.get("lospor_patchq_case-4_intraop")
     calls.reset()
     await clinicalSyncKv.get("lospor_patchq_case-4_intraop")

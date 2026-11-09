@@ -1,6 +1,6 @@
 import React from "react"
 import { act } from "react-test-renderer"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 vi.mock("expo-haptics", () => ({}))
@@ -151,5 +151,80 @@ describe("EndCaseSheet fluid cleanup", () => {
     act(() => field.props.onChange({ value: 61.5, unit: "mL" }))
     await act(async () => { await tree.root.findByProps({ testID: "end-case-finalize" }).props.onPress() })
     expect(stopInfusion).toHaveBeenCalledWith({ endTs: expect.any(String), pump: { value: 61.5, unit: "mL" } })
+  })
+})
+
+describe("End at (10.1.0)", () => {
+  // The tests step the end date back to the case's start day, at most ten steps. Against today's date that
+  // stopped being enough after 2026-11-08, so the day they run on is fixed (only Date, not the timers).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-30T12:00:00.000Z"))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it("ends a case charted after the fact at the time chosen, never before its start", async () => {
+    const onFinalize = vi.fn()
+    const tree = render(
+      <EndCaseSheet
+        visible
+        onClose={() => {}}
+        items={[]}
+        decisions={{}}
+        continueLabel="Finalise"
+        onDecision={() => {}}
+        onFinalize={onFinalize}
+        startedAt={new Date("2026-10-29T07:00:00.000Z")}
+        timeZone="Europe/Sofia"
+      />,
+    )
+    const byId = (id: string) => tree.root.findAll(node => node.props?.testID === id)[0]!
+    act(() => { byId("end-case-mode-at").props.onPress() })
+    // Back to the start's day, then a time before the start: refused, and nothing ends.
+    for (let i = 0; i < 10; i += 1) {
+      const back = tree.root.findAll(node => node.props?.accessibilityLabel === "timingEndDate: −1")[0]
+      if (!back || back.props.disabled) break
+      act(() => { back.props.onPress() })
+    }
+    act(() => { byId("end-case-at-time").props.onChangeText("08:30") })
+    expect(byId("end-case-at-error")).toBeDefined()
+    await act(async () => { await byId("end-case-finalize").props.onPress() })
+    expect(onFinalize).not.toHaveBeenCalled()
+    act(() => { byId("end-case-at-time").props.onChangeText("11:00") })
+    await act(async () => { await byId("end-case-finalize").props.onPress() })
+    expect(onFinalize).toHaveBeenCalledWith([], "2026-10-29T09:00:00.000Z")
+  })
+
+  it("tells the screen the end chosen, so entries after it are asked about before ending", () => {
+    const onChosenEnd = vi.fn()
+    const tree = render(
+      <EndCaseSheet
+        visible
+        onClose={() => {}}
+        items={[]}
+        decisions={{}}
+        continueLabel="Finalise"
+        onDecision={() => {}}
+        onFinalize={() => {}}
+        startedAt={new Date("2026-10-29T07:00:00.000Z")}
+        timeZone="Europe/Sofia"
+        onChosenEnd={onChosenEnd}
+      />,
+    )
+    const byId = (id: string) => tree.root.findAll(node => node.props?.testID === id)[0]!
+    expect(onChosenEnd).toHaveBeenLastCalledWith(null)
+    act(() => { byId("end-case-mode-at").props.onPress() })
+    for (let i = 0; i < 10; i += 1) {
+      const back = tree.root.findAll(node => node.props?.accessibilityLabel === "timingEndDate: −1")[0]
+      if (!back || back.props.disabled) break
+      act(() => { back.props.onPress() })
+    }
+    act(() => { byId("end-case-at-time").props.onChangeText("11:00") })
+    expect(onChosenEnd).toHaveBeenLastCalledWith("2026-10-29T09:00:00.000Z")
+    // A time before the start is no end at all.
+    act(() => { byId("end-case-at-time").props.onChangeText("08:30") })
+    expect(onChosenEnd).toHaveBeenLastCalledWith(null)
+    act(() => { byId("end-case-mode-now").props.onPress() })
+    expect(onChosenEnd).toHaveBeenLastCalledWith(null)
   })
 })

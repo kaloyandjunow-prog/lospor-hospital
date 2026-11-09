@@ -110,7 +110,7 @@ describe("intraop vital log helpers", () => {
   it("derives vital field visibility from case type and monitoring labels", () => {
     const none = {
       showEtco2: false, showTemperature: false,
-      showBis: false, showTofRatio: false, showCvp: false,
+      showBis: false, showTofRatio: false, showCvp: false, showIbp: false,
     }
     // A general anaesthetic implies capnography and temperature. It does not
     // imply a BIS or a central line — plenty of general cases run without
@@ -140,6 +140,7 @@ describe("intraop vital log helpers", () => {
     expect(vitalFieldVisibility(false, ["cvpMonitor"])).toMatchObject({
       showBis: false, showTofRatio: false, showCvp: true,
     })
+    expect(vitalFieldVisibility(false, ["invasiveBP"])).toMatchObject({ showIbp: true, showCvp: false })
     // And a general anaesthetic on its own reveals none of them.
     expect(vitalFieldVisibility(true, [])).toMatchObject({
       showBis: false, showTofRatio: false, showCvp: false,

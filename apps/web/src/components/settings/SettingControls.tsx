@@ -20,9 +20,11 @@ export function SettingRow({ label, description, children }: {
 }
 
 /** An on/off switch. */
-export function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({ value, onChange, label, testId }: { value: boolean; onChange: (v: boolean) => void; label: string; testId?: string }) {
   return (
     <button type="button" onClick={() => onChange(!value)} aria-checked={value} role="switch"
+      aria-label={label}
+      data-testid={testId}
       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
         value ? "bg-blue-600" : "bg-slate-200 dark:bg-[#3a3a3a]"
       }`}>

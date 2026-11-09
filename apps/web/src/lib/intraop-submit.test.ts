@@ -6,7 +6,7 @@ describe("intraopAutosaveValues", () => {
   // server does not return it), so each autosave refreshed the case and the
   // refresh autosaved again -- several saves a second while a chart was open.
   it("leaves out the fields read off the chart", () => {
-    const values = { startTime: "08:00", positions: ["SUPINE"], vitals: [], drugsAdministered: [], urineMl: 200 }
+    const values = { startTime: "08:00", positions: ["SUPINE"], vitals: [], drugsAdministered: [], urineMl: 200, crystalloidsMl: 500, colloidsMl: 0, bloodMl: 0, infusionsMl: 250 }
     expect(intraopAutosaveValues(values)).toEqual({ startTime: "08:00", positions: ["SUPINE"], urineMl: 200 })
   })
 

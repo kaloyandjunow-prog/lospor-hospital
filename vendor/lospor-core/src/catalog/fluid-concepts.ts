@@ -61,6 +61,9 @@ const DRUG_CONCEPTS: Record<string, number | Record<string, number>> = {
   "Dextrose 5% in Lactated Ringer's (D5LR)": 968985,
   // glucose 100 mg/mL
   "Dextrose 10% (D10W)": 42937947,
+  // glucose 50, 100, 200 and 400 mg/mL: the one Glucose fluid from 10.2.0.
+  // RxNorm has no 400 mg/mL Injectable Solution; its Injection is the drug.
+  "Glucose": { "5": 19076324, "10": 42937947, "20": 589977, "40": 36249595 },
 }
 
 // Product, then the transfusion of it. Matched on the words a clinician or an

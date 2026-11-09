@@ -165,6 +165,35 @@ export function decodeTokenPayload(token: string | null): Record<string, unknown
   }
 }
 
+/**
+ * Resolve the account that owns local clinical work.  The storage layer must
+ * know this before it is allowed to read or replay drafts and queues; a bare
+ * "authenticated" boolean is not enough on a shared device.
+ */
+export async function getAuthenticatedAccountId(): Promise<string | null> {
+  if (!IS_WEB_SESSION) {
+    const payload = decodeTokenPayload(await getToken().catch(() => null))
+    const id = payload?.sub ?? payload?.userId ?? payload?.id
+    return typeof id === "string" && id ? id : null
+  }
+  try {
+    const response = await fetch(apiUrl("/api/auth/session"), {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "X-LOSPOR-Client": "pwa",
+        "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+      },
+    })
+    if (!response.ok) return null
+    const body = await response.json().catch(() => null)
+    return typeof body?.user?.id === "string" && body.user.id ? body.user.id : null
+  } catch {
+    return null
+  }
+}
+
 export function isTokenExpired(token: string | null): boolean {
   const payload = decodeTokenPayload(token)
   if (!payload?.exp) return false

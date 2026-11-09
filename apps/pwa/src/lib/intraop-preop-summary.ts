@@ -1,3 +1,4 @@
+import { normalizePlannedAnaesthesia } from "@lospor/core/preop-plan"
 import type { PremedicationOrders } from "@lospor/core/premedication"
 import { tciPatientFrom, type TciPatient } from "@lospor/core/tci"
 import type {
@@ -22,6 +23,8 @@ export type IntraopPreopSummary = {
   neckMobility?: string
   mouthOpeningCm?: number
   cormackLehane?: string
+  /** Technique codes planned at the preop visit (Core preop-plan). */
+  plannedTechniques?: string[]
   comorbidities?: { label: string; code?: string }[]
   currentMedications?: { label: string; atcCode?: string }[]
   allergies?: boolean | null
@@ -30,6 +33,15 @@ export type IntraopPreopSummary = {
   pediatricFasting?: { category: PediatricFastingCategory; hoursBefore: number }[]
   /** The premedication ordered at the preop visit; the record's premedication starts from it. */
   premedicationOrders?: PremedicationOrders
+  // What SPS reads (10.2.0): P1 MH, P4 latex, P3 ПОГП.
+  malignantHyperthermiaHistory?: boolean | null
+  familyAnesthesiaProblems?: boolean | null
+  latexAllergy?: boolean | null
+  /** The preop BP: the hypertension baseline when it was entered. */
+  bpSystolic?: number | null
+  bpDiastolic?: number | null
+  apfelScore?: number | null
+  apfelPONVHistory?: boolean | null
 }
 
 function numberOrUndefined(value: unknown): number | undefined {
@@ -63,6 +75,7 @@ export function buildIntraopPreopSummary(
     neckMobility: typeof pd.neckMobility === "string" ? pd.neckMobility : undefined,
     mouthOpeningCm: numberOrUndefined(pd.mouthOpeningCm),
     cormackLehane: typeof pd.cormackLehane === "string" ? pd.cormackLehane : undefined,
+    plannedTechniques: normalizePlannedAnaesthesia(pd.plannedAnaesthesia).techniques,
     comorbidities: Array.isArray(pd.comorbidities) ? pd.comorbidities as IntraopPreopSummary["comorbidities"] : [],
     currentMedications: Array.isArray(pd.currentMedications) ? pd.currentMedications as IntraopPreopSummary["currentMedications"] : [],
     // For the allergy check when a drug is given (1.5.0).
@@ -74,6 +87,13 @@ export function buildIntraopPreopSummary(
           typeof row?.category === "string" && typeof row.hoursBefore === "number")
       : undefined,
     premedicationOrders: premedicationOrdersOf(pd.preopPremedicationOrders),
+    malignantHyperthermiaHistory: typeof pd.malignantHyperthermiaHistory === "boolean" ? pd.malignantHyperthermiaHistory : null,
+    familyAnesthesiaProblems: typeof pd.familyAnesthesiaProblems === "boolean" ? pd.familyAnesthesiaProblems : null,
+    latexAllergy: typeof pd.latexAllergy === "boolean" ? pd.latexAllergy : null,
+    bpSystolic: typeof pd.bpSystolic === "number" ? pd.bpSystolic : null,
+    bpDiastolic: typeof pd.bpDiastolic === "number" ? pd.bpDiastolic : null,
+    apfelScore: numberOrUndefined(pd.apfelScore) ?? null,
+    apfelPONVHistory: typeof pd.apfelPONVHistory === "boolean" ? pd.apfelPONVHistory : null,
   }
 }
 export function pediatricAgeFromPreop(

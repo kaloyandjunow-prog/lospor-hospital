@@ -245,6 +245,7 @@ export function dbPreopToForm(
     patientFirstName: undefined,
     patientLastName:  undefined,
     patientId:        undefined,
+    patientNationalId: undefined,
   }
 }
 
@@ -339,12 +340,18 @@ export function preopSummaryForIntraop(preop: PreopData): PreopSummary {
     allergyDetails:        preop.allergyDetails,
     comorbidities:         preop.comorbidities,
     currentMedications:    preop.currentMedications,
+    malignantHyperthermiaHistory: preop.malignantHyperthermiaHistory ?? null,
+    familyAnesthesiaProblems: preop.familyAnesthesiaProblems ?? null,
+    latexAllergy:          preop.latexAllergy ?? null,
+    apfelScore:            preop.apfelScore ?? null,
+    apfelPONVHistory:      preop.apfelPONVHistory ?? null,
     premedicationOrders:   preop.preopPremedicationOrders,
     labResults:            preop.labResults,
     diagnosis:             preop.diagnoses?.map(d => d.label).join("; ") || null,
     plannedProcedure:      plannedProcedureText(preop.procedures) || null,
     emergencySurgery:      preop.emergencySurgery ?? null,
     pediatricFasting:      preop.pediatricFasting ?? null,
+    plannedTechniques:     preop.plannedAnaesthesia?.techniques ?? [],
   }
 }
 
@@ -376,6 +383,7 @@ export function sectionPayload(
     delete clinicalPreop.patientFirstName
     delete clinicalPreop.patientLastName
     delete clinicalPreop.patientId
+    delete clinicalPreop.patientNationalId
     if (preop.preopMedicationInstructions) {
       clinicalPreop.preopMedicationInstructions = medicationInstructionsToSend(preop.preopMedicationInstructions)
     }

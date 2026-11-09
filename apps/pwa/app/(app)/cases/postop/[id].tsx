@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  View, Text, ScrollView, TouchableOpacity, Pressable,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Animated, useWindowDimensions,
-} from "react-native"
+import { View, Text, ScrollView, TouchableOpacity, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Animated, useWindowDimensions, type ScrollViewInstance } from "react-native"
 import { useLocalSearchParams, useRouter, Stack } from "expo-router"
 import { notify } from "@/lib/notify"
 import { useForm, useWatch } from "react-hook-form"
@@ -19,6 +16,7 @@ import { colors, withAlpha } from "@/theme/colors"
 import { useCaseLock } from "@/lib/use-case-lock"
 import { WatchingOverlay } from "@/components/WatchingOverlay"
 import { usePreferences } from "@/lib/preferences-context"
+import { usePostopProcedurePrefill } from "@/lib/use-postop-procedure-prefill"
 import { useRangeSpec } from "@/lib/use-option-library"
 import { normaliseHandoverCodes, postopFormSchema, type PostopFormData as FormData, type PostopFormInput as FormInput } from "@/lib/postop-form-schema"
 import { RecoverySummary, usePostopFocusScroll } from "@/components/postop/PostopFormSections"
@@ -50,6 +48,7 @@ import { aldreteFromServerPostop } from "@/lib/postop-aldrete-hydration"
 import { aldreteCriteria, stewardCriteria } from "@/lib/postop-aldrete-criteria"
 import { PostopVitalsAndScore } from "@/components/postop/PostopVitalsAndScore"
 import { PostopPainDisposition } from "@/components/postop/PostopPainDisposition"
+import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -84,6 +83,7 @@ export default function PostopFormScreen() {
   const [preopSystolic, setPreopSystolic] = useState<number | null>(null)
   // The planned procedure was not yet known: the procedure done is then required (10.0.0).
   const [procedureUndetermined, setProcedureUndetermined] = useState(false)
+  const [plannedProcedures, setPlannedProcedures] = useState<FormData["performedProcedures"] | null>(null)
   const [legacyPain, setLegacyPain] = useState<string | null>(null)
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -314,10 +314,7 @@ export default function PostopFormScreen() {
         const queuedPostop = await autosaveManager.outbox.load<Record<string, unknown>>(id, "postop")
         const nextValues = valuesFromPostop({ ...p, ...(queuedPostop ?? {}) }, mode)
         lastSavedJsonRef.current = JSON.stringify(payloadFrom(nextValues))
-        // The procedure done starts as the one planned (10.0.0).
-        if (!nextValues.performedProcedures?.length && Array.isArray(c.preop?.proceduresJson) && c.preop.proceduresJson.length > 0) {
-          nextValues.performedProcedures = c.preop.proceduresJson as FormData["performedProcedures"]
-        }
+        setPlannedProcedures(!nextValues.performedProcedures?.length && Array.isArray(c.preop?.proceduresJson) && c.preop.proceduresJson.length > 0 ? c.preop.proceduresJson as FormData["performedProcedures"] : null)
         // Pre-populate dispositionNotes with continued-postop items if field is empty
         if (continuedItems && !nextValues.dispositionNotes) {
           const itemList = decodeURIComponent(continuedItems).split("|").filter(Boolean)
@@ -347,6 +344,7 @@ export default function PostopFormScreen() {
       .finally(() => setLoading(false))
   }, [continuedItems, id, markSaveResult, payloadFrom, reset, t, tc, valuesFromPostop])
 
+  usePostopProcedurePrefill({ loading, plannedProcedures, getValues, setValue })
   useEffect(() => {
     if (loading) return
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
@@ -425,7 +423,7 @@ export default function PostopFormScreen() {
   const nextSection = paged ? sectionList[sectionList.findIndex(section => section.key === pager.active) + 1] : undefined
   // The open section's pill is kept in view, centred, as preop's are: the last
   // one sat half off the screen (10.0.0).
-  const stripRef = useRef<ScrollView>(null)
+  const stripRef = useRef<ScrollViewInstance>(null)
   const pillX = useRef<Partial<Record<PostopSectionKey, { x: number; width: number }>>>({})
   useEffect(() => {
     const pill = pillX.current[pager.active]
@@ -484,7 +482,7 @@ export default function PostopFormScreen() {
       >
         {/* The sections, as a strip: a red dot where a field needed to finalise is empty. */}
         <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background }}>
-          <ScrollView ref={stripRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
+          <OverflowCueScrollView horizontal scrollRef={stripRef} edgeColor={colors.background} cueColor={colors.textSecondary} startLabel="Scroll sections left" endLabel="Scroll sections right" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
             {sectionList.map(section => {
               const isActive = pager.active === section.key
               return (
@@ -512,7 +510,7 @@ export default function PostopFormScreen() {
                 </Pressable>
               )
             })}
-          </ScrollView>
+          </OverflowCueScrollView>
         </View>
         <View style={{ flex: 1 }} {...pager.panHandlers}>
         <ScrollView ref={focusScroll.ref} style={{ paddingHorizontal: 20, paddingTop: 2 }} contentContainerStyle={{ paddingBottom: 80 }} keyboardShouldPersistTaps="handled" scrollEventThrottle={64} onScroll={event => followScroll(event.nativeEvent.contentOffset.y)}>
@@ -567,7 +565,7 @@ export default function PostopFormScreen() {
                 borderColor: withAlpha(colors.success, "99"),
                 boxShadow: "0 12px 26px rgba(0, 0, 0, 0.32)",
               }}
-              onPress={handleSubmit(onSubmit)}
+              onPress={() => { void handleSubmit(onSubmit)() }}
               disabled={isWatching || saving}
             >
               {saving ? (

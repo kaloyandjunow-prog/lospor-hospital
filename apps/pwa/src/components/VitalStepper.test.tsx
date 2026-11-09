@@ -55,3 +55,20 @@ describe("VitalStepper keypad limits", () => {
     expect(tree.root.findAllByProps({ children: "0.5" }).length).toBeGreaterThan(0)
   })
 })
+
+describe("a scale whose step changes along it (10.2.0, fresh gas)", () => {
+  it("steps by 0.1 L/min up to 5 and by 0.5 above, on the 0-20 slider", async () => {
+    const { snapFreshGasFlow, stepFreshGasFlow } = await import("@lospor/core/gas-ranges")
+    const onChange = vi.fn()
+    let tree!: TestRenderer.ReactTestRenderer
+    act(() => {
+      tree = TestRenderer.create(<VitalStepper value={4.9} onChange={onChange} min={0} max={20} manualMax={100} step={0.1} precision={1} snap={snapFreshGasFlow} stepBy={stepFreshGasFlow} />,
+        { createNodeMock: () => ({ measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => cb(0, 0, 120, 44) }) })
+    })
+    const [minus, plus] = tree.root.findAll(node => typeof node.props?.onStep === "function")
+    act(() => { plus!.props.onStep() })
+    expect(onChange).toHaveBeenLastCalledWith(5)
+    act(() => { minus!.props.onStep() })
+    expect(onChange).toHaveBeenLastCalledWith(4.8)
+  })
+})

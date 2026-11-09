@@ -42,6 +42,12 @@ import { preopTabFor, renderPostopFormEditor, renderPreopOrderListsEditor, rende
 import { DRUG_COLORS_STYLE, renderDrugColorsPage, type DrugColorsQuery } from "./drug-colors-ui.js"
 import { renderOperatingTheatresPage, THEATRES_STYLE } from "./operating-theatres-ui.js"
 import { INDICATORS_STYLE, renderIndicatorsPage } from "./indicators-ui.js"
+import { INTRAOP_STYLE, renderIntraopPage } from "./intraop-ui.js"
+import { READINGS_STYLE, renderReadingsPage } from "./readings-ui.js"
+import { ACCEPTANCE_STYLE, renderAcceptancePage } from "./acceptance-ui.js"
+import { HISTORY_STYLE, renderHistoryPage, type HistoryQuery } from "./history-ui.js"
+import { CARD_PREVIEW_STYLE, renderCardPreviewPage, type CardQuery } from "./card-preview-ui.js"
+import type { AcceptanceTrendView, AuditHistoryView, CardPreviewView, IntraopReadingsView } from "./control-plane.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
 import { PREFS_STYLE, SKIN_STYLE, THEME_STYLE, htmlAttributes, isLegacy, legacyProfileLink, NAV_PATHS, skinHeader, ui, availabilityStrips, configureBody, goLiveCard, overviewMap, preferencesBody, rangeSwitch, todoList, usageCard, verdictCard, type AvailabilityRange } from "./ui-shell.js"
@@ -527,6 +533,8 @@ const PAGE_STYLE = `
 ${DRUG_COLORS_STYLE}
 ${THEATRES_STYLE}
 ${INDICATORS_STYLE}
+${INTRAOP_STYLE}
+${READINGS_STYLE}${ACCEPTANCE_STYLE}${HISTORY_STYLE}${CARD_PREVIEW_STYLE}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
 @media(max-width:760px){.preop-order-row{grid-template-columns:auto auto minmax(0,1fr)}.preop-row-switches,.preop-order-number,.preop-order-actions{grid-column:3}.preop-order-actions{justify-content:flex-start}.preop-fixed-row{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -1383,8 +1391,17 @@ export function renderControlPlane(
   discoveredNumberings?: readonly string[],
   /** What the inbox would do with the file just checked (1.5.0). */
   fileCheck?: EhrFileCheck,
-  /** The drug colours page's search and the colour being changed (10.0.0). */
+  /** The Unusual readings tab's data (10.2.0); undefined on every other page. */
   drugColorsQuery?: DrugColorsQuery,
+  readings?: IntraopReadingsView | null,
+  /** The Acceptance trend tab's data (10.3.0); undefined on every other page. */
+  trend?: AcceptanceTrendView | null,
+  /** The Change history page's rows (10.3.0) and the filter they were read with; undefined on every other page. */
+  history?: AuditHistoryView | null,
+  historyQuery?: HistoryQuery,
+  /** The Card preview tab's card and the sample patient it was resolved for (10.3.0); undefined on every other page. */
+  cardPreview?: CardPreviewView | null,
+  cardQuery?: CardQuery,
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1494,9 +1511,30 @@ export function renderControlPlane(
   const drugColorsPage = renderDrugColorsPage(view?.drugColors, locale, drugColorsQuery)
   const theatresPage = renderOperatingTheatresPage(view?.operatingTheatres, locale)
   const indicatorsPage = renderIndicatorsPage(view?.indicators, locale)
+  // Three tabs on one page: the switches, the Unusual readings and the acceptance trend. None is a menu entry of its own.
+  const intraopPage = section === "intraop/readings" ? renderReadingsPage(readings, locale)
+    : section === "intraop/acceptance" ? renderAcceptancePage(trend, view?.intraopAutomation, locale)
+    : section === "intraop/cards" ? renderCardPreviewPage(cardPreview, view?.intraopAutomation, cardQuery ?? { complication: "", patient: "adult" }, locale)
+    : renderIntraopPage(view?.intraopAutomation, locale)
   // The preop questions, summary and consent have their own page (1.6.1);
   // the legacy skin keeps them above the guidance, where they always were.
   const guidancePolicy = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
+
+  // The name the anaesthesia record carries as its title (11.0): the institution's own name, changed here.
+  const hospitalLogoControls = research && research.institutions.length > 0 ? `
+    <div class="component" data-testid="hospital-logo-control">
+    <h3>${localize(locale, "Hospital logo on the paper documents", "Лого на болницата върху хартиените документи")}</h3>
+    <p class="component-detail">${localize(locale, "A PNG, JPEG or WebP up to 1 MB, kept on this hospital's server. It prints at the top of every page of the preoperative summary, the informed consent and the anaesthesia record.", "PNG, JPEG или WebP до 1 MB, пазено на сървъра на болницата. Печата се най-горе на всяка страница на предоперативното обобщение, информираното съгласие и анестезиологичния протокол.")}</p>
+    <form method="post" action="/status/control/hospital-logo" enctype="multipart/form-data"><div class="form-grid"><div><label>${localize(locale, "Institution", "Лечебно заведение")}<select name="institutionId" required>${institutionOptions}</select></label></div><div><label>${localize(locale, "Logo file", "Файл с лого")}<input type="file" name="logo" accept="image/png,image/jpeg,image/webp" data-testid="hospital-logo-file"></label></div><div class="wide"><label class="check"><input type="checkbox" name="removeLogo" value="true"> ${localize(locale, "Remove the logo", "Премахване на логото")}</label></div><div class="wide"><label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label></div><div class="wide"><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label></div><div class="wide"><button type="submit">${localize(locale, "Save logo", "Запазване на логото")}</button></div></div></form>
+    <p class="component-detail">${localize(locale, "Current logo", "Текущо лого")}: ${research.institutions.map(institution => `<img src="/status/hospital-logo?institutionId=${encodeURIComponent(institution.id)}" alt="${localize(locale, "no logo", "няма лого")}" class="hospital-logo-preview" data-testid="hospital-logo-preview" height="48">`).join(" ")}</p></div>` : ""
+
+  const hospitalNameControls = research && research.institutions.length > 0 ? `
+    <div class="component" data-testid="hospital-name-control">
+    <h3>${localize(locale, "Hospital name on the record", "Име на болницата в протокола")}</h3>
+    <div class="facts">${research.institutions.map(institution => textFact(localize(locale, "Current name", "Текущо име"), institution.name)).join("")}</div>
+    <p>${localize(locale, "The anaesthesia record is titled with this name, on screen and on paper. It is the institution's own name, so it changes wherever the institution is named.", "Анестезиологичният протокол носи това име като заглавие, на екрана и на хартия. То е името на самото лечебно заведение, затова се променя навсякъде, където то е упоменато.")}</p>
+    <form method="post" action="/status/control/hospital-name"><div class="form-grid"><div><label>${localize(locale, "Institution", "Лечебно заведение")}<select name="institutionId" required>${institutionOptions}</select></label></div><div><label>${localize(locale, "New hospital name", "Ново име на болницата")}<input name="name" minlength="2" maxlength="160" required></label></div><div class="wide"><label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label></div><div class="wide"><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label></div><div class="wide"><button type="submit">${localize(locale, "Save hospital name", "Запазване на името на болницата")}</button></div></div></form></div>
+  ` : ""
 
   const caseVisibility = view?.caseVisibility
   const caseVisibilityControls = caseVisibility ? `
@@ -1547,11 +1585,12 @@ export function renderControlPlane(
   const patientIdentifierControls = patientIdentifier ? `
     <div class="component"><div class="facts">
       ${textFact(localize(locale, "National identifier (ЕГН) linking permitted", "Разрешено свързване с национален идентификатор (ЕГН)"), boolWord(patientIdentifier.egnPermitted, locale))}
+      ${textFact(localize(locale, "Full ИЗ № shown while a case is open", "Пълен ИЗ № се показва при отворен случай"), boolWord(patientIdentifier.admissionNumberVisible !== false, locale))}
       ${textFact(localize(locale, "Change reason recorded", "Записана причина за промяна"), boolWord(patientIdentifier.changeReasonRecorded, locale))}
       ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), patientIdentifier.changedAt, locale)}
       ${dateFact(localize(locale, "State last updated", "Състоянието е проверено на"), patientIdentifier.updatedAt, locale)}
     </div><p>${localize(locale, "ЕГН is what joins a patient's separate admissions into one person; a record number alone restarts every January and cannot do that job. Recording it is nonetheless a heavier privacy commitment than a record number, and the hospital -- not this software's vendor -- is the data controller for it. Turning this off does not remove any ЕГН already recorded; it only stops new links from being created.", "ЕГН е това, което свързва отделните хоспитализации на един пациент: номерът на ИЗ започва отначало всяка година и не може да го замени. Записването на ЕГН обаче засяга личните данни повече от номера на ИЗ, а администратор на тези данни е болницата, не производителят на софтуера. Изключването не изтрива вече записани ЕГН — само спира създаването на нови връзки.")}</p>
-    <form method="post" action="/status/control/patient-identifier"><div class="checks"><label class="check"><input type="checkbox" name="egnPermitted" value="true" ${patientIdentifier.egnPermitted ? "checked" : ""}> ${localize(locale, "Permit ЕГН linking for this hospital", "Разрешаване на свързване с ЕГН за тази болница")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save national-identifier policy", "Запазване на настройката за ЕГН")}</button></form></div>
+    <form method="post" action="/status/control/patient-identifier"><div class="checks"><label class="check"><input type="checkbox" name="egnPermitted" value="true" ${patientIdentifier.egnPermitted ? "checked" : ""}> ${localize(locale, "Permit ЕГН linking for this hospital", "Разрешаване на свързване с ЕГН за тази болница")}</label><label class="check"><input type="checkbox" name="admissionNumberVisible" value="true" data-testid="admission-number-visible" ${patientIdentifier.admissionNumberVisible !== false ? "checked" : ""}> ${localize(locale, "Show the full ИЗ № (and the first six digits of a known ЕГН) on the dashboard and while a case is open", "Показване на пълния ИЗ № (и първите шест цифри на известен ЕГН) в таблото и при отворен случай")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save national-identifier policy", "Запазване на настройката за ЕГН")}</button></form></div>
   ` : `<div class="empty">${localize(locale, "National-identifier controls are unavailable.", "Управлението на ЕГН не е достъпно.")}</div>`
 
   const ehrTransport = view?.ehrTransport
@@ -1902,16 +1941,18 @@ export function renderControlPlane(
   ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
 
   const newPages: { slug: string; label: string; html: string }[] = [
-    { slug: "postop", label: localize(locale, "Postoperative form", "Следоперативна форма"), html: `<section class="section"><h2>${localize(locale, "Postoperative form", "Следоперативна форма")}</h2><div class="card">${postopPage || `<div class="empty">${localize(locale, "This API does not offer the postoperative sections yet.", "Този API още не предлага разделите на следоперативната форма.")}</div>`}</div></section>` },
-    { slug: "theatres", label: localize(locale, "Operating theatres", "Операционни зали"), html: `<section class="section"><h2>${localize(locale, "Operating theatres", "Операционни зали")}</h2><div class="card">${theatresPage}</div></section>` },
-    { slug: "indicators", label: localize(locale, "Unit indicators", "Индикатори на отделението"), html: `<section class="section"><h2>${localize(locale, "Unit indicators", "Индикатори на отделението")}</h2><div class="card">${indicatorsPage}</div></section>` },
-    { slug: "drug-colors", label: localize(locale, "Drug colours", "Цветове на лекарствата"), html: `<section class="section"><h2>${localize(locale, "Drug colours", "Цветове на лекарствата")}</h2><div class="card">${drugColorsPage}</div></section>` },
+    { slug: "history", label: localize(locale, "Change history", "История на промените"), html: renderHistoryPage(history, historyQuery ?? { page: 0, category: "", action: "" }, locale) },
+    { slug: "intraop", label: localize(locale, "SPS — Smart Prediction System", "SPS — Система за интелигентно прогнозиране"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "SPS — Smart Prediction System", "SPS — Система за интелигентно прогнозиране")}</h2><div class="card">${intraopPage}</div></section>` },
+    { slug: "postop", label: localize(locale, "Postoperative form", "Следоперативна форма"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Postoperative form", "Следоперативна форма")}</h2><div class="card">${postopPage || `<div class="empty">${localize(locale, "This API does not offer the postoperative sections yet.", "Този API още не предлага разделите на следоперативната форма.")}</div>`}</div></section>` },
+    { slug: "theatres", label: localize(locale, "Operating theatres", "Операционни зали"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Operating theatres", "Операционни зали")}</h2><div class="card">${theatresPage}</div></section>` },
+    { slug: "indicators", label: localize(locale, "Unit indicators", "Индикатори на отделението"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Unit indicators", "Индикатори на отделението")}</h2><div class="card">${indicatorsPage}</div></section>` },
+    { slug: "drug-colors", label: localize(locale, "Drug colours", "Цветове на лекарствата"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Drug colours", "Цветове на лекарствата")}</h2><div class="card">${drugColorsPage}</div></section>` },
   ]
   const legacySections: { slug: string; label: string; html: string }[] = [
     {
       slug: "clinical",
       label: localize(locale, "Clinical guidance", "Клинични насоки"),
-      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${renderPreopTabs(preopTab, locale)}${preopTabHtml}${guidancePolicy}` : ""}${caseVisibilityControls}</div></section>`,
+      html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidance ? `${renderPreopTabs(preopTab, locale)}${preopTabHtml}${guidancePolicy}` : ""}${caseVisibilityControls}${hospitalNameControls}${hospitalLogoControls}</div></section>`,
     },
     {
       slug: "ehr",
@@ -1945,9 +1986,9 @@ export function renderControlPlane(
   const clinicalSection = legacySections.find(entry => entry.slug === "clinical")!
   const aiSection = legacySections.find(entry => entry.slug === "ai")!
   const skinSections: { slug: string; label: string; html: string }[] = [
-    { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2>${localize(locale, "Preoperative form", "Предоперативна форма")}</h2>${renderPreopTabs(preopTab, locale)}<div class="card">${preopTabHtml}</div></section>` },
+    { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Preoperative form", "Предоперативна форма")}</h2>${renderPreopTabs(preopTab, locale)}<div class="card">${preopTabHtml}</div></section>` },
     ...newPages,
-    { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}${caseVisibilityControls}</div></section>` },
+    { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}${caseVisibilityControls}${hospitalNameControls}${hospitalLogoControls}</div></section>` },
     { slug: "ehr", label: localize(locale, "Hospital system", "Болнична система"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },
     { slug: "codes", label: localize(locale, "Codes", "Кодове"), html: `
     <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
@@ -1966,7 +2007,7 @@ export function renderControlPlane(
   ]
   const sections = isLegacy() ? legacySections : skinSections
   // A preop tab (preop/questions, ...) is shown on the preop page.
-  const baseSection = section?.startsWith("preop/") ? "preop" : section
+  const baseSection = section?.startsWith("preop/") ? "preop" : section?.startsWith("intraop/") ? "intraop" : section
   const requested = isLegacy() ? LEGACY_CONTROL_SECTION[baseSection ?? ""] ?? baseSection : baseSection
   const active = sections.find(entry => entry.slug === requested) ?? sections[0]
   // The modern skins already render the active group's pages in their own

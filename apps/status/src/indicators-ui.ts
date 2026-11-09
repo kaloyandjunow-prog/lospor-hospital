@@ -69,10 +69,10 @@ export function renderIndicatorsPage(view: IndicatorsView | null | undefined, lo
     `<label>${localize(locale, en, bg)}<span class="ind-inline"><input class="ind-number" name="${name}" inputmode="decimal" required value="${current}"> ${unit}</span><span class="component-detail">${localize(locale, "bundled", "вградено")}: ${bundled} ${unit}</span></label>`
 
   return `<div class="component" id="${ANCHOR}">${title}${intro}<form method="post" action="${INDICATORS_PATH}#${ANCHOR}" data-testid="indicators-form">
-<h4>${localize(locale, "Hypotension, by age", "Хипотония според възрастта")}</h4>
+<h4>${localize(locale, "Hypotension, by age", "Хипотенсия според възрастта")}</h4>
 <p class="component-detail">${localize(locale,
     "A blood pressure reading is hypotensive below either value set for the patient's age; leave a value empty to not use it. Time in hypotension is counted from the chart's readings, each standing for its 5 minutes and up to 15 until the next. Bundled: children by Pediatric Advanced Life Support (AHA 2020), adults MAP below 65 mmHg.",
-    "Измерването е хипотония под която и да е от стойностите за възрастта на пациента; оставете празно, за да не се използва. Времето в хипотония се брои по измерванията в картата — всяко важи за своите 5 минути и до 15 до следващото. Вградено: при деца по Pediatric Advanced Life Support (AHA 2020), при възрастни САН под 65 mmHg.")}</p>
+    "Измерването е хипотенсия под която и да е от стойностите за възрастта на пациента; оставете празно, за да не се използва. Времето в хипотенсия се брои по измерванията в картата — всяко важи за своите 5 минути и до 15 до следващото. Вградено: при деца по Pediatric Advanced Life Support (AHA 2020), при възрастни САН под 65 mmHg.")}</p>
 <table class="ind-bands"><thead><tr><th>${localize(locale, "Age band", "Възрастова група")}</th><th>${localize(locale, "MAP below (mmHg)", "САН под (mmHg)")}</th><th>${localize(locale, "Systolic below (mmHg)", "Систолно под (mmHg)")}</th></tr></thead><tbody>${bands}</tbody></table>
 <h4>${localize(locale, "Other thresholds", "Други прагове")}</h4>
 <div class="form-grid">

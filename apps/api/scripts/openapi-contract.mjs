@@ -520,6 +520,7 @@ export const schemas = {
   }, ["credential", "reason"]),
   HospitalPatientIdentifierPolicyRequest: object({
     egnPermitted: { type: "boolean" },
+    admissionNumberVisible: { type: "boolean", description: "Show the full ИЗ № while a case is open. Left as it is when omitted." },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["egnPermitted", "reason"]),
   HospitalExternalAiCredentialRequest: object({
@@ -583,6 +584,7 @@ export const schemas = {
   }, ["provider", "credentialConfigured", "credentialConfiguredAt"]),
   HospitalPatientIdentifierPolicyResponse: object({
     egnPermitted: { type: "boolean" },
+    admissionNumberVisible: { type: "boolean" },
     changedAt: nullable({ type: "string", format: "date-time" }),
   }, ["egnPermitted", "changedAt"]),
   HospitalEhrTransportPolicyResponse: object({
@@ -795,12 +797,54 @@ export const schemas = {
     revision: { type: "integer", minimum: 0 },
     updatedAt: { type: "string", format: "date-time" },
   }),
+  EventBatchRequest: object({
+    add: { type: "array", items: ref("Event") },
+    update: { type: "array", items: ref("Event") },
+    remove: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 } },
+  }),
+  EventBatchMutationResponse: object({
+    ok: { type: "boolean" },
+    intraopUpdatedAt: nullable({ type: "string", format: "date-time" }),
+    intraopRevision: nullable({ type: "integer", minimum: 0 }),
+  }, ["ok"]),
   TransferRequest: object({ toUserId: { type: "string", minLength: 1 } }, ["toUserId"]),
   CaseTheatreRequest: object({
     theatreId: nullable({ type: "string", minLength: 1, maxLength: 64 }),
     expectedTheatreId: { ...nullable({ type: "string", minLength: 1, maxLength: 64 }), description: "The theatre the client showed; a case changed meanwhile is refused with 409 THEATRE_CHANGED." },
   }, ["theatreId"]),
   CaseTheatreResult: object({ theatreId: nullable({ type: "string" }) }, ["theatreId"]),
+  IntraopAutomationResponse: object({
+    settings: object({
+      enabled: { type: "boolean" },
+      groups: object({
+        treatmentSuggestions: { type: "boolean" },
+        reverseQuestions: { type: "boolean" },
+        readingQuestions: { type: "boolean" },
+        labQuestions: { type: "boolean" },
+        reminders: { type: "boolean" },
+        timers: { type: "boolean" },
+      }, ["treatmentSuggestions", "reverseQuestions", "readingQuestions", "labQuestions", "reminders", "timers"]),
+      disabled: { type: "array", items: { type: "string", minLength: 1, maxLength: 100 } },
+      dantroleneVialsMg: { type: "array", items: { type: "number", enum: [20, 120, 250] } },
+      vitalQuestions: object({
+        enabled: { type: "boolean" },
+        minCases: { type: "integer", minimum: 20, maximum: 10000 },
+        tails: { type: "object", additionalProperties: true },
+      }, ["enabled", "minCases", "tails"]),
+    }, ["enabled", "groups", "disabled", "dantroleneVialsMg", "vitalQuestions"]),
+    stats: nullable({ type: "object", additionalProperties: true }),
+    succession: nullable({
+      type: "array",
+      items: object({
+        context: { type: "string" },
+        from: { type: "string" },
+        to: { type: "string" },
+        count: { type: "number", minimum: 0 },
+        total: { type: "number", minimum: 0 },
+        gapMinutes: { type: "number", minimum: 0 },
+      }, ["context", "from", "to", "count", "total", "gapMinutes"]),
+    }),
+  }, ["settings", "stats", "succession"]),
   OperatingTheatreConfig: object({
     enabled: { type: "boolean" },
     theatres: { type: "array", items: object({ id: { type: "string" }, name: { type: "string" } }, ["id", "name"]) },
@@ -1558,6 +1602,14 @@ add("POST", "/v1/cases/{id}/patient-link/correct", "Correct the patient a case b
   errors: [400, 401, 403, 404, 409, 500],
   stability: "hospital",
 })
+// The ЕГН of a saved case: it only fills a gap, never repoints a person.
+add("POST", "/v1/cases/{id}/patient-link/person", "Record the ЕГН of the patient a case is about", {
+  parameters: [id],
+  requestBody: body({ type: "object", required: ["nationalId"], properties: { nationalId: { type: "string", maxLength: 32 } } }),
+  result: { type: "object" },
+  errors: [400, 401, 403, 404, 409, 500],
+  stability: "hospital",
+})
 
 add("POST", "/v1/cases/{id}/lock", "Acquire a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("PATCH", "/v1/cases/{id}/lock", "Refresh or reclaim a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
@@ -1605,6 +1657,12 @@ add("POST", "/v1/cases/{id}/events", "Append an idempotent intraoperative event"
   status: 201,
   result: ref("EventMutationResponse"),
 })
+add("POST", "/v1/cases/{id}/events/batch", "Apply an atomic batch of intraoperative event changes", {
+  parameters: [id, header("x-lospor-intraop-revision", { type: "integer" })],
+  requestBody: body(ref("EventBatchRequest")),
+  result: ref("EventBatchMutationResponse"),
+  errors: [400, 401, 403, 404, 409, 500],
+})
 add("PUT", "/v1/cases/{id}/events", "Retired whole-log write (1.4.9); write single events", { parameters: [id], tombstone: true, stability: "deprecated" })
 add("PUT", "/v1/cases/{id}/events/{eventId}", "Update an intraoperative event", {
   parameters: [id, pathParameter("eventId"), header("x-lospor-intraop-revision", { type: "integer" })],
@@ -1627,6 +1685,7 @@ add("GET", "/v1/indicators", "Read the unit indicators: aggregate figures over t
   result: ref("JsonObject"),
 })
 add("GET", "/v1/operating-theatres", "Read whether operating theatres are used, and the active ones", { result: ref("OperatingTheatreConfig") })
+add("GET", "/v1/intraop/automation", "Read the intraoperative automation settings and, when the vitals questions are on, the reading counts per age band they are measured against", { result: ref("IntraopAutomationResponse"), errors: [401, 500] })
 add("POST", "/v1/cases/{id}/transfer", "Offer a case transfer", { parameters: [id], requestBody: body(ref("TransferRequest")), status: 201, result: ref("Transfer") })
 add("PATCH", "/v1/cases/{id}/transfer", "Accept or decline a case transfer", { parameters: [id], requestBody: body(ref("TransferDecisionRequest")), result: ref("Transfer") })
 add("GET", "/v1/cases/{id}/transfers", "Read a case handover history", { parameters: [id], result: arrayOf("Transfer") })
@@ -1947,6 +2006,73 @@ add("POST", "/v1/internal/hospital/control-plane/operating-theatres", "Switch op
   tag: "internal",
 })
 add("POST", "/v1/internal/hospital/control-plane/indicators", "Set the unit-indicator thresholds and whether colleagues are named, from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 201,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/hospital-name", "Rename the institution, which titles the anaesthesia record, from Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/hospital/control-plane/intraop-acceptance", "Read how each SPS line was received, month by month, for the Status Acceptance trend tab", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/hospital/control-plane/audit-history", "Read who changed which hospital setting or account, and when, for the Status Change history page", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/hospital/control-plane/intraop-card-preview", "Read a treatment card as a clinician sees it, for a sample patient, for the Status Card preview tab", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/hospital/control-plane/hospital-logo", "Read the logo printed on the paper documents, for the Status page", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/hospital-logo", "Set or remove the hospital logo (a small PNG or JPEG) printed on the paper documents", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("JsonObject")),
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/hospital/control-plane/intraop-readings", "Read this hospital's vital-sign counts, limits and their history, for the Status Unusual readings page", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 404, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/intraop-automation", "Set the intraoperative suggestion switches, the vitals-question limits, the monitor reading intervals and the dantrolene vials from Status", {
   parameters: [statusControlBearer],
   requestBody: body(ref("JsonObject")),
   status: 201,

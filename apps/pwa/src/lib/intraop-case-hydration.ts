@@ -67,6 +67,13 @@ export function buildLoadedIntraopCaseState(
   for (const operation of pendingMutations) {
     if (operation.kind === "event.delete") {
       rawLog = rawLog.filter((event) => event.id !== operation.eventId)
+    } else if (operation.kind === "event.batch") {
+      const remove = new Set(operation.ops.remove)
+      rawLog = rawLog.filter(event => !remove.has(event.id))
+      for (const raw of [...operation.ops.update, ...operation.ops.add]) {
+        const event = parseLogEvent(raw)
+        if (event) rawLog = [event, ...rawLog.filter(item => item.id !== event.id)]
+      }
     } else {
       const event = parseLogEvent(operation.event)
       if (event) rawLog = [event, ...rawLog.filter((item) => item.id !== operation.eventId)]

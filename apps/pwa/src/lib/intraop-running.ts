@@ -38,7 +38,7 @@ const storedName: RunningNameOf = (_kind, name) => name
 
 function presentRunningItem(item: CoreRunningItem, nameOf: RunningNameOf = storedName, colorOf?: RunningColorOf): RunningItem {
   const presented = presentRunningLabel(item, nameOf)
-  const current = item.kind === "gas" ? undefined : colorOf?.(item.kind, item.name)
+  const current = item.kind === "gas" || item.kind === "jet" ? undefined : colorOf?.(item.kind, item.name)
   if (current) presented.color = current
   if (item.planned) presented.planned = true
   if (item.plannedStop) presented.plannedStop = true
@@ -53,6 +53,10 @@ function presentRunningItem(item: CoreRunningItem, nameOf: RunningNameOf = store
 function presentRunningLabel(item: CoreRunningItem, nameOf: RunningNameOf): RunningItem {
   if (item.kind === "agent") {
     return { id: item.id, label: nameOf("agent", item.name), color: item.color }
+  }
+  if (item.kind === "jet") {
+    // Pressure, rate and FiO2 in force in this row (10.2.0).
+    return { id: item.id, label: `Jet ${item.pressureBar} bar \u00b7 ${item.rate}/min \u00b7 FiO2 ${item.fio2}%`, color: item.color }
   }
   if (item.kind === "gas") {
     return {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Switch, Text, TouchableOpacity, View } from "react-native"
+import { Text, TouchableOpacity, View } from "react-native"
 import { normalizePlannedAnaesthesia, type PlannedAnaesthesia } from "@lospor/core/preop-plan"
 import { TechniqueTab } from "@/components/intraop/tabs/TechniqueTab"
 import { VascularTab } from "@/components/intraop/tabs/VascularTab"
@@ -11,6 +11,7 @@ import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { useOptionLibrary } from "@/lib/use-option-library"
 import { buildVascTree, VASC_PREEXISTING_QUICK, vascDefaultUnit, vascSiteColor } from "@/lib/vascular-access-tree"
 import { colors, useThemeRefresh } from "@/theme/colors"
+import { BooleanSwitch } from "@/components/ui"
 
 function Chips({ options, chosen, onChange, testID }: {
   options: { code: string; label: string }[]
@@ -91,7 +92,7 @@ export function PlannedAnaesthesiaSection({ value, onChange, language, tc, bare 
         />
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Switch testID="preop-planned-ventilation" value={plan.postopVentilation} onValueChange={postopVentilation => set({ postopVentilation })} />
+        <BooleanSwitch testID="preop-planned-ventilation" value={plan.postopVentilation} onValueChange={postopVentilation => set({ postopVentilation })} />
         <Text style={{ color: colors.textPrimary, fontSize: 14, flex: 1 }}>{tc("plannedPostopVentilation")}</Text>
       </View>
       <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 17 }}>{tc("plannedAnaesthesiaHint")}</Text>

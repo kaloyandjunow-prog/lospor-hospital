@@ -1,10 +1,11 @@
 "use client"
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useLocale } from "next-intl"
 import { Controller, type Control, type UseFormWatch, type UseFormSetValue, type UseFormGetValues } from "react-hook-form"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { TimePicker } from "@/components/forms/shared/TimePicker"
 import { DayStepper } from "@/components/forms/shared/DayStepper"
+import { EndCorrectionReasons } from "./EndCorrectionReasons"
 import { Label } from "@/components/ui/label"
 import type { IntraopFormFields, IntraopData } from "@/components/forms/IntraopForm"
 import {
@@ -24,59 +25,8 @@ import {
   shiftDateKey,
   startInstantForWallClock,
 } from "@/lib/intraop-time"
+import { TEMPLATES, type Template } from "./timeline-templates"
 import { AIRWAY_DEVICES_WITH_SUBOPTIONS } from "@lospor/core/intraop"
-
-type Template = {
-  id: string; labelKey: string; descKey: string
-  techniques: string[]
-  monitoring: Partial<Record<string, boolean>>
-  airwayDevices: string[]
-  airwayTools?: string[]
-}
-
-const TEMPLATES: Template[] = [
-  {
-    id: "std-ga",
-    labelKey: "intraop.timeline.templates.standardGaLabel",
-    descKey: "intraop.timeline.templates.standardGaDesc",
-    techniques: ["GENERAL_INHALATION"],
-    monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true, tempMonitor: true },
-    airwayDevices: ["ORAL_ETT"],
-  },
-  {
-    id: "tiva",
-    labelKey: "intraop.timeline.templates.tivaLabel",
-    descKey: "intraop.timeline.templates.tivaDesc",
-    techniques: ["GENERAL_TIVA"],
-    monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true, tempMonitor: true, bis: true },
-    airwayDevices: ["ORAL_ETT"],
-  },
-  {
-    id: "spinal-cs",
-    labelKey: "intraop.timeline.templates.spinalLabel",
-    descKey: "intraop.timeline.templates.spinalDesc",
-    techniques: ["SPINAL_SINGLE"],
-    monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true },
-    airwayDevices: ["FACE_MASK"],
-  },
-  {
-    id: "paed-inhal",
-    labelKey: "intraop.timeline.templates.pediatricLabel",
-    descKey: "intraop.timeline.templates.pediatricDesc",
-    techniques: ["GENERAL_INHALATION"],
-    monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true, tempMonitor: true },
-    airwayDevices: ["FACE_MASK"],
-  },
-  {
-    id: "awake-foi",
-    labelKey: "intraop.timeline.templates.awakeFoiLabel",
-    descKey: "intraop.timeline.templates.awakeFoiDesc",
-    techniques: ["GENERAL_INHALATION"],
-    monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true },
-    airwayDevices: ["ORAL_ETT"],
-    airwayTools: ["FOB", "AWAKE"],
-  },
-]
 
 function nowHHMM() {
   const now = new Date()
@@ -85,7 +35,7 @@ function nowHHMM() {
 
 export function TimelineSection({
   t, control, watch, setValue, getValues, onAutoSave,
-  timeErrors, setTimeErrors, monDefaultsAppliedRef, setAdvancedMonOpen, setAirwayExpandedDevice,
+  timeErrors, setTimeErrors, monDefaultsAppliedRef, setAdvancedMonOpen, setAirwayExpandedDevice, onEndCorrectionOpen,
 }: {
   t: (key: string, values?: Record<string, string | number>) => string
   control: Control<IntraopFormFields>
@@ -98,6 +48,8 @@ export function TimelineSection({
   monDefaultsAppliedRef: { current: boolean }
   setAdvancedMonOpen: (value: boolean) => void
   setAirwayExpandedDevice: (v: string | null) => void
+  /** The reasons box for a changed end is open (10.1.0): the floating questions step aside meanwhile. */
+  onEndCorrectionOpen?: (open: boolean) => void
 }) {
   const locale = useLocale()
   const [showTemplates, setShowTemplates]   = useState(false)
@@ -113,6 +65,15 @@ export function TimelineSection({
   // day when the end clock time is earlier, until the clinician steps it.
   const [startDayKey, setStartDayKey] = useState<string | null>(null)
   const [endDayTouched, setEndDayTouched] = useState(false)
+  // Changing the end of a case that has ended asks why first (10.1.0).
+  const [pendingEnd, setPendingEnd] = useState<{ hhmm: string; dayOffset?: number } | null>(null)
+  // The floating "Waiting for your answer" panel would cover the reasons:
+  // it steps aside while they are open, and comes back if this section goes.
+  const endCorrectionOpen = pendingEnd != null
+  useEffect(() => {
+    onEndCorrectionOpen?.(endCorrectionOpen)
+    return () => onEndCorrectionOpen?.(false)
+  }, [endCorrectionOpen, onEndCorrectionOpen])
   const dateLocale = locale === "bg" ? "bg" : "en"
   const formatDay = (key: string) => formatDateKeyShort(key, dateLocale) ?? key
 
@@ -159,6 +120,18 @@ export function TimelineSection({
     if (instant) applyStartInstant(instant)
   }
 
+  function requestEndWallClock(hhmm: string, dayOffset?: number) {
+    const zone = caseZone()
+    const startedAt = getValues("startedAt")
+    const start = startedAt ? new Date(startedAt) : null
+    if (savedEnd && zone && start && !Number.isNaN(start.getTime())) {
+      const offset = dayOffset ?? (savedStartKey && savedEndKey ? daysBetweenDateKeys(savedStartKey, savedEndKey) ?? 0 : defaultEndDayOffset(start, hhmm, zone))
+      const next = endInstantForWallClock(start, hhmm, zone, offset)
+      if (next && next.getTime() !== savedEnd.getTime()) { setPendingEnd({ hhmm, dayOffset }); return }
+    }
+    applyEndWallClock(hhmm, dayOffset)
+  }
+
   function applyEndWallClock(hhmm: string, dayOffset?: number) {
     const zone = caseZone()
     const startedAt = getValues("startedAt")
@@ -185,7 +158,7 @@ export function TimelineSection({
     if (offset == null || offset < 0) return
     setEndDayTouched(true)
     const endTime = getValues("endTime")
-    if (endTime) applyEndWallClock(endTime, offset)
+    if (endTime) requestEndWallClock(endTime, offset)
   }
 
   function applyTemplate(tpl: Template) {
@@ -325,7 +298,7 @@ export function TimelineSection({
               testId="intraop-end-day"
             />
             <Controller name="endTime" control={control} render={({ field }) => (
-              <TimePicker ref={endHourRef} value={field.value} onChange={applyEndWallClock} />
+              <TimePicker ref={endHourRef} value={field.value} onChange={hhmm => requestEndWallClock(hhmm)} />
             )} />
             {!watch("endTime") && (
               <button type="button"
@@ -335,6 +308,13 @@ export function TimelineSection({
               </button>
             )}
           </div>
+          {pendingEnd && (
+            <EndCorrectionReasons
+              t={t}
+              onChoose={reason => { setValue("endCorrectionReason", reason); applyEndWallClock(pendingEnd.hhmm, pendingEnd.dayOffset); setPendingEnd(null) }}
+              onCancel={() => setPendingEnd(null)}
+            />
+          )}
           {(durationMinutesBetween(savedStart, savedEnd) ?? 0) > 24 * 60 && (
             <p className="text-xs font-semibold text-amber-600 dark:text-amber-400" data-testid="intraop-longer-than-day">{t("intraop.timeline.longerThanDay")}</p>
           )}

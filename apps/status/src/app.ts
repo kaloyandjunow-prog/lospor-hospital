@@ -82,6 +82,12 @@ import { PreopSectionsFormError, isPreopSectionsPart, preopSectionsUpdateFromFor
 import { drugColorUpdateFromForm, type DrugColorsQuery } from "./drug-colors-ui.js"
 import { theatreListChangeFromForm } from "./operating-theatres-ui.js"
 import { indicatorsUpdateFromForm } from "./indicators-ui.js"
+import { intraopUpdateFromForm } from "./intraop-ui.js"
+import { readingsUpdateFromForm } from "./readings-ui.js"
+import { UNUSUAL_READINGS_SCRIPT } from "./readings-script.js"
+import { INTRAOP_SEARCH_SCRIPT } from "./intraop-search-script.js"
+import { historyQueryOf, type HistoryQuery } from "./history-ui.js"
+import { cardQueryOf, type CardQuery } from "./card-preview-ui.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -97,6 +103,7 @@ const EHR_CHECK_FILE_MAX_BYTES = 1024 * 1024
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
+  CONSENT_FORM_MAX_BYTES,
   CONSENT_TEXT_MAX_LENGTH,
   isPreopDocumentLayout,
   EHR_CODE_LIST_ANSWERS,
@@ -302,6 +309,7 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     ORDER_OPTION_LABELS_REQUIRED: ["A row of your own needs its text in both English and Bulgarian, up to 200 characters each. Nothing was changed.", "Ваш ред трябва да има текст и на английски, и на български, до 200 знака всеки. Нищо не е променено."],
     BUNDLED_ORDER_OPTION_CANNOT_BE_REMOVED: ["A bundled row can be switched off but not removed. Nothing was changed.", "Вграден ред може да се изключи, но не и да се премахне. Нищо не е променено."],
     UNKNOWN_PREOP_SECTION: ["That section does not exist for this population. Nothing was changed.", "Този раздел не съществува за тази група. Нищо не е променено."],
+    INTRAOP_AUTOMATION_INVALID: ["A setting is out of range: the cases a band needs, a share of readings, or no dantrolene vial size ticked. Nothing was changed.", "Настройка е извън допустимото: случаите, нужни на група, дял от показанията или не е отбелязан размер флакон дантролен. Нищо не е променено."],
     INDICATOR_THRESHOLD_INVALID: ["A threshold is missing or out of range: SpO₂ 50–100 %, temperature 30–38 °C, pain 0–9, PAED 1–20, MAP 10–150 mmHg, systolic 20–200 mmHg. Nothing was changed.", "Праг липсва или е извън допустимото: SpO₂ 50–100 %, температура 30–38 °C, болка 0–9, PAED 1–20, САН 10–150 mmHg, систолно 20–200 mmHg. Нищо не е променено."],
     THEATRE_NAME_INVALID: ["A theatre needs a name of up to 60 characters. Nothing was changed.", "Залата трябва да има име до 60 знака. Нищо не е променено."],
     THEATRE_NAME_TAKEN: ["An active theatre already has that name. Nothing was changed.", "Действаща зала вече има това име. Нищо не е променено."],
@@ -522,6 +530,16 @@ export function createStatusApp({
   ))
   app.get("/status/admin-link.js", context => context.body(
     STATUS_ADMIN_FRAGMENT_SCRIPT,
+    200,
+    { "content-type": "text/javascript; charset=utf-8" },
+  ))
+  app.get("/status/intraop-search.js", context => context.body(
+    INTRAOP_SEARCH_SCRIPT,
+    200,
+    { "content-type": "text/javascript; charset=utf-8" },
+  ))
+  app.get("/status/unusual-readings.js", context => context.body(
+    UNUSUAL_READINGS_SCRIPT,
     200,
     { "content-type": "text/javascript; charset=utf-8" },
   ))
@@ -1222,8 +1240,15 @@ export function createStatusApp({
     discoveredNumberings?: readonly string[],
     fileCheck?: EhrFileCheck,
     drugColorsQuery?: DrugColorsQuery,
+    historyQuery?: HistoryQuery,
+    cardQuery?: CardQuery,
   ) => {
     const current = await controlDirectory()
+    // The Unusual readings tab is large and read on its own, only when that tab is open.
+    const readings = section === "intraop/readings" ? await controlPlane.intraopReadings().catch(() => null) : undefined
+    const trend = section === "intraop/acceptance" ? await controlPlane.intraopAcceptance().catch(() => null) : undefined
+    const cardPreview = section === "intraop/cards" && cardQuery ? await controlPlane.cardPreview(cardQuery).catch(() => null) : undefined
+    const history = section === "history" && historyQuery ? await controlPlane.auditHistory(historyQuery).catch(() => null) : undefined
     return renderControlPlane(
       current.view,
       locale,
@@ -1235,6 +1260,12 @@ export function createStatusApp({
       discoveredNumberings,
       fileCheck,
       drugColorsQuery,
+      readings,
+      trend,
+      history,
+      historyQuery,
+      cardPreview,
+      cardQuery,
     )
   }
 
@@ -1421,7 +1452,9 @@ export function createStatusApp({
     const drugColorsQuery: DrugColorsQuery | undefined = section === "drug-colors"
       ? { q: context.req.query("q")?.slice(0, 100), edit: context.req.query("edit")?.slice(0, 220) }
       : undefined
-    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch, undefined, undefined, drugColorsQuery))
+    const historyQuery = section === "history" ? historyQueryOf(name => context.req.query(name)) : undefined
+    const cardQuery = section === "intraop/cards" ? cardQueryOf(name => context.req.query(name)) : undefined
+    return context.html(await controlHtml(locale, undefined, undefined, section, medicationSearch, undefined, undefined, drugColorsQuery, historyQuery, cardQuery))
   }
   app.get("/status/control", context => controlGet(context))
   // One address per section, written as literals rather than a loop so the
@@ -1436,6 +1469,13 @@ export function createStatusApp({
   app.get("/status/control/drug-colors", context => controlGet(context, "drug-colors"))
   app.get("/status/control/theatres", context => controlGet(context, "theatres"))
   app.get("/status/control/indicators", context => controlGet(context, "indicators"))
+  app.get("/status/control/intraop", context => controlGet(context, "intraop"))
+  // The Unusual readings tab of the SPS page: not a page of its own in any menu.
+  app.get("/status/control/intraop/readings", context => controlGet(context, "intraop/readings"))
+  app.get("/status/control/intraop/acceptance", context => controlGet(context, "intraop/acceptance"))
+  app.get("/status/control/intraop/cards", context => controlGet(context, "intraop/cards"))
+  // The change history: a page of its own, read from the audit rows.
+  app.get("/status/control/history", context => controlGet(context, "history"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))
@@ -1551,6 +1591,51 @@ export function createStatusApp({
     "clinical",
   ))
 
+  // The logo, for the preview on the Status page: the administrator's session, never public.
+  app.get("/status/hospital-logo", async context => {
+    if (passwordAccountSession(context) !== "ok") return context.text("Forbidden", 403)
+    const institutionId = context.req.query("institutionId") ?? ""
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(institutionId)) return context.text("Not found", 404)
+    const dataUrl = await controlPlane.hospitalLogo(institutionId).catch(() => null)
+    const match = dataUrl ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl) : null
+    if (!match) return context.text("Not found", 404)
+    return context.body(Buffer.from(match[2]!, "base64"), 200, { "content-type": match[1]!, "cache-control": "no-store", "x-content-type-options": "nosniff" })
+  })
+
+  app.post("/status/control/hospital-logo", context => sensitiveControlAction(
+    context,
+    async body => {
+      const remove = formBoolean(body, "removeLogo")
+      const file = body.logo
+      let logoDataUrl: string | null = null
+      if (!remove) {
+        if (!(file instanceof File) || file.size === 0 || file.size > 1024 * 1024 || (file.type !== "image/png" && file.type !== "image/jpeg" && file.type !== "image/webp")) {
+          throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+        }
+        logoDataUrl = `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`
+      }
+      await controlPlane.setHospitalLogo({ institutionId: formId(formText(body, "institutionId", 1, 128)), logoDataUrl, reason: formText(body, "reason", 10, 1000) })
+      return remove
+    },
+    (locale, removed) => removed
+      ? localize(locale, "The hospital logo was removed and audited.", "Логото на болницата е премахнато и записано в одитния журнал.")
+      : localize(locale, "The hospital logo was saved and audited. It prints at the top of the preop summary, the consent and the anaesthesia record.", "Логото на болницата е запазено и записано в одитния журнал. Печата се най-горе на предоперативното обобщение, съгласието и анестезиологичния протокол."),
+    "clinical",
+    undefined,
+    1.5 * 1024 * 1024,
+  ))
+
+  app.post("/status/control/hospital-name", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setHospitalName({
+      institutionId: formId(formText(body, "institutionId", 1, 128)),
+      name: formText(body, "name", 2, 160),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The hospital name on the record was saved and audited. Records show it from now on, finished ones included.", "Името на болницата в протокола е запазено и записано в одитния журнал. Протоколите го показват оттук нататък, включително завършените."),
+    "clinical",
+  ))
+
   app.post("/status/control/preop-profile", context => sensitiveControlAction(
     context,
     async body => {
@@ -1646,7 +1731,8 @@ export function createStatusApp({
     locale => localize(locale, "The consent text was saved as a new version and audited. Sheets printed from now on carry it; earlier sheets keep the version they were printed with.", "Текстът на съгласието е запазен като нов вариант и записан в одитния журнал. Отпечатаните отсега нататък листове го съдържат; по-рано отпечатаните запазват своя вариант."),
     "preop/documents",
     undefined,
-    300_000,
+    // 100,000 Bulgarian characters are about 600 KB in a form body (each letter is six bytes once encoded).
+    CONSENT_FORM_MAX_BYTES,
   ))
 
   app.post("/status/control/external-ai/policy", context => sensitiveControlAction(
@@ -1701,6 +1787,7 @@ export function createStatusApp({
     context,
     body => controlPlane.setPatientIdentifierPolicy({
       egnPermitted: formBoolean(body, "egnPermitted"),
+      admissionNumberVisible: formBoolean(body, "admissionNumberVisible"),
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Настройката за ЕГН е запазена и записана в одитния журнал."),
@@ -1898,6 +1985,31 @@ export function createStatusApp({
     },
     locale => localize(locale, "The unit indicators settings were saved and audited. Every case is counted against them from the next time the indicators are opened.", "Настройките на индикаторите са запазени и записани в одитния журнал. Всеки случай се отчита по тях при следващото отваряне на индикаторите."),
     "indicators",
+  ))
+
+  // SPS (10.2.0): the switches, the vitals limits
+  // and the dantrolene vials in stock, behind the password with a reason.
+  app.post("/status/control/intraop", context => sensitiveControlAction(
+    context,
+    async body => {
+      const view = (await controlPlane.get()).intraopAutomation
+      if (!view) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      return controlPlane.updateIntraopAutomation(intraopUpdateFromForm(view, body, formText(body, "reason", 10, 1000)))
+    },
+    locale => localize(locale, "The SPS settings were saved and audited. Open records pick them up the next time they are opened.", "Настройките на SPS са запазени и записани в одитния журнал. Отворените записи ги прилагат при следващото отваряне."),
+    "intraop",
+  ))
+
+  // The Unusual readings tab saves the limits and the cases a band needs, over the settings already in force.
+  app.post("/status/control/intraop/readings", context => sensitiveControlAction(
+    context,
+    async body => {
+      const view = (await controlPlane.get()).intraopAutomation
+      if (!view) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      return controlPlane.updateIntraopAutomation(readingsUpdateFromForm(view, body, formText(body, "reason", 10, 1000)))
+    },
+    locale => localize(locale, "The limits were saved and audited. Open records pick them up the next time they are opened.", "Границите са запазени и записани в одитния журнал. Отворените записи ги получават при следващото отваряне."),
+    "intraop/readings",
   ))
 
   // The operating theatres' switch (10.0.0): a decision for the whole site,

@@ -229,7 +229,7 @@ export function withoutSuggestions(profile: DoseProfile): DoseProfile {
 }
 
 /** Which rule set a band is built for: v3 adds the caudal routes below. */
-export type Edition = "v2" | "v3"
+export type Edition = "v2" | "v3" | "v4"
 
 /** The adult surface, without the regional routes whose doses are adult ones. */
 export function adultSurface(entry: DrugCatalogEntry): DoseProfile {
@@ -289,7 +289,7 @@ function withRoute(profile: DoseProfile, route: string, surface: RouteSurface): 
 }
 
 function withCaudal(entry: DrugCatalogEntry, profile: DoseProfile, edition: Edition): DoseProfile {
-  const caudal = edition === "v3" ? PEDIATRIC_V3_CAUDAL[entry.name] : undefined
+  const caudal = edition !== "v2" ? PEDIATRIC_V3_CAUDAL[entry.name] : undefined
   return caudal ? withRoute(profile, "EPIDURAL", caudal) : profile
 }
 

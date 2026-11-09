@@ -56,4 +56,6 @@ export const DISPOSITION = [
   { v: "WARD", label: "Ward", labelBg: "Отделение", color: "bg-green-100 border-green-400 text-green-800 dark:bg-green-900/30 dark:border-green-600 dark:text-green-300" },
   { v: "PACU", label: "PACU", labelBg: "Зала за събуждане (PACU)", color: "bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:border-amber-600 dark:text-amber-300" },
   { v: "ICU", label: "ICU", labelBg: "ОАИЛ (ICU)", color: "bg-red-100 border-red-400 text-red-800 dark:bg-red-900/30 dark:border-red-600 dark:text-red-300" },
+  // 10.2.0: set when Death is logged in the theatre.
+  { v: "DECEASED", label: "Deceased", labelBg: "Починал", color: "bg-slate-200 border-slate-500 text-slate-900 dark:bg-slate-800 dark:border-slate-400 dark:text-slate-200" },
 ]

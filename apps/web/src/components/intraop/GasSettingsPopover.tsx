@@ -1,5 +1,6 @@
 "use client"
 
+import { FRESH_GAS_FLOW, parseTypedFreshGasFlow, snapFreshGasFlow, stepFreshGasFlow } from "@lospor/core/gas-ranges"
 import { createPortal } from "react-dom"
 import { useIntraopUiCopy } from "./ui-copy"
 
@@ -29,7 +30,7 @@ export type GasSettingsPopoverProps = {
   onApply: () => void
 }
 
-const POPOVER_WIDTH = 210
+const POPOVER_WIDTH = 250 // room for the fresh gas − slider + and the typed value (10.2.0)
 
 const CARRIER_GASES: { value: string | null; label: string }[] = [
   { value: null, label: "O2 only" },
@@ -87,12 +88,27 @@ export function GasSettingsPopover({
               {fgf != null ? `${fgf} L/min` : "—"}
             </span>
           </div>
-          <input
-            type="range" min={0} max={10} step={0.5}
-            value={fgf ?? 0}
-            onChange={event => onFgfChange(parseFloat(event.target.value))}
-            className="w-full h-1.5 accent-indigo-500"
-          />
+          {/* 10.2.0: 0-20 L/min, 0.1 steps to 5 (low flow) and 0.5 above; typed to 100 (core gas-ranges). */}
+          <div className="flex items-center gap-1.5">
+            <button type="button" aria-label="−" data-testid="fgf-minus" onClick={() => onFgfChange(stepFreshGasFlow(fgf ?? 0, -1))}
+              className="w-6 h-6 shrink-0 rounded border border-slate-200 dark:border-[#3a3a3a] text-xs">−</button>
+            <input
+              type="range" min={FRESH_GAS_FLOW.min} max={FRESH_GAS_FLOW.sliderMax} step={FRESH_GAS_FLOW.fineStep}
+              value={Math.min(fgf ?? 0, FRESH_GAS_FLOW.sliderMax)}
+              data-testid="fgf-slider"
+              onChange={event => onFgfChange(snapFreshGasFlow(parseFloat(event.target.value)))}
+              className="w-full h-1.5 accent-indigo-500"
+            />
+            <button type="button" aria-label="+" data-testid="fgf-plus" onClick={() => onFgfChange(stepFreshGasFlow(fgf ?? 0, 1))}
+              className="w-6 h-6 shrink-0 rounded border border-slate-200 dark:border-[#3a3a3a] text-xs">+</button>
+            <input
+              key={fgf ?? "none"}
+              defaultValue={fgf ?? ""} inputMode="decimal" aria-label="FGF L/min" data-testid="fgf-typed"
+              onBlur={event => { const typed = parseTypedFreshGasFlow(event.target.value); if (typed != null) onFgfChange(typed) }}
+              onKeyDown={event => { if (event.key === "Enter") (event.target as HTMLInputElement).blur() }}
+              className="w-12 shrink-0 text-xs px-1 py-0.5 rounded border border-slate-200 dark:border-[#3a3a3a] bg-transparent text-right"
+            />
+          </div>
         </div>
 
         <div className="space-y-1">

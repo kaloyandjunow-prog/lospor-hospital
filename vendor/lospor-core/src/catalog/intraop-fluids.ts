@@ -20,6 +20,12 @@ export type FluidCatalogEntry = {
   category: string
   color: string
   profile: DoseProfileInput
+  /**
+   * Kept so cases that recorded it still read, name and export it, but no
+   * longer offered in the menus (10.2.0: Dextrose 5% and 10% became the one
+   * Glucose fluid with a strength picker).
+   */
+  retired?: boolean
 }
 
 export const FLUID_CATALOG: FluidCatalogEntry[] = [
@@ -160,7 +166,14 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
         "basis": "TBW",
         "roundTo": 10
       },
-      "hint": "1.5 mL/kg TBW"
+      "hint": "1.5 mL/kg TBW",
+      "fluidRate": {
+        "min": 1,
+        "max": 200,
+        "step": 1,
+        "allowManualOutsideRange": true,
+        "suggestedMlPerKgPerHour": 15
+      }
     }
   },
   {
@@ -284,7 +297,8 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
       ],
       "unit": "mL",
       "suggestedVolume": 500
-    }
+    },
+    "retired": true
   },
   {
     "name": "Dextrose 5% in 0.9% saline (D5NS)",
@@ -359,6 +373,34 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
         1000
       ],
       "unit": "mL",
+      "suggestedVolume": 250
+    },
+    "retired": true
+  },
+  {
+    "name": "Glucose",
+    "atcCode": "B05BA03",
+    "category": "Crystalloids",
+    "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
+    "profile": {
+      "mode": "concentration",
+      "min": 0,
+      "max": 1000,
+      "step": 10,
+      "quickValues": [
+        50,
+        100,
+        250,
+        500
+      ],
+      "unit": "mL",
+      "concentrationOptions": [
+        "5%",
+        "10%",
+        "20%",
+        "40%"
+      ],
+      "defaultConcentration": "5%",
       "suggestedVolume": 250
     }
   },

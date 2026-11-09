@@ -93,7 +93,7 @@ export function usePreopLocalRecovery({
       throw new Error(message)
     }
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
-    const { patientNumber, ...clinicalValues } = values
+    const { patientNumber, patientNationalId: _patientNationalId, ...clinicalValues } = values
     const ok = await saveLocalCaseDraft({
       localId: localIdRef.current,
       owner,
@@ -120,7 +120,7 @@ export function usePreopLocalRecovery({
     const localId = localIdRef.current ?? draftIdRef.current
     const review = localDraftSyncReview(blocked, result.rejectedFields)
     syncReviewRef.current = review
-    const { patientNumber: _patientNumber, ...clinicalValues } = values
+    const { patientNumber: _patientNumber, patientNationalId: _nationalId, ...clinicalValues } = values
     const draft: LocalCaseDraft = {
       localId,
       owner,

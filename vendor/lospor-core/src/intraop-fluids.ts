@@ -11,6 +11,12 @@ export type FluidRateSliderProfile = {
   step: number
   allowManualOutsideRange: boolean
   calculation?: FluidRateCalculation
+  /**
+   * A starting rate by actual weight, in mL/kg/h (10.2.0): lipid emulsion 20%
+   * starts at 0.25 mL/kg/min = 15 mL/kg/h. Only the suggestion; the slider
+   * keeps its shared range.
+   */
+  suggestedMlPerKgPerHour?: number
 }
 
 export const FLUID_RATE_SLIDER = Object.freeze({
@@ -250,6 +256,7 @@ export function resolveFluidEntryModeProfile(input: FluidProductIdentity & {
       // Authored fluid metadata may select a calculation, but it must not make
       // the web and mobile rate controls behave differently.
       ...FLUID_RATE_SLIDER,
+      ...(authoredRate?.suggestedMlPerKgPerHour != null ? { suggestedMlPerKgPerHour: authoredRate.suggestedMlPerKgPerHour } : {}),
       ...(authoredRate?.calculation && maintenanceCompatible
         ? { calculation: authoredRate.calculation }
         : input.clinicalMode === "PEDIATRIC" && maintenanceCompatible

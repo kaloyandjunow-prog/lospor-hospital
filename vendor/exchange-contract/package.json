@@ -1,6 +1,6 @@
 {
   "name": "@lospor/exchange-contract",
-  "version": "2.6.0",
+  "version": "2.8.0",
   "description": "Versioned LOSPOR Hospital to Central OMOP exchange contract",
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -22,6 +22,6 @@
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.12"
   }
 }

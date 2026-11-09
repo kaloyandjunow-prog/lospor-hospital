@@ -20,6 +20,20 @@ export type EventMutation =
       baseRevision: SectionRevision
       queuedAt: string
     }
+  | {
+      operationId: string
+      caseId: string
+      kind: "event.batch"
+      /** One durable request for a logically atomic set of chart changes. */
+      eventId: string
+      ops: {
+        add: Record<string, unknown>[]
+        update: Record<string, unknown>[]
+        remove: string[]
+      }
+      baseRevision: SectionRevision
+      queuedAt: string
+    }
 
 export type EventMutationResult = {
   ok: boolean

@@ -61,14 +61,14 @@ export type PreopSectionDefinition = {
 export const PREOP_SWITCHABLE_SECTIONS: readonly PreopSectionDefinition[] = Object.freeze([
   { key: "MEDICAL_HISTORY", labelEn: "Medical history", labelBg: "Придружаващи заболявания", populations: ["ADULT", "PEDIATRIC"], formSection: "medical_history" },
   { key: "CURRENT_MEDICATIONS", labelEn: "Current medications", labelBg: "Приемани медикаменти", populations: ["ADULT", "PEDIATRIC"], formSection: "current_medications" },
-  { key: "LABS", labelEn: "Laboratory", labelBg: "Лаборатория", populations: ["ADULT", "PEDIATRIC"], formSection: "labs" },
+  { key: "LABS", labelEn: "Laboratory", labelBg: "Изследвания", populations: ["ADULT", "PEDIATRIC"], formSection: "labs" },
   { key: "PLANNED_ANAESTHESIA", labelEn: "Planned anaesthesia", labelBg: "Планирана анестезия", populations: ["ADULT", "PEDIATRIC"] },
   { key: "PEDIATRIC_FASTING", labelEn: "Nil by mouth", labelBg: "Гладуване", populations: ["PEDIATRIC"] },
   { key: "WARD_ORDERS", labelEn: "Preoperative ward orders", labelBg: "Назначения в предоперативното отделение", populations: ["ADULT", "PEDIATRIC"] },
   { key: "MEDICATION_INSTRUCTIONS", labelEn: "Medication instructions", labelBg: "Указания за медикаментите", populations: ["ADULT", "PEDIATRIC"], requires: "CURRENT_MEDICATIONS" },
   { key: "PREMEDICATION", labelEn: "Premedication", labelBg: "Премедикация", populations: ["ADULT", "PEDIATRIC"] },
   // Postoperative: nothing here is needed to finalise a case.
-  { key: "POSTOP_RECOVERY_VITALS", labelEn: "Recovery vital signs", labelBg: "Витални показатели при възстановяване", populations: ["ADULT", "PEDIATRIC"], form: "POSTOP" },
+  { key: "POSTOP_RECOVERY_VITALS", labelEn: "Recovery vital signs", labelBg: "Жизнени показатели при възстановяване", populations: ["ADULT", "PEDIATRIC"], form: "POSTOP" },
   { key: "POSTOP_PAIN", labelEn: "Pain", labelBg: "Болка", populations: ["ADULT", "PEDIATRIC"], form: "POSTOP" },
   { key: "POSTOP_DELIRIUM", labelEn: "Emergence delirium (PAED)", labelBg: "Делир при събуждане (PAED)", populations: ["PEDIATRIC"], form: "POSTOP" },
   { key: "POSTOP_PONV", labelEn: "Postoperative nausea and vomiting", labelBg: "Постоперативно гадене и повръщане (ПОГП)", populations: ["ADULT", "PEDIATRIC"], form: "POSTOP" },
@@ -94,7 +94,7 @@ export const PREOP_FIXED_SECTIONS: readonly { key: string; labelEn: string; labe
   { key: "DEMOGRAPHICS", labelEn: "Demographics", labelBg: "Демографски данни", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "CASE_DETAILS", labelEn: "Case details", labelBg: "Данни за случая", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "ANAMNESIS", labelEn: "Anamnesis", labelBg: "Анамнеза", reasonEn: "Holds the allergies; its questions switch one by one", reasonBg: "Съдържа алергиите; въпросите му се включват поотделно" },
-  { key: "VITALS", labelEn: "Vital signs", labelBg: "Витални показатели", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
+  { key: "VITALS", labelEn: "Vital signs", labelBg: "Жизнени показатели", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "AIRWAY", labelEn: "Airway", labelBg: "Дихателни пътища", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "RISK", labelEn: "Risk scores (ASA)", labelBg: "Рискови скорове (ASA)", reasonEn: "ASA is required to continue", reasonBg: "ASA е задължителен за продължаване" },
 ])

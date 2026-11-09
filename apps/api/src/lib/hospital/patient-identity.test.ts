@@ -136,3 +136,15 @@ describe("hospital patient identity", () => {
     expect(maskPatientIdentifier("00012345")).toBe("00****45")
   })
 })
+
+describe("ЕГН check digit", () => {
+  it("accepts a well-formed ЕГН, with or without spaces, and refuses a wrong digit or length", async () => {
+    const { isValidEgn } = await import("./patient-identity")
+    expect(isValidEgn("7501020018")).toBe(true)
+    expect(isValidEgn("8805151235")).toBe(true)
+    expect(isValidEgn("750102 0018")).toBe(true)
+    expect(isValidEgn("7501020019")).toBe(false)
+    expect(isValidEgn("750102001")).toBe(false)
+    expect(isValidEgn("ABCDEFGHIJ")).toBe(false)
+  })
+})

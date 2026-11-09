@@ -89,3 +89,6 @@ e2e/_*.spec.ts
 .tmp-*
 Thumbs.db
 coverage/
+
+# Screenshots written by local spec runs
+.shots/

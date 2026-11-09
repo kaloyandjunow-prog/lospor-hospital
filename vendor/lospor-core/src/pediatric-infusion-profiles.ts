@@ -481,7 +481,7 @@ const definitions: readonly Definition[] = [
  * suggests one, and bands with no paediatric use are hidden -- in children
  * only. v2 is released and fingerprinted, so these apply only to v3.
  */
-type Edition = "v2" | "v3"
+type Edition = "v2" | "v3" | "v4"
 
 /** The band suggesting `rate`; a routed profile suggests it on IV. */
 function autoBand(band: ProfileBand, rate: number, changes: Partial<SurfaceInput> = {}): ProfileBand {
@@ -665,7 +665,7 @@ const V3_INFUSION_OVERRIDES: Readonly<Record<string, BandChange>> = {
 }
 
 function bandsFor(definition: Definition, edition: Edition): readonly ProfileBand[] {
-  const override = edition === "v3" ? V3_INFUSION_OVERRIDES[definition.itemKey] : undefined
+  const override = edition !== "v2" ? V3_INFUSION_OVERRIDES[definition.itemKey] : undefined
   return override ? override(definition.bands) : definition.bands
 }
 
@@ -708,7 +708,8 @@ function checkedPayload(
 
 /**
  * The paediatric infusion rules for a catalogue: every infusion in it must have
- * a definition. A released baseline passes its own catalogue (release-1-2-0.ts).
+ * a definition. A released baseline passes its own catalogue (release-1-2-0.ts,
+ * release-9-15-0.ts).
  */
 export function createPediatricInfusionProfileSeeds(
   catalog: readonly { name: string }[] = INFUSION_CATALOG,

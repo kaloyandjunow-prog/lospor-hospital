@@ -27,7 +27,9 @@ vi.mock("@/lib/dashboard-case-counts", () => ({
 // Appliance-only collaborators this route reaches for that the shared upstream
 // route does not. patient-link pulls in patient-identity, which uses node
 // crypto behind `server-only` and cannot be imported from a test module.
-vi.mock("@/lib/hospital/patient-link", () => ({ resolvePatientLink: vi.fn() }))
+vi.mock("@/lib/hospital/patient-link", () => ({ resolvePatientLink: vi.fn(), resolvePatientIdentity: vi.fn() }))
+vi.mock("@/lib/hospital/patient-identifier-policy", () => ({ patientIdentifierCapabilityState: vi.fn().mockResolvedValue({ egnPermitted: true }) }))
+vi.mock("@/lib/hospital/patient-display", () => ({ admissionNumberVisible: vi.fn().mockResolvedValue(true), patientDisplayOf: vi.fn(() => null), patientDisplaySelect: {} }))
 vi.mock("@/lib/hospital/status-events", () => ({ emitStatusEvent: vi.fn() }))
 
 describe("GET /v1/cases pagination", () => {

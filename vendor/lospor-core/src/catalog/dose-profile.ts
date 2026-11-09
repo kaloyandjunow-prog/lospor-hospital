@@ -29,6 +29,11 @@ export type DoseCalc = {
   perKg?: number
   perM2?: number
   flat?: number
+  /**
+   * With flat: the actual weight from which the flat dose applies. Below it
+   * the dose is perKg (paracetamol 15 mg/kg under 50 kg, 1 g from 50 kg).
+   */
+  flatFromKg?: number
   basis?: Exclude<WeightBasis, "none">
   roundTo?: number
   cap?: number
@@ -262,6 +267,7 @@ function parseDoseCalc(
     perKg: optionalNumber(record.perKg, name, kind, `${path}.perKg`),
     perM2: optionalNumber(record.perM2, name, kind, `${path}.perM2`),
     flat: optionalNumber(record.flat, name, kind, `${path}.flat`),
+    flatFromKg: optionalNumber(record.flatFromKg, name, kind, `${path}.flatFromKg`, true),
     basis,
     roundTo: optionalNumber(record.roundTo, name, kind, `${path}.roundTo`, true),
     cap: optionalNumber(record.cap, name, kind, `${path}.cap`, true),
@@ -329,6 +335,9 @@ function parseFluidRate(
       kind,
       `${path}.allowManualOutsideRange`,
     ) ?? false,
+    ...(record.suggestedMlPerKgPerHour == null
+      ? {}
+      : { suggestedMlPerKgPerHour: finiteNumber(record.suggestedMlPerKgPerHour, name, kind, `${path}.suggestedMlPerKgPerHour`, true) }),
     ...(record.calculation == null
       ? {}
       : {

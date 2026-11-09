@@ -5,7 +5,10 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useIntraopLibraryConfig } from "@/lib/use-intraop-library-config"
 import { useDarkTheme } from "@/lib/drug-tone"
 import { nowMarkerGeometry } from "@/lib/timetable-clock"
+import { chartAfterEndCase, type EndCaseResult } from "@/lib/intraop-end-case"
+import { useFluidChartActions } from "@/hooks/useFluidChartActions"
 import { clinicalProvenance } from "@/lib/intraop-provenance"
+import { patchWebClinicalPreferences, syncWebClinicalPreferences } from "@/lib/clinical-preferences-web"
 import { useLocale, useTranslations } from "next-intl"
 import { createPortal } from "react-dom"
 import { Plus, ChevronDown, ChevronRight } from "lucide-react"
@@ -16,6 +19,8 @@ import { FluidConflictPopover } from "@/components/intraop/FluidConflictPopover"
 import { GasSettingsPopover } from "@/components/intraop/GasSettingsPopover"
 import { AgentPopover } from "@/components/intraop/AgentPopover"
 import { EventPickerPopover } from "@/components/intraop/EventPickerPopover"
+import { DefibrillationDialog } from "./intraop/DefibrillationDialog"
+import { defibrillationDialogProps, moreComplicationCategories, quickComplicationOption } from "./intraop/event-picker-extras"
 import { VitalsPopover } from "@/components/intraop/VitalsPopover"
 import { FluidPickerPopover } from "@/components/intraop/FluidPickerPopover"
 import { DoseEditPopover } from "@/components/intraop/DoseEditPopover"
@@ -44,23 +49,23 @@ import {
 import { RateChangeDialog, type RateChangeState } from "@/components/intraop/RateChangeDialog"
 import { rateDialogChange, rateDialogSurface, type InfusionRecord } from "@/components/intraop/rate-dialog-surface"
 import { computeRowGeometry } from "@/components/intraop/timetable-row-geometry"
-import {
-  selId,
-  selIdx,
-  type FConflictAnchor,
-  type FluidConflict,
-  type PendingFluidEntry,
-  type TtFP,
-  type TtSel,
-} from "@/components/intraop/timetable-types"
+import { selId, selIdx, type PendingFluidEntry, type TtFP, type TtSel } from "@/components/intraop/timetable-types"
 import { addMinutes, floorTo5, timeToMins, toHHMM, calcDuration } from "@/lib/timetable-time"
 import { FLUID_CAT_COLOR, computeFluidRows, fluidCategory, fluidColor } from "@/lib/timetable-fluid-rows"
 import { groupLabsByDraw, type LabResult } from "@lospor/core/labs"
 import { gridOriginMs, serverNow } from "@/lib/intraop-clock"
+import { localTimeOf } from "@lospor/core/intraop-time"
+import { SuggestionHost, type SuggestionSheets } from "@/components/intraop/SuggestionHost"
+import { useDeathPrompt } from "@/lib/use-death-prompt"
+import { TimetableJetLane } from "@/components/intraop/TimetableJetLane"
+import { TourniquetPicker } from "@/components/intraop/TourniquetPicker"
+import { bodyBandFor } from "@lospor/core/tourniquet-body"
+import { tourniquetStatus, TOURNIQUET_MINUTES } from "@lospor/core/intraop-suggestions"
+import { JetPopover } from "@/components/intraop/JetPopover"
+import { changeJet, DEFAULT_JET_SETTINGS, jetSegmentAt, jetSettingsAtColumn, startJet, stopJet } from "@/components/intraop/jet-lane"
+import { DEEPEN_INFUSIONS, suggestionFluidFor, suggestionFluidPrefill, suggestionPrefill } from "@/components/intraop/suggestion-prefill"
 import { TimetableLabsLane } from "@/components/intraop/TimetableLabsLane"
-import type {
-  AgentSegment, GasSettingsSegment, TimetableData, TimetableFluid,
-} from "@/types/timetable"
+import type { AgentSegment, GasSettingsSegment, TimetableData } from "@/types/timetable"
 import { toast } from "sonner"
 import { FluidRateDialog } from "@/components/intraop/FluidRateDialog"
 import {
@@ -109,7 +114,7 @@ import {
 } from "@lospor/core/clinical-rules"
 import type { PediatricAgeUnit } from "@lospor/core/pediatric"
 import { drugAdministrationAudit } from "@/lib/drug-administration-audit"
-import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
+import { currentFluidRate } from "@/lib/fluid-entry-ui"
 import { COL_W, INTERVAL, LABEL_W, ROW_COLS, rectAnchor } from "@/components/intraop/timetable-layout"
 
 // The selectable libraries (agents, drugs, fluids, clinical events, infusion
@@ -146,19 +151,24 @@ interface Props {
   ibw?: number | null
   tbw?: number | null
   showAgentRow?: boolean
+  /** Jet among the ventilation modes (10.2.0): the jet lane shows. */
+  showJetRow?: boolean
   data: TimetableData
   onChange: (d: TimetableData) => void
   onEndCase?: () => void
+  /** A death charted in theatre (10.2.0): the postop destination becomes Deceased. */
+  onDeath?: () => void
   beforeEndCase?: () => boolean // checked by End now; false keeps the case running (1.5.0)
   onResumeCase?: () => void
   /** The saved end instant: a reopened ended case can still be resumed (9.12.1). */
   endedAt?: string | null
   attention?: import("@/lib/use-intraop-attention").WebIntraopAttention // Core intraop-attention (9.13.0)
+  /** What the suggestions need from the form beyond the chart: the lines and the airway (10.2.0). */
+  suggestionForm?: Pick<SuggestionSheets, "linesOf" | "markLineFailed" | "openAirway">
   /** Ended automatically after 48 hours: Resume is offered with no time limit. */
   autoEnded?: boolean
   onPostopContinued?: (items: string[]) => void
   onInfusionTotals?: (totals: { name: string; total: number; unit: string }[]) => void
-  onComplicationAdded?: (labels: string[]) => void
 
   /**
    * Laboratory draws taken during the case.
@@ -168,6 +178,10 @@ interface Props {
    * lane renders them; it does not own them.
    */
   labResults?: LabResult[]
+  /** Scroll to this vitals row in the current column and focus it (the Monitoring tab's reading chip). */
+  focusVitalRequest?: { key: VitalKey; nonce: number } | null
+  /** The case techniques (a unilateral spinal pre-sets the intrathecal dose to hyperbaric). */
+  techniques?: readonly string[]
   /** Open the draw at this instant -- an existing one, or a new one. */
   onOpenLabDraw?: (takenAt: string) => void
   /** Open the full list of everything recorded. */
@@ -222,14 +236,15 @@ export function IntraopTimetable({
   showAgentRow = false,
   data,
   onChange,
-  onEndCase, beforeEndCase,
+  onEndCase, beforeEndCase, onDeath,
   onResumeCase,
-  endedAt, attention,
+  endedAt, attention, suggestionForm, showJetRow = false,
   autoEnded = false,
   onPostopContinued,
   onInfusionTotals,
-  onComplicationAdded,
   labResults = [],
+  focusVitalRequest,
+  techniques,
   onOpenLabDraw,
   onOpenAllLabs,
 }: Props) {
@@ -407,6 +422,7 @@ export function IntraopTimetable({
     fluidConcentrations: FLUID_CONCENTRATIONS,
     fluidDefaultConcentrations: FLUID_DEFAULT_CONCENTRATIONS,
     manualDoseOnlyHint: t("pediatric.manualDoseOnly"),
+    techniques,
   })
 
   const [colCount, setColCount]           = useState(ROW_COLS)  // start with 1 row
@@ -523,6 +539,12 @@ export function IntraopTimetable({
     window.addEventListener("storage", h)
     return () => window.removeEventListener("storage", h)
   }, [])
+  useEffect(() => {
+    void syncWebClinicalPreferences().then(preferences => {
+      setLayout(preferences.timetableLayout)
+      setChartOpen(preferences.vitalsChartExpanded)
+    }).catch(() => {})
+  }, [])
 
   // Reset inline-discontinue state when selection changes
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -630,63 +652,10 @@ export function IntraopTimetable({
         inn: lib?.inn ?? undefined,
         route: fp.route,
         ...administrationAudit,
+        ...(fp.suggestion ? { suggestion: fp.suggestion } : {}),
       }],
     })
     setFp(null)
-  }
-  function fluidActionTimestamp(col: number): string {
-    const currentTimestamp = serverNow().toISOString()
-    return nowCol != null && col === nowCol
-      ? currentTimestamp
-      : tsForCol(col) ?? currentTimestamp
-  }
-
-  function createFluidEntry(pending: PendingFluidEntry, col: number): TimetableFluid {
-    return {
-      id: `${pending.name}-${col}-${uid()}`,
-      name: pending.name,
-      category: pending.category,
-      color: pending.color,
-      startCol: col,
-      endCol: col,
-      startTs: fluidActionTimestamp(col),
-      fluidEntryMode: pending.fluidEntryMode,
-      volume: pending.volume,
-      ...(pending.bagVolumeMl != null ? { bagVolumeMl: pending.bagVolumeMl } : {}),
-      ...(pending.rate != null ? { rate: pending.rate, unit: pending.unit ?? "mL/h" } : {}),
-      ...(pending.concentration ? { concentration: pending.concentration } : {}),
-      ...clinicalProvenance(pending),
-    }
-  }
-
-  function addFluidDirect(
-    pending: PendingFluidEntry,
-    col: number,
-    updateExisting: (fluids: TimetableFluid[]) => TimetableFluid[] = fluids => fluids,
-  ) {
-    const fluid = createFluidEntry(pending, col)
-    const d = dataRef.current
-    onChangeRef.current({
-      ...d,
-      fluids: [...updateExisting(d.fluids ?? []), fluid],
-    })
-  }
-
-  function checkFluidConflict(pending: PendingFluidEntry, col: number, anchor: FConflictAnchor): boolean {
-    const cat = pending.category
-    const existing = (dataRef.current.fluids ?? []).find(f =>
-      (f.category ?? getFluidCategory(f.name)) === cat && f.startCol <= col && f.endCol >= col
-    )
-    if (!existing) return false
-    setFluidConflict({
-      phase: "choose",
-      pending,
-      newCol: col,
-      existingId: existing.id,
-      existingName: existing.name,
-      anchor,
-    })
-    return true
   }
   function fpCommitFluid() {
     if (!fp) return
@@ -705,6 +674,7 @@ export function IntraopTimetable({
         ? { bagVolumeMl: Number(fp.dose) || 0 }
         : { rate: parsedRate, unit: "mL/h" as const }),
       ...(fp.concentration ? { concentration: fp.concentration } : {}),
+      ...(fp.suggestion ? { suggestion: fp.suggestion } : {}),
       ...clinicalProvenance(fp),
     }
     const anchor = fp.anchor
@@ -714,7 +684,8 @@ export function IntraopTimetable({
   }
   function fpCommitInfusion(record?: InfusionRecord) {
     if (!fp) return
-    const infusion = flyoutInfusion({ fp, record, id: `${fp.name}-${fp.col}-${uid()}`, configs: INFUSION_CONFIGS, libraryOptions: infusionLibOpts, weightBasis: INFUSION_WEIGHT_BASIS })
+    const built = flyoutInfusion({ fp, record, id: `${fp.name}-${fp.col}-${uid()}`, configs: INFUSION_CONFIGS, libraryOptions: infusionLibOpts, weightBasis: INFUSION_WEIGHT_BASIS })
+    const infusion = fp.suggestion ? { ...built, suggestion: fp.suggestion } : built
     onChange({ ...data, infusions: [...(data.infusions??[]), infusion] })
     setFp(null)
   }
@@ -962,6 +933,17 @@ export function IntraopTimetable({
   }, [gridStartMs, caseStarted])
 
   const nowCol    = nowOffsetPx !== null ? Math.min(Math.floor(nowOffsetPx / COL_W), colCount - 1) : null
+  // The Monitoring tab's reading chip: the current column of that monitor's row, scrolled to and ready to type in.
+  const focusNonce = focusVitalRequest?.nonce
+  useEffect(() => {
+    if (!focusVitalRequest) return
+    const input = vitalsInputRefs.current.get(`${nowCol ?? 0}-${focusVitalRequest.key}`)
+    if (!input) return
+    input.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" })
+    input.focus({ preventScroll: true })
+  // Only a new request moves the focus; the clock ticking must not.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNonce])
 
   // Column index of the case end time (handles midnight crossing)
   const endCol = endTime ? (() => {
@@ -976,7 +958,6 @@ export function IntraopTimetable({
     if (!caseStarted) return          // don't auto-scroll until the case has started
     activeRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
   }, [nowCol, caseStarted])
-  const [fluidConflict, setFluidConflict]   = useState<FluidConflict | null>(null)
   // Drag-to-extend state: startCol of segment being extended
 
   const roundedStart = floorTo5(startTime || "08:00")
@@ -1004,7 +985,10 @@ export function IntraopTimetable({
   const plannedGasChangeAt = (ci: number) => (data.gasSettings ?? []).flatMap(g => g.settingsChanges ?? []).find(c => c.planned && c.col === ci) ?? null
 
   // ── Clinical Events ───────────────────────────────────────────────────────────
-  const { addClinicalEvent, removeClinicalEvent } = useClinicalEventHandlers(dataRef, onChangeRef, onComplicationAdded)
+  const { addClinicalEvent, removeClinicalEvent, addDefibrillation } = useClinicalEventHandlers(dataRef, onChangeRef)
+  const [defibCol, setDefibCol] = useState<number | null>(null) // a shock at this column (10.1.0)
+  // The card the shock was opened from (10.2.0): the saved shock carries its tag.
+  const [defibSuggestion, setDefibSuggestion] = useState<string | null>(null)
 
   // ── Drugs ───────────────────────────────────────────────────────────────────
   const { removeDrug } = useDrugHandlers(data, onChange)
@@ -1044,116 +1028,10 @@ export function IntraopTimetable({
   const { removeFluid, extendFluid, resumeFluid, continueFluid } =
     useFluidHandlers(data, onChange, dataRef, onChangeRef, nowCol)
 
-  function applyFluidRateChange(id: string, rate: number) {
-    if (!Number.isFinite(rate) || rate <= 0) return
-    const d = dataRef.current
-    const fluid = (d.fluids ?? []).find(item => item.id === id)
-    if (!fluid || fluid.fluidEntryMode !== "RATE") return
-    const ts = serverNow().toISOString()
-    const col = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
-    onChangeRef.current({
-      ...d,
-      fluids: (d.fluids ?? []).map(item => item.id === id ? {
-        ...item,
-        endCol: Math.max(item.endCol, col),
-        rateChanges: [...(item.rateChanges ?? []), { col, ts, rate, unit: "mL/h" }],
-      } : item),
-    })
-  }
-
-  function finalizedFluid(
-    fluid: TimetableFluid,
-    administeredVolumeMl: number,
-    endTs: string,
-    endCol: number,
-  ): TimetableFluid {
-    const actualVolumeMl = Math.max(0, Math.round(administeredVolumeMl))
-    return {
-      ...fluid,
-      endCol: Math.max(fluid.startCol, endCol),
-      endTs,
-      stopped: true,
-      administeredVolumeMl: actualVolumeMl,
-      volume: String(actualVolumeMl),
-    }
-  }
-
-  // ── Fluid conflict resolution ────────────────────────────────────────────────
-  // The popover in ./intraop/FluidConflictPopover only renders and reports which
-  // button was pressed; every change to the chart happens here, where the data
-  // lives.
-
-  function fluidConflictRunInParallel() {
-    if (!fluidConflict) return
-    addFluidDirect(fluidConflict.pending, fluidConflict.newCol)
-    setFluidConflict(null)
-  }
-
-  function fluidConflictStopExisting() {
-    const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict?.existingId)
-    // A rate line's delivered volume can be computed, so offer it rather than
-    // asking a question the chart can already answer.
-    if (existing?.fluidEntryMode === "RATE") {
-      const endTs = fluidActionTimestamp(fluidConflict!.newCol)
-      setFluidConflict(fc => fc ? {
-        ...fc,
-        phase: "volume",
-        volInput: String(fluidDeliveredVolumeMl(existing, endTs)),
-      } as FluidConflict : null)
-      return
-    }
-    setFluidConflict(fc => fc ? { ...fc, phase: "finished" } as FluidConflict : null)
-  }
-
-  function finishExistingFluidAndStart(actualVolumeMl: number) {
-    if (!fluidConflict) return
-    const d = dataRef.current
-    const existing = (d.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
-    if (!existing) return
-    const endTs = fluidActionTimestamp(fluidConflict.newCol)
-    const endCol = Math.max(existing.startCol, fluidConflict.newCol - 1)
-    const nextFluid = createFluidEntry(fluidConflict.pending, fluidConflict.newCol)
-    onChangeRef.current({
-      ...d,
-      fluids: [
-        ...(d.fluids ?? []).map(fluid => fluid.id === existing.id
-          ? finalizedFluid(fluid, actualVolumeMl, endTs, endCol)
-          : fluid),
-        nextFluid,
-      ],
-    })
-    setFluidConflict(null)
-  }
-
-  function fluidConflictFinishedAnswer(fullyInfused: boolean) {
-    if (!fluidConflict) return
-    if (fullyInfused) {
-      const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
-      const fullVolume = Number(existing?.bagVolumeMl ?? existing?.volume) || 0
-      finishExistingFluidAndStart(fullVolume)
-      return
-    }
-    setFluidConflict(fc => fc ? { ...fc, phase: "volume", volInput: "" } as FluidConflict : null)
-  }
-
-  function fluidConflictConfirmVolume() {
-    if (!fluidConflict || fluidConflict.phase !== "volume") return
-    finishExistingFluidAndStart(Number(fluidConflict.volInput) || 0)
-  }
-
-  function stopFluid(id: string, administeredVolumeMl: number) {
-    const d = dataRef.current
-    const fluid = (d.fluids ?? []).find(item => item.id === id)
-    if (!fluid) return
-    const endTs = serverNow().toISOString()
-    const endCol = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
-    onChangeRef.current({
-      ...d,
-      fluids: (d.fluids ?? []).map(item => item.id === id
-        ? finalizedFluid(item, administeredVolumeMl, endTs, endCol)
-        : item),
-    })
-  }
+  const {
+    fluidConflict, setFluidConflict, addFluidDirect, checkFluidConflict, applyFluidRateChange, finalizedFluid,
+    fluidConflictRunInParallel, fluidConflictStopExisting, fluidConflictFinishedAnswer, fluidConflictConfirmVolume, stopFluid,
+  } = useFluidChartActions({ dataRef, onChangeRef, nowCol, tsForCol, uid, getFluidCategory })
 
   // ── Agents ──────────────────────────────────────────────────────────────────
   const {
@@ -1204,49 +1082,8 @@ export function IntraopTimetable({
 
   const { handleEndDrop, confirmPendingStop } = createEndDropHandlers({ agents, infusions: data.infusions ?? [], fluids: data.fluids ?? [], nowCol, setPendingStop, extendAgent: extendSegment, resumeAgent: resumeSegment, extendInfusion, restoreInfusion, extendFluid, resumeFluid })
 
-  function handleEndCaseConfirm(result: {
-    continuedItems: string[]
-    infusionTotals: { name: string; total: number; unit: string }[]
-    discontinuedAgentCols: number[]
-    discontinuedInfusionIds: string[]
-    finalizedFluidWithAmounts: { id: string; amount: number; category: string; endTs: string }[]
-    discontinuedGasIds: string[]
-  }) {
-    const col = nowCol ?? 0
-    // One combined read + one combined write avoids stale-closure overwrites when
-    // multiple item types (agent + infusion + fluid) are discontinued together.
-    const d = dataRef.current
-    const discontinuedAgentSet = new Set(result.discontinuedAgentCols)
-    const discontinuedInfSet   = new Set(result.discontinuedInfusionIds)
-    const discontinuedGasSet   = new Set(result.discontinuedGasIds)
-    const endedFluidById = new Map(
-      result.finalizedFluidWithAmounts.map(fluid => [fluid.id, fluid]),
-    )
-    onChangeRef.current({
-      ...d,
-      agents: d.agents.map(a =>
-        discontinuedAgentSet.has(a.startCol)
-          ? { ...a, endCol: col, stopped: true as const, endCaseStop: true }
-          : a
-      ),
-      infusions: (d.infusions ?? []).map(i =>
-        discontinuedInfSet.has(i.id)
-          ? { ...i, endCol: col, stopped: true as const, endCaseStop: true }
-          : i
-      ),
-      // Stamp actual volume infused so the summary reads the correct amount (not bag size).
-      fluids: (d.fluids ?? []).map(fluid => {
-        const ended = endedFluidById.get(fluid.id)
-        return ended
-          ? { ...finalizedFluid(fluid, ended.amount, ended.endTs, col), endCaseStop: true }
-          : fluid
-      }),
-      gasSettings: (d.gasSettings ?? []).map(g =>
-        discontinuedGasSet.has(g.id)
-          ? { ...g, endCol: col, stopped: true as const, endCaseStop: true }
-          : g
-      ),
-    })
+  function handleEndCaseConfirm(result: EndCaseResult) {
+    onChangeRef.current(chartAfterEndCase(dataRef.current, result, nowCol ?? 0, finalizedFluid))
     startWindow(serverNow())
     onEndCase?.()
     if (result.continuedItems.length > 0) onPostopContinued?.(result.continuedItems)
@@ -1490,6 +1327,18 @@ export function IntraopTimetable({
               stopGas={stopGas}
             />
           )}
+          {(showJetRow || (data.jetSettings?.length ?? 0) > 0) && (
+            <TimetableJetLane
+              labelWidth={LABEL_W}
+              rowLabelClass={rowLabelCls}
+              rowCols={rowCols}
+              colStart={colStart}
+              colEnd={colEnd}
+              colW={colW}
+              segmentAt={col => jetSegmentAt(data, col)}
+              onOpen={(col, seg, rect) => setJetPicker({ col, seg, rect })}
+            />
+          )}
 
           {/* Under Events, because a draw is a thing that happened at a time
               like an event is -- and above Drugs, so the abnormal summary sits
@@ -1654,13 +1503,107 @@ export function IntraopTimetable({
     )
   }
 
+
+  // A death charted here (10.2.0) sets the postop destination to Deceased and
+  // offers, as its own prompt, to end the case. One loaded with the case does not.
+  // Where a card row's own dosing controls open, in place (10.2.0).
+  const [suggestionHost, setSuggestionHost] = useState<{ tag: string; el: HTMLElement } | null>(null)
+  const [tourniquetPicker, setTourniquetPicker] = useState<{ col: number; label: string; color: string } | null>(null)
+  const [jetPicker, setJetPicker] = useState<{ col: number; seg: import("@lospor/core/intraop-types").JetSegment | null; rect: DOMRect } | null>(null)
+  const [deathPrompt, setDeathPrompt] = useDeathPrompt(attention?.log, !!attention?.canAnswer, onDeath)
+
+  // ── Suggestions (10.2.0) ────────────────────────────────────────────────────
+  // A card's row opens this chart's own sheet, prefilled, at the now row; the
+  // entry it saves carries the suggestion's tag. On an ended case the last row.
+  const sheetCol = nowCol ?? Math.max(0, colCount - 1)
+  const suggestionSheets: SuggestionSheets = {
+    nowIso: () => serverNow().toISOString(),
+    timeOf: iso => (attention?.timeZone ? localTimeOf(new Date(iso), attention.timeZone) : null) ?? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    openDrug: ({ name, mode, rect, host, amount, unit, route, suggestion }) => {
+      // The same row again folds its controls away; another row replaces them.
+      if (host && fp?.suggestion === suggestion && suggestionHost?.el === host) { setFp(null); setSuggestionHost(null); return }
+      setSuggestionHost(host ? { tag: suggestion, el: host } : null)
+      const next = buildDrugFlyoutState({
+        guidanceEnabled: prospectiveGuidanceEnabled, col: sheetCol, name, unit: unit ?? "mg", mode,
+        anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
+        surfaces: doseSurfaces, isPediatric, ibw, tbw, infusionConfigs: INFUSION_CONFIGS, infusionRoutes: INFUSION_ROUTES,
+        drugRoutes: DRUG_ROUTES, quickDoses: QUICK_DOSES, quickRates: QUICK_RATES, preset: flyoutPreset,
+      })
+      if (!next) return
+      setFp(suggestionPrefill(next, { amount, unit, route }, suggestion))
+    },
+    openFluid: ({ name, category, rect, host, amount, mode, concentration, suggestion }) => {
+      const fluid = name ?? suggestionFluidFor(category, data.fluids ?? [], fluidLibOpts)
+      if (!fluid) return
+      if (host && fp?.suggestion === suggestion && suggestionHost?.el === host) { setFp(null); setSuggestionHost(null); return }
+      setSuggestionHost(host ? { tag: suggestion, el: host } : null)
+      const next = buildFluidFlyoutState({
+        guidanceEnabled: prospectiveGuidanceEnabled, col: sheetCol, name: fluid, category: getFluidCategory(fluid),
+        anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
+        surfaces: doseSurfaces, clinicalMode, ibw, tbw, fluidColor: getFluidColor, preset: flyoutPreset,
+      })
+      setFp(suggestionFluidPrefill(next, { amount, mode, concentration }, suggestion))
+    },
+    openShock: suggestion => { setDefibSuggestion(suggestion); setDefibCol(sheetCol) },
+    openLab: () => onOpenLabDraw?.(serverNow().toISOString()),
+    openGas: (rect, fio2, fgf, air, suggestion) => {
+      const running = gasSettings.find(seg => !seg.stopped && seg.startCol <= sheetCol && seg.endCol >= sheetCol)
+      if (running) openGasPickerForSeg(sheetCol, running, rect, suggestion)
+      else openGasPickerEmpty(sheetCol, rect, suggestion)
+      setPickerFio2(fio2)
+      setPickerFgf(fgf)
+      if (air) setPickerCarrierGas("air")
+    },
+    deepenTargets: () => [
+      ...agents.filter(seg => !seg.stopped && seg.startCol <= sheetCol).map(seg => ({
+        key: `agent-${seg.startCol}`, label: displayAgentName(seg.name),
+        open: (rect: DOMRect) => openPickerForSeg(seg.startCol, seg, rect, sheetCol),
+      })),
+      ...(data.infusions ?? []).filter(seg => !seg.stopped && seg.startCol <= sheetCol && DEEPEN_INFUSIONS.has(baseInfusionName(seg.name, seg.concentration))).map(seg => ({
+        key: `inf-${seg.id}`, label: displayInfusionName(seg.name),
+        open: (rect: DOMRect) => {
+          const baseDrugName = baseInfusionName(seg.name, seg.concentration)
+          const cfg = INFUSION_CONFIGS[baseDrugName] ?? DEFAULT_INF
+          setRateDialog({
+            segId: seg.id, name: baseDrugName, rate: Number(seg.rate) || 0, unit: seg.unit,
+            route: seg.route, ...rateDialogSurface({ name: baseDrugName, route: seg.route, runningUnit: seg.unit, cfg, guidance: prospectiveGuidanceEnabled, isPediatric, doseSurfaces, weights: { tbw, ibw, basis: INFUSION_WEIGHT_BASIS }, tciModel: seg.tciModel }),
+            color: seg.color, rect, step: "rate", timeH: "", timeM: "",
+            editFromCol: undefined, concentration: seg.concentration, baseDrugName,
+          })
+        },
+      })),
+    ],
+    stop: (event, suggestion) => {
+      if (!attention) return
+      const ts = serverNow().toISOString()
+      const base = { id: uid(), ts, recordedAt: ts, suggestion }
+      const stopEvent: import("@lospor/core/intraop-types").LogEvent | null = event.type === "infusion_start" && event.infId
+        ? { ...base, type: "infusion_stop", infId: event.infId, name: event.name, color: event.color }
+        : event.type === "fluid_start" && event.fluidId
+          ? { ...base, type: "fluid_end", fluidId: event.fluidId, name: event.name, color: event.color, fluidEntryMode: event.fluidEntryMode }
+          : event.type === "agent_start"
+            ? { ...base, type: "agent_stop", name: event.name }
+            : null
+      if (stopEvent) attention.applyOps({ add: [stopEvent], update: [], remove: [] })
+    },
+    displayName: event => event.type === "infusion_start" ? displayInfusionName(event.name ?? "")
+      : event.type === "fluid_start" ? displayFluidName(event.name ?? "")
+        : event.type === "agent_start" ? displayAgentName(event.name ?? "")
+          : event.name ?? "",
+    ...suggestionForm,
+  }
+
   return (
     <TciPatientContext.Provider value={tciPatient}>
     {/* A long press here picks a bar up rather than selecting its text (touch only). */}
     <div ref={touchDragRoot} data-touch-drag-ready={touchDragReady ? "true" : "loading"} className="space-y-3 pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]">
       {/* Chart toggle + layout toggle on same row */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button type="button" onClick={() => setChartOpen(o => !o)}
+        <button type="button" onClick={() => setChartOpen(o => {
+          const next = !o
+          void patchWebClinicalPreferences({ vitalsChartExpanded: next })
+          return next
+        })}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors select-none ${
             chartOpen
               ? "bg-slate-700 dark:bg-[#3a3a3a] border-slate-600 dark:border-[#555] text-white dark:text-slate-100"
@@ -1799,26 +1742,58 @@ export function IntraopTimetable({
           color: category.color,
           displayCat: displayGroupName(category.cat),
           isComplication: category.isComplication ?? false,
-          events: category.events.map(event => ({
+          events: category.events.map(event => category.isComplication ? quickComplicationOption(event, locale) : {
             label: event.label,
             color: event.color,
             displayLabel: displayEventName(event),
-          })),
-        }))}
+          }),
+        })).flatMap(category => category.isComplication
+          ? [category, ...moreComplicationCategories(category.events, locale)]
+          : [category])}
+        defibrillation={{ label: t("intraop.defibrillation.button"), onOpen: () => { setDefibSuggestion(null); setDefibCol(eventPicker.ci); setEventPicker(null) } }}
         recordedLabels={new Set((data.clinicalEvents ?? []).filter(e => e.colIdx === eventPicker.ci).map(e => e.label))}
         labels={{
           logClinicalEvent: t("intraop.timetable.logClinicalEvent"),
           searchEvents: t("intraop.timetable.searchEvents"),
         }}
         onSearchChange={setEvSearch}
-        onToggleEvent={(event, category, recorded) => {
+        onToggleEvent={(event, category, recorded, suggestion) => {
           const ci = eventPicker.ci
           setEventPicker(null)
           if (recorded) removeClinicalEvent(ci, event.label)
-          else addClinicalEvent(ci, event.label, event.color, category.isComplication)
+          // 10.2.0: a tourniquet asks where on the body first.
+          else if (event.label === "Tourniquet on" || event.label === "Tourniquet off") setTourniquetPicker({ col: ci, label: event.label, color: event.color })
+          else addClinicalEvent(ci, event.label, event.color, category.isComplication, suggestion)
         }}
         onDismiss={() => setEventPicker(null)}
       />
+    )}
+    {tourniquetPicker && (() => {
+      const ageDays = isPediatric && pediatricAgeValue != null && pediatricAgeUnit
+        ? pediatricAgeUnit === "DAYS" ? pediatricAgeValue : pediatricAgeUnit === "MONTHS" ? pediatricAgeValue * 30.44 : pediatricAgeValue * 365.25
+        : null
+      const at = tsForCol(tourniquetPicker.col) ?? serverNow().toISOString()
+      const child = isPediatric
+      return (
+        <TourniquetPicker
+          band={isPediatric ? bodyBandFor({ ageDays: ageDays ?? 6 * 365 }) : bodyBandFor({ ageDays: null, sex: patientSex })}
+          mode={tourniquetPicker.label === "Tourniquet on" ? "on" : "off"}
+          statuses={tourniquetStatus(attention?.log ?? [], at)}
+          warnAtMinutes={(child ? TOURNIQUET_MINUTES.child : TOURNIQUET_MINUTES.adult).warning}
+          timeOf={suggestionSheets.timeOf}
+          locale={locale}
+          onSave={site => {
+            const d = data
+            onChange({ ...d, clinicalEvents: [...(d.clinicalEvents ?? []), { colIdx: tourniquetPicker.col, label: tourniquetPicker.label, color: tourniquetPicker.color, site }] })
+            setTourniquetPicker(null)
+          }}
+          onCancel={() => setTourniquetPicker(null)}
+        />
+      )
+    })()}
+    {defibCol != null && (
+      <DefibrillationDialog {...defibrillationDialogProps(data.clinicalEvents ?? [], defibCol, times[defibCol] ?? "", { ageValue: pediatricAgeValue, ageUnit: pediatricAgeUnit, weightKg: tbw })}
+        onCancel={() => { setDefibCol(null); setDefibSuggestion(null) }} onSave={(energyJ, synchronized) => { addDefibrillation(defibCol, energyJ, synchronized, defibSuggestion ?? undefined); setDefibCol(null); setDefibSuggestion(null) }} />
     )}
     <MedicationPickerPortals
       drugPicker={drugPicker}
@@ -1916,6 +1891,39 @@ export function IntraopTimetable({
         />
       )
     })()}
+    {attention?.opened && <SuggestionHost attention={attention} sheets={suggestionSheets} />}
+    {jetPicker && (() => {
+      const running = jetPicker.seg && !jetPicker.seg.stopped ? jetPicker.seg : null
+      const last = (data.jetSettings ?? []).at(-1)
+      const initial = jetPicker.seg ? jetSettingsAtColumn(jetPicker.seg, jetPicker.col)
+        : last ? jetSettingsAtColumn(last, last.endCol) : DEFAULT_JET_SETTINGS
+      return (
+        <JetPopover
+          anchor={{ top: jetPicker.rect.top, bottom: jetPicker.rect.bottom, left: jetPicker.rect.left, right: jetPicker.rect.right, width: jetPicker.rect.width }}
+          initial={{ pressureBar: initial.pressureBar, rate: initial.rate, fio2: initial.fio2 }}
+          editing={!!running}
+          onApply={settings => {
+            onChange(running ? changeJet(data, running.id, jetPicker.col, settings) : startJet(data, jetPicker.col, settings, `jet-${jetPicker.col}-${uid()}`))
+            setJetPicker(null)
+          }}
+          onStop={running ? () => { onChange(stopJet(data, running.id, jetPicker.col)); setJetPicker(null) } : undefined}
+          onDismiss={() => setJetPicker(null)}
+        />
+      )
+    })()}
+    {deathPrompt && !endedAt && (
+      <div role="alertdialog" data-testid="death-end-case" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-5 shadow-2xl dark:bg-[#1e1e1e]">
+          <p className="text-sm font-semibold">{t("intraop.suggestions.deathEndCase")}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setDeathPrompt(false)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm dark:border-slate-600">{t("intraop.suggestions.notNow")}</button>
+            <button type="button" data-testid="death-end-case-yes"
+              onClick={() => { setDeathPrompt(false); if (beforeEndCase?.() === false) return; setShowEndModal(true) }}
+              className="flex-1 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-200 dark:text-slate-900">{t("intraop.suggestions.endCase")}</button>
+          </div>
+        </div>
+      </div>
+    )}
     {/* ── Floating prompt portal ─────────────────────────────────────────────── */}
     <DosingFlyout
       fp={fp}
@@ -1940,6 +1948,7 @@ export function IntraopTimetable({
       pediatricRulesCachedAt={pediatricRulesCachedAt}
       pediatricRulesLoading={pediatricRulesLoading}
       pediatricRulesError={pediatricRulesError}
+      inlineHost={fp?.suggestion && suggestionHost?.tag === fp.suggestion ? suggestionHost.el : null}
     />
     {doseEditDrug && (
       <DoseEditPopover

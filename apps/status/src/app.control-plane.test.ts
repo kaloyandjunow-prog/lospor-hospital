@@ -8,6 +8,12 @@ import { totpCode } from "./mfa.js"
 import { preopSectionsFixture } from "./preop-sections.fixture.js"
 import { drugColorsFixture } from "./drug-colors.fixture.js"
 import { indicatorsFixture } from "./indicators.fixture.js"
+import { intraopFixture } from "./intraop.fixture.js"
+import { readingsFixture } from "./readings.fixture.js"
+import { acceptanceFixture } from "./acceptance.fixture.js"
+import { historyFixture } from "./history.fixture.js"
+import { cardPreviewFixture } from "./card-preview.fixture.js"
+import { NAV_GROUPS } from "./ui-shell.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
 const HASH = "a".repeat(64)
@@ -303,6 +309,12 @@ function setup() {
   const auth = new AuthService(db, Buffer.alloc(32, 9), 4, () => NOW)
   const controlPlane: ControlPlanePort = {
     get: vi.fn(async () => VIEW),
+    intraopReadings: vi.fn(async () => null),
+    intraopAcceptance: vi.fn(async () => null),
+    auditHistory: vi.fn(async () => null),
+    cardPreview: vi.fn(async () => null),
+    hospitalLogo: vi.fn(async () => null),
+    setHospitalLogo: vi.fn(async () => undefined),
     issueGrant: vi.fn(async () => {}),
     revokeGrant: vi.fn(async () => {}),
     approveOmop: vi.fn(async () => {}),
@@ -310,11 +322,13 @@ function setup() {
     updateDrugColor: vi.fn(async () => {}),
     changeOperatingTheatres: vi.fn(async () => {}),
     updateIndicators: vi.fn(async () => {}),
+    updateIntraopAutomation: vi.fn(async () => {}),
     configureCentral: vi.fn(async () => {}),
     setCentralPolicy: vi.fn(async () => {}),
     retryCentralBatch: vi.fn(async () => {}),
     setGuidance: vi.fn(async () => {}),
     setCaseVisibilityPolicy: vi.fn(async () => {}),
+    setHospitalName: vi.fn(async () => {}),
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
@@ -425,12 +439,14 @@ describe("Status Hospital control plane", () => {
     expect(legacy).toContain('href="/status/control/postop"')
     expect(legacy).toContain('href="/status/control/theatres"')
     expect(legacy).toContain('href="/status/control/indicators"')
+    expect(legacy).toContain('href="/status/control/intraop"')
     expect(legacy).toContain('href="/status/control/drug-colors"')
     expect((legacy.match(/class="statusnav subnav control-subnav"/g) ?? []).length).toBe(4)
     expect(preop).toContain('href="/status/control/preop/sections"')
     expect(preop).toContain('href="/status/control/postop"')
     expect(preop).toContain('href="/status/control/theatres"')
     expect(preop).toContain('href="/status/control/indicators"')
+    expect(preop).toContain('href="/status/control/intraop"')
     expect(preop).toContain('href="/status/control/drug-colors"')
     expect(preop).not.toContain('class="statusnav subnav control-subnav"')
     expect(preop).not.toContain(':root:not([data-skin="legacy"]) .subnav{display:none}')
@@ -711,6 +727,96 @@ describe("Status Hospital control plane", () => {
     })
   })
 
+  it("changes the hospital name on the record only with the Status password and a reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    const html = await page.text()
+    expect(html).toContain('action="/status/control/hospital-name"')
+    expect(html).toContain('data-testid="hospital-name-control"')
+
+    const refused = await app.request("/status/control/hospital-name", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ institutionId: "inst-1", name: "Sofia University Hospital", reason: "The legal name changed", password: "wrong password phrase" }),
+    })
+    expect(refused.status).toBe(401)
+    expect(controlPlane.setHospitalName).not.toHaveBeenCalled()
+
+    const response = await app.request("/status/control/hospital-name", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ institutionId: "inst-1", name: "Sofia University Hospital", reason: "The legal name changed", password: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.setHospitalName).toHaveBeenCalledWith({
+      institutionId: "inst-1",
+      name: "Sofia University Hospital",
+      reason: "The legal name changed",
+    })
+  })
+
+  describe("the hospital logo on the paper documents (1.8.0)", () => {
+    const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)])
+    const upload = (fields: Record<string, string>, file?: File) => {
+      const form = new FormData()
+      for (const [name, value] of Object.entries(fields)) form.set(name, value)
+      if (file) form.set("logo", file)
+      return form
+    }
+
+    it("sits beside the hospital name on the clinical page, in every skin", async () => {
+      const { app, auth } = setup()
+      const cookie = await passwordCookie(app, auth)
+      for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+        const html = await (await app.request("/status/control/clinical", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+        expect(html, skin).toContain('data-testid="hospital-logo-control"')
+        expect(html, skin).toContain('enctype="multipart/form-data"')
+      }
+    })
+
+    it("saves a PNG only with the password and a reason, as a data URL, and removes it on request", async () => {
+      const { app, auth, controlPlane } = setup()
+      const cookie = await passwordCookie(app, auth)
+      const send = (form: FormData) => app.request("/status/control/hospital-logo", { method: "POST", headers: origin({ cookie }), body: form })
+      const fields = { institutionId: "inst-1", reason: "The hospital's new logo" }
+
+      expect((await send(upload({ ...fields, password: "wrong password phrase" }, new File([PNG], "logo.png", { type: "image/png" })))).status).toBe(401)
+      expect(controlPlane.setHospitalLogo).not.toHaveBeenCalled()
+
+      const saved = await send(upload({ ...fields, password: "Initial password phrase1!" }, new File([PNG], "logo.png", { type: "image/png" })))
+      expect(saved.status).toBe(200)
+      expect(controlPlane.setHospitalLogo).toHaveBeenCalledWith({ institutionId: "inst-1", logoDataUrl: `data:image/png;base64,${PNG.toString("base64")}`, reason: fields.reason })
+
+      vi.mocked(controlPlane.setHospitalLogo).mockClear()
+      await send(upload({ ...fields, removeLogo: "true", password: "Initial password phrase1!" }))
+      expect(controlPlane.setHospitalLogo).toHaveBeenCalledWith({ institutionId: "inst-1", logoDataUrl: null, reason: fields.reason })
+    })
+
+    it("refuses a file that is not a PNG or JPEG, or too large, or none at all", async () => {
+      const { app, auth, controlPlane } = setup()
+      const cookie = await passwordCookie(app, auth)
+      const send = (form: FormData) => app.request("/status/control/hospital-logo", { method: "POST", headers: origin({ cookie }), body: form })
+      const fields = { institutionId: "inst-1", reason: "The hospital's new logo", password: "Initial password phrase1!" }
+      await send(upload(fields, new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" })))
+      await send(upload(fields, new File([Buffer.alloc(1100 * 1024)], "big.png", { type: "image/png" })))
+      await send(upload(fields))
+      expect(controlPlane.setHospitalLogo).not.toHaveBeenCalled()
+    })
+
+    it("previews the logo from the administrator's session only", async () => {
+      const { app, auth, controlPlane } = setup()
+      expect((await app.request("/status/hospital-logo?institutionId=inst-1")).status).toBe(403)
+      const cookie = await passwordCookie(app, auth)
+      vi.spyOn(controlPlane, "hospitalLogo").mockResolvedValue(`data:image/png;base64,${PNG.toString("base64")}`)
+      const response = await app.request("/status/hospital-logo?institutionId=inst-1", { headers: { cookie } })
+      expect(response.status).toBe(200)
+      expect(response.headers.get("content-type")).toBe("image/png")
+      expect(Buffer.from(await response.arrayBuffer()).equals(PNG)).toBe(true)
+      expect((await app.request("/status/hospital-logo?institutionId=../x", { headers: { cookie } })).status).toBe(404)
+    })
+  })
+
   it("requires the current password before issuing a granular grant", async () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
@@ -893,8 +999,25 @@ describe("Status Hospital control plane", () => {
     expect(accepted.status).toBe(200)
     expect(controlPlane.setPatientIdentifierPolicy).toHaveBeenCalledWith({
       egnPermitted: false,
+      admissionNumberVisible: false,
       reason: "Site will not hold national identifiers",
     })
+  })
+
+  it("puts the ИЗ № switch on the Patient identification page of every skin, on by default, and saves it", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      const html = await (await app.request("/status/control/identity", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+      expect(html, skin).toMatch(/data-testid="admission-number-visible"[^>]*checked/)
+    }
+    const saved = await app.request("/status/control/patient-identifier", {
+      method: "POST",
+      headers: origin({ cookie: `${cookie}; lospor_status_locale=en`, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ egnPermitted: "true", admissionNumberVisible: "true", reason: "Doctors want the number", password: "Initial password phrase1!" }),
+    })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setPatientIdentifierPolicy).toHaveBeenCalledWith({ egnPermitted: true, admissionNumberVisible: true, reason: "Doctors want the number" })
   })
 
   it("chooses an EHR import transport, treating an empty selection as disabled rather than a fourth enum value", async () => {
@@ -1909,6 +2032,115 @@ describe("the operating theatres (10.0.0)", () => {
   })
 })
 
+describe("the Legacy skin keeps up with the modern ones", () => {
+  it("links to every hospital-control page the modern navigation offers", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const legacy = await app.request("/status/control", { headers: { cookie: `${cookie}; lospor_status_skin=legacy` } })
+    const html = await legacy.text()
+    // A page added to the modern navigation must be reachable here too, or it is a page one skin cannot open.
+    const modern = NAV_GROUPS.flatMap(group => group.items.flatMap(item => [item.path, ...(item.also ?? [])]))
+      .filter(path => path.startsWith("/status/control/"))
+    expect(modern.length).toBeGreaterThan(10)
+    const missing = modern.filter(path => !html.includes(`href="${path}"`))
+    // Pages that are tabs of another page (the preop tabs) are reached through that page's own tabs.
+    // The SPS page's Unusual readings tab is the same: its link is on the SPS page, checked below.
+    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents", "/status/control/intraop/readings", "/status/control/intraop/acceptance", "/status/control/intraop/cards"]
+    // Codes, patient identification and Central are sections of Legacy's Hospital system and Research pages (checked above).
+    const folded = ["/status/control/codes", "/status/control/identity", "/status/control/central"]
+    expect(missing.filter(path => !tabs.includes(path) && !folded.includes(path))).toEqual([])
+  })
+})
+
+describe("the SPS settings (10.2.0)", () => {
+  it("has a page and saves only with the password and a reason", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const cookie = await passwordCookie(app, auth)
+    expect(await (await app.request("/status/control/intraop", { headers: { cookie } })).text()).toContain('data-testid="intraop-form"')
+    const fields = {
+      enabled: "true", group_timers: "true", vitalsEnabled: "true", minCases: "100", vial_20: "true", vial_250: "true",
+      tail_INFANT_hr_low: "0.5", tail_INFANT_hr_high: "0.5", tail_INFANT_sbp_low: "0.5", tail_INFANT_sbp_high: "0.5",
+      tail_ADULT_hr_low: "0.5", tail_ADULT_hr_high: "0.5", tail_ADULT_sbp_low: "0.5", tail_ADULT_sbp_high: "0.5",
+      reason: "Agreed at the department meeting",
+    }
+    const post = (extra: Record<string, string>) => app.request("/status/control/intraop", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...fields, ...extra }).toString(),
+    })
+    await post({})
+    expect(controlPlane.updateIntraopAutomation).not.toHaveBeenCalled()
+    await post({ password: "Initial password phrase1!" })
+    expect(controlPlane.updateIntraopAutomation).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: true, dantroleneVialsMg: [20, 250], reason: "Agreed at the department meeting",
+    }))
+  })
+})
+
+describe("the Unusual readings tab of the SPS page (10.2.0)", () => {
+  const SKINS = ["maphub", "sidebar", "inbox", "index", "console", "legacy"]
+
+  it("is a tab in every skin, not a menu entry, and is read only when it is open", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const readings = vi.spyOn(controlPlane, "intraopReadings").mockResolvedValue(readingsFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}` } })).text()
+    for (const skin of SKINS) {
+      // The Switches tab points at it; the tab itself has the form and the script.
+      expect(await page("/status/control/intraop", skin), skin).toContain('href="/status/control/intraop/readings"')
+      expect(readings, skin).not.toHaveBeenCalled()
+      const tab = await page("/status/control/intraop/readings", skin)
+      expect(tab, skin).toContain('data-testid="readings-form"')
+      expect(tab, skin).toContain('src="/status/unusual-readings.js"')
+      expect(tab, skin).toContain('name="tail_ADULT_hr_low"')
+      // No menu lists it: the overview carries the navigation of every skin.
+      expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/readings")
+      readings.mockClear()
+    }
+  })
+
+  it("serves its script as a script of its own, since inline ones are blocked", async () => {
+    const { app } = setup()
+    const response = await app.request("/status/unusual-readings.js")
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/javascript")
+    const body = await response.text()
+    expect(body).toContain("function impactOf")
+    expect(body).toContain("ur-data")
+  })
+
+  it("saves the limits and the minimum only with the password and a reason, and leaves every switch as it was", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    vi.spyOn(controlPlane, "intraopReadings").mockResolvedValue(readingsFixture())
+    const cookie = await passwordCookie(app, auth)
+    const fields = {
+      minCases: "150",
+      tail_INFANT_hr_low: "1", tail_INFANT_hr_high: "0.5", tail_INFANT_sbp_low: "0.5", tail_INFANT_sbp_high: "0.5",
+      tail_ADULT_hr_low: "0.25", tail_ADULT_hr_high: "5", tail_ADULT_sbp_low: "0.5", tail_ADULT_sbp_high: "0.5",
+      reason: "Agreed at the department meeting",
+    }
+    const submit = (extra: Record<string, string>) => app.request("/status/control/intraop/readings", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...fields, ...extra }).toString(),
+    })
+    await submit({})
+    expect(controlPlane.updateIntraopAutomation).not.toHaveBeenCalled()
+    const saved = await submit({ password: "Initial password phrase1!" })
+    expect(controlPlane.updateIntraopAutomation).toHaveBeenCalledWith(expect.objectContaining({
+      // The groups, the lines switched off and the vials are the ones in force; the form never sent them.
+      enabled: true, groups: intraopFixture().config.groups, disabled: ["card:Hypertension"], dantroleneVialsMg: [20, 250],
+      vitalQuestions: expect.objectContaining({ minCases: 150 }),
+      reason: "Agreed at the department meeting",
+    }))
+    // It comes back to the same tab, with the notice.
+    expect(await saved.text()).toContain('data-testid="readings-form"')
+  })
+})
+
 describe("the unit indicators settings (10.0.0)", () => {
   it("has a page and saves only with the password and a reason", async () => {
     const { app, auth, controlPlane } = setup()
@@ -1925,5 +2157,67 @@ describe("the unit indicators settings (10.0.0)", () => {
     expect(controlPlane.updateIndicators).not.toHaveBeenCalled()
     await post({ password: "Initial password phrase1!" })
     expect(controlPlane.updateIndicators).toHaveBeenCalledWith(expect.objectContaining({ namedClinicians: true, reason: "Agreed at the department meeting" }))
+  })
+})
+
+describe("the Acceptance trend tab of the SPS page (10.3.0)", () => {
+  it("is a tab in every skin, not a menu entry, and is read only when it is open", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const trend = vi.spyOn(controlPlane, "intraopAcceptance").mockResolvedValue(acceptanceFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      expect(await page("/status/control/intraop", skin), skin).toContain('href="/status/control/intraop/acceptance"')
+      expect(trend, skin).not.toHaveBeenCalled()
+      expect(await page("/status/control/intraop/acceptance", skin), skin).toContain('data-testid="trend-table"')
+      expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/acceptance")
+      trend.mockClear()
+    }
+  })
+})
+
+describe("the Change history page (10.3.0)", () => {
+  it("is one row in every skin's menu, reads the audit rows, and keeps the filter", async () => {
+    const { app, auth, controlPlane } = setup()
+    const history = vi.spyOn(controlPlane, "auditHistory").mockResolvedValue(historyFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      const html = await page("/status/control/history?category=SECURITY&page=1", skin)
+      expect(html, skin).toContain('data-testid="history-table"')
+      expect(history).toHaveBeenLastCalledWith({ page: 1, category: "SECURITY", action: "" })
+      expect(await page("/status/control/clinical", skin), skin).not.toContain('data-testid="history-table"')
+    }
+    // Every skin but Legacy (which has no menu) lists it once among the pages.
+    for (const skin of ["maphub", "sidebar", "index", "console"]) {
+      expect(await page("/status/control/history", skin), skin).toContain('href="/status/control/history"')
+    }
+  })
+
+  it("is not read for any other page", async () => {
+    const { app, auth, controlPlane } = setup()
+    const history = vi.spyOn(controlPlane, "auditHistory").mockResolvedValue(historyFixture())
+    const cookie = await passwordCookie(app, auth)
+    await app.request("/status/control/identity", { headers: { cookie } })
+    expect(history).not.toHaveBeenCalled()
+  })
+})
+
+describe("the Card preview tab of the SPS page (10.3.0)", () => {
+  it("is a tab in every skin, not a menu entry, and is read only when it is open", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const preview = vi.spyOn(controlPlane, "cardPreview").mockResolvedValue(cardPreviewFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+    for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
+      expect(await page("/status/control/intraop", skin), skin).toContain('href="/status/control/intraop/cards"')
+      expect(preview, skin).not.toHaveBeenCalled()
+      expect(await page("/status/control/intraop/cards?complication=Hypotension&patient=child", skin), skin).toContain('data-testid="card-preview-form"')
+      expect(preview).toHaveBeenLastCalledWith({ complication: "Hypotension", patient: "child" })
+      expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/cards")
+      preview.mockClear()
+    }
   })
 })

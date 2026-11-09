@@ -1,16 +1,19 @@
 "use client"
+import type { ReactNode } from "react"
 import { Controller, type Control } from "react-hook-form"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { TechniqueTree, techniqueDisplayLabel, type TechniqueNode } from "@/components/TechniqueTree"
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 
-export function TechniqueSection({ t, control, techniques, techniqueTree, presentsIntubated, setPresentsIntubated }: {
+export function TechniqueSection({ t, control, techniques, techniqueTree, presentsIntubated, setPresentsIntubated, smart }: {
   t: (key: string) => string
   control: Control<IntraopFormFields>
   techniques: string[]
   techniqueTree: TechniqueNode[]
   presentsIntubated: boolean
   setPresentsIntubated: () => void
+  /** Smart selection (10.2.0). Without it this is the Legacy section, the list you drill down through. */
+  smart?: ReactNode
 }) {
   return (
     <SectionCard title={t("intraop.techniqueSection")} collapsible required
@@ -18,9 +21,11 @@ export function TechniqueSection({ t, control, techniques, techniqueTree, presen
       <div className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <Controller name="techniques" control={control} render={({ field }) => (
-              <TechniqueTree value={field.value ?? []} onChange={field.onChange} />
-            )} />
+            {smart ?? (
+              <Controller name="techniques" control={control} render={({ field }) => (
+                <TechniqueTree value={field.value ?? []} onChange={field.onChange} />
+              )} />
+            )}
           </div>
           <button type="button"
             onClick={() => setPresentsIntubated()}

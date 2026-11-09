@@ -3,7 +3,7 @@ import type { TreeNode } from "./types"
 
 export const TECHNIQUE_TREE: TreeNode[] = [
   { v: "GENERAL", label: "General Anaesthesia", labelBg: "Обща анестезия", children: [
-    { v: "GENERAL_INHALATION", label: "Inhalational", labelBg: "Инхалационна" }, { v: "GENERAL_TIVA", label: "TIVA", labelBg: "Тотална интравенозна анестезия (ТИВА)" }, { v: "GENERAL_BALANCED", label: "Balanced (inhaled + IV)", labelBg: "Балансирана (инхалационна + венозна)" },
+    { v: "GENERAL_INHALATION", label: "Inhalational", labelBg: "Инхалационна" }, { v: "GENERAL_TIVA", label: "TIVA", labelBg: "Тотална интравенозна анестезия (ТИВА)" }, { v: "GENERAL_TCI", label: "TCI", labelBg: "Целево-контролирана инфузия (TCI)" }, { v: "GENERAL_BALANCED", label: "Balanced (inhaled + IV)", labelBg: "Балансирана (инхалационна + венозна)" },
   ]},
   { v: "REGIONAL", label: "Regional Anaesthesia", labelBg: "Регионална анестезия", children: [
     { v: "NEURAXIAL", label: "Neuraxial", labelBg: "Невроаксиален блок", children: [
@@ -12,6 +12,7 @@ export const TECHNIQUE_TREE: TreeNode[] = [
           { v: "SPINAL_SINGLE_LUMBAR", label: "Lumbar", labelBg: "Лумбална" }, { v: "SPINAL_SINGLE_LOW_THORACIC", label: "Low thoracic", labelBg: "Ниска торакална" },
           { v: "SPINAL_SINGLE_MID_THORACIC", label: "Mid thoracic", labelBg: "Средна торакална" }, { v: "SPINAL_SINGLE_HIGH_THORACIC", label: "High thoracic", labelBg: "Висока торакална" },
         ]},
+        { v: "SPINAL_UNILATERAL", label: "Unilateral single shot", labelBg: "Едностранна, еднократна" },
         { v: "SPINAL_CONTINUOUS", label: "Continuous", labelBg: "Продължителна", children: [
           { v: "SPINAL_CONT_LUMBAR", label: "Lumbar", labelBg: "Лумбална" }, { v: "SPINAL_CONT_LOW_THORACIC", label: "Low thoracic", labelBg: "Ниска торакална" },
           { v: "SPINAL_CONT_MID_THORACIC", label: "Mid thoracic", labelBg: "Средна торакална" }, { v: "SPINAL_CONT_HIGH_THORACIC", label: "High thoracic", labelBg: "Висока торакална" },
