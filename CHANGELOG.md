@@ -4,6 +4,11 @@
 
 ### Added
 
+- **The API side of the Status Intraoperative suggestions (SPS) page:** the control-plane view now carries the
+  settings in force, the automation catalogue in both languages, the acceptance counts and the learned
+  succession, and `POST /v1/internal/hospital/control-plane/intraop-automation` saves what Status sends,
+  audited as `INTRAOP_AUTOMATION_UPDATE` (switches and counts, never the reason). Until now the page
+  had nothing to read and nowhere to save.
 - **Update installs the release's rule baselines:** `update.sh` now runs the
   bundled-baseline provisioner after the migrations, so the 10.2.0 v4 rule sets
   reach an installed appliance and the platform selection moves from v3 to v4
@@ -20,6 +25,11 @@
 - Status: the stocked dantrolene vial sizes, monitoring reading intervals, and a
   person link on the national identifier (ЕГН).
 - Status dependencies updated.
+
+### Fixed
+
+- **Renaming the hospital could not be saved:** its audit row used a key called `name`, which the audit
+  guard refuses. The row now keeps `previousHospitalName` and `hospitalName`.
 
 ### Changed
 
