@@ -564,4 +564,12 @@ describe("the hospital name on the record", () => {
     expect(() => hospitalNameSchema.parse({ ...ok, reason: "short" })).toThrow()
     expect(() => hospitalNameSchema.parse({ ...ok, extra: true })).toThrow()
   })
+
+  it("keeps an audit detail the audit guard accepts when a hospital is renamed", async () => {
+    const { hospitalNameAuditDetail } = await import("./control-plane")
+    const { assertSafeAuditDetail } = await import("@/lib/audit-evidence")
+    expect(() => assertSafeAuditDetail(hospitalNameAuditDetail("Old", "New", true))).not.toThrow()
+    // The guard is what refused the first version of this row.
+    expect(() => assertSafeAuditDetail({ name: "New" })).toThrow()
+  })
 })

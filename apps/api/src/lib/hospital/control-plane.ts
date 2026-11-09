@@ -35,6 +35,8 @@ import { hasDedicatedPreopControl } from "@lospor/core/preop-assessment"
 import { NHIS_SPECIALTIES } from "@lospor/core/nhis-specialties"
 import { drugColorsView, setDrugColor } from "@/lib/drug-colors"
 import { changeOperatingTheatres, operatingTheatresAdminView } from "@/lib/operating-theatres"
+import { saveIntraopAutomation, readIntraopAutomation } from "@/lib/intraop-automation"
+import { intraopAutomationControlView } from "./intraop-automation-control"
 import { readIndicatorConfig, saveIndicatorConfig } from "@/lib/indicators"
 import { DEFAULT_INDICATOR_CONFIG } from "@lospor/core/indicators"
 import { MEDICATION_HOLD_HOURS, POSTOP_FIXED_SECTIONS, PREOP_FIXED_SECTIONS, PREOP_SWITCHABLE_SECTIONS, sectionForm } from "@lospor/core/preop-orders"
@@ -670,6 +672,40 @@ export async function setGuidancePolicy(input: z.infer<typeof guidancePolicySche
   })
 }
 
+/**
+ * What the audit row for a rename keeps. Not a key called "name": the audit guard refuses that one, as it
+ * would a person's name, and a rename that failed on its own audit row would never be saved.
+ */
+/** What Status sends to save the SPS switches: the settings, which Core's parser checks and clamps, and why. */
+export const intraopAutomationUpdateSchema = z.object({ reason: z.string().trim().min(10).max(1000) }).passthrough()
+
+/** The audit row for a change of the SPS switches: which are off and how many, never a reason or a clinician. */
+export function intraopAutomationAuditDetail(settings: Awaited<ReturnType<typeof readIntraopAutomation>>) {
+  return {
+    enabled: settings.enabled,
+    groupsOff: Object.entries(settings.groups).filter(([, on]) => !on).map(([key]) => key).sort(),
+    linesOff: settings.disabled.length,
+    vitalQuestionsEnabled: settings.vitalQuestions.enabled,
+    dantroleneVialsMg: settings.dantroleneVialsMg,
+    reasonRecorded: true,
+  }
+}
+
+export async function setHospitalIntraopAutomation(input: unknown) {
+  const { reason, ...config } = intraopAutomationUpdateSchema.parse(input)
+  void reason
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const saved = await saveIntraopAutomation(tx, config)
+    await logAuditInTransaction(tx, actor.id, "INTRAOP_AUTOMATION_UPDATE", "local", intraopAutomationAuditDetail(saved))
+    return saved
+  }, serializableTransaction)
+}
+
+export function hospitalNameAuditDetail(previous: string, next: string, reasonRecorded: boolean) {
+  return { previousHospitalName: previous, hospitalName: next, reasonRecorded }
+}
+
 export async function setHospitalName(input: z.infer<typeof hospitalNameSchema>) {
   const parsed = hospitalNameSchema.parse(input)
   return prisma.$transaction(async tx => {
@@ -679,11 +715,8 @@ export async function setHospitalName(input: z.infer<typeof hospitalNameSchema>)
     const updated = await tx.institution.update({ where: { id: institution.id }, data: { name: parsed.name }, select: { id: true, name: true } })
     // Cases already written keep reading the institution's current name: the record's title is the hospital's,
     // not a copy frozen into each case.
-    await logAuditInTransaction(tx, actor.id, "HOSPITAL_NAME_UPDATE", updated.id, {
-      previousName: institution.name,
-      name: updated.name,
-      reasonRecorded: Boolean(parsed.reason),
-    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_NAME_UPDATE", updated.id,
+      hospitalNameAuditDetail(institution.name, updated.name, Boolean(parsed.reason)))
     return updated
   }, serializableTransaction)
 }
@@ -1712,6 +1745,8 @@ export async function hospitalControlPlaneView() {
   const operatingTheatres = await operatingTheatresAdminView(prisma).catch(() => null)
   // The unit indicators' thresholds (10.0.0).
   const indicators = await indicatorsControlView().catch(() => null)
+  // The intraoperative suggestion switches (10.2.0), read apart as well: an older database still shows every other control.
+  const intraopAutomation = await intraopAutomationControlView(prisma).catch(() => null)
   // How the folder exchange is doing, for a site that uses it (1.5.0). Read
   // from the folders; a failure to read them is not a reason to hide the rest.
   // Loaded only here: the inbox reader brings the clinical vocabularies with it,
@@ -1751,6 +1786,7 @@ export async function hospitalControlPlaneView() {
     drugColors,
     operatingTheatres,
     indicators,
+    intraopAutomation,
   }
 }
 
