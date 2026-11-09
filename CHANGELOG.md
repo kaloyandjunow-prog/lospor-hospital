@@ -28,6 +28,13 @@ baselines; rollback is backup-required.
   intervals and the stocked dantrolene vials, and lists what "Likely now" has learned. It now has the data and
   the route to save with: the API sends the view and `POST /v1/internal/hospital/control-plane/intraop-automation`
   saves it, audited (`INTRAOP_AUTOMATION_UPDATE`: switches and counts, never the reason).
+- **Status: Unusual readings,** a second tab of the SPS page (it is not a menu entry, and Legacy has it too). For each
+  age band and sign it draws this hospital's own readings with the limits as sliders, the fixed rules beside them and a
+  scale in SD, and shows at once how many finished cases a limit would ask about, what the clinician would see, and how
+  the limits moved month by month (dotted until the band reached its minimum). A high blood-pressure limit is greyed:
+  since 10.2.0 hypertension is judged on the patient's own baseline. It saves only the limits and the cases a band needs,
+  so it can never switch a group off by omission. The API sends the readings on their own
+  (`GET …/control-plane/intraop-readings`), counts and figures only.
 - **Status: the hospital's name on the record** (Clinical page), changed with the Status password and a reason,
   audited (`HOSPITAL_NAME_UPDATE`).
 - **Status: a person link on the national identifier (ЕГН)** so an admission and its person are one in the exports.

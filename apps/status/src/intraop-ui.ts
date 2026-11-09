@@ -1,6 +1,7 @@
 import { ControlPlaneClientError, DEFAULT_HYPERTENSION_BASELINE_PERCENT, HYPERTENSION_BASELINE_STEPS, MONITORING_DUE_DEFAULTS, MONITORING_DUE_RANGE, type IntraopAutomationUpdate, type IntraopAutomationView, type StatusSuccessionRow } from "./control-plane.js"
 import { localize, type StatusLocale } from "./locale.js"
 import { escapeHtml } from "./util.js"
+import { INTRAOP_READINGS_PATH, renderIntraopTabs } from "./readings-ui.js"
 
 /**
  * The SPS page (10.2.0): the master switch, the six
@@ -64,10 +65,11 @@ const fail = () => new ControlPlaneClientError("INTRAOP_AUTOMATION_INVALID")
 /** The form's settings. Every value is checked against what the API said it offers. */
 export function intraopUpdateFromForm(view: IntraopAutomationView, body: Record<string, unknown>, reason: string): IntraopAutomationUpdate {
   const on = (name: string) => body[name] === "true"
-  const minCasesRaw = typeof body.minCases === "string" ? body.minCases.trim() : ""
-  const minCases = Number(minCasesRaw)
+  // The cases a band needs and the limits are set on the Unusual readings tab; absent here, they keep what is saved.
+  const minCasesRaw = typeof body.minCases === "string" ? body.minCases.trim() : null
   const { min, max } = view.minCasesRange
-  if (minCasesRaw === "" || !Number.isInteger(minCases) || minCases < min || minCases > max) throw fail()
+  const minCases = minCasesRaw === null ? view.config.vitalQuestions.minCases : Number(minCasesRaw)
+  if (!Number.isInteger(minCases) || minCases < min || minCases > max) throw fail()
 
   // Absent (an older form) keeps what is saved; present, it must be one of the offered steps.
   const baselineRaw = typeof body.hypertensionBaselinePercent === "string" ? Number(body.hypertensionBaselinePercent) : null
@@ -95,8 +97,11 @@ export function intraopUpdateFromForm(view: IntraopAutomationView, body: Record<
   for (const band of view.bands) {
     tails[band.key] = {}
     for (const sign of view.signs) {
+      const saved = view.config.vitalQuestions.tails[band.key]?.[sign.key] ?? { low: view.defaultTail, high: view.defaultTail }
       const read = (end: "low" | "high") => {
-        const value = Number(typeof body[`tail_${band.key}_${sign.key}_${end}`] === "string" ? (body[`tail_${band.key}_${sign.key}_${end}`] as string).replace(",", ".") : NaN)
+        const raw = body[`tail_${band.key}_${sign.key}_${end}`]
+        if (raw === undefined) return saved[end]
+        const value = Number(typeof raw === "string" ? raw.replace(",", ".") : NaN)
         if (!view.tailSteps.includes(value)) throw fail()
         return value
       }
@@ -115,15 +120,13 @@ export function intraopUpdateFromForm(view: IntraopAutomationView, body: Record<
   }
 }
 
-const percent = (value: number) => `${String(value).replace(".", ",")} %`
-
 /** Hospital control · SPS. */
 export function renderIntraopPage(view: IntraopAutomationView | null | undefined, locale: StatusLocale): string {
   const intro = `<p>${localize(locale,
     "Questions, suggestions and reminders on the intraoperative record. Everything starts on. A group switched off here turns off everything in it; each line can also be switched off on its own. Nothing is recorded without a clinician's tap, and switching a group off never changes what was already charted. Each clinician can also turn a group off for themselves in their own settings; a group that is off here is not offered to them at all.",
     "Въпроси, предложения и напомняния в интраоперативния запис. Всичко започва включено. Група, изключена тук, изключва всичко в нея; всеки ред може да се изключи и поотделно. Нищо не се записва без докосване от лекаря, а изключването на група никога не променя вече записаното. Всеки лекар може да изключи група и за себе си в своите настройки; група, изключена тук, не се предлага изобщо.")}</p>`
   if (!view) {
-    return `<div class="component" id="${ANCHOR}">${intro}<div class="empty">${localize(locale, "This API does not offer SPS yet.", "Този API още не предлага SPS.")}</div></div>`
+    return `${renderIntraopTabs("switches", locale)}<div class="component" id="${ANCHOR}">${intro}<div class="empty">${localize(locale, "This API does not offer SPS yet.", "Този API още не предлага SPS.")}</div></div>`
   }
   const { config } = view
   const label = (entry: { labelEn: string; labelBg: string }) => escapeHtml(locale === "bg" ? entry.labelBg : entry.labelEn)
@@ -152,20 +155,9 @@ export function renderIntraopPage(view: IntraopAutomationView | null | undefined
   }
   const groups = view.groups.map(group => `<div class="intraop-group">${check(`group_${escapeHtml(group.key)}`, config.groups[group.key] === true, `<strong>${label(group)}</strong>`, `intraop-group-${escapeHtml(group.key)}`)}<span class="component-detail">${escapeHtml(locale === "bg" ? group.detailBg : group.detailEn)}</span>${lines(group.key)}</div>`).join("")
 
-  const tailOptions = (selected: number) => view.tailSteps.map(step => `<option value="${step}"${step === selected ? " selected" : ""}>${percent(step)}</option>`).join("")
-  const bandRows = view.bands.map(band => {
-    const cells = view.signs.map(sign => {
-      const pair = config.vitalQuestions.tails[band.key]?.[sign.key] ?? { low: view.defaultTail, high: view.defaultTail }
-      const name = `tail_${escapeHtml(band.key)}_${escapeHtml(sign.key)}`
-      return `<td><span class="intraop-pair"><select name="${name}_low" aria-label="${label(sign)}, ${localize(locale, "low end", "ниският край")} — ${label(band)}">${tailOptions(pair.low)}</select><select name="${name}_high" aria-label="${label(sign)}, ${localize(locale, "high end", "високият край")} — ${label(band)}">${tailOptions(pair.high)}</select></span></td>`
-    }).join("")
-    return `<tr data-band="${escapeHtml(band.key)}"><th scope="row">${label(band)}</th>${cells}</tr>`
-  }).join("")
-  const signHeads = view.signs.map(sign => `<th>${label(sign)}<span class="component-detail">${localize(locale, "low · high", "ниско · високо")}</span></th>`).join("")
-
   const vials = view.vialSizesMg.map(size => check(`vial_${size}`, config.dantroleneVialsMg.includes(size), `${size} mg`, `intraop-vial-${size}`)).join("")
 
-  return `<div class="component" id="${ANCHOR}">${intro}<form method="post" action="${INTRAOP_PATH}#${ANCHOR}" data-testid="intraop-form">
+  return `${renderIntraopTabs("switches", locale)}<div class="component" id="${ANCHOR}">${intro}<form method="post" action="${INTRAOP_PATH}#${ANCHOR}" data-testid="intraop-form">
 <h4>${localize(locale, "Master switch", "Главен превключвател")}</h4>
 ${check("enabled", config.enabled, `<strong>${localize(locale, "Use SPS", "Използване на SPS")}</strong>`, "intraop-enabled")}
 <p class="component-detail">${localize(locale, "Off: no questions and no suggestions anywhere, whatever is chosen below.", "Изключено: никакви въпроси и предложения никъде, каквото и да е избрано по-долу.")}</p>
@@ -180,9 +172,8 @@ ${check("vitalsEnabled", config.vitalQuestions.enabled, localize(locale, "Ask ab
 <p class="component-detail">${localize(locale,
     "A reading is unusual when it falls in the lowest or highest share of this hospital's own readings for the patient's age band. Until a band has enough cases only the fixed rules ask. Smaller shares ask less often.",
     "Показанието е необичайно, когато попада в най-ниския или най-високия дял от показанията на самата болница за възрастовата група на пациента. Докато групата няма достатъчно случаи, питат само фиксираните правила. По-малките дялове питат по-рядко.")}</p>
-<label>${localize(locale, "Cases a band needs before its statistics are used", "Случаи, нужни на група, преди да се ползва нейната статистика")}<span class="ind-inline"><input class="ind-number" name="minCases" inputmode="numeric" required value="${config.vitalQuestions.minCases}"></span><span class="component-detail">${localize(locale, "bundled", "вградено")}: ${view.defaultMinCases} · ${view.minCasesRange.min}–${view.minCasesRange.max}</span></label>
 <label>${localize(locale, "Hypertension: SBP or MAP this far above the patient's baseline", "Хипертенсия: Сис или САН толкова над изходната стойност на пациента")}<span class="ind-inline"><select name="hypertensionBaselinePercent" data-testid="intraop-hypertension-baseline">${HYPERTENSION_BASELINE_STEPS.map(step => `<option value="${step}"${step === (config.vitalQuestions.hypertensionBaselinePercent ?? DEFAULT_HYPERTENSION_BASELINE_PERCENT) ? " selected" : ""}>${step}%</option>`).join("")}</select></span><span class="component-detail">${localize(locale, "The baseline is the preoperative BP when it was entered, otherwise the first BP charted in theatre. Hypertension is judged on this alone; hypotension keeps its fixed age rule and the statistics below.", "Изходната стойност е предоперативното АН, ако е въведено, иначе първото АН, записано в операционната. Хипертенсията се преценява само по това; хипотенсията запазва фиксираното правило по възраст и статистиката по-долу.")}</span></label>
-<table class="ind-bands intraop-tails"><thead><tr><th>${localize(locale, "Age band", "Възрастова група")}</th>${signHeads}</tr></thead><tbody>${bandRows}</tbody></table>
+<p class="component-detail" data-testid="intraop-readings-link">${localize(locale, "How unusual a reading must be, per age band and sign, and how many cases a band needs, are set on the", "Колко необичайно трябва да е едно показание, по възрастови групи и показатели, и колко случая са нужни на една група, се задават в раздела")} <a href="${INTRAOP_READINGS_PATH}">${localize(locale, "Unusual readings", "Необичайни показания")}</a> ${localize(locale, "tab.", ".")}</p>
 <h4>${localize(locale, "Monitor readings due", "Кога е време за ново отчитане от монитор")}</h4>
 <p class="component-detail">${localize(locale, "Minutes after a monitor's last reading before the Monitoring screen marks the next one as due. 1 to 120 minutes.", "Минути след последното отчитане на монитора, след които екранът за мониторинг показва, че е време за ново. От 1 до 120 минути.")}</p>
 <div class="intraop-due">${MONITORING_DUE_DEFAULTS.map(monitor => `<label>${localize(locale, monitor.labelEn, monitor.labelBg)}<span class="ind-inline"><input class="ind-number" name="due_${monitor.field}" inputmode="numeric" required value="${config.monitoringDueMinutes?.[monitor.field] ?? monitor.minutes}" data-testid="intraop-due-${monitor.field}"> min</span><span class="component-detail">${localize(locale, "bundled", "вградено")}: ${monitor.minutes}</span></label>`).join("")}</div>

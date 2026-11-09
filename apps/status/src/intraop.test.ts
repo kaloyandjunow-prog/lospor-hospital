@@ -18,13 +18,15 @@ describe("SPS page (10.2.0)", () => {
     expect(intraopAutomationShape(null)).toBe(false)
   })
 
-  it("shows the master switch, each group, the limits by band and the vial sizes", () => {
+  it("shows the master switch, each group, the vial sizes and the way to the limits", () => {
     const html = renderIntraopPage(intraopFixture(), "en")
     expect(html).toContain('data-testid="intraop-form"')
     expect(html).toMatch(/name="enabled" value="true" checked/)
     expect(html).toMatch(/name="group_treatmentSuggestions" value="true" checked/)
     expect(html).not.toMatch(/name="group_reverseQuestions" value="true" checked/)
-    expect(html).toContain('name="tail_ADULT_hr_low"')
+    // The limits by band moved to the Unusual readings tab; this page points at it.
+    expect(html).not.toContain('name="tail_ADULT_hr_low"')
+    expect(html).toContain('href="/status/control/intraop/readings"')
     // Each line under its group, switched off where Status has switched it off.
     expect(html).toMatch(/name="auto_card:Hypotension" value="true" checked/)
     expect(html).not.toMatch(/name="auto_card:Hypertension" value="true" checked/)

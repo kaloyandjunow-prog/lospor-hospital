@@ -16,6 +16,7 @@ import {
   fixedHypotension,
   histogramPercentile,
   histogramReadings,
+  vitalSignAbbreviation,
   type VitalHistogram,
   type VitalStatsTable,
 } from "@lospor/core/vital-questions"
@@ -32,7 +33,7 @@ const SIGNS: Record<VitalSignKey, { labelEn: string; labelBg: string; unit: stri
   hr: { labelEn: "Heart rate", labelBg: "Пулс", unit: "bpm" },
   sbp: { labelEn: "Systolic pressure", labelBg: "Систолично налягане", unit: "mmHg" },
   dbp: { labelEn: "Diastolic pressure", labelBg: "Диастолично налягане", unit: "mmHg" },
-  map: { labelEn: "Mean pressure", labelBg: "Средно налягане", unit: "mmHg" },
+  map: { labelEn: "Mean arterial pressure", labelBg: "Средно артериално налягане", unit: "mmHg" },
 }
 
 const DAY = 1
@@ -132,7 +133,8 @@ export async function intraopReadingsControlView(db: PrismaClient, now = Date.no
     /** True when a high blood-pressure limit asks a question; since 10.2.0 hypertension is judged on the baseline alone. */
     hypertensionUsesStatistics: HYPERTENSION_USES_STATISTICS,
     bands: VITAL_BANDS.map(band => ({ key: band.key, labelEn: band.labelEn, labelBg: band.labelBg, fixed: fixedRulesOf(band) })),
-    signs: VITAL_SIGN_KEYS.map(key => ({ key, ...SIGNS[key] })),
+    // The short names are the chart's own: HR / СЧ, SBP / Сис, DBP / Диас, MAP / САН.
+    signs: VITAL_SIGN_KEYS.map(key => ({ key, ...SIGNS[key], shortEn: vitalSignAbbreviation(key, "en"), shortBg: vitalSignAbbreviation(key, "bg") })),
     tailSteps: [...VITAL_TAIL_STEPS],
     defaultTail: DEFAULT_VITAL_TAIL,
     defaultMinCases: DEFAULT_VITAL_MIN_CASES,

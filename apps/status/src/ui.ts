@@ -43,6 +43,8 @@ import { DRUG_COLORS_STYLE, renderDrugColorsPage, type DrugColorsQuery } from ".
 import { renderOperatingTheatresPage, THEATRES_STYLE } from "./operating-theatres-ui.js"
 import { INDICATORS_STYLE, renderIndicatorsPage } from "./indicators-ui.js"
 import { INTRAOP_STYLE, renderIntraopPage } from "./intraop-ui.js"
+import { READINGS_STYLE, renderReadingsPage } from "./readings-ui.js"
+import type { IntraopReadingsView } from "./control-plane.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
 import { PREFS_STYLE, SKIN_STYLE, THEME_STYLE, htmlAttributes, isLegacy, legacyProfileLink, NAV_PATHS, skinHeader, ui, availabilityStrips, configureBody, goLiveCard, overviewMap, preferencesBody, rangeSwitch, todoList, usageCard, verdictCard, type AvailabilityRange } from "./ui-shell.js"
@@ -529,6 +531,7 @@ ${DRUG_COLORS_STYLE}
 ${THEATRES_STYLE}
 ${INDICATORS_STYLE}
 ${INTRAOP_STYLE}
+${READINGS_STYLE}
 @media(max-width:760px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}.statusnav{gap:.1rem}.statusnav a{flex:1 1 auto;justify-content:center;min-height:2.75rem}.form-grid{grid-template-columns:1fr}.account-row{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
 @media(max-width:760px){.preop-order-row{grid-template-columns:auto auto minmax(0,1fr)}.preop-row-switches,.preop-order-number,.preop-order-actions{grid-column:3}.preop-order-actions{justify-content:flex-start}.preop-fixed-row{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -1385,8 +1388,9 @@ export function renderControlPlane(
   discoveredNumberings?: readonly string[],
   /** What the inbox would do with the file just checked (1.5.0). */
   fileCheck?: EhrFileCheck,
-  /** The drug colours page's search and the colour being changed (10.0.0). */
+  /** The Unusual readings tab's data (10.2.0); undefined on every other page. */
   drugColorsQuery?: DrugColorsQuery,
+  readings?: IntraopReadingsView | null,
 ): string {
   const research = view?.research
   const optionalContact = (email: string | null, separator: string) =>
@@ -1496,7 +1500,8 @@ export function renderControlPlane(
   const drugColorsPage = renderDrugColorsPage(view?.drugColors, locale, drugColorsQuery)
   const theatresPage = renderOperatingTheatresPage(view?.operatingTheatres, locale)
   const indicatorsPage = renderIndicatorsPage(view?.indicators, locale)
-  const intraopPage = renderIntraopPage(view?.intraopAutomation, locale)
+  // Two tabs on one page: the switches, and the Unusual readings. Neither is a menu entry of its own.
+  const intraopPage = section === "intraop/readings" ? renderReadingsPage(readings, locale) : renderIntraopPage(view?.intraopAutomation, locale)
   // The preop questions, summary and consent have their own page (1.6.1);
   // the legacy skin keeps them above the guidance, where they always were.
   const guidancePolicy = guidance ? `${pediatricModeFacts}${baselineFacts}<div class="component"><form method="post" action="/status/control/guidance"><div class="checks"><label class="check"><input type="checkbox" name="adultEnabled" value="true" ${guidance.adultEnabled ? "checked" : ""}> ${localize(locale, "Adult prospective calculation guidance policy", "Изчислени насоки занапред — възрастни")}</label><label class="check"><input type="checkbox" name="pediatricEnabled" value="true" ${guidance.pediatricEnabled ? "checked" : ""}> ${localize(locale, "Pediatric prospective calculation guidance policy", "Изчислени насоки занапред — деца")}</label></div><p>${localize(locale, "A policy switch cannot make a missing or changed baseline ready. Turning guidance off removes future drug, infusion and fluid suggestions. It does not alter anything already recorded or any historical case.", "Тази настройка не може да направи готова липсваща или променена базова конфигурация. Изключването на насоките спира бъдещите предложения за лекарства, инфузии и течности. Вече записаните данни и старите случаи не се променят.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save guidance policy", "Запазване на настройката за насоки")}</button></form></div>` : ""
@@ -1979,7 +1984,7 @@ export function renderControlPlane(
   ]
   const sections = isLegacy() ? legacySections : skinSections
   // A preop tab (preop/questions, ...) is shown on the preop page.
-  const baseSection = section?.startsWith("preop/") ? "preop" : section
+  const baseSection = section?.startsWith("preop/") ? "preop" : section?.startsWith("intraop/") ? "intraop" : section
   const requested = isLegacy() ? LEGACY_CONTROL_SECTION[baseSection ?? ""] ?? baseSection : baseSection
   const active = sections.find(entry => entry.slug === requested) ?? sections[0]
   // The modern skins already render the active group's pages in their own

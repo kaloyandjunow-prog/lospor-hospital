@@ -62,6 +62,20 @@ describe("the Unusual readings view (10.2.0)", () => {
     expect(view.hypertensionUsesStatistics).toBe(false)
     expect(view.bands).toHaveLength(8)
     expect(view.signs.map(sign => sign.key)).toEqual(["hr", "sbp", "dbp", "map"])
+    expect(view.signs.map(sign => sign.shortBg)).toEqual(["СЧ", "Сис", "Диас", "САН"])
     expect(JSON.stringify(view)).not.toMatch(/caseId|userId|institutionId/)
+  })
+
+  it("sends Status a view that passes the shape check Status applies to it", async () => {
+    const { intraopReadingsControlView } = await import("./intraop-readings-control")
+    const { intraopReadingsShape } = await import("../../../../status/src/control-plane.js")
+    const queries = [
+      [{ band: "ADULT", sign: "hr", value: 70, count: 600 }, { band: "ADULT", sign: "sbp", value: 118, count: 500 }],
+      [{ band: "ADULT", sign: "hr", cases: 120 }, { band: "ADULT", sign: "sbp", cases: 120 }],
+      Array.from({ length: 30 }, () => ({ contribution: { band: "ADULT", signs: { hr: { "70": 5, "88": 1 }, sbp: { "118": 4 } } } })),
+    ]
+    const db = { institution: { findMany: async () => [{ id: "inst-1" }] }, $queryRaw: async () => queries.shift() }
+    const view = await intraopReadingsControlView(db as never, Date.parse("2026-11-09T10:00:00Z"))
+    expect(intraopReadingsShape(JSON.parse(JSON.stringify(view)))).toBe(true)
   })
 })

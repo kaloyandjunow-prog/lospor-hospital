@@ -9,6 +9,7 @@ import { preopSectionsFixture } from "./preop-sections.fixture.js"
 import { drugColorsFixture } from "./drug-colors.fixture.js"
 import { indicatorsFixture } from "./indicators.fixture.js"
 import { intraopFixture } from "./intraop.fixture.js"
+import { readingsFixture } from "./readings.fixture.js"
 import { NAV_GROUPS } from "./ui-shell.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
@@ -305,6 +306,7 @@ function setup() {
   const auth = new AuthService(db, Buffer.alloc(32, 9), 4, () => NOW)
   const controlPlane: ControlPlanePort = {
     get: vi.fn(async () => VIEW),
+    intraopReadings: vi.fn(async () => null),
     issueGrant: vi.fn(async () => {}),
     revokeGrant: vi.fn(async () => {}),
     approveOmop: vi.fn(async () => {}),
@@ -1956,7 +1958,8 @@ describe("the Legacy skin keeps up with the modern ones", () => {
     expect(modern.length).toBeGreaterThan(10)
     const missing = modern.filter(path => !html.includes(`href="${path}"`))
     // Pages that are tabs of another page (the preop tabs) are reached through that page's own tabs.
-    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"]
+    // The SPS page's Unusual readings tab is the same: its link is on the SPS page, checked below.
+    const tabs = ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents", "/status/control/intraop/readings"]
     // Codes, patient identification and Central are sections of Legacy's Hospital system and Research pages (checked above).
     const folded = ["/status/control/codes", "/status/control/identity", "/status/control/central"]
     expect(missing.filter(path => !tabs.includes(path) && !folded.includes(path))).toEqual([])
@@ -1986,6 +1989,69 @@ describe("the SPS settings (10.2.0)", () => {
     expect(controlPlane.updateIntraopAutomation).toHaveBeenCalledWith(expect.objectContaining({
       enabled: true, dantroleneVialsMg: [20, 250], reason: "Agreed at the department meeting",
     }))
+  })
+})
+
+describe("the Unusual readings tab of the SPS page (10.2.0)", () => {
+  const SKINS = ["maphub", "sidebar", "inbox", "index", "console", "legacy"]
+
+  it("is a tab in every skin, not a menu entry, and is read only when it is open", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    const readings = vi.spyOn(controlPlane, "intraopReadings").mockResolvedValue(readingsFixture())
+    const cookie = await passwordCookie(app, auth)
+    const page = async (path: string, skin: string) => (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}` } })).text()
+    for (const skin of SKINS) {
+      // The Switches tab points at it; the tab itself has the form and the script.
+      expect(await page("/status/control/intraop", skin), skin).toContain('href="/status/control/intraop/readings"')
+      expect(readings, skin).not.toHaveBeenCalled()
+      const tab = await page("/status/control/intraop/readings", skin)
+      expect(tab, skin).toContain('data-testid="readings-form"')
+      expect(tab, skin).toContain('src="/status/unusual-readings.js"')
+      expect(tab, skin).toContain('name="tail_ADULT_hr_low"')
+      // No menu lists it: the overview carries the navigation of every skin.
+      expect(await page("/status/", skin), skin).not.toContain("/status/control/intraop/readings")
+      readings.mockClear()
+    }
+  })
+
+  it("serves its script as a script of its own, since inline ones are blocked", async () => {
+    const { app } = setup()
+    const response = await app.request("/status/unusual-readings.js")
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/javascript")
+    const body = await response.text()
+    expect(body).toContain("function impactOf")
+    expect(body).toContain("ur-data")
+  })
+
+  it("saves the limits and the minimum only with the password and a reason, and leaves every switch as it was", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue({ ...VIEW, intraopAutomation: intraopFixture() })
+    vi.spyOn(controlPlane, "intraopReadings").mockResolvedValue(readingsFixture())
+    const cookie = await passwordCookie(app, auth)
+    const fields = {
+      minCases: "150",
+      tail_INFANT_hr_low: "1", tail_INFANT_hr_high: "0.5", tail_INFANT_sbp_low: "0.5", tail_INFANT_sbp_high: "0.5",
+      tail_ADULT_hr_low: "0.25", tail_ADULT_hr_high: "5", tail_ADULT_sbp_low: "0.5", tail_ADULT_sbp_high: "0.5",
+      reason: "Agreed at the department meeting",
+    }
+    const submit = (extra: Record<string, string>) => app.request("/status/control/intraop/readings", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ ...fields, ...extra }).toString(),
+    })
+    await submit({})
+    expect(controlPlane.updateIntraopAutomation).not.toHaveBeenCalled()
+    const saved = await submit({ password: "Initial password phrase1!" })
+    expect(controlPlane.updateIntraopAutomation).toHaveBeenCalledWith(expect.objectContaining({
+      // The groups, the lines switched off and the vials are the ones in force; the form never sent them.
+      enabled: true, groups: intraopFixture().config.groups, disabled: ["card:Hypertension"], dantroleneVialsMg: [20, 250],
+      vitalQuestions: expect.objectContaining({ minCases: 150 }),
+      reason: "Agreed at the department meeting",
+    }))
+    // It comes back to the same tab, with the notice.
+    expect(await saved.text()).toContain('data-testid="readings-form"')
   })
 })
 

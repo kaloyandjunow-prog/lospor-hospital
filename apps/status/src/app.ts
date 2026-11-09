@@ -83,6 +83,8 @@ import { drugColorUpdateFromForm, type DrugColorsQuery } from "./drug-colors-ui.
 import { theatreListChangeFromForm } from "./operating-theatres-ui.js"
 import { indicatorsUpdateFromForm } from "./indicators-ui.js"
 import { intraopUpdateFromForm } from "./intraop-ui.js"
+import { readingsUpdateFromForm } from "./readings-ui.js"
+import { UNUSUAL_READINGS_SCRIPT } from "./readings-script.js"
 import {
   AccountControlClient,
   AccountControlError,
@@ -525,6 +527,11 @@ export function createStatusApp({
   ))
   app.get("/status/admin-link.js", context => context.body(
     STATUS_ADMIN_FRAGMENT_SCRIPT,
+    200,
+    { "content-type": "text/javascript; charset=utf-8" },
+  ))
+  app.get("/status/unusual-readings.js", context => context.body(
+    UNUSUAL_READINGS_SCRIPT,
     200,
     { "content-type": "text/javascript; charset=utf-8" },
   ))
@@ -1227,6 +1234,8 @@ export function createStatusApp({
     drugColorsQuery?: DrugColorsQuery,
   ) => {
     const current = await controlDirectory()
+    // The Unusual readings tab is large and read on its own, only when that tab is open.
+    const readings = section === "intraop/readings" ? await controlPlane.intraopReadings().catch(() => null) : undefined
     return renderControlPlane(
       current.view,
       locale,
@@ -1238,6 +1247,7 @@ export function createStatusApp({
       discoveredNumberings,
       fileCheck,
       drugColorsQuery,
+      readings,
     )
   }
 
@@ -1440,6 +1450,8 @@ export function createStatusApp({
   app.get("/status/control/theatres", context => controlGet(context, "theatres"))
   app.get("/status/control/indicators", context => controlGet(context, "indicators"))
   app.get("/status/control/intraop", context => controlGet(context, "intraop"))
+  // The Unusual readings tab of the SPS page: not a page of its own in any menu.
+  app.get("/status/control/intraop/readings", context => controlGet(context, "intraop/readings"))
   app.get("/status/control/clinical", context => controlGet(context, "clinical"))
   app.get("/status/control/ehr", context => controlGet(context, "ehr"))
   app.get("/status/control/research", context => controlGet(context, "research"))
@@ -1927,6 +1939,18 @@ export function createStatusApp({
     },
     locale => localize(locale, "The SPS settings were saved and audited. Open records pick them up the next time they are opened.", "Настройките на SPS са запазени и записани в одитния журнал. Отворените записи ги прилагат при следващото отваряне."),
     "intraop",
+  ))
+
+  // The Unusual readings tab saves the limits and the cases a band needs, over the settings already in force.
+  app.post("/status/control/intraop/readings", context => sensitiveControlAction(
+    context,
+    async body => {
+      const view = (await controlPlane.get()).intraopAutomation
+      if (!view) throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      return controlPlane.updateIntraopAutomation(readingsUpdateFromForm(view, body, formText(body, "reason", 10, 1000)))
+    },
+    locale => localize(locale, "The limits were saved and audited. Open records pick them up the next time they are opened.", "Границите са запазени и записани в одитния журнал. Отворените записи ги получават при следващото отваряне."),
+    "intraop/readings",
   ))
 
   // The operating theatres' switch (10.0.0): a decision for the whole site,

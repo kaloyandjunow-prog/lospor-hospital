@@ -253,6 +253,38 @@ export type StatusSuccessionRow = {
 
 export type IntraopAutomationUpdate = IntraopAutomationConfigView & { reason: string }
 
+/**
+ * What the Unusual readings page works from (10.2.0): this hospital's vital-sign readings as counts per whole value,
+ * per age band and sign; each finished case's lowest and highest figures (five numbers, in `caseColumns` order);
+ * the limit at every tail step month by month; and the fixed rules. Counts and figures only.
+ */
+export type IntraopReadingsView = {
+  generatedAt: string
+  config: {
+    enabled: boolean
+    minCases: number
+    tails: Record<string, Record<string, { low: number; high: number }>>
+    hypertensionBaselinePercent?: number
+  }
+  /** False since 10.2.0: a high blood-pressure limit asks nothing; hypertension is judged on the patient's baseline. */
+  hypertensionUsesStatistics: boolean
+  bands: Array<{
+    key: string
+    labelEn: string
+    labelBg: string
+    fixed: { tachycardiaAbove: number; bradycardiaBelow: number; hypotension: { sign: string; from: number; to: number } | null }
+  }>
+  signs: Array<{ key: string; labelEn: string; labelBg: string; shortEn: string; shortBg: string; unit: string }>
+  tailSteps: number[]
+  defaultTail: number
+  defaultMinCases: number
+  minCasesRange: { min: number; max: number }
+  stats: Record<string, Record<string, { min: number; counts: number[]; cases: number }>>
+  caseColumns: string[]
+  cases: Record<string, Array<Array<number | null>>>
+  history: Array<{ month: string; limits: Record<string, Record<string, { cases: number; low: Array<number | null>; high: Array<number | null> }>> }>
+}
+
 export type OperatingTheatresChange =
   | { action: "policy"; enabled: boolean; reason: string }
   | { action: "add"; name: string }
@@ -861,6 +893,8 @@ export interface ControlPlanePort {
   updateIndicators(input: IndicatorsUpdate): Promise<void>
   /** The SPS switches, vitals limits and stocked dantrolene vials (10.2.0). */
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void>
+  /** The readings, limits and their history behind the Unusual readings page (10.2.0); null from an API that lacks it. */
+  intraopReadings(): Promise<IntraopReadingsView | null>
   /** Save a consent text as its population's next version. */
   saveConsentTemplate(input: { population: ConsentPopulation; title: string; body: string; reason: string }): Promise<void>
 }
@@ -1029,6 +1063,36 @@ function acceptanceShape(value: unknown): boolean {
   return isRecord(value) && finiteInteger(value.days, 3650) && finiteInteger(value.cases, 10_000_000) && isRecord(value.byId)
     && Object.entries(value.byId).length <= 500
     && Object.values(value.byId).every(entry => isRecord(entry) && finiteInteger(entry.accepted, 100_000_000) && finiteInteger(entry.dismissed, 100_000_000))
+}
+
+/** Exported for the API's contract test: the view it sends must pass this. */
+export function intraopReadingsShape(value: unknown): value is IntraopReadingsView {
+  const count = (entry: unknown, maximum = 100_000_000) => typeof entry === "number" && Number.isInteger(entry) && entry >= 0 && entry <= maximum
+  const reading = (entry: unknown) => typeof entry === "number" && Number.isFinite(entry) && entry >= -1000 && entry <= 10_000
+  const nullableReading = (entry: unknown) => entry === null || reading(entry)
+  const named = (entry: unknown) => isRecord(entry) && text(entry.key, 32) && text(entry.labelEn, 200) && text(entry.labelBg, 200)
+  if (!isRecord(value) || !text(value.generatedAt, 64) || !isRecord(value.config) || !isRecord(value.minCasesRange)) return false
+  const { config } = value
+  return typeof config.enabled === "boolean" && finiteInteger(config.minCases, 1_000_000) && isRecord(config.tails)
+    && typeof value.hypertensionUsesStatistics === "boolean"
+    && Array.isArray(value.bands) && value.bands.length <= 20 && value.bands.every(band => named(band) && isRecord(band) && isRecord(band.fixed)
+      && finiteInteger(band.fixed.tachycardiaAbove, 1000) && finiteInteger(band.fixed.bradycardiaBelow, 1000)
+      && (band.fixed.hypotension === null || (isRecord(band.fixed.hypotension) && text(band.fixed.hypotension.sign, 8)
+        && finiteInteger(band.fixed.hypotension.from, 1000) && finiteInteger(band.fixed.hypotension.to, 1000))))
+    && Array.isArray(value.signs) && value.signs.length <= 20 && value.signs.every(sign => named(sign) && isRecord(sign)
+      && text(sign.shortEn, 16) && text(sign.shortBg, 16) && text(sign.unit, 16))
+    && Array.isArray(value.tailSteps) && value.tailSteps.length <= 20 && value.tailSteps.every(step => typeof step === "number" && Number.isFinite(step) && step > 0 && step <= 50)
+    && typeof value.defaultTail === "number" && finiteInteger(value.defaultMinCases, 1_000_000)
+    && finiteInteger(value.minCasesRange.min, 1_000_000) && finiteInteger(value.minCasesRange.max, 1_000_000)
+    && isRecord(value.stats) && Object.values(value.stats).every(signs => isRecord(signs) && Object.values(signs).every(entry => isRecord(entry)
+      && reading(entry.min) && count(entry.cases) && Array.isArray(entry.counts) && entry.counts.length <= 2_000 && entry.counts.every(item => count(item))))
+    && Array.isArray(value.caseColumns) && value.caseColumns.length <= 12 && value.caseColumns.every(column => text(column, 32))
+    && isRecord(value.cases) && Object.values(value.cases).every(list => Array.isArray(list) && list.length <= 5_000
+      && list.every(row => Array.isArray(row) && row.length === (value.caseColumns as unknown[]).length && row.every(nullableReading)))
+    && Array.isArray(value.history) && value.history.length <= 120 && value.history.every(month => isRecord(month) && text(month.month, 16) && isRecord(month.limits)
+      && Object.values(month.limits).every(signs => isRecord(signs) && Object.values(signs).every(entry => isRecord(entry) && count(entry.cases)
+        && Array.isArray(entry.low) && entry.low.length <= 20 && entry.low.every(nullableReading)
+        && Array.isArray(entry.high) && entry.high.length <= 20 && entry.high.every(nullableReading))))
 }
 
 /** Exported for the API's contract test: the view it sends must pass this. */
@@ -1683,6 +1747,10 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   updateIntraopAutomation(input: IntraopAutomationUpdate): Promise<void> {
     return this.mutate("/intraop-automation", input)
+  }
+  async intraopReadings(): Promise<IntraopReadingsView | null> {
+    const value = await this.request("/intraop-readings")
+    return intraopReadingsShape(value) ? value : null
   }
   updatePreopSections(input: PreopSectionsUpdate): Promise<void> {
     return this.mutate("/preop-sections", input)
