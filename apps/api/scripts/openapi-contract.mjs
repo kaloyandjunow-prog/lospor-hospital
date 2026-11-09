@@ -2021,6 +2021,14 @@ add("POST", "/v1/internal/hospital/control-plane/hospital-name", "Rename the ins
   stability: "internal",
   tag: "internal",
 })
+add("GET", "/v1/internal/hospital/control-plane/intraop-readings", "Read this hospital's vital-sign counts, limits and their history, for the Status Unusual readings page", {
+  parameters: [statusControlBearer],
+  status: 200,
+  result: ref("JsonObject"),
+  errors: [401, 404, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/intraop-automation", "Set the intraoperative suggestion switches, the vitals-question limits, the monitor reading intervals and the dantrolene vials from Status", {
   parameters: [statusControlBearer],
   requestBody: body(ref("JsonObject")),
