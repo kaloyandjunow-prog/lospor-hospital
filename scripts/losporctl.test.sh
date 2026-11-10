@@ -32,6 +32,11 @@ fixture() {
 case "$*" in
   "version --format {{.Server.Version}}") echo 29.0.1 ;;
   "compose version --short") echo 2.39.1 ;;
+  "compose ps -a -q"*) echo "container-$5" ;;
+  "inspect -f"*) case "$4" in
+    container-api) echo '0|2026-11-10T07:26:30.123456789Z|ghcr.io/example/lospor-hospital-api:1.4.0' ;;
+    container-postgres) echo '2|2026-11-10T07:26:12.000000000Z|ghcr.io/example/lospor-hospital-postgres:1.4.0' ;;
+  esac ;;
   "compose ps"*) printf 'api|running|healthy\nweb|running on clinical.example.org|\npostgres|running|healthy\n' ;;
 esac
 STUB
@@ -224,7 +229,8 @@ done
 python3 - "$bundle" <<'PY' || fail "the support bundle is not the allowlisted object"
 import json, re, sys
 bundle = json.load(open(sys.argv[1]))
-assert set(bundle) == {"schemaVersion", "bundleType", "createdAt", "release", "releaseLockSha256", "host", "status", "services", "checks", "configuration"}, sorted(bundle)
+assert set(bundle) == {"schemaVersion", "bundleType", "createdAt", "release", "releaseLockSha256", "host", "status", "services", "checks",
+    "attention", "maintenance", "updater", "capacity", "containers", "backup", "hostOs", "schema", "configuration"}, sorted(bundle)
 assert set(bundle["host"]) == {"os", "osVersion", "kernel", "architecture", "docker", "compose"}
 assert set(bundle["services"]) == {"api", "web", "pwa", "browser", "status", "caddy", "postgres", "backup", "delivery-worker"}
 assert bundle["services"]["web"] == "redacted", bundle["services"]
@@ -232,12 +238,69 @@ assert bundle["services"]["api"] == "running:healthy"
 def strings(value):
     if isinstance(value, dict):
         for item in value.values(): yield from strings(item)
+    elif isinstance(value, list):
+        for item in value: yield from strings(item)
     elif isinstance(value, str):
         yield value
 for text in strings(bundle):
     assert re.fullmatch(r"[A-Za-z0-9._+:-]{1,64}", text), text
 PY
 ok "the support bundle holds only allowlisted, non-identifying tokens"
+
+# 10a. The bundle also says what a person needs to find out why: what the host agent is stuck on, which check makes
+#      the state "attention", numbers instead of "ok", versions and start times, the backups, Ubuntu. Codes and
+#      numbers only: the operator references and request ids in the agent's journal never appear.
+fixture
+state_dir="$home/.data/runtime/update/state"
+maintenance_dir="$home/.data/update-private/maintenance"
+mkdir -p "$maintenance_dir/inflight"
+operator_ref=status-operator-0123456789abcdef
+request_id=11111111111111111111111111111111
+printf 'x' > "$maintenance_dir/inflight/maintenance.request.v1.tsv"
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1\t1794294828\tFAILED\tos-update\t%s\tMAINTENANCE_OS_UPDATE_FAILED\t%s\nLOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1\t1794295804\tNEEDS_OPERATOR\t-\t-\tMAINTENANCE_INFLIGHT_CONFLICT\t-\n' \
+  "$request_id" "$operator_ref" > "$maintenance_dir/journal.v1.tsv"
+printf '{"schemaVersion":1,"signalType":"maintenance-agent","observedAt":"2026-11-10T07:31:36Z","phase":"needs-operator","resultCode":"MAINTENANCE_INFLIGHT_CONFLICT","lastAction":"os-update","drills":[{"completedAt":"2026-10-30T13:30:10Z","result":"passed","backup":"lospor-20261030T132757Z-LzC13XCS.backup"}]}\n' > "$state_dir/maintenance-agent.v1.json"
+printf '{"schemaVersion":2,"signalType":"update-agent","observedAt":"2026-11-10T07:46:43Z","phase":"completed","resultCode":"UPDATE_COMPLETED","targetVersion":"1.4.0"}\n' > "$state_dir/update-agent.v2.json"
+printf '{"schemaVersion":1,"signalType":"host-os","observedAt":"2026-11-10T07:45:53Z","release":"24.04","standardSupportEnds":"2029-04-30","securityUpdates":0,"otherUpdates":4,"dockerUpdates":false,"updatesCheckedAt":"2026-11-10T07:13:32Z","automaticUpdates":"enabled","lastAutomaticRunAt":"2026-11-10T04:05:53Z","lastAutomaticResult":"success","rebootRequired":false,"rebootRequiredSince":null,"bootedAt":"2026-11-09T18:55:09Z","rebootPolicy":"manual","lastOperation":{"action":"upgrade","result":"passed","at":"2026-11-10T07:26:37Z"}}\n' > "$state_dir/host-os.v1.json"
+printf 'LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t1.4.0\t20260530000000_init\t20261109110000_institution_logo\tbackup-required\t-\t0\n' > "$home/release-compatibility.tsv"
+mkdir -p "$home/backups/lospor-20260913T072635Z-W3UVqwGn.backup"
+PROBE_SIGNAL="$(printf '%s' "$healthy_signal" | sed 's/"offHostBackup":"[a-z-]*"/"offHostBackup":"not-configured"/')" ctl support-bundle create || fail "support-bundle create failed"
+bundle="$(ls "$home"/.data/support/lospor-support-*.json)"
+for leak in "$operator_ref" "$request_id" "$home"; do
+  ! grep -Fq "$leak" "$bundle" || fail "the support bundle contains $leak"
+done
+python3 - "$bundle" <<'PY' || fail "the support bundle does not describe the agent, the checks, the capacity, the containers, the backups and Ubuntu"
+import json, re, sys
+bundle = json.load(open(sys.argv[1]))
+assert bundle["attention"] == ["offHostBackup:not-configured"], bundle["attention"]
+m = bundle["maintenance"]
+assert (m["phase"], m["resultCode"], m["lastAction"], m["requestsInInflight"]) == ("needs-operator", "MAINTENANCE_INFLIGHT_CONFLICT", "os-update", 1), m
+assert m["journal"] == [
+    {"at": 1794294828, "phase": "FAILED", "action": "os-update", "code": "MAINTENANCE_OS_UPDATE_FAILED"},
+    {"at": 1794295804, "phase": "NEEDS_OPERATOR", "action": "-", "code": "MAINTENANCE_INFLIGHT_CONFLICT"}], m["journal"]
+assert bundle["updater"]["resultCode"] == "UPDATE_COMPLETED" and bundle["updater"]["targetVersion"] == "1.4.0", bundle["updater"]
+assert set(bundle["capacity"]) == {"dataDiskUsedPercent", "dataDiskFreeGb", "memoryTotalMb", "memoryAvailableMb", "uptimeSeconds"}
+assert all(isinstance(v, int) for v in bundle["capacity"].values()), bundle["capacity"]
+assert set(bundle["containers"]) == {"api", "web", "pwa", "browser", "status", "caddy", "postgres", "backup", "delivery-worker"}
+assert bundle["containers"]["api"] == {"image": "1.4.0", "restarts": 0, "startedAt": "2026-11-10T07:26:30Z"}, bundle["containers"]["api"]
+assert bundle["containers"]["postgres"]["restarts"] == 2, bundle["containers"]["postgres"]
+backup = bundle["backup"]
+assert backup["count"] == 1 and backup["lastRestoreTestAt"] == "2026-10-30T13:30:10Z" and backup["lastRestoreTestResult"] == "passed", backup
+assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", backup["newestAt"]), backup
+h = bundle["hostOs"]
+assert (h["securityUpdates"], h["otherUpdates"], h["dockerUpdates"], h["rebootRequired"], h["lastOperationAction"], h["lastOperationResult"]) == (0, 4, False, False, "upgrade", "passed"), h
+assert bundle["schema"] == {"expectedMax": "20261109110000_institution_logo"}, bundle["schema"]
+def strings(value):
+    if isinstance(value, dict):
+        for item in value.values(): yield from strings(item)
+    elif isinstance(value, list):
+        for item in value: yield from strings(item)
+    elif isinstance(value, str):
+        yield value
+for text in strings(bundle):
+    assert re.fullmatch(r"[A-Za-z0-9._+:-]{1,64}", text), text
+PY
+ok "the support bundle says what the agent is stuck on, why the state is attention, the capacity, the containers, the backups and Ubuntu, in codes and numbers only"
 
 # 10b. Addresses, certificate and ports each change only their own settings,
 #      preview, ask, and leave everything as it was when refused or declined.

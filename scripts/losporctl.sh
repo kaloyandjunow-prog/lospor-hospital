@@ -319,6 +319,126 @@ safe_token() {
   printf 'redacted'
 }
 
+# The same rule for the other two kinds of value a bundle carries: a plain number or a true/false, and JSON null
+# for anything that is not one, so a bundle is never malformed by what it was asked to describe.
+safe_number() {
+  printf '%s' "$1" | tr -d '\r\n' | grep -Eqx '[0-9]{1,12}' && { printf '%s' "$1"; return 0; }
+  printf 'null'
+}
+safe_flag() { case "$1" in true|false) printf '%s' "$1" ;; *) printf 'null' ;; esac; }
+
+# One value of one of the agents' small JSON projections, as a token ("-" when the file or the key is not there).
+file_token() {
+  file_value="$(sed -n "s/.*\"$2\":\"\\([^\"]*\\)\".*/\\1/p" "$1" 2>/dev/null | head -n 1)"
+  if [ -n "$file_value" ]; then safe_token "$file_value"; else printf -- '-'; fi
+}
+file_number() { safe_number "$(sed -n "s/.*\"$2\":\\([0-9][0-9]*\\).*/\\1/p" "$1" 2>/dev/null | head -n 1)"; }
+file_flag() { safe_flag "$(sed -n "s/.*\"$2\":\\(true\\|false\\).*/\\1/p" "$1" 2>/dev/null | head -n 1)"; }
+
+# What the host agent last did and what it is stuck on: codes and times only. The request ids and the operator
+# references in its journal name a person's session, so they are left out.
+support_maintenance_json() {
+  maintenance_state="$appliance_home/.data/runtime/update/state/maintenance-agent.v1.json"
+  maintenance_dir="$appliance_home/.data/update-private/maintenance"
+  printf '{"phase":"%s","resultCode":"%s","lastAction":"%s","observedAt":"%s","requestsInInflight":%s,"journal":[' \
+    "$(file_token "$maintenance_state" phase)" "$(file_token "$maintenance_state" resultCode)" \
+    "$(file_token "$maintenance_state" lastAction)" "$(file_token "$maintenance_state" observedAt)" \
+    "$(safe_number "$(ls -A "$maintenance_dir/inflight" 2>/dev/null | wc -l | tr -d '[:space:]')")"
+  journal_separator=""
+  if [ -f "$maintenance_dir/journal.v1.tsv" ]; then
+    tail -n 8 "$maintenance_dir/journal.v1.tsv" | awk -F '\t' 'NF == 7 { print $2 "|" $3 "|" $4 "|" $6 }' \
+      | while IFS='|' read -r journal_at journal_phase journal_action journal_code; do
+          printf '%s{"at":%s,"phase":"%s","action":"%s","code":"%s"}' "$journal_separator" "$(safe_number "$journal_at")" \
+            "$(safe_token "$journal_phase")" "$(safe_token "$journal_action")" "$(safe_token "$journal_code")"
+          journal_separator=","
+        done
+  fi
+  printf ']}'
+}
+
+# What the updater last did, and the state of the check for a newer release.
+support_updater_json() {
+  updater_state="$appliance_home/.data/runtime/update/state/update-agent.v2.json"
+  printf '{"phase":"%s","resultCode":"%s","targetVersion":"%s","checkState":"%s","latestVersion":"%s","checkedAt":"%s"}' \
+    "$(file_token "$updater_state" phase)" "$(file_token "$updater_state" resultCode)" \
+    "$(file_token "$updater_state" targetVersion)" "$(safe_token "$update_state")" \
+    "$(safe_token "$update_latest")" "$(safe_token "$update_checked")"
+}
+
+# Why the overall state is not "ok": each check that is not, with its value. The summary alone said "attention"
+# and left the reader to work out which of twelve it was.
+support_attention_json() {
+  attention_separator=""
+  printf '['
+  for attention_check in $STATUS_CHECKS; do
+    attention_value="$(signal_field "$attention_check")"
+    [ "$(grade "$attention_check" "$attention_value")" != ok ] || continue
+    printf '%s"%s:%s"' "$attention_separator" "$(safe_token "$attention_check")" "$(safe_token "$attention_value")"
+    attention_separator=","
+  done
+  printf ']'
+}
+
+# Numbers instead of "ok": how full the data disk is, how much memory there is, how long the server has been up.
+support_capacity_json() {
+  capacity_disk="$(df -Pk "$appliance_home" 2>/dev/null | awk 'NR == 2 { gsub("%", "", $5); print $5 " " int($4 / 1048576) }')"
+  printf '{"dataDiskUsedPercent":%s,"dataDiskFreeGb":%s,"memoryTotalMb":%s,"memoryAvailableMb":%s,"uptimeSeconds":%s}' \
+    "$(safe_number "${capacity_disk% *}")" "$(safe_number "${capacity_disk#* }")" \
+    "$(safe_number "$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null)")" \
+    "$(safe_number "$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null)")" \
+    "$(safe_number "$(awk '{ print int($1) }' /proc/uptime 2>/dev/null)")"
+}
+
+# Per service: the image tag it runs, how often it restarted, when it last started.
+support_containers_json() {
+  container_separator=""
+  printf '{'
+  for container_service in api web pwa browser status caddy postgres backup delivery-worker; do
+    container_id="$(cd "$root" && docker compose ps -a -q "$container_service" 2>/dev/null | head -n 1)"
+    container_facts=""
+    [ -z "$container_id" ] || container_facts="$(docker inspect -f '{{.RestartCount}}|{{.State.StartedAt}}|{{.Config.Image}}' "$container_id" 2>/dev/null || true)"
+    container_restarts="${container_facts%%|*}"
+    container_rest="${container_facts#*|}"
+    container_started="$(printf '%s' "${container_rest%%|*}" | cut -c1-19)"
+    container_image="${container_rest#*|}"
+    [ -z "$container_started" ] || container_started="${container_started}Z"
+    printf '%s"%s":{"image":"%s","restarts":%s,"startedAt":"%s"}' "$container_separator" "$container_service" \
+      "$(if [ -n "$container_facts" ]; then safe_token "${container_image##*:}"; else printf absent; fi)" \
+      "$(safe_number "$container_restarts")" "$(if [ -n "$container_started" ]; then safe_token "$container_started"; else printf -- -; fi)"
+    container_separator=","
+  done
+  printf '}'
+}
+
+# How many backups there are, when the newest was made, and the last restore test.
+support_backup_json() {
+  backup_count=0
+  backup_newest=""
+  for backup_file in "$appliance_home"/backups/lospor-*.backup; do
+    [ -e "$backup_file" ] || continue
+    backup_count=$((backup_count + 1))
+    if [ -z "$backup_newest" ] || [ "$backup_file" -nt "$backup_newest" ]; then backup_newest="$backup_file"; fi
+  done
+  backup_newest_at=-
+  [ -z "$backup_newest" ] || backup_newest_at="$(date -u -r "$backup_newest" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf -- -)"
+  drill_line="$(grep -o '"completedAt":"[^"]*","result":"[^"]*"' "$appliance_home/.data/runtime/update/state/maintenance-agent.v1.json" 2>/dev/null | tail -n 1)"
+  drill_at="$(printf '%s' "$drill_line" | sed -n 's/^"completedAt":"\([^"]*\)".*/\1/p')"
+  drill_result="$(printf '%s' "$drill_line" | sed -n 's/.*"result":"\([^"]*\)"$/\1/p')"
+  printf '{"count":%s,"newestAt":"%s","lastRestoreTestAt":"%s","lastRestoreTestResult":"%s"}' \
+    "$(safe_number "$backup_count")" "$(safe_token "$backup_newest_at")" "$(safe_token "${drill_at:--}")" "$(safe_token "${drill_result:--}")"
+}
+
+# Ubuntu's own state: what is waiting, whether a restart is due, and the last operation the agent ran on it.
+support_host_os_json() {
+  host_os_state="$appliance_home/.data/runtime/update/state/host-os.v1.json"
+  printf '{"securityUpdates":%s,"otherUpdates":%s,"dockerUpdates":%s,"rebootRequired":%s,"updatesCheckedAt":"%s","lastAutomaticResult":"%s","bootedAt":"%s","lastOperationAction":"%s","lastOperationResult":"%s","lastOperationAt":"%s"}' \
+    "$(file_number "$host_os_state" securityUpdates)" "$(file_number "$host_os_state" otherUpdates)" \
+    "$(file_flag "$host_os_state" dockerUpdates)" "$(file_flag "$host_os_state" rebootRequired)" \
+    "$(file_token "$host_os_state" updatesCheckedAt)" "$(file_token "$host_os_state" lastAutomaticResult)" \
+    "$(file_token "$host_os_state" bootedAt)" "$(file_token "$host_os_state" action)" \
+    "$(file_token "$host_os_state" result)" "$(file_token "$host_os_state" at)"
+}
+
 support_bundle_command() {
   [ "${1:-}" = create ] && [ "$#" -eq 1 ] \
     || fail_usage "Usage: sudo losporctl support-bundle create" "Употреба: sudo losporctl support-bundle create"
@@ -361,6 +481,15 @@ support_bundle_command() {
         separator=","
       done
       printf '},"checks":{"doctorExitCode":%s},' "$doctor_result"
+      printf '"attention":'; support_attention_json
+      printf ',"maintenance":'; support_maintenance_json
+      printf ',"updater":'; support_updater_json
+      printf ',"capacity":'; support_capacity_json
+      printf ',"containers":'; support_containers_json
+      printf ',"backup":'; support_backup_json
+      printf ',"hostOs":'; support_host_os_json
+      printf ',"schema":{"expectedMax":"%s"},' \
+        "$(safe_token "$(awk -F '\t' 'NR == 1 { print $4 }' "$root/release-compatibility.tsv" 2>/dev/null)")"
       printf '"configuration":{"appliedChanges":%s,"lastAppliedAt":"%s"}}\n' "$applied_count" "$(safe_token "$applied_last")"
     } > "$bundle")
   chmod 600 "$bundle"

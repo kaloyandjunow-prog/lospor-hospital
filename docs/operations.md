@@ -73,7 +73,8 @@ object for monitoring. `version`, `backup list`, `backup offhost state`,
 `config show`, `config advanced` and `host state` also take `--json`, each
 printing one object with `schemaVersion`; every command that changes the
 appliance refuses `--json` with exit status 2. `support-bundle create` writes a file for LOSPOR
-support that holds only versions, states, times and check results: no
+support that holds only versions, states, times, check results, numbers (disk,
+memory, restarts) and the host agent's recent result codes: no
 patients, cases, accounts, names, addresses or secrets. The command prints
 the file so it can be read before it is sent. A command that restarts
 services (`config apply`, `update apply`, `update offline`, `secrets commit`,
