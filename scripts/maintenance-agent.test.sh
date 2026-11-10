@@ -52,6 +52,16 @@ STUB
 cat > "$scripts/host-os-maintenance.sh" <<'STUB'
 #!/bin/sh
 echo "host-os-maintenance $*" >> "$AGENT_CALLS"
+case "$1" in
+  # The unit is still working for as many asks as the file says, then it has ended.
+  unit-active)
+    left="$(cat "$AGENT_CALLS.active" 2>/dev/null || echo 0)"
+    [ "$left" -gt 0 ] || exit 1
+    echo $((left - 1)) > "$AGENT_CALLS.active"
+    exit 0 ;;
+  recorded-since) printf '%s
+' "${HOST_OS_RECORDED:-}"; exit 0 ;;
+esac
 exit "${HOST_OS_EXIT:-0}"
 STUB
 cat > "$scripts/losporctl.sh" <<'STUB'
@@ -415,6 +425,58 @@ request os-reboot "$id1" -
 BACKUP_EXIT=1 run_agent
 ! grep -q 'reboot-now' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_REBOOT_BACKUP_FAILED ] || fail "the server restarted after its backup failed"
 ok "Ubuntu updates run through their unit, and a restart happens only after a backup"
+
+# 14b. The Ubuntu update restarts this agent while it works. That is not an interruption: the agent reports what
+#      the update's unit recorded, after the unit has ended. And a request left in inflight after its result was
+#      written (the stop came between the two) no longer blocks every later request.
+interrupted_os_update() {
+  reset_state
+  mkdir -p "$private/maintenance/inflight" "$private/maintenance/terminal"
+  printf 'LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1	os-update	%s	-	%s	%s
+' "$id1" "$(now)" "$operator"     > "$private/maintenance/inflight/maintenance.request.v1.tsv"
+  printf 'LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1	%s	RUNNING	os-update	%s	MAINTENANCE_RUNNING	%s
+' "$(now)" "$id1" "$operator"     > "$private/maintenance/transition.v1.tsv"
+}
+interrupted_os_update
+HOST_OS_RECORDED=passed run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
+grep -q '"phase":"completed"' "$state/maintenance-agent.v1.json"   && [ ! -e "$private/maintenance/inflight/maintenance.request.v1.tsv" ]   && grep -q 'host-os-maintenance recorded-since security-update' "$work/calls"   || fail "a restarted agent did not complete the request, clear inflight and read the unit's record"
+[ "$(code)" = MAINTENANCE_OS_UPDATED ] || fail "an update the unit recorded as passed was not reported as updated (got: $(code))"
+interrupted_os_update
+HOST_OS_RECORDED=failed run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
+[ "$(code)" = MAINTENANCE_OS_UPDATE_FAILED ] || fail "an update the unit recorded as failed was not reported as failed (got: $(code))"
+interrupted_os_update
+HOST_OS_RECORDED=busy run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
+[ "$(code)" = MAINTENANCE_BUSY ] || fail "an update the unit recorded as busy was not reported as busy (got: $(code))"
+interrupted_os_update
+HOST_OS_RECORDED= run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
+[ "$(code)" = MAINTENANCE_INTERRUPTED ] || fail "an update that recorded nothing was not reported as interrupted (got: $(code))"
+# The unit is still working when the agent comes back: the agent waits for it and reads the result after.
+interrupted_os_update
+echo 2 > "$work/calls.active"
+HOST_OS_RECORDED=passed run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
+[ "$(grep -c 'host-os-maintenance unit-active security-update' "$work/calls")" = 3 ] && [ "$(code)" = MAINTENANCE_OS_UPDATED ]   || fail "the agent did not wait for the unit that was still working (asked $(grep -c 'unit-active' "$work/calls") times, got $(code))"
+rm -f "$work/calls.active"
+# A request whose result is recorded but whose file stayed in inflight is cleared, and the next request runs.
+reset_state
+mkdir -p "$private/maintenance/inflight" "$private/maintenance/terminal"
+old_epoch=$(( $(now) - 99999 ))
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1	os-update	%s	-	%s	%s
+' "$id1" "$old_epoch" "$operator"   > "$private/maintenance/inflight/maintenance.request.v1.tsv"
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1	%s	FAILED	os-update	%s	MAINTENANCE_OS_UPDATE_FAILED	%s
+' "$(now)" "$id1" "$operator"   > "$private/maintenance/transition.v1.tsv"
+cp "$private/maintenance/transition.v1.tsv" "$private/maintenance/terminal/$id1.tsv"
+request backup "$id2" -
+run_agent
+grep -qx 'backup-now' "$work/calls" && [ "$(code)" = MAINTENANCE_BACKUP_COMPLETED ]   && [ ! -e "$private/maintenance/inflight/maintenance.request.v1.tsv" ]   || fail "a request left in inflight after its result still blocked the next one (got: $(code))"
+# One that never began (moved to inflight, no RUNNING record, no result) is closed as interrupted and does not block either.
+reset_state
+mkdir -p "$private/maintenance/inflight" "$private/maintenance/terminal"
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1	backup	%s	-	%s	%s
+' "$id1" "$(now)" "$operator"   > "$private/maintenance/inflight/maintenance.request.v1.tsv"
+request backup "$id2" -
+run_agent
+[ -s "$private/maintenance/terminal/$id1.tsv" ] && grep -q MAINTENANCE_INTERRUPTED "$private/maintenance/terminal/$id1.tsv"   && [ "$(code)" = MAINTENANCE_BACKUP_COMPLETED ]   || fail "a request that never began was not closed as interrupted before the next one ran (got: $(code))"
+ok "an Ubuntu update that restarts the agent is reported by its record, and a leftover inflight request never blocks the next"
 
 # 15. With the window policy the agent restarts by itself when Ubuntu asks, in
 #     the window, at most once in 20 hours, and never under the manual policy.

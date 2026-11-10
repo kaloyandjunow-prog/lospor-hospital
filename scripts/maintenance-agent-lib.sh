@@ -758,7 +758,11 @@ maintenance_consume_pending() {
 maintenance_reconcile_startup() {
   if maintenance_transition_read; then
     if [ "$maintenance_transition_phase" = RUNNING ]; then
-      if [ "$maintenance_transition_action" = rotate-credentials ]; then
+      if [ "$maintenance_transition_action" = os-update ]; then
+        # The update runs in its own unit and restarts this agent while it works, so being stopped here is the
+        # normal way for it to end. Report what the unit recorded, not "interrupted".
+        maintenance_reconcile_os_update
+      elif [ "$maintenance_transition_action" = rotate-credentials ]; then
         # A rotation stopped part way may have moved some services to new values.
         maintenance_terminal_write NEEDS_OPERATOR rotate-credentials "$maintenance_transition_id" \
           MAINTENANCE_ROTATION_INTERRUPTED "$maintenance_transition_operator"
@@ -772,5 +776,51 @@ maintenance_reconcile_startup() {
       rm -f "$maintenance_inflight"
     fi
   fi
+  maintenance_clear_leftover_inflight
   maintenance_refresh_projection
+}
+
+# The id of the request in inflight, read without the freshness checks of maintenance_parse_request: a request
+# that is old by now is still the one that was running.
+maintenance_inflight_id() {
+  awk -F '\t' 'NR == 1 && NF == 6 && $1 == "LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1" { print $3 }' "$maintenance_inflight" 2>/dev/null \
+    | grep -E '^[a-f0-9]{32}$' || true
+}
+
+# A stop after a request's result was written and before its file was removed left the file in inflight, and every
+# later request then met MAINTENANCE_INFLIGHT_CONFLICT until a person moved it by hand (the Ubuntu update restarts
+# this agent in exactly that window). The agent runs one request at a time, so at start whatever is still in
+# inflight is either finished (its result is recorded) or never began (a request is moved there before its
+# RUNNING record is written): neither needs a person, and neither may block the next request.
+maintenance_clear_leftover_inflight() {
+  [ -e "$maintenance_inflight" ] || return 0
+  [ -f "$maintenance_inflight" ] && [ ! -L "$maintenance_inflight" ] || return 0
+  maintenance_left_id="$(maintenance_inflight_id)"
+  if [ -z "$maintenance_left_id" ]; then
+    maintenance_terminal_write FAILED - - MAINTENANCE_REQUEST_MALFORMED -
+  elif ! maintenance_request_seen_terminal "$maintenance_left_id"; then
+    maintenance_terminal_write FAILED - "$maintenance_left_id" MAINTENANCE_INTERRUPTED -
+  fi
+  rm -f "$maintenance_inflight"
+}
+
+# An Ubuntu update that restarted this agent: wait for its unit to end (bounded), then take the result it wrote to
+# the host's evidence from the time this request began. Nothing written means it did not get that far.
+MAINTENANCE_OS_UPDATE_WAIT_POLLS="${MAINTENANCE_OS_UPDATE_WAIT_POLLS:-720}"
+MAINTENANCE_OS_UPDATE_WAIT_SECONDS="${MAINTENANCE_OS_UPDATE_WAIT_SECONDS:-5}"
+maintenance_reconcile_os_update() {
+  maintenance_wait_polls=0
+  while [ "$maintenance_wait_polls" -lt "$MAINTENANCE_OS_UPDATE_WAIT_POLLS" ] \
+    && sh "$update_root/scripts/host-os-maintenance.sh" unit-active security-update >/dev/null 2>&1; do
+    maintenance_wait_polls=$((maintenance_wait_polls + 1))
+    sleep "$MAINTENANCE_OS_UPDATE_WAIT_SECONDS"
+  done
+  maintenance_recorded="$(sh "$update_root/scripts/host-os-maintenance.sh" recorded-since security-update \
+    "$maintenance_transition_epoch" 2>/dev/null || true)"
+  case "$maintenance_recorded" in
+    passed) maintenance_terminal_write COMPLETED os-update "$maintenance_transition_id" MAINTENANCE_OS_UPDATED "$maintenance_transition_operator" ;;
+    busy) maintenance_terminal_write FAILED os-update "$maintenance_transition_id" MAINTENANCE_BUSY "$maintenance_transition_operator" ;;
+    failed) maintenance_terminal_write FAILED os-update "$maintenance_transition_id" MAINTENANCE_OS_UPDATE_FAILED "$maintenance_transition_operator" ;;
+    *) maintenance_terminal_write FAILED os-update "$maintenance_transition_id" MAINTENANCE_INTERRUPTED "$maintenance_transition_operator" ;;
+  esac
 }
