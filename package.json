@@ -42,7 +42,7 @@
     "test:delivery-worker": "sh infra/delivery/worker-loop.test.sh && sh infra/delivery/ehr-worker-loop.test.sh",
     "test:central-full-story": "npm run prepare:contract && npm --prefix apps/api run test:central-full-story",
     "test:caddy-boundaries": "node --test scripts/caddy-boundaries.test.mjs",
-    "test:compose-hardening": "node --test scripts/compose-hardening.test.mjs",
+    "test:compose-hardening": "node --test scripts/compose-hardening.test.mjs scripts/postgres-apt-retry.test.mjs",
     "test:configurable-ports": "node --test scripts/configurable-ports.test.mjs",
     "test:image-hardening": "node --test scripts/node-image-hardening.test.mjs scripts/bundle-offline.test.mjs && sh infra/docker/hardened-images.test.sh",
     "test:migrator-image": "sh scripts/test-migrator-image.sh",

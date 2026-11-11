@@ -9,6 +9,11 @@ USER root
 # This is the timestamp recorded in the pinned official image's Debian source
 # metadata. snapshot.debian.org makes the repository indexes and every package
 # selected from them immutable; PGDG is deliberately excluded from the builder.
+#
+# That host answers 503 for single files now and then (2026-11-10: three candidate builds in a row), and apt gave
+# up on the first one. apt_retry tries again, and after the second failure asks snapshot-cloudflare.debian.org, the
+# same snapshot behind Debian's CDN (same path, same bytes). Every package is still checked by apt against the
+# hashes of the pinned index, so a different host cannot change what is installed.
 RUN set -eux; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
@@ -17,8 +22,20 @@ RUN set -eux; \
       /etc/apt/sources.list.d/debian.sources; \
     grep -Fq 'snapshot.debian.org/archive/debian/20261003T000000Z' /etc/apt/sources.list.d/debian.sources; \
     grep -Fq 'snapshot.debian.org/archive/debian-security/20261003T000000Z' /etc/apt/sources.list.d/debian.sources; \
-    apt-get -o Acquire::Check-Valid-Until=false update; \
-    apt-get install --yes --no-install-recommends \
+    apt_retry() { \
+      attempt=0; \
+      until "$@"; do \
+        attempt=$((attempt + 1)); \
+        [ "$attempt" -lt 6 ] || return 1; \
+        echo "apt: attempt $attempt failed, trying again" >&2; \
+        if [ "$attempt" -ge 2 ]; then \
+          sed -i 's|//snapshot.debian.org/|//snapshot-cloudflare.debian.org/|g' /etc/apt/sources.list.d/debian.sources; \
+        fi; \
+        sleep $((attempt * 15)); \
+      done; \
+    }; \
+    apt_retry apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Retries=5 update; \
+    apt_retry apt-get -o Acquire::Retries=5 install --yes --no-install-recommends \
       bison=2:3.8.2+dfsg-1+b2 \
       bzip2=1.0.8-6 \
       build-essential=12.12 \
@@ -191,8 +208,20 @@ RUN set -eux; \
       -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20261003T000000Z|' \
       -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20261003T000000Z|' \
       /etc/apt/sources.list.d/debian.sources; \
-    apt-get -o Acquire::Check-Valid-Until=false update; \
-    apt-get install --yes --no-install-recommends \
+    apt_retry() { \
+      attempt=0; \
+      until "$@"; do \
+        attempt=$((attempt + 1)); \
+        [ "$attempt" -lt 6 ] || return 1; \
+        echo "apt: attempt $attempt failed, trying again" >&2; \
+        if [ "$attempt" -ge 2 ]; then \
+          sed -i 's|//snapshot.debian.org/|//snapshot-cloudflare.debian.org/|g' /etc/apt/sources.list.d/debian.sources; \
+        fi; \
+        sleep $((attempt * 15)); \
+      done; \
+    }; \
+    apt_retry apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Retries=5 update; \
+    apt_retry apt-get -o Acquire::Retries=5 install --yes --no-install-recommends \
       bash-static=5.2.37-2+b10 \
       libpcre2-8-0=10.46-1~deb13u3 \
       libssl3t64=3.5.7-1~deb13u3 \
