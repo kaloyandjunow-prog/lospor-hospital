@@ -2,20 +2,33 @@
 
 ## [1.8.2] - 2026-11-12
 
-<!-- release:version draft: rewrite for operators, then delete this line -->
+A patch release for appliance maintenance and the build. It vendors API, Web and PWA 10.3.2 (Core stays 10.3.0,
+Browser 0.11.2). There is no database migration and no change to the exchange contract, so Central needs no
+update; rollback is backup-required.
 
-Vendors Core 10.3.0 and API, Web and PWA 10.3.2; Browser is 0.11.2.
+### Fixed
+
+- **An Ubuntu security update that restarts the maintenance agent no longer leaves it stuck.** The update restarts
+  the agent while it runs; the agent recorded FAILED but was stopped before it cleared the request, so every later
+  request was refused with MAINTENANCE_INFLIGHT_CONFLICT until someone moved the file by hand. A request left over
+  at start is now cleared, and an update found running at start waits for its unit and reports the result the unit
+  recorded instead of "interrupted".
+- **The support bundle says what the agent is stuck on.** It now carries the attention state and its reason,
+  maintenance and updater status, capacity, containers, backup, host OS and schema (codes, numbers, times and image
+  tags only; no identifiers or operator references reach the file).
+- **The PostgreSQL image builds when snapshot.debian.org answers 503.** apt retries, and after two failures uses the
+  CDN host of the same snapshot; every package is still checked against the pinned index.
+- **Dependencies** of the Status service and the vendored apps are at their latest compatible releases; the audits
+  have no fixable high findings. A high finding with no upstream fix in the Caddy image is recorded as a dated
+  exception.
 
 ### Upstream
 
-- API 10.3.2: The case list pages in a fixed order.
-- API 10.3.2: Lost audit entries and a failed auto-end say what they lost.
-- Web 10.3.2: An answer to a suggestion reaches the form at once.
-- Web 10.3.2: The events lane is easier to hit.
-- PWA 10.3.2: An opened five-minute row lists everything charted in it
-- PWA 10.3.2: Answers to suggestions reach the screen at once.
-- PWA 10.3.2: Side-scrolling rails keep the swipe
-- PWA 10.3.2: Light theme
+- API 10.3.2: the case list pages in a fixed order, so a page boundary neither repeats nor loses a case; a lost
+  audit entry and a failed auto-end say what they lost (the Hospital log stays free of entry details).
+- Web 10.3.2: an answer to a suggestion reaches the form at once; the events lane is easier to hit.
+- PWA 10.3.2: an opened five-minute row lists everything charted in it; answers to suggestions reach the screen at
+  once; side-scrolling rails keep the swipe; light theme corrections.
 
 ## [1.8.1] - 2026-11-09
 
