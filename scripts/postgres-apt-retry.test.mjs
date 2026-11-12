@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import test from "node:test"
@@ -16,11 +16,20 @@ function run(failures, attemptsAllowed = 6) {
   const dir = mkdtempSync(join(tmpdir(), "apt-retry-")).split("\\").join("/")
   const sources = `${dir}/debian.sources`
   writeFileSync(sources, "Types: deb\nURIs: http://snapshot.debian.org/archive/debian/20261003T000000Z\n")
+  // Stubs are real executables: a function named apt-get is not valid in dash, which is what the image runs.
+  const bin = `${dir}/bin`
+  mkdirSync(bin)
+  writeFileSync(`${bin}/sleep`, `#!/bin/sh
+echo "sleep $1" >> "${dir}/log"
+`, { mode: 0o755 })
+  writeFileSync(`${bin}/apt-get`, `#!/bin/sh
+count=$(cat "${dir}/count" 2>/dev/null || echo 0); count=$((count + 1)); echo $count > "${dir}/count"
+echo "apt-get attempt $count host $(grep -o "snapshot[a-z-]*.debian.org" "${sources}")" >> "${dir}/log"
+[ "$count" -gt ${failures} ]
+`, { mode: 0o755 })
   const script = `
 set -eu
-count=0
-sleep() { echo "sleep $1" >> "${dir}/log"; }
-apt-get() { count=$((count + 1)); echo "apt-get attempt $count host $(grep -o 'snapshot[a-z-]*.debian.org' "${sources}")" >> "${dir}/log"; [ "$count" -gt ${failures} ]; }
+PATH="${bin}:$PATH"
 apt_retry() {
 ${functions[0].replace(/\/etc\/apt\/sources\.list\.d\/debian\.sources/g, sources)}
 }
