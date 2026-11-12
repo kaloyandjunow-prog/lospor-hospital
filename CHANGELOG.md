@@ -1,5 +1,22 @@
 # Changelog - LOSPOR Hospital
 
+## [1.8.2] - 2026-11-12
+
+<!-- release:version draft: rewrite for operators, then delete this line -->
+
+Vendors Core 10.3.0 and API, Web and PWA 10.3.2; Browser is 0.11.2.
+
+### Upstream
+
+- API 10.3.2: The case list pages in a fixed order.
+- API 10.3.2: Lost audit entries and a failed auto-end say what they lost.
+- Web 10.3.2: An answer to a suggestion reaches the form at once.
+- Web 10.3.2: The events lane is easier to hit.
+- PWA 10.3.2: An opened five-minute row lists everything charted in it
+- PWA 10.3.2: Answers to suggestions reach the screen at once.
+- PWA 10.3.2: Side-scrolling rails keep the swipe
+- PWA 10.3.2: Light theme
+
 ## [1.8.1] - 2026-11-09
 
 A patch release for the phone app and the web server's cache rules. It vendors API, Web and PWA 10.3.1 (Core stays
