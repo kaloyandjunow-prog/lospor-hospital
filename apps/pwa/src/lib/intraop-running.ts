@@ -125,6 +125,8 @@ export type RowSummary = {
   hasUnsynced: boolean
 }
 
+const SUMMARY_EVENT_TYPES: ReadonlySet<string> = new Set(["drug", "clinical_event", "complication", "defibrillation"])
+
 export function buildRowSummary(
   vital: VitalsEntry | undefined,
   rowEvents: LogEvent[],
@@ -138,7 +140,9 @@ export function buildRowSummary(
     normalParts: summary.normalParts.map(part =>
       part.startsWith(bpPrefix) ? part.slice(bpPrefix.length) : part,
     ),
-    drugParts: summary.eventParts,
+    // Core's line names the first four drugs and events; a complication or a shock in the same five minutes is as
+    // much part of it, so they are named too (and nothing is hidden behind a fifth).
+    drugParts: rowEvents.filter(event => SUMMARY_EVENT_TYPES.has(event.type)).slice(0, 6).map(labelOf),
     hasCritical: summary.hasCritical,
     hasUnsynced: summary.hasUnsynced,
   }

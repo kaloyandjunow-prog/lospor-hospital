@@ -1,5 +1,6 @@
 import { memo, useSyncExternalStore } from "react"
 import { jetSheet } from "@/lib/jet-sheet"
+import { TimetableRowEntries, isRowEntry } from "./TimetableRowEntries"
 import { LabDrawDetail, LabDrawPill, mergeRowLabDraws } from "@/components/intraop/LabDrawCell"
 import type { IntraopLabDraw } from "@lospor/core/labs"
 import { View, Text, TouchableOpacity } from "react-native"
@@ -87,6 +88,7 @@ function TimetableRowComponent({
     `${tc(item.planned ? "plannedLabel" : item.plannedStop ? "plannedStopLabel" : "plannedChangeLabel")} · `
   const t = timeAtCol(chartStart, col)
   const { criticalParts, normalParts, drugParts, hasCritical } = summary
+  const rowEntries = rowEvents.filter(isRowEntry)
   // From the queue itself (9.13.0): every entry in the row, every running
   // item's start, changes and stop, and the row's lab draws.
   const saveInput = useChartSaveState()
@@ -144,6 +146,8 @@ function TimetableRowComponent({
         </TouchableOpacity>
 
         <LabDrawDetail draws={labDraws ?? []} onOpen={onOpenLabs} />
+
+        <TimetableRowEntries entries={rowEntries} labelOf={labelOf} col={col} onEditJet={onEditJet} />
 
         {/* Running items */}
         {running.length > 0 && (
@@ -224,11 +228,11 @@ function TimetableRowComponent({
                 onPress={() => onQuickAdd(col, btn.action)}
                 style={{
                   paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-                  backgroundColor: btn.color + "18",
-                  borderWidth: 1, borderColor: btn.color + "44",
+                  backgroundColor: shade(btn.color) + "18",
+                  borderWidth: 1, borderColor: shade(btn.color) + "44",
                 }}
               >
-                <Text style={{ color: btn.color, fontSize: 12, fontWeight: "700" }}>
+                <Text style={{ color: shade(btn.color), fontSize: 12, fontWeight: "700" }}>
                   {btn.action === "gas" && activeGas ? tc("trRowGasActive") : btn.label}
                 </Text>
               </TouchableOpacity>

@@ -59,6 +59,23 @@ export function usePhoneAirwayExchange({ log, active, smart = false, legacy, per
     }
   }, [log, active, smart])
 
+  // An answer saved from a suggestion can name the airway too ("Propofol: which technique and which airway?"): its
+  // event carries the whole list and the server applied it at once, so the list here takes it in the same moment,
+  // not at the next load (found 2026-11-11 on the web, and the same on the phone). Events already in the log when
+  // this screen opened are not applied; the stored list was read from the case.
+  const patched = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    if (!active) return
+    const withList = log.filter(event => Array.isArray(event.intraopPatch?.airwayDeviceEntries))
+    if (patched.current == null) { patched.current = new Set(withList.map(event => event.id)); return }
+    const known = patched.current
+    const fresh = withList.filter(event => !known.has(event.id)).sort((a, b) => Date.parse(a.recordedAt ?? a.ts) - Date.parse(b.recordedAt ?? b.ts))
+    for (const event of fresh) {
+      known.add(event.id)
+      stored.current = parseAirwayDeviceEntries(event.intraopPatch!.airwayDeviceEntries)
+    }
+  }, [log, active])
+
   useEffect(() => {
     if (!active) return
     const events = log.filter(event => event.type === "clinical_event" && (event.label === "Reintubation" || event.label === "Airway exchange"))

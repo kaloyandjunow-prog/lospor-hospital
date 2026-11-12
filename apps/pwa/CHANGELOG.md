@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Mobile
 
+## [10.3.2] - 2026-11-12
+
+### Fixed
+
+- **An opened five-minute row lists everything charted in it**: events, complications, shocks, drugs, infusions and
+  the jet, with no heading. The collapsed line shows complications and shocks too. A jet line opens the jet sheet to
+  edit it.
+- **Answers to suggestions reach the screen at once.** A technique answer (and an airway answer that names the
+  device) updates the state of the case when the event is saved, so the next suggestion no longer asks again. The
+  airway list follows an answer that names the airway. The older per-kind airway fields still follow on reload.
+- **Side-scrolling rails keep the swipe**: one shared style for every horizontal scroll view in a page, and the
+  overflow cues fade when the scrolling stops.
+- **Light theme**: the Jet button and the timetable quick-add buttons go through `shade()`; Jet gets a readable teal.
+
+### Dependencies
+
+- Expo SDK 58 patch releases (expo 58.0.24, expo-router 58.0.31 and the other Expo-managed modules, as
+  `expo install --fix` chose them), react-hook-form 7.92, react-test-renderer 19.3.1. `npm audit --omit=dev`: 0.
+
+
 ## [10.3.1] - 2026-11-09
 
 ### Fixed

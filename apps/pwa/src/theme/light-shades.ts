@@ -111,6 +111,7 @@ export const LIGHT_SHADES: Readonly<Record<string, string>> = {
   "#4c6ef5": "#4c6ef5",
   "#4da3ff": "#4da3ff",
   "#51cf66": "#289039",
+  "#5eead4": "#0f766e",
   "#60a5fa": "#60a5fa",
   "#6366f1": "#6366f1",
   "#64748b": "#64748b",

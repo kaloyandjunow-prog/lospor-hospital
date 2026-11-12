@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObjec
 import { Platform, Pressable, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewProps, type StyleProp, type ViewStyle, type ScrollViewInstance } from "react-native"
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg"
 import { colors, withAlpha } from "@/theme/colors"
+import { SIDE_SCROLL_STYLE } from "@/lib/gesture-style"
 
 type Props = Omit<ScrollViewProps, "children" | "horizontal" | "onScroll" | "onContentSizeChange"> & {
   children: ReactNode
@@ -174,7 +175,7 @@ export function OverflowCueScrollView({
         onScroll={handleScroll}
         scrollEventThrottle={16}
         onContentSizeChange={handleContentSizeChange}
-        style={scrollViewStyle}
+        style={horizontal ? [scrollViewStyle, SIDE_SCROLL_STYLE] : scrollViewStyle}
         contentContainerStyle={contentContainerStyle}
       >
         {children}

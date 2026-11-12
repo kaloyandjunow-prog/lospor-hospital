@@ -13,7 +13,7 @@ test.describe("the intraop timetable", () => {
   test("starting the case puts the anaesthesia start in the first row and saves it", async ({ page, request }) => {
     const session = await newStartedCase(page, request)
     await openStartRow(page, session.rowTime)
-    await expect(page.getByText("Anaesthesia start", { exact: true })).toBeVisible()
+    await expect(page.getByText("Anaesthesia start", { exact: true }).first()).toBeVisible()
     for (const pill of ["Vitals", "Drug", "Infusion", "Fluid", "Agent", "Labs", "Event"]) {
       await expect(page.getByText(pill, { exact: true }).first()).toBeVisible()
     }

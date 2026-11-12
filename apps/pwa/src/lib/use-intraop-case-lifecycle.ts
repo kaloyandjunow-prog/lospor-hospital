@@ -1,6 +1,6 @@
 import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { serverNow } from "@/lib/server-clock"
-import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
+import { useCallback, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
 import { confirmAction, notify } from "@/lib/notify"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
 import { buildFinaliseCaseState, buildReopenedEndedState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
@@ -31,6 +31,8 @@ import {
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 import { useShade } from "@/theme/shade"
 import type { VitalQuestionContext } from "@lospor/core/vital-questions"
+import type { EventStatePatch } from "@/lib/event-patch-state"
+import type { TechniqueSide } from "@lospor/core/technique-smart"
 
 const INTRAOP_ISSUE_LABEL_KEYS: Partial<Record<ClinicalIssueCode, ClinicalStringKey>> = {
   missing_start_time: "issueAnaesthesiaStart",
@@ -96,6 +98,8 @@ type UseIntraopCaseLifecycleArgs = {
     vitals?: VitalQuestionContext | null
     /** The suggestions (10.2.0), when any group is on and this screen holds the case. */
     suggestions?: Omit<SuggestionContext, "now"> | null
+    /** What an answer's event changes in the screen's own state (the technique), in the moment it is saved. */
+    onEventPatch?: (patch: EventStatePatch) => void
   }
 }
 
@@ -155,6 +159,7 @@ export function useIntraopCaseLifecycle({
     resyncActiveRef: timeline.resyncActiveRef,
     vitals: timeline.vitals,
     suggestions: timeline.suggestions,
+    onEventPatch: timeline.onEventPatch,
   })
   const saveState = useCaseSaveState(timeline.caseId)
 
@@ -362,4 +367,15 @@ export function useIntraopCaseLifecycle({
     setChosenEndTs,
     attention: { ...attention, clockOf, labelOf: timeline.labelOf, log: timeline.log, saveState, keepLogging: timeline.vitals?.keepLogging },
   }
+}
+
+/** What an answer's saved event changes in the screen's own technique state, applied in the moment it is saved. */
+export function useEventStatePatch(
+  setTechniques: (next: string[]) => void,
+  setTechniqueSides: (next: Record<string, TechniqueSide>) => void,
+): (patch: EventStatePatch) => void {
+  return useCallback((patch: EventStatePatch) => {
+    if (patch.techniques) setTechniques(patch.techniques)
+    if (patch.techniqueSides) setTechniqueSides(patch.techniqueSides as Record<string, TechniqueSide>)
+  }, [setTechniques, setTechniqueSides])
 }
