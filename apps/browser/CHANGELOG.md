@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Database
 
+## [0.11.2] - 2026-11-12
+
+### Dependencies
+
+- Next 16.4.6, lucide-react 1.72, and the `@lospor/core` pin moves from v10.2.0 to v10.3.0 (the version the
+  appliance ships). `npm audit` finds nothing. No code changed.
+
+
 ## [0.11.1] - 2026-11-09
 
 ### Dependencies

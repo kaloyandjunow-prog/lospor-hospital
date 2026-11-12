@@ -82,7 +82,22 @@ describe("buildRowSummary", () => {
     expect(ok.hasCritical).toBe(false)
   })
 
-  it("takes the first four drug/clinical-event labels and flags unsynced", () => {
+  it("names a complication and a shock in the five minutes, not only drugs and events, and at most six", () => {
+    const evs = [
+      { id: "1", type: "drug", name: "Propofol" },
+      { id: "2", type: "complication", label: "Hypotension" },
+      { id: "3", type: "defibrillation", label: "Defibrillation" },
+      { id: "4", type: "infusion_start", name: "Noradrenaline" },
+      { id: "5", type: "clinical_event", label: "Incision" },
+      { id: "6", type: "drug", name: "Fentanyl" },
+      { id: "7", type: "drug", name: "Rocuronium" },
+      { id: "8", type: "drug", name: "Ondansetron" },
+    ] as unknown as LogEvent[]
+    const s = buildRowSummary(undefined, evs, label)
+    expect(s.drugParts).toEqual(["Propofol", "Hypotension", "Defibrillation", "Incision", "Fentanyl", "Rocuronium"])
+  })
+
+  it("takes the drug, event, complication and shock labels and flags unsynced", () => {
     const evs = [
       { id: "1", type: "drug", name: "Propofol" },
       { id: "2", type: "clinical_event", label: "Incision" },

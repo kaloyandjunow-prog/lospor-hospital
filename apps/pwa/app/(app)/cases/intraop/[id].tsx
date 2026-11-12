@@ -36,7 +36,7 @@ import { COMPLICATION_ITEMS } from "@/lib/intraop-static-options"
 import { applyIntraopChartChange } from "@/lib/apply-intraop-chart-change"
 import { pediatricAgeFromPreop, useAllergyCheck, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
-import { useIntraopCaseLifecycle } from "@/lib/use-intraop-case-lifecycle"
+import { useIntraopCaseLifecycle, useEventStatePatch } from "@/lib/use-intraop-case-lifecycle"
 import { useIntraopPremedication } from "@/lib/use-intraop-premedication"
 import { useIntraopPremedicationPrefill } from "@/lib/use-intraop-premedication-prefill"
 import { useIntraopFluidStatus } from "@/lib/use-intraop-fluid-status"
@@ -365,7 +365,7 @@ export default function IntraopLiveScreen() {
     startRef, setElapsedMs, setCaseInfo, setCaseStartTime, setCaseEndTime, setCaseEndNextDay, caseTimezone, save, saveTiming, patchIntraopSection,
     cancelLabel: tc("cancelLabel"),
     activeAgents, activeGas, activeInfusions, activeFluids,
-    timeline: { caseId: id ?? null, log, logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef, vitals: vitalQuestionContext, suggestions: suggestionContext },
+    timeline: { caseId: id ?? null, log, logRef, syncLog, removeEvent, labelOf: ev => eventLabel(ev).text, endedAtRef, resyncActiveRef, vitals: vitalQuestionContext, suggestions: suggestionContext, onEventPatch: useEventStatePatch(setTechniques, setTechniqueSides) },
     stopAgent, stopGasSettings, stopInfusion, stopFluidDirect,
     getReadinessInput: () => intraopReadinessInput({
       startRef, caseStartTime, techniques, awDevices, awVentModes, positions, vascularAccesses, monitoring, timetable, log, selectedComplications, complicationsNotes,

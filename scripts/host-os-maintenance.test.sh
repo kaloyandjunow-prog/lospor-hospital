@@ -133,4 +133,25 @@ if command -v python3 >/dev/null 2>&1; then
   ok "state explains Ubuntu's state in plain words"
 fi
 
+# 9. After an update restarted the agent, the agent reads what the unit recorded from the time its request began.
+fixture
+mkdir -p "$home/.data/host-os"
+printf 'LOSPOR-HOSPITAL-HOST-OS-OPERATION-V1	2026-11-10T07:00:00Z	security-update	failed
+LOSPOR-HOSPITAL-HOST-OS-OPERATION-V1	2026-11-10T07:13:40Z	security-update	passed
+LOSPOR-HOSPITAL-HOST-OS-OPERATION-V1	2026-11-10T07:20:00Z	upgrade	failed
+'   > "$home/.data/host-os/operations.v1.tsv"
+since_before="$(date -u -d 2026-11-10T07:13:00Z +%s)"
+since_after="$(date -u -d 2026-11-10T07:14:00Z +%s)"
+os_arguments="recorded-since security-update $since_before"
+run_os env || fail "recorded-since failed"
+[ "$(cat "$work/out")" = passed ] || fail "the update's record from the time the request began was not read (got: $(cat "$work/out"))"
+os_arguments="recorded-since security-update $since_after"
+run_os env || fail "recorded-since failed after the record"
+[ -z "$(cat "$work/out")" ] || fail "a record from before the request was taken for its result (got: $(cat "$work/out"))"
+for os_arguments in "recorded-since security-update soon" "recorded-since upgrade 1" "unit-active upgrade"; do
+  set +e; run_os env; result=$?; set -e
+  [ "$result" = 2 ] || fail "\"$os_arguments\" was not refused as wrong usage (exit $result)"
+done
+ok "the update's own record is read from the time the request began, and only for the update"
+
 echo "host OS maintenance tests passed ($tests)"

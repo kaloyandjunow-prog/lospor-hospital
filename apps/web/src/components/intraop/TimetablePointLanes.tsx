@@ -32,7 +32,7 @@ type LaneChrome = {
 }
 
 /** How many events a single column shows before collapsing to a count. */
-const MAX_VISIBLE_EVENTS = 5
+export const MAX_VISIBLE_EVENTS = 8
 
 export type ClinicalEventsLaneProps = LaneChrome & {
   events: NonNullable<TimetableData["clinicalEvents"]>
@@ -56,7 +56,7 @@ export function ClinicalEventsLane({
   return (
     <div
       className="flex items-stretch border-b border-slate-100 dark:border-[#2a2a2a] bg-slate-50/20 dark:bg-[#181818]/40"
-      style={{ minHeight: 34 }}
+      style={{ minHeight: 40 }}
     >
       <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-1.5"}>
         {label}
@@ -74,27 +74,38 @@ export function ClinicalEventsLane({
             {colEvents.length === 0 && (
               <Plus className="h-2.5 w-2.5 opacity-0 group-hover:opacity-30 transition-opacity text-slate-400 dark:text-[#666] mt-1.5" />
             )}
-            <div className="flex flex-col items-start gap-0.5 w-full">
+            <div className="flex flex-col items-start gap-1 w-full">
               {colEvents.slice(0, MAX_VISIBLE_EVENTS).map(event => (
                 <div
                   key={event.label}
                   title={displayEventName(event.label)}
                   onClick={e => { e.stopPropagation(); onRemove(ci, event.label) }}
-                  className={`relative flex items-center rounded-full px-1 py-px cursor-pointer hover:opacity-60 transition-opacity select-none w-full min-w-0 ${event.planned ? "opacity-50" : ""}`}
+                  className={`relative flex items-center rounded-full px-1.5 min-h-[20px] cursor-pointer hover:opacity-60 transition-opacity select-none w-full min-w-0 ${event.planned ? "opacity-50" : ""}`}
                   style={{ backgroundColor: event.color + "20", color: event.color, border: `1px ${event.planned ? "dashed" : "solid"} ${event.color}40` }}
                 >
                   <SaveMark eventIds={[(event as { eventId?: string }).eventId]} />
-                  <span className="text-[8px] font-bold truncate leading-tight" data-testid={`events-lane-chip-${event.kind ?? "event"}`}>
+                  <span className="text-[9px] font-bold truncate leading-tight" data-testid={`events-lane-chip-${event.kind ?? "event"}`}>
                     {displayEventName(event.label)}{event.kind === "defibrillation" && event.energyJ != null ? ` ${event.energyJ} J` : ""}
                   </span>
                 </div>
               ))}
               {colEvents.length > MAX_VISIBLE_EVENTS && (
-                <span className="text-[8px] text-slate-400 dark:text-[#666] font-medium px-0.5">
+                <span className="text-[9px] text-slate-500 dark:text-[#888] font-semibold px-0.5" data-testid={`events-lane-more-${ci}`}>
                   +{colEvents.length - MAX_VISIBLE_EVENTS}
                 </span>
               )}
             </div>
+            {/* The chips fill the cell, so a cell with two events used to have nowhere left to click to add a third.
+                This strip is always there below them; the click goes to the cell, which opens the picker. */}
+            {colEvents.length > 0 && (
+              <div
+                data-testid={`events-lane-add-${ci}`}
+                aria-label={label}
+                className="mt-0.5 flex min-h-[18px] w-full items-center justify-center rounded text-slate-400 dark:text-[#666] opacity-60 hover:opacity-100 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/20 transition-opacity"
+              >
+                <Plus className="h-3 w-3" />
+              </div>
+            )}
           </div>
         )
       })}

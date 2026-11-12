@@ -12,6 +12,7 @@ import { vitalEpisodeOps, type VitalQuestionContext } from "@lospor/core/vital-q
 import type { LogEvent } from "@/lib/intraop-log-event"
 import type { SuggestionContext } from "@lospor/core/intraop-suggestions"
 import type { IntraopEventOps } from "@lospor/core/intraop-timetable-edit"
+import { statePatchFromEventOps, type EventStatePatch } from "@/lib/event-patch-state"
 
 /**
  * The log after one answer, exactly as Core writes it, or null when there is
@@ -55,7 +56,7 @@ export type IntraopAttention = {
 }
 
 /** What the timeline is waiting for an answer on, live, and the answers. */
-export function useIntraopAttention({ log, logRef, endedAtRef, syncLog, resyncActiveRef, vitals = null, suggestions: suggestionBase = null }: {
+export function useIntraopAttention({ log, logRef, endedAtRef, syncLog, resyncActiveRef, vitals = null, suggestions: suggestionBase = null, onEventPatch }: {
   log: LogEvent[]
   logRef: MutableRefObject<LogEvent[]>
   endedAtRef: MutableRefObject<Date | null>
@@ -65,6 +66,8 @@ export function useIntraopAttention({ log, logRef, endedAtRef, syncLog, resyncAc
   vitals?: VitalQuestionContext | null
   /** The suggestions (10.2.0), when any group is on and this screen holds the case. */
   suggestions?: Omit<SuggestionContext, "now"> | null
+  /** What an answer's event changes in the screen's own state (the technique), in the moment it is saved. */
+  onEventPatch?: (patch: EventStatePatch) => void
 }): IntraopAttention {
   const minute = useMinuteClock()
   const endedAt = endedAtRef.current
@@ -108,12 +111,14 @@ export function useIntraopAttention({ log, logRef, endedAtRef, syncLog, resyncAc
   }, [enqueue, endedAtRef, logRef, resyncActiveRef])
   const applyOps = useCallback(async (ops: IntraopEventOps) => {
     if (isEmptyIntraopEventOps(ops)) return
+    const statePatch = statePatchFromEventOps(ops)
+    if (onEventPatch && Object.keys(statePatch).length > 0) onEventPatch(statePatch)
     await enqueue(async () => {
       const next = applyIntraopEventOps(logRef.current, ops) as LogEvent[]
       await syncLogRef.current(next)
       resyncActiveRef.current()
     })
-  }, [enqueue, logRef, resyncActiveRef])
+  }, [enqueue, logRef, onEventPatch, resyncActiveRef])
   const [opened, open] = useState<string | null>(null)
   useAutoOpenCards(items, open, suggestionBase != null)
   useVitalEpisodeClosing(log, logRef, endedAtRef, vitalsRef, syncLogRef, enqueue)

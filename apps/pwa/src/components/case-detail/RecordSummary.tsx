@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react"
 import { ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native"
 import Svg, { Line, Path, Rect, Text as SvgText } from "react-native-svg"
+import { SIDE_SCROLL_STYLE } from "@/lib/gesture-style"
 import { buildRecordEpisodes, buildRecordEventLog } from "@lospor/core/record-log"
 import { recordLabels } from "@lospor/core/record-labels"
 import { layoutRecordChart, type ChartScene, type SceneItem } from "@lospor/core/record-chart-layout"
@@ -57,7 +58,7 @@ export function RecordTimetableCard({ keyEvents, clock, onPress, actionLabel }: 
     <TouchableOpacity testID="record-timetable-card" activeOpacity={onPress ? 0.8 : 1} onPress={onPress}
       style={{ backgroundColor: P.card, borderRadius: 14, borderWidth: 1, borderColor: P.grid, padding: 10, marginBottom: 12 }}>
       <Text style={{ color: P.title, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.timetable.toUpperCase()}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={SIDE_SCROLL_STYLE}>
         <RecordChartSvg scene={scene} />
       </ScrollView>
       {onPress && actionLabel ? <Text style={{ color: P.title, fontSize: 12, fontWeight: "700", marginTop: 6, textAlign: "right" }}>{actionLabel}</Text> : null}

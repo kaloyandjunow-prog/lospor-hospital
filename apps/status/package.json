@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "hono": "^4.13.17",
+    "hono": "^4.13.18",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4"
   },
@@ -31,7 +31,7 @@
     "eslint": "^10.14.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.1",
+    "typescript-eslint": "^8.72.2",
     "vitest": "^4.1.12"
   },
   "overrides": {

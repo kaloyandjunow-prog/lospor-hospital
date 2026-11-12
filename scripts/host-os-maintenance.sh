@@ -43,8 +43,8 @@ update_appliance_home="$appliance_home"
 
 usage() {
   operator_error \
-    "Usage: host-os-maintenance.sh state | security-update | reboot | reboot-now | upgrade | run-unit security-update|reboot-now" \
-    "Употреба: host-os-maintenance.sh state | security-update | reboot | reboot-now | upgrade | run-unit security-update|reboot-now"
+    "Usage: host-os-maintenance.sh state | security-update | reboot | reboot-now | upgrade | run-unit security-update|reboot-now | unit-active security-update | recorded-since security-update EPOCH" \
+    "Употреба: host-os-maintenance.sh state | security-update | reboot | reboot-now | upgrade | run-unit security-update|reboot-now | unit-active security-update | recorded-since security-update EPOCH"
   exit 2
 }
 
@@ -52,6 +52,8 @@ action="${1:-}"
 case "$action:$#" in
   state:1|security-update:1|reboot:1|reboot-now:1|upgrade:1) ;;
   run-unit:2) case "$2" in security-update|reboot-now) ;; *) usage ;; esac ;;
+  unit-active:2) [ "$2" = security-update ] || usage ;;
+  recorded-since:3) { [ "$2" = security-update ] && printf '%s\n' "$3" | grep -Eq '^[0-9]{1,12}$'; } || usage ;;
   *) usage ;;
 esac
 if [ "$test_only" != 1 ] && [ "$(id -u)" -ne 0 ]; then
@@ -241,6 +243,25 @@ run_unit() {
   esac
 }
 
+# The agent asks these two after it was restarted by the update it was running (the update restarts it): is the
+# update's unit still working, and what did it record from the time the request began. Read-only.
+unit_active() {
+  systemctl is-active --quiet "lospor-host-os-maintenance@$1.service" \
+    || systemctl is-active --quiet --state=activating "lospor-host-os-maintenance@$1.service"
+}
+
+recorded_since() {
+  [ -f "$evidence" ] || return 0
+  found=""
+  tab="$(printf '\t')"
+  while IFS="$tab" read -r header stamp name outcome rest; do
+    [ "$header" = LOSPOR-HOSPITAL-HOST-OS-OPERATION-V1 ] && [ "$name" = "$1" ] || continue
+    at="$(date -u -d "$stamp" +%s 2>/dev/null)" || continue
+    [ "$at" -ge "$2" ] && found="$outcome"
+  done < "$evidence"
+  printf '%s\n' "$found"
+}
+
 case "$action" in
   state) state ;;
   security-update) security_update ;;
@@ -248,4 +269,6 @@ case "$action" in
   reboot-now) reboot_now ;;
   upgrade) upgrade ;;
   run-unit) run_unit "$2" ;;
+  unit-active) unit_active "$2" ;;
+  recorded-since) recorded_since "$2" "$3" ;;
 esac

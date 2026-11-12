@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Web App
 
+## [10.3.2] - 2026-11-12
+
+### Fixed
+
+- **An answer to a suggestion reaches the form at once.** "Which technique?" or "which technique and which airway?"
+  is saved on the event, and the server applies it to the record. The form did not, so the sidebar kept saying
+  "Technique -", the readiness check called it missing, and the next suggestion (Propofol: "which exact
+  technique?") asked again for what had just been answered. The form now takes the technique, its sides and the
+  airway fields the answer names (`src/lib/event-patch-form.ts`, `useApplyEventPatches`), with a contract test
+  against Core's answers.
+- **The events lane is easier to hit.** Chips are at least 20 px tall, the lane has a clear "add" strip and a "+N"
+  strip for events beyond the eighth, and the row is taller. Before, only two events could be reliably tapped.
+
+### Dependencies
+
+- Next 16.4.6, @sentry/nextjs 11.12, next-intl 4.15, react-hook-form 7.92, lucide-react 1.72 (minor and patch only).
+  `npm audit --omit=dev` still shows the seven known low findings (next-pwa/workbox chain, deepmerge) with no
+  patched release; they are accepted.
+
+
 ## [10.3.1] - 2026-11-09
 
 ### Fixed
