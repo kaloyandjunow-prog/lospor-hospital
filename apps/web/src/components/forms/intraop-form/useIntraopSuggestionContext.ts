@@ -36,3 +36,6 @@ export function useIntraopSuggestionContext({ control, preop, readOnly, idealWei
   const suggestionContext = useSuggestionContext(preop, facts, readOnly)
   return { suggestionContext, watchedTechniques }
 }
+
+/** Saving an answer from the suggestions also sets the form fields the answer writes (event-patch-form.ts). */
+export { useApplyEventPatches } from "./useApplyEventPatches"
