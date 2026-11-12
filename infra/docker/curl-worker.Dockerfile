@@ -6,5 +6,5 @@ FROM ${CURL_BASE_IMAGE}
 # Keep the upstream entrypoint and unprivileged default user. The Hospital
 # compose file explicitly selects root only for its read-only worker process.
 USER root
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache && apk add --no-cache "krb5-libs>=1.22.3"
 USER curl_user

@@ -1,8 +1,8 @@
 # Changelog - LOSPOR Hospital
 
-## [1.8.2] - 2026-11-12
+## [1.8.3] - 2026-11-12
 
-A patch release for appliance maintenance and the build. It vendors API, Web and PWA 10.3.2 (Core stays 10.3.0,
+A patch release for appliance maintenance and the build (1.8.2 was not published; its candidate failed the image vulnerability scan, and this release carries everything it had). It vendors API, Web and PWA 10.3.2 (Core stays 10.3.0,
 Browser 0.11.2). There is no database migration and no change to the exchange contract, so Central needs no
 update; rollback is backup-required.
 
@@ -18,9 +18,10 @@ update; rollback is backup-required.
   tags only; no identifiers or operator references reach the file).
 - **The PostgreSQL image builds when snapshot.debian.org answers 503.** apt retries, and after two failures uses the
   CDN host of the same snapshot; every package is still checked against the pinned index.
+- **The curl worker image takes the fixed Kerberos libraries.** Its Alpine layer was reused from an earlier build and still held krb5 1.22.2; the image now requires krb5-libs 1.22.3 or newer.
 - **Dependencies** of the Status service and the vendored apps are at their latest compatible releases; the audits
-  have no fixable high findings. A high finding with no upstream fix in the Caddy image is recorded as a dated
-  exception.
+  have no fixable high findings. High findings with no upstream fix (Caddy go-jose/v3, and the Debian Kerberos client libraries in the PostgreSQL
+  image, which does not use Kerberos) are recorded as dated exceptions until 2027-01-31.
 
 ### Upstream
 
@@ -29,6 +30,10 @@ update; rollback is backup-required.
 - Web 10.3.2: an answer to a suggestion reaches the form at once; the events lane is easier to hit.
 - PWA 10.3.2: an opened five-minute row lists everything charted in it; answers to suggestions reach the screen at
   once; side-scrolling rails keep the swipe; light theme corrections.
+
+## [1.8.2] - not published
+
+The candidate failed the image vulnerability scan; see 1.8.3, which carries its changes.
 
 ## [1.8.1] - 2026-11-09
 
