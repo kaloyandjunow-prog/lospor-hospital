@@ -28,35 +28,80 @@ export type ProcedureTag = {
   label: string
   code: string
   system: string
+  /** The group's English name: the key the operation list and the research export use. */
   group: string
   domain?: string
   /** The ICD-10-PCS description, only on an exact operation. */
   description?: string
   sub?: string
+  /** The group in both languages, so either reader can be shown it later. */
+  labelEn?: string
+  labelBg?: string
+  domainBg?: string
+  /** The Bulgarian name of the exact operation (hisbg-nomenclatures translation). */
+  descriptionBg?: string
 }
 
-/** A group chosen from the procedure search, with no operation implied. */
-export function procedureGroupTag(row: Pick<ProcedureSearchRow, "group" | "domain">): ProcedureTag {
+export type ProcedureLocale = "en" | "bg"
+
+type BilingualRow = Pick<ProcedureSearchRow, "group" | "domain"> & Partial<Pick<ProcedureSearchRow, "groupBg" | "domainBg">>
+
+/**
+ * The Bulgarian names a row carries, as tag fields. Empty when it has none, so
+ * a tag from a source without them is exactly what it always was.
+ */
+function bulgarianNames(row: BilingualRow) {
+  if (!row.groupBg) return {}
   return {
-    label: row.group,
+    labelEn: row.group,
+    labelBg: row.groupBg,
+    ...(row.domainBg ? { domainBg: row.domainBg } : {}),
+  }
+}
+
+/**
+ * A group chosen from the procedure search, with no operation implied.
+ *
+ * Labelled in the clinician's language when the row has a Bulgarian name. The
+ * code and `group` stay English: they are what the operation list is looked up
+ * by and what research reads, so the language of the screen never changes them.
+ */
+export function procedureGroupTag(row: BilingualRow, locale: ProcedureLocale = "en"): ProcedureTag {
+  const bg = locale === "bg"
+  const domain = bg && row.domainBg ? row.domainBg : row.domain
+  return {
+    label: bg && row.groupBg ? row.groupBg : row.group,
     code: row.group,
     system: PROCEDURE_GROUP_SYSTEM,
     group: row.group,
-    ...(row.domain ? { domain: row.domain, sub: row.domain } : {}),
+    ...(row.domain ? { domain: row.domain, sub: domain } : {}),
+    ...bulgarianNames(row),
   }
 }
 
 /** The exact operation, keeping the group it was chosen from as the label. */
-export function exactProcedureTag(row: Pick<ProcedureSearchRow, "code" | "group" | "domain" | "description">): ProcedureTag {
+export function exactProcedureTag(
+  row: Pick<ProcedureSearchRow, "code" | "group" | "domain" | "description"> & Partial<Pick<ProcedureSearchRow, "groupBg" | "domainBg" | "descriptionBg">>,
+  locale: ProcedureLocale = "en",
+): ProcedureTag {
+  const bg = locale === "bg"
+  const description = bg && row.descriptionBg ? row.descriptionBg : row.description
   return {
-    label: row.group,
+    label: bg && row.groupBg ? row.groupBg : row.group,
     code: row.code,
     system: ICD10PCS_SYSTEM,
     group: row.group,
     ...(row.domain ? { domain: row.domain } : {}),
     description: row.description,
-    sub: `${row.code} · ${row.description}`,
+    ...(row.descriptionBg ? { descriptionBg: row.descriptionBg } : {}),
+    sub: `${row.code} · ${description}`,
+    ...bulgarianNames(row),
   }
+}
+
+/** Whether a stored procedure was labelled in Bulgarian when it was chosen. */
+function labelledInBulgarian(tag: { label?: unknown; labelBg?: unknown }): boolean {
+  return typeof tag.labelBg === "string" && tag.labelBg.trim() !== "" && tag.label === tag.labelBg
 }
 
 /** Whether a stored procedure carries a chosen ICD-10-PCS operation. */
@@ -93,7 +138,7 @@ export function procedureQueryWords(query: string): string[] {
     .map(word => APPROACH_WORDS.find(([pattern]) => pattern.test(word))?.[1] ?? word)
 }
 
-export type ProcedureCodeRow = { code: string; description: string; suggested?: true }
+export type ProcedureCodeRow = { code: string; description: string; descriptionBg?: string; suggested?: true }
 
 /**
  * The operations inside one group, narrowed by the words typed.
@@ -117,10 +162,17 @@ export function filterProcedureCodes(
     .filter(row => row.group.trim().toLowerCase() === wanted)
     .filter(row => {
       const description = row.description.toLowerCase()
+      // The Bulgarian name and its synonyms, so a word typed in Bulgarian narrows too.
+      const bulgarian = row.searchBg ?? row.descriptionBg?.toLowerCase() ?? ""
       const code = row.code.toLowerCase()
-      return words.every(word => description.includes(word) || code.startsWith(word))
+      return words.every(word => description.includes(word) || bulgarian.includes(word) || code.startsWith(word))
     })
-    .map(row => ({ code: row.code, description: row.description, ...(likely.has(row.code) ? { suggested: true as const } : {}) }))
+    .map(row => ({
+      code: row.code,
+      description: row.description,
+      ...(row.descriptionBg ? { descriptionBg: row.descriptionBg } : {}),
+      ...(likely.has(row.code) ? { suggested: true as const } : {}),
+    }))
     .sort((a, b) => Number(!!b.suggested) - Number(!!a.suggested) || a.code.localeCompare(b.code))
 }
 
@@ -178,11 +230,16 @@ export function suggestedProcedureCodes(tag: StoredProcedure | null | undefined)
  */
 export function chooseExactOperation(
   tag: StoredProcedure,
-  row: Pick<ProcedureSearchRow, "code" | "group" | "domain" | "description">,
+  row: Pick<ProcedureSearchRow, "code" | "group" | "domain" | "description"> & Partial<Pick<ProcedureSearchRow, "groupBg" | "domainBg" | "descriptionBg">>,
+  locale: ProcedureLocale = "en",
 ): ProcedureTag & { imported?: ImportedProcedure; source?: unknown } {
   const imported = importedProcedureOf(tag)
+  // The group's Bulgarian name travels with the tag even when the operation
+  // list did not send it again.
+  const groupBg = row.groupBg ?? (typeof tag.labelBg === "string" ? tag.labelBg : undefined)
+  const domainBg = row.domainBg ?? (typeof tag.domainBg === "string" ? tag.domainBg : undefined)
   return {
-    ...exactProcedureTag(row),
+    ...exactProcedureTag({ ...row, ...(groupBg ? { groupBg } : {}), ...(domainBg ? { domainBg } : {}) }, locale),
     ...(imported ? { imported } : {}),
     ...(tag.source ? { source: tag.source } : {}),
   }
@@ -197,7 +254,14 @@ export function backToProcedureGroup(tag: StoredProcedure): Record<string, unkno
   const domain = optional(tag.domain) ?? ""
   const imported = importedProcedureOf(tag)
   const source = tag.source ? { source: tag.source } : {}
-  if (!imported) return { ...procedureGroupTag({ group, domain }), ...source }
+  const groupBg = optional(tag.labelBg)
+  const domainBg = optional(tag.domainBg)
+  if (!imported) {
+    return {
+      ...procedureGroupTag({ group, domain, ...(groupBg ? { groupBg } : {}), ...(domainBg ? { domainBg } : {}) }, labelledInBulgarian(tag) ? "bg" : "en"),
+      ...source,
+    }
+  }
   return { label: group, group, ...(domain ? { domain } : {}), ...imported, ...source }
 }
 
@@ -212,6 +276,11 @@ export function procedureDisplayText(tag: { label?: unknown; [key: string]: unkn
   if (!tag) return ""
   const label = typeof tag.label === "string" ? tag.label.trim() : ""
   if (!isExactProcedure(tag) || typeof tag.description !== "string" || !tag.description.trim()) return label
+  // In the language the procedure was chosen in: a Bulgarian label reads on
+  // with the operation's Bulgarian name, never a Bulgarian group and an English operation.
+  if (labelledInBulgarian(tag) && typeof tag.descriptionBg === "string" && tag.descriptionBg.trim()) {
+    return `${label}: ${tag.descriptionBg.trim()} [${String(tag.code)}]`
+  }
   const group = procedureGroupOf(tag) ?? label
   return `${group}: ${tag.description.trim()} [${String(tag.code)}]`
 }

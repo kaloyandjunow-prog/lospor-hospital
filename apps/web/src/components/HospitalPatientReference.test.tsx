@@ -63,4 +63,27 @@ describe("HospitalPatientReference", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull()
     expect(onRelink).not.toHaveBeenCalled()
   })
+
+  it("says a mistyped ЕГН is wrong while it is typed and never sends it", async () => {
+    const onAddEgn = vi.fn(async () => ({ ok: true as const }))
+    render(<HospitalPatientReference maskedIdentifier="00****45" onRelink={vi.fn()} onAddEgn={onAddEgn} />)
+    const input = screen.getByTestId("add-patient-egn")
+
+    fireEvent.change(input, { target: { value: "750101" } })
+    expect(screen.queryByRole("alert")).toBeNull()
+    fireEvent.change(input, { target: { value: "2402459943" } })
+    expect(screen.getByRole("alert").textContent).toBe("egnInvalid")
+    expect((screen.getByRole("button", { name: "egnAdd" }) as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.change(input, { target: { value: "750101" } })
+    fireEvent.blur(input)
+    expect(screen.getByRole("alert").textContent).toBe("egnIncomplete")
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "egnAdd" })) })
+    expect(onAddEgn).not.toHaveBeenCalled()
+
+    fireEvent.change(input, { target: { value: "7501010010" } })
+    expect(screen.queryByRole("alert")).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "egnAdd" })) })
+    expect(onAddEgn).toHaveBeenCalledWith("7501010010")
+  })
 })

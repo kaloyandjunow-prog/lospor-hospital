@@ -1,40 +1,40 @@
 {
-  "importedAt": "2026-11-12T07:22:23.350Z",
+  "importedAt": "2026-11-14T13:30:05.635Z",
   "sources": {
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
-      "version": "10.3.2",
-      "commit": "2f6f83cf052d1b45d56792018c2a3ab49f904f44",
+      "version": "10.4.0",
+      "commit": "ff7b7ac7a563b9b228215f28067bdff4b33bea95",
       "path": "apps/api",
-      "treeOid": "a5ef549d8bec90853dfd157627bc51f36f1e6111"
+      "treeOid": "b51abbb3a828f5f5566dc78f2f490fd99f08593a"
     },
     "web": {
       "repository": "kaloyandjunow-prog/lospor-app",
-      "version": "10.3.2",
-      "commit": "6d74a479bfd33f0a3bd9d9b7a1e5f77588649e2f",
+      "version": "10.4.0",
+      "commit": "01b51c00a5af01ee7ba1403be6ddb74afd9635c1",
       "path": "apps/web",
-      "treeOid": "ff96d6544a9c93bd62bdecca8abcff084265f93b"
+      "treeOid": "72c50a64047cacb00133b5a65334ba52a9c79972"
     },
     "pwa": {
       "repository": "kaloyandjunow-prog/lospor-mobile",
-      "version": "10.3.2",
-      "commit": "7cd9686f347263752e23f376401b411187ace25d",
+      "version": "10.4.0",
+      "commit": "aace2a0dca64d70fa926db9b1bf837f9b169b4d4",
       "path": "apps/pwa",
-      "treeOid": "2450535808dd8413a01d1dfcbdd8efab7e54e3a6"
+      "treeOid": "cea8ac9b7657f0d71ed8e966985da3e5a8aa7856"
     },
     "browser": {
       "repository": "kaloyandjunow-prog/lospor-browser",
       "version": "0.11.2",
       "commit": "082f55b16f586d00844d69caef1d403ccc5657d6",
       "path": "apps/browser",
-      "treeOid": "e03860d7b3d1ffccaeed8b42893196d2abddfcd2"
+      "treeOid": "715201cd6356e14f224e35aa5ad0856f1aecadf1"
     },
     "core": {
       "repository": "kaloyandjunow-prog/lospor-core",
-      "version": "10.3.0",
-      "commit": "e7c8d4a916d9e38ad58f70a2f82f1982c4d3100f",
+      "version": "10.4.0",
+      "commit": "2d15af18af4975c113419b6d8af9379d97d063f9",
       "path": "vendor/lospor-core",
-      "treeOid": "e3f2ca3a1aedb93e0cd997347b9289672a117394"
+      "treeOid": "a888eabdffb85d4aebca70a39631346f2f105b03"
     },
     "exchangeContract": {
       "owner": "lospor-central",

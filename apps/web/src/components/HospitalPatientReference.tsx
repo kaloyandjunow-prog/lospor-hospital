@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { PatientDisplay } from "@/lib/hospital-patient-reference"
+import { egnFieldIssue } from "@/lib/egn-field"
 
 type RelinkResult = { ok: true } | { ok: false; error: string }
 
@@ -30,8 +31,12 @@ export function HospitalPatientReference({
   const [egn, setEgn] = useState("")
   const [egnError, setEgnError] = useState<string | null>(null)
   const [egnSaving, setEgnSaving] = useState(false)
+  const [egnLeft, setEgnLeft] = useState(false)
+  // Checked while typed, with the server's rule, so a typo never needs a round trip.
+  const egnIssue = egnFieldIssue(egn, egnLeft)
   async function addEgn() {
     if (!onAddEgn || !egn.trim() || egnSaving || disabled) return
+    if (egnFieldIssue(egn, true)) { setEgnLeft(true); return }
     setEgnSaving(true)
     setEgnError(null)
     const result = await onAddEgn(egn.trim()).catch(() => ({ ok: false as const, error: "" }))
@@ -136,12 +141,15 @@ export function HospitalPatientReference({
       ) : onAddEgn ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <Label htmlFor="add-patient-egn" className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</Label>
-          <Input id="add-patient-egn" data-testid="add-patient-egn" className="h-8 w-40" autoComplete="off" inputMode="numeric" maxLength={12}
-            disabled={disabled || egnSaving} value={egn} onChange={event => { setEgn(event.target.value); if (egnError) setEgnError(null) }} />
-          <Button type="button" size="sm" variant="outline" className="h-8" disabled={disabled || egnSaving || !egn.trim()} onClick={() => void addEgn()}>
+          <Input id="add-patient-egn" data-testid="add-patient-egn" className={`h-8 w-40${egnIssue ? " border-red-500" : ""}`} autoComplete="off" inputMode="numeric" maxLength={12}
+            aria-invalid={egnIssue ? true : undefined}
+            disabled={disabled || egnSaving} value={egn} onBlur={() => setEgnLeft(true)}
+            onChange={event => { setEgn(event.target.value); if (egnError) setEgnError(null) }} />
+          <Button type="button" size="sm" variant="outline" className="h-8" disabled={disabled || egnSaving || !egn.trim() || egnIssue === "invalid"} onClick={() => void addEgn()}>
             {t("egnAdd")}
           </Button>
-          {egnError ? <span role="alert" className="text-xs text-red-500">{egnError}</span> : null}
+          {egnIssue ? <span role="alert" className="text-xs text-red-500">{t(egnIssue === "invalid" ? "egnInvalid" : "egnIncomplete")}</span>
+            : egnError ? <span role="alert" className="text-xs text-red-500">{egnError}</span> : null}
         </div>
       ) : null}
 

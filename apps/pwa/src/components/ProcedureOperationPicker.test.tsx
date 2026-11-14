@@ -14,8 +14,9 @@ vi.mock("@lospor/core/vocabulary/procedure-codes", () => ({
       ]
     : [],
 }))
+const prefs = vi.hoisted(() => ({ language: "en" }))
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({ tc: (key: string) => key }),
+  usePreferences: () => ({ tc: (key: string) => key, language: prefs.language }),
 }))
 
 import { getByText, pressByText, queryByText, render } from "@/test/render"
@@ -114,5 +115,24 @@ describe("an imported procedure", () => {
       code: "0FT44ZZ", system: "ICD-10-PCS", source: "import",
       imported: { code: "30445-00", system: "urn:bg:ksmp", sourceVocabulary: "KSMP", sourceLabel: "Лапароскопска холецистектомия", suggestedCodes: ["0FB44ZZ", "0FT44ZZ"] },
     })])
+  })
+  // Mirrors the web case (2026-11-14): the list and the stored tag read in Bulgarian.
+  it("lists and stores the operation in Bulgarian when the app is in Bulgarian", async () => {
+    prefs.language = "bg"
+    apiJsonMock.mockResolvedValue({
+      ...CODES, groupBg: "Холецистектомия",
+      codes: CODES.codes.map(row => ({ ...row, descriptionBg: row.code === "0FT44ZZ" ? "Холецистектомия, лапароскопски достъп" : "Холецистектомия, отворен достъп" })),
+    })
+    const onChange = vi.fn()
+    const tree = render(<ProcedureOperationPicker value={[{ ...GROUP, label: "Холецистектомия", labelEn: "Cholecystectomy", labelBg: "Холецистектомия" }]} onChange={onChange} />)
+    expect(getByText(tree, "Холецистектомия")).toBeTruthy()
+    await act(async () => { pressByText(tree, "procedureSpecifyExact") })
+    await settle()
+    await act(async () => { pressByText(tree, "Холецистектомия, лапароскопски достъп") })
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({
+      label: "Холецистектомия", code: "0FT44ZZ", group: "Cholecystectomy",
+      descriptionBg: "Холецистектомия, лапароскопски достъп", sub: "0FT44ZZ · Холецистектомия, лапароскопски достъп",
+    })])
+    prefs.language = "en"
   })
 })

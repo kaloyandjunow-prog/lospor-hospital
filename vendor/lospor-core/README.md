@@ -1,3 +1,39 @@
+# ENGLISH BELOW
+
+# @lospor/core — български
+
+`@lospor/core` съдържа споделената, независима от конкретна платформа
+клинична логика на LOSPOR. Пакетът се използва от API услугата, уеб клиента,
+мобилното/PWA приложение, Database Browser и локалната инсталация LOSPOR
+Hospital.
+
+Тук се поддържат изчисленията на дози и клинични скали, правилата за
+педиатрична възраст, преобразуването на мерни единици, валидирането на
+клинични стойности, логиката за интраоперативната времева линия, OMOP
+помощните функции и каноничните английски и български термини. Пакетът е чист
+TypeScript и не съдържа React, Expo, достъп до база данни или платформени API.
+
+Пакетът съдържа и общия модел на анестезиологичния протокол: дневник на
+събитията (изтритите записи остават, задраскани), времева линия с ред за всеки
+медикамент, епизоди и фиксираните думи на български и английски. Уеб клиентът,
+PWA и печатът рисуват един и същ документ от тези модели.
+
+За локална проверка:
+
+```bash
+npm ci
+npm test
+npm run typecheck
+npm run lint
+```
+
+Лицензът и подробната техническа документация са посочени в английската
+версия по-долу.
+
+---
+
+# English
+
 # @lospor/core
 
 Shared pure-TypeScript clinical logic for [LOSPOR](https://github.com/kaloyandjunow-prog/lospor-app) — the Large Open Source Perioperative Register.
@@ -42,6 +78,28 @@ no fallback between Bulgarian and English.
 Case contracts distinguish immutable `createdById` from current assignee
 `userId` and expose explicit read/write/creator/assignee capabilities.
 
+## The anaesthesia record
+
+The case summary, the printed record and the phone's timetable are drawn from
+one set of pure models, so they cannot disagree:
+
+- `@lospor/core/record-labels` — the record's fixed words, in English and
+  Bulgarian.
+- `@lospor/core/record-log` — the event log (every charted entry in time order;
+  a deleted entry stays at the minute it was charted for, with the minute it was
+  deleted) and the episodes, each with what was given while it lasted.
+- `@lospor/core/record-timetable` — the whole-case timetable as data: vitals,
+  one lane per drug with its doses, bars for infusions, agents, gas and fluids,
+  and the episodes as bands. Column times come from the saved start instant and
+  time zone, not from the machine.
+- `@lospor/core/record-chart-layout` — that timetable as drawing instructions,
+  which the web (SVG) and mobile (react-native-svg) each draw.
+
+A deleted entry has no stored reason, so none is printed.
+`applyEhrSelections` can give a laboratory result the hospital sent no time for
+the moment it is added (`undatedLabsAt`, used for intraoperative labs); without
+it the result stays undated, as the preoperative panel needs.
+
 ## Design rules
 
 - **Pure TypeScript only** — no React, Expo, Next.js, Prisma, storage, or network code.
@@ -51,7 +109,7 @@ Case contracts distinguish immutable `createdById` from current assignee
 ## Consuming
 
 ```json
-"@lospor/core": "github:kaloyandjunow-prog/lospor-core#v7.3.0"
+"@lospor/core": "github:kaloyandjunow-prog/lospor-core#v10.4.0"
 ```
 
 To release a change: commit → push → tag a new version → bump the tag reference in `lospor-api`, `lospor-app`, `lospor-mobile`, and `lospor-browser`, then refresh and verify each lockfile.

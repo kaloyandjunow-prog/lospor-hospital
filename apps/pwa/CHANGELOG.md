@@ -1,5 +1,23 @@
 # Changelog - LOSPOR Mobile
 
+## [10.4.0] - 2026-11-14
+
+### Added
+
+- **Procedures in Bulgarian.** With the app in Bulgarian, the procedure search shows each group and its section in
+  Bulgarian, and the exact-operation list shows and filters the operations by their Bulgarian names, online and from
+  the bundled copy offline. The stored tag is the same as the web app's for the same tap.
+
+### Changed
+
+- Searching for a procedure matches words in any order, in either language, online and offline (Core 10.4.0).
+
+### Dependencies
+
+- Expo SDK 58 patch releases (expo 58.0.25, expo-dev-client 58.0.20, as `expo install --fix` chose them),
+  @playwright/test 1.65.1, eslint 10.15. `npm audit --omit=dev`: 0.
+
+
 ## [10.3.2] - 2026-11-12
 
 ### Fixed

@@ -64,7 +64,7 @@ import { RecoveryVitals } from "@/components/forms/postop/RecoveryVitals"
 import { RecoveryScore, type AldreteKey } from "@/components/forms/postop/RecoveryScore"
 import { usePostopScoreProjection } from "@/components/forms/postop/usePostopScoreProjection"
 
-type ProcedureSearchItem = { code: string; group?: string; description: string; domain: string }
+type ProcedureSearchItem = { code: string; group?: string; description: string; domain: string; groupBg?: string; domainBg?: string }
 export type { PostopData }
 
 
@@ -352,7 +352,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
                 onChange={field.onChange}
                 searchUrl="/api/search/procedures"
                 renderSuggestion={(item: ProcedureSearchItem) =>
-                  procedureGroupTag({ group: item.group || item.description, domain: item.domain })}
+                  procedureGroupTag({ group: item.group || item.description, domain: item.domain, groupBg: item.groupBg, domainBg: item.domainBg }, locale === "bg" ? "bg" : "en")}
                 placeholder={t("preop.procedurePlaceholder")}
               />
               <ProcedureOperationPicker value={(field.value ?? []) as Tag[]} onChange={field.onChange} />

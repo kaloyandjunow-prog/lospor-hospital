@@ -31,6 +31,21 @@ describe("postPreopServerCase", () => {
     })
     expect(called).toBe(false)
   })
+  it("creates the case without a mistyped ЕГН and sends a valid one", async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    const fetcher = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      return response(true, 201, { id: "case-1" })
+    }) as never
+    const values = { patientNumber: "53533", ageYears: 40, sex: "MALE" as const, heightCm: 170, weightKg: 70, asaScore: "I" as const }
+
+    await expect(postPreopServerCase({ ...values, patientNationalId: "2402459943" }, "draft-1", fetcher, owner))
+      .resolves.toMatchObject({ ok: true, id: "case-1" })
+    expect(bodies[0]).not.toHaveProperty("patientNationalId")
+
+    await postPreopServerCase({ ...values, patientNationalId: "7501 010010" }, "draft-2", fetcher, owner)
+    expect(bodies[1].patientNationalId).toBe("7501010010")
+  })
   it("posts canonical preop payload with the draft idempotency key", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = []
     const fetcher = (async (url: string, init: RequestInit) => {

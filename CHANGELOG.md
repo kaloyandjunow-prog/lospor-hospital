@@ -1,5 +1,52 @@
 # Changelog - LOSPOR Hospital
 
+## [1.9.0] - 2026-11-14 — First stable version
+
+The first stable LOSPOR Hospital. It vendors Core, API, Web and PWA 10.4.0 (Browser stays 0.11.2). There is no
+database migration and no change to the exchange contract, so Central needs no update; rollback is backup-required.
+
+### Added
+
+- **Procedures in Bulgarian.** With the screen in Bulgarian, the procedure search shows each procedure group and its
+  section in Bulgarian, and the list of exact operations shows and filters every ICD-10-PCS operation by its
+  Bulgarian name (all 82,121, reviewed row by row), online and offline on the phone. A procedure is stored like a
+  diagnosis: labelled in the language it was chosen in, both names kept, the code unchanged, so the hospital
+  import, research and Central read it the same way in either language.
+- **Search by words and clinical names.** A procedure is found by its words in any order and in either language
+  ("лапароскопска холецистектомия", "laparoscopic appendectomy"), and by clinical names no code carries
+  ("гастрошизис", "Хиршпрунг", "ВП шънт"). On 100 common paediatric surgical procedures the right group comes first
+  for all 100, in Bulgarian and in English.
+
+### Fixed
+
+- **A mistyped ЕГН no longer stops the case.** The ЕГН is checked while it is typed, in the new-case box and in
+  "Add ЕГН", web and phone; an unfinished number is flagged when the field is left. A case is saved without a wrong
+  ЕГН (the web says so) and the ЕГН is added from the header. Before, every autosave got "Invalid request" and
+  nothing was saved until the whole preoperative form was done. A patient number the hospital system does not know
+  never stopped a case and still does not.
+- **The hospital system is asked once typing pauses** (0.8 s), not on every keystroke of the patient number, and
+  only with a valid ЕГН.
+- **"Look again" brings back a value that was accepted and then deleted.** It asks the hospital system for a fresh
+  copy instead of answering with the one already reviewed; refused values stay refused. It is also offered while an
+  earlier offer still waits.
+- **No more false "3 saves were discarded … no access" warning** when entering a comorbidity or another field; every
+  edit was saved, the warning counted sections that had nothing waiting.
+- **The PostgreSQL image no longer carries Kerberos.** The appliance's PostgreSQL is built without GSSAPI, so the
+  four MIT Kerberos libraries left from the Debian base were unused; they carried 14 HIGH CVEs Debian 13 has no fix
+  for, accepted as exceptions since 1.8.0. They are removed, and the build fails if anything still links them. The
+  image scan now has one HIGH finding (Caddy's go-jose/v3, no upstream fix) instead of 57.
+- **Dependencies**: the moderate npm advisories with a patched release are fixed (fast-uri, ip-address,
+  postcss-selector-parser, vitest); node-forge in the phone app's build tools waits for an Expo major release.
+- **The phone app's About, help page and support report show the appliance version.** They read a version that
+  vendoring always kept at 1.0.0; `release:version` now writes the Hospital version there and `release:check`
+  verifies it.
+
+### Upstream
+
+- Core 10.4.0: procedures in Bulgarian; word search and ranking in both languages; the false discard warning.
+- API 10.4.0: Bulgarian procedure names and clinical search words in the procedure search and the operation list.
+- Web and PWA 10.4.0: procedure search and the operation list in Bulgarian.
+
 ## [1.8.3] - 2026-11-12
 
 A patch release for appliance maintenance and the build (1.8.2 was not published; its candidate failed the image vulnerability scan, and this release carries everything it had). It vendors API, Web and PWA 10.3.2 (Core stays 10.3.0,

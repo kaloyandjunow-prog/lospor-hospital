@@ -1,4 +1,4 @@
-import { procedureGroupTag } from "./procedure-codes"
+import { procedureGroupTag, procedureQueryWords } from "./procedure-codes"
 
 export type ClinicalSearchKind = "icd10" | "procedure" | "medication"
 
@@ -171,6 +171,59 @@ export type ProcedureSearchRow = {
    * "resection" stopped finding Gastrectomy. Costs ~100 KB and restores it.
    */
   terms?: string
+  /** The group and its ICD-10-PCS section in Bulgarian. */
+  groupBg?: string
+  domainBg?: string
+  /** This operation's Bulgarian name (hisbg-nomenclatures translation of ICD-10-PCS). */
+  descriptionBg?: string
+  /**
+   * Lower-case Bulgarian text a query is matched against, built once: the
+   * group's and section's names plus the operation's name and synonyms online,
+   * or the group's Bulgarian words on an offline row.
+   */
+  searchBg?: string
+  /**
+   * Lower-case clinical words curated for the group, in both languages, that
+   * no ICD-10-PCS name carries: "гастрошизис", "Hirschsprung", "VP shunt".
+   * Search only, never shown (hisbg-nomenclatures procedure-group-terms.json).
+   */
+  groupTerms?: string
+}
+
+/**
+ * The row's English text in lower case, built once per row and kept: lowering
+ * 82,000 descriptions on every query is what made a search slow.
+ */
+const englishText = new WeakMap<ProcedureSearchRow, string>()
+function englishOf(row: ProcedureSearchRow): string {
+  let text = englishText.get(row)
+  if (text === undefined) {
+    text = `${row.description} ${row.group} ${row.domain}`.toLowerCase()
+    englishText.set(row, text)
+  }
+  return text
+}
+
+/** The row's Bulgarian names in lower case, when it has no prebuilt search text. */
+function bulgarianOf(row: ProcedureSearchRow): string {
+  return row.searchBg ?? (row.groupBg ? `${row.groupBg} ${row.domainBg ?? ""}`.toLowerCase() : "")
+}
+
+/**
+ * Every word typed appears somewhere in the row, in either language, in any
+ * order: "laparoscopic appendectomy" and "резекция стомах" both match, where
+ * the whole phrase as one string matched neither. A word may be in the English
+ * text, the Bulgarian names and synonyms, the group's search words (`terms`)
+ * or its clinical words (`groupTerms`).
+ */
+function wordsMatch(row: ProcedureSearchRow, words: readonly (readonly string[])[]): boolean {
+  const english = englishOf(row)
+  const bulgarian = bulgarianOf(row)
+  const found = (word: string) => english.includes(word)
+    || bulgarian.includes(word)
+    || (row.terms !== undefined && row.terms.includes(word))
+    || (row.groupTerms !== undefined && row.groupTerms.includes(word))
+  return words.every(forms => forms.some(found))
 }
 
 /**
@@ -199,14 +252,47 @@ const PROCEDURE_SCORE_COMMON = 2000
 const PROCEDURE_SCORE_GROUP = 500
 const PROCEDURE_SCORE_CODE = 200
 const PROCEDURE_SCORE_PREFIX = 100
+const PROCEDURE_SCORE_WORD = 50
+const PROCEDURE_SCORE_TERM = 300
+const PROCEDURE_SCORE_NAMED = 60
+const PROCEDURE_SCORE_NAMED_WORD = 20
 
 export function procedureScore(row: ProcedureSearchRow, query: string): number {
   const q = query.trim().toLowerCase()
+  const words = q.split(/\s+/).filter(Boolean)
   const group = row.group.toLowerCase()
-  return (PROCEDURE_COMMON_GROUPS.has(row.group) ? PROCEDURE_SCORE_COMMON : 0)
-    + (group.includes(q) ? PROCEDURE_SCORE_GROUP : 0)
+  const groupBg = row.groupBg?.toLowerCase() ?? ""
+  // The operation, not its approach: everything after the first comma says how
+  // it was reached ("…, трансуретрален ендоскопски достъп (цистоскопия)"), and
+  // an approach word must not make Prostatectomy the answer to "цистоскопия".
+  const named = (row.descriptionBg?.toLowerCase() ?? "").split(", ")[0]
+  const described = row.description.toLowerCase().split(", ")[0]
+  // Each typed word the group's name really contains, not counting its
+  // exclusions: "тазобедрена" must favour "Артропластика на тазобедрената
+  // става" over "… на други стави (без коляно и тазобедрена става)", and "hip"
+  // "Hip arthroplasty" over "… (excluding knee and hip)".
+  const included = `${groupBg.replace(/\(без [^)]*\)/g, "")} ${group.replace(/\(excluding [^)]*\)/g, "")}`
+  const wordsInGroup = words.filter(word => included.includes(word)).length
+  // Words in the operation's own name rather than only in its synonyms: a
+  // synonym match alone used to score nothing, and the alphabetically first
+  // group won -- "цистоскопия" put Prostatectomy first.
+  const wordsNamed = words.filter(word => named.includes(word) || described.includes(word)).length
+  // A department's everyday groups float up only for what they are actually
+  // named by. On a synonym alone, Prostatectomy outranked Cystoscopy for
+  // "цистоскопия".
+  const common = PROCEDURE_COMMON_GROUPS.has(row.group) && (wordsNamed > 0 || wordsInGroup > 0)
+  return (common ? PROCEDURE_SCORE_COMMON : 0)
+    + wordsInGroup * PROCEDURE_SCORE_WORD
+    + wordsNamed * PROCEDURE_SCORE_NAMED_WORD
+    // A clinical word curated for this group ("гастрошизис", "Hirschsprung").
+    + (row.groupTerms !== undefined && row.groupTerms.includes(q) ? PROCEDURE_SCORE_TERM : 0)
+    + (group.includes(q) || (groupBg !== "" && groupBg.includes(q)) ? PROCEDURE_SCORE_GROUP : 0)
     + (row.code.toLowerCase().startsWith(q) ? PROCEDURE_SCORE_CODE : 0)
-    + (group.startsWith(q) ? PROCEDURE_SCORE_PREFIX : 0)
+    + (group.startsWith(q) || (groupBg !== "" && groupBg.startsWith(q)) ? PROCEDURE_SCORE_PREFIX : 0)
+    // An operation whose name begins with what was typed -- "холецистектомия"
+    // -- is the group the clinician means; one that contains it is likely.
+    + ((named !== "" && named.startsWith(q)) || described.startsWith(q) ? PROCEDURE_SCORE_PREFIX : 0)
+    + ((named !== "" && named.includes(q)) || described.includes(q) ? PROCEDURE_SCORE_NAMED : 0)
 }
 
 /**
@@ -224,13 +310,16 @@ export function searchProcedures(
   const q = query.trim().toLowerCase()
   if (q.length < CLINICAL_SEARCH_MIN_LENGTH.procedure) return []
 
+  // Each word as typed, or as ICD-10-PCS says it: "laparoscopic" is
+  // "percutaneous endoscopic" there, the reading the operation list uses. As
+  // typed too, so "лапаротомия" still finds laparotomy and not every open
+  // operation.
+  const typed = q.split(/\s+/).filter(Boolean)
+  const read = procedureQueryWords(q)
+  const words = typed.map((word, i) => read[i] && read[i] !== word ? [word, read[i]] : [word])
   const bestPerGroup = new Map<string, { row: ProcedureSearchRow; score: number }>()
   for (const row of rows) {
-    const matches = row.description.toLowerCase().includes(q)
-      || row.group.toLowerCase().includes(q)
-      || row.domain.toLowerCase().includes(q)
-      || row.code.toLowerCase().startsWith(q)
-      || (row.terms !== undefined && row.terms.includes(q))
+    const matches = row.code.toLowerCase().startsWith(q) || wordsMatch(row, words)
     if (!matches) continue
 
     const score = procedureScore(row, q)
@@ -262,6 +351,9 @@ export type CanonicalSearchTag = {
   group?: string
   domain?: string
   description?: string
+  /** Procedures: the section and the exact operation in Bulgarian. */
+  domainBg?: string
+  descriptionBg?: string
   /**
    * Set only when the tag came from the offline bundled vocabulary rather than
    * a live search.
@@ -312,7 +404,14 @@ export function parseClinicalSearchResult(
     // The exact operation is a second, deliberate choice (procedure-codes).
     const group = text(item.group) ?? text(item.description)
     if (!group) return null
-    return procedureGroupTag({ group, domain: text(item.domain) ?? "" })
+    const groupBg = text(item.groupBg)
+    const domainBg = text(item.domainBg)
+    return procedureGroupTag({
+      group,
+      domain: text(item.domain) ?? "",
+      ...(groupBg ? { groupBg } : {}),
+      ...(domainBg ? { domainBg } : {}),
+    }, locale)
   }
   const name = text(item.name)
   const inn = text(item.inn)

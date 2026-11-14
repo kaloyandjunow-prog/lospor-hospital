@@ -3,7 +3,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ProcedureOperationPicker } from "./ProcedureOperationPicker"
 
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }))
+const intl = vi.hoisted(() => ({ locale: "en" }))
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => intl.locale }))
 
 const GROUP = { label: "Cholecystectomy", code: "Cholecystectomy", system: "LOSPOR_PROCEDURE_GROUP", group: "Cholecystectomy", domain: "Hepatobiliary System and Pancreas", source: "manual" as const }
 const CODES = {
@@ -15,7 +16,7 @@ const CODES = {
   ],
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals(); intl.locale = "en" })
 
 describe("choosing the exact operation of a planned procedure", () => {
   it("replaces the group with the operation picked, keeping its provenance", async () => {
@@ -84,6 +85,23 @@ describe("an imported procedure", () => {
     expect(onChange).toHaveBeenCalledWith([expect.objectContaining({
       code: "0FT44ZZ", system: "ICD-10-PCS", source: "import",
       imported: { code: "30445-00", system: "urn:bg:ksmp", sourceVocabulary: "KSMP", sourceLabel: "Лапароскопска холецистектомия", suggestedCodes: ["0FB44ZZ", "0FT44ZZ"] },
+    })])
+  })
+  // Bulgarian names (2026-11-14): the list and the stored tag read in Bulgarian.
+  it("lists and stores the operation in Bulgarian when the screen is in Bulgarian", async () => {
+    intl.locale = "bg"
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ...CODES, groupBg: "Холецистектомия",
+      codes: CODES.codes.map(row => ({ ...row, descriptionBg: row.code === "0FT44ZZ" ? "Холецистектомия, лапароскопски достъп" : "Холецистектомия, отворен достъп", domainBg: "Черен дроб, жлъчни пътища и панкреас" })),
+    }))))
+    const onChange = vi.fn()
+    render(<ProcedureOperationPicker value={[{ ...GROUP, label: "Холецистектомия", labelEn: "Cholecystectomy", labelBg: "Холецистектомия" }]} onChange={onChange} />)
+    await act(async () => { fireEvent.click(screen.getByText("procedureSpecifyExact")) })
+    await waitFor(() => expect(screen.getByText("Холецистектомия, лапароскопски достъп")).toBeTruthy())
+    fireEvent.click(screen.getByText("Холецистектомия, лапароскопски достъп"))
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({
+      label: "Холецистектомия", code: "0FT44ZZ", group: "Cholecystectomy", labelBg: "Холецистектомия",
+      descriptionBg: "Холецистектомия, лапароскопски достъп", sub: "0FT44ZZ · Холецистектомия, лапароскопски достъп",
     })])
   })
 })

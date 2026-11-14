@@ -2556,6 +2556,8 @@
     "egnAdd": "Add ЕГН",
     "egnAdded": "ЕГН added. This patient's admissions are now joined.",
     "egnInvalid": "This is not a valid ЕГН. Check the digits.",
+    "egnIncomplete": "An ЕГН has 10 digits.",
+    "egnNotSaved": "The case was saved without the ЕГН because it is not valid. Add it above, next to the hospital number.",
     "egnTaken": "This admission already has a different ЕГН. Ask an administrator to correct it.",
     "unavailable": "Masked number unavailable — do not continue until the link can be verified.",
     "correct": "Correct number",

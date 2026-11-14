@@ -43,6 +43,7 @@ import { onOutboxChange } from "@/lib/case-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { blockedSaveMessage, failedSaveMessage, withBlockedPreopRejection } from "@/lib/blocked-save-message"
 import { randomId } from "@/lib/random-id"
+import { nationalIdForCreate } from "@/lib/egn-field"
 import { CaseProgress } from "./CaseProgress"
 import { CaseEditorHeader, type CaseSaveStatus } from "./CaseEditorHeader"
 import { useHospitalPatientReference } from "@/hooks/useHospitalPatientReference"
@@ -296,7 +297,7 @@ export default function NewCasePage() {
       if (!caseIdRef.current) {
         const patientNumber = section === "preop" ? (data as PreopData).patientId?.trim() : undefined
         if (!patientNumber) throw new Error("Hospital patient number is required")
-        const patientNationalId = section === "preop" ? (data as PreopData).patientNationalId?.trim() || undefined : undefined
+        const egn = nationalIdForCreate(section === "preop" ? (data as PreopData).patientNationalId : undefined)
         const acceptedPayload = { ...payload }
         let firstBlocked: BlockedSaveIssue | null = null
         let createdBody: Record<string, unknown> | null = null
@@ -305,11 +306,9 @@ export default function NewCasePage() {
           const selectedMode = acceptedPayload.clinicalMode === "PEDIATRIC"
             ? "PEDIATRIC"
             : "ADULT"
-          const res = await fetch("/api/cases", {
-            method: "POST",
+          const res = await fetch("/api/cases", { method: "POST",
             headers: { "Content-Type": "application/json", [IDEMPOTENCY_HEADER]: createDraftIdRef.current },
-            body: JSON.stringify({ patientNumber, ...(patientNationalId ? { patientNationalId } : {}), clinicalMode: selectedMode, preop: acceptedPayload }),
-
+            body: JSON.stringify({ patientNumber, ...(egn.send ? { patientNationalId: egn.send } : {}), clinicalMode: selectedMode, preop: acceptedPayload }),
           })
           const body = await res.json().catch(() => ({})) as Record<string, unknown>
           if (res.ok) {
@@ -349,6 +348,7 @@ export default function NewCasePage() {
           onError?.(message)
           return false
         }
+        if (egn.dropped) toast.warning(t("patientReference.egnNotSaved")) // even on autosave: the ЕГН box closes now
         if (firstBlocked) {
           const outcome = await autosaveManager.saveSection(id, "preop", payload, { fullPayload: payload })
           const issue = outcome.blocked ?? firstBlocked

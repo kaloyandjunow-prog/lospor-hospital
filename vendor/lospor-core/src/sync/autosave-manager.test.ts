@@ -556,4 +556,24 @@ describe("a patch queued behind this device's own event", () => {
     await saved
     expect(sendPatch.mock.calls[0]![3]).toBe(1)
   })
+
+  // Found on the appliance (2026-11-14): adding a comorbidity showed "3 saves
+  // were discarded" although every edit had been saved -- the three sections
+  // with nothing queued were each counted as a discard.
+  it("never reports a section with nothing queued as a discarded save", async () => {
+    const kv = memoryKV()
+    const autosave = manager(kv, vi.fn().mockResolvedValue({ preopRevision: 2 }))
+    await expect(autosave.flushCase("case-1")).resolves.toMatchObject({ discarded: 0, failed: 0 })
+  })
+
+  it("still reports a save the server refused for good", async () => {
+    const kv = memoryKV()
+    const refused = Object.assign(new Error("forbidden"), { status: 403 })
+    const autosave = manager(kv, vi.fn().mockRejectedValue(refused),
+      (error) => (error as { status?: number }).status === 403 ? { kind: "http", status: 403 } : { kind: "other" })
+    autosave.hydrateSection("case-1", "preop", { ageYears: 40 }, 1)
+    await autosave.saveSection("case-1", "preop", { ageYears: 41 }).catch(() => {})
+    await kv.set(outboxPatchKey("case-1", "preop"), JSON.stringify({ payload: { ageYears: 41 }, baseUpdatedAt: null, queuedAt: "2026-07-23T20:00:00.000Z" }))
+    await expect(autosave.flushCase("case-1")).resolves.toMatchObject({ discarded: 1 })
+  })
 })
