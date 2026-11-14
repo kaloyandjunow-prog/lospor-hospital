@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "exceptions": [
     {
-      "release": "1.8.3",
+      "release": "1.9.0",
       "image": "caddy",
       "vulnerabilityId": "CVE-2026-116587",
       "package": "github.com/go-jose/go-jose/v3",
       "expiresAt": "2027-01-31",
-      "justification": "Accepted by the maintainer for Hospital 1.8.3 on 2026-11-12 (as for 1.8.0 to 1.8.2): an unfixed finding. Caddy 2.11.7 and its Smallstep certificate path still compile go-jose/v3, and upstream has no patched v3 release for this advisory (Caddy 2.11.8 and 2.11.9 do not carry one either). go-jose/v4 is already at 4.1.6; this exact finding is accepted until upstream removes or patches v3. The other nine images scan clean."
+      "justification": "Accepted by the maintainer for Hospital 1.9.0 on 2026-11-14 (as for 1.8.0 to 1.8.3): an unfixed finding. go-jose/v3 3.0.5 is the latest v3 release and has no fix; it is required by smallstep/certificates 0.30.2 (latest), which Caddy 2.11.7 to 2.11.9 use for its internal PKI (tls internal). The vulnerable path parses attacker-supplied JWKs, which only an ACME server does, and the appliance runs none. go-jose/v4 is already at 4.1.6. Accepted until upstream removes or patches v3."
     }
   ]
 }
