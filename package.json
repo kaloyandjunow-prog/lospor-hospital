@@ -29,6 +29,7 @@
     "verify:release-workflow": "node scripts/verify-release-workflow.mjs",
     "release:version": "node scripts/release-version.mjs apply",
     "release:check": "node scripts/release-version.mjs check",
+    "release:scan-local": "sh scripts/scan-images-local.sh",
     "test:release-workflow": "node --test scripts/verify-release-workflow.test.mjs scripts/quality-already-passed.test.mjs scripts/image-reuse.test.mjs",
     "test:appliance-update": "node --test scripts/check-for-update.test.mjs scripts/ghcr-tag-state.test.mjs",
     "verify:release-inputs": "node scripts/release-inputs.mjs json release-inputs.json",
