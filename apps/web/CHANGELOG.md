@@ -1,5 +1,30 @@
 # Changelog - LOSPOR Web App
 
+## [10.4.0] - 2026-11-14
+
+### Added
+
+- **Procedures in Bulgarian.** With the web app in Bulgarian, the procedure search (preop planned procedure, postop
+  procedure done) shows each group and its section in Bulgarian, and the exact-operation list shows and filters the
+  operations by their Bulgarian names. The tag is stored like a diagnosis: labelled in the language it was chosen in,
+  both names kept, the code and group unchanged.
+
+### Changed
+
+- Searching for a procedure matches words in any order, in either language (Core 10.4.0).
+
+### Fixed
+
+- **No more false "saves were discarded" warning** when adding a comorbidity or another field: the warning appeared
+  2-3 times although everything had been saved (Core 10.4.0).
+
+### Dependencies
+
+- next-intl 4.15.1, lucide-react 1.73, driver.js 1.14, @playwright/test 1.65.1, eslint 10.15 (minor and patch only).
+  `npm audit --omit=dev` still shows the seven known low findings (next-pwa/workbox chain, deepmerge) with no
+  patched release; they are accepted.
+
+
 ## [10.3.2] - 2026-11-12
 
 ### Fixed

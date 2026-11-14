@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import {
   backToProcedureGroup,
   chooseExactOperation,
@@ -12,8 +12,8 @@ import {
 } from "@lospor/core/procedure-codes"
 import type { Tag } from "@/components/TagInput"
 
-type CodeRow = { code: string; description: string; domain: string | null; suggested?: boolean }
-type CodeList = { total: number; codes: CodeRow[] }
+type CodeRow = { code: string; description: string; descriptionBg?: string; domain: string | null; domainBg?: string; suggested?: boolean }
+type CodeList = { total: number; groupBg?: string; codes: CodeRow[] }
 
 interface Props {
   value: Tag[]
@@ -32,6 +32,7 @@ interface Props {
  */
 export function ProcedureOperationPicker({ value, onChange, disabled }: Props) {
   const t = useTranslations("preop")
+  const bg = useLocale() === "bg"
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const procedures = (value ?? []).filter(tag => procedureGroupOf(tag))
   if (procedures.length === 0) return null
@@ -49,9 +50,9 @@ export function ProcedureOperationPicker({ value, onChange, disabled }: Props) {
         return (
           <div key={`${tag.label}-${index}`} className="rounded-md border border-slate-200 dark:border-[#2e2e2e] px-3 py-2 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-slate-700 dark:text-[#e5e5e5]">{group}</span>
+              <span className="font-medium text-slate-700 dark:text-[#e5e5e5]">{bg && tag.labelBg ? tag.labelBg : group}</span>
               {exact
-                ? <span className="text-slate-500 dark:text-[#aaa]">{tag.code} · {tag.description}</span>
+                ? <span className="text-slate-500 dark:text-[#aaa]">{tag.code} · {bg && tag.descriptionBg ? tag.descriptionBg : tag.description}</span>
                 : <span className="text-slate-400 dark:text-[#888]">{t("procedureNoExact")}</span>}
               {imported && (
                 <span className="text-slate-400 dark:text-[#888]">
@@ -85,10 +86,15 @@ export function ProcedureOperationPicker({ value, onChange, disabled }: Props) {
             {openGroup === `${index}` && (
               <OperationList
                 group={group}
+                bg={bg}
                 selected={exact ? tag.code ?? null : null}
                 suggested={suggestedProcedureCodes(tag)}
-                onPick={row => {
-                  replace(index, chooseExactOperation(tag, { ...row, group, domain: row.domain ?? "" }) as Tag)
+                onPick={(row, groupBg) => {
+                  replace(index, chooseExactOperation(tag, {
+                    ...row, group, domain: row.domain ?? "",
+                    ...(groupBg ? { groupBg } : {}),
+                    ...(row.domainBg ? { domainBg: row.domainBg } : {}),
+                  }, bg ? "bg" : "en") as Tag)
                   setOpenGroup(null)
                 }}
               />
@@ -100,11 +106,12 @@ export function ProcedureOperationPicker({ value, onChange, disabled }: Props) {
   )
 }
 
-function OperationList({ group, selected, suggested, onPick }: {
+function OperationList({ group, bg, selected, suggested, onPick }: {
   group: string
+  bg: boolean
   selected: string | null
   suggested: string[]
-  onPick: (row: CodeRow) => void
+  onPick: (row: CodeRow, groupBg?: string) => void
 }) {
   const t = useTranslations("preop")
   const [query, setQuery] = useState("")
@@ -150,11 +157,11 @@ function OperationList({ group, selected, suggested, onPick }: {
                 type="button"
                 role="option"
                 aria-selected={row.code === selected}
-                onClick={() => onPick(row)}
+                onClick={() => onPick(row, list.groupBg)}
                 className={`w-full text-left px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] ${row.code === selected ? "bg-blue-50 dark:bg-blue-900/40" : ""}`}
               >
                 <span className="font-mono text-slate-500 mr-2">{row.code}</span>
-                <span className="text-slate-800 dark:text-[#e5e5e5]">{row.description}</span>
+                <span className="text-slate-800 dark:text-[#e5e5e5]">{bg && row.descriptionBg ? row.descriptionBg : row.description}</span>
                 {row.suggested && <span className="ml-2 rounded bg-emerald-50 px-1 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{t("procedureSuggested")}</span>}
               </button>
             </li>
