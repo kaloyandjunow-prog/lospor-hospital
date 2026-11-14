@@ -27,6 +27,7 @@ const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 const POLICIES = new Set(["backup-required", "service-compatible"])
 const PATHS = {
   package: "package.json",
+  pwaAppJson: "apps/pwa/app.json",
   upstream: "UPSTREAM_VERSIONS.json",
   manifestVersions: "apps/api/src/lib/hospital/appliance-versions.ts",
   compatibility: "release-compatibility.tsv",
@@ -200,6 +201,13 @@ export function apply(root, release, { justification, policy, date, previousPins
   manifest.text = setManifestVersions(manifest.text, { hospital: release, api: sources.api.version, core: sources.core.version })
   writeText(root, PATHS.manifestVersions, manifest)
 
+  // The phone app's "About", help page and support report read expo.version,
+  // which vendoring keeps as appliance identity -- so it said 1.0.0 in every
+  // release. It is the appliance's version, and moves with it.
+  const appJson = readText(root, PATHS.pwaAppJson)
+  appJson.text = appJson.text.replace(/^(    "version": )"[^"]*",$/m, `$1"${release}",`)
+  writeText(root, PATHS.pwaAppJson, appJson)
+
   const [header, , schemaMin, , previousPolicy, ...rest] = readText(root, PATHS.compatibility).text.trim().split("\t")
   const chosenPolicy = policy ?? previousPolicy
   if (!POLICIES.has(chosenPolicy)) refuse(`Rollback policy must be one of ${[...POLICIES].join(", ")}.`)
@@ -235,6 +243,7 @@ export function check(root, release) {
   const expect = (ok, message) => { if (!ok) problems.push(message) }
   const { sources } = readJson(root, PATHS.upstream)
   expect(readJson(root, PATHS.package).version === release, `package.json is not ${release}.`)
+  expect(readJson(root, PATHS.pwaAppJson).expo?.version === release, `apps/pwa/app.json (the phone app's "About") is not ${release}.`)
 
   const manifest = readText(root, PATHS.manifestVersions).text
   for (const [key, value] of Object.entries({ hospital: release, api: sources.api.version, core: sources.core.version })) {

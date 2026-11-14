@@ -24,6 +24,15 @@ function fixture(t, { sources = pins("9.14.0"), previous = "1.4.22" } = {}) {
   const write = (path, text) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), text) }
   write("package.json", `{\n  "name": "lospor-hospital",\n  "version": "${previous}",\n  "private": true\n}\n`)
   write("UPSTREAM_VERSIONS.json", JSON.stringify({ sources }, null, 2))
+  write("apps/pwa/app.json", `{
+  "expo": {
+    "name": "LOSPOR Hospital",
+    "slug": "lospor-hospital",
+    "version": "1.0.0",
+    "scheme": "lospor-hospital"
+  }
+}
+`)
   write("apps/api/src/lib/hospital/appliance-versions.ts", `export const APPLIANCE_MANIFEST_VERSIONS = {\n  hospital: "${previous}",\n  api: "9.13.8",\n  core: "9.13.8",\n  databaseSchema: "hospital-2",\n} as const\n`)
   write("release-compatibility.tsv", `LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t${previous}\t20260530000000_init\t20261002100000_old\tbackup-required\t-\t0\n`)
   write("release-rollback-justification.json", JSON.stringify({ schemaVersion: 1, release: previous, policy: "backup-required", justification: "old", assessedBy: "maintainer", assessedAt: "2026-10-03" }, null, 2))
@@ -91,7 +100,7 @@ test("apply refuses a missing justification, an older version and an unknown pol
 test("check names each part that disagrees", t => {
   const { root } = fixture(t)
   const problems = check(root, "1.5.0")
-  for (const part of ["package.json", "appliance-versions.ts does not declare hospital", "appliance-versions.ts does not declare api 9.14.0", "release-compatibility.tsv describes", "schema_max", "release-rollback-justification.json", "release-validation.md", "release-validation.bg.md", "CHANGELOG.md does not open"]) {
+  for (const part of ["package.json", "apps/pwa/app.json", "appliance-versions.ts does not declare hospital", "appliance-versions.ts does not declare api 9.14.0", "release-compatibility.tsv describes", "schema_max", "release-rollback-justification.json", "release-validation.md", "release-validation.bg.md", "CHANGELOG.md does not open"]) {
     assert.ok(problems.some(problem => problem.includes(part)), part)
   }
 })
