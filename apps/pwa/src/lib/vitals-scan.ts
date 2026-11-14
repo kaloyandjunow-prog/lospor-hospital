@@ -19,11 +19,21 @@ function readBlobAsBase64(blob: Blob): Promise<string> {
   })
 }
 
-// Prepares a camera/gallery image for the monitor-scan API: native platforms
-// pass through the already-captured base64; web re-encodes via canvas to
-// keep the payload under the API's size limit. Used exclusively by the
-// vitals "scan from camera" feature (useVitalsEntry).
-export async function prepareVitalsScanImage(asset: ScanImageAsset): Promise<{ image: string; mimeType: string }> {
+// Prepares a camera/gallery image for an AI scan (the monitor, and since
+// 10.4.1 the lab report): native platforms pass through the already-captured
+// base64; web re-encodes via canvas to keep the payload under the API's size
+// limit.
+/**
+ * On the web the photo is drawn through a canvas: the browser applies the
+ * phone's EXIF turn while decoding, so the pixels sent are upright and carry no
+ * EXIF (no location). The AI provider ignores the turn tag; a lab report sent
+ * as stored was read at 90 degrees, its values on the wrong rows (10.4.1).
+ * A lab report needs more pixels than a monitor: small print, many rows.
+ */
+export async function prepareVitalsScanImage(
+  asset: ScanImageAsset,
+  { maxDimension = 1600, quality = 0.72 }: { maxDimension?: number; quality?: number } = {},
+): Promise<{ image: string; mimeType: string }> {
   if (Platform.OS !== "web") {
     if (asset.base64) {
       return { image: asset.base64, mimeType: asset.mimeType || "image/jpeg" }
@@ -45,7 +55,6 @@ export async function prepareVitalsScanImage(asset: ScanImageAsset): Promise<{ i
       element.onerror = () => reject(new Error("Could not decode the captured image."))
       element.src = objectUrl
     })
-    const maxDimension = 1600
     const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
     const canvas = document.createElement("canvas")
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
@@ -54,7 +63,7 @@ export async function prepareVitalsScanImage(asset: ScanImageAsset): Promise<{ i
     if (!context) throw new Error("Image compression is not available in this browser.")
     context.drawImage(image, 0, 0, canvas.width, canvas.height)
     return {
-      image: canvas.toDataURL("image/jpeg", 0.72).split(",")[1] ?? "",
+      image: canvas.toDataURL("image/jpeg", quality).split(",")[1] ?? "",
       mimeType: "image/jpeg",
     }
   } finally {

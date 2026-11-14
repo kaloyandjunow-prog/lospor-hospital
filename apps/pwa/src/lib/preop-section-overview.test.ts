@@ -30,9 +30,16 @@ const text: PreopSectionOverviewText = {
   premedicationHint: "premedication hint",
   plannedHint: "planned hint",
   fastingHint: "fasting hint",
+  aiHint: "allow ai", aiAllowed: "ai allowed",
 }
 
 describe("preop section overview", () => {
+  it("shows the AI section's consent, never as required (10.4.1)", () => {
+    const labels = [{ key: "ai" as const, label: "AI" }]
+    expect(buildPreopSectionItems({}, labels, text)[0]).toMatchObject({ done: false, required: false, summary: "allow ai" })
+    expect(buildPreopSectionItems({ aiOptIn: true }, labels, text)[0]).toMatchObject({ done: true, summary: "ai allowed" })
+  })
+
   it("counts the premedication ordered across both phases", () => {
     const labels = [{ key: "premedication" as const, label: "Premedication" }]
     expect(buildPreopSectionItems({}, labels, text)[0]).toMatchObject({ done: false, summary: "premedication hint" })

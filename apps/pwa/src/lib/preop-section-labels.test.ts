@@ -7,7 +7,7 @@ describe("the preop section order", () => {
   it("puts the plan and the orders after the risk scores", () => {
     const keys = localizedPreopSectionLabels(key => key).map(section => section.key)
     expect(keys).toEqual([
-      "patient", "case", "history", "meds", "anamnesis", "exam", "airway", "labs",
+      "patient", "ai", "case", "history", "meds", "anamnesis", "exam", "airway", "labs",
       "risk", "planned", "premedication", "fasting", "wardOrders", "medInstructions",
     ])
   })

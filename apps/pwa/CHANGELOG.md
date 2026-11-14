@@ -1,5 +1,26 @@
 # Changelog - LOSPOR Mobile
 
+## [10.4.1] - 2026-11-14
+
+### Fixed
+
+- **Lab report scans read photos sideways (PWA).** On the web the lab photo now goes through the same canvas step as
+  the monitor scan: the browser applies the photo's EXIF turn, and the JPEG sent has upright pixels, at most
+  3000 px, and no EXIF (no location). Sent as stored, the AI provider read the report at 90 degrees and put values
+  on the wrong rows (API 10.4.1 has the numbers). The native app passes the picker's own image through, as before.
+
+### Changed
+
+- **AI assistance is a section of its own**, right after the patient: the consent and the adult advisor, with its
+  own pill in the section rail and its own line in the overview ("Allowed for this case" once consented). It was
+  inside the risk scores. With every AI feature off in Status the section is not shown. The lab-scan consent
+  message now points to it. Bulgarian: „Помощ от ИИ“.
+
+### Dependencies
+
+- No updates since 10.4.0: `expo install --check` is up to date; the newer react, react-native-svg,
+  gesture-handler and worklets releases stay where the Expo SDK pins them. `npm audit --omit=dev`: 0.
+
 ## [10.4.0] - 2026-11-14
 
 ### Added

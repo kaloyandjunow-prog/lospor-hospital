@@ -48,7 +48,7 @@ import { isPreopSectionOn } from "@lospor/core/preop-orders"
 import { sideSwipeExitMs, sideSwipeFade, sideSwipeFollow, sideSwipeGate, sideSwipeStep } from "@/lib/side-swipe"
 import { convertedMeasurement } from "@/lib/use-converted-measurement"
 import { LabScanPanel } from "@/components/LabScanPanel"
-import { AiAdvisorPanel } from "@/components/AiAdvisorPanel"
+import { PreopAiSection } from "@/components/preop/PreopAiSection"
 import {
   capabilityMessageKey,
   useDeploymentCapabilities,
@@ -484,6 +484,7 @@ export default function NewCaseScreen() {
   const _allFormValues = useWatch({ control })
   const preopProfile = usePreopProfile({ caseId, pediatric: pediatricMode, values: _allFormValues as Record<string, unknown>, form: { getAnswers: () => getValues("preopAnswers") ?? [], setAnswers: answers => setValue("preopAnswers", answers, { shouldDirty: true }) } })
   const sectionConfig = preopProfile.sectionConfig
+  const anyAiOn = clinicalAi.clinicalAdvice.enabled || clinicalAi.labImageExtraction.enabled || clinicalAi.monitorOcr.enabled
   const offSectionKeys = ([
     ["MEDICAL_HISTORY", "history"],
     ["CURRENT_MEDICATIONS", "meds"],
@@ -493,7 +494,9 @@ export default function NewCaseScreen() {
     ["WARD_ORDERS", "wardOrders"],
     ["MEDICATION_INSTRUCTIONS", "medInstructions"],
     ["PREMEDICATION", "premedication"],
-  ] as const).filter(([key]) => !isPreopSectionOn(sectionConfig, key)).map(([, section]) => section).join(",")
+  ] as const).filter(([key]) => !isPreopSectionOn(sectionConfig, key)).map(([, section]): PreopSection => section)
+    // AI assistance only when Status has an AI feature on (10.4.1).
+    .concat(anyAiOn ? [] : ["ai"]).join(",")
   useEffect(() => { setOffSections(offSectionKeys) }, [offSectionKeys])
   // A section switched off while it was the one open hands over to the first.
   useEffect(() => {
@@ -1083,6 +1086,9 @@ export default function NewCaseScreen() {
               {questionList("demographics")}
             </SectionCard>
 
+            <PreopAiSection control={control} visible={showSection("ai")} onLayout={(y) => { sectionY.current.ai = y }} pediatric={pediatricMode} clinicalAi={clinicalAi}
+              advisor={{ analysing: aiLoading, text: aiText, error: aiError, onRun: runAdvisor }} tc={tc} />
+
             <SectionCard title={tc("sectionCaseDetails")} onLayout={(y) => { sectionY.current.case = y }} visible={showSection("case")}>
               <Controller control={control} name="diagnoses" render={({ field }) => (
                 <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={localizedPreopValidationMessage(errors.diagnoses?.message, tc) ?? blockedErrorFor("diagnoses")} />
@@ -1263,23 +1269,6 @@ export default function NewCaseScreen() {
               </>) : (
                 <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} isShown={preopProfile.shownField} />
               )}
-              {clinicalAi.clinicalAdvice.enabled || clinicalAi.labImageExtraction.enabled || clinicalAi.monitorOcr.enabled ? (
-                <Controller control={control} name="aiOptIn" render={({ field }) => (
-                  <AiAdvisorPanel
-                    adviceAvailable={!pediatricMode && clinicalAi.clinicalAdvice.enabled}
-                    aiOptIn={!!field.value}
-                    onToggleOptIn={field.onChange}
-                    analysing={aiLoading}
-                    streamedText={aiText}
-                    error={aiError}
-                    onRun={runAdvisor}
-                    tc={tc}
-                  />
-                )} />
-              ) : null}
-              {!pediatricMode && !clinicalAi.clinicalAdvice.enabled ? (
-                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>{tc(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}</Text>
-              ) : null}
               {pediatricMode ? questionList("risk_scores") : null /* adults: drawn above the Gupta card */}
             </SectionCard>
 
