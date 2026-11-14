@@ -36,10 +36,16 @@ set +a
 HOSPITAL_IMAGE_TAG="local-scan-$release"
 export HOSPITAL_IMAGE_TAG
 
+# compose.yaml requires the site's settings even to build; release.yml copies
+# .env.example for that. Its values never reach an image, so the example is
+# read in place rather than written to .env.
+env_file=.env
+[ -f "$env_file" ] || env_file=.env.example
+
 services=${*:-"postgres migrate api delivery-worker web pwa browser status tools caddy"}
 for service in $services; do
   echo "== build $service"
-  docker compose -f compose.yaml -f compose.publish.yaml --profile tools build "$service"
+  docker compose --env-file "$env_file" -f compose.yaml -f compose.publish.yaml --profile tools build "$service"
 done
 
 images="api browser caddy curl-worker migrate postgres pwa status tools web"
