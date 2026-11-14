@@ -1,23 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import {
-  externalAiCapabilityState,
-  externalAiProviderAccess,
-} from "@/lib/hospital/external-ai-policy"
 import { convertLabValue, isConfidentConversion } from "@lospor/core/lab-unit-conversion"
 import { LAB_LIBRARY } from "@/lib/labs"
+import { logAudit } from "@/lib/audit"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { canWriteCase } from "@/lib/access-control"
-import { logAudit } from "@/lib/audit"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
+import { DEFAULT_VISION_MODEL } from "@/lib/mistral-models"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
-import { mistralModelUnavailable } from "@/lib/hospital/external-ai-models"
+import { clinicalAiRefusal } from "@/lib/deployment-capabilities"
 
 const MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
 const MAX_BYTES = 10_485_760 // 10 MB
 const MAX_BASE64_CHARS = Math.ceil(MAX_BYTES * 4 / 3)
+const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY ?? ""
 const MISTRAL_TIMEOUT_MS = Number(process.env.MISTRAL_TIMEOUT_MS ?? 45_000)
 
 const LIBRARY_MAP = new Map(LAB_LIBRARY.map(test => [test.name, test.unit]))
@@ -63,22 +60,33 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: CORS(req) })
 }
 
+/**
+ * Scanning a laboratory report is case-scoped, and deliberately so.
+ *
+ * This route sends a photograph to an external provider. A lab printout carries
+ * the patient's name and EGN in its header; no text redaction is possible on an
+ * image and none is attempted, which makes it the single most identifying
+ * payload the system can transmit.
+ *
+ * The previous unscoped route took the caller's word for consent -- it read
+ * `aiOptIn` from the request body -- so any authenticated caller could assert
+ * consent that the clinical record did not contain. For a payload that cannot be
+ * redacted, an attestation the server never checks is not a consent control.
+ * Consent is now read from the case, exactly as the monitor scanner has always
+ * done, and a client-supplied value is ignored entirely.
+ *
+ * The cost is that a lab report cannot be scanned into a case that does not
+ * exist yet: the client saves first, then scans. That is the same order the
+ * monitor scanner already requires, and the only honest one -- an unsaved draft
+ * has no recorded consent to read.
+ */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // The policy/credential gate runs before the base64 clinical image is read.
-  const aiState = await externalAiCapabilityState()
-  if (!aiState.enabled) {
-    return NextResponse.json({
-      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
-        ? "AI features are disabled by this deployment"
-        : "AI provider is not configured",
-      code: aiState.reason,
-    }, { status: 503 })
-  }
-
   const user = await getAuthUser(req)
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const refusal = clinicalAiRefusal("labImageExtraction")
+  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status })
 
   const contentLength = Number(req.headers.get("content-length") ?? 0)
   if (contentLength > MAX_BYTES * 1.4) {
@@ -99,13 +107,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     select: {
       userId: true,
-      // The case's own institution, which canReadCase requires for a head of
-      // department -- it compares record.institutionId, and the owner-institution
-      // fallback was deliberately removed. Selecting only the owner left this
-      // undefined, so every same-institution HOD was refused scanning on a
-      // colleague's case while the list view showed it to them.
-      institutionId: true,
-      createdById: true,
       user: { select: { institutionId: true } },
       preop: { select: { aiOptIn: true } },
     },
@@ -124,38 +125,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
+
+  // Size first: an oversized payload is rejected on its own terms, before any
+  // policy question, so the cheap structural guard cannot be masked by a
+  // different refusal.
   if (imageBase64.length > MAX_BASE64_CHARS) {
     return NextResponse.json({ error: "Image too large" }, { status: 413 })
   }
 
-  // Per-case consent, read from the record and never from the request. It is
-  // checked after the size guard on purpose: an oversized image is rejected as
-  // oversized, so the caller is not told to fix consent when the real fault is
-  // the payload.
-  //
-  // Deployment permission is a separate question, already answered above by the
-  // sealed policy. This is the second key: whether this patient's case agreed.
+  // Consent from the record, never from the request.
   if (!existing.preop?.aiOptIn) {
     return NextResponse.json({ error: "AI advice not enabled for this case" }, { status: 403 })
   }
-
-  const aiAccess = await externalAiProviderAccess()
-  if (!aiAccess.enabled) {
-    return NextResponse.json({
-      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
-        ? "AI features are disabled by this deployment"
-        : "AI provider is not configured",
-      code: aiAccess.reason,
-    }, { status: 503 })
-  }
-  const apiKey = aiAccess.apiKey
 
   let mistralRes: Response
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), MISTRAL_TIMEOUT_MS)
   try {
-    mistralRes = await fetchMistralChatCompletions(apiKey, {
-      model: aiAccess.visionModel,
+    mistralRes = await fetchMistralChatCompletions(MISTRAL_API_KEY, {
+      model: process.env.MISTRAL_VISION_MODEL ?? DEFAULT_VISION_MODEL,
       messages: [{
         role: "user",
         content: [
@@ -169,33 +157,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }, { signal: controller.signal })
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      console.error("[ai/read-labs] AI_PROVIDER_TIMEOUT")
-      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-        feature: "read-labs", failureKind: "timeout",
-      })
+      console.error("[cases/ai/read-labs] Mistral fetch timed out")
       return NextResponse.json({ error: "Lab scan timed out. Please crop the image tighter or try again." }, { status: 504 })
     }
-    console.error("[ai/read-labs] AI_PROVIDER_NETWORK_FAILED")
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "read-labs", failureKind: "network",
-    })
+    console.error("[cases/ai/read-labs] Mistral fetch error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   } finally {
     clearTimeout(timeout)
   }
 
   if (!mistralRes.ok) {
-    console.error("[ai/read-labs] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
-    if (await mistralModelUnavailable(mistralRes)) {
-      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "read-labs", failureKind: "model-unavailable" })
-      return NextResponse.json({
-        error: "The configured AI model is no longer offered by Mistral. Hospital IT must choose another in Status.",
-        code: "EXTERNAL_AI_MODEL_UNAVAILABLE",
-      }, { status: 503 })
-    }
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "read-labs", failureKind: "provider", httpStatus: mistralRes.status,
-    })
+    // body withheld: provider errors can echo the clinical payload
+    console.error("[cases/ai/read-labs] Mistral error:", mistralRes.status)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
@@ -248,19 +221,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         })
     }
   } catch {
-    // Model output can contain clinical content; report only a fixed code.
-    console.warn("[ai/read-labs] AI_PROVIDER_INVALID_RESPONSE")
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "read-labs", failureKind: "invalid-response",
-    })
+    console.warn("[cases/ai/read-labs] Could not parse model output:", content.slice(0, 200))
   }
 
-  // A successful send of a laboratory report photograph to an external
-  // provider must leave a record. Previously only failures emitted anything,
-  // so the one outcome that actually moved an identifying image off the
-  // appliance was the one that left no trace. The image itself is never
-  // logged -- only that the transfer happened, by whom, and how many rows came
-  // back.
+  // A successful send of a laboratory report photograph to an external provider
+  // must leave a record. Previously only failures emitted anything, so the one
+  // outcome that actually moved an identifying image off the appliance was the
+  // one that left no trace. The image itself is never logged — only that the
+  // transfer happened, against which case, by whom, and how many rows came back.
   await logAudit(user.id, "AI_LAB_SCAN", id, { optIn: true, rowCount: results.length })
 
   return NextResponse.json({ results })
