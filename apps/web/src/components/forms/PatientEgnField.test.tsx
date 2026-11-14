@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
 import { PatientEgnField } from "./PatientEgnField"
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => "bg" }))
 
 function Harness() {
-  const { register, watch } = useForm<{ patientNationalId?: string }>()
-  return <PatientEgnField registration={register("patientNationalId")} value={watch("patientNationalId")} />
+  const { register, control } = useForm<{ patientNationalId?: string }>()
+  const value = useWatch({ control, name: "patientNationalId" })
+  return <PatientEgnField registration={register("patientNationalId")} value={value} />
 }
 
 describe("PatientEgnField", () => {

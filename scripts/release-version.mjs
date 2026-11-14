@@ -28,6 +28,8 @@ const POLICIES = new Set(["backup-required", "service-compatible"])
 const PATHS = {
   package: "package.json",
   pwaAppJson: "apps/pwa/app.json",
+  pwaPackage: "apps/pwa/package.json",
+  pwaLock: "apps/pwa/package-lock.json",
   upstream: "UPSTREAM_VERSIONS.json",
   manifestVersions: "apps/api/src/lib/hospital/appliance-versions.ts",
   compatibility: "release-compatibility.tsv",
@@ -207,6 +209,13 @@ export function apply(root, release, { justification, policy, date, previousPins
   const appJson = readText(root, PATHS.pwaAppJson)
   appJson.text = appJson.text.replace(/^(    "version": )"[^"]*",$/m, `$1"${release}",`)
   writeText(root, PATHS.pwaAppJson, appJson)
+  // Its package.json and lockfile state the same number; the PWA's own test
+  // (client-version.test.ts) holds app.json and package.json together.
+  for (const path of [PATHS.pwaPackage, PATHS.pwaLock]) {
+    const file = readText(root, path)
+    file.text = file.text.replace(/("name": "@lospor\/hospital-pwa",\r?\n\s+"version": )"[^"]*"/g, `$1"${release}"`)
+    writeText(root, path, file)
+  }
 
   const [header, , schemaMin, , previousPolicy, ...rest] = readText(root, PATHS.compatibility).text.trim().split("\t")
   const chosenPolicy = policy ?? previousPolicy
@@ -244,6 +253,7 @@ export function check(root, release) {
   const { sources } = readJson(root, PATHS.upstream)
   expect(readJson(root, PATHS.package).version === release, `package.json is not ${release}.`)
   expect(readJson(root, PATHS.pwaAppJson).expo?.version === release, `apps/pwa/app.json (the phone app's "About") is not ${release}.`)
+  expect(readJson(root, PATHS.pwaPackage).version === release, `apps/pwa/package.json is not ${release}.`)
 
   const manifest = readText(root, PATHS.manifestVersions).text
   for (const [key, value] of Object.entries({ hospital: release, api: sources.api.version, core: sources.core.version })) {

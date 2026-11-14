@@ -24,6 +24,23 @@ function fixture(t, { sources = pins("9.14.0"), previous = "1.4.22" } = {}) {
   const write = (path, text) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), text) }
   write("package.json", `{\n  "name": "lospor-hospital",\n  "version": "${previous}",\n  "private": true\n}\n`)
   write("UPSTREAM_VERSIONS.json", JSON.stringify({ sources }, null, 2))
+  write("apps/pwa/package.json", `{
+  "name": "@lospor/hospital-pwa",
+  "version": "1.0.0",
+  "private": true
+}
+`)
+  write("apps/pwa/package-lock.json", `{
+  "name": "@lospor/hospital-pwa",
+  "version": "1.0.0",
+  "packages": {
+    "": {
+      "name": "@lospor/hospital-pwa",
+      "version": "1.0.0"
+    }
+  }
+}
+`)
   write("apps/pwa/app.json", `{
   "expo": {
     "name": "LOSPOR Hospital",
