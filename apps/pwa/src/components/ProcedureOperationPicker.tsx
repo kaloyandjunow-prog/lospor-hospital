@@ -15,8 +15,8 @@ import { usePreferences } from "@/lib/preferences-context"
 import { colors, withAlpha } from "@/theme/colors"
 
 type ProcedureItem = CanonicalSearchTag & { source?: "manual" | "ai-scan" | "import"; [key: string]: unknown }
-type CodeRow = { code: string; description: string; domain: string | null; suggested?: boolean }
-type CodeList = { total: number; codes: CodeRow[]; offline?: boolean }
+type CodeRow = { code: string; description: string; descriptionBg?: string; domain: string | null; domainBg?: string; suggested?: boolean }
+type CodeList = { total: number; groupBg?: string; codes: CodeRow[]; offline?: boolean }
 
 /** Mirrors the online endpoint's cap, so both lists behave alike. */
 const CODE_LIMIT = 200
@@ -25,11 +25,15 @@ const CODE_LIMIT = 200
 async function offlineCodeList(group: string, query: string, suggested: string[]): Promise<CodeList> {
   const { procedureCodeRowsForGroup } = await import("@lospor/core/vocabulary/procedure-codes")
   const rows = procedureCodeRowsForGroup(group)
-  const domainByCode = new Map(rows.map(row => [row.code, row.domain]))
+  const byCode = new Map(rows.map(row => [row.code, row]))
   const codes = filterProcedureCodes(rows, group, query, suggested)
   return {
     total: codes.length,
-    codes: codes.slice(0, CODE_LIMIT).map(code => ({ ...code, domain: domainByCode.get(code.code) ?? null })),
+    ...(rows[0]?.groupBg ? { groupBg: rows[0].groupBg } : {}),
+    codes: codes.slice(0, CODE_LIMIT).map(code => {
+      const row = byCode.get(code.code)
+      return { ...code, domain: row?.domain ?? null, ...(row?.domainBg ? { domainBg: row.domainBg } : {}) }
+    }),
     offline: true,
   }
 }
@@ -49,7 +53,8 @@ type Props = {
  * every ICD-10-PCS operation, loaded only then.
  */
 export function ProcedureOperationPicker({ value, onChange }: Props) {
-  const { tc } = usePreferences()
+  const { tc, language } = usePreferences()
+  const bg = language === "bg"
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   if (!value.some(item => procedureGroupOf(item))) return null
 
@@ -68,9 +73,9 @@ export function ProcedureOperationPicker({ value, onChange }: Props) {
             key={`${item.code || item.label}-${index}`}
             style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, borderCurve: "continuous", padding: 12, backgroundColor: colors.surface }}
           >
-            <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "800" }}>{group}</Text>
+            <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "800" }}>{bg && item.labelBg ? item.labelBg : group}</Text>
             <Text style={{ color: exact ? colors.textSecondary : colors.textMuted, fontSize: 13, marginTop: 2 }}>
-              {exact ? `${item.code} · ${item.description ?? ""}` : tc("procedureNoExact")}
+              {exact ? `${item.code} · ${(bg && item.descriptionBg ? item.descriptionBg : item.description) ?? ""}` : tc("procedureNoExact")}
             </Text>
             {imported ? (
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
@@ -103,10 +108,15 @@ export function ProcedureOperationPicker({ value, onChange }: Props) {
             {openIndex === index ? (
               <OperationList
                 group={group}
+                bg={bg}
                 selected={exact ? item.code : null}
                 suggested={suggestedProcedureCodes(item)}
-                onPick={row => {
-                  replace(index, chooseExactOperation(item, { ...row, group, domain: row.domain ?? "" }) as ProcedureItem)
+                onPick={(row, groupBg) => {
+                  replace(index, chooseExactOperation(item, {
+                    ...row, group, domain: row.domain ?? "",
+                    ...(groupBg ? { groupBg } : {}),
+                    ...(row.domainBg ? { domainBg: row.domainBg } : {}),
+                  }, bg ? "bg" : "en") as ProcedureItem)
                   setOpenIndex(null)
                 }}
               />
@@ -118,11 +128,12 @@ export function ProcedureOperationPicker({ value, onChange }: Props) {
   )
 }
 
-function OperationList({ group, selected, suggested, onPick }: {
+function OperationList({ group, bg, selected, suggested, onPick }: {
   group: string
+  bg: boolean
   selected: string | null
   suggested: string[]
-  onPick: (row: CodeRow) => void
+  onPick: (row: CodeRow, groupBg?: string) => void
 }) {
   const { tc } = usePreferences()
   const [query, setQuery] = useState("")
@@ -187,7 +198,7 @@ function OperationList({ group, selected, suggested, onPick }: {
               key={row.code}
               accessibilityRole="button"
               accessibilityState={{ selected: row.code === selected }}
-              onPress={() => onPick(row)}
+              onPress={() => onPick(row, list.groupBg)}
               style={{
                 paddingVertical: 12,
                 paddingHorizontal: 8,
@@ -196,7 +207,7 @@ function OperationList({ group, selected, suggested, onPick }: {
                 backgroundColor: row.code === selected ? colors.primarySoft : "transparent",
               }}
             >
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }}>{row.description}</Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }}>{bg && row.descriptionBg ? row.descriptionBg : row.description}</Text>
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                 {row.code}{row.suggested ? ` · ${tc("procedureSuggested")}` : ""}
               </Text>
