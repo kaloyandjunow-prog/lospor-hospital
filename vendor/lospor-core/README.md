@@ -109,7 +109,7 @@ it the result stays undated, as the preoperative panel needs.
 ## Consuming
 
 ```json
-"@lospor/core": "github:kaloyandjunow-prog/lospor-core#v10.3.0"
+"@lospor/core": "github:kaloyandjunow-prog/lospor-core#v10.4.0"
 ```
 
 To release a change: commit → push → tag a new version → bump the tag reference in `lospor-api`, `lospor-app`, `lospor-mobile`, and `lospor-browser`, then refresh and verify each lockfile.

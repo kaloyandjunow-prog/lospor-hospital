@@ -103,8 +103,14 @@ describe("offline exact operations", () => {
     expect(rows).toContainEqual({
       code: "0FT44ZZ", group: "Cholecystectomy", domain: "Hepatobiliary and Pancreas Procedures",
       description: "Resection of Gallbladder, Percutaneous Endoscopic Approach",
+      // Bulgarian names offline too (2026-11-14), as the online list sends them.
+      groupBg: "Холецистектомия", domainBg: "Черен дроб, жлъчни пътища и панкреас",
+      descriptionBg: "Холецистектомия, лапароскопски достъп", searchBg: "холецистектомия, лапароскопски достъп",
     })
     expect(filterProcedureCodes(rows, "Cholecystectomy", "лапароскопска resection").map(row => row.code))
+      .toEqual(["0FT44ZG", "0FT44ZZ"])
+    // Narrowed by the Bulgarian name alone.
+    expect(filterProcedureCodes(rows, "Cholecystectomy", "холецистектомия лапароскопски").map(row => row.code))
       .toEqual(["0FT44ZG", "0FT44ZZ"])
     expect(procedureCodeRowsForGroup("Not a group")).toEqual([])
   })

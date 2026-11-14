@@ -463,7 +463,11 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
         saved += 1
         if (result.response) acknowledgePatch(caseId, section, result.response)
       } else if (result.result === "empty") {
-        discarded += 1
+        // Every section is asked, queued or not. Only a patch the server
+        // refused for good is a discard; counting the sections that simply had
+        // nothing queued told clinicians "3 saves were discarded" while every
+        // edit had in fact been saved (found on the appliance, 2026-11-14).
+        if (result.dropped) discarded += 1
       } else if (result.result === "blocked" && result.blocked) {
         sectionFailed += 1
         blocked ??= result.blocked

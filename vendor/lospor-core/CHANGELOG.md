@@ -1,5 +1,44 @@
 # Changelog - LOSPOR Core
 
+## [10.4.0] - 2026-11-14
+
+### Added
+
+- **Procedures in Bulgarian.** A procedure search row can carry the group, its ICD-10-PCS section and the operation
+  in Bulgarian (`groupBg`, `domainBg`, `descriptionBg`) and the words a Bulgarian query is matched against
+  (`searchBg`, `groupTerms`). `procedureGroupTag`, `exactProcedureTag`, `chooseExactOperation` and
+  `parseClinicalSearchResult` take the clinician's language: the label is Bulgarian when chosen in Bulgarian, both
+  names are kept (`labelEn`, `labelBg`, `descriptionBg`), and the code and `group` stay English, so the operation
+  list, the hospital import and research read the same tag in either language. The planned-procedure line reads in
+  the language it was chosen in. A tag from a source without Bulgarian names is exactly what it was.
+- **The offline vocabulary has the Bulgarian names**: the 330 groups and sections, and every operation's Bulgarian
+  name for the offline operation list (`vocabulary/procedure-codes`, 4.4 to 8.7 MB, loaded only when a group's
+  operations are opened with no network).
+
+### Changed
+
+- **Procedure search matches words, in any order, in either language.** "laparoscopic appendectomy" and "резекция
+  стомах" now find their group; the whole phrase as one string matched neither. A clinician's approach word reads as
+  ICD-10-PCS says it ("laparoscopic" is "percutaneous endoscopic") while still matching as typed, so "лапаротомия"
+  does not match every open operation.
+- **Ranking favours the operation named.** A word in an operation's own name (before its approach) and in the
+  group's name (not in its "(excluding ...)" / "(без ...)" clause) scores; a synonym alone does not, and the everyday
+  groups float up only for what they are named by. Before, a synonym match scored nothing and the alphabetically
+  first group won: "цистоскопия" put Prostatectomy first. Checked on 100 common paediatric surgical procedures: the
+  right group is first for all 100 in Bulgarian (59 before) and in English (27 before).
+
+### Fixed
+
+- **"3 saves were discarded" when nothing was.** The flush asked every section of a case and counted each one with
+  nothing queued as a discarded save, so the web showed "... discarded, the case is deleted or you no longer have
+  access" while every edit had been saved. Only a patch the server refused for good (404/403) counts now
+  (`dropped: true` on the outcome).
+
+### Dependencies
+
+- eslint 10.15, typescript-eslint 8.72.2 (development only). `npm audit`: 0.
+
+
 ## [10.3.0] - 2026-11-09
 
 ### Added

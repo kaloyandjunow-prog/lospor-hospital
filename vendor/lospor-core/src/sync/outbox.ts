@@ -36,6 +36,12 @@ export type CasePatchOutcome = {
   blocked?: BlockedSaveIssue
   savedPayload?: Record<string, unknown>
   failure?: PatchFailure
+  /**
+   * Set with result "empty" only when a queued patch was thrown away because
+   * the server refused it for good (404/403: case deleted or access lost).
+   * A plain "empty" means nothing was queued for that section -- not a loss.
+   */
+  dropped?: true
   /** Set when result is "conflict": the queued edit and what the server has now, unresolved. */
   conflict?: { localPayload: Record<string, unknown>; serverRevision: SectionRevision }
 }
@@ -656,7 +662,7 @@ export function createCaseOutbox(deps: OutboxDeps) {
         if (failure.kind === "http" && (failure.status === 404 || failure.status === 403)) {
           await recordDropped(caseId, section, sendable, failure.status)
           await clearOne(caseId, section)
-          return { result: "empty" }
+          return { result: "empty", dropped: true }
         }
         const conflictBase = failure.kind === "http"
           ? (failure.serverRevision ?? failure.serverUpdatedAt)
@@ -747,11 +753,12 @@ export function createCaseOutbox(deps: OutboxDeps) {
     let failed = 0
     let discarded = 0
     const conflicts: OutboxEntry[] = []
-    // "empty" during a flush means the patch was dropped (stale 404/403 or no
-    // data) — a discard, not a successful save.
-    const tally = (result: CasePatchResult, entry: OutboxEntry) => {
+    // Only a patch the server refused for good (404/403) is a discard. An
+    // "empty" without `dropped` found nothing left to send -- the inline save
+    // got there first -- and is neither a loss nor a failure.
+    const tally = ({ result, dropped }: CasePatchOutcome, entry: OutboxEntry) => {
       if (result === "saved") saved += 1
-      else if (result === "empty") discarded += 1
+      else if (result === "empty") { if (dropped) discarded += 1 }
       else if (result === "conflict") conflicts.push(entry)
       else failed += 1
     }
@@ -761,7 +768,7 @@ export function createCaseOutbox(deps: OutboxDeps) {
         // flush in parallel.
         for (const entry of caseEntries) {
           const result = await flushOne(entry.caseId, entry.section)
-          tally(result.result, entry)
+          tally(result, entry)
         }
       }),
     )

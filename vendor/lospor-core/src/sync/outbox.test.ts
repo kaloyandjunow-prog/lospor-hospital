@@ -98,7 +98,7 @@ describe("createCaseOutbox", () => {
     await box.queue("case-3", "preop", { c: 3 })
 
     sendPatch.mockRejectedValueOnce(new HttpError(404))
-    await expect(box.flushOne("case-1", "preop")).resolves.toEqual({ result: "empty" })
+    await expect(box.flushOne("case-1", "preop")).resolves.toEqual({ result: "empty", dropped: true })
     expect(await box.load("case-1", "preop")).toBeNull()
 
     sendPatch.mockRejectedValueOnce(new HttpError(500))
@@ -337,6 +337,14 @@ describe("createCaseOutbox", () => {
       blocked: blockedIssue,
       savedPayload: { ageYears: 55 },
     })
+  })
+
+  it("marks only a patch the server refused for good as dropped", async () => {
+    const box = outbox()
+    await expect(box.flushOne("case-1", "preop")).resolves.toEqual({ result: "empty" })
+    await box.queue("case-1", "preop", { a: 1 })
+    sendPatch.mockRejectedValueOnce(new HttpError(403))
+    await expect(box.flushOne("case-1", "preop")).resolves.toEqual({ result: "empty", dropped: true })
   })
 
   it("flushAll tallies saved / failed / discarded separately", async () => {
