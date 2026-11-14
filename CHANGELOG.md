@@ -31,6 +31,12 @@ database migration and no change to the exchange contract, so Central needs no u
   earlier offer still waits.
 - **No more false "3 saves were discarded … no access" warning** when entering a comorbidity or another field; every
   edit was saved, the warning counted sections that had nothing waiting.
+- **The PostgreSQL image no longer carries Kerberos.** The appliance's PostgreSQL is built without GSSAPI, so the
+  four MIT Kerberos libraries left from the Debian base were unused; they carried 14 HIGH CVEs Debian 13 has no fix
+  for, accepted as exceptions since 1.8.0. They are removed, and the build fails if anything still links them. The
+  image scan now has one HIGH finding (Caddy's go-jose/v3, no upstream fix) instead of 57.
+- **Dependencies**: the moderate npm advisories with a patched release are fixed (fast-uri, ip-address,
+  postcss-selector-parser, vitest); node-forge in the phone app's build tools waits for an Expo major release.
 - **The phone app's About, help page and support report show the appliance version.** They read a version that
   vendoring always kept at 1.0.0; `release:version` now writes the Hospital version there and `release:check`
   verifies it.
