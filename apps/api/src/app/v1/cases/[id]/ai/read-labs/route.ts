@@ -12,6 +12,7 @@ import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { labScanFailureResponse } from "@/lib/hospital/lab-scan-failure"
+import { storedLabScanLocal } from "@/lib/hospital/lab-scan-settings"
 
 const MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
 const MAX_BYTES = 10_485_760 // 10 MB
@@ -119,6 +120,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     model: aiAccess.visionModel,
     imageBase64,
     mimeType,
+    // The hospital's own lab names and note, set in Status (1.9.1).
+    local: await storedLabScanLocal(),
     timeoutMs: MISTRAL_TIMEOUT_MS,
   })
   if (!outcome.ok) return labScanFailureResponse(outcome)

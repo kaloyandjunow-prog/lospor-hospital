@@ -33,6 +33,7 @@ import {
   replaceExternalAiCredential,
   setExternalAiModels,
   setExternalAiPolicy,
+  setLabScanSettings,
 } from "./control-plane"
 
 const originalSealFile = process.env.HOSPITAL_EXTERNAL_AI_SEAL_KEY_FILE
@@ -89,6 +90,46 @@ describe("Hospital external AI Status mutations", () => {
       "local",
       expect.objectContaining({ externalAiEnabled: false, provider: "MISTRAL" }),
     )
+  })
+
+  it("saves the lab scan's names and note without touching the policy, models or credential (1.9.1)", async () => {
+    mocks.policyFind.mockResolvedValue({ id: "local", labScanAliases: [{ printed: "Hb", test: "Haemoglobin (Hb)" }], labScanInstructions: null })
+    mocks.policyUpsert.mockImplementation(async ({ update }) => ({ id: "local", ...update }))
+
+    await setLabScanSettings({
+      aliases: [{ printed: " ctHb ", test: "Haemoglobin (Hb)" }, { printed: "Лев.", test: "Leucocytes (WBC)" }],
+      instructions: "  Our blood count prints no units.  ",
+      reason: "Our laboratory prints its own names",
+    })
+
+    const call = mocks.policyUpsert.mock.calls[0]?.[0]
+    expect(Object.keys(call.update).sort()).toEqual(["labScanAliases", "labScanChangedAt", "labScanInstructions"])
+    expect(call.update).toMatchObject({
+      labScanAliases: [{ printed: "ctHb", test: "Haemoglobin (Hb)" }, { printed: "Лев.", test: "Leucocytes (WBC)" }],
+      labScanInstructions: "Our blood count prints no units.",
+    })
+    // Counts only: the names and the note are settings, not audit content.
+    expect(mocks.audit).toHaveBeenCalledWith(tx, "admin-1", "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", "local", {
+      labScanAliasCount: 2, previousLabScanAliasCount: 1,
+      labScanInstructionsLength: 32, previousLabScanInstructionsLength: 0, reasonRecorded: true,
+    })
+  })
+
+  it("refuses lab scan settings the scan cannot use, and stores none of them", async () => {
+    await expect(setLabScanSettings({
+      aliases: [{ printed: "Hb", test: "Not a library test" }, { printed: "hb:", test: "Haemoglobin (Hb)" }],
+      instructions: "",
+      reason: "Our laboratory prints its own names",
+    })).rejects.toThrow()
+    expect(mocks.policyUpsert).not.toHaveBeenCalled()
+  })
+
+  it("clears the lab scan settings to nothing set", async () => {
+    mocks.policyUpsert.mockImplementation(async ({ update }) => ({ id: "local", ...update }))
+    await setLabScanSettings({ aliases: [], instructions: "   ", reason: "Back to the released scan" })
+    const call = mocks.policyUpsert.mock.calls[0]?.[0]
+    expect(call.update.labScanInstructions).toBeNull()
+    expect(String(call.update.labScanAliases)).toMatch(/DbNull/)
   })
 
   it("changes the pinned models without touching the policy or the credential", async () => {

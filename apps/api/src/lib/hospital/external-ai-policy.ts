@@ -19,6 +19,7 @@ import { readFileSync } from "node:fs"
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { isHospitalDeployment } from "./deployment"
+import { labScanControlView } from "./lab-scan-settings"
 
 const SEAL_KEY_BYTES = 32
 const NONCE_BYTES = 12
@@ -326,6 +327,8 @@ export async function externalAiControlView(db: Database = prisma) {
     advisorModelOptions: [...ADVISOR_MODELS],
     visionModelOptions: [...VISION_MODELS],
     modelsChangedAt: policy?.modelsChangedAt?.toISOString() ?? null,
+    // The lab scan's local names and note (1.9.1), with what they may point to.
+    labScan: labScanControlView(policy),
     updatedAt: policy?.updatedAt?.toISOString() ?? null,
   }
 }

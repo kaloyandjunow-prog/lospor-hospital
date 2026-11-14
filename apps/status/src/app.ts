@@ -89,6 +89,10 @@ import { INTRAOP_SEARCH_SCRIPT } from "./intraop-search-script.js"
 import { historyQueryOf, type HistoryQuery } from "./history-ui.js"
 import { cardQueryOf, type CardQuery } from "./card-preview-ui.js"
 import {
+  LAB_SCAN_FORM_MAX_BYTES, LAB_SCAN_IMAGE_MAX_BYTES, LAB_SCAN_IMAGE_TYPES, LAB_SCAN_SAVE_PATH, LAB_SCAN_TEST_PATH,
+  parseAliasLines, type LabScanDraft,
+} from "./lab-scan-ui.js"
+import {
   AccountControlClient,
   AccountControlError,
   type AccountControlPort,
@@ -1242,6 +1246,7 @@ export function createStatusApp({
     drugColorsQuery?: DrugColorsQuery,
     historyQuery?: HistoryQuery,
     cardQuery?: CardQuery,
+    labScanDraft?: LabScanDraft,
   ) => {
     const current = await controlDirectory()
     // The Unusual readings tab is large and read on its own, only when that tab is open.
@@ -1266,6 +1271,7 @@ export function createStatusApp({
       historyQuery,
       cardPreview,
       cardQuery,
+      labScanDraft,
     )
   }
 
@@ -1782,6 +1788,84 @@ export function createStatusApp({
     locale => localize(locale, "The external-AI models were saved and audited. The next AI request uses them.", "ИИ моделите са запазени и записани в одитния журнал. Следващата заявка към ИИ ще ги използва."),
     "ai",
   ))
+
+  // The lab scan's local names and note (1.9.1): save, or test on a photo with
+  // the form as it stands. One form, so a test never loses what was typed. Both
+  // need the administrator password: a test sends the photo to the AI provider.
+  const labScanAction = async (context: Context, mode: "save" | "test") => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = passwordAccountSession(context)
+    if (session === "missing") return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (session === "recovery") {
+      return context.html(await controlHtml(locale, localize(
+        locale,
+        "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
+        "Влезте с администраторската парола, за да използвате управлението. Сесия с токен за възстановяване не може да разрешава тези промени.",
+      ), undefined, "ai"), 403)
+    }
+    const page = (error: string | undefined, notice: string | undefined, draft?: LabScanDraft) =>
+      controlHtml(locale, error, notice, "ai", undefined, undefined, undefined, undefined, undefined, undefined, draft)
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    if (!Number.isFinite(contentLength) || contentLength > LAB_SCAN_FORM_MAX_BYTES) {
+      return context.html(await page(localize(locale, "Choose a photo of up to 10 MB.", "Изберете снимка до 10 MB."), undefined), 413)
+    }
+    const parsed = await context.req.parseBody().catch(() => null)
+    const body = isRecord(parsed) ? parsed : null
+    if (!body || typeof body.password !== "string") {
+      return context.html(await page(controlPlaneMessage("INVALID_CONTROL_REQUEST", locale), undefined), 400)
+    }
+    const draft: LabScanDraft = {
+      aliasesText: typeof body.aliases === "string" ? body.aliases.slice(0, 60_000) : "",
+      instructions: typeof body.instructions === "string" ? body.instructions.slice(0, 5_000) : "",
+    }
+    try {
+      await auth.reauthenticatePassword(getCookie(context, COOKIE_NAME), body.password)
+    } catch (error) {
+      const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
+      return context.html(await page(rateLimited
+        ? localize(locale, "Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново.")
+        : localize(locale, "The administrator password was not accepted. Nothing was changed.", "Администраторската парола не беше приета. Нищо не е променено."), undefined, draft), rateLimited ? 429 : 401)
+    }
+    try {
+      const view = (await controlPlane.get()).externalAi.labScan
+      if (!view) throw new ControlPlaneClientError("CONTROL_INVALID_RESPONSE")
+      const { aliases, problems } = parseAliasLines(draft.aliasesText, view.libraryNames, view.limits.printed)
+      if (problems.length > 0 || aliases.length > view.limits.aliases || draft.instructions.trim().length > view.limits.instructions) {
+        const tooMany = aliases.length > view.limits.aliases
+          ? localize(locale, `At most ${view.limits.aliases} names.`, `Най-много ${view.limits.aliases} имена.`)
+          : draft.instructions.trim().length > view.limits.instructions
+            ? localize(locale, `The notes are longer than ${view.limits.instructions} characters.`, `Указанията са по-дълги от ${view.limits.instructions} знака.`)
+            : undefined
+        return context.html(await page(tooMany, undefined, { ...draft, problems }), 400)
+      }
+      if (mode === "save") {
+        await controlPlane.setLabScanSettings({ aliases, instructions: draft.instructions.trim(), reason: formText(body, "reason", 10, 1000) })
+        return context.html(await page(undefined, localize(locale,
+          "The lab-scan names and notes were saved and audited. The next lab scan uses them.",
+          "Имената и указанията за разчитане са запазени и записани в одитния журнал. Следващото разчитане ще ги използва.")))
+      }
+      const image = body.image
+      if (!(image instanceof File) || image.size === 0) {
+        return context.html(await page(localize(locale, "Choose a photo to test with.", "Изберете снимка за пробата."), undefined, draft), 400)
+      }
+      if (image.size > LAB_SCAN_IMAGE_MAX_BYTES || !(LAB_SCAN_IMAGE_TYPES as readonly string[]).includes(image.type)) {
+        return context.html(await page(localize(locale, "Choose a JPEG, PNG or WebP photo of up to 10 MB.", "Изберете снимка JPEG, PNG или WebP до 10 MB."), undefined, draft), 400)
+      }
+      const test = await controlPlane.testLabScan({
+        aliases,
+        instructions: draft.instructions.trim(),
+        imageBase64: Buffer.from(await image.arrayBuffer()).toString("base64"),
+        mimeType: image.type,
+      })
+      return context.html(await page(undefined, undefined, { ...draft, test }))
+    } catch (error) {
+      const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
+      return context.html(await page(controlPlaneMessage(code, locale), undefined, draft), controlErrorStatus(code))
+    }
+  }
+  app.post(LAB_SCAN_SAVE_PATH, context => labScanAction(context, "save"))
+  app.post(LAB_SCAN_TEST_PATH, context => labScanAction(context, "test"))
 
   app.post("/status/control/patient-identifier", context => sensitiveControlAction(
     context,

@@ -17,6 +17,8 @@ vi.mock("@/lib/hospital/external-ai-policy", () => ({
   }),
 }))
 vi.mock("@/lib/labs", () => ({ LAB_LIBRARY: [{ name: "Glucose", unit: "mmol/L" }] }))
+const storedLabScanLocalMock = vi.fn(async () => ({ aliases: [] as { printed: string; test: string }[], instructions: "" }))
+vi.mock("@/lib/hospital/lab-scan-settings", () => ({ storedLabScanLocal: storedLabScanLocalMock }))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: getAuthUserMock }))
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: rateLimitMock }))
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }))
@@ -145,5 +147,29 @@ describe("case lab report scan route", () => {
     await expect(res.json()).resolves.toMatchObject({ code: "EXTERNAL_AI_MODEL_UNAVAILABLE" })
     const [, init] = vi.mocked(fetch).mock.calls[0]
     expect(JSON.parse(String((init as RequestInit).body)).model).toBe("mistral-large-2512")
+  })
+
+  // 1.9.1: the hospital's own lab names, set in Status, go into the scan and
+  // decide the row in code; the released prompt is still the one sent.
+  it("sends the hospital's own lab names and applies them to the answer", async () => {
+    findUniqueMock.mockResolvedValue({
+      userId: "user-1",
+      user: { institutionId: "inst-1" },
+      preop: { aiOptIn: true },
+    })
+    storedLabScanLocalMock.mockResolvedValueOnce({ aliases: [{ printed: "ГЛЮ", test: "Glucose" }], instructions: "Our units are mmol/L." })
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      results: [{ printedName: "глю", section: "", test: "", value: "4.4", unit: "mmol/L" }],
+    }) } }] }), { status: 200 }))
+
+    const res = await post({ imageBase64: "aaaa", mimeType: "image/jpeg" })
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({ results: [{ test: "Glucose", value: "4.4" }] })
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const prompt = JSON.parse(String((init as RequestInit).body)).messages[0].content[1].text as string
+    expect(prompt).toMatch(/one ROW at a time/)
+    expect(prompt).toMatch(/"ГЛЮ" -> Glucose/)
+    expect(prompt).toMatch(/Our units are mmol\/L\./)
   })
 })

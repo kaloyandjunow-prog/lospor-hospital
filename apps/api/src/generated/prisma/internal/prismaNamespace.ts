@@ -10851,6 +10851,9 @@ export const HospitalExternalAiPolicyScalarFieldEnum = {
   advisorModel: 'advisorModel',
   visionModel: 'visionModel',
   modelsChangedAt: 'modelsChangedAt',
+  labScanAliases: 'labScanAliases',
+  labScanInstructions: 'labScanInstructions',
+  labScanChangedAt: 'labScanChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

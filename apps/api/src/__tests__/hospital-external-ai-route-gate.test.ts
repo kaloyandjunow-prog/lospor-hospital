@@ -7,6 +7,8 @@ const routes = [
   "src/app/v1/cases/[id]/ai/read-labs/route.ts",
   "src/app/v1/cases/[id]/ai/advise/route.ts",
   "src/app/v1/cases/[id]/vitals-scan/route.ts",
+  // Status's test scan (1.9.1) sends an image too.
+  "src/app/v1/internal/hospital/control-plane/external-ai/lab-scan/test/route.ts",
 ]
 
 describe("Hospital external AI egress gates", () => {
@@ -21,11 +23,16 @@ describe("Hospital external AI egress gates", () => {
       "await req.text()",
       "await req.json()",
       "prisma.case.findUnique",
+      "await boundedJson(",
     ]) {
       const position = source.indexOf(sensitiveOperation)
       if (position >= 0) expect(preflight).toBeLessThan(position)
     }
-    expect(credentialOpen).toBeLessThan(source.indexOf("fetchMistralChatCompletions(apiKey"))
+    // The egress: a direct provider call, or the shared lab scan (10.4.1).
+    const egress = ["fetchMistralChatCompletions(apiKey", "await scanLabImage("]
+      .map(call => source.indexOf(call)).filter(position => position >= 0)
+    expect(egress.length).toBeGreaterThan(0)
+    expect(credentialOpen).toBeLessThan(Math.min(...egress))
   })
 
   it("keeps the fresh-install credential CLI stdin-only and safe on empty input", () => {
