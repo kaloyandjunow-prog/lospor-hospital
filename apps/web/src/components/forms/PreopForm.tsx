@@ -4,19 +4,26 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { preopFocusTab, preopSectionForErrors, scrollToReadiness, useScrollToReadiness } from "@/lib/readiness-focus"
 import { usePreopAutosave } from "@/lib/use-preop-autosave"
 import { missingPreopFields } from "@/lib/preop-validation"
+import { applyClinicalModeSwitch, applyEhrImportToForm } from "@/lib/clinical-mode-switch"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { EhrImportOffer } from "@/components/EhrImportOffer"
+import { PatientEgnField } from "@/components/forms/PatientEgnField"
+import { validEgnOrNull } from "@/lib/egn-field"
+import { ehrFieldLabel } from "@/lib/ehr-field-labels"
+import { Badge } from "@/components/ui/badge"
 import { calcBMI, calcABW } from "@/lib/scores"
 import { GuptaRiskCard, RiskScoreCards } from "@/components/forms/RiskScoreCards"
+import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
 import { PlannedAnaesthesiaField } from "@/components/forms/PlannedAnaesthesiaField"
 import { AsaClassButtons } from "@/components/forms/AsaClassButtons"
 import { asaReasonLabel, suggestASAFromTags } from "@/lib/icd-categories"
 import { usePreopRiskScores } from "@/hooks/usePreopRiskScores"
-import { ChevronRight, Lightbulb } from "lucide-react"
+import { Lightbulb } from "lucide-react"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { AirwayFeatures } from "@/components/forms/sections/AirwayFeatures"
 import { TagInput, type Tag } from "@/components/TagInput"
@@ -30,13 +37,16 @@ import {
   PediatricRiskAndCalculators,
   PediatricFastingFields,
   PediatricVitalReferenceNote,
+  ClinicalModeAgeFields,
 } from "@/components/forms/PediatricPreopSections"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { preopAgeInYears } from "@lospor/core/preop-documents"
+import { metadataString } from "@lospor/core/option-contracts"
 import {
   pediatricCapabilityMessageKey,
   useClinicalAiCapabilities,
   usePediatricModeCapability,
+  useEhrImportCapability,
 } from "@/lib/deployment-capabilities"
 import {
   ComorbiditiesBySystem,
@@ -44,17 +54,16 @@ import {
   SectionCard,
 } from "@/components/forms/PreopFormPresentational"
 import { PreopAnamnesisFields } from "@/components/forms/PreopAnamnesisFields"
-import { PreopSidebar, type PreopSidebarProps } from "@/components/forms/PreopSidebar"
+import { PreopSidebar } from "@/components/forms/PreopSidebar"
 import type { CaseStages } from "@/components/forms/CaseSidebar"
 import { StepTabBar } from "@/components/forms/StepTabBar"
 import { SectionJumpStrip } from "@/components/forms/SectionJumpStrip"
-import { broselowZone } from "@lospor/core/broselow"
 import type { PreopLayout } from "@/lib/preop-layout"
 import { LabResultsSection } from "@/components/forms/sections/LabResultsSection"
 import { PreopMedicationInstructionsSection, PreopWardOrdersSection } from "@/components/forms/PreopOrdersSections"
 import { PreopPremedicationOrderSection } from "@/components/forms/PreopPremedicationOrder"
 import { preopSectionConfigFor } from "@lospor/core/preop-orders"
-import { PreopCaseSection, PreopDemographicsSection } from "@/components/forms/PreopPatientSections"
+import { PreopCaseSection } from "@/components/forms/PreopPatientSections"
 import { PreopQuestionList, type PreopPendingSuggestion, type PreopQuestionAnswer } from "@/components/forms/PreopQuestionList"
 import {
   isPreopQuestionShown, isPreopScoreAvailable, preopProfileForMode,
@@ -63,6 +72,7 @@ import {
   type PreopAssessmentProfile,
   type PreopFormSection,
 } from "@lospor/core/preop-assessment"
+import { buildPreopSidebarModel } from "@/components/forms/preop-sidebar-model"
 
 /** Baseline question behind each legacy form field. */
 const QUESTION_OF_FIELD: Record<string, string> = Object.fromEntries(
@@ -80,7 +90,7 @@ type Icd10SearchItem = { code: string; description: string; descriptionBg?: stri
 type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?: string }
 
 
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, preopProfile: profiles, focus, stages }: {
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, onEhrAcceptedBeforeCase, submitting = false, submitError, onClinicalInput, preopProfile: profiles, focus, stages }: {
   /** Where the case is, for the case panel (sidebar layout). */
   stages?: CaseStages
   defaultValues?: Partial<PreopData>
@@ -98,6 +108,12 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   preopProfile?: PreopAssessmentProfile | null
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
+  /** Records an EHR acceptance made before the case existed. */
+  onEhrAcceptedBeforeCase?: (importId: string, appliedKeys: string[]) => Promise<void>
+  submitting?: boolean
+  /** Shown above the submit action when the gated submit rejects the case. */
+  submitError?: string | null
+  onClinicalInput?: () => void
   /** A section to open on arrival, from a readiness "Go to" (1.5.0). */
   focus?: string | null
 }) {
@@ -105,6 +121,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const locale = useLocale()
   const clinicalAi = useClinicalAiCapabilities()
   const pediatricCapability = usePediatricModeCapability()
+  const ehrImportCapability = useEhrImportCapability()
+  // What the typed number is. ИЗ № unless the site permits national
+  // identifiers and the clinician says otherwise -- the server supports
+  // both and the policy allows both, but nothing ever offered the choice,
+  // so every lookup went out as an ИЗ № whatever the clinician had typed.
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -144,7 +165,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const [height, weight, sex, ageYearsVal, smoking, highRiskSurgery, emergencySurgery,
          allergies, familyAnesthesiaProblems, difficultAirwayHistory, comorbidities, bloodType, rhFactor,
          clinicalMode, ageValue, ageUnit, procedureUndetermined] =
-    // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form watch() cannot be memoized; the form re-reads on every change.
     watch(["heightCm", "weightKg", "sex", "ageYears", "smoking", "highRiskSurgery", "emergencySurgery",
            "allergies", "familyAnesthesiaProblems", "difficultAirwayHistory", "comorbidities", "bloodType", "rhFactor",
            "clinicalMode", "ageValue", "ageUnit", "procedureUndetermined"])
@@ -293,6 +313,18 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     onAutoSave: onAutoSave as unknown as Parameters<typeof usePreopAutosave>[0]["onAutoSave"],
     disabled: pediatricRecordReadOnly,
   })
+
+  // Appliance-only: the EHR import offer withdraws once the clinician starts
+  // entering the assessment themselves. Kept as its own subscription rather
+  // than a parameter on the shared autosave hook, so the vendored hook stays
+  // byte-identical to upstream and does not conflict on every re-vendor.
+  useEffect(() => {
+    if (!onClinicalInput || pediatricRecordReadOnly) return
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const subscription = watch((_values, { name }) => { if (name) onClinicalInput() })
+    return () => subscription.unsubscribe()
+  }, [onClinicalInput, pediatricRecordReadOnly, watch])
+
   const airwayUTO = !!watch("airwayUnobtainable")
   const [activeTab, setActiveTab] = useState<"patient" | "ai" | "case" | "history" | "exam" | "risk" | "plan">(() => preopFocusTab(focus) ?? "patient")
   useScrollToReadiness(focus)
@@ -320,7 +352,14 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   // The rule itself lives in @/lib/preop-validation, where it is testable
   // without a form around it.
-  const validate = (data: PreopData) => missingPreopFields(data, vitalsUTO, airwayUTO)
+  const validate = (data: PreopData) => {
+    const errs = missingPreopFields(data, vitalsUTO, airwayUTO)
+    // Appliance-only: a case is opened against the hospital's own record
+    // number, so a new case cannot be submitted without one. Existing cases
+    // already carry their patient link and are not asked again.
+    if (!caseId && !data.patientId?.trim()) errs.unshift("patientId")
+    return errs
+  }
 
   /** Same mapping @/lib/preop-validation uses for the readiness check's own field names. */
   const ZOD_ERROR_FIELD: Readonly<Record<string, string>> = {
@@ -346,7 +385,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   function hasTabError(tab: string): boolean {
     if (fieldErrors.size === 0) return false
     switch (tab) {
-      case "patient": return fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")
+      case "patient": return fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")
       case "case":    return fieldErrors.has("diagnoses") || fieldErrors.has("procedures")
       case "exam":    return fieldErrors.has("bp") || fieldErrors.has("heartRate") || fieldErrors.has("respiratoryRate") || fieldErrors.has("airway")
       case "risk":    return fieldErrors.has("asaScore")
@@ -401,51 +440,13 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   const missingFields = sidebar ? new Set(missingPreopFields(formValues as unknown as PreopData, vitalsUTO, airwayUTO)) : new Set<string>()
   const anyMissing = (...keys: string[]) => keys.some(key => missingFields.has(key))
-  // The drugs a medication instruction can name: the current medication list as it stands.
   const currentMedicationChoices = ((formValues.currentMedications ?? []) as Tag[]).filter(tag => !!tag.label).map(tag => ({ label: tag.label, inn: tag.inn, atcCode: tag.atcCode }))
   const allergyTags = ((watch("allergyDetails") ?? []) as Tag[]).map(tag => tag.label).filter((label): label is string => !!label)
-  const ageUnitText = (unit: string | null | undefined) => unit === "MONTHS" ? (locale === "bg" ? "м." : "mo") : unit === "DAYS" ? (locale === "bg" ? "д." : "d") : (locale === "bg" ? "г." : "y")
-  // The step's sections, for the case panel and for the scrolling page's strip.
-  const preopSections = [
-    { id: "demographics", label: t("preop.demographicsSection"), missing: anyMissing("ageYears", "ageValue", "sex", "heightCm", "weightKg") },
-    ...(anyClinicalAiEnabled(clinicalAi) ? [{ id: "ai", label: t("preop.aiSection"), missing: false }] : []),
-    { id: "case", label: t("preop.caseSection"), missing: anyMissing("diagnoses", "procedures") },
-    ...(sectionOn("MEDICAL_HISTORY") ? [{ id: "history", label: t("preop.historySection"), missing: false }] : []),
-    ...(sectionOn("CURRENT_MEDICATIONS") ? [{ id: "medications", label: t("preop.medicationsSection"), missing: false }] : []),
-    { id: "anamnesis", label: t("preop.historyCardTitle"), missing: false },
-    { id: "vitals", label: t("preop.vitalsSection"), missing: anyMissing("bp", "heartRate", "respiratoryRate") },
-    { id: "airway", label: t("preop.airwaySection"), missing: anyMissing("airway") },
-    ...(sectionOn("LABS") ? [{ id: "labs", label: t("preop.sidebar.labs"), missing: false }] : []),
-    { id: "risk", label: t("preop.riskSection"), missing: anyMissing("asaScore") },
-    ...(sectionOn("PLANNED_ANAESTHESIA") ? [{ id: "planned", label: t("preop.plannedAnaesthesia"), missing: false }] : []),
-    ...(sectionOn("PREMEDICATION") ? [{ id: "premedication", label: t("preop.premedication.title"), missing: false }] : []),
-    ...(isPediatric && sectionOn("PEDIATRIC_FASTING") ? [{ id: "fasting", label: t("preop.fastingSection"), missing: false }] : []),
-    ...(sectionOn("WARD_ORDERS") ? [{ id: "ward-orders", label: t("preop.orders.wardTitle"), missing: false }] : []),
-    ...(sectionOn("MEDICATION_INSTRUCTIONS") ? [{ id: "medication-instructions", label: t("preop.orders.medicationTitle"), missing: false }] : []),
-    { id: "notes", label: t("preop.notesLabel"), missing: false },
-  ]
-  const sidebarProps: PreopSidebarProps | null = sidebar ? {
-    sections: preopSections,
-    patient: {
-      ageText: ageValue != null && ageUnit ? `${ageValue} ${ageUnitText(ageUnit)}` : ageYearsVal != null ? `${ageYearsVal} ${ageUnitText("YEARS")}` : null,
-      sexText: sex === "MALE" ? (locale === "bg" ? "М" : "M") : sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : null,
-      heightCm: height ? Number(height) : null,
-      weightKg: weight ? Number(weight) : null,
-      bmi: bmi ?? null,
-      allergy: allergies === true,
-      allergyDetails: allergyTags,
-    },
-    broselow: broselowZone({ clinicalMode: preopMode, heightCm: height ? Number(height) : null, weightKg: weight ? Number(weight) : null }),
-    scores: isPediatric ? [] : [
-      { label: t("preop.rcriShort"), value: rcriAnswered > 0 ? rcriScore : null, max: 6 },
-      { label: t("preop.apfelShort"), value: apfelAnswered > 0 ? apfelScore : null, max: 4 },
-      { label: t("preop.stopBangShort"), value: stopBangAnswered > 0 ? stopBangScore : null, max: 8 },
-    ],
-    asa: { chosen: (watch("asaScore") as string | null | undefined) ?? null, suggested: asaSuggestion?.cls ?? null },
-    disabled: pediatricRecordReadOnly,
-    stages,
-  } : null
-
+  const { sections: preopSections, props: preopSidebarProps } = buildPreopSidebarModel({
+    t, sectionOn, aiOn: anyClinicalAiEnabled(clinicalAi), anyMissing, isPediatric, preopMode, ageValue, ageUnit, ageYearsVal, sex, height, weight, bmi: bmi ?? null, allergies, allergyTags, locale,
+    rcriAnswered, rcriScore, apfelAnswered, apfelScore, stopBangAnswered, stopBangScore, asaChosen: (watch("asaScore") as string | null | undefined) ?? null, asaSuggested: asaSuggestion?.cls ?? null, disabled: pediatricRecordReadOnly, stages,
+  })
+  const sidebarProps = sidebar ? preopSidebarProps : null
   return (
     <form
       onSubmit={pediatricRecordReadOnly
@@ -488,7 +489,185 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
       {/* ── Patient tab ─────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
-      <PreopDemographicsSection control={control} setValue={setValue} fieldErrors={fieldErrors} fe={fe} rejectionOf={rejectionOf} questionList={() => questionList("demographics")} pediatricCapability={pediatricCapability} pediatricRecordReadOnly={pediatricRecordReadOnly} isPediatric={isPediatric} heightRange={heightRange} weightRange={weightRange} bmi={bmi} ibw={ibw} abw={abw} bloodGroupOptions={bloodGroupOptions} bloodType={bloodType} rhFactor={rhFactor} locale={locale} />
+      {/* Demographics */}
+      <div id="preop-sec-demographics" data-readiness="demographics" data-tour="preop-demographics">
+      <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
+        {!caseId && (
+          <div className="space-y-2">
+            <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="hospital-patient-number"
+              autoComplete="off"
+              maxLength={128}
+              className={fe("patientId")}
+              {...register("patientId")}
+            />
+            <p className="text-xs text-slate-400">
+              {locale === "bg"
+                ? "Остава в болницата. Към централния регистър се изпраща само псевдоним."
+                : "Stays in this hospital. Only a pseudonym is sent to the central registry."}
+            </p>
+            {fieldErrors.has("patientId") && (
+              <p className="text-red-500 text-xs">
+                {locale === "bg" ? "Болничният номер е задължителен." : "Hospital patient number is required."}
+              </p>
+            )}
+            {/* The ЕГН joins this patient's admissions across years; the
+                record number restarts every January. Optional, and only where
+                the site permits national identifiers. */}
+            {ehrImportCapability.egnPermitted && (
+              <PatientEgnField registration={register("patientNationalId")} value={watch("patientNationalId")} />
+            )}
+          </div>
+        )}
+        {/* Directly under the number, because that is what it answers. */}
+        <EhrImportOffer
+          caseId={caseId ?? null}
+          onAcceptedBeforeCase={onEhrAcceptedBeforeCase && (async (importId, appliedKeys) => {
+            // Flush here, record there. The values the clinician just
+            // accepted are in the form; writing them is what creates the
+            // case, and only the page sees the new id without waiting for
+            // a render.
+            await flushSave()
+            await onEhrAcceptedBeforeCase(importId, appliedKeys)
+          })}
+          // The ЕГН finds the patient across admissions; without a valid one,
+          // the record number. A half-typed or mistyped ЕГН is never looked up.
+          identifier={validEgnOrNull(watch("patientNationalId")) ?? watch("patientId") ?? null}
+          identifierType={validEgnOrNull(watch("patientNationalId")) ? "EGN" : "IZ"}
+          available={ehrImportCapability.enabled}
+          transport={ehrImportCapability.transport}
+          folderRequests={ehrImportCapability.folderRequests}
+          current={getValues() as unknown as Record<string, unknown>}
+          currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
+          labelFor={field => ehrFieldLabel(field, locale)}
+          modeChangeAvailable={pediatricCapability.enabled}
+          onRequestModeChange={pediatricCapability.enabled ? () => {
+            // Only reached from a review built by an appliance older than
+            // 1.4.23, which still holds the age back until the mode is
+            // switched by hand. The same switch the toggle performs.
+            applyClinicalModeSwitch(isPediatric ? "ADULT" : "PEDIATRIC",
+              { ageYears: getValues("ageYears"), ageValue: getValues("ageValue"), ageUnit: getValues("ageUnit") },
+              setValue as never)
+          } : undefined}
+          onApply={(patch, modeChange) => applyEhrImportToForm(patch, modeChange, getValues as never, setValue as never)}
+        />
+        <div className="space-y-4">
+          <ClinicalModeAgeFields
+            control={control}
+            setValue={setValue}
+            pediatricCapability={pediatricCapability}
+            existingPediatricRecord={pediatricRecordReadOnly}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.height")} <span className="text-red-500">*</span></Label>
+            <Controller name="heightCm" control={control} render={({ field }) => (
+              <div className={fe("heightCm")}><ConvertedStepper measurement="height" canonicalValue={field.value} onCanonicalChange={field.onChange} canonicalMin={isPediatric ? 20 : heightRange.min} canonicalMax={heightRange.max} canonicalStep={isPediatric ? 0.1 : heightRange.step} showSlider /></div>
+            )} />
+            <RejectionNote msg={rejectionOf("heightCm")} />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.weight")} <span className="text-red-500">*</span></Label>
+            <Controller name="weightKg" control={control} render={({ field }) => (
+              <div className={fe("weightKg")}><ConvertedStepper measurement="weight" canonicalValue={field.value} onCanonicalChange={field.onChange} canonicalMin={isPediatric ? 0.1 : weightRange.min} canonicalMax={weightRange.max} canonicalStep={isPediatric ? 0.1 : weightRange.step} showSlider /></div>
+            )} />
+            <RejectionNote msg={rejectionOf("weightKg")} />
+          </div>
+          </div>
+        </div>
+
+        {(bmi || ibw) && (
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            {bmi && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 font-medium">{t("preop.bmi")}</span>
+                <Badge variant={isPediatric ? "outline" : bmi >= 40 ? "destructive" : bmi >= 30 ? "secondary" : "default"}>{bmi} kg/m²</Badge>
+              </div>
+            )}
+            {ibw != null && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 font-medium">{t("preop.ibw")}</span>
+                <Badge variant="outline">{ibw} kg</Badge>
+              </div>
+            )}
+            {abw && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 font-medium">{t("preop.abw")}</span>
+                <Badge variant="outline" className="border-amber-300 text-amber-700">{abw} kg</Badge>
+              </div>
+            )}
+            {ibw != null && (
+              <span className="text-xs text-slate-400">
+                {isPediatric ? "McLaren · CDC 2000" : t("preop.devineFormula")}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Sex */}
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.sex")} <span className="text-red-500">*</span></Label>
+          <Controller name="sex" control={control} render={({ field }) => (
+            <div className={`flex gap-3 ${fe("sex")}`}>
+              {[
+                { value: "MALE",   label: t("preop.male"),   icon: "♂" },
+                { value: "FEMALE", label: t("preop.female"), icon: "♀" },
+                { value: "OTHER",  label: t("preop.other"),  icon: "⚥" },
+              ].map(opt => (
+                <button key={opt.value} type="button"
+                  onClick={() => field.onChange(opt.value)}
+                  className={`flex-1 rounded-xl border-2 py-2.5 text-sm font-semibold transition-all ${
+                    field.value === opt.value
+                      ? "border-blue-500 bg-blue-500 text-white dark:bg-slate-600 dark:border-slate-300 dark:text-white"
+                      : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"
+                  }`}>
+                  <span className="text-lg block">{opt.icon}</span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )} />
+        </div>
+        {(fieldErrors.has("ageYears") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")) && (
+          <p className="text-red-500 text-xs">{t("preop.requiredDemographics")}</p>
+        )}
+        <div className="space-y-1">
+          <Label>{t("preop.bloodType")}</Label>
+          <div className="grid grid-cols-4 gap-2">
+            {bloodGroupOptions.map(opt => {
+              const bloodTypeValue = metadataString(opt.metadata, "bloodType")
+              const rhFactorValue = metadataString(opt.metadata, "rhFactor")
+              const optionBloodType = bloodTypeValue === "A" || bloodTypeValue === "B"
+                || bloodTypeValue === "AB" || bloodTypeValue === "O"
+                ? bloodTypeValue
+                : undefined
+              const optionRhFactor = rhFactorValue === "POSITIVE" || rhFactorValue === "NEGATIVE"
+                ? rhFactorValue
+                : undefined
+              if (!optionBloodType || !optionRhFactor) return null
+              const selected = bloodType === optionBloodType && rhFactor === optionRhFactor
+              return (
+                <button key={opt.value} type="button"
+                  onClick={() => {
+                    if (selected) { setValue("bloodType", undefined); setValue("rhFactor", undefined); return }
+                    setValue("bloodType", optionBloodType)
+                    setValue("rhFactor", optionRhFactor)
+                  }}
+                  className={`rounded-xl border-2 py-2 font-bold text-sm transition-all ${
+                    selected
+                      ? "bg-blue-500 border-blue-500 text-white dark:bg-slate-600 dark:border-slate-300 dark:text-white scale-105"
+                      : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"
+                  }`}>{displayOption("BLOOD_GROUP", opt, locale)}</button>
+              )
+            })}
+          </div>
+        </div>
+        {questionList("demographics")}
+      </SectionCard>
+      </div>
       </div>
 
       <AiConsentSection hidden={layoutMode === "tabs" && activeTab !== "ai"} control={control} aiOptIn={!!watch("aiOptIn")} isPediatric={isPediatric} clinicalAi={clinicalAi} getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />
@@ -932,16 +1111,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       )}
       </fieldset>
 
-      <div className="flex justify-end" data-tour="preop-submit">
-        <Button
-          type="submit"
-          size="lg"
-          disabled={pediatricRecordReadOnly}
-          className="gap-2 bg-blue-600 hover:bg-blue-700"
-        >
-          {t("preop.continueIntraop")} <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <PreopSubmitAction submitting={submitting} error={submitError} disabled={pediatricRecordReadOnly} />
     </form>
   )
 }
