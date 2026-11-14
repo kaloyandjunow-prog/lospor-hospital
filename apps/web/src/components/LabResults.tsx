@@ -23,7 +23,7 @@ import { CanonicalUnit, RefBadge } from "@/components/LabResultBadges"
 // Re-exported rather than redeclared: mobile needs the identical shape, and
 // maintaining it separately is how the two drift.
 import type { LabResult, ScannedLabResult } from "@lospor/core/labs"
-import { fileToBase64 } from "@/lib/file-to-base64"
+import { uprightImageBase64 } from "@/lib/upright-image"
 export type { LabResult }
 
 
@@ -81,11 +81,11 @@ export function LabResults({
     setAiPreview(null)
     setAiError(null)
     try {
-      const imageBase64 = await fileToBase64(file)
+      const { imageBase64, mimeType } = await uprightImageBase64(file) // upright, no EXIF (10.4.1)
       const res = await fetch(`/api/cases/${caseId}/ai/read-labs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64, mimeType: file.type }),
+        body: JSON.stringify({ imageBase64, mimeType }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || data.error) {

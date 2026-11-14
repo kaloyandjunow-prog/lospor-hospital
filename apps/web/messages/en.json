@@ -1355,6 +1355,7 @@
     "fieldRespiratoryRate": "Respiratory rate",
     "fieldAirwayEvaluation": "Airway evaluation (or mark Unable to Obtain)",
     "fieldAsaClass": "ASA physical status class",
+    "aiSection": "AI assistance",
     "aiOptInLabel": "Allow AI assistance for this case",
     "aiOptInHint": "Optional. A lab report or monitor photo is sent to the AI provider as an image, so keep names and ID numbers out of the frame. The advisor (adults only) receives structured clinical fields only: no names, notes or free text.",
     "aiUnavailable": "The AI advisor is not available on this installation.",
@@ -1431,6 +1432,7 @@
     },
     "tabs": {
       "patient": "Patient",
+      "ai": "AI",
       "case": "Case",
       "history": "History",
       "exam": "Exam",

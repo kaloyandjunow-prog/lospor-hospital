@@ -8,6 +8,10 @@ import { useIntraopUiCopy } from "./ui-copy"
 import { SyringeCustomFields } from "./SyringeCustomFields"
 import { parseSyringe } from "@lospor/core/infusion-volume"
 import { infusionConfirmProblem } from "@lospor/core/infusion-entry"
+import { Minus, Plus } from "lucide-react"
+import { HoldRepeatButton } from "@/components/HoldRepeatButton"
+
+const stepButtonClass = "flex items-center justify-center w-8 h-8 shrink-0 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors"
 
 /**
  * Changing an infusion rate mid-case.
@@ -117,6 +121,9 @@ export function RateChangeDialog({
     ? infusionStrengths({ name: state.name, route: state.route, localAnaesthetic: concentrations, running: state.concentration })
     : { options: [], syringe: false }
   const setValue = (text: string) => onPatch({ rate: parseFloat(text) || 0 })
+  // The same − / + as the start sheet (DoseSelector), held to repeat, kept in range.
+  const stepBy = (delta: number) =>
+    onPatch({ rate: parseFloat(Math.min(view.max, Math.max(view.min, (state.rate || 0) + delta)).toFixed(10)) })
   // Other is open and not yet a usable syringe: the fields say why; the change waits.
   const customInvalid = strengths.syringe && !!state.customOpen && !parseSyringe(state.concentration)
   // An empty box or 0 is not a rate (a stop is its own action): say so, and hold the change.
@@ -188,7 +195,12 @@ export function RateChangeDialog({
             )}
 
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                {showDoseGuidance && (
+                  <HoldRepeatButton onStep={() => stepBy(-view.step)} ariaLabel="−" className={stepButtonClass}>
+                    <Minus className="h-3 w-3" />
+                  </HoldRepeatButton>
+                )}
                 <input
                   type="number"
                   value={state.rate}
@@ -197,8 +209,13 @@ export function RateChangeDialog({
                   max={showDoseGuidance ? view.max : undefined}
                   step={view.step}
                   onChange={event => setValue(event.target.value)}
-                  className="flex-1 text-lg font-semibold text-center border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1.5 bg-white dark:bg-[#2a2a2a] focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield]"
+                  className="flex-1 min-w-0 text-lg font-semibold text-center border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1.5 bg-white dark:bg-[#2a2a2a] focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield]"
                 />
+                {showDoseGuidance && (
+                  <HoldRepeatButton onStep={() => stepBy(view.step)} ariaLabel="+" className={stepButtonClass}>
+                    <Plus className="h-3 w-3" />
+                  </HoldRepeatButton>
+                )}
                 <select
                   value={state.unit}
                   onChange={event => {

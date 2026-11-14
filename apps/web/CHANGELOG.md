@@ -1,5 +1,30 @@
 # Changelog - LOSPOR Web App
 
+## [10.4.1] - 2026-11-14
+
+### Fixed
+
+- **Lab report scans read photos sideways.** A phone photo is now sent upright: the browser applies the photo's
+  EXIF turn while drawing it into a canvas, and the JPEG sent has upright pixels, at most 3000 px, and no EXIF (no
+  location). Sent as stored, the AI provider read the report at 90 degrees and put values on the wrong rows (API
+  10.4.1 has the numbers).
+- **No browser arrows in number boxes.** Chrome and Edge drew their own small up/down arrows inside every number
+  field (a white square in dark mode); the existing rule only reached Firefox. Hidden everywhere.
+
+### Changed
+
+- **AI assistance is a section of its own**, right after the demographics, instead of sitting under the notes at
+  the end of the preop: the consent and the adult advisor, with its own tab and its own entry in the section strip
+  and sidebar. With every AI feature off in Status the section is not shown at all (it used to show a "not enabled"
+  note).
+- **The infusion rate and TCI target change has − and + beside the number**, like the start sheet: hold to repeat,
+  kept in the drug's range.
+
+### Dependencies
+
+- No minor or patch updates since 10.4.0. `npm audit --omit=dev` still shows the seven known low findings
+  (next-pwa/workbox chain, deepmerge) with no patched release; they are accepted.
+
 ## [10.4.0] - 2026-11-14
 
 ### Added

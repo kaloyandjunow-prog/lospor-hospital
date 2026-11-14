@@ -22,7 +22,7 @@ import { AirwayFeatures } from "@/components/forms/sections/AirwayFeatures"
 import { TagInput, type Tag } from "@/components/TagInput"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
-import { AiConsentSection } from "@/components/forms/sections/AiConsentSection"
+import { AiConsentSection, anyClinicalAiEnabled } from "@/components/forms/sections/AiConsentSection"
 import { useOptionLibrary, useRange } from "@/hooks/useOptionLibrary"
 import { displayOption, resolveDisplayOption } from "@/lib/clinical-display"
 import { schema, type PreopData } from "@/components/forms/preopSchema"
@@ -294,7 +294,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     disabled: pediatricRecordReadOnly,
   })
   const airwayUTO = !!watch("airwayUnobtainable")
-  const [activeTab, setActiveTab] = useState<"patient" | "case" | "history" | "exam" | "risk" | "plan">(() => preopFocusTab(focus) ?? "patient")
+  const [activeTab, setActiveTab] = useState<"patient" | "ai" | "case" | "history" | "exam" | "risk" | "plan">(() => preopFocusTab(focus) ?? "patient")
   useScrollToReadiness(focus)
 
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set())
@@ -333,14 +333,15 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   // The tabbed layout (10.0.0): the plan and what is ordered have a tab of
   // their own; they all sat on Risk & ASA. Labels translated, as they were not.
-  const TABS = [
+  const TABS: { value: typeof activeTab; label: string }[] = [
     { value: "patient", label: t("preop.tabs.patient") },
+    ...(anyClinicalAiEnabled(clinicalAi) ? [{ value: "ai" as const, label: t("preop.tabs.ai") }] : []),
     { value: "case",    label: t("preop.tabs.case")    },
     { value: "history", label: t("preop.tabs.history") },
     { value: "exam",    label: t("preop.tabs.exam")    },
     { value: "risk",    label: t("preop.tabs.risk")    },
     { value: "plan",    label: t("preop.tabs.plan")    },
-  ] as const
+  ]
 
   function hasTabError(tab: string): boolean {
     if (fieldErrors.size === 0) return false
@@ -407,6 +408,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   // The step's sections, for the case panel and for the scrolling page's strip.
   const preopSections = [
     { id: "demographics", label: t("preop.demographicsSection"), missing: anyMissing("ageYears", "ageValue", "sex", "heightCm", "weightKg") },
+    ...(anyClinicalAiEnabled(clinicalAi) ? [{ id: "ai", label: t("preop.aiSection"), missing: false }] : []),
     { id: "case", label: t("preop.caseSection"), missing: anyMissing("diagnoses", "procedures") },
     ...(sectionOn("MEDICAL_HISTORY") ? [{ id: "history", label: t("preop.historySection"), missing: false }] : []),
     ...(sectionOn("CURRENT_MEDICATIONS") ? [{ id: "medications", label: t("preop.medicationsSection"), missing: false }] : []),
@@ -488,6 +490,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
       <PreopDemographicsSection control={control} setValue={setValue} fieldErrors={fieldErrors} fe={fe} rejectionOf={rejectionOf} questionList={() => questionList("demographics")} pediatricCapability={pediatricCapability} pediatricRecordReadOnly={pediatricRecordReadOnly} isPediatric={isPediatric} heightRange={heightRange} weightRange={weightRange} bmi={bmi} ibw={ibw} abw={abw} bloodGroupOptions={bloodGroupOptions} bloodType={bloodType} rhFactor={rhFactor} locale={locale} />
       </div>
+
+      <AiConsentSection hidden={layoutMode === "tabs" && activeTab !== "ai"} control={control} aiOptIn={!!watch("aiOptIn")} isPediatric={isPediatric} clinicalAi={clinicalAi} getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />
 
       {/* ── Case tab ─────────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "case" ? "hidden" : ""}>
@@ -906,10 +910,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
         <RejectionNote msg={rejectionOf("notes")} />
       </SectionCard>
 
-
-      {/* The case's AI consent, and the adult advisor (9.14.3). */}
-      <AiConsentSection control={control} aiOptIn={!!watch("aiOptIn")} isPediatric={isPediatric} clinicalAi={clinicalAi}
-        getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />
       </div>
 
       {fieldErrors.size > 0 && (

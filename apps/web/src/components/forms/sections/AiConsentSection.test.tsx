@@ -58,6 +58,15 @@ describe("the case's AI consent", () => {
     expect(screen.getByText("advisor")).toBeTruthy()
   })
 
+  it("is a section of its own, named, only with AI on (10.4.1)", () => {
+    const { unmount } = show(off, false)
+    expect(screen.queryByText(enMessages.preop.aiSection)).toBeNull()
+    unmount()
+    show(scansOnly, false)
+    expect(screen.getByText(enMessages.preop.aiSection)).toBeTruthy()
+    expect(document.getElementById("preop-sec-ai")).not.toBeNull()
+  })
+
   it("never shows the advisor to a paediatric case", () => {
     show(everything, true, true)
     expect(screen.queryByText("advisor")).toBeNull()

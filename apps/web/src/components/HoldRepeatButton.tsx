@@ -12,12 +12,14 @@ import { useEffect, useRef, type ReactNode } from "react"
  * press for itself: the default on pointerdown and contextmenu is prevented,
  * and selection, the iOS callout and touch panning are off on the button.
  */
-export function HoldRepeatButton({ onStep, className, children, tabIndex }: {
+export function HoldRepeatButton({ onStep, className, children, tabIndex, ariaLabel }: {
   /** Read afresh on every tick, so a held button steps from the latest value. */
   onStep: () => void
   className: string
   children: ReactNode
   tabIndex?: number
+  /** A name for an icon-only button. */
+  ariaLabel?: string
 }) {
   const stepRef = useRef(onStep)
   useEffect(() => { stepRef.current = onStep })
@@ -48,6 +50,7 @@ export function HoldRepeatButton({ onStep, className, children, tabIndex }: {
     <button
       type="button"
       tabIndex={tabIndex}
+      aria-label={ariaLabel}
       className={`${className} select-none touch-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]`}
       onPointerDown={event => {
         if (event.button !== 0) return
