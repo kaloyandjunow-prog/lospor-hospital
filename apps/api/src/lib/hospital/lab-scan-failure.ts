@@ -14,23 +14,22 @@ import { emitStatusEvent } from "@/lib/hospital/status-events"
  */
 export async function labScanFailureResponse(
   outcome: Exclude<LabScanOutcome, { ok: true }>,
-  /** Where the scan came from, for the log line; the Status event is read-labs for both. */
-  origin: "read-labs" | "read-labs-test" = "read-labs",
 ): Promise<NextResponse> {
+  // One feature for both: Status events name read-labs, a test scan included.
+  // Fixed log lines only (verify:provenance's runtime log privacy boundary).
   const feature = "read-labs"
-  const log = `[ai/${origin}]`
   if (outcome.kind === "timeout") {
-    console.error(`${log} AI_PROVIDER_TIMEOUT`)
+    console.error("[ai/read-labs] AI_PROVIDER_TIMEOUT")
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature, failureKind: "timeout" })
     return NextResponse.json({ error: "Lab scan timed out. Please crop the image tighter or try again." }, { status: 504 })
   }
   if (outcome.kind === "network") {
-    console.error(`${log} AI_PROVIDER_NETWORK_FAILED`)
+    console.error("[ai/read-labs] AI_PROVIDER_NETWORK_FAILED")
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature, failureKind: "network" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
   const status = outcome.response.status
-  console.error(`${log} Mistral error:`, status)
+  console.error("[ai/read-labs] Mistral error:", status)
   if (await mistralModelUnavailable(outcome.response)) {
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature, failureKind: "model-unavailable" })
     return NextResponse.json({

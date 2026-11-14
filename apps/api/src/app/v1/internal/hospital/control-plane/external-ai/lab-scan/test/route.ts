@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       local: { aliases: input.aliases, instructions: input.instructions },
       timeoutMs: MISTRAL_TIMEOUT_MS,
     })
-    if (!outcome.ok) return labScanFailureResponse(outcome, "read-labs-test")
+    if (!outcome.ok) return labScanFailureResponse(outcome)
     // The image left the appliance: that is recorded, as for a case scan, by the operator.
     const installation = await prisma.hospitalInstallation.findUnique({ where: { id: "local" }, select: { applianceOperatorUserId: true } })
     if (installation?.applianceOperatorUserId) {

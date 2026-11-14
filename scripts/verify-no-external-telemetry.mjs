@@ -73,6 +73,8 @@ const aiRoutes = [
   "apps/api/src/app/v1/cases/[id]/ai/advise/route.ts",
   "apps/api/src/app/v1/cases/[id]/ai/read-labs/route.ts",
   "apps/api/src/app/v1/cases/[id]/vitals-scan/route.ts",
+  // Status's lab-scan test (1.9.1) sends an image too.
+  "apps/api/src/app/v1/internal/hospital/control-plane/external-ai/lab-scan/test/route.ts",
 ]
 for (const relative of aiRoutes) {
   const content = await readFile(new URL(`../${relative}`, import.meta.url), "utf8")
@@ -97,7 +99,9 @@ for (const relative of aiRoutes) {
   if (!/const (\w+) = await externalAiProviderAccess\(\)\s*\r?\n\s*if \(!\1\.enabled\)/.test(content)) {
     problems.push(`${relative} opens a credential without returning a concurrent refusal`)
   }
-  const providerAt = content.indexOf("fetchMistralChatCompletions(")
+  // The egress: a direct provider call, or upstream's shared lab scan (API 10.4.1).
+  const egress = ["fetchMistralChatCompletions(", "scanLabImage("].map(call => content.indexOf(call)).filter(at => at !== -1)
+  const providerAt = egress.length ? Math.min(...egress) : -1
   if (providerAt === -1 || credentialAt > providerAt) {
     problems.push(`${relative} does not open the sealed credential before its provider call`)
   }
