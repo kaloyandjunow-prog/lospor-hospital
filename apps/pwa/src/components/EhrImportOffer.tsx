@@ -17,6 +17,8 @@ import { FeedbackPressable } from "./intraop/FeedbackPressable"
 /** How often a request to the hospital system is checked, and for how long (1.5.0). */
 const REQUEST_CHECK_MS = 15_000
 const REQUEST_WAIT_MS = 5 * 60_000
+/** How long typing must pause before the number is looked up. */
+export const LOOKUP_PAUSE_MS = 800
 
 /**
  * The door onto the import review.
@@ -145,12 +147,14 @@ export function EhrImportOffer({
 
   const ask = useCallback(async (
     id: string | null,
-    how: { request?: boolean; waiting?: { requestId: string; since: number; checks: number } } = {},
+    how: { request?: boolean; again?: boolean; waiting?: { requestId: string; since: number; checks: number } } = {},
   ) => {
     if (!identifier) return
     if (!how.waiting) setState({ kind: "asking" })
     // A re-check names the request it waits on and never asks again.
-    const lookupAsk = how.waiting ? { requestId: how.waiting.requestId } : how.request ? { request: true } : {}
+    const lookupAsk = how.waiting
+      ? { requestId: how.waiting.requestId }
+      : { ...(how.request ? { request: true } : {}), ...(how.again ? { again: true } : {}) }
     const result = id
       ? await lookupEhrImport(id, identifier, identifierType, lookupAsk)
       : await lookupEhrImportWithoutCase(identifier, identifierType, lookupAsk)
@@ -201,8 +205,11 @@ export function EhrImportOffer({
   // is a form polling all morning.
   useEffect(() => {
     if (!available || !identifier) return
-    setState(current => (current.kind === "idle" ? current : current))
-    void ask(caseId, { request: asksOverFolder })
+    // Only once typing pauses: every keystroke used to be its own question to
+    // the hospital system (7, 71, 710, 7100 …), each a search for a number
+    // nobody meant.
+    const timer = setTimeout(() => { void ask(caseId, { request: asksOverFolder }) }, LOOKUP_PAUSE_MS)
+    return () => clearTimeout(timer)
     // `ask` is declared with exactly this effect's own reactive inputs
     // (caseId, identifier, identifierType) as its useCallback deps, so its
     // identity only changes when this effect would already rerun -- naming it
@@ -217,7 +224,14 @@ export function EhrImportOffer({
   // No case needed to ask any more. Typing the number and pressing this is
   // the whole interaction; the case comes into existence if the clinician
   // accepts something.
-  const fetchNow = async () => { await ask(caseId, { request: asksOverFolder }) }
+  //
+  // Pressed, it asks for everything not in the record now: items accepted on
+  // this screen are no longer held back, and the appliance stages a fresh copy,
+  // so a value accepted and then deleted is offered again. Refusals stay refused.
+  const fetchNow = async () => {
+    acceptedItemsRef.current.clear()
+    await ask(caseId, { request: asksOverFolder, again: true })
+  }
 
   if (!available || !identifier) return null
 
@@ -261,8 +275,10 @@ export function EhrImportOffer({
 
       {/* Offered whenever there is no plan on screen: before the first ask,
           and again after one that found nothing, since the number may simply
-          have been mistyped. */}
-      {state.kind !== "offer" && state.kind !== "asking" && state.kind !== "requested" && canAsk ? (
+          have been mistyped. Also beside a waiting offer: that offer was built
+          when it was asked, so a value deleted since is only proposed again
+          by asking again (found on the test machine, 2026-11-14). */}
+      {(state.kind !== "offer" || !open) && state.kind !== "asking" && state.kind !== "requested" && canAsk ? (
         <FeedbackPressable
           onPress={() => { void fetchNow() }}
           style={{

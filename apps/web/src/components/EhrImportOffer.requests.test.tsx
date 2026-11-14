@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from "next-intl"
 
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
 import { buildEhrReviewPlan } from "@lospor/core/ehr-import-review"
-import { EhrImportOffer } from "./EhrImportOffer"
+import { EhrImportOffer, LOOKUP_PAUSE_MS } from "./EhrImportOffer"
 
 import messages from "../../messages/en.json"
 
@@ -36,7 +36,8 @@ function site(answers: unknown[], props: { transport?: "FOLDER" | "FHIR"; folder
   )
   return urls
 }
-const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve() })
+// The first ask waits for typing to pause.
+const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(LOOKUP_PAUSE_MS) })
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 

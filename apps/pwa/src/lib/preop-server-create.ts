@@ -1,6 +1,7 @@
 import { buildPreopPayload } from "@/lib/preop-payload"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
+import { validEgnOrNull } from "@/lib/egn-field"
 import type { ApiRequestInit } from "@/lib/api"
 import {
   readBlockedSaveIssue,
@@ -83,7 +84,11 @@ export async function postPreopServerCase(
     const acceptedPayload: Record<string, unknown> = { ...fullPayload }
     delete acceptedPayload.patientNumber
     delete acceptedPayload.patientNationalId
-    const patientNationalId = values.patientNationalId?.trim() || undefined
+    // A mistyped ЕГН never blocks the case. The field says what is wrong while
+    // it is typed; the case is created without it and the ЕГН is added from the
+    // patient reference once it is right. Sending it got "Invalid request" back
+    // on every save, so nothing was saved until the form was done.
+    const patientNationalId = validEgnOrNull(values.patientNationalId) ?? undefined
     let firstBlocked: BlockedSaveIssue | undefined
     const maxAttempts = Object.keys(fullPayload).length + 1
 

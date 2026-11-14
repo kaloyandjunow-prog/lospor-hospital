@@ -163,6 +163,11 @@ export async function GET(
         // case's -- which, once reviewed, read as the hospital holding
         // nothing.
         restageFor: id,
+        // "Ask again" pressed by the clinician: a copy this case has already
+        // reviewed is not the answer, so a fresh one is staged. A value they
+        // accepted and then deleted comes back that way; anything they
+        // refused stays refused (declinedKeysForPatient spans every copy).
+        ...(req.nextUrl.searchParams.get("again") === "1" ? { reuseOnlyWhilePending: true } : {}),
         endpoint: access.endpoint,
         credential: auth.token,
         identifier: parsed.data.identifier,

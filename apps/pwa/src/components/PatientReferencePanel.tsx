@@ -2,6 +2,7 @@ import { useState } from "react"
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { STRINGS } from "@/i18n/strings"
 import { PatientEgnError, patientDisplayLine, type PatientReference } from "@/lib/patient-reference"
+import { egnFieldIssue } from "@/lib/egn-field"
 import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
@@ -26,8 +27,12 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
   const [egn, setEgn] = useState("")
   const [egnSaving, setEgnSaving] = useState(false)
   const [egnError, setEgnError] = useState<string | null>(null)
+  const [egnLeft, setEgnLeft] = useState(false)
+  // Checked while typed, with the server's rule, so a typo never needs a round trip.
+  const egnIssue = egnFieldIssue(egn, egnLeft)
   const addEgn = async () => {
     if (!onAddEgn || !egn.trim() || egnSaving) return
+    if (egnFieldIssue(egn, true)) { setEgnLeft(true); return }
     setEgnSaving(true)
     setEgnError(null)
     try {
@@ -114,18 +119,21 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
             placeholderTextColor={colors.textMuted}
             value={egn}
             onChangeText={value => { setEgn(value); if (egnError) setEgnError(null) }}
+            onBlur={() => setEgnLeft(true)}
             maxLength={12}
             keyboardType="number-pad"
             editable={!egnSaving}
-            style={{ flex: 1, color: colors.textPrimary, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}
+            style={{ flex: 1, color: colors.textPrimary, backgroundColor: colors.surface, borderColor: egnIssue ? colors.danger : colors.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}
           />
-          <TouchableOpacity accessibilityRole="button" onPress={addEgn} disabled={egnSaving || !egn.trim()}
-            style={{ borderRadius: 9, paddingVertical: 9, paddingHorizontal: 12, backgroundColor: colors.primary, opacity: egnSaving || !egn.trim() ? 0.5 : 1 }}>
+          <TouchableOpacity accessibilityRole="button" onPress={addEgn} disabled={egnSaving || !egn.trim() || egnIssue === "invalid"}
+            style={{ borderRadius: 9, paddingVertical: 9, paddingHorizontal: 12, backgroundColor: colors.primary, opacity: egnSaving || !egn.trim() || egnIssue === "invalid" ? 0.5 : 1 }}>
             {egnSaving ? <ActivityIndicator size="small" color={shade("#fff")} /> : <Text style={{ color: shade("#fff"), fontWeight: "900" }}>{s.patientEgnAdd}</Text>}
           </TouchableOpacity>
         </View>
       ) : null}
-      {egnError ? <Text role="alert" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{egnError}</Text> : null}
+      {onAddEgn && !reference?.personMaskedIdentifier && egnIssue
+        ? <Text role="alert" testID="add-patient-egn-error" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{egnIssue === "invalid" ? s.patientEgnInvalid : s.patientEgnIncomplete}</Text>
+        : egnError ? <Text role="alert" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{egnError}</Text> : null}
 
       {!allowCorrection ? null : !editing ? (
         <TouchableOpacity onPress={() => setEditing(true)} style={{ marginTop: 10 }}>

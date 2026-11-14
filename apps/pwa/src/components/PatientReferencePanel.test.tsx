@@ -61,4 +61,27 @@ describe("PatientReferencePanel", () => {
     expect(onRelink).toHaveBeenCalledOnce()
     expect(onRelink).toHaveBeenCalledWith("HOSP-NEW-1", "admitted under the wrong number")
   })
+  it("says a mistyped ЕГН is wrong while it is typed and never sends it", async () => {
+    const onAddEgn = vi.fn(async () => {})
+    const tree = render(
+      <PatientReferencePanel
+        reference={{ id: "link-1", maskedIdentifier: "HO•••11" }}
+        language="bg"
+        onRelink={vi.fn()}
+        onAddEgn={onAddEgn}
+      />,
+    )
+    const input = () => tree.root.findByProps({ testID: "add-patient-egn" })
+    act(() => input().props.onChangeText("750101"))
+    expect(() => getByText(tree, "ЕГН има 10 цифри.")).toThrow()
+    act(() => input().props.onChangeText("2402459943"))
+    expect(getByText(tree, "Това не е валидно ЕГН. Проверете цифрите.")).toBeTruthy()
+    await act(async () => { pressByText(tree, "Добави ЕГН") })
+    expect(onAddEgn).not.toHaveBeenCalled()
+    act(() => { input().props.onChangeText("750101"); input().props.onBlur() })
+    expect(getByText(tree, "ЕГН има 10 цифри.")).toBeTruthy()
+    act(() => input().props.onChangeText("7501010010"))
+    await act(async () => { pressByText(tree, "Добави ЕГН") })
+    expect(onAddEgn).toHaveBeenCalledWith("7501010010")
+  })
 })

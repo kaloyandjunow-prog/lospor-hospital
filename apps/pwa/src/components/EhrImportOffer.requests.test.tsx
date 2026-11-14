@@ -13,8 +13,8 @@ vi.mock("@/lib/ehr-import", () => {
 })
 
 import { STRINGS } from "@/i18n/strings"
-import { queryByText, render } from "@/test/render"
-import { EhrImportOffer } from "./EhrImportOffer"
+import { pressByText, queryByText, render } from "@/test/render"
+import { EhrImportOffer, LOOKUP_PAUSE_MS } from "./EhrImportOffer"
 
 /**
  * Asking the hospital system over the watched folder (1.5.0), on the phone:
@@ -32,7 +32,8 @@ function offer(answers: unknown[], props: { transport: "FOLDER" | "FHIR"; folder
     <EhrImportOffer caseId="c1" identifier="42" available language="en" current={{}} labelFor={field => field} onApply={vi.fn()} {...props} />,
   )
 }
-const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve() })
+// The first ask waits for typing to pause.
+const flush = () => act(async () => { await vi.advanceTimersByTimeAsync(LOOKUP_PAUSE_MS) })
 const step = () => act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
 
 afterEach(() => { vi.useRealTimers() })
@@ -72,5 +73,27 @@ describe("a site that does not ask", () => {
     expect(queryByText(tree, en.ehrFetchPatientAgain)).toBeNull()
     await step()
     expect(lookups.calls).toHaveLength(1)
+  })
+})
+
+describe("looking a patient up on the phone", () => {
+  it("asks once typing pauses, and a pressed look-again asks for a fresh copy", async () => {
+    vi.useFakeTimers()
+    lookups.calls = []
+    lookups.answers = [{ status: "none" }]
+    const view = (identifier: string) => (
+      <EhrImportOffer caseId="c1" identifier={identifier} available language="en" transport="FHIR" current={{}} labelFor={field => field} onApply={vi.fn()} />
+    )
+    const tree = render(view("7"))
+    for (const typed of ["71", "710", "71001"]) {
+      act(() => tree.update(view(typed)))
+      await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+    }
+    expect(lookups.calls).toHaveLength(0)
+    await flush()
+    expect(lookups.calls).toEqual([["c1", "71001", "IZ", {}]])
+
+    await act(async () => { pressByText(tree, en.ehrFetchPatientAgain) })
+    expect(lookups.calls[1]).toEqual(["c1", "71001", "IZ", { again: true }])
   })
 })

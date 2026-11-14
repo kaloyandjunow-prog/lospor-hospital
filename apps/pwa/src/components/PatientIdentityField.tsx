@@ -1,4 +1,6 @@
+import { useState } from "react"
 import { Text, View } from "react-native"
+import { egnFieldIssue } from "@/lib/egn-field"
 import { Controller, type Control } from "react-hook-form"
 import { STRINGS } from "@/i18n/strings"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
@@ -30,6 +32,8 @@ export function PatientIdentityField({
   allowCorrection,
   egnPermitted,
 }: Props) {
+  // An unfinished ЕГН is only called unfinished once the field is left.
+  const [egnLeft, setEgnLeft] = useState(false)
   if (caseId) {
     return (
       <PatientReferencePanel
@@ -76,23 +80,36 @@ export function PatientIdentityField({
           number restarts every January. Optional, and only where the site
           permits national identifiers. */}
       {egnPermitted ? (
-        <Controller control={control} name="patientNationalId" render={({ field }) => (
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "800", marginBottom: 4 }}>ЕГН</Text>
-            <StyledInput
-              value={field.value ?? ""}
-              onChangeText={field.onChange}
-              maxLength={12}
-              keyboardType="number-pad"
-              autoCorrect={false}
-              accessibilityLabel="ЕГН"
-              testID="patient-egn"
-            />
-            <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
-              {STRINGS[language as "en" | "bg"].patientEgnHint}
-            </Text>
-          </View>
-        )} />
+        <Controller control={control} name="patientNationalId" render={({ field }) => {
+          // A typo shows while it is typed (the server's rule), never as an
+          // "Invalid request" once the whole preop form is filled.
+          const issue = egnFieldIssue(field.value, egnLeft)
+          const s = STRINGS[language as "en" | "bg"]
+          return (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "800", marginBottom: 4 }}>ЕГН</Text>
+              <StyledInput
+                value={field.value ?? ""}
+                onChangeText={field.onChange}
+                onBlur={() => { setEgnLeft(true); field.onBlur() }}
+                maxLength={12}
+                keyboardType="number-pad"
+                autoCorrect={false}
+                accessibilityLabel="ЕГН"
+                testID="patient-egn"
+              />
+              {issue ? (
+                <Text role="alert" testID="patient-egn-error" style={{ color: colors.danger, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
+                  {issue === "invalid" ? s.patientEgnInvalid : s.patientEgnIncomplete}
+                </Text>
+              ) : (
+                <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
+                  {s.patientEgnHint}
+                </Text>
+              )}
+            </View>
+          )
+        }} />
       ) : null}
     </Field>
   )

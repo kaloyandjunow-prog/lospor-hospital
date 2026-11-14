@@ -22,15 +22,22 @@ export type { EhrImportLookup, EhrImportOffer }
  * How a lookup treats the hospital system on a watched-folder site that asks
  * (1.5.0): `request` asks it, `requestId` re-checks a request already made.
  */
-export type EhrLookupAsk = { request?: boolean; requestId?: string }
+export type EhrLookupAsk = { request?: boolean; requestId?: string; again?: boolean }
 
 export function lookupEhrImport(
   caseId: string,
   identifier: string,
   identifierType: "IZ" | "EGN" = "IZ",
-  ask: EhrLookupAsk = {},
+  { again, ...ask }: EhrLookupAsk = {},
 ): Promise<EhrImportLookup> {
-  return coreLookup(apiFetch, { caseId, identifier, identifierType, ...ask })
+  // "Ask again" pressed by the clinician: the appliance stages a fresh copy
+  // instead of answering with the one this case already reviewed, so a value
+  // accepted and then deleted is offered again. Added here, beside Core's
+  // query, because the flag is the appliance's own.
+  const fetcher: typeof apiFetch = again
+    ? (path, init) => apiFetch(`${path}${path.includes("?") ? "&" : "?"}again=1`, init)
+    : apiFetch
+  return coreLookup(fetcher, { caseId, identifier, identifierType, ...ask })
 }
 
 export function recordEhrDecisions(

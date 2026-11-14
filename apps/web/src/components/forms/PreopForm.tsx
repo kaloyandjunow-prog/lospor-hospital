@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
+import { PatientEgnField } from "@/components/forms/PatientEgnField"
+import { validEgnOrNull } from "@/lib/egn-field"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { Badge } from "@/components/ui/badge"
 import { calcBMI, calcABW } from "@/lib/scores"
@@ -515,21 +517,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                 record number restarts every January. Optional, and only where
                 the site permits national identifiers. */}
             {ehrImportCapability.egnPermitted && (
-              <div className="space-y-1 pt-2">
-                <Label htmlFor="hospital-patient-egn" className="text-xs font-semibold uppercase tracking-wide text-slate-500">ЕГН</Label>
-                <Input
-                  id="hospital-patient-egn"
-                  autoComplete="off"
-                  inputMode="numeric"
-                  maxLength={12}
-                  {...register("patientNationalId")}
-                />
-                <p className="text-xs text-slate-400">
-                  {locale === "bg"
-                    ? "По желание. Свързва постъпванията на същия пациент. Остава в болницата."
-                    : "Optional. Joins this patient's admissions. Stays in this hospital."}
-                </p>
-              </div>
+              <PatientEgnField registration={register("patientNationalId")} value={watch("patientNationalId")} />
             )}
           </div>
         )}
@@ -544,9 +532,10 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             await flushSave()
             await onEhrAcceptedBeforeCase(importId, appliedKeys)
           })}
-          // The ЕГН finds the patient across admissions; without one, the record number.
-          identifier={(watch("patientNationalId")?.trim() || watch("patientId")) ?? null}
-          identifierType={watch("patientNationalId")?.trim() ? "EGN" : "IZ"}
+          // The ЕГН finds the patient across admissions; without a valid one,
+          // the record number. A half-typed or mistyped ЕГН is never looked up.
+          identifier={validEgnOrNull(watch("patientNationalId")) ?? watch("patientId") ?? null}
+          identifierType={validEgnOrNull(watch("patientNationalId")) ? "EGN" : "IZ"}
           available={ehrImportCapability.enabled}
           transport={ehrImportCapability.transport}
           folderRequests={ehrImportCapability.folderRequests}
