@@ -16,7 +16,8 @@
 #
 # Needs Docker (the test machine; the Windows host has none). The first build
 # takes 30-60 minutes; layers and the Trivy database are cached after that.
-# Naming services rebuilds only those and scans whatever images exist.
+# Naming services rebuilds only those and scans whatever images exist;
+# SCAN_ONLY=1 skips the build.
 #
 # Exit status: 0 when the policy check passes, 1 when it does not.
 set -eu
@@ -33,7 +34,10 @@ node scripts/release-inputs.mjs env release-inputs.json > "$out/build.env"
 set -a
 . "./$out/build.env"
 set +a
-HOSPITAL_IMAGE_TAG="local-scan-$release"
+# A tag in the candidate's own shape (candidate-<commit>-<run>-<input>), all
+# zeros, so release.yml's policy check reads these reports as it reads a
+# candidate's -- and so a local image can never be mistaken for a real one.
+HOSPITAL_IMAGE_TAG="candidate-0000000000000000000000000000000000000000-1-0000000000000000"
 export HOSPITAL_IMAGE_TAG
 
 # compose.yaml requires the site's settings even to build; release.yml copies
@@ -42,7 +46,9 @@ export HOSPITAL_IMAGE_TAG
 env_file=.env
 [ -f "$env_file" ] || env_file=.env.example
 
+# SCAN_ONLY=1 scans the images already built and skips the build.
 services=${*:-"postgres migrate api delivery-worker web pwa browser status tools caddy"}
+[ "${SCAN_ONLY:-}" = 1 ] && services=""
 for service in $services; do
   echo "== build $service"
   docker compose --env-file "$env_file" -f compose.yaml -f compose.publish.yaml --profile tools build "$service"
