@@ -16679,6 +16679,88 @@
         ],
         "additionalProperties": false
       },
+      "HospitalLabScanAlias": {
+        "type": "object",
+        "properties": {
+          "printed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "test": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "printed",
+          "test"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalLabScanSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/HospitalLabScanAlias"
+            }
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 1500
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "aliases",
+          "instructions",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalLabScanTestRequest": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/HospitalLabScanAlias"
+            }
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 1500
+          },
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mimeType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          }
+        },
+        "required": [
+          "aliases",
+          "instructions",
+          "imageBase64",
+          "mimeType"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrStagingRetentionRequest": {
         "type": "object",
         "properties": {
@@ -16994,6 +17076,124 @@
           "advisorModel",
           "visionModel",
           "modelsChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalLabScanSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HospitalLabScanAlias"
+            }
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "aliases": {
+                "type": "integer"
+              },
+              "printed": {
+                "type": "integer"
+              },
+              "instructions": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "aliases",
+              "printed",
+              "instructions"
+            ],
+            "additionalProperties": false
+          },
+          "libraryNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "aliases",
+          "instructions",
+          "changedAt",
+          "limits",
+          "libraryNames"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalLabScanTestRow": {
+        "type": "object",
+        "properties": {
+          "test": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "sourceValue": {
+            "type": "string"
+          },
+          "sourceUnit": {
+            "type": "string"
+          },
+          "conversionStatus": {
+            "type": "string"
+          },
+          "confident": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "test",
+          "value",
+          "unit",
+          "sourceValue",
+          "sourceUnit",
+          "conversionStatus",
+          "confident"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalLabScanTestResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HospitalLabScanTestRow"
+            }
+          },
+          "unreadable": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "results",
+          "unreadable",
+          "model"
         ],
         "additionalProperties": false
       },

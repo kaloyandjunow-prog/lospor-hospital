@@ -6,6 +6,8 @@ export function localizedPreopSectionLabels(
 ): PreopSectionLabel[] {
   return [
     { key: "patient", label: tc("pillPatient") },
+    // AI assistance, right after the patient, when Status has any AI on (10.4.1).
+    { key: "ai", label: tc("pillAi") },
     { key: "case", label: tc("sectionCaseDetails") },
     { key: "history", label: tc("sectionHistory") },
     { key: "meds", label: tc("sectionMeds") },

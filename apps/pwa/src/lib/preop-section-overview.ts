@@ -40,6 +40,9 @@ export type PreopSectionOverviewText = {
   premedicationHint: string
   plannedHint: string
   fastingHint: string
+  /** AI assistance (10.4.1): the consent, asked or given. */
+  aiHint: string
+  aiAllowed: string
 }
 
 /** The overview's text from the clinical strings. */
@@ -57,6 +60,7 @@ export function preopOverviewText(tc: (key: ClinicalStringKey) => string): Preop
     wardOrdersHint: tc("overviewWardOrdersHint"), medInstructionsHint: tc("overviewMedInstructionsHint"),
     orderCount: tc("overviewOrderCount"), premedicationHint: tc("overviewPremedicationHint"),
     plannedHint: tc("overviewPlannedHint"), fastingHint: tc("overviewFastingHint"),
+    aiHint: tc("aiEnableLabel"), aiAllowed: tc("overviewAiAllowed"),
   }
 }
 
@@ -165,6 +169,10 @@ export function buildPreopSectionItems(
       case "fasting":
         done = (values.pediatricFasting?.length ?? 0) > 0
         summary = done ? formatMessage(text.orderCount, { count: values.pediatricFasting?.length ?? 0 }) : text.fastingHint
+        break
+      case "ai":
+        done = !!values.aiOptIn
+        summary = done ? text.aiAllowed : text.aiHint
         break
       case "risk":
         required = true

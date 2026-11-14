@@ -576,6 +576,8 @@ export type ControlPlaneView = {
     advisorModelOptions?: string[]
     visionModelOptions?: string[]
     modelsChangedAt?: string | null
+    /** Absent from an API older than 1.9.1. */
+    labScan?: LabScanSettingsView
     updatedAt: string | null
   }
   patientIdentifier: {
@@ -876,6 +878,10 @@ export interface ControlPlanePort {
   }): Promise<void>
   removeExternalAiCredential(reason: string): Promise<void>
   setExternalAiModels(input: { advisorModel: string; visionModel: string; reason: string }): Promise<void>
+  /** The lab scan's local names and note (1.9.1). */
+  setLabScanSettings(input: { aliases: LabScanAlias[]; instructions: string; reason: string }): Promise<void>
+  /** Scan a test image with the settings as they stand in the form, saved or not. */
+  testLabScan(input: { aliases: LabScanAlias[]; instructions: string; imageBase64: string; mimeType: string }): Promise<LabScanTestResult>
   setPatientIdentifierPolicy(input: {
     egnPermitted: boolean
     admissionNumberVisible?: boolean
@@ -1011,6 +1017,51 @@ const modelName = (value: unknown): value is string => typeof value === "string"
 const optionalModel = (value: unknown) => value === undefined || modelName(value)
 const optionalModelList = (value: unknown) =>
   value === undefined || (Array.isArray(value) && value.length <= 20 && value.every(modelName))
+
+// ── The lab scan's local settings (1.9.1) ─────────────────────────────────
+
+export type LabScanAlias = { printed: string; test: string }
+export type LabScanSettingsView = {
+  aliases: LabScanAlias[]
+  instructions: string
+  changedAt: string | null
+  limits: { aliases: number; printed: number; instructions: number }
+  /** The lab library entries a printed name may point to. */
+  libraryNames: string[]
+}
+export type LabScanTestRow = {
+  test: string
+  value: string
+  unit: string
+  sourceValue: string
+  sourceUnit: string
+  conversionStatus: string
+  confident: boolean
+}
+export type LabScanTestResult = { results: LabScanTestRow[]; unreadable: boolean; model: string }
+
+const labScanAlias = (value: unknown): value is LabScanAlias =>
+  isRecord(value) && text(value.printed, 200) && text(value.test, 200)
+
+export function labScanSettingsView(value: unknown): value is LabScanSettingsView {
+  return isRecord(value)
+    && Array.isArray(value.aliases) && value.aliases.length <= 1000 && value.aliases.every(labScanAlias)
+    && text(value.instructions, 10_000)
+    && nullableIso(value.changedAt)
+    && isRecord(value.limits) && finiteInteger(value.limits.aliases) && finiteInteger(value.limits.printed) && finiteInteger(value.limits.instructions)
+    && Array.isArray(value.libraryNames) && value.libraryNames.length <= 2000 && value.libraryNames.every(name => text(name, 200))
+}
+
+/** A test scan's rows, checked before they go on screen. */
+export function labScanTestResult(value: unknown): LabScanTestResult | null {
+  if (!isRecord(value) || !Array.isArray(value.results) || value.results.length > 500
+    || typeof value.unreadable !== "boolean" || !modelName(value.model)) return null
+  const rows = value.results.filter((row): row is LabScanTestRow => isRecord(row)
+    && text(row.test, 200) && text(row.value, 64) && text(row.unit, 64) && text(row.sourceValue, 64)
+    && text(row.sourceUnit, 64) && text(row.conversionStatus, 64) && typeof row.confident === "boolean")
+  if (rows.length !== value.results.length) return null
+  return { results: rows, unreadable: value.unreadable, model: value.model }
+}
 
 function certificate(value: unknown): CertificateView | null | false {
   if (value === null) return null
@@ -1417,7 +1468,8 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !optionalModel(value.externalAi.visionModel)
     || !optionalModelList(value.externalAi.advisorModelOptions)
     || !optionalModelList(value.externalAi.visionModelOptions)
-    || !(value.externalAi.modelsChangedAt === undefined || nullableIso(value.externalAi.modelsChangedAt))) return null
+    || !(value.externalAi.modelsChangedAt === undefined || nullableIso(value.externalAi.modelsChangedAt))
+    || !(value.externalAi.labScan === undefined || labScanSettingsView(value.externalAi.labScan))) return null
   if (typeof value.patientIdentifier.egnPermitted !== "boolean"
     || !(value.patientIdentifier.admissionNumberVisible === undefined || typeof value.patientIdentifier.admissionNumberVisible === "boolean")
     || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
@@ -1650,7 +1702,7 @@ export class ControlPlaneClient implements ControlPlanePort {
     this.baseUrl = url?.replace(/\/$/, "") ?? null
   }
 
-  private async request(path: string, init: RequestInit = {}): Promise<unknown> {
+  private async request(path: string, init: RequestInit = {}, timeoutMs = this.timeoutMs): Promise<unknown> {
     if (!this.baseUrl || !this.bearer) throw new ControlPlaneClientError("CONTROL_NOT_CONFIGURED")
     let response: Response
     try {
@@ -1660,7 +1712,7 @@ export class ControlPlaneClient implements ControlPlanePort {
           authorization: `Bearer ${this.bearer}`,
           ...(init.body ? { "content-type": "application/json" } : {}),
         },
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       })
     } catch {
       throw new ControlPlaneClientError("CONTROL_UNAVAILABLE")
@@ -1732,6 +1784,16 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   removeExternalAiCredential(reason: string): Promise<void> {
     return this.mutate("/external-ai/credential", { reason }, "DELETE")
+  }
+  setLabScanSettings(input: Parameters<ControlPlanePort["setLabScanSettings"]>[0]): Promise<void> {
+    return this.mutate("/external-ai/lab-scan", input)
+  }
+  async testLabScan(input: Parameters<ControlPlanePort["testLabScan"]>[0]): Promise<LabScanTestResult> {
+    // A scan waits on the AI provider (up to 45 s there), not on the appliance alone.
+    const value = await this.request("/external-ai/lab-scan/test", { method: "POST", body: JSON.stringify(input) }, 60_000)
+    const result = labScanTestResult(value)
+    if (!result) throw new ControlPlaneClientError("CONTROL_INVALID_RESPONSE")
+    return result
   }
   setExternalAiModels(input: Parameters<ControlPlanePort["setExternalAiModels"]>[0]): Promise<void> {
     return this.mutate("/external-ai/models", input)

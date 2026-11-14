@@ -5,7 +5,8 @@ import { createHash, X509Certificate } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { z } from "zod"
 import { LAB_CATEGORIES, LAB_LIBRARY } from "@lospor/core/labs"
-import type { Prisma, PrismaClient } from "@/generated/prisma/client"
+import { Prisma, type PrismaClient } from "@/generated/prisma/client"
+import { labScanLocalFrom, labScanSettingsSchema } from "./lab-scan-settings"
 import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
 import { serializableTransaction } from "@/lib/account-lifecycle"
@@ -414,6 +415,8 @@ export const externalAiModelsSchema = z.object({
   visionModel: z.enum(VISION_MODELS),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
+
+export { labScanSettingsSchema, labScanTestSchema } from "./lab-scan-settings"
 
 export const externalAiCredentialSchema = z.object({
   credential: z.string().trim().min(1).max(4096),
@@ -1239,6 +1242,41 @@ export async function setExternalAiModels(input: z.infer<typeof externalAiModels
       visionModel: parsed.visionModel,
       previousAdvisorModel: existing?.advisorModel ?? null,
       previousVisionModel: existing?.visionModel ?? null,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  })
+}
+
+/**
+ * The lab scan's local names and note (1.9.1). Replaces both as a pair; the
+ * credential, models and on/off policy are untouched. The audit records counts
+ * and that a reason was given, not the names or the note themselves.
+ */
+export async function setLabScanSettings(input: z.infer<typeof labScanSettingsSchema>) {
+  const parsed = labScanSettingsSchema.parse(input)
+  const aliases = parsed.aliases.map(alias => ({ printed: alias.printed.trim(), test: alias.test }))
+  const instructions = parsed.instructions.trim()
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalExternalAiPolicy.findUnique({ where: { id: "local" } })
+    const previous = labScanLocalFrom(existing)
+    const now = new Date()
+    const values = {
+      labScanAliases: aliases.length > 0 ? aliases : Prisma.DbNull,
+      labScanInstructions: instructions || null,
+      labScanChangedAt: now,
+    }
+    const policy = await tx.hospitalExternalAiPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", externalAiEnabled: configuredExternalAiDefault(), ...values },
+      update: values,
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", policy.id, {
+      labScanAliasCount: aliases.length,
+      previousLabScanAliasCount: previous.aliases.length,
+      labScanInstructionsLength: instructions.length,
+      previousLabScanInstructionsLength: previous.instructions.length,
       reasonRecorded: Boolean(parsed.reason),
     })
     return policy

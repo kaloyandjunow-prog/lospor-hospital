@@ -233,6 +233,20 @@
   .protocol-root > * + * { margin-top: 0 !important; }
 }
 
+/* ── Number inputs — no browser spin arrows ─────────────────────────────────
+   Every clinical number box has its own − / + (or none, by design); Chrome
+   and Edge otherwise draw their own tiny up/down arrows inside the box, a
+   white square in dark mode. [appearance:textfield] only reaches Firefox. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* ── Range inputs — rectangular thumb, dark-mode track ───────────────────── */
 input[type="range"] {
   -webkit-appearance: none;

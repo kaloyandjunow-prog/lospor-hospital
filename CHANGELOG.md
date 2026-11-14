@@ -1,5 +1,44 @@
 # Changelog - LOSPOR Hospital
 
+## [1.9.1] - 2026-11-14
+
+Vendors Core 10.4.0 and API, Web and PWA 10.4.1; Browser stays 0.11.2. Adds one database migration
+(`20261114200000_lab_scan_settings`): take the verified backup before updating, as the update screen asks.
+
+### Fixed
+
+- **Lab report scans put values on the wrong rows.** A phone stores a portrait photo sideways with a turn tag the
+  AI provider ignores, so the model read the table at 90 degrees. On a blood gas plus blood count photo from this
+  appliance the count came back shifted by a row or two (WBC 19 for 34.57, MCV 74 for 89). Web and the PWA now
+  send the photo upright, without its EXIF block (and so without a location), and the server tells the model how
+  to turn any photo that still arrives sideways. Tested on that photo: 31 right and 15 wrong before, all right
+  after.
+- **A saturation was filed as a partial pressure.** sO2 68.8 % could be stored as PaO2 68.8 mmHg, and a total CO2
+  as PaCO2. The scan now leaves tCO2 out and keeps sO2 a saturation.
+
+### Added
+
+- **Status → AI: this hospital's lab names and notes for the lab scan.** A table of the names your laboratory
+  prints, each tied to a test of the lab library ("ctHb = Haemoglobin (Hb)", "Лев. = Leucocytes (WBC)"), and a
+  short note about your reports. A printed name in the table always goes to its test, whatever the model reads.
+  The scan's own instructions stay as released and tested; the names and the note are added after them and cannot
+  change them. Saving needs a reason and the administrator password, and is audited (counts only).
+- **Test scan in Status.** Try the names and notes as they stand in the form on a photo before saving them; the
+  page shows what a clinician would be offered. Nothing is saved and no case is touched; the photo goes to the AI
+  provider, so use a report without patient details. Audited as a lab scan marked as a test.
+
+### Changed
+
+- **AI assistance is a section of its own**, right after the patient's demographics, on the web and in the PWA,
+  with its own tab or rail pill. It was under the notes (web) or inside the risk scores (PWA). With every AI
+  feature off in Status the section is not shown.
+- **The infusion rate and TCI target change has − and + beside the number** on the web, and Chrome and Edge no
+  longer draw their own small arrows inside number boxes.
+
+### Security
+
+- The one accepted image finding is unchanged and re-keyed to 1.9.1: Caddy's go-jose/v3 (CVE-2026-116587), no
+  fixed release, expires 2027-01-31 (see `release-risk-exceptions.json`).
 ## [1.9.0] - 2026-11-14 — First stable version
 
 The first stable LOSPOR Hospital. It vendors Core, API, Web and PWA 10.4.0 (Browser stays 0.11.2). There is no

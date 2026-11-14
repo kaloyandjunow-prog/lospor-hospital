@@ -213,6 +213,13 @@ const VIEW: ControlPlaneView = {
     advisorModelOptions: ["mistral-small-2603", "mistral-large-2512"],
     visionModelOptions: ["mistral-large-2512", "ministral-14b-2512"],
     modelsChangedAt: null,
+    labScan: {
+      aliases: [{ printed: "ctHb", test: "Haemoglobin (Hb)" }],
+      instructions: "",
+      changedAt: null,
+      limits: { aliases: 300, printed: 80, instructions: 1500 },
+      libraryNames: ["Haemoglobin (Hb)", "Leucocytes (WBC)", "Glucose"],
+    },
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
   patientIdentifier: {
@@ -333,6 +340,11 @@ function setup() {
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
     setExternalAiModels: vi.fn(async () => {}),
+    setLabScanSettings: vi.fn(async () => {}),
+    testLabScan: vi.fn(async () => ({
+      model: "mistral-large-2512", unreadable: false,
+      results: [{ test: "Leucocytes (WBC)", value: "34.57", unit: "×10⁹/L", sourceValue: "34.57", sourceUnit: "", conversionStatus: "no-unit", confident: false }],
+    })),
     setPatientIdentifierPolicy: vi.fn(async () => {}),
     setEhrTransportPolicy: vi.fn(async () => {}),
     setEhrStagingRetention: vi.fn(async () => {}),
@@ -1212,6 +1224,80 @@ describe("Status Hospital control plane", () => {
     })
     expect(refused.status).toBe(400)
     expect(controlPlane.setExternalAiModels).toHaveBeenCalledTimes(1)
+  })
+
+  // 1.9.1: the lab scan's local names and note, saved or tried on a photo from one form.
+  it("saves the lab-scan names and notes from the AI page", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const page = await (await app.request("/status/control/ai", { headers: origin({ cookie: session }) })).text()
+    expect(page).toContain('data-testid="lab-scan-settings"')
+    expect(page).toContain("ctHb = Haemoglobin (Hb)")
+    expect(page).toContain('formaction="/status/control/external-ai/lab-scan/test"')
+
+    const form = new FormData()
+    form.set("aliases", "ctHb = Haemoglobin (Hb)\n\nЛев. = leucocytes (wbc)")
+    form.set("instructions", "  Our blood count prints no units.  ")
+    form.set("reason", "Our laboratory prints its own names")
+    form.set("password", "Initial password phrase1!")
+    const saved = await app.request("/status/control/external-ai/lab-scan", { method: "POST", headers: origin({ cookie: session }), body: form })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setLabScanSettings).toHaveBeenCalledWith({
+      aliases: [{ printed: "ctHb", test: "Haemoglobin (Hb)" }, { printed: "Лев.", test: "Leucocytes (WBC)" }],
+      instructions: "Our blood count prints no units.",
+      reason: "Our laboratory prints its own names",
+    })
+  })
+
+  it("names the lines it cannot use, keeps what was typed, and saves nothing", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const form = new FormData()
+    form.set("aliases", "ctHb = Haemoglobin (Hb)\nno equals sign here\nX = Not a test\nCTHB: = Glucose")
+    form.set("instructions", "kept <b>as typed</b>")
+    form.set("reason", "Our laboratory prints its own names")
+    form.set("password", "Initial password phrase1!")
+    const refused = await app.request("/status/control/external-ai/lab-scan", { method: "POST", headers: origin({ cookie: session }), body: form })
+    expect(refused.status).toBe(400)
+    const html = await refused.text()
+    expect(html).toContain('data-testid="lab-scan-problems"')
+    expect(html).toMatch(/Ред 2:.*no equals sign here/)
+    expect(html).toMatch(/Ред 3:.*X = Not a test/)
+    expect(html).toMatch(/Ред 4:.*CTHB: = Glucose/)
+    expect(html).toContain("kept &lt;b&gt;as typed&lt;/b&gt;")
+    expect(controlPlane.setLabScanSettings).not.toHaveBeenCalled()
+  })
+
+  it("tests the form's settings on a photo without saving them, and needs the password", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const form = () => {
+      const body = new FormData()
+      body.set("aliases", "Лев. = Leucocytes (WBC)")
+      body.set("instructions", "")
+      body.set("reason", "")
+      body.set("image", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "report.jpg", { type: "image/jpeg" }))
+      return body
+    }
+    const noPassword = form()
+    noPassword.set("password", "wrong password")
+    const denied = await app.request("/status/control/external-ai/lab-scan/test", { method: "POST", headers: origin({ cookie: session }), body: noPassword })
+    expect(denied.status).toBe(401)
+    expect(controlPlane.testLabScan).not.toHaveBeenCalled()
+
+    const body = form()
+    body.set("password", "Initial password phrase1!")
+    const tested = await app.request("/status/control/external-ai/lab-scan/test", { method: "POST", headers: origin({ cookie: session }), body })
+    expect(tested.status).toBe(200)
+    const html = await tested.text()
+    expect(html).toContain('data-testid="lab-scan-test-result"')
+    expect(html).toContain("34.57")
+    expect(html).toContain("Лев. = Leucocytes (WBC)")
+    expect(controlPlane.testLabScan).toHaveBeenCalledWith({
+      aliases: [{ printed: "Лев.", test: "Leucocytes (WBC)" }], instructions: "",
+      imageBase64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64"), mimeType: "image/jpeg",
+    })
+    expect(controlPlane.setLabScanSettings).not.toHaveBeenCalled()
   })
 
   it("sends a replacement Mistral credential once and never redisplays it", async () => {

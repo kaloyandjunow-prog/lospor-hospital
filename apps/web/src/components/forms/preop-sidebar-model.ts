@@ -7,6 +7,8 @@ type MaybeValue = string | number | null | undefined
 type PreopSidebarModelArgs = {
   t: (key: string) => string
   sectionOn: (key: PreopSectionKey) => boolean
+  /** AI assistance is its own section after the demographics when any AI feature is on (10.4.1). */
+  aiOn: boolean
   anyMissing: (...keys: string[]) => boolean
   isPediatric: boolean
   preopMode: "ADULT" | "PEDIATRIC"
@@ -41,13 +43,14 @@ function ageUnitText(unit: string | null | undefined, locale: string) {
 }
 
 export function buildPreopSidebarModel({
-  t, sectionOn, anyMissing, isPediatric, preopMode, ageValue, ageUnit,
+  t, sectionOn, aiOn, anyMissing, isPediatric, preopMode, ageValue, ageUnit,
   ageYearsVal, sex, height, weight, bmi, allergies, allergyTags, locale,
   rcriAnswered, rcriScore, apfelAnswered, apfelScore, stopBangAnswered,
   stopBangScore, asaChosen, asaSuggested, disabled, stages,
 }: PreopSidebarModelArgs) {
   const sections: PreopSidebarProps["sections"] = [
     { id: "demographics", label: t("preop.demographicsSection"), missing: anyMissing("ageYears", "ageValue", "sex", "heightCm", "weightKg") },
+    ...(aiOn ? [{ id: "ai", label: t("preop.aiSection"), missing: false }] : []),
     { id: "case", label: t("preop.caseSection"), missing: anyMissing("diagnoses", "procedures") },
     ...(sectionOn("MEDICAL_HISTORY") ? [{ id: "history", label: t("preop.historySection"), missing: false }] : []),
     ...(sectionOn("CURRENT_MEDICATIONS") ? [{ id: "medications", label: t("preop.medicationsSection"), missing: false }] : []),

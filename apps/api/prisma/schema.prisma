@@ -3212,6 +3212,13 @@ model HospitalExternalAiPolicy {
   /// Pinned Mistral model that reads lab report and monitor photos.
   visionModel                  String?
   modelsChangedAt              DateTime?
+  /// The lab scan's local settings (1.9.1, Status): the names this hospital's
+  /// laboratory prints, each tied to a lab library entry, as
+  /// [{ printed, test }], and a short note. Both are added after the released
+  /// prompt and never replace it (lospor-api lib/lab-scan-prompt.ts).
+  labScanAliases               Json?
+  labScanInstructions          String?            @db.Text
+  labScanChangedAt             DateTime?
   createdAt                    DateTime           @default(now())
   updatedAt                    DateTime           @updatedAt
 }

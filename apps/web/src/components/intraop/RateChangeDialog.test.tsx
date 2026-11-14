@@ -19,6 +19,39 @@ const state: RateChangeState = {
   timeM: "",
 }
 
+describe("RateChangeDialog − / + (2026-11-14)", () => {
+  const dialog = (rate: number) => {
+    const onPatch = vi.fn()
+    render(
+      <RateChangeDialog
+        state={{ ...state, rate }} displayName="Noradrenaline" concentrations={undefined} weightBasis={null} hours={[]} minutes={[]}
+        labels={{ setNewRatePrompt: "Enter the recorded rate", pickRateChangeTime: "Pick time", concentration: "Concentration" }}
+        onPatch={onPatch} onApply={vi.fn()} onConfirmTime={vi.fn()} onDismiss={vi.fn()}
+      />,
+    )
+    return onPatch
+  }
+  const press = (name: string) => {
+    const button = screen.getByRole("button", { name })
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
+    fireEvent.pointerUp(button, { pointerId: 1 })
+  }
+
+  it("steps the rate by the drug's step, like the start sheet", () => {
+    const onPatch = dialog(0.1)
+    press("+")
+    expect(onPatch).toHaveBeenLastCalledWith({ rate: 0.11 })
+    press("−")
+    expect(onPatch).toHaveBeenLastCalledWith({ rate: 0.09 })
+  })
+
+  it("stays inside the range", () => {
+    const onPatch = dialog(1)
+    press("+")
+    expect(onPatch).toHaveBeenLastCalledWith({ rate: 1 })
+  })
+})
+
 describe("RateChangeDialog guidance policy", () => {
   it("keeps the configured range and calculation basis visible by default", () => {
     render(

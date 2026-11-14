@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native"
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import type * as ImagePickerModule from "expo-image-picker"
 import { apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -7,6 +7,7 @@ import { colors, withAlpha, useShade } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 import { aiScanFailureKey, isConsentRefusal } from "@/lib/ai-scan-failure"
+import { prepareVitalsScanImage, type ScanImageAsset } from "@/lib/vitals-scan"
 
 // Lazy require — native module is only present after a full expo run:android build.
  
@@ -85,21 +86,17 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt, aiOpt
     if (picked.canceled || !picked.assets[0]) return
     const asset = picked.assets[0]
 
-    // expo-image-picker on web returns a blob URI but may not populate .base64 —
-    // fall back to FileReader so the API always receives raw base64.
-    let imageBase64: string | null = asset.base64 ?? null
-    if (!imageBase64 && asset.uri && Platform.OS === "web") {
-      try {
-        const r = await fetch(asset.uri)
-        const blob = await r.blob()
-        imageBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve((reader.result as string).split(",")[1] ?? "")
-          reader.onerror = reject
-          reader.readAsDataURL(blob)
-        })
-      } catch { /* imageBase64 stays null */ }
-    }
+    // On the web the photo is redrawn upright through a canvas: the phone stores
+    // it sideways with an EXIF turn tag the AI provider ignores, and the report
+    // was read at 90 degrees, values on the wrong rows (10.4.1). Native passes
+    // the picker's own base64 through.
+    let imageBase64: string | null = null
+    let mimeType = asset.mimeType ?? "image/jpeg"
+    try {
+      const prepared = await prepareVitalsScanImage(asset as ScanImageAsset, { maxDimension: 3000, quality: 0.9 })
+      imageBase64 = prepared.image || null
+      mimeType = prepared.mimeType
+    } catch { /* imageBase64 stays null */ }
     if (!imageBase64) return
 
     setScanning(true)
@@ -115,7 +112,7 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt, aiOpt
         method: "POST",
         body: JSON.stringify({
           imageBase64,
-          mimeType: asset.mimeType ?? "image/jpeg",
+          mimeType,
         }),
       })
       // A consent ticked moments ago may still be waiting on the autosave

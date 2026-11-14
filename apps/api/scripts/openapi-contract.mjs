@@ -504,6 +504,22 @@ export const schemas = {
     visionModel: { type: "string", enum: ["mistral-large-2512", "ministral-14b-2512"] },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["advisorModel", "visionModel", "reason"]),
+  // The lab scan's local names and note (1.9.1): limits and checks in lospor-api lib/lab-scan-prompt.ts.
+  HospitalLabScanAlias: object({
+    printed: { type: "string", minLength: 1, maxLength: 80 },
+    test: { type: "string", minLength: 1, maxLength: 200 },
+  }, ["printed", "test"]),
+  HospitalLabScanSettingsRequest: object({
+    aliases: { type: "array", maxItems: 300, items: ref("HospitalLabScanAlias") },
+    instructions: { type: "string", maxLength: 1500 },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["aliases", "instructions", "reason"]),
+  HospitalLabScanTestRequest: object({
+    aliases: { type: "array", maxItems: 300, items: ref("HospitalLabScanAlias") },
+    instructions: { type: "string", maxLength: 1500 },
+    imageBase64: { type: "string", minLength: 1 },
+    mimeType: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] },
+  }, ["aliases", "instructions", "imageBase64", "mimeType"]),
   HospitalEhrStagingRetentionRequest: object({
     days: { type: "integer", minimum: 1, maximum: 14 },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
@@ -577,6 +593,31 @@ export const schemas = {
     visionModel: { type: "string", enum: ["mistral-large-2512", "ministral-14b-2512"] },
     modelsChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["advisorModel", "visionModel", "modelsChangedAt"]),
+  HospitalLabScanSettingsResponse: object({
+    aliases: { type: "array", items: ref("HospitalLabScanAlias") },
+    instructions: { type: "string" },
+    changedAt: nullable({ type: "string", format: "date-time" }),
+    limits: object({
+      aliases: { type: "integer" },
+      printed: { type: "integer" },
+      instructions: { type: "integer" },
+    }, ["aliases", "printed", "instructions"]),
+    libraryNames: { type: "array", items: { type: "string" } },
+  }, ["aliases", "instructions", "changedAt", "limits", "libraryNames"]),
+  HospitalLabScanTestRow: object({
+    test: { type: "string" },
+    value: { type: "string" },
+    unit: { type: "string" },
+    sourceValue: { type: "string" },
+    sourceUnit: { type: "string" },
+    conversionStatus: { type: "string" },
+    confident: { type: "boolean" },
+  }, ["test", "value", "unit", "sourceValue", "sourceUnit", "conversionStatus", "confident"]),
+  HospitalLabScanTestResponse: object({
+    results: { type: "array", items: ref("HospitalLabScanTestRow") },
+    unreadable: { type: "boolean" },
+    model: { type: "string" },
+  }, ["results", "unreadable", "model"]),
   HospitalExternalAiCredentialResponse: object({
     provider: { type: "string", const: "MISTRAL" },
     credentialConfigured: { type: "boolean" },
@@ -2188,6 +2229,22 @@ add("POST", "/v1/internal/hospital/control-plane/external-ai/models", "Choose th
   requestBody: body(ref("HospitalExternalAiModelsRequest")),
   result: ref("HospitalExternalAiModelsResponse"),
   errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/external-ai/lab-scan", "Save the lab scan's local lab names and note", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalLabScanSettingsRequest")),
+  result: ref("HospitalLabScanSettingsResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/external-ai/lab-scan/test", "Scan a test lab report image with the settings as they stand in Status", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalLabScanTestRequest")),
+  result: ref("HospitalLabScanTestResponse"),
+  errors: [400, 401, 404, 409, 413, 500, 503, 504],
   stability: "internal",
   tag: "internal",
 })
