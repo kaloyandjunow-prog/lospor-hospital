@@ -28,8 +28,9 @@ export async function labScanFailureResponse(
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature, failureKind: "network" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-  const status = outcome.response.status
-  console.error("[ai/read-labs] Mistral error:", outcome.response.status)
+  const response = outcome.response
+  const status = response.status
+  console.error("[ai/read-labs] Mistral error:", response.status)
   if (await mistralModelUnavailable(outcome.response)) {
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature, failureKind: "model-unavailable" })
     return NextResponse.json({
