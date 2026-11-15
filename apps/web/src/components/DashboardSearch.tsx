@@ -92,27 +92,33 @@ function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
 }
 
 /**
- * Open cases carry a light: green while anaesthesia runs, grey otherwise. Every
- * case that has started shows its anaesthesia time, in the department's clock.
+ * Every case but a cancelled one carries a light: green while anaesthesia runs,
+ * red on an open case that is not under anaesthesia, grey once the case is
+ * closed and locked. Every case that has started shows its anaesthesia time,
+ * in the department's clock.
  */
 function AnaesthesiaLight({ c, locale }: { c: CaseRow; locale: string }) {
   const bg = locale === "bg"
-  const open = c.status !== "COMPLETE" && c.status !== "CANCELLED"
+  const locked = c.status === "COMPLETE"
+  const open = !locked && c.status !== "CANCELLED"
   const running = anaesthesiaRunning(c)
   const start = departmentClock(c.intraop?.startedAt)
   const end = departmentClock(c.intraop?.endedAt)
-  const label = running ? (bg ? "Анестезията е в ход" : "Anaesthesia running") : (bg ? "Анестезията не е в ход" : "Anaesthesia not running")
-  if (!open && !start) return null
+  const label = locked
+    ? (bg ? "Случаят е заключен" : "Case locked")
+    : running ? (bg ? "Анестезията е в ход" : "Anaesthesia running") : (bg ? "Анестезията не е в ход" : "Anaesthesia not running")
+  if (!open && !locked && !start) return null
   return (
     <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-      {open ? (
+      {open || locked ? (
         <span
           data-testid="anaesthesia-light"
           data-running={running ? "true" : "false"}
+          data-light={locked ? "locked" : running ? "running" : "idle"}
           role="img"
           aria-label={label}
           title={label}
-          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${running ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.25)]" : "bg-slate-400 dark:bg-slate-500"}`}
+          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${running ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.25)]" : locked ? "bg-slate-400 dark:bg-slate-500" : "bg-red-500"}`}
         />
       ) : null}
       {start ? (

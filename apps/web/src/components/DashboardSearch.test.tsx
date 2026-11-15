@@ -273,20 +273,27 @@ describe("DashboardSearch — anaesthesia light, time and grouping (1.9.2)", () 
     expect(screen.getByTestId("anaesthesia-time").textContent).toBe("Anaesthesia from 08:42")
   })
 
-  it("shows a grey light on an open case not under anaesthesia, and the span once it has ended", () => {
+  it("shows a red light on an open case not under anaesthesia, and the span once it has ended", () => {
     render(<DashboardSearch cases={[
       row({ id: "a", status: "DRAFT" }),
       row({ id: "b", intraop: { startedAt: "2026-09-01T05:42:00.000Z", endedAt: "2026-09-01T07:15:00.000Z" } }),
     ]} userId="owner-1" role="CLINICIAN" />)
     const lights = screen.getAllByTestId("anaesthesia-light")
-    expect(lights.map(light => light.getAttribute("data-running"))).toEqual(["false", "false"])
+    expect(lights.map(light => light.getAttribute("data-light"))).toEqual(["idle", "idle"])
+    expect(lights[0].className).toContain("bg-red-500")
     expect(screen.getByTestId("anaesthesia-time").textContent).toBe("Anaesthesia 08:42–10:15")
   })
 
-  it("gives a closed case its time but no light", () => {
+  it("gives a locked case a grey light and its time, and a cancelled one no light", () => {
     render(<DashboardSearch cases={[row({ status: "COMPLETE", intraop: { startedAt: "2026-09-01T05:42:00.000Z", endedAt: "2026-09-01T07:15:00.000Z" } })]} userId="owner-1" role="CLINICIAN" />)
-    expect(screen.queryByTestId("anaesthesia-light")).toBeNull()
+    const light = screen.getByTestId("anaesthesia-light")
+    expect(light.getAttribute("data-light")).toBe("locked")
+    expect(light.getAttribute("aria-label")).toBe("Case locked")
+    expect(light.className).toContain("bg-slate-400")
     expect(screen.getByTestId("anaesthesia-time")).toBeTruthy()
+    cleanup()
+    render(<DashboardSearch cases={[row({ status: "CANCELLED" })]} userId="owner-1" role="CLINICIAN" />)
+    expect(screen.queryByTestId("anaesthesia-light")).toBeNull()
   })
 
   it("heads days and theatres when asked, and puts running cases first", () => {

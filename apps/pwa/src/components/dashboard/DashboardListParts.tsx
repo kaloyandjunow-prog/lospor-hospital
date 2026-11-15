@@ -49,26 +49,29 @@ export function DashboardHeading({ kind, label }: { kind: "day" | "theatre"; lab
 }
 
 /**
- * Open cases carry a light: green while anaesthesia runs, grey otherwise. Every
- * case that has started shows its anaesthesia time, in the department's clock.
+ * Every case but a cancelled one carries a light: green while anaesthesia runs,
+ * red on an open case that is not under anaesthesia, grey once the case is
+ * closed and locked. Every case that has started shows its anaesthesia time,
+ * in the department's clock.
  */
 export function AnaesthesiaLine({ item }: { item: DashboardOrderCase }) {
   const { t } = usePreferences()
-  const open = item.status !== "COMPLETE" && item.status !== "CANCELLED"
+  const locked = item.status === "COMPLETE"
+  const open = !locked && item.status !== "CANCELLED"
   const running = anaesthesiaRunning(item)
   const start = departmentClock(item.intraop?.startedAt)
   const end = departmentClock(item.intraop?.endedAt)
-  if (!open && !start) return null
-  const label = t(running ? "anaesthesiaRunning" : "anaesthesiaNotRunning")
+  if (!open && !locked && !start) return null
+  const label = t(locked ? "caseLockedLight" : running ? "anaesthesiaRunning" : "anaesthesiaNotRunning")
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-      {open ? (
+      {open || locked ? (
         <View
           testID={`anaesthesia-light-${item.id}`}
           accessible
           accessibilityRole="image"
           accessibilityLabel={label}
-          style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: running ? colors.success : colors.textMuted }}
+          style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: locked ? colors.textMuted : running ? colors.success : colors.danger }}
         />
       ) : null}
       {start ? (
