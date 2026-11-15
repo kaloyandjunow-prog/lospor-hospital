@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Animated, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Animated, FlatList, RefreshControl, Text, TouchableOpacity, View } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -9,13 +9,11 @@ import { openPrintCase } from "@/lib/print-case"
 import { useAuth } from "@/lib/auth-context"
 import { useLiveRefresh } from "@/lib/use-live-refresh"
 import { getQueuedCasePatchSummary, getQueuedCaseIds, clearAllQueuedPatchesForCase } from "@/lib/offline-case-patches"
-import { getAllLocalCaseDrafts, localDraftOwnerFromIdentity, type LocalCaseDraft } from "@/lib/local-case-store"
-import { localDraftRecoveryParams, shouldShowLocalDraft } from "@/lib/local-draft-review"
+import { getAllLocalCaseDrafts, type LocalCaseDraft } from "@/lib/local-case-store"
 import { usePreferences } from "@/lib/preferences-context"
 import { ASABadge, DispositionBadge, StatusBadge, statusLabel } from "@/components/ui"
-import { PatientDisplayText, readPatientDisplay, ScreenState, WorkflowPill } from "@/components/clinical-ui"
+import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
 import { AppHeader } from "@/components/AppHeader"
-import { LocalCaseDraftCard } from "@/components/LocalCaseDraftCard"
 import { colors, withAlpha } from "@/theme/colors"
 import { deriveCaseStage } from "@lospor/core/case-status"
 import { dashboardCaseTarget, dashboardTabCounts, caseMatchesDashboardTab, type DashboardServerCounts } from "@/lib/dashboard-case-routing"
@@ -32,14 +30,10 @@ import { ageSexLabel } from "@lospor/core/pediatric"
 import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
 import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
-import { AnaesthesiaLine, DashboardHeading, dashboardListRows, type DashboardListRow } from "@/components/dashboard/DashboardListParts"
-
-const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
 type CaseItem = {
   id: string
-  userId?: string
-  caseCode: string; patientDisplay?: unknown // the full ИЗ № and ЕГН prefix, while the site shows them
+  caseCode: string
   status: string
   createdAt: string
   preop?: {
@@ -54,7 +48,7 @@ type CaseItem = {
     diagnoses?: { label: string }[]
     procedures?: { label: string }[]
   }
-  intraop?: { monthYear?: string; endTime?: string | null; startedAt?: string | null; endedAt?: string | null; startTime?: string | null }
+  intraop?: { monthYear?: string; endTime?: string | null; startedAt?: string | null; startTime?: string | null }
   postop?: { disposition?: string }
   user?: { name?: string }
   // Any handover on this case still waiting to be answered. The list endpoint
@@ -129,9 +123,8 @@ function routeFor(item: CaseItem, hasQueuedIntraop: boolean): Href {
 
 export default function DashboardScreen() {
   const router = useRouter()
-  const { identity, logout } = useAuth()
+  const { logout } = useAuth()
   const { t, tc, language, shade } = usePreferences()
-  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
   // The theatre and anaesthesiologist filters (10.0.0), applied by the API.
@@ -140,7 +133,7 @@ export default function DashboardScreen() {
   const [people, setPeople] = useState<{ id: string; name: string }[]>([])
   const filterQuery = dashboardFilterQuery(filter)
   const { config: theatreConfig } = useOperatingTheatres()
-  const { counts, setCounts, setHospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
+  const { counts, setCounts, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
   const [transfers, setTransfers] = useState<PendingTransfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -169,25 +162,20 @@ export default function DashboardScreen() {
 
   const loadCases = useCallback(async () => {
     // Always reload local drafts (fast, no network)
-    if (draftOwner) {
-      getAllLocalCaseDrafts(draftOwner)
-        .then(drafts => setLocalDrafts(drafts.filter(shouldShowLocalDraft)))
-        .catch(() => {})
-    } else {
-      setLocalDrafts([])
-    }
+    getAllLocalCaseDrafts()
+      .then(drafts => setLocalDrafts(drafts.filter(draft => !draft.serverCaseId)))
+      .catch(() => {})
     try {
       setLoadError(null)
       // Explicit take: an unset request defaults to 50, silently undercounting
       // every stat tile for a clinic with more open work than that.
-      const data = await apiJson<CaseItem[] | { cases: CaseItem[]; counts?: DashboardServerCounts; total?: number; hospitalWide?: boolean }>(
+      const data = await apiJson<CaseItem[] | { cases: CaseItem[]; counts?: DashboardServerCounts; total?: number }>(
         `/api/cases?take=200${filterQuery}`,
         { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
       )
       setCases(Array.isArray(data) ? data : (Array.isArray(data?.cases) ? data.cases : []))
       setCounts(Array.isArray(data) ? null : (data?.counts ?? null))
       setCaseTotal(Array.isArray(data) ? null : (data?.total ?? null))
-      setHospitalWide(Array.isArray(data) ? false : data?.hospitalWide === true)
       setNetworkLoadFailed(false)
       networkErrorNotifiedRef.current = false
     } catch (err) {
@@ -196,7 +184,6 @@ export default function DashboardScreen() {
       setLoadError(message)
       setNetworkLoadFailed(isNetworkFailure)
       if (err instanceof ApiError && err.status === 401) {
-        // Expiry retains account-bound unsynced work; only explicit sign-out clears it.
         await logout()
         notify(t("sessionExpired"), t("signInAgainPrompt"))
         return
@@ -206,7 +193,7 @@ export default function DashboardScreen() {
       }
       networkErrorNotifiedRef.current = isNetworkFailure
     }
-  }, [filterQuery, draftOwner, logout, t, setCounts, setCaseTotal, setHospitalWide])
+  }, [filterQuery, logout, t, setCounts, setCaseTotal])
 
   const loadTransfers = useCallback(async () => {
     try {
@@ -293,7 +280,7 @@ export default function DashboardScreen() {
 
   const handleLongPress = useCallback((item: CaseItem) => {
     const scale = getCardScale(item.id)
-    Animated.spring(scale, { toValue: 0.95, useNativeDriver: USE_NATIVE_DRIVER, speed: 50, bounciness: 0 }).start()
+    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, speed: 50, bounciness: 0 }).start()
     setMenuCase(item)
     setMenuMode("menu")
   }, [])
@@ -301,7 +288,7 @@ export default function DashboardScreen() {
   function closeMenu() {
     if (menuCase) {
       const scale = getCardScale(menuCase.id)
-      Animated.spring(scale, { toValue: 1, useNativeDriver: USE_NATIVE_DRIVER, speed: 40, bounciness: 5 }).start()
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 5 }).start()
     }
     setMenuCase(null)
     setMenuMode("menu")
@@ -448,22 +435,18 @@ export default function DashboardScreen() {
   const tabCounts = dashboardTabCounts(counts, cases, transfers.length, isToday, isThisMonth)
 
   const trimmedQuery = query.trim().toLowerCase()
-  const filteredCases = useMemo(() => {
-    return cases.filter((c) => {
-      if (trimmedQuery) {
-        const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, readPatientDisplay(c.patientDisplay)?.admissionNumber, c.user?.name]
-          .filter(Boolean).join(" ").toLowerCase()
-        if (!haystack.includes(trimmedQuery)) return false
-      }
-      return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
-    })
-  }, [cases, activeTab, language, t, trimmedQuery])
-  // By day, then theatre (while the site uses them and no theatre filter is on), then where each case stands (1.9.2).
-  const listRows = useMemo(() => dashboardListRows(filteredCases, { byDay: activeTab !== "Today", theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null, ownerId: identity?.userId, language: language === "bg" ? "bg" : "en", labels: { noTheatre: t("noTheatre"), mine: t("dashboardMyCases"), others: t("dashboardColleaguesCases") } }), [filteredCases, activeTab, theatreConfig, filter.theatre, identity?.userId, language, t])
+  const filteredCases = useMemo(() => cases.filter((c) => {
+    if (trimmedQuery) {
+      const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+        .filter(Boolean).join(" ").toLowerCase()
+      if (!haystack.includes(trimmedQuery)) return false
+    }
+    return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
+  }), [cases, activeTab, language, t, trimmedQuery])
 
-  const renderCase = useCallback(({ item: row }: { item: DashboardListRow<CaseItem> }) => {
-    if (row.kind !== "case") return <DashboardHeading kind={row.kind} label={row.label} />
-    const item = row.item
+  const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
+
+  const renderCase = useCallback(({ item }: { item: CaseItem }) => {
     const isComplete = item.status === "COMPLETE"
     const hasPendingSync = queuedCaseIds.has(item.id)
     const hasQueuedIntraop = queuedIntraopCaseIds.has(item.id)
@@ -496,8 +479,7 @@ export default function DashboardScreen() {
             ) : null}
           </View>
           <StatusBadge status={derivedStatus(item)} />
-        </View><PatientDisplayText display={item.patientDisplay} language={language} testID={`case-patient-display-${item.id}`} />
-        <AnaesthesiaLine item={item} />
+        </View>
         {ageSexLabel(item.preop, language === "bg" ? "bg" : "en") ? (
           <Text testID={`case-age-sex-${item.id}`} style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
             {ageSexLabel(item.preop, language === "bg" ? "bg" : "en")}
@@ -536,21 +518,48 @@ export default function DashboardScreen() {
         <FlatList
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
-          data={activeTab === "Handovers" ? [] : listRows}
-          keyExtractor={(row) => row.key}
+          data={activeTab === "Handovers" ? [] : filteredCases}
+          keyExtractor={(c) => c.id}
           renderItem={renderCase}
+          getItemLayout={(_, index) => ({ length: CASE_CARD_HEIGHT, offset: CASE_CARD_HEIGHT * index, index })}
           maxToRenderPerBatch={8}
           windowSize={5}
           removeClippedSubviews
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}
           ListHeaderComponent={
             <>
-              {localDrafts.map(draft => (
-                <LocalCaseDraftCard key={draft.localId} draft={draft} language={language}
-                  localBadge={t("localBadge")} unsyncedTitle={t("unsyncedDraftTitle")}
-                  onPress={() => router.push({ pathname: "/(app)/cases/new",
-                    params: localDraftRecoveryParams(draft) } as Href)} />
-              ))}
+{localDrafts.map(draft => {
+                const diagnoses = Array.isArray(draft.formValues?.diagnoses) ? draft.formValues.diagnoses : []
+                const procedures = Array.isArray(draft.formValues?.procedures) ? draft.formValues.procedures : []
+                const firstLabel = (items: unknown[]) => {
+                  const first = items[0]
+                  return first && typeof first === "object" && "label" in first && typeof first.label === "string" ? first.label : undefined
+                }
+                const diag = firstLabel(diagnoses) ?? firstLabel(procedures)
+                  ?? t("unsyncedDraftTitle")
+                const age = draft.formValues?.ageYears
+                const sex = draft.formValues?.sex
+                const subtitle = [age ? `${age}y` : null, sex ? String(sex)[0] : null].filter(Boolean).join(" · ")
+                const date = new Date(draft.createdAt).toLocaleDateString()
+                return (
+                  <TouchableOpacity
+                    key={draft.localId}
+                    onPress={() => router.push({ pathname: "/(app)/cases/new", params: { localId: draft.localId } } as Href)}
+                    style={{ backgroundColor: withAlpha(colors.warning, "12"), borderColor: withAlpha(colors.warning, "55"), borderWidth: 1, borderRadius: 14, borderCurve: "continuous", padding: 12, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View style={{ backgroundColor: colors.warning, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ color: shade("#000"), fontSize: 9, fontWeight: "900" }}>{t("localBadge")}</Text>
+                        </View>
+                        <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{diag}</Text>
+                      </View>
+                      {subtitle ? <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 3 }}>{subtitle} · {date}</Text> : null}
+                    </View>
+                    <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
+                  </TouchableOpacity>
+                )
+              })}
 
               {queuedSaveCount > 0 ? (
                 <TouchableOpacity
