@@ -114,6 +114,62 @@ export function releaseOutcome(error: unknown, currentAttemptCount: number): Rel
   }
 }
 
+/** What Central reports for a batch id, as far as resuming it is concerned. */
+export type CentralCopy = { status: string; receipt: ExchangeReceiptV1 | null } | null
+
+/**
+ * Exported for tests: what to do with a batch Central may already hold.
+ *
+ * A batch is built once and its id is final, but building it again is not
+ * neutral: a rebuild carries a new generatedAt and a fresh content key, so to
+ * Central it is different content under the same id (BATCH_ID_REUSED), and a
+ * finished batch refuses further parts (BATCH_UPLOAD_CLOSED). Both say "do not
+ * retry", and releaseOutcome turned them into CANCELLED -- after an upload
+ * whose answer was merely lost, a batch Central had ACCEPTED was recorded here
+ * as cancelled, its cases never checkpointed and its sequence spent.
+ *
+ * So Central is asked first. A receipt settles the batch either way; a batch
+ * still taking parts is resumed from the artifacts already built, which are
+ * the ones Central holds; one past that point only needs its receipt polled.
+ * Only a batch Central has never seen may be built again.
+ */
+export function heldBatchAction(held: CentralCopy): "rebuild" | "settle" | "resume" | "poll" {
+  if (!held) return "rebuild"
+  if (held.receipt) return "settle"
+  if (held.status === "UPLOADING") return "resume"
+  return "poll"
+}
+
+async function centralCopy(batchId: string): Promise<CentralCopy> {
+  const installation = await prisma.hospitalInstallation.findUnique({ where: { id: "local" } })
+  if (!installation?.siteId || !installation.centralBaseUrl) {
+    throw new Error("Hospital delivery configuration is incomplete")
+  }
+  try {
+    return await readCentralBatchStatus(installation.centralBaseUrl, installation.siteId, batchId)
+  } catch (error) {
+    if (error instanceof CentralApiError && error.status === 404) return null
+    throw error
+  }
+}
+
+/**
+ * Settle a batch from Central's own record where it has one. Returns false
+ * when there is nothing to settle from, leaving the decision to the caller.
+ */
+async function settleFromCentral(batchId: string, workerId: string, held: CentralCopy): Promise<boolean> {
+  const action = heldBatchAction(held)
+  if (action === "settle" && held?.receipt) {
+    await acceptReceipt(batchId, workerId, held.receipt)
+    return true
+  }
+  if (action === "poll") {
+    await pollReceipt(batchId, workerId)
+    return true
+  }
+  return false
+}
+
 async function releaseForRetry(
   batchId: string,
   workerId: string,
@@ -349,9 +405,19 @@ export async function processOneCentralDelivery(
   try {
     const batch = await prisma.centralDeliveryBatch.findUnique({
       where: { id: batchId },
-      select: { status: true },
+      select: { status: true, manifest: true },
     })
     if (!batch) return false
+    // A batch that was built before may already be at Central. Ask before
+    // building it again -- see heldBatchAction.
+    if ((batch.status === "RETRY" || batch.status === "GENERATING") && batch.manifest) {
+      const held = await centralCopy(batchId)
+      if (await settleFromCentral(batchId, workerId, held)) return true
+      if (heldBatchAction(held) === "resume") {
+        await deliverBatch(batchId, workerId)
+        return true
+      }
+    }
     if (batch.status === "PENDING" ||
         batch.status === "RETRY" ||
         batch.status === "GENERATING") {
@@ -369,6 +435,16 @@ export async function processOneCentralDelivery(
       await pollReceipt(batchId, workerId)
     }
   } catch (error) {
+    // A refusal Central marks final may only mean it already has this batch
+    // (a finished upload whose answer was lost). Its own record decides that
+    // before the batch is cancelled; if Central cannot be asked, the refusal
+    // stands as before.
+    if (error instanceof CentralApiError && !error.retryable) {
+      const settled = await centralCopy(batchId)
+        .then(held => settleFromCentral(batchId, workerId, held))
+        .catch(() => false)
+      if (settled) return true
+    }
     console.error("[hospital-central-delivery] CENTRAL_DELIVERY_FAILED")
     await emitStatusEvent("CENTRAL_DELIVERY_FAILED", { stage: "worker" })
     await releaseForRetry(batchId, workerId, error)

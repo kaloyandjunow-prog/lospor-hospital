@@ -5,7 +5,7 @@ import { CentralApiError } from "./central-client"
 // throws outside a Server Component; releaseOutcome touches no database.
 vi.mock("server-only", () => ({}))
 
-const { releaseOutcome } = await import("./delivery-worker")
+const { heldBatchAction, releaseOutcome } = await import("./delivery-worker")
 
 /**
  * releaseOutcome decides what a failed delivery attempt becomes: RETRY (the
@@ -59,5 +59,33 @@ describe("releaseOutcome", () => {
     const now = Date.now()
     expect(later - now).toBeGreaterThan(soon - now)
     expect(capped - now).toBeLessThanOrEqual(6 * 60 * 60 * 1000 + 1000)
+  })
+})
+
+/**
+ * heldBatchAction decides what a retried batch does once Central has said what
+ * it holds. Rebuilding a batch Central already has is what turned an accepted
+ * batch into CANCELLED here: the rebuild is new content under the same id.
+ */
+describe("heldBatchAction", () => {
+  const receipt = { status: "ACCEPTED" } as never
+
+  it("rebuilds only a batch Central has never seen", () => {
+    expect(heldBatchAction(null)).toBe("rebuild")
+  })
+
+  it("settles from Central's receipt, whatever the receipt says", () => {
+    expect(heldBatchAction({ status: "ACCEPTED", receipt })).toBe("settle")
+    expect(heldBatchAction({ status: "REJECTED", receipt })).toBe("settle")
+  })
+
+  it("resumes the same upload while Central is still taking parts", () => {
+    expect(heldBatchAction({ status: "UPLOADING", receipt: null })).toBe("resume")
+  })
+
+  it("waits for the receipt of a batch Central already has in full", () => {
+    for (const status of ["READY", "PROCESSING", "ACCEPTED"]) {
+      expect(heldBatchAction({ status, receipt: null })).toBe("poll")
+    }
   })
 })
