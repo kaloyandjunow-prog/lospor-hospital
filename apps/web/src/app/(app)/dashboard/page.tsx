@@ -8,7 +8,8 @@ import { DashboardSearch } from "@/components/DashboardSearch"
 import { DashboardFilters } from "@/components/DashboardFilters"
 import { OPERATING_THEATRES_OFF, parseOperatingTheatreConfig, type CaseTheatreView } from "@lospor/core/operating-theatres"
 import { getTranslations } from "next-intl/server"
-import { isSameCalendarDay, isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
+import { isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
+import { isTodaysCase } from "@/lib/dashboard-order"
 import type React from "react"
 
 type CaseRow = {
@@ -30,6 +31,8 @@ type CaseRow = {
     monthYear: string | null
     durationMinutes: number | null
     endTime: string | null
+    startedAt?: string | null
+    endedAt?: string | null
   } | null
   postop: {
     disposition: string | null
@@ -90,16 +93,6 @@ async function fetchDashboard(limit: number, filter: DashboardFilter): Promise<{
     total,
     hospitalWide,
   }
-}
-
-// Kept for the visible case list only -- which cases these 200 rows contain
-// is display order, not a count. The stat tiles and filter-chip counts read
-// the server's `counts` instead, which cover every accessible case, not just
-// this page. Both use the same Europe/Sofia calendar boundary as the API's
-// own `dashboardCaseCounts`, so a case cannot read "today" here and
-// "yesterday" there.
-function isToday(date: Date, now: Date) {
-  return isSameCalendarDay(date, now)
 }
 
 function isThisMonthCase(c: CaseRow, now: Date) {
@@ -198,7 +191,10 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const handoverCount = counts.handovers
   const filteredCases = cases.filter((c: CaseRow) => {
     if (scope === "all") return true
-    if (scope === "today") return isToday(c.createdAt, now)
+    // Created today or anaesthesia started today, by the same Europe/Sofia
+    // calendar as the server's own `dashboardCaseCounts`, so the chip's count
+    // and the rows below it agree.
+    if (scope === "today") return isTodaysCase(c, now)
     if (scope === "month") return isThisMonthCase(c, now)
     if (scope === "active") return c.status !== "COMPLETE"
     if (scope === "drafts") return c.status === "DRAFT"
@@ -213,9 +209,6 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
     if (scope === "icu") return c.postop?.disposition === "ICU"
     return true
   })
-  const orderedCases = hospitalWide
-    ? [...filteredCases].sort((a, b) => Number(b.userId === session.user.id) - Number(a.userId === session.user.id))
-    : filteredCases
   const asaDist = cases.reduce<Record<string, number>>((acc: Record<string, number>, c: CaseRow) => {
     const a = c.preop?.asaScore ?? "Unknown"
     acc[a] = (acc[a] ?? 0) + 1
@@ -319,7 +312,13 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
             </div>
           ) : (
             <DashboardSearch
-              cases={orderedCases}
+              cases={filteredCases}
+              layout={{
+                byDay: scope !== "today",
+                // Grouped by theatre only while the site uses them and the list is not filtered to one.
+                theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null,
+                preferredUserId: hospitalWide ? session.user.id : undefined,
+              }}
               userId={session.user.id}
               role={session.user.role}
               theatres={theatreConfig.enabled ? theatreConfig.theatres : null}

@@ -362,7 +362,7 @@ export async function GET(req: NextRequest) {
   const include = {
     preop:  { select: { diagnosis: true, plannedProcedure: true, procedureUndetermined: true, ageYears: true, ageValue: true, ageUnit: true, sex: true, asaScore: true } },
     postop: { select: { disposition: true, aldreteTotal: true } },
-    intraop: { select: { monthYear: true, durationMinutes: true, endTime: true, startedAt: true, startTime: true } },
+    intraop: { select: { monthYear: true, durationMinutes: true, endTime: true, startedAt: true, endedAt: true, startTime: true } },
     operatingTheatre: { select: { name: true } },
     user: { select: { name: true } },
     patientLink: { select: { maskedIdentifier: true, ...patientDisplaySelect } },

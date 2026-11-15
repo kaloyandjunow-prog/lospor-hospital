@@ -64,7 +64,7 @@ describe("dashboardCaseCounts", () => {
     expect(result.today).toBe(1)
     expect(mocks.findMany).not.toHaveBeenCalled()
     expect(mocks.count.mock.calls[1][0].where).toEqual({
-      AND: [ {}, { createdAt: dashboardDayRange(NOW) } ],
+      AND: [ {}, { OR: [{ createdAt: dashboardDayRange(NOW) }, { intraop: { is: { startedAt: dashboardDayRange(NOW) } } }] } ],
     })
   })
 

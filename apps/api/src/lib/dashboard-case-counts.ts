@@ -104,7 +104,9 @@ export async function dashboardCaseCounts(
 
   const [all, today, month, active, drafts, complete, awaitingPostop, icu, handovers] = await Promise.all([
     prisma.case.count({ where }),
-    prisma.case.count({ where: { AND: [where, { createdAt: todayRange }] } }),
+    // Today's work: cases created today, and cases whose anaesthesia started
+    // today (one assessed yesterday and operated on this morning).
+    prisma.case.count({ where: { AND: [where, { OR: [{ createdAt: todayRange }, { intraop: { is: { startedAt: todayRange } } }] }] } }),
     prisma.case.count({
       where: {
         AND: [
