@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { clinicalDisplayLabel, resolveClinicalDisplay } from "./index"
+import { pediatricAgeGroup, validatePediatricAge, type PediatricAgeGroup, type PediatricAgeValidationIssue } from "../pediatric"
 
 describe("pediatric clinical display terms", () => {
   it("localizes clinical mode and exact-age units", () => {
@@ -22,6 +23,25 @@ describe("pediatric clinical display terms", () => {
       .toBe("Approximate age in days")
     expect(clinicalDisplayLabel("researchField", "paedScore", "bg"))
       .toBe("\u041e\u0446\u0435\u043d\u043a\u0430 \u043f\u043e PAED")
+  })
+
+  it("labels every pediatric age group and age issue in both languages", () => {
+    const groups: PediatricAgeGroup[] = [0, 100, 400, 1500, 3000, 6000].map(days => pediatricAgeGroup(days))
+    expect(new Set(groups).size).toBe(6)
+    const issues: PediatricAgeValidationIssue["code"][] = [
+      ...validatePediatricAge({ value: -1, unit: "YEARS" }),
+      ...validatePediatricAge({ value: 18, unit: "YEARS" }),
+    ].map(issue => issue.code)
+    for (const [domain, codes] of [["pediatricAgeGroup", groups], ["pediatricAgeIssue", issues]] as const) {
+      for (const code of codes) {
+        for (const locale of ["en", "bg"] as const) {
+          const display = resolveClinicalDisplay(domain, code, locale)
+          expect(display.known, `${domain}.${code}`).toBe(true)
+          expect(display.reviewStatus, `${domain}.${code}`).toBe("approved")
+        }
+      }
+    }
+    expect(clinicalDisplayLabel("pediatricAgeGroup", "ADOLESCENT", "bg")).toBe("Юноша")
   })
 
   it("marks pediatric terms as clinician reviewed", () => {

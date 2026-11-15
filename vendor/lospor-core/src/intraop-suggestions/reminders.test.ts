@@ -5,6 +5,7 @@ import type { SuggestionPatient } from "./context"
 import {
   glucoseReminder,
   latexBanner,
+  localAnaestheticBolusMg,
   localAnaestheticBudget,
   localAnaestheticBudgetText,
   localAnaestheticCheck,
@@ -126,5 +127,14 @@ describe("P2: the diabetes glucose check", () => {
     const dismissal = reminderDismissOps(reminder, at(130)).add
     expect(glucoseReminder({ diabetes: true }, [], dismissal, at(0), at(200))).toBeNull()
     expect(glucoseReminder({ diabetes: true }, [], dismissal, at(0), at(250))).not.toBeNull()
+  })
+})
+
+describe("a local anaesthetic bolus charted in mL", () => {
+  it("takes its strength from mg/mL as well as from a percentage", () => {
+    // 20 mL of 5 mg/mL is 100 mg, the same as 20 mL of 0.5%.
+    const base = { id: "e1", type: "drug", ts: "2026-11-15T08:00:00Z", name: "Bupivacaine", dose: "20", unit: "mL" } as const
+    expect(localAnaestheticBolusMg({ ...base, concentrationUnit: "MG_PER_ML", concentrationValue: 5 } as LogEvent)).toBe(100)
+    expect(localAnaestheticBolusMg({ ...base, concentration: "0,5%" } as LogEvent)).toBe(100)
   })
 })

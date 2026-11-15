@@ -61,6 +61,9 @@ describe("local anaesthetic mg equivalent", () => {
     expect(parseLocalAnaestheticPercent("Bupivacaine 0.25%")).toBe(0.25)
     expect(parseLocalAnaestheticPercent("Lidocaine 2%")).toBe(2)
     expect(parseLocalAnaestheticPercent("Propofol")).toBeNull()
+    // A decimal comma used to read as 5%, and a space before the sign as no strength at all.
+    expect(parseLocalAnaestheticPercent("Bupivacaine 0,5%")).toBe(0.5)
+    expect(parseLocalAnaestheticPercent("Ropivacaine 0.2 %")).toBe(0.2)
   })
 
   it("converts millilitres to milligrams at 10 mg/mL per percent", () => {

@@ -37,6 +37,8 @@ function localAnaestheticName(name: string | undefined): string | null {
 
 function percentOf(event: LogEvent): number | null {
   if (event.concentrationUnit === "PERCENT" && event.concentrationValue != null) return event.concentrationValue
+  // 1% is 10 mg/mL, so a syringe charted in mg/mL still counts towards the limit.
+  if (event.concentrationUnit === "MG_PER_ML" && event.concentrationValue != null) return event.concentrationValue / 10
   return parseLocalAnaestheticPercent(event.concentration ?? "") ?? parseLocalAnaestheticPercent(event.name ?? "")
 }
 

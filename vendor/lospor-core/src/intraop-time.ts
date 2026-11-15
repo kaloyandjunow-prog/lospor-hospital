@@ -317,14 +317,16 @@ export function formatDateKeyShort(key: string, locale: "en" | "bg"): string | n
 
 /**
  * The earliest date the end may be put on: the start's date, or the next day
- * when the end clock time is not after the start's -- so the end stepper can
- * never place the end before the start.
+ * when the end clock time is before the start's -- so the end stepper can
+ * never place the end before the start. An end at the start's own minute
+ * stays on the same day, the day defaultEndDayOffset gives it: the two used to
+ * disagree, and a 0-minute slip is easier to see than an invented 24 hours.
  */
 export function earliestEndDateKey(startedAt: Date, endHhmm: string, timeZone: string): string | null {
   const startKey = localDateKey(startedAt, timeZone)
   const startHhmm = localTimeOf(startedAt, timeZone)
   if (!startKey || !startHhmm || !HHMM.test(endHhmm)) return startKey
-  return endHhmm <= startHhmm ? shiftDateKey(startKey, 1) : startKey
+  return endHhmm < startHhmm ? shiftDateKey(startKey, 1) : startKey
 }
 
 const MONTHS_SHORT_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]

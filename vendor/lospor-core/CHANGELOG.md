@@ -1,5 +1,30 @@
 # Changelog - LOSPOR Core
 
+## [10.4.2] - 2026-11-15
+
+### Fixed
+
+- **EHR import turned an adult into a newborn.** An age row with a unit but no number read as age 0 (`Number(null)`).
+  It is now reported unchanged and nothing is applied. Checked against the previous code over 1,974 import, case,
+  mode and selection combinations: every import that carries a real age gives the same patch and the same automatic
+  adult/paediatric switch.
+- **Lab units.** INR and pH accept only a unitless value; values below 0.1 keep two significant figures instead of
+  rounding to 0; urea in mg/dL is no longer assumed to be BUN (it is left for manual entry); a comma before three
+  digits (`1,234`) is refused as ambiguous.
+- **Lost fields when tapping fast.** The outbox's read-merge-write and the settle after a send run under a lock per
+  patch, so two quick changes to one record can no longer drop one of them.
+- **Dose rounding.** `roundDoseToStep` removes float dust (`0.30000000000000004`); dosing uses it.
+- **Local anaesthetic strength** reads a decimal comma, a space before %, and mg/mL syringes.
+- **Infusion volume** ignores a rate change timed before the infusion started.
+- **End day.** `earliestEndDateKey` agrees with `defaultEndDayOffset` when the end equals the start.
+- **Raw event types after the end of a case.** Position, phase, complication, defibrillation and label-less events
+  after the end read `position_change` and similar in both languages; they now go through `describeIntraopEvent`.
+
+### Added
+
+- Display domains `pediatricAgeGroup` and `pediatricAgeIssue` (Bulgarian and English), so the apps name the
+  paediatric age group the same way instead of each keeping its own list.
+
 ## [10.4.0] - 2026-11-14
 
 ### Added

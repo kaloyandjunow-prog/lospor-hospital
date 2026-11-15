@@ -7,6 +7,7 @@ import {
   intraopUnconfirmedStops,
 } from "./intraop-commands"
 import { sortIntraopEvents } from "./intraop-engine"
+import { describeIntraopEvent } from "./intraop-summary"
 import { resolveIntraopEventLabel } from "./clinical-display"
 import { clinicalDisplayLabel } from "./display"
 import type { ClinicalDisplayDomain, ClinicalLocale } from "./display/types"
@@ -223,6 +224,8 @@ export function intraopResolveAttention(
 // Event-type terms whose change events are named for the item they change.
 const EVENT_TERM: Partial<Record<LogEvent["type"], string>> = { infusion_rate: "infusion_change" }
 
+const DESCRIBED_TYPES = new Set<LogEvent["type"]>(["clinical_event", "position_change", "phase_change", "complication", "defibrillation"])
+
 const SUBJECT_DOMAIN: Partial<Record<string, ClinicalDisplayDomain>> = {
   infusion: "option:INTRAOP_INFUSION",
   fluid: "option:INTRAOP_FLUID",
@@ -245,6 +248,15 @@ export function intraopAttentionText(item: IntraopAttentionItem, locale: string)
     return `${name} ${event.dose ?? ""} ${event.unit ?? ""}`.trim()
   }
   if (event.type === "clinical_event" && event.label) return resolveIntraopEventLabel(event.label, language)
+  // No event-type label for these: they read as the record names them, never as
+  // their raw type ("position_change") in either language (10.4.2).
+  if (DESCRIBED_TYPES.has(event.type)) {
+    const described = describeIntraopEvent(event, { language })
+    // A phase alone ("Emergence") needs its heading; a position names itself ("Позиция по корем").
+    return event.type === "phase_change"
+      ? [described.sub, described.text].filter(Boolean).join(" · ")
+      : described.text
+  }
   const ref = intraopItemRef(event)
   const domain = ref ? SUBJECT_DOMAIN[ref.kind] : undefined
   const subject = item.subject

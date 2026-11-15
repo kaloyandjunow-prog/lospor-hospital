@@ -230,8 +230,9 @@ export function fluidTotalsPatch(totals: FluidTotals): Record<string, number | n
  * conversion, so it belongs beside the totals that use it.
  */
 export function parseLocalAnaestheticPercent(name: string): number | null {
-  const match = name.match(/(\d+(?:\.\d+)?)%/)
-  return match ? parseFloat(match[1]) : null
+  // "0,5%" is a decimal comma, not 5%; "0.5 %" has a space before the sign.
+  const match = name.match(/(\d+(?:[.,]\d+)?)\s*%/)
+  return match ? parseFloat(match[1].replace(",", ".")) : null
 }
 
 /**

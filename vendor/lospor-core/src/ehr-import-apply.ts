@@ -115,6 +115,8 @@ function existingList(current: unknown): unknown[] {
 const AGE_FIELDS = new Set(["ageYears", "ageValue", "ageUnit"])
 
 function num(value: unknown): number | null {
+  // Number(null) and Number("") are 0: an empty age field must read as no age, not a newborn.
+  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
@@ -228,9 +230,17 @@ export function applyEhrSelections(input: {
         appliedKeys.splice(appliedKeys.indexOf(itemKey), 1)
         refused.push({ itemKey, reason: "needs-mode-decision" })
       }
+    } else if (!age) {
+      // No number to write (the message had none, or only a unit with nothing
+      // to borrow): the row changes nothing, so it is not reported as applied.
+      for (const itemKey of [...appliedKeys]) {
+        if (!AGE_FIELDS.has(byKey.get(itemKey)!.field)) continue
+        appliedKeys.splice(appliedKeys.indexOf(itemKey), 1)
+        refused.push({ itemKey, reason: "unchanged" })
+      }
     } else {
       if (implied && implied !== currentMode) modeChange = implied
-      if (age) Object.assign(patch, ageFor(implied ?? currentMode, age))
+      Object.assign(patch, ageFor(implied ?? currentMode, age))
     }
   }
 
@@ -258,8 +268,9 @@ function acceptedAgeOf(
     value = num(proposed.ageYears)
     unit = "YEARS"
   } else {
-    value = num(current.ageValue) ?? num(current.ageYears)
     unit = (proposed.ageUnit ?? "YEARS") as PediatricAgeUnit
+    // An adult case keeps only completed years; that number means nothing in months, weeks or days.
+    value = num(current.ageValue) ?? (unit === "YEARS" ? num(current.ageYears) : null)
   }
   return value === null ? null : { value, unit }
 }

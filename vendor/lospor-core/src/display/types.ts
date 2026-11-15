@@ -24,6 +24,8 @@ export type ClinicalDisplayDomain =
   | "mappingStatus"
   | "medication"
   | "optionGroup"
+  | "pediatricAgeGroup"
+  | "pediatricAgeIssue"
   | "procedure"
   | "qualityWarning"
   | "researchDomain"

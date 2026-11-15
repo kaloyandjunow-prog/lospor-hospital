@@ -189,8 +189,9 @@ describe("clinical display registry", () => {
     // complications, ten events, their Resuscitation heading and the Deceased
     // destination (10.2.0); 1020 with the three jet ventilation event types
     // (10.2.0); 1021 with the unilateral spinal, 1022 with TCI and 1023 with
-    // Sedation started and the five structured airway-device events (10.2.0).
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(1028)
+    // Sedation started and the five structured airway-device events (10.2.0);
+    // 1036 with the six pediatric age groups and two age issues (10.4.2).
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(1036)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

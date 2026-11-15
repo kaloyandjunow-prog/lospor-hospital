@@ -61,6 +61,23 @@ describe("createCaseOutbox", () => {
     expect(await box.load("case-1", "preop")).toBeNull()
   })
 
+  it("keeps every field when two taps are queued at the same moment", async () => {
+    // A real store answers asynchronously; both reads used to see the old patch
+    // and the second write dropped the first tap's field.
+    const slow = memoryKV()
+    const get = slow.get
+    slow.get = async key => { const value = await get(key); return new Promise(resolve => setTimeout(() => resolve(value), 1)) }
+    const box = createCaseOutbox({ kv: slow, sendPatch, classifyError })
+
+    await Promise.all([
+      box.queue("case-1", "intraop", { position: "PRONE" }, "base-0"),
+      box.queue("case-1", "intraop", { technique: "GA" }, "base-0"),
+      box.queue("case-1", "intraop", { airway: "ETT" }, "base-0"),
+    ])
+
+    expect(await box.load("case-1", "intraop")).toEqual({ position: "PRONE", technique: "GA", airway: "ETT" })
+  })
+
   it("queues on network failure instead of losing the patch", async () => {
     sendPatch.mockRejectedValue(new NetworkError())
     const box = outbox()

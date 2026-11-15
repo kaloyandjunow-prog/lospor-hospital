@@ -46,6 +46,16 @@ export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
   term("ageUnit", "DAYS", "Days", "\u0414\u043d\u0438"),
   term("ageUnit", "MONTHS", "Months", "\u041c\u0435\u0441\u0435\u0446\u0438"),
   term("ageUnit", "YEARS", "Years", "\u0413\u043e\u0434\u0438\u043d\u0438"),
+  // The age group a pediatric age falls into (`pediatricAgeGroup` in ../pediatric).
+  term("pediatricAgeGroup", "NEONATE", "Neonate", "\u041d\u043e\u0432\u043e\u0440\u043e\u0434\u0435\u043d\u043e"),
+  term("pediatricAgeGroup", "INFANT", "Infant", "\u041a\u044a\u0440\u043c\u0430\u0447\u0435"),
+  term("pediatricAgeGroup", "TODDLER", "Toddler", "\u041c\u0430\u043b\u043a\u043e \u0434\u0435\u0442\u0435"),
+  term("pediatricAgeGroup", "PRESCHOOL", "Preschool child", "\u0414\u0435\u0442\u0435 \u0432 \u043f\u0440\u0435\u0434\u0443\u0447\u0438\u043b\u0438\u0449\u043d\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442"),
+  term("pediatricAgeGroup", "SCHOOL_AGE", "School-age child", "\u0414\u0435\u0442\u0435 \u0432 \u0443\u0447\u0438\u043b\u0438\u0449\u043d\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442"),
+  term("pediatricAgeGroup", "ADOLESCENT", "Adolescent", "\u042e\u043d\u043e\u0448\u0430"),
+  // Why a pediatric age was refused (`validatePediatricAge` in ../pediatric).
+  term("pediatricAgeIssue", "INVALID_VALUE", "Enter a valid age.", "\u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u0432\u0430\u043b\u0438\u0434\u043d\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442."),
+  term("pediatricAgeIssue", "AGE_OUTSIDE_PEDIATRIC_RANGE", "Pediatric mode requires an age below 18 years.", "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0438\u044f\u0442 \u0440\u0435\u0436\u0438\u043c \u0438\u0437\u0438\u0441\u043a\u0432\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442 \u043f\u043e\u0434 18 \u0433\u043e\u0434\u0438\u043d\u0438."),
 
   term("clinicalMode", "ADULT", "Adult patient", "\u0412\u044a\u0437\u0440\u0430\u0441\u0442\u0435\u043d \u043f\u0430\u0446\u0438\u0435\u043d\u0442"),
   term("clinicalMode", "PEDIATRIC", "Pediatric patient", "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u0435\u043d \u043f\u0430\u0446\u0438\u0435\u043d\u0442"),
