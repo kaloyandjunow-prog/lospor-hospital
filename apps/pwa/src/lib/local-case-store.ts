@@ -1,3 +1,6 @@
+import type { DraftRefusal } from "./draft-refusal"
+// What the dashboard says about a refused draft, beside the drafts it lists.
+export { draftRefusalText } from "./draft-refusal"
 import * as FileSystem from "expo-file-system/legacy"
 import { Platform } from "react-native"
 import { randomHex } from "@/lib/random-id"
@@ -24,6 +27,12 @@ export type LocalCaseDraft = {
   serverCaseId?: string
   formValues: Record<string, unknown>
   createdAt: string
+  /**
+   * The server refused to create the case (a 4xx). Retrying the same payload
+   * cannot succeed, so the flusher stops and the dashboard says so; saving the
+   * draft again from the form clears it.
+   */
+  rejected?: DraftRefusal
 }
 
 let activeOwnerId: string | null = null
@@ -47,8 +56,10 @@ async function claimUnownedDrafts(ownerId: string): Promise<void> {
     const path = draftPath(id)
     const raw = await FileSystem.readAsStringAsync(path).catch(() => "")
     if (!raw) continue
-    const draft = JSON.parse(raw) as LocalCaseDraft
-    if (!draft.ownerId) await FileSystem.writeAsStringAsync(path, JSON.stringify({ ...draft, ownerId }))
+    // One unreadable file must not stop the drafts after it from being claimed.
+    let draft: LocalCaseDraft
+    try { draft = JSON.parse(raw) as LocalCaseDraft } catch { continue }
+    if (!draft.ownerId) await FileSystem.writeAsStringAsync(path, JSON.stringify({ ...draft, ownerId })).catch(() => {})
   }
 }
 
@@ -175,6 +186,15 @@ export async function loadLocalCaseDraft(localId: string): Promise<LocalCaseDraf
   } catch {
     return null
   }
+}
+
+/** Mark a draft the server refused, keeping every value the clinician entered. */
+export async function markLocalCaseDraftRejected(draft: LocalCaseDraft, rejected: DraftRefusal): Promise<void> {
+  const next: LocalCaseDraft = { ...draft, rejected }
+  try {
+    if (Platform.OS === "web") await putWebDraft(next)
+    else await FileSystem.writeAsStringAsync(draftPath(draft.localId), JSON.stringify(next))
+  } catch {}
 }
 
 export async function deleteLocalCaseDraft(localId: string): Promise<void> {

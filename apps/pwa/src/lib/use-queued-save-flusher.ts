@@ -3,15 +3,17 @@ import { AppState } from "react-native"
 import { createBackoffPolicy } from "@lospor/core/sync"
 import { getQueuedCasePatchSummary } from "./offline-case-patches"
 import { autosaveManager, resetAutosaveNetworkBreaker } from "./autosave-manager"
-import { getAllLocalCaseDrafts, deleteLocalCaseDraft } from "./local-case-store"
+import { getAllLocalCaseDrafts, deleteLocalCaseDraft, markLocalCaseDraftRejected } from "./local-case-store"
 import { buildPreopPayload } from "./preop-payload"
 import { apiFetch } from "./api"
 import { isPreopFormOpen } from "./preop-open-forms"
 import { useLiveRefresh } from "./use-live-refresh"
+import { draftRefusalFrom } from "./draft-refusal"
 
 export async function flushLocalCaseDrafts(): Promise<void> {
   const drafts = await getAllLocalCaseDrafts()
   for (const draft of drafts) {
+    if (draft.rejected && !draft.serverCaseId) continue
     try {
       // Build the normalised payload (includes derived BMI, RCRI, Apfel, STOP-BANG)
       const preop = buildPreopPayload(draft.formValues)
@@ -38,6 +40,11 @@ export async function flushLocalCaseDrafts(): Promise<void> {
       })
       if (res.ok) {
         await deleteLocalCaseDraft(draft.localId)
+      } else {
+        // Resending the same payload every 15 s can never get past a refusal;
+        // keep the draft, stop retrying it, and let the dashboard say why.
+        const rejected = draftRefusalFrom(res.status, await res.json().catch(() => null))
+        if (rejected) await markLocalCaseDraftRejected(draft, rejected)
       }
     } catch {
       // Network still offline — leave draft in store, try next cycle

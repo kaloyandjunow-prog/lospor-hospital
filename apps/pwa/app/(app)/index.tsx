@@ -9,7 +9,7 @@ import { openPrintCase } from "@/lib/print-case"
 import { useAuth } from "@/lib/auth-context"
 import { useLiveRefresh } from "@/lib/use-live-refresh"
 import { getQueuedCasePatchSummary, getQueuedCaseIds, clearAllQueuedPatchesForCase } from "@/lib/offline-case-patches"
-import { getAllLocalCaseDrafts, type LocalCaseDraft } from "@/lib/local-case-store"
+import { draftRefusalText, getAllLocalCaseDrafts, type LocalCaseDraft } from "@/lib/local-case-store"
 import { usePreferences } from "@/lib/preferences-context"
 import { ASABadge, DispositionBadge, StatusBadge, statusLabel } from "@/components/ui"
 import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
@@ -537,8 +537,7 @@ export default function DashboardScreen() {
                 }
                 const diag = firstLabel(diagnoses) ?? firstLabel(procedures)
                   ?? t("unsyncedDraftTitle")
-                const age = draft.formValues?.ageYears
-                const sex = draft.formValues?.sex
+                const { ageYears: age, sex } = draft.formValues ?? {}
                 const subtitle = [age ? `${age}y` : null, sex ? String(sex)[0] : null].filter(Boolean).join(" · ")
                 const date = new Date(draft.createdAt).toLocaleDateString()
                 return (
@@ -555,6 +554,7 @@ export default function DashboardScreen() {
                         <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{diag}</Text>
                       </View>
                       {subtitle ? <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 3 }}>{subtitle} · {date}</Text> : null}
+                      {draft.rejected ? <Text style={{ color: colors.danger, fontSize: 11, fontWeight: "800", marginTop: 3 }}>{draftRefusalText(draft.rejected, language)}</Text> : null}
                     </View>
                     <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
                   </TouchableOpacity>

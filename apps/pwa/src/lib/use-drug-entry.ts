@@ -1,6 +1,7 @@
 import type { SaveIntraopEvent } from "@/lib/intraop-stamp"
 import { useState } from "react"
 import { provenanceFromRule } from "@lospor/core/clinical-provenance"
+import { roundDoseToStep } from "@lospor/core/dosing"
 import { NO_ALLERGY_CHECK, whenGiven, type AllergyCheck } from "@/lib/use-allergy-check"
 import type {
   DrugFormulation,
@@ -112,7 +113,7 @@ export function useDrugEntry(
     const rt = drugRule ? drugRule.roundTo ?? 0 : doseCalcs[drugPick.name]?.roundTo ?? 1
     const shouldRound = drugRule ? rt > 0 : rt > 1
     const finalDose = shouldRound && !isNaN(Number(drugDose))
-      ? String(Math.round(Number(drugDose) / rt) * rt)
+      ? String(roundDoseToStep(Number(drugDose), rt))
       : drugDose
     const drug = drugPick, cat = drugCat, route = drugRoute, conc = drugConcentration
     const formulation = drugFormulation, rule = drugRule

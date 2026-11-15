@@ -15,6 +15,7 @@ import {
   type PediatricAgeUnit,
   type PediatricFastingCategory,
 } from "@lospor/core/pediatric"
+import { clinicalDisplayLabel } from "@lospor/core/display"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { Field } from "@/components/ui"
 import { SegmentedSelect } from "@/components/preop/PreopFormWidgets"
@@ -153,7 +154,7 @@ export function PediatricModeAgeFields({
 
           {normalized ? (
             <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800" }}>
-              {normalized.ageGroup.replaceAll("_", " ")}
+              {clinicalDisplayLabel("pediatricAgeGroup", normalized.ageGroup, language)}
             </Text>
           ) : null}
         </>
@@ -175,9 +176,7 @@ export function PediatricModeAgeFields({
         </View>
       ) : null}
       {ageIssues.map(issue => (
-        <Notice key={issue.code} tone={issue.severity === "ERROR" ? "danger" : "warning"}>
-          {issue.code.replaceAll("_", " ")}
-        </Notice>
+        <Notice key={issue.code} tone={issue.severity === "ERROR" ? "danger" : "warning"}>{clinicalDisplayLabel("pediatricAgeIssue", issue.code, language)}</Notice>
       ))}
     </View>
   )
