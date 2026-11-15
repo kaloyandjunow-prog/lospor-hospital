@@ -3,12 +3,14 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "reac
 import { STRINGS } from "@/i18n/strings"
 import { PatientEgnError, patientDisplayLine, type PatientReference } from "@/lib/patient-reference"
 import { egnFieldIssue } from "@/lib/egn-field"
+import { departmentYear } from "@/lib/iz-year"
+import { IzYearChoice } from "./IzYearChoice"
 import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
   reference: PatientReference | null
   language: string
-  onRelink: (patientNumber: string, correctionReason: string) => Promise<void>
+  onRelink: (patientNumber: string, correctionReason: string, patientNumberYear?: number) => Promise<void>
   /** Present where the site permits ЕГН: lets a saved case get one. */
   onAddEgn?: (nationalId: string) => Promise<void>
   allowCorrection?: boolean
@@ -22,6 +24,7 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
   const [patientNumber, setPatientNumber] = useState("")
   const [confirmation, setConfirmation] = useState("")
   const [reason, setReason] = useState("")
+  const [patientNumberYear, setPatientNumberYear] = useState<number | undefined>(undefined)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [egn, setEgn] = useState("")
@@ -50,6 +53,7 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
     setPatientNumber("")
     setConfirmation("")
     setReason("")
+    setPatientNumberYear(undefined)
     setError(null)
     setEditing(false)
   }
@@ -72,7 +76,9 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
     setSaving(true)
     setError(null)
     try {
-      await onRelink(patientNumber, reason)
+      // Only last year is sent: this year is what the server assumes.
+      if (patientNumberYear !== undefined && patientNumberYear !== departmentYear()) await onRelink(patientNumber, reason, patientNumberYear)
+      else await onRelink(patientNumber, reason)
       cancel()
     } catch {
       // Never place the raw value or a server response into clinician-facing
@@ -185,6 +191,9 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
               marginTop: 8,
             }}
           />
+          {/* The same number under the other year is another admission. */}
+          <IzYearChoice anyTime number={patientNumber.trim() === confirmation.trim() ? patientNumber : ""}
+            value={patientNumberYear} onChange={setPatientNumberYear} language={language} />
           <TextInput
             accessibilityLabel={language === "bg" ? "Причина за корекцията" : "Reason for this correction"}
             placeholder={language === "bg" ? "Причина за корекцията" : "Reason for this correction"}

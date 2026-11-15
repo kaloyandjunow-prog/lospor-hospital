@@ -38,6 +38,8 @@ export const schema = z.object({
   patientId:        z.string().optional(),
   // Hospital only: the ЕГН that joins this patient's admissions. Never part of the clinical payload.
   patientNationalId: z.string().optional(),
+  // Hospital only (1.9.2): the year the ИЗ № belongs to, chosen in the first 60 days of a year. Sent once at creation.
+  patientIdYear: z.number().int().optional(),
 
   // Demographics
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),

@@ -31,6 +31,11 @@ export async function resolvePatientLink(
    * caller passes the moment the link is being made.
    */
   at: Date = new Date(),
+  /**
+   * The ИЗ № year the clinician chose (1.9.2), already checked by `izYearFor`.
+   * Left out, the year is the one `at` falls in, as before.
+   */
+  izYear?: number,
 ): Promise<PatientReference> {
   // Checked before anything else: an existing EGN link found below would let a
   // disabled policy look like it still worked for every admission that
@@ -42,7 +47,7 @@ export async function resolvePatientLink(
   if (!normalized) throw new Error("Patient identifier is required")
   if (normalized.length > 128) throw new Error("Patient identifier is too long")
 
-  const identifierYear = identifierYearFor(identifierType, at)
+  const identifierYear = identifierType === "IZ" && izYear !== undefined ? izYear : identifierYearFor(identifierType, at)
   const identifierHash = patientIdentifierHash(
     institutionId, normalized, { identifierType, identifierYear },
   )
@@ -135,12 +140,12 @@ export type PatientIdentity = {
 export async function resolvePatientIdentity(
   client: PatientLinkClient,
   institutionId: string,
-  identifiers: { recordNumber: string; nationalId?: string | null },
+  identifiers: { recordNumber: string; nationalId?: string | null; recordYear?: number },
   actorId: string,
   at: Date = new Date(),
 ): Promise<PatientIdentity> {
   const admission = await resolvePatientLink(
-    client, institutionId, identifiers.recordNumber, actorId, "IZ", at,
+    client, institutionId, identifiers.recordNumber, actorId, "IZ", at, identifiers.recordYear,
   )
   if (!identifiers.nationalId?.trim()) return { admission, person: null }
 

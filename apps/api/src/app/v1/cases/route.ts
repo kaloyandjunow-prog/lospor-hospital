@@ -15,6 +15,7 @@ import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
 import { resolvePatientIdentity, resolvePatientLink } from "@/lib/hospital/patient-link"
 import { isValidEgn } from "@/lib/hospital/patient-identity"
+import { izYearFor } from "@/lib/hospital/iz-year"
 import { patientIdentifierCapabilityState } from "@/lib/hospital/patient-identifier-policy"
 import { z } from "zod"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
@@ -189,6 +190,12 @@ export async function POST(req: NextRequest) {
     if (patientNumberRequired && (!patientNumber || !patientNumber.trim())) {
       return NextResponse.json({ error: "Patient number is required" }, { status: 400 })
     }
+    // The ИЗ № year the clinician chose in the first 60 days of the year
+    // (1.9.2). Left out, the case is filed under this year, as before.
+    const recordYear = izYearFor(body.patientNumberYear, new Date())
+    if (!recordYear.ok) {
+      return NextResponse.json({ error: "Invalid request", code: "INVALID_PATIENT_NUMBER_YEAR" }, { status: 400 })
+    }
     if (patientNumber && !user.institutionId) {
       return NextResponse.json({
         error: "An institution is required before a patient number can be linked",
@@ -229,8 +236,8 @@ export async function POST(req: NextRequest) {
         caseRecord = await withDirectTransaction(async tx => {
           const patientReference = patientNumber && user.institutionId
             ? nationalId
-              ? (await resolvePatientIdentity(tx, user.institutionId, { recordNumber: patientNumber, nationalId }, userId)).admission
-              : await resolvePatientLink(tx, user.institutionId, patientNumber, userId)
+              ? (await resolvePatientIdentity(tx, user.institutionId, { recordNumber: patientNumber, nationalId, recordYear: recordYear.year }, userId)).admission
+              : await resolvePatientLink(tx, user.institutionId, patientNumber, userId, "IZ", new Date(), recordYear.year)
             : null
           const created = await tx.case.create({
             data: {

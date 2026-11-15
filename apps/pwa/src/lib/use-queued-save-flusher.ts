@@ -106,6 +106,7 @@ function clinicalPreopPayload(formValues: Record<string, unknown>): Record<strin
   // Patient numbers belong to PatientLink/the create envelope, never clinical
   // JSON sent in a PATCH for a case that is already linked.
   delete payload.patientNumber
+  delete payload.patientNumberYear
   return payload
 }
 

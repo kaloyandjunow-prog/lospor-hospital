@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { postPreopServerCase } from "./preop-server-create"
+import { departmentYear } from "./iz-year"
 
 const owner = { userId: "clinician-1", institutionId: "hospital-1" }
 
@@ -45,6 +46,24 @@ describe("postPreopServerCase", () => {
 
     await postPreopServerCase({ ...values, patientNationalId: "7501 010010" }, "draft-2", fetcher, owner)
     expect(bodies[1].patientNationalId).toBe("7501010010")
+  })
+  it("sends last year's ИЗ № year in the envelope only, never in the clinical preop", async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    const fetcher = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      return response(true, 201, { id: "case-1" })
+    }) as never
+    const values = { patientNumber: "43233", ageYears: 40, sex: "MALE" as const, heightCm: 170, weightKg: 70, asaScore: "I" as const }
+    const thisYear = departmentYear()
+
+    await postPreopServerCase({ ...values, patientNumberYear: thisYear - 1 }, "draft-1", fetcher, owner)
+    expect(bodies[0].patientNumberYear).toBe(thisYear - 1)
+    expect(bodies[0].preop).not.toHaveProperty("patientNumberYear")
+
+    // This year is the server's default, so the request stays as it always was.
+    await postPreopServerCase({ ...values, patientNumberYear: thisYear }, "draft-2", fetcher, owner)
+    expect(bodies[1]).not.toHaveProperty("patientNumberYear")
+    expect(bodies[1].preop).not.toHaveProperty("patientNumberYear")
   })
   it("posts canonical preop payload with the draft idempotency key", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = []

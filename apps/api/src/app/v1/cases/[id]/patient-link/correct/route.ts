@@ -6,6 +6,8 @@ import { caseWriteWhereForUser, requireRole } from "@/lib/access-control"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
+import { izYearFor } from "@/lib/hospital/iz-year"
+import { admissionNumberVisible, patientDisplayOf, patientDisplaySelect } from "@/lib/hospital/patient-display"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit"
 
@@ -37,6 +39,9 @@ const schema = z.object({
   expectedPatientLinkId: z.string().min(1),
   newPatientNumber: z.string().trim().min(1).max(128),
   correctionReason: z.string().trim().min(1).max(500),
+  // The ИЗ № year (1.9.2). The same number under the other year is another
+  // admission, so a case filed under the wrong year is corrected here too.
+  newPatientNumberYear: z.number().int().optional(),
 })
 
 const CORS = (req: NextRequest) => corsHeaders(req)
@@ -64,7 +69,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       error: "expectedPatientLinkId, newPatientNumber and correctionReason are required",
     }, { status: 400 })
   }
-  const { expectedPatientLinkId, newPatientNumber, correctionReason } = parsed.data
+  const { expectedPatientLinkId, newPatientNumber, correctionReason, newPatientNumberYear } = parsed.data
+  const recordYear = izYearFor(newPatientNumberYear, new Date(), { correction: true })
+  if (!recordYear.ok) {
+    return NextResponse.json({ error: "Invalid request", code: "INVALID_PATIENT_NUMBER_YEAR" }, { status: 400 })
+  }
 
   try {
     const result = await withLockedCaseTransaction(id, async tx => {
@@ -94,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
 
       const next = await resolvePatientLink(
-        tx, caseRecord.institutionId, newPatientNumber, user.id,
+        tx, caseRecord.institutionId, newPatientNumber, user.id, "IZ", new Date(), recordYear.year,
       )
       if (next.id === caseRecord.patientLinkId) {
         return NextResponse.json({
@@ -129,7 +138,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         correctionReasonRecorded: Boolean(correctionReason),
       })
 
-      return { patientLinkId: next.id, maskedIdentifier: next.maskedIdentifier }
+      const link = await tx.patientLink.findUnique({
+        where: { id: next.id },
+        select: { maskedIdentifier: true, ...patientDisplaySelect, personLink: { select: { maskedIdentifier: true, ...patientDisplaySelect.personLink.select } } },
+      })
+      return {
+        patientLinkId: next.id,
+        maskedIdentifier: next.maskedIdentifier,
+        // The shape the case GET sends. Web and PWA read `patientReference`;
+        // without it a correction that had saved reported "not confirmed".
+        patientReference: { id: next.id, maskedIdentifier: next.maskedIdentifier, personMaskedIdentifier: link?.personLink?.maskedIdentifier ?? null },
+        patientDisplay: (await admissionNumberVisible(tx)) ? patientDisplayOf(link) : null,
+      }
     })
 
     if (result instanceof Response) return result
