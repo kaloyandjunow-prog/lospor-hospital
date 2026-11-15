@@ -17,6 +17,9 @@ import { dayKey, safeJsonParse } from "./util.js"
 
 const INITIAL_STATUS_ADMIN_ID = "initial-chief"
 
+/** A login rate-limit bucket and how many attempts it admits per 15 minutes. */
+export type LoginRateKey = { key: string; limit: number }
+
 export type StatusAdminState = "PENDING_ACTIVATION" | "ACTIVE" | "SUSPENDED"
 export type StatusAdminLinkPurpose = "ACTIVATION" | "RECOVERY"
 
@@ -737,20 +740,20 @@ export class StatusDatabase {
     })
   }
 
-  reserveLoginAttempt(attemptId: string, rateKeys: readonly string[], now: number): boolean {
+  reserveLoginAttempt(attemptId: string, rateKeys: readonly LoginRateKey[], now: number): boolean {
     return this.transaction(() => {
       const cutoff = now - 15 * 60_000
       this.sqlite.prepare("DELETE FROM login_attempts WHERE occurred_at < ?").run(cutoff)
       const count = this.sqlite.prepare(
         "SELECT COUNT(*) AS count FROM login_attempts WHERE rate_key = ? AND occurred_at >= ?",
       )
-      if (rateKeys.some(rateKey => (count.get(rateKey, cutoff) as { count: number }).count >= 5)) {
+      if (rateKeys.some(({ key, limit }) => (count.get(key, cutoff) as { count: number }).count >= limit)) {
         return false
       }
       const insert = this.sqlite.prepare(
         "INSERT INTO login_attempts(attempt_id, rate_key, occurred_at) VALUES (?, ?, ?)",
       )
-      for (const rateKey of rateKeys) insert.run(attemptId, rateKey, now)
+      for (const { key } of rateKeys) insert.run(attemptId, key, now)
       return true
     })
   }

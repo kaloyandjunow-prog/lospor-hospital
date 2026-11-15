@@ -221,10 +221,45 @@ describe("independent appliance authentication", () => {
     })).rejects.toMatchObject({ code: "RATE_LIMITED" })
   })
 
-  it("rate-limits one address across changing account names", async () => {
+  it("does not let failures from elsewhere lock the admin out on the LAN", async () => {
+    // Five wrong passwords through the tunnel used to lock the account for everyone.
     const { auth } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
     for (let attempt = 0; attempt < 5; attempt += 1) {
+      await expect(auth.beginPasswordLogin({
+        email: "admin@hospital.test",
+        password: "Wrong password phrase9!",
+        clientAddress: "127.0.0.1",
+      })).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" })
+    }
+    await expect(auth.beginPasswordLogin({
+      email: "admin@hospital.test",
+      password: "Initial password phrase1!",
+      clientAddress: "10.0.0.30",
+    })).resolves.toBeTruthy()
+  })
+
+  it("still caps guesses at one account from many addresses", async () => {
+    const { auth } = setup()
+    await auth.initialize("admin@hospital.test", "Initial password phrase1!")
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await expect(auth.beginPasswordLogin({
+        email: "admin@hospital.test",
+        password: "Wrong password phrase9!",
+        clientAddress: `10.0.1.${attempt + 1}`,
+      })).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" })
+    }
+    await expect(auth.beginPasswordLogin({
+      email: "admin@hospital.test",
+      password: "Initial password phrase1!",
+      clientAddress: "10.0.2.1",
+    })).rejects.toMatchObject({ code: "RATE_LIMITED" })
+  })
+
+  it("rate-limits one address across changing account names", async () => {
+    const { auth } = setup()
+    await auth.initialize("admin@hospital.test", "Initial password phrase1!")
+    for (let attempt = 0; attempt < 10; attempt += 1) {
       await expect(auth.beginPasswordLogin({
         email: `guess-${attempt}@hospital.test`,
         password: "Wrong password phrase9!",

@@ -97,6 +97,8 @@ printf tampered >> "$invalid/database.dump"
 printf legacy > "$test_root/lospor-20200101T000000Z.dump"
 mkdir "$test_root/.lospor-run-crashed.tmp.AAAAAAAA" "$test_root/.lospor-run-recent.tmp.BBBBBBBB"
 touch -d '3 days ago' "$test_root/.lospor-run-crashed.tmp.AAAAAAAA"
+# A point moved aside for pruning when an earlier run was killed mid-delete.
+mkdir -p "$test_root/.prune-lospor-20200101T000000Z.backup.4242/half"
 
 HOSPITAL_BACKUP_DIR="$test_root" \
 HOSPITAL_BACKUP_OBJECT_LIB="$root/infra/postgres/backup-object-lib.sh" \
@@ -138,6 +140,9 @@ ok "corrupt, incomplete, symlinked, and legacy objects are reported but never de
 assert_missing "$test_root/.lospor-run-crashed.tmp.AAAAAAAA"
 assert_exists "$test_root/.lospor-run-recent.tmp.BBBBBBBB"
 ok "shared-lock retention removes only stale private crash remnants"
+
+assert_missing "$test_root/.prune-lospor-20200101T000000Z.backup.4242"
+ok "a recovery point left half-pruned by a killed run is finished, not leaked"
 
 mock_dir="$test_root/mocks"
 mkdir "$mock_dir"
