@@ -326,7 +326,9 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   }, [onClinicalInput, pediatricRecordReadOnly, watch])
 
   const airwayUTO = !!watch("airwayUnobtainable")
-  const [activeTab, setActiveTab] = useState<"patient" | "ai" | "case" | "history" | "exam" | "risk" | "plan">(() => preopFocusTab(focus) ?? "patient")
+  const [selectedTab, setActiveTab] = useState<"patient" | "ai" | "case" | "history" | "exam" | "risk" | "plan">(() => preopFocusTab(focus) ?? "patient")
+  // AI switched off in Status while its tab is open: show the patient tab, not an empty page.
+  const activeTab = selectedTab === "ai" && !anyClinicalAiEnabled(clinicalAi) ? "patient" : selectedTab
   useScrollToReadiness(focus)
 
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set())
@@ -339,13 +341,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       : ""
   }
 
-  /**
-   * The message under a field whose value the server would not store.
-   *
-   * States the accepted range, so it can be acted on without guessing, and
-   * stays until the value is corrected — an alert that only appears in a header
-   * is missed by anyone who types and immediately navigates away.
-   */
+  /** The message under a field the server would not store: states the accepted range, and stays
+   *  until the value is corrected (a header alert is missed by anyone who types and moves on). */
   function rejectionOf(key: string): string | undefined {
     return rejectedFields?.get(key)
   }

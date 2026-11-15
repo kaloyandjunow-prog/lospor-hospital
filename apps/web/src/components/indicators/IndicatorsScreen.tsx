@@ -7,6 +7,7 @@ import { displayClinicalCode } from "@/lib/clinical-display"
 import { READINESS_COPY } from "@/components/case-summary/readiness-labels"
 import { cancellationReasonLabel } from "@lospor/core/case-cancellation"
 import { vitalSignAbbreviation } from "@lospor/core/vital-questions"
+import { calendarDayKey } from "@lospor/core/dashboard-date-scope"
 import { VitalLimitsSection } from "@/components/indicators/VitalLimitsSection"
 import { Section, Panel, Figure, TallyList, SpreadList, TallyChart, Heatmap, FilterBar, agentName, share, spread, percent, type IndicatorResponse as Response, type IndicatorFilters as Filters } from "@/components/indicators/IndicatorWidgets"
 
@@ -15,7 +16,8 @@ import { Section, Panel, Figure, TallyList, SpreadList, TallyChart, Heatmap, Fil
  * cases, for every user in it. Figures on fewer than five cases read "<5".
  */
 const DAY = 86_400_000
-const isoDay = (date: Date) => date.toISOString().slice(0, 10)
+// The department's calendar day, as the API reads it: a UTC day dropped cases started after local midnight.
+const isoDay = (date: Date) => calendarDayKey(date)
 const defaultFilters = (): Filters => ({ from: isoDay(new Date(Date.now() - 89 * DAY)), to: isoDay(new Date()), theatre: "", assignee: "", mode: "", asa: "", procedure: "" })
 
 export function IndicatorsScreen() {

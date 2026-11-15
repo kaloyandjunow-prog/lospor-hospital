@@ -14,6 +14,8 @@ vi.mock("@/hooks/useOptionLibrary", () => ({
   useRange: () => ({ min: 0, max: 300, step: 1, unit: "" }),
 }))
 
+const ai = vi.hoisted(() => ({ adviceOn: false }))
+
 vi.mock("@/lib/deployment-capabilities", () => ({
   capabilityMessageKey: () => "deploymentCapabilities.externalAiUnavailable",
   pediatricCapabilityMessageKey: () => "newSelectionUnavailable",
@@ -22,7 +24,7 @@ vi.mock("@/lib/deployment-capabilities", () => ({
     folderRequests: false, egnPermitted: false,
   }),
   useClinicalAiCapabilities: () => ({
-    clinicalAdvice: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
+    clinicalAdvice: ai.adviceOn ? { enabled: true, reason: null } : { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
     labImageExtraction: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
     monitorOcr: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
   }),
@@ -165,6 +167,28 @@ describe("the tabbed preoperative layout (10.0.0)", () => {
     fireEvent.click(screen.getByRole("tab", { name: "План и назначения" }))
     expect(document.getElementById("preop-sec-planned")!.closest(".hidden")).toBeNull()
     expect(document.getElementById("preop-sec-notes")!.closest(".hidden")).toBeNull()
+  })
+
+  it("falls back to the patient tab, not an empty page, when AI is switched off while its tab is open", () => {
+    ai.adviceOn = true
+    try {
+      const view = () => (
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <PreopForm defaultValues={{ clinicalMode: "ADULT" }} onSubmit={vi.fn()} onAutoSave={vi.fn()} layoutMode="tabs" />
+        </NextIntlClientProvider>
+      )
+      const { rerender } = render(view())
+      fireEvent.click(screen.getByRole("tab", { name: "AI" }))
+      expect(document.getElementById("preop-sec-ai")!.closest(".hidden")).toBeNull()
+      // Status switches AI off; the next capability refresh re-renders the form.
+      ai.adviceOn = false
+      rerender(view())
+      expect(screen.queryByRole("tab", { name: "AI" })).toBeNull()
+      expect(screen.getByRole("tab", { name: /Patient/ }).getAttribute("aria-selected")).toBe("true")
+      expect(document.getElementById("preop-sec-demographics")?.closest(".hidden") ?? null).toBeNull()
+    } finally {
+      ai.adviceOn = false
+    }
   })
 })
 

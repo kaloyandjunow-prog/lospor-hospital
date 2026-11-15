@@ -230,18 +230,6 @@
     "switchMode": "Switch mode",
     "switchToPediatric": "Switch to pediatric mode",
     "switchToAdult": "Switch to adult mode",
-    "ageGroups": {
-      "NEONATE": "Neonate",
-      "INFANT": "Infant",
-      "TODDLER": "Toddler",
-      "PRESCHOOL": "Preschool child",
-      "SCHOOL_AGE": "School-age child",
-      "ADOLESCENT": "Adolescent"
-    },
-    "ageIssues": {
-      "INVALID_VALUE": "Enter a valid age.",
-      "AGE_OUTSIDE_PEDIATRIC_RANGE": "Pediatric mode requires an age below 18 years."
-    },
     "softReference": "Age-aware reference, not a diagnosis",
     "heartRateRange": "HR {min}-{max}/min",
     "respiratoryRange": "RR {min}-{max}/min",

@@ -1,5 +1,25 @@
 # Changelog - LOSPOR Web App
 
+## [10.4.2] - 2026-11-15
+
+### Fixed
+
+- **Unit indicators missed the first hours of the day.** The period was sent as UTC days, so a case started between
+  midnight and 02:00/03:00 in Sofia counted on the day before. The screen now asks for department calendar days
+  (API 10.4.2).
+- **Blank preop page.** Switching AI off while the AI section was open left an empty page; it now falls back to the
+  patient section.
+- **Paediatric age group labels** come from Core 10.4.2 instead of the app's own copies.
+
+### Changed
+
+- Core 10.4.2.
+
+### Dependencies
+
+- No minor or patch updates since 10.4.1. `npm audit --omit=dev`: 7 low, all from `deepmerge` in build tools
+  (next-pwa, shadcn), no fix available.
+
 ## [10.4.1] - 2026-11-14
 
 ### Fixed

@@ -230,18 +230,6 @@
     "switchMode": "Смени режима",
     "switchToPediatric": "Премини към педиатричен режим",
     "switchToAdult": "Премини към режим за възрастен",
-    "ageGroups": {
-      "NEONATE": "Новородено",
-      "INFANT": "Кърмаче",
-      "TODDLER": "Малко дете",
-      "PRESCHOOL": "Дете в предучилищна възраст",
-      "SCHOOL_AGE": "Дете в училищна възраст",
-      "ADOLESCENT": "Юноша"
-    },
-    "ageIssues": {
-      "INVALID_VALUE": "Въведете валидна възраст.",
-      "AGE_OUTSIDE_PEDIATRIC_RANGE": "Педиатричният режим изисква възраст под 18 години."
-    },
     "softReference": "Референтни стойности според възрастта, не диагноза",
     "heartRateRange": "СЧ {min}-{max}/min",
     "respiratoryRange": "ДЧ {min}-{max}/min",

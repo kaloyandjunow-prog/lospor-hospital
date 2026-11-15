@@ -6,8 +6,9 @@ import {
   type Control,
   type UseFormSetValue,
 } from "react-hook-form"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { ShieldAlert } from "lucide-react"
+import { clinicalDisplayLabel } from "@lospor/core/display"
 import {
   calculatePovoc,
   normalizePediatricAge,
@@ -59,6 +60,7 @@ export function ClinicalModeAgeFields({
   const showMode = part !== "age"
   const showAge = part !== "mode"
   const t = useTranslations("pediatric")
+  const locale = useLocale() === "bg" ? "bg" : "en"
   const [modeRaw, ageValue, ageUnitRaw, ageYears] = useWatch({
     control,
     name: ["clinicalMode", "ageValue", "ageUnit", "ageYears"],
@@ -229,7 +231,7 @@ export function ClinicalModeAgeFields({
 
           <div className="flex items-end pb-2">
             {normalized && (
-              <Badge variant="outline">{t(`ageGroups.${normalized.ageGroup}`)}</Badge>
+              <Badge variant="outline">{clinicalDisplayLabel("pediatricAgeGroup", normalized.ageGroup, locale)}</Badge>
             )}
           </div>
         </div>
@@ -255,12 +257,7 @@ export function ClinicalModeAgeFields({
         </div>
       )}
       {showAge && ageIssues.map(issue => (
-        <p
-          key={issue.code}
-          className={issue.severity === "ERROR" ? "text-xs text-red-600" : "text-xs text-amber-600"}
-        >
-          {t(`ageIssues.${issue.code}`)}
-        </p>
+        <p key={issue.code} className={issue.severity === "ERROR" ? "text-xs text-red-600" : "text-xs text-amber-600"}>{clinicalDisplayLabel("pediatricAgeIssue", issue.code, locale)}</p>
       ))}
     </fieldset>
   )
