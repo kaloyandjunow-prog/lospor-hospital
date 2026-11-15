@@ -1,5 +1,5 @@
 /**
- * Why the server refused to create a case from an offline draft (10.4.2).
+ * Why the server refused to create a case from an offline draft (1.9.2).
  *
  * The replay used to treat every refusal as "still offline" and resend the
  * same payload on every cycle, forever, with nothing on screen. A refusal the
