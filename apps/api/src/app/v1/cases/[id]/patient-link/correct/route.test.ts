@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { departmentYear } from "@/lib/hospital/iz-year"
 
 const getAuthUser = vi.fn()
 const findCase = vi.fn()
@@ -10,6 +11,7 @@ const resolvePatientLink = vi.fn()
 const deletePatientLinkIfOrphaned = vi.fn()
 const isHospitalDeployment = vi.fn()
 
+vi.mock("server-only", () => ({}))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser }))
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment }))
 vi.mock("@/lib/hospital/patient-link", () => ({
@@ -77,6 +79,21 @@ describe("correcting the patient a case belongs to", () => {
     expect(updateCase).toHaveBeenCalledWith(expect.objectContaining({
       data: { patientLinkId: "link-new" },
     }))
+  })
+
+  it("answers with the patientReference web and PWA read, so a saved correction is confirmed", async () => {
+    const response = await POST(request(validBody), context)
+    expect(await response.json()).toMatchObject({
+      patientReference: { id: "link-new", maskedIdentifier: "00****56", personMaskedIdentifier: null },
+    })
+  })
+
+  it("files the number under the year given, and refuses any other than this or last", async () => {
+    const thisYear = departmentYear(new Date())
+    await POST(request({ ...validBody, newPatientNumberYear: thisYear - 1 }), context)
+    expect(resolvePatientLink).toHaveBeenCalledWith(expect.anything(), "inst-1", "000456-B", "admin-1", "IZ", expect.any(Date), thisYear - 1)
+    const refused = await POST(request({ ...validBody, newPatientNumberYear: thisYear - 5 }), context)
+    expect(refused.status).toBe(400)
   })
 
   it("never deletes the link it corrected away from", async () => {

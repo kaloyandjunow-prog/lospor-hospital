@@ -33,3 +33,6 @@ export function validEgnOrNull(value: string | null | undefined): string | null 
   const digits = (value ?? "").replace(/\s+/g, "")
   return digits && egnFieldIssue(digits, true) === null ? digits : null
 }
+
+// The other create-time identity field (1.9.2): which year the ИЗ № is from.
+export { izYearForCreate } from "@/lib/iz-year"

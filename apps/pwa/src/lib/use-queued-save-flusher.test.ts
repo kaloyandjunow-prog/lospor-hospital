@@ -6,6 +6,7 @@ import {
 } from "./use-queued-save-flusher"
 import type { LocalCaseDraft, LocalDraftOwner } from "./local-case-store"
 import type { ApiRequestInit } from "./api"
+import { draftRefusalFrom, draftRefusalText } from "./draft-refusal"
 
 const owner: LocalDraftOwner = { userId: "clinician-a", institutionId: "hospital-1" }
 const otherOwner: LocalDraftOwner = { userId: "clinician-b", institutionId: "hospital-1" }
@@ -153,5 +154,44 @@ describe("offline new-case reconciliation", () => {
       patientReference: null,
       rejectedFields: [{ path: "preop.heightCm", message: "Out of range" }],
     }, { storeDraft: async () => false })).rejects.toThrow("local recovery copy")
+  })
+})
+
+describe("a new case the server refuses (1.9.2)", () => {
+  it("is kept with its reason instead of being retried forever", async () => {
+    const storeDraft = vi.fn(async (_input: unknown) => true)
+    await expect(flushNewLocalCaseDraft(draft, owner, {
+      fetcher: async () => response(false, 409, { error: "PEDIATRIC_MODE_REQUIRED", code: "PEDIATRIC_MODE_REQUIRED" }),
+      referenceLoader: async () => "HOSP-OFFLINE-001",
+      storeDraft,
+    })).resolves.toBe("needs-review")
+    expect(storeDraft).toHaveBeenCalledWith(expect.objectContaining({
+      localId: "offline-draft",
+      rejected: expect.objectContaining({ status: 409, code: "PEDIATRIC_MODE_REQUIRED" }),
+    }))
+    // The raw number never rides along into the stored draft.
+    expect(JSON.stringify(storeDraft.mock.calls)).not.toContain("HOSP-OFFLINE-001")
+  })
+
+  it("stays pending after a sign-in, update, timeout or rate-limit answer, or a server fault", async () => {
+    for (const status of [401, 408, 426, 429, 500, 503]) {
+      const storeDraft = vi.fn(async (_input: unknown) => true)
+      await expect(flushNewLocalCaseDraft(draft, owner, {
+        fetcher: async () => response(false, status, { error: "x" }),
+        referenceLoader: async () => "HOSP-OFFLINE-001",
+        storeDraft,
+      })).resolves.toBe("pending")
+      expect(storeDraft).not.toHaveBeenCalled()
+    }
+  })
+
+  it("names the reason in the clinician's language", () => {
+    expect(draftRefusalText({ status: 409, code: "PEDIATRIC_MODE_REQUIRED" }, "bg")).toContain("режим за възрастни")
+    expect(draftRefusalText({ status: 400, code: "PREOP_ANSWER_REFUSED" }, "en")).toContain("profile has changed")
+    expect(draftRefusalText({ status: 403, code: null }, "bg")).toContain("няма право")
+    expect(draftRefusalText({ status: 400, code: "SOMETHING_NEW" }, "bg")).toBe("Сървърът не прие черновата. Отворете я, за да я проверите.")
+    // Paediatric mode switched off is a 503 that no retry will change.
+    expect(draftRefusalFrom(503, { error: "PEDIATRIC_MODE_DISABLED" })).toMatchObject({ code: "PEDIATRIC_MODE_DISABLED" })
+    expect(draftRefusalFrom(503, { error: "Service unavailable" })).toBeNull()
   })
 })

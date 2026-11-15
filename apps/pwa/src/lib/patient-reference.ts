@@ -93,6 +93,8 @@ export async function relinkCasePatientReference(
   patientNumberInput: string,
   correctionReasonInput: string,
   fetcher: CaseRelinkFetcher = apiFetch,
+  /** The ИЗ № year, only when it is last year (1.9.2). */
+  patientNumberYear?: number,
 ): Promise<PatientReference> {
   const patientNumber = patientNumberInput.trim()
   const correctionReason = correctionReasonInput.trim()
@@ -108,7 +110,7 @@ export async function relinkCasePatientReference(
   const response = await fetcher(
     `/api/cases/${encodeURIComponent(caseId)}/patient-link/correct`, {
     method: "POST",
-    body: JSON.stringify({ expectedPatientLinkId, newPatientNumber: patientNumber, correctionReason }),
+    body: JSON.stringify({ expectedPatientLinkId, newPatientNumber: patientNumber, correctionReason, ...(patientNumberYear ? { newPatientNumberYear: patientNumberYear } : {}) }),
   })
   const body = await response.json().catch(() => null)
   if (!response.ok) throw new Error("The patient link could not be changed.")

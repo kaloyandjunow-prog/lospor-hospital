@@ -11,6 +11,7 @@ export function buildClinicalPreopPayload(
   const payload = { ...buildCanonicalPreopFormPayload(values) } as Record<string, unknown>
   delete payload.patientNumber
   delete payload.patientNationalId
+  delete payload.patientNumberYear
   return payload
 }
 

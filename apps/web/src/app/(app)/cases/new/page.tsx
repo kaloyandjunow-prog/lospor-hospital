@@ -43,7 +43,7 @@ import { onOutboxChange } from "@/lib/case-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { blockedSaveMessage, failedSaveMessage, withBlockedPreopRejection } from "@/lib/blocked-save-message"
 import { randomId } from "@/lib/random-id"
-import { nationalIdForCreate } from "@/lib/egn-field"
+import { izYearForCreate, nationalIdForCreate } from "@/lib/egn-field"
 import { CaseProgress } from "./CaseProgress"
 import { CaseEditorHeader, type CaseSaveStatus } from "./CaseEditorHeader"
 import { useHospitalPatientReference } from "@/hooks/useHospitalPatientReference"
@@ -308,7 +308,7 @@ export default function NewCasePage() {
             : "ADULT"
           const res = await fetch("/api/cases", { method: "POST",
             headers: { "Content-Type": "application/json", [IDEMPOTENCY_HEADER]: createDraftIdRef.current },
-            body: JSON.stringify({ patientNumber, ...(egn.send ? { patientNationalId: egn.send } : {}), clinicalMode: selectedMode, preop: acceptedPayload }),
+            body: JSON.stringify({ patientNumber, ...izYearForCreate(section === "preop" ? (data as PreopData).patientIdYear : undefined), ...(egn.send ? { patientNationalId: egn.send } : {}), clinicalMode: selectedMode, preop: acceptedPayload }),
           })
           const body = await res.json().catch(() => ({})) as Record<string, unknown>
           if (res.ok) {
@@ -659,7 +659,7 @@ export default function NewCasePage() {
         maskedIdentifier={patientReference?.maskedIdentifier ?? null}
         personMaskedIdentifier={patientReference?.personMaskedIdentifier ?? null} patientDisplay={patientReference?.display ?? null}
         onAddEgn={egnPermitted ? nationalId => addPatientEgn(caseIdRef.current, nationalId) : undefined}
-        onPatientRelink={(n, reason) => relinkPatient(caseIdRef.current, n, reason)}
+        onPatientRelink={(n, reason, year) => relinkPatient(caseIdRef.current, n, reason, year)}
         patientRelinkDisabled={isWatching}
       />
       </>

@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // vi.mock is hoisted above the file, so the spy has to be created in a hoisted
 // block too. The module is mocked under the same specifier the source imports.
-const { generateCaseCode, reserveCaseCode } = vi.hoisted(() => ({
-  generateCaseCode: vi.fn(),
+const { renumberCaseCode, reserveCaseCode } = vi.hoisted(() => ({
+  renumberCaseCode: vi.fn(),
   reserveCaseCode: vi.fn(),
 }))
 vi.mock("@/lib/case-code", () => ({
-  generateCaseCode,
+  renumberCaseCode,
   reserveCaseCode,
   isPrismaUniqueError: () => false,
 }))
@@ -42,7 +42,7 @@ function tx(currentCode: string | null, clashingCode: string | null) {
 describe("transferring case ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    generateCaseCode.mockResolvedValue("2026-0099")
+    renumberCaseCode.mockResolvedValue("2026-0099")
     reserveCaseCode.mockResolvedValue(undefined)
   })
 
@@ -52,7 +52,7 @@ describe("transferring case ownership", () => {
 
     expect(outcome.previousCaseCode).toBeNull()
     expect(outcome.caseCode).toBe("2026-0007")
-    expect(generateCaseCode).not.toHaveBeenCalled()
+    expect(renumberCaseCode).not.toHaveBeenCalled()
     expect(caseUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ data: { userId: "peer-1", caseCode: "2026-0007" } }),
     )
@@ -68,7 +68,7 @@ describe("transferring case ownership", () => {
     const { handle } = tx("2026-0007", "2026-0007")
     await transferCaseOwnershipInTransaction(handle as never, "case-1", "peer-1")
 
-    expect(generateCaseCode).toHaveBeenCalledWith(expect.anything(), expect.anything(), 2026)
+    expect(renumberCaseCode).toHaveBeenCalledWith("peer-1", expect.anything(), "2026-0007")
   })
 
   it("reports the code the case carried before it moved", async () => {
@@ -84,7 +84,7 @@ describe("transferring case ownership", () => {
   it("falls back to the current year when a case has no code to preserve", async () => {
     const { handle } = tx(null, null)
     await transferCaseOwnershipInTransaction(handle as never, "case-1", "peer-1")
-    expect(generateCaseCode).not.toHaveBeenCalled()
+    expect(renumberCaseCode).not.toHaveBeenCalled()
   })
 
   it("refuses to move a case to another institution", async () => {

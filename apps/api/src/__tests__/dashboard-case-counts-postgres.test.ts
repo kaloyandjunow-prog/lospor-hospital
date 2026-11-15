@@ -19,7 +19,7 @@ describe.skipIf(!runPostgres)("dashboard counts in PostgreSQL", () => {
   // 13:00 in Sofia on 7 September 2026 (UTC+3).
   const NOW = new Date("2026-09-07T10:00:00.000Z")
 
-  const cases: { createdAt: string; monthYear?: string | null }[] = [
+  const cases: { createdAt: string; monthYear?: string | null; startedAt?: string }[] = [
     // Today in Sofia: 00:30 local is still 6 September in UTC.
     { createdAt: "2026-09-06T21:30:00.000Z" },
     // Yesterday in Sofia, though the same UTC date as the one above.
@@ -36,6 +36,8 @@ describe.skipIf(!runPostgres)("dashboard counts in PostgreSQL", () => {
     { createdAt: "2026-09-05T09:00:00.000Z", monthYear: "" },
     // 00:30 on 1 October in Sofia is 30 September in UTC: next month.
     { createdAt: "2026-09-30T21:30:00.000Z" },
+    // Assessed on 5 September, anaesthesia started at 08:00 today in Sofia.
+    { createdAt: "2026-09-05T10:00:00.000Z", monthYear: "2026-09", startedAt: "2026-09-07T05:00:00.000Z" },
   ]
 
   beforeAll(async () => {
@@ -49,7 +51,7 @@ describe.skipIf(!runPostgres)("dashboard counts in PostgreSQL", () => {
       await prisma.case.create({
         data: {
           id: `${userId}-case-${i}`, userId, createdById: userId, createdAt: new Date(c.createdAt),
-          ...(c.monthYear !== undefined ? { intraop: { create: { monthYear: c.monthYear } } } : {}),
+          ...(c.monthYear !== undefined ? { intraop: { create: { monthYear: c.monthYear, ...(c.startedAt ? { startedAt: new Date(c.startedAt) } : {}) } } } : {}),
         },
       })
     }
@@ -62,10 +64,10 @@ describe.skipIf(!runPostgres)("dashboard counts in PostgreSQL", () => {
     await prisma.$disconnect()
   })
 
-  it("counts today by the Sofia calendar day", async () => {
+  it("counts today by the Sofia calendar day: created today, or anaesthesia started today", async () => {
     const counts = await dashboardCaseCounts({ userId }, userId, NOW)
     expect(counts.all).toBe(cases.length)
-    expect(counts.today).toBe(1)
+    expect(counts.today).toBe(2)
   })
 
   it("counts this month by the label when there is one, else by the Sofia creation date", async () => {
@@ -73,6 +75,7 @@ describe.skipIf(!runPostgres)("dashboard counts in PostgreSQL", () => {
     // Today, yesterday (still September), 2 September, the two labelled
     // September, the unlabelled and the empty-labelled records. Not the one
     // labelled August, and not 1 October.
-    expect(counts.month).toBe(7)
+    // And the one assessed on 5 September, labelled September.
+    expect(counts.month).toBe(8)
   })
 })

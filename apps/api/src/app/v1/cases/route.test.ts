@@ -67,8 +67,9 @@ describe("GET /v1/cases pagination", () => {
   // draft ahead of the case closest to auto-closing. This is the regression
   // that ordering shipped with; the fix queries one status tier at a time.
   it("orders cases by clinical urgency: AWAITING_REVIEW, then IN_PROGRESS, then DRAFT, then COMPLETE, then CANCELLED", async () => {
+    // Per-tier counts of 1 among the reader's own cases, none among anyone else's; the plain `total` count of 4.
     mocks.count.mockImplementation(({ where }: { where?: { status?: string } }) =>
-      Promise.resolve(where?.status ? 1 : 4)) // per-tier counts of 1; the plain `total` count of 4
+      Promise.resolve(where?.status ? (JSON.stringify(where).includes("\"NOT\"") ? 0 : 1) : 4))
     mocks.findMany.mockImplementation(({ where }: { where: { status: string } }) =>
       Promise.resolve([{ id: `${where.status}-case`, status: where.status }]))
 
@@ -78,6 +79,19 @@ describe("GET /v1/cases pagination", () => {
     expect(body.cases.map((c: { id: string }) => c.id)).toEqual([
       "AWAITING_REVIEW-case", "IN_PROGRESS-case", "DRAFT-case", "COMPLETE-case", "CANCELLED-case",
     ])
+  })
+
+  // 1.9.2: the cases the reader holds come first, whoever is reading; then everyone else's, each in urgency order.
+  it("lists the reader's own cases before anyone else's", async () => {
+    mocks.count.mockImplementation(({ where }: { where?: { status?: string } }) =>
+      Promise.resolve(where?.status === "IN_PROGRESS" || where?.status === "DRAFT" ? 1 : where?.status ? 0 : 4))
+    mocks.findMany.mockImplementation(({ where }: { where: { status: string } }) =>
+      Promise.resolve([{ id: `${JSON.stringify(where).includes("\"NOT\"") ? "theirs" : "mine"}-${where.status}`, status: where.status }]))
+
+    const { GET } = await import("./route")
+    const res = await GET(new NextRequest("http://localhost/v1/cases?take=10"))
+    const body = await res.json()
+    expect(body.cases.map((c: { id: string }) => c.id)).toEqual(["mine-IN_PROGRESS", "mine-DRAFT", "theirs-IN_PROGRESS", "theirs-DRAFT"])
   })
 
   it("carries skip across tiers instead of restarting it for each one", async () => {

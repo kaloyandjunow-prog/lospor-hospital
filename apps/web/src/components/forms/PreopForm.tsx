@@ -9,10 +9,10 @@ import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { PatientEgnField } from "@/components/forms/PatientEgnField"
+import { HospitalPatientNumberField } from "@/components/forms/HospitalPatientNumberField"
 import { validEgnOrNull } from "@/lib/egn-field"
 import { ehrFieldLabel } from "@/lib/ehr-field-labels"
 import { Badge } from "@/components/ui/badge"
@@ -494,26 +494,9 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
         {!caseId && (
           <div className="space-y-2">
-            <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="hospital-patient-number"
-              autoComplete="off"
-              maxLength={128}
-              className={fe("patientId")}
-              {...register("patientId")}
-            />
-            <p className="text-xs text-slate-400">
-              {locale === "bg"
-                ? "Остава в болницата. Към централния регистър се изпраща само псевдоним."
-                : "Stays in this hospital. Only a pseudonym is sent to the central registry."}
-            </p>
-            {fieldErrors.has("patientId") && (
-              <p className="text-red-500 text-xs">
-                {locale === "bg" ? "Болничният номер е задължителен." : "Hospital patient number is required."}
-              </p>
-            )}
+            <HospitalPatientNumberField registration={register("patientId")} number={watch("patientId")} year={watch("patientIdYear")}
+              onYearChange={year => setValue("patientIdYear", year, { shouldDirty: false })} locale={locale === "bg" ? "bg" : "en"}
+              inputClassName={fe("patientId")} missing={fieldErrors.has("patientId")} />
             {/* The ЕГН joins this patient's admissions across years; the
                 record number restarts every January. Optional, and only where
                 the site permits national identifiers. */}

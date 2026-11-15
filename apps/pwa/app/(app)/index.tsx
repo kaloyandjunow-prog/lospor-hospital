@@ -32,6 +32,7 @@ import { ageSexLabel } from "@lospor/core/pediatric"
 import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
 import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
+import { AnaesthesiaLine, DashboardHeading, dashboardListRows, type DashboardListRow } from "@/components/dashboard/DashboardListParts"
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
@@ -53,7 +54,7 @@ type CaseItem = {
     diagnoses?: { label: string }[]
     procedures?: { label: string }[]
   }
-  intraop?: { monthYear?: string; endTime?: string | null; startedAt?: string | null; startTime?: string | null }
+  intraop?: { monthYear?: string; endTime?: string | null; startedAt?: string | null; endedAt?: string | null; startTime?: string | null }
   postop?: { disposition?: string }
   user?: { name?: string }
   // Any handover on this case still waiting to be answered. The list endpoint
@@ -139,7 +140,7 @@ export default function DashboardScreen() {
   const [people, setPeople] = useState<{ id: string; name: string }[]>([])
   const filterQuery = dashboardFilterQuery(filter)
   const { config: theatreConfig } = useOperatingTheatres()
-  const { counts, setCounts, setHospitalWide, hospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
+  const { counts, setCounts, setHospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
   const [transfers, setTransfers] = useState<PendingTransfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -448,7 +449,7 @@ export default function DashboardScreen() {
 
   const trimmedQuery = query.trim().toLowerCase()
   const filteredCases = useMemo(() => {
-    const visible = cases.filter((c) => {
+    return cases.filter((c) => {
       if (trimmedQuery) {
         const haystack = [getCaseLabel(c, t("unnamedCase"), language), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, readPatientDisplay(c.patientDisplay)?.admissionNumber, c.user?.name]
           .filter(Boolean).join(" ").toLowerCase()
@@ -456,14 +457,13 @@ export default function DashboardScreen() {
       }
       return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
     })
-    return hospitalWide
-      ? [...visible].sort((a, b) => Number(b.userId === identity?.userId) - Number(a.userId === identity?.userId))
-      : visible
-  }, [cases, activeTab, language, t, trimmedQuery, hospitalWide, identity?.userId])
+  }, [cases, activeTab, language, t, trimmedQuery])
+  // By day, then theatre (while the site uses them and no theatre filter is on), then where each case stands (1.9.2).
+  const listRows = useMemo(() => dashboardListRows(filteredCases, { byDay: activeTab !== "Today", theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null, ownerId: identity?.userId, language: language === "bg" ? "bg" : "en", labels: { noTheatre: t("noTheatre"), mine: t("dashboardMyCases"), others: t("dashboardColleaguesCases") } }), [filteredCases, activeTab, theatreConfig, filter.theatre, identity?.userId, language, t])
 
-  const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
-
-  const renderCase = useCallback(({ item }: { item: CaseItem }) => {
+  const renderCase = useCallback(({ item: row }: { item: DashboardListRow<CaseItem> }) => {
+    if (row.kind !== "case") return <DashboardHeading kind={row.kind} label={row.label} />
+    const item = row.item
     const isComplete = item.status === "COMPLETE"
     const hasPendingSync = queuedCaseIds.has(item.id)
     const hasQueuedIntraop = queuedIntraopCaseIds.has(item.id)
@@ -497,6 +497,7 @@ export default function DashboardScreen() {
           </View>
           <StatusBadge status={derivedStatus(item)} />
         </View><PatientDisplayText display={item.patientDisplay} language={language} testID={`case-patient-display-${item.id}`} />
+        <AnaesthesiaLine item={item} />
         {ageSexLabel(item.preop, language === "bg" ? "bg" : "en") ? (
           <Text testID={`case-age-sex-${item.id}`} style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
             {ageSexLabel(item.preop, language === "bg" ? "bg" : "en")}
@@ -535,10 +536,9 @@ export default function DashboardScreen() {
         <FlatList
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
-          data={activeTab === "Handovers" ? [] : filteredCases}
-          keyExtractor={(c) => c.id}
+          data={activeTab === "Handovers" ? [] : listRows}
+          keyExtractor={(row) => row.key}
           renderItem={renderCase}
-          getItemLayout={(_, index) => ({ length: CASE_CARD_HEIGHT, offset: CASE_CARD_HEIGHT * index, index })}
           maxToRenderPerBatch={8}
           windowSize={5}
           removeClippedSubviews

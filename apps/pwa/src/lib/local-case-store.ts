@@ -1,3 +1,4 @@
+import type { DraftRefusal } from "./draft-refusal"
 import * as FileSystem from "expo-file-system/legacy"
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
@@ -27,6 +28,11 @@ export type LocalCaseDraft = {
    * never copied into logs or diagnostic messages.
    */
   syncReview?: LocalCaseDraftSyncReview
+  /**
+   * The server refused to create the case and resending cannot help (1.9.2):
+   * the replay skips it until the draft is saved again from the form.
+   */
+  rejected?: DraftRefusal
   /** Clinical form data only. A raw patient number is forbidden here. */
   formValues: Record<string, unknown>
   /** True when a separately protected local reference exists. */
@@ -50,6 +56,8 @@ export type SaveLocalCaseDraftInput = {
   patientNumber?: string
   serverCaseId?: string
   syncReview?: LocalCaseDraftSyncReview
+  /** Set only by the replay; a save from the form leaves it out and so clears it. */
+  rejected?: DraftRefusal
 }
 
 type StoredDraft = Omit<LocalCaseDraft, "owner"> & { owner?: LocalDraftOwner }
@@ -396,6 +404,7 @@ export async function saveLocalCaseDraft(input: SaveLocalCaseDraftInput): Promis
       owner: { ...input.owner },
       ...(input.serverCaseId ? { serverCaseId: input.serverCaseId } : {}),
       ...(input.syncReview ? { syncReview: input.syncReview } : {}),
+      ...(input.rejected && !input.serverCaseId ? { rejected: input.rejected } : {}),
       formValues: { ...input.formValues },
       hasProtectedPatientReference: Boolean(!input.serverCaseId && (patientNumber || existingReference)),
       createdAt: existing?.createdAt ?? new Date().toISOString(),

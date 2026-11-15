@@ -2,6 +2,7 @@ import { Text, TouchableOpacity, View } from "react-native"
 import { STRINGS } from "@/i18n/strings"
 import type { LocalCaseDraft } from "@/lib/local-case-store"
 import { localDraftReviewSummary } from "@/lib/local-draft-review"
+import { draftRefusalText } from "@/lib/draft-refusal"
 import { colors, useShade, withAlpha } from "@/theme/colors"
 
 type Props = {
@@ -28,10 +29,13 @@ export function LocalCaseDraftCard({
   onPress,
 }: Props) {
   const shade = useShade()
-  const needsReview = Boolean(draft.serverCaseId && draft.syncReview)
-  const review = draft.syncReview
-    ? localDraftReviewSummary(draft.syncReview, language)
-    : null
+  const refused = !draft.serverCaseId && draft.rejected ? draft.rejected : null
+  const needsReview = Boolean((draft.serverCaseId && draft.syncReview) || refused)
+  const review = refused
+    ? draftRefusalText(refused, language)
+    : draft.syncReview
+      ? localDraftReviewSummary(draft.syncReview, language)
+      : null
   const diagnoses = Array.isArray(draft.formValues?.diagnoses) ? draft.formValues.diagnoses : []
   const procedures = Array.isArray(draft.formValues?.procedures) ? draft.formValues.procedures : []
   const title = firstLabel(diagnoses) ?? firstLabel(procedures) ?? unsyncedTitle

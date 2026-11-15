@@ -65,6 +65,19 @@ describe("web local case drafts", () => {
     expect(await loadLocalPatientReference(localId, ownerA)).toBe(sentinel)
   })
 
+  it("keeps a server refusal on the draft until the form saves it again (1.9.2)", async () => {
+    const localId = makeLocalCaseId()
+    expect(await saveLocalCaseDraft({ localId, owner: ownerA, patientNumber: "43233", formValues: { ageYears: 5 } })).toBe(true)
+    const rejected = { status: 409, code: "PEDIATRIC_MODE_REQUIRED", at: "2027-01-20T08:00:00.000Z" }
+    expect(await saveLocalCaseDraft({ localId, owner: ownerA, formValues: { ageYears: 5 }, rejected })).toBe(true)
+    expect((await loadLocalCaseDraft(localId, ownerA))?.rejected).toEqual(rejected)
+    // The protected number survives the replay's write.
+    expect(await loadLocalPatientReference(localId, ownerA)).toBe("43233")
+
+    expect(await saveLocalCaseDraft({ localId, owner: ownerA, formValues: { ageYears: 5, clinicalMode: "PEDIATRIC" } })).toBe(true)
+    expect((await loadLocalCaseDraft(localId, ownerA))?.rejected).toBeUndefined()
+  })
+
   it("uses one durable owner key when first drafts are saved concurrently", async () => {
     const first = makeLocalCaseId()
     const second = makeLocalCaseId()

@@ -262,3 +262,77 @@ describe("DashboardSearch — a cancelled procedure (10.0.0)", () => {
     expect(screen.getByText("Procedure not yet known — decided during surgery")).toBeTruthy()
   })
 })
+
+describe("DashboardSearch — anaesthesia light, time and grouping (1.9.2)", () => {
+  const row = (over: Record<string, unknown>) => ({ ...baseCase, capabilities: { canWrite: true }, ...over })
+
+  it("shows a green light and the start time while anaesthesia runs", () => {
+    render(<DashboardSearch cases={[row({ intraop: { startedAt: "2026-09-01T05:42:00.000Z" } })]} userId="owner-1" role="CLINICIAN" />)
+    expect(screen.getByTestId("anaesthesia-light").getAttribute("data-running")).toBe("true")
+    // 08:42 in Sofia (UTC+3 in September).
+    expect(screen.getByTestId("anaesthesia-time").textContent).toBe("Anaesthesia from 08:42")
+  })
+
+  it("shows a red light on an open case not under anaesthesia, and the span once it has ended", () => {
+    render(<DashboardSearch cases={[
+      row({ id: "a", status: "DRAFT" }),
+      row({ id: "b", intraop: { startedAt: "2026-09-01T05:42:00.000Z", endedAt: "2026-09-01T07:15:00.000Z" } }),
+    ]} userId="owner-1" role="CLINICIAN" />)
+    const lights = screen.getAllByTestId("anaesthesia-light")
+    expect(lights.map(light => light.getAttribute("data-light"))).toEqual(["idle", "idle"])
+    expect(lights[0].className).toContain("bg-red-500")
+    expect(screen.getByTestId("anaesthesia-time").textContent).toBe("Anaesthesia 08:42–10:15")
+  })
+
+  it("gives a locked case a grey light and its time, and a cancelled one no light", () => {
+    render(<DashboardSearch cases={[row({ status: "COMPLETE", intraop: { startedAt: "2026-09-01T05:42:00.000Z", endedAt: "2026-09-01T07:15:00.000Z" } })]} userId="owner-1" role="CLINICIAN" />)
+    const light = screen.getByTestId("anaesthesia-light")
+    expect(light.getAttribute("data-light")).toBe("locked")
+    expect(light.getAttribute("aria-label")).toBe("Case locked")
+    expect(light.className).toContain("bg-slate-400")
+    expect(screen.getByTestId("anaesthesia-time")).toBeTruthy()
+    cleanup()
+    render(<DashboardSearch cases={[row({ status: "CANCELLED" })]} userId="owner-1" role="CLINICIAN" />)
+    expect(screen.queryByTestId("anaesthesia-light")).toBeNull()
+  })
+
+  it("heads days and theatres when asked, and puts running cases first", () => {
+    const theatres = [{ id: "t1", name: "Theatre 1" }]
+    render(<DashboardSearch
+      cases={[
+        row({ id: "waiting", status: "DRAFT", caseCode: "W", createdAt: new Date(), theatre: { id: "t1", name: "Theatre 1", changeable: true } }),
+        row({ id: "running", caseCode: "R", theatre: { id: "t1", name: "Theatre 1", changeable: false }, intraop: { startedAt: "2026-09-01T05:42:00.000Z" } }),
+      ]}
+      userId="owner-1"
+      role="CLINICIAN"
+      layout={{ byDay: true, theatres }}
+    />)
+    expect(screen.getAllByTestId("dashboard-day").length).toBe(1)
+    expect(screen.getByText("Theatre 1", { selector: "h4" })).toBeTruthy()
+    expect(screen.getAllByTestId("case-row").map(r => r.getAttribute("data-case-code"))).toEqual(["R", "W"])
+  })
+})
+
+describe("DashboardSearch — own cases first (1.9.2)", () => {
+  const row = (over: Record<string, unknown>) => ({ ...baseCase, capabilities: { canWrite: true }, createdAt: new Date(), ...over })
+
+  it("puts the reader's cases above a colleague's running case, under their own headings", () => {
+    render(<DashboardSearch
+      cases={[
+        row({ id: "theirs", caseCode: "THEIRS", userId: "colleague", intraop: { startedAt: new Date().toISOString() } }),
+        row({ id: "mine", caseCode: "MINE", status: "DRAFT", userId: "owner-1" }),
+      ]}
+      userId="owner-1"
+      role="CLINICIAN"
+      layout={{ byDay: true, theatres: null, ownerId: "owner-1" }}
+    />)
+    expect(screen.getAllByTestId("case-row").map(r => r.getAttribute("data-case-code"))).toEqual(["MINE", "THEIRS"])
+    expect(screen.getByText("My cases")).toBeTruthy()
+    expect(screen.getByText("Colleagues' cases")).toBeTruthy()
+  })
+
+  it("names no section when every case is the reader's", () => {
+    render(<DashboardSearch cases={[row({ userId: "owner-1" })]} userId="owner-1" role="CLINICIAN" layout={{ byDay: true, theatres: null, ownerId: "owner-1" }} />)
+    expect(screen.queryByText("My cases")).toBeNull()
+  })
+})

@@ -27,6 +27,7 @@ export function useHospitalPatientReference() {
     caseId: string | null,
     patientNumber: string,
     correctionReason: string,
+    patientNumberYear?: number,
   ) => {
     if (!caseId || !reference?.id) return { ok: false as const, error: t("updateFailed") }
     try {
@@ -37,6 +38,7 @@ export function useHospitalPatientReference() {
           expectedPatientLinkId: reference.id,
           newPatientNumber: patientNumber,
           correctionReason,
+          ...(patientNumberYear ? { newPatientNumberYear: patientNumberYear } : {}),
         }),
       })
       const body = await response.json().catch(() => ({}))
