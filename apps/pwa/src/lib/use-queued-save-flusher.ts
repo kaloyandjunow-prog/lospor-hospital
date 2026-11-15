@@ -1,3 +1,4 @@
+import { draftRefusalFrom } from "./draft-refusal"
 import { useCallback, useEffect, useRef } from "react"
 import { AppState } from "react-native"
 import { createBackoffPolicy } from "@lospor/core/sync"
@@ -96,7 +97,18 @@ export async function flushNewLocalCaseDraft(
     dependencies.fetcher ?? apiFetch,
     dependencies.referenceLoader ?? loadLocalPatientReference,
   )
-  if (!result?.ok) return "pending"
+  if (!result?.ok) {
+    // A refusal no resend can get past is kept with its reason, not retried forever.
+    const rejected = result ? draftRefusalFrom(result.status, result.body) : null
+    if (!rejected) return "pending"
+    const stored = await (dependencies.storeDraft ?? saveLocalCaseDraft)({
+      localId: draft.localId,
+      owner,
+      formValues: draft.formValues,
+      rejected,
+    })
+    return stored ? "needs-review" : "pending"
+  }
 
   return persistServerCreateResult(draft, owner, result, dependencies)
 }
@@ -118,6 +130,8 @@ export async function flushLocalCaseDrafts(owner: LocalDraftOwner): Promise<void
       // value in the background could turn another partial response into a
       // false success, so the recovery copy is left untouched.
       if (draft.syncReview) continue
+      // Refused by the server: resending the same draft cannot succeed.
+      if (draft.rejected && !draft.serverCaseId) continue
 
       if (draft.serverCaseId) {
         // The open form saves this case and clears the draft itself; a replay
