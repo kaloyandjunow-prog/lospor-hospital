@@ -273,7 +273,7 @@ describe("DashboardSearch — anaesthesia light, time and grouping (1.9.2)", () 
     expect(screen.getByTestId("anaesthesia-time").textContent).toBe("Anaesthesia from 08:42")
   })
 
-  it("shows a red light on an open case not under anaesthesia, and the span once it has ended", () => {
+  it("shows a grey light on an open case not under anaesthesia, and the span once it has ended", () => {
     render(<DashboardSearch cases={[
       row({ id: "a", status: "DRAFT" }),
       row({ id: "b", intraop: { startedAt: "2026-09-01T05:42:00.000Z", endedAt: "2026-09-01T07:15:00.000Z" } }),

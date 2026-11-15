@@ -92,7 +92,7 @@ function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
 }
 
 /**
- * Open cases carry a light: green while anaesthesia runs, red otherwise. Every
+ * Open cases carry a light: green while anaesthesia runs, grey otherwise. Every
  * case that has started shows its anaesthesia time, in the department's clock.
  */
 function AnaesthesiaLight({ c, locale }: { c: CaseRow; locale: string }) {
@@ -112,7 +112,7 @@ function AnaesthesiaLight({ c, locale }: { c: CaseRow; locale: string }) {
           role="img"
           aria-label={label}
           title={label}
-          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${running ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.25)]" : "bg-red-500"}`}
+          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${running ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.25)]" : "bg-slate-400 dark:bg-slate-500"}`}
         />
       ) : null}
       {start ? (

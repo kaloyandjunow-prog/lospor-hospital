@@ -49,7 +49,7 @@ export function DashboardHeading({ kind, label }: { kind: "day" | "theatre"; lab
 }
 
 /**
- * Open cases carry a light: green while anaesthesia runs, red otherwise. Every
+ * Open cases carry a light: green while anaesthesia runs, grey otherwise. Every
  * case that has started shows its anaesthesia time, in the department's clock.
  */
 export function AnaesthesiaLine({ item }: { item: DashboardOrderCase }) {
@@ -68,7 +68,7 @@ export function AnaesthesiaLine({ item }: { item: DashboardOrderCase }) {
           accessible
           accessibilityRole="image"
           accessibilityLabel={label}
-          style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: running ? colors.success : colors.danger }}
+          style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: running ? colors.success : colors.textMuted }}
         />
       ) : null}
       {start ? (
