@@ -166,7 +166,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const now = new Date()
   const filter: DashboardFilter = { theatre: params?.theatre?.slice(0, 64) || null, assignee: params?.assignee?.slice(0, 64) || null }
 
-  const [{ cases, counts, total, hospitalWide }, theatreConfig, colleagues] = await Promise.all([
+  const [{ cases, counts, total }, theatreConfig, colleagues] = await Promise.all([
     fetchDashboard(limit, filter),
     apiServerJson<unknown>("/v1/operating-theatres").then(parseOperatingTheatreConfig, () => OPERATING_THEATRES_OFF),
     apiServerJson<Array<{ id: string; name: string }>>("/v1/users/colleagues").catch(() => []),
@@ -317,7 +317,8 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
                 byDay: scope !== "today",
                 // Grouped by theatre only while the site uses them and the list is not filtered to one.
                 theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null,
-                preferredUserId: hospitalWide ? session.user.id : undefined,
+                // Their own cases first, whoever is looking (1.9.2).
+                ownerId: session.user.id,
               }}
               userId={session.user.id}
               role={session.user.role}

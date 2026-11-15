@@ -2,9 +2,12 @@ import { calendarDayKey, DASHBOARD_TIMEZONE } from "@lospor/core/dashboard-date-
 import { shiftDateKey } from "@lospor/core/intraop-time"
 
 /**
- * How the dashboard lays its cases out (hospital 1.9.2): by day, then by
- * operating theatre, then by where each case stands.
+ * How the dashboard lays its cases out (hospital 1.9.2): the clinician's own
+ * cases first, then by day, then by operating theatre, then by where each case
+ * stands.
  *
+ * - Own: the cases this clinician holds now (theirs from the start, or accepted
+ *   from a colleague). A case they created and handed on is the colleague's.
  * - Day: the day anaesthesia started, or the day the case was created if it has
  *   not. A case still under anaesthesia belongs to today, even one that started
  *   before midnight.
@@ -30,6 +33,8 @@ export type DashboardOrderCase = {
 
 export type DashboardTheatreGroup<T> = { theatreId: string | null; name: string | null; cases: T[] }
 export type DashboardDayGroup<T> = { dayKey: string; theatres: DashboardTheatreGroup<T>[] }
+/** `mine` is null when the list was not split by owner. */
+export type DashboardOwnerSection<T> = { mine: boolean | null; days: DashboardDayGroup<T>[] }
 
 function time(value: Instant): number | null {
   if (value == null || value === "") return null
@@ -82,15 +87,11 @@ function stageTime(c: DashboardOrderCase, s: number): number {
   return -(time(c.intraop?.endedAt) ?? time(c.intraop?.startedAt) ?? created)
 }
 
-/** Running, then waiting to be closed, then not started, then closed; `preferredUserId`'s own cases first within each. */
-export function compareDashboardCases(a: DashboardOrderCase, b: DashboardOrderCase, preferredUserId?: string): number {
+/** Running, then waiting to be closed, then not started, then closed. */
+export function compareDashboardCases(a: DashboardOrderCase, b: DashboardOrderCase): number {
   const sa = stage(a)
   const sb = stage(b)
   if (sa !== sb) return sa - sb
-  if (preferredUserId) {
-    const own = Number(b.userId === preferredUserId) - Number(a.userId === preferredUserId)
-    if (own) return own
-  }
   return stageTime(a, sa) - stageTime(b, sb) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 }
 
@@ -100,8 +101,6 @@ export function groupDashboardCases<T extends DashboardOrderCase>(
     now?: Date
     /** The site's theatres in their own order; null when the site does not use them or the list is filtered to one. */
     theatres?: { id: string; name: string }[] | null
-    /** Hospital-wide viewers see their own cases first within each stage. */
-    preferredUserId?: string
     /** False puts every case in one group (the "Today" list is one day already). */
     byDay?: boolean
   } = {},
@@ -118,7 +117,7 @@ export function groupDashboardCases<T extends DashboardOrderCase>(
   return [...byDay.entries()]
     .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
     .map(([dayKey, dayCases]) => {
-      const sorted = [...dayCases].sort((a, b) => compareDashboardCases(a, b, options.preferredUserId))
+      const sorted = [...dayCases].sort(compareDashboardCases)
       if (!options.theatres) return { dayKey, theatres: [{ theatreId: null, name: null, cases: sorted }] }
       const groups = new Map<string, DashboardTheatreGroup<T>>()
       for (const c of sorted) {
@@ -135,6 +134,24 @@ export function groupDashboardCases<T extends DashboardOrderCase>(
         theatres: [...groups.values()].sort((a, b) => rank(a) - rank(b) || (a.name ?? "").localeCompare(b.name ?? "")),
       }
     })
+}
+
+/**
+ * The clinician's own cases above everyone else's, each laid out by
+ * `groupDashboardCases`. Sections with no cases are left out.
+ */
+export function dashboardSections<T extends DashboardOrderCase>(
+  cases: T[],
+  options: Parameters<typeof groupDashboardCases>[1] & { ownerId?: string } = {},
+): DashboardOwnerSection<T>[] {
+  const { ownerId, ...layout } = options
+  if (!ownerId) return [{ mine: null, days: groupDashboardCases(cases, layout) }]
+  const mine = cases.filter(c => c.userId === ownerId)
+  const others = cases.filter(c => c.userId !== ownerId)
+  return [
+    ...(mine.length ? [{ mine: true, days: groupDashboardCases(mine, layout) }] : []),
+    ...(others.length ? [{ mine: false, days: groupDashboardCases(others, layout) }] : []),
+  ]
 }
 
 /** "08:42" in the department's clock. */

@@ -312,3 +312,27 @@ describe("DashboardSearch — anaesthesia light, time and grouping (1.9.2)", () 
     expect(screen.getAllByTestId("case-row").map(r => r.getAttribute("data-case-code"))).toEqual(["R", "W"])
   })
 })
+
+describe("DashboardSearch — own cases first (1.9.2)", () => {
+  const row = (over: Record<string, unknown>) => ({ ...baseCase, capabilities: { canWrite: true }, createdAt: new Date(), ...over })
+
+  it("puts the reader's cases above a colleague's running case, under their own headings", () => {
+    render(<DashboardSearch
+      cases={[
+        row({ id: "theirs", caseCode: "THEIRS", userId: "colleague", intraop: { startedAt: new Date().toISOString() } }),
+        row({ id: "mine", caseCode: "MINE", status: "DRAFT", userId: "owner-1" }),
+      ]}
+      userId="owner-1"
+      role="CLINICIAN"
+      layout={{ byDay: true, theatres: null, ownerId: "owner-1" }}
+    />)
+    expect(screen.getAllByTestId("case-row").map(r => r.getAttribute("data-case-code"))).toEqual(["MINE", "THEIRS"])
+    expect(screen.getByText("My cases")).toBeTruthy()
+    expect(screen.getByText("Colleagues' cases")).toBeTruthy()
+  })
+
+  it("names no section when every case is the reader's", () => {
+    render(<DashboardSearch cases={[row({ userId: "owner-1" })]} userId="owner-1" role="CLINICIAN" layout={{ byDay: true, theatres: null, ownerId: "owner-1" }} />)
+    expect(screen.queryByText("My cases")).toBeNull()
+  })
+})

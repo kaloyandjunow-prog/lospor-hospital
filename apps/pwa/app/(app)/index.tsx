@@ -140,7 +140,7 @@ export default function DashboardScreen() {
   const [people, setPeople] = useState<{ id: string; name: string }[]>([])
   const filterQuery = dashboardFilterQuery(filter)
   const { config: theatreConfig } = useOperatingTheatres()
-  const { counts, setCounts, setHospitalWide, hospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
+  const { counts, setCounts, setHospitalWide, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS, filterQuery)
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
   const [transfers, setTransfers] = useState<PendingTransfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -459,7 +459,7 @@ export default function DashboardScreen() {
     })
   }, [cases, activeTab, language, t, trimmedQuery])
   // By day, then theatre (while the site uses them and no theatre filter is on), then where each case stands (1.9.2).
-  const listRows = useMemo(() => dashboardListRows(filteredCases, { byDay: activeTab !== "Today", theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null, preferredUserId: hospitalWide ? identity?.userId : undefined, language: language === "bg" ? "bg" : "en", noTheatreLabel: t("noTheatre") }), [filteredCases, activeTab, theatreConfig, filter.theatre, hospitalWide, identity?.userId, language, t])
+  const listRows = useMemo(() => dashboardListRows(filteredCases, { byDay: activeTab !== "Today", theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null, ownerId: identity?.userId, language: language === "bg" ? "bg" : "en", labels: { noTheatre: t("noTheatre"), mine: t("dashboardMyCases"), others: t("dashboardColleaguesCases") } }), [filteredCases, activeTab, theatreConfig, filter.theatre, identity?.userId, language, t])
 
   const renderCase = useCallback(({ item: row }: { item: DashboardListRow<CaseItem> }) => {
     if (row.kind !== "case") return <DashboardHeading kind={row.kind} label={row.label} />

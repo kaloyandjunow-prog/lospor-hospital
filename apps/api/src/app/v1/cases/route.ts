@@ -387,9 +387,10 @@ export async function GET(req: NextRequest) {
       include,
       skip,
       take,
-      isHospitalWideCaseViewer(user, caseVisibilityEnabled)
-        ? { OR: [{ userId: user.id }, { createdById: user.id }] }
-        : undefined,
+      // This clinician's own cases first, for everyone (1.9.2): the ones they
+      // hold now, theirs from the start or accepted from a colleague. A case
+      // they created and handed on is the colleague's now and waits its turn.
+      { userId: user.id },
     ),
     prisma.case.count({ where }),
     dashboardCaseCounts(where, user.id),

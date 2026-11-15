@@ -39,8 +39,8 @@ export async function findCasesByPriority<Include extends Prisma.CaseInclude>(
   let remainingTake = take
   const results: Prisma.CaseGetPayload<{ include: Include }>[] = []
 
-  // Hospital dashboards put the clinician's own assigned/created cases first,
-  // then the rest of the hospital. Each group retains the same urgency order
+  // Dashboards put the cases the clinician holds first (their own, or accepted
+  // from a colleague), then everyone else's. Each group retains the same urgency order
   // as the ordinary dashboard, and pagination crosses the group boundary as if
   // the two ordered lists had been concatenated.
   const groups = preferredWhere

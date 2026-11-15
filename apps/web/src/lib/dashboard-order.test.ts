@@ -3,6 +3,7 @@ import {
   anaesthesiaRunning,
   dashboardCaseDay,
   dashboardDayLabel,
+  dashboardSections,
   departmentClock,
   groupDashboardCases,
   isTodaysCase,
@@ -82,15 +83,23 @@ describe("grouping and order", () => {
     ])
   })
 
-  it("puts a hospital-wide viewer's own cases first within each stage, not above running ones", () => {
+  it("puts the clinician's own cases above everyone else's, even above a colleague's running case", () => {
     const rows = [
       kase("theirs-running", { status: "IN_PROGRESS", userId: "other", intraop: { startedAt: "2026-11-15T07:00:00Z" } }),
-      kase("theirs", { userId: "other", createdAt: "2026-11-15T05:00:00Z" }),
+      kase("mine-last-week", { status: "COMPLETE", userId: "me", createdAt: "2026-11-08T07:00:00Z" }),
       kase("mine", { userId: "me", createdAt: "2026-11-15T07:00:00Z" }),
     ]
-    expect(ids(groupDashboardCases(rows, { now: NOW, preferredUserId: "me" }))).toEqual([
-      ["2026-11-15", [[null, ["theirs-running", "mine", "theirs"]]]],
+    const sections = dashboardSections(rows, { now: NOW, ownerId: "me" })
+    expect(sections.map(s => [s.mine, ids(s.days)])).toEqual([
+      [true, [["2026-11-15", [[null, ["mine"]]]], ["2026-11-08", [[null, ["mine-last-week"]]]]]],
+      [false, [["2026-11-15", [[null, ["theirs-running"]]]]]],
     ])
+  })
+
+  it("leaves out an empty section, and does not split without an owner", () => {
+    expect(dashboardSections([kase("a", { userId: "me" })], { now: NOW, ownerId: "me" }).map(s => s.mine)).toEqual([true])
+    expect(dashboardSections([kase("a", { userId: "other" })], { now: NOW, ownerId: "me" }).map(s => s.mine)).toEqual([false])
+    expect(dashboardSections([kase("a")], { now: NOW }).map(s => s.mine)).toEqual([null])
   })
 })
 

@@ -4,42 +4,54 @@ import { usePreferences } from "@/lib/preferences-context"
 import {
   anaesthesiaRunning,
   dashboardDayLabel,
+  dashboardSections,
   departmentClock,
-  groupDashboardCases,
   type DashboardOrderCase,
 } from "@/lib/dashboard-order"
 
 export type DashboardListRow<T> =
-  | { key: string; kind: "day" | "theatre"; label: string }
+  | { key: string; kind: "owner" | "day" | "theatre"; label: string }
   | { key: string; kind: "case"; item: T }
 
-/** The dashboard list flattened for a FlatList: day headings, theatre headings, cases (1.9.2). */
+/** The dashboard list flattened for a FlatList: own/colleagues' headings, day headings, theatre headings, cases (1.9.2). */
 export function dashboardListRows<T extends DashboardOrderCase>(
   cases: T[],
-  options: { byDay: boolean; theatres: { id: string; name: string }[] | null; preferredUserId?: string; language: "bg" | "en"; noTheatreLabel: string },
+  options: {
+    byDay: boolean; theatres: { id: string; name: string }[] | null; ownerId?: string; language: "bg" | "en"
+    labels: { noTheatre: string; mine: string; others: string }
+  },
 ): DashboardListRow<T>[] {
   const rows: DashboardListRow<T>[] = []
-  for (const day of groupDashboardCases(cases, options)) {
-    if (options.byDay) rows.push({ key: `day:${day.dayKey}`, kind: "day", label: dashboardDayLabel(day.dayKey, options.language) })
-    for (const group of day.theatres) {
-      if (options.theatres) {
-        rows.push({
-          key: `theatre:${day.dayKey}:${group.theatreId ?? "none"}`,
-          kind: "theatre",
-          label: group.name ?? options.noTheatreLabel,
-        })
+  const sections = dashboardSections(cases, options)
+  // Named only when there is someone else's work to tell it apart from.
+  const named = sections.some(section => section.mine === false)
+  for (const section of sections) {
+    const owner = String(section.mine)
+    if (named) rows.push({ key: `owner:${owner}`, kind: "owner", label: section.mine ? options.labels.mine : options.labels.others })
+    for (const day of section.days) {
+      if (options.byDay) rows.push({ key: `day:${owner}:${day.dayKey}`, kind: "day", label: dashboardDayLabel(day.dayKey, options.language) })
+      for (const group of day.theatres) {
+        if (options.theatres) {
+          rows.push({
+            key: `theatre:${owner}:${day.dayKey}:${group.theatreId ?? "none"}`,
+            kind: "theatre",
+            label: group.name ?? options.labels.noTheatre,
+          })
+        }
+        for (const item of group.cases) rows.push({ key: item.id, kind: "case", item })
       }
-      for (const item of group.cases) rows.push({ key: item.id, kind: "case", item })
     }
   }
   return rows
 }
 
-export function DashboardHeading({ kind, label }: { kind: "day" | "theatre"; label: string }) {
+export function DashboardHeading({ kind, label }: { kind: "owner" | "day" | "theatre"; label: string }) {
   return (
     <Text
       accessibilityRole="header"
-      style={kind === "day"
+      style={kind === "owner"
+        ? { color: colors.textPrimary, fontSize: 15, fontWeight: "900", marginTop: 10, marginBottom: 6 }
+        : kind === "day"
         ? { color: colors.textSecondary, fontSize: 12, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 6, marginBottom: 8 }
         : { color: colors.textMuted, fontSize: 11, fontWeight: "800", marginBottom: 6 }}
     >
