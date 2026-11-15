@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { PatientDisplay } from "@/lib/hospital-patient-reference"
 import { egnFieldIssue } from "@/lib/egn-field"
+import { IzYearChoice } from "@/components/IzYearChoice"
+import { lastYearOnly } from "@/lib/iz-year"
 
 type RelinkResult = { ok: true } | { ok: false; error: string }
 
@@ -25,7 +27,7 @@ export function HospitalPatientReference({
   display?: PatientDisplay | null
   /** Present where the site permits ЕГН: lets a saved case get one. */
   onAddEgn?: (nationalId: string) => Promise<RelinkResult>
-  onRelink: (patientNumber: string, correctionReason: string) => Promise<RelinkResult>
+  onRelink: (patientNumber: string, correctionReason: string, patientNumberYear?: number) => Promise<RelinkResult>
   disabled?: boolean
 }) {
   const [egn, setEgn] = useState("")
@@ -46,9 +48,11 @@ export function HospitalPatientReference({
   }
   const t = useTranslations("patientReference")
   const tc = useTranslations("case")
+  const locale = useLocale() === "bg" ? "bg" : "en"
   const [stage, setStage] = useState<"closed" | "edit" | "confirm">("closed")
   const [patientNumber, setPatientNumber] = useState("")
   const [patientNumberConfirmation, setPatientNumberConfirmation] = useState("")
+  const [patientNumberYear, setPatientNumberYear] = useState<number | undefined>(undefined)
   const [correctionReason, setCorrectionReason] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -57,6 +61,7 @@ export function HospitalPatientReference({
     setStage("closed")
     setPatientNumber("")
     setPatientNumberConfirmation("")
+    setPatientNumberYear(undefined)
     setCorrectionReason("")
     setError(null)
   }
@@ -84,7 +89,11 @@ export function HospitalPatientReference({
     setSaving(true)
     setError(null)
     try {
-      const result = await onRelink(nextPatientNumber, correctionReason.trim())
+      // Only last year is sent: this year is what the server assumes, and the request stays as it was.
+      const lastYear = lastYearOnly(patientNumberYear) !== undefined
+      const result = lastYear
+        ? await onRelink(nextPatientNumber, correctionReason.trim(), patientNumberYear)
+        : await onRelink(nextPatientNumber, correctionReason.trim())
       if (!result.ok) {
         setError(result.error)
         return
@@ -183,6 +192,8 @@ export function HospitalPatientReference({
               if (error) setError(null)
             }}
           />
+          <IzYearChoice anyTime number={patientNumber === patientNumberConfirmation ? patientNumber : ""} value={patientNumberYear}
+            onChange={setPatientNumberYear} locale={locale} />
           <p className="text-xs text-slate-500">{t("privacy")}</p>
           {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2">

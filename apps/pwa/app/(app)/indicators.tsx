@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native"
 import { Stack } from "expo-router"
 import type { IndicatorConfig, IndicatorsReport, Share, Spread } from "@lospor/core/indicators"
+import { calendarDayKey } from "@lospor/core/dashboard-date-scope"
 import { apiJson } from "@/lib/api"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
@@ -32,7 +33,8 @@ export default function IndicatorsScreen() {
     try {
       const to = new Date()
       const from = new Date(to.getTime() - (days - 1) * DAY)
-      const params = new URLSearchParams({ from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10), ...(mode ? { mode } : {}) })
+      // Department calendar days, as the API reads them, not UTC ones.
+      const params = new URLSearchParams({ from: calendarDayKey(from), to: calendarDayKey(to), ...(mode ? { mode } : {}) })
       setData(await apiJson<Response>(`/api/indicators?${params.toString()}`, { timeoutMs: 30_000 }))
       setFailed(false)
     } catch {

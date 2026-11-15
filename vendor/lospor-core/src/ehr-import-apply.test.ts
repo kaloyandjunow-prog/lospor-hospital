@@ -148,6 +148,19 @@ describe("an accepted age lands where the mode will read it", () => {
     expect(patch).toMatchObject({ ageValue: 3, ageUnit: "MONTHS", ageYears: 0 })
   })
 
+  it("never turns an adult into a newborn when only the age unit is ticked", () => {
+    // Number(null) is 0: the empty ageValue used to win over the case's 40 years.
+    const current = { ageYears: 40, ageValue: null, ageUnit: null }
+    const years = accept({ ageValue: 40, ageUnit: "YEARS" }, ["ageUnit"], { current, currentClinicalMode: "ADULT" })
+    expect(years.modeChange).toBeNull()
+    expect(years.patch).toEqual({ ageYears: 40, ageValue: null, ageUnit: null })
+
+    // 40 years read as 40 months would be a toddler: no number to borrow, nothing written.
+    const months = accept({ ageValue: 40, ageUnit: "MONTHS" }, ["ageUnit"], { current, currentClinicalMode: "ADULT" })
+    expect(months.modeChange).toBeNull()
+    expect(months.patch).toEqual({})
+  })
+
   it("leaves age alone entirely when none was accepted", () => {
     const patch = accept(
       { weightKg: 80, ageYears: 40 },
@@ -322,5 +335,22 @@ describe("a lab the hospital sent no time for (intraoperative labs, 11.0)", () =
   it("stays undated when no time is given, as the preoperative panel needs", () => {
     const labs = run().patch.labResults as Array<{ test: string; takenAt: string | null }>
     expect(labs.find(l => l.test === "Haemoglobin (Hb)")!.takenAt).toBeNull()
+  })
+})
+
+describe("an age row that carries no number", () => {
+  it("is reported unchanged, not applied, and switches nothing", () => {
+    const current = { ageYears: 40, ageValue: null, ageUnit: null }
+    const result = accept({ ageValue: null, ageUnit: "MONTHS" }, ["ageValue", "ageUnit"], { current, currentClinicalMode: "ADULT" })
+    expect(result.patch).toEqual({})
+    expect(result.modeChange).toBeNull()
+    expect(result.appliedKeys).toEqual([])
+  })
+
+  it("still switches mode automatically for a real age", () => {
+    // An age that contradicts the case is not pre-ticked; once the clinician ticks it, the mode follows.
+    expect(accept({ ageYears: 5 }, ["ageYears"], { current: { ageYears: 40 }, currentClinicalMode: "ADULT" }).modeChange).toBe("PEDIATRIC")
+    expect(accept({ ageValue: 3, ageUnit: "MONTHS" }, "preselected", { currentClinicalMode: "ADULT" }).modeChange).toBe("PEDIATRIC")
+    expect(accept({ ageYears: 40 }, ["ageYears"], { current: { ageValue: 7, ageUnit: "MONTHS", ageYears: 0 }, currentClinicalMode: "PEDIATRIC" }).modeChange).toBe("ADULT")
   })
 })

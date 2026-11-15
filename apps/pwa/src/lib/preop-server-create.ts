@@ -2,6 +2,7 @@ import { buildPreopPayload } from "@/lib/preop-payload"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
 import { validEgnOrNull } from "@/lib/egn-field"
+import { departmentYear } from "@/lib/iz-year"
 import type { ApiRequestInit } from "@/lib/api"
 import {
   readBlockedSaveIssue,
@@ -84,6 +85,11 @@ export async function postPreopServerCase(
     const acceptedPayload: Record<string, unknown> = { ...fullPayload }
     delete acceptedPayload.patientNumber
     delete acceptedPayload.patientNationalId
+    delete acceptedPayload.patientNumberYear
+    // Sent only when it is last year: this year is the server's own default.
+    const patientNumberYear = typeof values.patientNumberYear === "number" && values.patientNumberYear !== departmentYear()
+      ? values.patientNumberYear
+      : undefined
     // A mistyped ЕГН never blocks the case. The field says what is wrong while
     // it is typed; the case is created without it and the ЕГН is added from the
     // patient reference once it is right. Sending it got "Invalid request" back
@@ -102,6 +108,7 @@ export async function postPreopServerCase(
         expectedIdentity: expectedOwner,
         body: JSON.stringify({
           patientNumber,
+          ...(patientNumberYear ? { patientNumberYear } : {}),
           ...(patientNationalId ? { patientNationalId } : {}),
           clinicalMode: values.clinicalMode ?? "ADULT",
           preop: acceptedPayload,

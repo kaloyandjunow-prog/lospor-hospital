@@ -194,6 +194,10 @@ export function infusionVolumeMl(infusion: InfusionVolumeLike, asOf: Date | stri
   for (const change of [...(infusion.rateChanges ?? [])].filter(item => !item.planned)) {
     const at = instant(change.ts)
     if (at == null) return null
+    // A change timed before the start ran nothing: counting it from its own
+    // time added volume the patient never received. The start's rate is the
+    // later setting, so it stands.
+    if (at < start) continue
     stretches.push({ from: at, rate: change.volumeRateMlPerHour })
   }
   stretches.sort((a, b) => a.from - b.from)

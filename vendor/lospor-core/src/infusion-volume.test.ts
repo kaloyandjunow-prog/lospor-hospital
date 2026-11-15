@@ -194,3 +194,16 @@ describe("the sliders of a syringe typed with Other", () => {
     expect(amount.prefill).toBe(500)
   })
 })
+
+describe("a rate change timed before the start", () => {
+  it("adds no volume from before the infusion ran", () => {
+    // Started at 09:00 at 10 mL/h, ended 10:00; a change saved at 08:00 used to add an extra hour at 50 mL/h.
+    const volume = infusionVolumeMl({
+      startTs: "2026-11-15T09:00:00Z",
+      endTs: "2026-11-15T10:00:00Z",
+      volumeRateMlPerHour: 10,
+      rateChanges: [{ ts: "2026-11-15T08:00:00Z", volumeRateMlPerHour: 50 }],
+    })
+    expect(volume).toBe(10)
+  })
+})

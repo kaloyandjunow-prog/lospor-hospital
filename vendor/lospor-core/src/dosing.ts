@@ -53,6 +53,17 @@ export function dosingWeightKg(
   return capAtActualWeight && tbw !== null ? Math.min(ibw, tbw) : ibw
 }
 
+/**
+ * Round a dose to a step without floating-point dust: Math.round(3 / 0.1) * 0.1
+ * is 0.30000000000000004, which would be stored and exported as the dose.
+ */
+export function roundDoseToStep(value: number, step: number): number {
+  if (!(step > 0)) return value
+  const text = String(step)
+  const decimals = text.includes("e-") ? Number(text.split("e-")[1]) : (text.split(".")[1]?.length ?? 0)
+  return Number((Math.round(value / step) * step).toFixed(decimals))
+}
+
 export function suggestedDoseFromWeights(
   entry: DoseEntry | undefined,
   route: string | undefined,
@@ -78,7 +89,7 @@ export function suggestedDoseFromWeights(
     const w = dosingWeightKg(dc.basis, ibw, tbw, dc.capAtActualWeight ?? true)
     if (!w) return { dose: "", hint }
     const roundTo = dc.roundTo ?? 1
-    let dose = Math.round((w * dc.perKg) / roundTo) * roundTo
+    let dose = roundDoseToStep(w * dc.perKg, roundTo)
     if (dc.cap != null) dose = Math.min(dose, dc.cap)
     return { dose: String(dose), hint }
   }

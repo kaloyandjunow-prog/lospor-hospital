@@ -1686,6 +1686,13 @@ add("GET", "/v1/ehr-import/lookup", "Ask the hospital system about a patient bef
   result: { type: "object" },
 })
 
+add("GET", "/v1/hospital/iz-year", "Which year a typed ИЗ № belongs to in the first 60 days of a year", {
+  parameters: [
+    query("number", { type: "string" }, true, "The record number the clinician typed"),
+  ],
+  result: { type: "object" },
+})
+
 add("POST", "/v1/cases/{id}/ehr-import", "Record which proposals the clinician accepted or refused", {
   parameters: [id],
   requestBody: body({ type: "object" }),

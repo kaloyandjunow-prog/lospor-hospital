@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs"
 import { randomUUID } from "node:crypto"
 import type {
   AdminMfaChallengeMaterial,
+  LoginRateKey,
   PasswordCredentialMatch,
   StatusAdminLinkPurpose,
   StatusAdminSummary,
@@ -614,11 +615,19 @@ export class AuthService {
     }
   }
 
-  private loginRateKeys(clientAddress: string, identity: string): string[] {
+  /**
+   * Each key has its own limit per 15 minutes. One address guessing one account
+   * stops at 5. The account-wide key used to stop at 5 too, so five wrong
+   * passwords from anywhere (the internet, through the tunnel) locked the real
+   * admin out on the LAN; it now allows 20, still a hard cap on guessing one
+   * account from many addresses. One address across many accounts allows 10:
+   * every remote user arrives through the tunnel as one address.
+   */
+  private loginRateKeys(clientAddress: string, identity: string): LoginRateKey[] {
     return [
-      hmacSha256(this.rateLimitKey, `${clientAddress}\u0000${identity}`),
-      hmacSha256(this.rateLimitKey, `${clientAddress}\u0000all-identities`),
-      hmacSha256(this.rateLimitKey, `all-addresses\u0000${identity}`),
+      { key: hmacSha256(this.rateLimitKey, `${clientAddress}\u0000${identity}`), limit: 5 },
+      { key: hmacSha256(this.rateLimitKey, `${clientAddress}\u0000all-identities`), limit: 10 },
+      { key: hmacSha256(this.rateLimitKey, `all-addresses\u0000${identity}`), limit: 20 },
     ]
   }
 

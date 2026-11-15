@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { dashboardCaseTarget, dashboardTabCounts, type DashboardCountableCase } from "./dashboard-case-routing"
+import { caseMatchesDashboardTab, dashboardCaseTarget, dashboardTabCounts, type DashboardCountableCase } from "./dashboard-case-routing"
 
 describe("dashboard case routing", () => {
   it("opens queued intraop work even while the server still has only preop", () => {
@@ -72,5 +72,18 @@ describe("dashboardTabCounts", () => {
       all: 90, today: 4, month: 20, active: 7, drafts: 2, awaitingPostop: 3, complete: 83,
     }
     expect(dashboardTabCounts(server, [], 0, isToday, isThisMonth)["Awaiting Postop"]).toBe(3)
+  })
+})
+
+describe("the Today tab (1.9.2)", () => {
+  const isToday = (iso: string) => iso.startsWith("2026-11-15")
+  const never = () => false
+  const assessedYesterday: DashboardCountableCase = { createdAt: "2026-11-14T15:00:00Z", status: "IN_PROGRESS", intraop: { startedAt: "2026-11-15T06:00:00Z" } }
+  const notStarted: DashboardCountableCase = { createdAt: "2026-11-14T15:00:00Z", status: "DRAFT" }
+
+  it("holds a case assessed yesterday whose anaesthesia started today", () => {
+    expect(caseMatchesDashboardTab(assessedYesterday, "Today", isToday, never)).toBe(true)
+    expect(caseMatchesDashboardTab(notStarted, "Today", isToday, never)).toBe(false)
+    expect(dashboardTabCounts(null, [assessedYesterday, notStarted], 0, isToday, never).Today).toBe(1)
   })
 })

@@ -52,7 +52,12 @@ export type DashboardServerCounts = {
 export type DashboardCountableCase = {
   createdAt: string
   status: string
-  intraop?: { endTime?: string | null } | null
+  intraop?: { endTime?: string | null; startedAt?: string | null } | null
+}
+
+/** "Today": created today, or anaesthesia started today (1.9.2) -- what the server counts. */
+function todays(caseItem: DashboardCountableCase, isToday: (iso: string) => boolean): boolean {
+  return isToday(caseItem.createdAt) || (caseItem.intraop?.startedAt ? isToday(caseItem.intraop.startedAt) : false)
 }
 
 /**
@@ -77,7 +82,7 @@ export function dashboardTabCounts(
   }
   return {
     All: cases.length,
-    Today: cases.filter(c => isToday(c.createdAt)).length,
+    Today: cases.filter(c => todays(c, isToday)).length,
     Month: cases.filter(c => isThisMonth(c.createdAt)).length,
     Active: cases.filter(c => c.status !== "COMPLETE").length,
     Drafts: cases.filter(c => c.status === "DRAFT").length,
@@ -112,7 +117,7 @@ export function caseMatchesDashboardTab(
   isThisMonth: (iso: string) => boolean,
 ): boolean {
   switch (tab) {
-    case "Today":           return isToday(caseItem.createdAt)
+    case "Today":           return todays(caseItem, isToday)
     case "Month":           return isThisMonth(caseItem.createdAt)
     case "Active":          return caseItem.status !== "COMPLETE" && caseItem.status !== "CANCELLED"
     case "Drafts":          return caseItem.status === "DRAFT"

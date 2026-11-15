@@ -1,3 +1,4 @@
+import { formatHHMM } from "@/lib/intraop-format"
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
@@ -51,7 +52,8 @@ describe("the sheet edits one draw, not the whole case", () => {
     expect(shown).toContain("Haemoglobin (Hb)")
     // The earlier one appears only in the read-only prior-draws summary, under
     // its own time, where it cannot be typed over.
-    expect(shown).toContain("08:00")
+    // The draw time in the clinician's own clock, not UTC (08:00Z is 11:00 in a Sofia summer).
+    expect(shown).toContain(formatHHMM(new Date(EARLIER)))
     expect(shown).toContain("Haemoglobin (Hb) 120 g/L")
   })
 

@@ -1,5 +1,29 @@
 # Changelog - LOSPOR Mobile
 
+## [10.4.2] - 2026-11-15
+
+### Fixed
+
+- **A new-case draft the server refused was retried every 15 seconds, silently.** A refusal no resend can get past
+  (a 4xx other than sign-in, timeout, an app too old, or rate limit) is now kept with its reason, no longer retried,
+  and the dashboard says what to fix: age and mode disagree, the paediatric age is missing or invalid, paediatric
+  cases are off, a preop answer the changed profile refuses, identifying text, or no permission. Saving the draft
+  again from the form clears it. A draft refused only because the app is too old keeps retrying.
+- **Drug doses with float dust** (`0.30000000000000004`) are rounded through Core's `roundDoseToStep`.
+- **Earlier lab draws** show local time, not UTC.
+- **Unit indicators** ask for department calendar days, not UTC days (API 10.4.2).
+- **One unreadable draft file** no longer stops the drafts after it from being claimed at sign-in.
+- **Raw labels.** The handover screen names the role through Core; the paediatric age group no longer shows the raw
+  key (`ADOLESCENT`) in Bulgarian.
+
+### Changed
+
+- Core 10.4.2.
+
+### Dependencies
+
+- Expo-managed versions checked with `expo install --check`: up to date. `npm audit --omit=dev`: 0.
+
 ## [10.4.1] - 2026-11-14
 
 ### Fixed

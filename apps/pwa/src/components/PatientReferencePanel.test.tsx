@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest"
 import { TextInput } from "react-native"
 import { getByText, pressByText, render } from "@/test/render"
 import { PatientReferencePanel } from "./PatientReferencePanel"
+import { departmentYear } from "@/lib/iz-year"
+
+// The year suggestion is asked of the server only in January and February.
+vi.mock("@/lib/api", () => ({ apiFetch: vi.fn(async () => ({ ok: false, json: async () => null })) }))
 
 describe("PatientReferencePanel", () => {
   it("shows only the masked reference until a deliberate correction", () => {
@@ -83,5 +87,23 @@ describe("PatientReferencePanel", () => {
     act(() => input().props.onChangeText("7501010010"))
     await act(async () => { pressByText(tree, "Добави ЕГН") })
     expect(onAddEgn).toHaveBeenCalledWith("7501010010")
+  })
+  it("offers last year for the corrected number, and sends it only when chosen", async () => {
+    const onRelink = vi.fn(async () => {})
+    const tree = render(
+      <PatientReferencePanel reference={{ id: "link-1", maskedIdentifier: "HO•••11" }} language="en" onRelink={onRelink} />,
+    )
+    pressByText(tree, "Correct patient link")
+    const inputs = tree.root.findAllByType(TextInput)
+    expect(tree.root.findAllByProps({ testID: "iz-year-choice" })).toHaveLength(0)
+    act(() => {
+      inputs[0].props.onChangeText("43233")
+      inputs[1].props.onChangeText("43233")
+      inputs[2].props.onChangeText("filed under the wrong year")
+    })
+    const lastYear = departmentYear() - 1
+    act(() => tree.root.findByProps({ testID: `iz-year-${lastYear}` }).props.onPress())
+    await act(async () => { pressByText(tree, "Confirm change") })
+    expect(onRelink).toHaveBeenCalledWith("43233", "filed under the wrong year", lastYear)
   })
 })

@@ -8,6 +8,7 @@ import { addCasePatientEgn, relinkCasePatientReference, type PatientReference } 
 import { colors } from "@/theme/colors"
 import { Field, StyledInput } from "./ui"
 import { PatientReferencePanel } from "./PatientReferencePanel"
+import { IzYearChoice } from "./IzYearChoice"
 
 type Props = {
   caseId: string | null
@@ -44,9 +45,9 @@ export function PatientIdentityField({
           const personMaskedIdentifier = await addCasePatientEgn(caseId, nationalId)
           if (reference) onReferenceChange({ ...reference, personMaskedIdentifier })
         } : undefined}
-        onRelink={async (patientNumber, correctionReason) => {
+        onRelink={async (patientNumber, correctionReason, patientNumberYear) => {
           onReferenceChange(await relinkCasePatientReference(
-            caseId, reference?.id ?? "", patientNumber, correctionReason,
+            caseId, reference?.id ?? "", patientNumber, correctionReason, undefined, patientNumberYear,
           ))
         }}
       />
@@ -74,6 +75,10 @@ export function PatientIdentityField({
           <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
             {STRINGS[language as "en" | "bg"].patientNumberPseudonymNote}
           </Text>
+          {/* ИЗ № restarts every January: for 60 days, which year it is from. */}
+          <Controller control={control} name="patientNumberYear" render={({ field: year }) => (
+            <IzYearChoice number={field.value} value={year.value} onChange={year.onChange} language={language} />
+          )} />
         </>
       )} />
       {/* The ЕГН joins this patient's admissions across years; the record

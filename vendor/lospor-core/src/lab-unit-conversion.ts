@@ -147,7 +147,7 @@ const RULES: Record<string, Rule[]> = {
   // analytical imprecision, and moving a pinned clinical value for it would be
   // change without improvement.
   Glucose: [{ from: "mg/dl", factor: 1 / 18, describe: "mg/dL / 18" }],
-  "Urea (BUN)": [{ from: "mg/dl", factor: 0.357, describe: "BUN mg/dL x 0.357" }],
+  // Urea in mg/dL is deliberately absent: see below.
   "Uric acid": [{ from: "mg/dl", factor: 59.5, describe: "mg/dL x 59.5" }],
   "Total protein": [{ from: "g/dl", factor: 10, describe: "g/dL x 10" }],
   Albumin: [{ from: "g/dl", factor: 10, describe: "g/dL x 10" }],
@@ -203,6 +203,10 @@ const RULES: Record<string, Rule[]> = {
  * result that rules a pulmonary embolism in or out. It stays unconverted and is
  * shown to the clinician as the laboratory reported it.
  *
+ * **Urea in mg/dL.** A US report means BUN (urea nitrogen, x 0.357); a German
+ * one often means urea itself (x 0.1665). Both print as plain "mg/dL", 2.14x
+ * apart, so the value goes to the clinician as reported instead of pre-ticked.
+ *
  * **Enzymes in IU/L.** U/L and IU/L are used interchangeably for catalytic
  * activity, so nothing needs converting; if a report ever meant something else
  * by IU, a silent alias would hide it.
@@ -228,14 +232,42 @@ const RULES: Record<string, Rule[]> = {
 const FRACTION_WHEN_BELOW_ONE = new Set(["Haematocrit (Hct)"])
 const FRACTION_SOURCE_UNITS = new Set(["", "%"])
 
+/**
+ * Spellings a report or a UCUM code uses for "no unit". Anything else printed
+ * beside an INR or a pH is a different measurement: an "INR" of 12.5 s is a
+ * prothrombin time, and 85 % is prothrombin activity.
+ */
+const DIMENSIONLESS_UNITS = new Set(["", "1", "ratio", "{ratio}", "inr", "{inr}", "ph", "{ph}"])
+
 function round(value: number): number {
-  // Two significant decimals is enough for every canonical lab unit here and
-  // avoids floating-point tails like 2.4999999999999996.
+  // Two decimals avoids floating-point tails like 2.4999999999999996. Below 0.1
+  // that would erase real results (a suppressed TSH of 0.004 became 0), so
+  // small values keep two significant figures instead.
+  if (value !== 0 && Math.abs(value) < 0.1) return Number(value.toPrecision(2))
   return Math.round(value * 100) / 100
 }
 
+/**
+ * Read a printed number. A lone comma is a decimal comma ("5,4"), but a comma
+ * before exactly three digits ("1,234") is as likely a thousands separator as
+ * a decimal, 1000x apart, so it is refused rather than guessed. Both marks
+ * together are unambiguous: the last one is the decimal.
+ */
+function parseLabNumber(raw: string): number {
+  let text = String(raw).trim()
+  const comma = text.lastIndexOf(",")
+  const dot = text.lastIndexOf(".")
+  if (comma >= 0 && dot >= 0) {
+    text = comma > dot ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "")
+  } else if (comma >= 0) {
+    if (/^-?[1-9]\d{0,2}(,\d{3})+$/.test(text)) return Number.NaN
+    text = text.replace(",", ".")
+  }
+  return Number.parseFloat(text)
+}
+
 export function convertLabValue(test: string, rawValue: string, rawUnit: string): LabConversion {
-  const value = Number.parseFloat(String(rawValue).replace(",", "."))
+  const value = parseLabNumber(rawValue)
   if (!Number.isFinite(value)) return { status: "unparsable", raw: String(rawValue) }
 
   const canonicalUnit = CANONICAL_UNIT.get(test)
@@ -266,8 +298,9 @@ export function convertLabValue(test: string, rawValue: string, rawUnit: string)
     }
   }
 
-  // A test with no canonical unit (ratios, titres) is stored as reported.
-  if (canonicalUnit === "" || source === canonical) {
+  // A test with no canonical unit (INR, pH) is stored as reported, but only
+  // when nothing printed beside it says it is some other measurement.
+  if (canonicalUnit === "" ? DIMENSIONLESS_UNITS.has(source) : source === canonical) {
     return { status: "already-canonical", value: round(value), unit: canonicalUnit, scale: 1, sourceValue: value, sourceUnit: rawUnit }
   }
 

@@ -4,6 +4,7 @@ import {
   createHmac,
   randomBytes,
 } from "node:crypto"
+import { departmentYear } from "@/lib/hospital/iz-year"
 
 const KEY_BYTES = 32
 
@@ -66,7 +67,9 @@ export function identifierYearFor(
   identifierType: PatientIdentifierTypeName,
   at: Date,
 ): number {
-  return identifierType === "IZ" ? at.getFullYear() : UNSCOPED_IDENTIFIER_YEAR
+  // The department's calendar year, not the server's: a UTC clock is still in
+  // December for the first two hours of 1 January in Sofia.
+  return identifierType === "IZ" ? departmentYear(at) : UNSCOPED_IDENTIFIER_YEAR
 }
 
 export function patientIdentifierHash(

@@ -10,6 +10,7 @@ import { PrimaryButton } from "@/components/ui"
 import { ScreenState } from "@/components/clinical-ui"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
+import { clinicalDisplayLabel } from "@lospor/core/display"
 
 type Colleague = {
   id: string
@@ -21,7 +22,7 @@ type Colleague = {
 export default function HandoverScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router  = useRouter()
-  const { tc }  = usePreferences()
+  const { tc, language } = usePreferences()
 
   const [colleagues, setColleagues] = useState<Colleague[]>([])
   const [loading, setLoading]       = useState(true)
@@ -145,8 +146,8 @@ export default function HandoverScreen() {
                     <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "800" }}>
                       {c.title ? `${c.title} ${c.name}` : c.name}
                     </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3, textTransform: "capitalize" }}>
-                      {c.role.replace(/_/g, " ").toLowerCase()}
+                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3 }}>
+                      {clinicalDisplayLabel("userRole", c.role, language)}
                     </Text>
                   </View>
 

@@ -1,5 +1,79 @@
 # Changelog - LOSPOR Hospital
 
+## [1.9.2] - 2026-11-15
+
+Vendors Core, API, Web and PWA 10.4.2; Browser stays 0.11.2. No database migration. The update screen still asks
+for the verified backup first.
+
+### Added
+
+- **The dashboard is laid out the way a theatre day runs.** Your own cases come first: the ones you hold now, yours
+  from the start or accepted from a colleague ("Моите случаи"), then everyone else's ("Случаи на колеги"). Each
+  part goes by day, newest first ("Днес", "Вчера", then dates), by operating theatre in the order set in Status
+  ("Без зала" last), and then by where the case stands:
+  - anaesthesia running;
+  - anaesthesia over, case not closed;
+  - not started;
+  - closed.
+
+  A case is listed under the day its anaesthesia started, or the day it was created if it has not started. A case
+  still under anaesthesia is always today's. Theatre groups appear only while theatres are on in Status and no
+  single theatre is filtered.
+- **A light and the anaesthesia time on every case.**
+  - Green: anaesthesia running.
+  - Red: an open case not under anaesthesia.
+  - Grey: a closed, locked case.
+  - No light: a cancelled case.
+
+  Beside the light: "Анестезия от 08:42", or "Анестезия 08:42–10:15" once it has ended.
+- **Case numbers carry the date and time they were created**, to the second, then the clinician's yearly number:
+  `20261115-143207-0042`. The number stays, so two cases created in the same second still differ, and a handover
+  that has to renumber changes only that number. Cases created before 1.9.2 keep their old number. The case number
+  never leaves the appliance: the research export and Central carry a pseudonym.
+- **ИЗ № at New Year.** ИЗ numbers restart every January, but a case was always filed under the year it was created
+  in: a patient admitted on 28 December and operated on in January got this year's number, which belongs to someone
+  else. For the first 60 days of the year (Sofia calendar), Web and the PWA ask which year the number is from, on a
+  new case and in a patient-link correction (a correction may name last year at any time). The choice is pre-set
+  when the appliance can tell: the same number is already filed under a year, an EHR import for it arrived last
+  year, or the number is far above what this hospital reaches by now.
+
+### Changed
+
+- **"Днес" (Today)** counts cases created today and cases whose anaesthesia started today, so a patient assessed
+  yesterday and operated on this morning is in today's list. The tile and the list agree.
+
+### Fixed
+
+- **A new case saved offline could be refused forever, silently.** The PWA resent a draft the server had refused
+  every few seconds, with nothing on screen. A refusal no resend can get past is now kept on the draft with its
+  reason, the PWA stops resending it, and the draft card says what to fix: a child's age in adult mode or the
+  reverse, a missing or invalid paediatric age, paediatric cases switched off, a preop answer the changed profile
+  refuses, or no permission. Saving the draft again from the form clears the refusal.
+- **A patient-link correction that saved was reported as not confirmed.** The server did not return the new
+  reference with its answer.
+- **Status locked the administrator out on the LAN** after failed sign-ins arrived through the tunnel. Limits now
+  count separately per address and account (5), per address (10) and per account (20), each over 15 minutes.
+- **Backup pruning.** An error inside the prune loop did not stop the script, and a prune killed halfway left a
+  half-removed restore point. The loop now reads a file, so an error stops the script, and a left-over point is
+  finished under the lock.
+
+### Upstream
+
+- Core 10.4.2:
+  - an EHR age row with a unit but no number no longer turns an adult into a newborn;
+  - INR and pH accept only a unitless value, small lab values keep two significant figures, urea in mg/dL is no
+    longer assumed to be BUN, and `1,234` is refused as ambiguous;
+  - two quick changes to one record no longer lose a field;
+  - doses no longer show float dust;
+  - local anaesthetic strengths read a decimal comma;
+  - events after the end of a case show names, not raw types.
+- API, Web, PWA 10.4.2:
+  - unit indicators count the first hours of a day on the right day (Sofia calendar);
+  - a lab scan whose provider answer is not JSON, or stalls, is handled;
+  - switching AI off with the AI section open no longer leaves a blank page;
+  - lab times show local time;
+  - paediatric age groups have Bulgarian names in the PWA.
+
 ## [1.9.1] - 2026-11-14
 
 Vendors Core 10.4.0 and API, Web and PWA 10.4.1; Browser stays 0.11.2. Adds one database migration

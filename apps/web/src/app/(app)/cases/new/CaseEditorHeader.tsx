@@ -28,7 +28,7 @@ export function CaseEditorHeader({
   personMaskedIdentifier?: string | null
   patientDisplay?: PatientDisplay | null
   onAddEgn?: (nationalId: string) => Promise<{ ok: true } | { ok: false; error: string }>
-  onPatientRelink: (patientNumber: string, correctionReason: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  onPatientRelink: (patientNumber: string, correctionReason: string, patientNumberYear?: number) => Promise<{ ok: true } | { ok: false; error: string }>
   patientRelinkDisabled: boolean
 }) {
   const t = useTranslations()

@@ -224,6 +224,14 @@ export function createCaseOutbox(deps: OutboxDeps) {
   // lock only ever wraps it, never the other way round, so it cannot deadlock.
   const flushLocks = createCaseWriteQueue()
 
+  // One read-merge-write of a stored patch at a time. Two queue() calls that
+  // both read the old patch and both wrote back lost one of the two fields
+  // (mobile writes each intraop tap straight into the queue). Held only around
+  // storage, never across a network send, so a tap never waits on a flush.
+  const patchLocks = createCaseWriteQueue()
+  const withPatchLock = <T,>(caseId: string, section: CaseSection, run: () => Promise<T>): Promise<T> =>
+    patchLocks.enqueue(`${caseId}:${section}`, run)
+
   function notifyChanged(): void {
     if (!deps.onChange) return
     void summary()
@@ -296,6 +304,17 @@ export function createCaseOutbox(deps: OutboxDeps) {
   ): Promise<void> {
     // Stored patches need a concrete base — resolve any thunk at queue time.
     const baseUpdatedAt = resolveBase(baseUpdatedAtInput)
+    await withPatchLock(caseId, section, () => mergeIntoStored(caseId, section, payload, baseUpdatedAt))
+    await addIndexEntry(caseId, section)
+    notifyChanged()
+  }
+
+  async function mergeIntoStored(
+    caseId: string,
+    section: CaseSection,
+    payload: unknown,
+    baseUpdatedAt: SectionRevision | undefined,
+  ): Promise<void> {
     // Write patch data BEFORE updating the index so a crash between the two
     // leaves a repairable orphan rather than an index entry with no data.
     const key = outboxPatchKey(caseId, section)
@@ -341,8 +360,6 @@ export function createCaseOutbox(deps: OutboxDeps) {
       queuedAt: new Date().toISOString(),
       ...(nextBlocked.length > 0 ? { blocked: nextBlocked } : {}),
     }))
-    await addIndexEntry(caseId, section)
-    notifyChanged()
   }
 
   /**
@@ -595,16 +612,22 @@ export function createCaseOutbox(deps: OutboxDeps) {
     response: CasePatchResponse,
     whenUnchanged: () => Promise<void>,
   ): Promise<void> {
-    const current = await supersededPatch(caseId, section, raw)
-    if (current === "unchanged") return whenUnchanged()
-    if (current === null) return
-    const revision = responseRevision(section, response)
-    await storePatch(caseId, section, { ...current, baseUpdatedAt: revision ?? current.baseUpdatedAt })
+    // Check and act under the patch lock, so a tap queued between the check
+    // and the clear is never deleted with the patch that was just sent.
+    return withPatchLock(caseId, section, async () => {
+      const current = await supersededPatch(caseId, section, raw)
+      if (current === "unchanged") return whenUnchanged()
+      if (current === null) return
+      const revision = responseRevision(section, response)
+      await storePatch(caseId, section, { ...current, baseUpdatedAt: revision ?? current.baseUpdatedAt })
+    })
   }
 
   async function storeUnlessSuperseded(caseId: string, section: CaseSection, raw: string, patch: StoredPatch): Promise<void> {
-    if (await supersededPatch(caseId, section, raw) !== "unchanged") return
-    await storePatch(caseId, section, patch)
+    return withPatchLock(caseId, section, async () => {
+      if (await supersededPatch(caseId, section, raw) !== "unchanged") return
+      await storePatch(caseId, section, patch)
+    })
   }
 
   async function flushOneUnlocked(

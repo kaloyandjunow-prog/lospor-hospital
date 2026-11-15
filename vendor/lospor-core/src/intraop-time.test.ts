@@ -146,7 +146,10 @@ describe("the earliest end date", () => {
     const start = instantFromDateKey("2026-10-16", "22:40", "Europe/Sofia")!
     expect(earliestEndDateKey(start, "23:50", "Europe/Sofia")).toBe("2026-10-16")
     expect(earliestEndDateKey(start, "01:15", "Europe/Sofia")).toBe("2026-10-17")
-    expect(earliestEndDateKey(start, "22:40", "Europe/Sofia")).toBe("2026-10-17")
+    // An end at the start's own minute stays on the start's day, as defaultEndDayOffset
+    // puts it: the stepper used to demand the next day for an end the form had saved on this one.
+    expect(earliestEndDateKey(start, "22:40", "Europe/Sofia")).toBe("2026-10-16")
+    expect(defaultEndDayOffset(start, "22:40", "Europe/Sofia")).toBe(0)
   })
 })
 

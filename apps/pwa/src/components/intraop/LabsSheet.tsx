@@ -7,6 +7,7 @@ import { ManualLabPanel } from "@/components/preop/ManualLabPanel"
 import { usePreferences } from "@/lib/preferences-context"
 import { abnormalSummary, groupLabsByDraw, type LabResult } from "@/lib/labs"
 import { useShade } from "@/theme/shade"
+import { formatHHMM } from "@/lib/intraop-format"
 
 /**
  * Laboratory results drawn during the case.
@@ -156,7 +157,7 @@ export function LabsSheet({
                 style={{ backgroundColor: shade("#111827"), borderRadius: 12, borderWidth: 1, borderColor: shade("#1f2937"), padding: 10, gap: 4 }}
               >
                 <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800" }}>
-                  {draw.takenAt ? new Date(draw.takenAt).toISOString().substring(11, 16) : tc("ehrUndated")}
+                  {draw.takenAt ? formatHHMM(new Date(draw.takenAt)) : tc("ehrUndated")}
                 </Text>
                 <Text style={{ color: shade("#cbd5e1"), fontSize: 12 }} numberOfLines={2}>
                   {draw.results.map(r => `${r.test} ${r.value}${r.unit ? ` ${r.unit}` : ""}`).join(" · ")}

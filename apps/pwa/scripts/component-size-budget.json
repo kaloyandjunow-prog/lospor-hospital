@@ -4,7 +4,7 @@
   "app/(app)/settings.tsx": 219,
   "app/(app)/index.tsx": 749,
   "app/(app)/cases/intraop/[id].tsx": 637,
-  "src/components/preop/PediatricPreopSections.tsx": 271,
+  "src/components/preop/PediatricPreopSections.tsx": 270,
   "src/components/intraop/DrugSheet.tsx": 524,
   "app/(app)/cases/postop/[id].tsx": 585,
   "app/(auth)/register.tsx": 336,

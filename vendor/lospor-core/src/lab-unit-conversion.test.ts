@@ -33,7 +33,6 @@ describe("conventional units convert once, from the printed unit", () => {
     ["Creatinine", "0.3", "mg/dL", 26.52],
     ["CRP", "0.5", "mg/dL", 5],
     ["Total bilirubin", "1.0", "mg/dL", 17.1],
-    ["Urea (BUN)", "20", "mg/dL", 7.14],
     ["Glucose", "97", "mg/dL", 5.39],
     ["Haemoglobin (Hb)", "13.5", "g/dL", 135],
     ["Haematocrit (Hct)", "0.42", "L/L", 42],
@@ -229,5 +228,38 @@ describe("units an EHR actually sends", () => {
     it("still refuses a unit nobody listed", () => {
       expect(isConfidentConversion(at("Haemoglobin (Hb)", "8.9", "furlongs"))).toBe(false)
     })
+
+    it("will not convert urea in mg/dL, which is BUN in one country and urea in another", () => {
+      expect(at("Urea (BUN)", "20", "mg/dL").status).toBe("unknown-unit")
+    })
+  })
+})
+
+describe("unitless tests only accept no unit", () => {
+  it("takes an INR or pH with no unit, or a UCUM dimensionless code", () => {
+    expect(convertLabValue("INR", "1.1", "")).toMatchObject({ status: "already-canonical", value: 1.1 })
+    expect(convertLabValue("INR", "1.1", "{INR}").status).toBe("already-canonical")
+    expect(convertLabValue("pH", "7.38", "[pH]").status).toBe("already-canonical")
+  })
+
+  it("refuses a prothrombin time or activity offered as an INR", () => {
+    expect(isConfidentConversion(convertLabValue("INR", "12.5", "s"))).toBe(false)
+    expect(isConfidentConversion(convertLabValue("INR", "85", "%"))).toBe(false)
+  })
+})
+
+describe("small values and printed numbers", () => {
+  it("keeps a suppressed TSH or a low procalcitonin instead of rounding it to 0", () => {
+    expect(convertLabValue("TSH", "0.004", "mIU/L")).toMatchObject({ value: 0.004 })
+    expect(convertLabValue("Procalcitonin (PCT)", "0.004", "ng/mL")).toMatchObject({ value: 0.004 })
+    expect(convertLabValue("Creatinine", "0.3", "mg/dL")).toMatchObject({ value: 26.52 })
+  })
+
+  it("reads a decimal comma, and refuses a comma that may be a thousands separator", () => {
+    expect(convertLabValue("Glucose", "5,4", "mmol/L")).toMatchObject({ value: 5.4 })
+    expect(convertLabValue("TSH", "0,004", "mIU/L")).toMatchObject({ value: 0.004 })
+    expect(convertLabValue("NT-proBNP", "1,234", "ng/L").status).toBe("unparsable")
+    expect(convertLabValue("NT-proBNP", "1.234,5", "ng/L")).toMatchObject({ value: 1234.5 })
+    expect(convertLabValue("NT-proBNP", "1,234.5", "ng/L")).toMatchObject({ value: 1234.5 })
   })
 })

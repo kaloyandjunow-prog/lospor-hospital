@@ -246,6 +246,7 @@ export function dbPreopToForm(
     patientLastName:  undefined,
     patientId:        undefined,
     patientNationalId: undefined,
+    patientIdYear: undefined,
   }
 }
 
@@ -384,6 +385,7 @@ export function sectionPayload(
     delete clinicalPreop.patientLastName
     delete clinicalPreop.patientId
     delete clinicalPreop.patientNationalId
+    delete clinicalPreop.patientIdYear
     if (preop.preopMedicationInstructions) {
       clinicalPreop.preopMedicationInstructions = medicationInstructionsToSend(preop.preopMedicationInstructions)
     }

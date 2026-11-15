@@ -33,6 +33,10 @@ daily_file="$(mktemp "${TMPDIR:-/tmp}/lospor-daily-backups.XXXXXX")" || {
   rm -f -- "$list_file"
   exit 1
 }
+sorted_file="$(mktemp "${TMPDIR:-/tmp}/lospor-sorted-backups.XXXXXX")" || {
+  rm -f -- "$list_file" "$daily_file"
+  exit 1
+}
 lock_dir="$backup_dir/.lospor-backup.lock"
 lock_token="retention-${now_epoch}-$$"
 lock_owned=0
@@ -54,7 +58,7 @@ cleanup() {
     [ -e "$active_original" ] || mv "$active_trash" "$active_original" 2>/dev/null || true
   fi
   release_lock
-  rm -f -- "$list_file" "$daily_file"
+  rm -f -- "$list_file" "$daily_file" "$sorted_file"
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
@@ -82,6 +86,15 @@ if ! find "$backup_dir" -mindepth 1 -maxdepth 1 -type d \
   exit 1
 fi
 
+# A point already moved aside for pruning when the job was killed. It was
+# authenticated and chosen for removal under this same lock, and no pruner can
+# be running now, so finishing the removal is the decision already taken.
+if ! find "$backup_dir" -mindepth 1 -maxdepth 1 -type d \
+    -name '.prune-lospor-*.backup.*' -exec rm -rf -- {} \;; then
+  backup_error BACKUP_RETENTION_CLEANUP_FAILED
+  exit 1
+fi
+
 # Only authenticated manifest-last directories enter retention. Legacy flat
 # dumps, incomplete directories, symlinks, and objects with a bad MAC/checksum
 # remain visible for an operator and are never automatically destroyed.
@@ -99,7 +112,10 @@ for legacy in "$backup_dir"/lospor-*.dump "$backup_dir"/lospor-*.dump.sha256; do
 done
 
 valid_rank=0
-sort -nr "$list_file" | while IFS="$(printf '\t')" read -r completed_epoch object; do
+# Read from a file, not a pipe: a pipeline runs the loop in a subshell, where
+# the EXIT trap never saw active_trash and an "exit 1" only left the subshell.
+sort -nr "$list_file" > "$sorted_file"
+while IFS="$(printf '\t')" read -r completed_epoch object; do
   [ -n "$object" ] || continue
   valid_rank=$((valid_rank + 1))
 
@@ -164,4 +180,4 @@ sort -nr "$list_file" | while IFS="$(printf '\t')" read -r completed_epoch objec
     backup_error "BACKUP_RETENTION_CLEANUP_FAILED $object_name"
     exit 1
   fi
-done
+done < "$sorted_file"
