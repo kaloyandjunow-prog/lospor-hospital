@@ -44,10 +44,10 @@ export function izYearHint(choice: Pick<IzYearChoice, "reason" | "suggestedYear"
       return bg ? `Болничната система има данни за този номер от ${year} г.` : `The hospital system holds data for this number from ${year}.`
     case "high-number":
       return bg
-        ? `Номерът е по-голям, отколкото болницата достига до днес. Вероятно е от ${year} г.`
-        : `The number is higher than the hospital reaches by now. It is probably from ${year}.`
+        ? `Номерът на ИЗ е много по-голям от този, достигнат през тази година. Вероятно е от ${year} г.`
+        : `The record number is much higher than any reached this year. It is probably from ${year}.`
     default:
-      return bg ? "Номерата на ИЗ започват отначало всяка година. Проверете годината." : "Record numbers restart every year. Check the year."
+      return bg ? "Номерата на ИЗ започват от 1 всяка година." : "Record numbers start from 1 every year."
   }
 }
 
