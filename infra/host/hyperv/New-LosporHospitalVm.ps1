@@ -91,7 +91,13 @@ param(
   [switch] $ConfirmInstall,
   # Start the installation and return, instead of waiting to remove the media.
   [switch] $NoWait,
-  [ValidateRange(20, 600)] [int] $InstallTimeoutMinutes = 120
+  [ValidateRange(20, 600)] [int] $InstallTimeoutMinutes = 120,
+  # The hospital's proxy, http://host:port, when the server reaches the internet
+  # only through one: for Ubuntu's installer, apt, Docker and LOSPOR's updates.
+  [string] $Proxy,
+  # Names that never go through the proxy: the appliance's own (the wizard
+  # gives its clinical and research names).
+  [string[]] $Direct
 )
 
 Set-StrictMode -Version 2.0
@@ -506,9 +512,10 @@ if ($ConsolePassword) {
 }
 $composed = ConvertTo-LosporSeed -Seed (Get-Content -Raw -LiteralPath $SeedPath) -Bootstrap $bootstrap `
   -PasswordHash $passwordHash -AuthorizedKey $key -DiskPassphrase $diskPassphrase `
-  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword)
+  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword) -Proxy $Proxy -Direct $Direct
 $seed = $composed.Text
 if (-not $composed.CarriesBootstrap) { Write-Warning "The seed at $SeedPath has no place for the LOSPOR installer; the VM will not carry it." }
+if ($Proxy -and -not $composed.CarriesProxy) { Stop-Kit "The seed at $SeedPath has no place for the proxy." }
 if ($firstboot -and -not $composed.CarriesFirstboot) { Stop-Kit "The seed at $SeedPath has no place for the first-boot installation." }
 if (-not $composed.SetsPassword) {
   Write-Warning "The seed at $SeedPath sets its own console password."

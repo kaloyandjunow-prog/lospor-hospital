@@ -44,7 +44,7 @@ Bulgarian, and checks every answer before it creates anything:
 |---|---|---|
 | The virtual machine | name, network switch, cores, memory, disk, folder, disk encryption | the switches that exist (an External one first), this machine's processors and memory; 8 cores, 24 GB and 400 GB prefilled, never below 8, 16 and 256 |
 | Signing in to the server | the `lospor` password, an SSH public key (Browse for the `.pub` file, or paste it) | |
-| The hospital | clinical and research addresses, hospital name and city | whether both names are in DNS yet |
+| The hospital | clinical and research addresses, hospital name and city, and a proxy if the server reaches the internet only through one | whether both names are in DNS yet; the proxy must look like `http://proxy.hospital.bg:8080`, without a user name or password |
 | The certificate | the hospital's own authority (one `.pfx` and its password, or PEM certificate, key and CA), Let's Encrypt (an email), or local | whether the `.pfx` opens, covers both names, is valid for 30 more days and includes the root, or a CA file is needed |
 | The administrator | email, username, first and last name, password | the appliance's password rules |
 | Check and install | the Ubuntu ISO, or download it | offline when the complete release files are beside the kit, otherwise online, always the kit's own version |

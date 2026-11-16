@@ -93,9 +93,15 @@ test("the kit removes the installation media itself, and only after Ubuntu finis
   assert.match(kit, /erases the disk of any machine that boots from it/)
 })
 
+const dockerFingerprint = "9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+
 test("the seed installs the appliance's prerequisites with Docker's key pinned by full fingerprint", () => {
   assert.match(seed, /^#cloud-config\n/)
-  assert.match(seed, /keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88/)
+  // The key is carried, not fetched: gpg reaches keyservers on its own port and
+  // never through a proxy (1.11.1). A lookup by id would be back to that.
+  assert.doesNotMatch(seed.replace(/^\s*#.*$/gm, ""), /keyid:/)
+  assert.match(seed, /^        key: \|\n          -----BEGIN PGP PUBLIC KEY BLOCK-----$/m)
+  assert.match(seed, /^          -----END PGP PUBLIC KEY BLOCK-----$/m)
   for (const pkg of ["docker-ce", "docker-compose-plugin", "openssl", "curl", "python3", "gzip", "tar", "whiptail", "unattended-upgrades", "systemd-timesyncd"]) {
     assert.match(seed, new RegExp(`^    - ${pkg}$`, "m"), `${pkg} is not installed`)
   }
@@ -106,6 +112,19 @@ test("the seed installs the appliance's prerequisites with Docker's key pinned b
   // On 24.04 the installer writes the source as deb822 docker.sources.
   assert.match(seed, /sources=\/target\/etc\/apt\/sources\.list\.d\/docker\.sources/)
   assert.match(seed, /Signed-By: \/etc\/apt\/keyrings\/docker\.%s/)
+})
+
+test("the carried Docker key is the one with the pinned fingerprint, and only that key", { skip: spawnSync("gpg", ["--version"]).error ? "gpg is not installed" : false }, () => {
+  const lines = seed.split("\n")
+  const begin = lines.findIndex(line => line === "        key: |")
+  const end = lines.findIndex((line, index) => index > begin && line === "  packages:")
+  assert.ok(begin > 0 && end > begin, "the key block was not found")
+  const armored = lines.slice(begin + 1, end).map(line => line.replace(/^ {10}/, "")).join("\n")
+  const shown = spawnSync("gpg", ["--show-keys", "--with-colons", "--with-fingerprint"], { input: armored, encoding: "utf8" })
+  assert.equal(shown.status, 0, shown.stderr)
+  const rows = shown.stdout.split("\n")
+  assert.equal(rows.filter(row => row.startsWith("pub:")).length, 1, "more than one primary key is carried")
+  assert.equal(rows.find(row => row.startsWith("fpr:")).split(":")[9], dockerFingerprint, "the carried key is not the pinned one")
 })
 
 test("there is no shared password: the seed carries a placeholder it refuses to install with", () => {
@@ -437,6 +456,101 @@ test("Hyper-V's key-value items are read back as the first boot wrote them", { s
   assert.equal(output.trim(), "installed|https://lospor.hospital.bg/status/go-live|2")
 })
 
+// ── A hospital that goes out only through a proxy (1.11.1) ───────────────────
+
+test("the seed has one place for the proxy, filled only when the wizard gives one", () => {
+  assert.equal([...seed.matchAll(/^    # lospor-kit: proxy$/gm)].length, 1)
+  // After Docker's source is scoped to its key, before the installer is written.
+  assert.ok(seed.indexOf("# lospor-kit: proxy") > seed.indexOf("docker.sources"))
+  assert.ok(seed.indexOf("# lospor-kit: proxy") < seed.indexOf("# lospor-kit: bootstrap"))
+})
+
+test("a proxy is accepted as http(s)://host[:port] and nothing else", { skip: noPowershell }, () => {
+  const cases = [
+    ["http://proxy.hospital.bg:8080", "True"],
+    ["https://proxy.hospital.bg", "True"],
+    ["http://10.1.2.3:3128/", "True"],
+    ["proxy.hospital.bg:8080", "False"],
+    ["http://user:secret@proxy.hospital.bg:8080", "False"],
+    ["http://proxy.hospital.bg:99999", "False"],
+    ["http://proxy hospital:8080", "False"],
+    ["ftp://proxy.hospital.bg", "False"],
+    ["http://proxy.hospital.bg:8080/path", "False"],
+  ]
+  const output = runPowershell(cases.map(([value]) => `"$([bool] (Test-LosporProxy '${value}'))"`).join("\n")).trim().split("\n")
+  assert.deepEqual(output, cases.map(([, expected]) => expected))
+})
+
+test("the wizard checks the proxy with the server's rules, before anything is created", { skip: noPowershell }, () => {
+  const output = runPowershell([
+    '$base = @{ Locale = "bg"; ClinicalDomain = "lospor.hospital.bg"; ResearchDomain = "lospor-research.hospital.bg"; TlsMode = "local"; HospitalName = "H"; HospitalCity = "C"; AdminEmail = "a@h.bg"; AdminUsername = "admin"; AdminFirstName = "A"; AdminLastName = "B" }',
+    // The function returns its list wrapped once, so it is read through a variable.
+    '$none = Test-LosporInstallAnswers $base',
+    '"[$($none.Count)]"',
+    '$ok = Test-LosporInstallAnswers ($base + @{ Proxy = "http://proxy.hospital.bg:8080" })',
+    '"[$($ok.Count)]"',
+    '$bad = Test-LosporInstallAnswers ($base + @{ Proxy = "http://u:p@proxy.hospital.bg" })',
+    '"[$($bad.Count)] $($bad[0].Field)"',
+  ].join("\n")).trim().split("\n")
+  assert.deepEqual(output, ["[0]", "[0]", "[1] Proxy"])
+  assert.match(wizard, /Add-Field "Proxy"/)
+  assert.match(wizard, /\$kitArguments\.Proxy = /)
+})
+
+test("a proxy reaches Ubuntu's installer, apt, Docker, the first boot and the update agent, and sudo keeps it", { skip: noPowershell }, () => {
+  const directory = mkdtempSync(join(tmpdir(), "lospor-proxy-"))
+  try {
+    const seedPath = join(root, "infra/host/autoinstall/user-data")
+    const bootstrapPath = join(directory, "losporctl-install.sh")
+    writeFileSync(bootstrapPath, bootstrap)
+    const quote = value => `'${value.replaceAll("'", "''")}'`
+    const compose = extra => runPowershell([
+      `$r = ConvertTo-LosporSeed -Seed ([IO.File]::ReadAllText(${quote(seedPath)})) -Bootstrap ([IO.File]::ReadAllText(${quote(bootstrapPath)})) -PasswordHash '$6$salt$hash' ${extra}`,
+      '"$($r.CarriesProxy)"',
+      "[Console]::Out.Write($r.Text)",
+    ].join("\n"))
+    const withProxy = compose("-Proxy 'http://proxy.hospital.bg:8080/' -Direct @('lospor.hospital.bg','lospor-research.hospital.bg')")
+    const [flag, ...rest] = withProxy.split("\n")
+    const composed = rest.join("\n")
+    assert.equal(flag, "True")
+    assert.doesNotMatch(composed, /lospor-kit: proxy/)
+    // Ubuntu's installer itself goes out through it.
+    assert.match(composed, /^autoinstall:\n  version: 1\n  proxy: http:\/\/proxy\.hospital\.bg:8080$/m)
+    const decode = path => {
+      const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      const found = composed.match(new RegExp(`printf '%s' '([A-Za-z0-9+/=]+)' \\| base64 -d >>? ${escaped}`))
+      assert.ok(found, `${path} is not written`)
+      return Buffer.from(found[1], "base64").toString("utf8")
+    }
+    assert.equal(decode("/target/etc/apt/apt.conf.d/95lospor-proxy"),
+      'Acquire::http::Proxy "http://proxy.hospital.bg:8080";\nAcquire::https::Proxy "http://proxy.hospital.bg:8080";\n')
+    for (const service of ["docker.service", "firstboot-lospor.service", "lospor-update-agent.service"]) {
+      const unit = decode(`/target/etc/systemd/system/${service}.d/lospor-proxy.conf`)
+      assert.match(unit, /^\[Service\]\nEnvironment=/)
+      assert.match(unit, /"HTTPS_PROXY=http:\/\/proxy\.hospital\.bg:8080"/)
+      // The appliance's own names never go out: its health checks stay inside.
+      assert.match(unit, /"no_proxy=localhost,127\.0\.0\.1,::1,lospor\.hospital\.bg,lospor-research\.hospital\.bg"/)
+    }
+    assert.match(decode("/target/etc/environment"), /^https_proxy=http:\/\/proxy\.hospital\.bg:8080$/m)
+    // sudo clears the environment by default; a checked drop-in keeps the proxy,
+    // and a broken one stops the installation instead of leaving sudo broken.
+    assert.match(decode("/target/etc/sudoers.d/95-lospor-proxy"), /^Defaults env_keep \+= "http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY"$/m)
+    assert.match(composed, /chmod 0440 \/target\/etc\/sudoers\.d\/95-lospor-proxy\n\s+curtin in-target -- visudo -cf \/etc\/sudoers\.d\/95-lospor-proxy/)
+
+    // Without one, nothing about a proxy is left in the seed.
+    const without = compose("")
+    assert.match(without, /^False\n/)
+    assert.doesNotMatch(without, /lospor-kit: proxy|95lospor-proxy|^  proxy:/m)
+
+    // A proxy with a user name is refused: Ubuntu's installer keeps its seed in logs.
+    const refused = spawnSync(powershell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+      `. '${helper.replaceAll("'", "''")}'; ConvertTo-LosporSeed -Seed 'x' -Bootstrap 'y' -PasswordHash 'z' -Proxy 'http://u:p@proxy.hospital.bg'`], { encoding: "utf8" })
+    assert.notEqual(refused.status, 0)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 // ── A DHCP address that stays (1.11.1) ───────────────────────────────────────
 
 test("the VM keeps the MAC Ubuntu installed with, so a DHCP reservation holds", () => {
@@ -449,6 +563,7 @@ test("the VM keeps the MAC Ubuntu installed with, so a DHCP reservation holds", 
   // Someone who stopped waiting is told the same step.
   assert.match(kit, /\$manual \+= "   Set-VMNetworkAdapter -VMName/)
   // The end says which address to reserve, for which MAC, in the kit and the wizard.
+  assert.match(kit, /-Proxy \$Proxy -Direct \$Direct/)
   assert.match(kit, /Ask IT to reserve \$\(\$network\.Address\) in DHCP for MAC \$\(\$network\.Mac\)/)
   assert.match(wizard, /Помолете ИТ да резервира \$\(\$result\.address\) в DHCP за MAC \$\(\$result\.mac\)/)
   // And the server says it while it waits for DNS, when IT is adding the names.

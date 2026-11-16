@@ -4,6 +4,19 @@
 
 Installer only: nothing changes on an installed appliance. Install new sites with this kit.
 
+### Added
+
+- **A proxy for the installation** (the wizard's Hospital page, or `-Proxy http://proxy.hospital.bg:8080` on the
+  kit), for a hospital whose servers reach the internet only through one. Ubuntu's installer, apt (so also
+  **Update the server** in Status), Docker (the release images), the first installation and the update agent use it;
+  the clinical and research names stay direct, and `sudo` keeps the variables it would clear. It takes no user name
+  or password. A server installed earlier can be set by hand: Installation → Reaching the internet through a proxy.
+
+### Changed
+
+- **Docker's signing key is carried in the Ubuntu seed** instead of being fetched from a keyserver, which does not
+  use a proxy. A test checks it is the key with the pinned fingerprint, 9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88.
+
 ### Fixed
 
 - **The server's address could change after installation.** A VM from the Hyper-V kit takes its address from the
