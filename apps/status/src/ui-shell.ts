@@ -145,7 +145,13 @@ export function currentItem(path = ui().path): { group: NavGroup | null; item: N
   }
   if (current === "/status/control") return { group: NAV_GROUPS[2]!, item: NAV_GROUPS[2]!.items[0]! }
   const extra = EXTRA_PAGES.find(item => item.path === current)
-  return extra ? { group: null, item: extra } : null
+  if (extra) return { group: null, item: extra }
+  // A form's own address (/status/accounts/<id>/role, /status/terminology/actions)
+  // is not a page. A save answers on it, and the menus used to lose their place
+  // there: the group's submenu vanished right after "saved" (1.11.0). The page
+  // a form belongs to is the nearest one above its address.
+  const parent = current.slice(0, current.lastIndexOf("/"))
+  return parent.length > "/status".length ? currentItem(parent) : null
 }
 
 const label = (locale: StatusLocale, entry: { en: string; bg: string }) => locale === "bg" ? entry.bg : entry.en

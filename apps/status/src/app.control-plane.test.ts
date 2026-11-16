@@ -2116,6 +2116,32 @@ describe("the operating theatres (10.0.0)", () => {
     const refused = await post(app, cookie, "/status/control/operating-theatres", { action: "rename", id: "t1", name: "Зала 2" })
     expect(await refused.text()).toContain("Действаща зала вече има това име")
   })
+
+  // A save answers on the form's own address, which no menu knows: the group's
+  // submenu disappeared right after "saved", and the page lost its place in
+  // the menus (1.11.0).
+  it("keeps the menus on this page after a save", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withTheatres())
+    const cookie = await passwordCookie(app, auth)
+    const saved = await (await post(app, cookie, "/status/control/operating-theatres", { action: "add", name: "Зала 2" })).text()
+    expect(saved).toMatch(/<nav class="chips"[^>]*>.*<a href="\/status\/control\/theatres" aria-current="page">/)
+    expect(saved).toMatch(/<a href="\/status\/control\/preop"[^>]*>/)
+  })
+})
+
+describe("the preoperative form's menus after a save (1.11.0)", () => {
+  it("keeps the clinical submenu and the form's own tabs", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const saved = await (await app.request("/status/control/preop-sections", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ part: "sections", population: "ADULT", reason: "Ward agreed the change", password: "Initial password phrase1!" }).toString(),
+    })).text()
+    expect(controlPlane).toBeDefined()
+    expect(saved).toMatch(/<nav class="chips"[^>]*>.*<a href="\/status\/control\/preop" aria-current="page">/)
+  })
 })
 
 describe("the Legacy skin keeps up with the modern ones", () => {

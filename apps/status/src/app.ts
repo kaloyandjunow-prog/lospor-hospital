@@ -16,7 +16,7 @@ import {
 } from "./signals.js"
 import type { MaintenanceView, MedicationSearch, ReleaseView } from "./ui.js"
 import { PERIOP_LOGO_PNG } from "./brand.js"
-import { DEFAULT_SKIN, NAV_PATHS, STATUS_UI_SCRIPT, isLegacy, parseRange, parseSkin, parseTheme, withUi } from "./ui-shell.js"
+import { DEFAULT_SKIN, NAV_PATHS, STATUS_UI_SCRIPT, isLegacy, parseRange, parseSkin, parseTheme, ui, withUi } from "./ui-shell.js"
 import {
   PREOP_ORDER_SCRIPT,
   STATUS_NAV,
@@ -1254,7 +1254,11 @@ export function createStatusApp({
     const trend = section === "intraop/acceptance" ? await controlPlane.intraopAcceptance().catch(() => null) : undefined
     const cardPreview = section === "intraop/cards" && cardQuery ? await controlPlane.cardPreview(cardQuery).catch(() => null) : undefined
     const history = section === "history" && historyQuery ? await controlPlane.auditHistory(historyQuery).catch(() => null) : undefined
-    return renderControlPlane(
+    // The menus follow the page, not the address. A save answers on the
+    // form's own address (/status/control/preop-sections), which no menu
+    // knows, so the group's submenu disappeared right after "saved" (1.11.0).
+    // Every section is its page's address under /status/control.
+    return withUi({ ...ui(), path: section ? `/status/control/${section}` : ui().path }, () => renderControlPlane(
       current.view,
       locale,
       error ?? (current.error ? controlPlaneMessage(current.error, locale) : undefined),
@@ -1272,7 +1276,7 @@ export function createStatusApp({
       cardPreview,
       cardQuery,
       labScanDraft,
-    )
+    ))
   }
 
   // One unmapped medication code's search of the medication list, asked for
