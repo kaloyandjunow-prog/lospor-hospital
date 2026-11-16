@@ -121,8 +121,8 @@ describe("the vitals and typed-medication switches (1.11.0)", () => {
   it("shows them on the preop form, as each population has them, and not on the postop one", () => {
     const html = renderPreopSectionsEditor(withSwitches(), "bg")
     expect(html).toMatch(/name="vitals_required" value="true" checked data-testid="vitals-required-ADULT"/)
-    expect(html).toMatch(/name="vitals_required" value="true"  data-testid="vitals-required-PEDIATRIC"/)
-    expect(html).toMatch(/name="medications_free_text" value="true"  data-testid="medications-free-text-box-ADULT"/)
+    expect(html).toMatch(/name="vitals_required" value="true" {2}data-testid="vitals-required-PEDIATRIC"/)
+    expect(html).toMatch(/name="medications_free_text" value="true" {2}data-testid="medications-free-text-box-ADULT"/)
     expect(html).toMatch(/name="medications_free_text" value="true" checked data-testid="medications-free-text-box-PEDIATRIC"/)
     expect(renderPostopFormEditor(withSwitches(), "bg")).not.toContain("vitals_required")
     expect(preopSectionsShape(withSwitches())).toBe(true)
