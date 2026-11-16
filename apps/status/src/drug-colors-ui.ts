@@ -72,7 +72,7 @@ function drugRow(group: DrugColorGroupView, drug: DrugColorDrugView, query: Drug
   const kinds = [drug.bolus ? localize(locale, "bolus", "болус") : "", drug.infusion ? localize(locale, "infusion", "инфузия") : ""].filter(Boolean).join(" · ")
   const source = drug.color
     ? localize(locale, "own colour", "собствен цвят")
-    : group.color ? localize(locale, "group colour", "цвят на групата") : localize(locale, "bundled colour", "вграден цвят")
+    : group.color ? localize(locale, "group colour", "цвят на групата") : localize(locale, "bundled colour", "цвят по подразбиране")
   const english = locale === "bg" && drug.labelBg && drug.labelBg !== drug.name ? ` <span class="component-detail">${escapeHtml(drug.name)}</span>` : ""
   const inGroup = showGroup ? `<span class="component-detail">${groupLabel(group, locale)}</span>` : ""
   return `<li class="dc-row" data-drug="${escapeHtml(drug.name)}">${swatch(drugColor(group, drug))}<span class="dc-name"><strong>${drugLabel(drug, locale)}</strong>${english}${inGroup}<span class="component-detail">${kinds} · ${source}</span></span><a class="dc-change" href="${editHref("DRUG", drug.name, query)}">${localize(locale, "Change", "Промяна")}</a></li>`
@@ -93,18 +93,18 @@ function editor(view: DrugColorsView, target: Target, query: DrugColorsQuery, lo
   // What clearing gives: a drug follows its group, a group the bundled colour.
   const fallback = target.scope === "GROUP" ? target.group.bundledColor : target.group.color ?? target.drug.bundledColor
   const resetText = target.scope === "GROUP"
-    ? localize(locale, "The bundled colour", "Вграденият цвят")
-    : target.group.color ? localize(locale, "Follow the group's colour", "Цветът на групата") : localize(locale, "The bundled colour", "Вграденият цвят")
+    ? localize(locale, "The bundled colour", "Цветът по подразбиране")
+    : target.group.color ? localize(locale, "Follow the group's colour", "Цветът на групата") : localize(locale, "The bundled colour", "Цветът по подразбиране")
   const clear = query.q ? `${DRUG_COLORS_PATH}?${new URLSearchParams({ q: query.q }).toString()}` : DRUG_COLORS_PATH
   return `<div class="component dc-editor" id="${EDITOR}" data-testid="drug-color-editor"><h3>${title}</h3><p class="component-detail">${localize(locale, "Drawn now in", "Сега се показва в")} ${swatch(shown)} <span class="mono">${escapeHtml(shown)}</span>${target.scope === "DRUG" ? ` · ${localize(locale, "its bolus and its infusion alike", "еднакво за болус и инфузия")}` : ""}</p>
 <form method="post" action="${DRUG_COLORS_PATH}#${EDITOR}"><input type="hidden" name="scope" value="${target.scope}"><input type="hidden" name="name" value="${escapeHtml(name)}">
 <fieldset><legend>${localize(locale, "Palette", "Палитра")}</legend><div class="dc-palette">${palette}</div></fieldset>
-<fieldset><legend>${localize(locale, "Or a colour of your own", "Или свой цвят")}</legend><label class="check"><input type="radio" name="choice" value="custom"${own !== null && !inPalette ? " checked" : ""}> ${localize(locale, "This colour", "Този цвят")} <input class="dc-custom" type="color" name="custom" value="${escapeHtml(own ?? shown)}" aria-label="${localize(locale, "Your own colour", "Свой цвят")}"></label></fieldset>
+<fieldset><legend>${localize(locale, "Or a colour of your own", "Или собствен цвят")}</legend><label class="check"><input type="radio" name="choice" value="custom"${own !== null && !inPalette ? " checked" : ""}> ${localize(locale, "This colour", "Този цвят")} <input class="dc-custom" type="color" name="custom" value="${escapeHtml(own ?? shown)}" aria-label="${localize(locale, "Your own colour", "Собствен цвят")}"></label></fieldset>
 <label class="check"><input type="radio" name="choice" value="reset"${own === null ? " checked" : ""}> ${resetText} ${swatch(fallback)}</label>
 <p class="component-detail">${localize(locale,
     "Any colour is drawn so its text stays readable: a pale one is shown darker in the light theme, a deep one lighter in the dark theme.",
-    "Всеки цвят се изобразява така, че текстът да остане четим: светъл цвят се показва по-тъмен в светлата тема, а тъмен — по-светъл в тъмната.")}</p>
-<button type="submit">${localize(locale, "Save the colour", "Запазване на цвета")}</button> <a class="dc-close" href="${escapeHtml(clear)}">${localize(locale, "Close", "Затваряне")}</a></form></div>`
+    "Цветът се коригира автоматично, за да остане текстът четим в светлата и тъмната тема.")}</p>
+<button type="submit">${localize(locale, "Save the colour", "Запазване")}</button> <a class="dc-close" href="${escapeHtml(clear)}">${localize(locale, "Close", "Затваряне")}</a></form></div>`
 }
 
 function matches(text: string | null | undefined, query: string): boolean {
@@ -115,9 +115,9 @@ function matches(text: string | null | undefined, query: string): boolean {
 export function renderDrugColorsPage(view: DrugColorsView | null | undefined, locale: StatusLocale, query: DrugColorsQuery = {}): string {
   const intro = `<p>${localize(locale,
     "The colour of each drug on the intraoperative chart and in its menus, on the web and on the phone. A drug takes its group's colour unless it has one of its own; its bolus and its infusion share it. No case records a colour: every case, earlier ones too, is drawn in the colours set here.",
-    "Цветът на всяко лекарство в интраоперативната карта и в менютата ѝ, в уеб и на телефона. Лекарството приема цвета на групата си, освен ако няма собствен; болусът и инфузията му го споделят. Нито един случай не записва цвят: всеки случай, включително по-ранните, се показва в цветовете, зададени тук.")}</p>`
+    "Цветът на всяко лекарство в интраоперативната карта и менютата ѝ, в уеб и на телефона. Лекарството взема цвета на групата си, освен ако няма собствен; болусът и инфузията са с един цвят. Цветът не се записва в случая: всички случаи, и по-старите, се показват с цветовете, зададени тук.")}</p>`
   if (!view) {
-    return `<div class="component" id="drug-colors">${intro}<div class="empty">${localize(locale, "This API does not offer the drug colours yet.", "Този API още не предлага цветовете на лекарствата.")}</div></div>`
+    return `<div class="component" id="drug-colors">${intro}<div class="empty">${localize(locale, "This API does not offer the drug colours yet.", "Не е налично в тази версия.")}</div></div>`
   }
   const q = (query.q ?? "").trim().slice(0, 100)
   const needle = q.toLocaleLowerCase("bg")
