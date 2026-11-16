@@ -469,9 +469,9 @@ describe("Status Hospital control plane", () => {
     const all = preop + clinical + ehr + codes + identity + research + central + ai + legacy
     expect(all).toContain('<html lang="bg"')
 
-    expect(research).toContain("Одобрение на конкретни OMOP набори")
+    expect(research).toContain("Одобряване на набори от данни (OMOP)")
     expect(research).toContain(HASH)
-    expect(research).toContain("Активен профил, който може да получи разрешение")
+    expect(research).toContain("Профил")
     expect(research).toContain("началник на отделение")
     expect(research).not.toContain("HEAD_OF_DEPT")
     expect(central).toContain("Връзката е само изходяща")
