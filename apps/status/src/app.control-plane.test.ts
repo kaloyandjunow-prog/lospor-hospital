@@ -629,7 +629,7 @@ describe("Status Hospital control plane", () => {
     for (const part of [adults, kids]) {
       expect(part).not.toContain("data-stable-key=\"" + base.stableKey + "\"")
       expect(part).toContain("type=\"hidden\" name=\"order_" + base.stableKey + "\" value=\"0\"")
-      expect(part).toContain("Постоянно място във формуляра")
+      expect(part).toContain("Фиксирано място във формата")
     }
     // Required for children, not for adults.
     expect(kids).toContain("name=\"required_" + base.stableKey + "\" value=\"true\" checked")
@@ -664,7 +664,7 @@ describe("Status Hospital control plane", () => {
     expect(adults).toContain("name=\"enabled_A15_FUNCTIONAL_STATUS\" value=\"true\" checked")
     expect(kids).not.toContain("score_GUPTA")
     // Only one of the two on: Status says Gupta is not drawn anywhere.
-    expect(adults).toContain("data-testid=\"score-partial-GUPTA\">Включени са само част от тези въпроси, затова Gupta не се изчислява и не се показва никъде.")
+    expect(adults).toContain("data-testid=\"score-partial-GUPTA\">Включени са само част от въпросите на Gupta, затова скорът не се изчислява.")
     expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-switch")
     expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-partial")
 
