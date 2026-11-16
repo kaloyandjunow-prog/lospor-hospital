@@ -494,7 +494,7 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   "host-services": "Услуги на сървъра",
   "host-restore-lock": "Заключване при възстановяване",
   "host-activation-lock": "Заключване при активиране на версия",
-  "update-supply": "Канал за обновявания",
+  "update-supply": "Начин на обновяване",
   migrations: "Миграции на базата данни",
   "research-storage": "Място за изследователски експорти",
   email: "Системна електронна поща",
@@ -2829,7 +2829,7 @@ function hostOsSection(
     boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
     verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
   }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на обновяванията сега"))}</div>`
-  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши обновяванията.") : localize(locale, "Ubuntu does not need a restart right now.", "Не е нужно рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "Сървърът се рестартира сам в прозореца за обновявания, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За автоматично рестартиране изберете „В прозореца за обновявания“ в „Настройки на инсталацията“.")}</div>${actionFacts({
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши обновяванията.") : localize(locale, "Ubuntu does not need a restart right now.", "Не е нужно рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "Сървърът се рестартира сам в прозореца за обновявания, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За автоматично рестартиране изберете „Автоматично, в прозореца за обновявания“ в „Настройки на инсталацията“.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a successful backup.", "Работеща услуга за поддръжка и успешно резервно копие."],
     outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: лекарите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът не се върне."],
     backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверено резервно копие; ако то не успее, сървърът не се рестартира."],
@@ -2897,15 +2897,15 @@ function supportBundleSection(
 ): string {
   const bundle = view.supportBundle
   const current = bundle
-    ? `<div class="facts">${releaseFact(localize(locale, "Last bundle written", "Последен пакет"), `${bundle.createdAt} · ${bundle.release}`)}</div><p><a href="/status/maintenance/support-bundle">${localize(locale, "Download the support bundle", "Изтегляне на пакета за поддръжка")}</a></p>`
-    : `<div class="empty">${localize(locale, "No support bundle has been written yet.", "Все още няма създаден пакет за поддръжка.")}</div>`
-  return `<section class="section" aria-labelledby="maintenance-support"><h2 id="maintenance-support">${localize(locale, "Support bundle", "Пакет за поддръжка")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "A file for LOSPOR support with versions, states, times and check results only: no patients, cases, accounts, names, addresses or secrets. Read it before you send it.", "Файл за поддръжката на LOSPOR само с версии, състояния, часове и резултати от проверки: без пациенти, случаи, профили, имена, адреси, ключове или пароли. Прегледайте го, преди да го изпратите.")}</div>${actionFacts({
+    ? `<div class="facts">${releaseFact(localize(locale, "Last bundle written", "Последен пакет"), `${bundle.createdAt} · ${bundle.release}`)}</div><p><a href="/status/maintenance/support-bundle">${localize(locale, "Download the support bundle", "Изтегляне на пакета")}</a></p>`
+    : `<div class="empty">${localize(locale, "No support bundle has been written yet.", "Още няма пакет за поддръжка.")}</div>`
+  return `<section class="section" aria-labelledby="maintenance-support"><h2 id="maintenance-support">${localize(locale, "Support bundle", "Пакет за поддръжка")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "A file for LOSPOR support with versions, states, times and check results only: no patients, cases, accounts, names, addresses or secrets. Read it before you send it.", "Файл за екипа по поддръжка: версии, състояния и резултати от проверки, без пациентски данни, имена, ключове и пароли. Прегледайте го, преди да го изпратите.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent.", "Работеща услуга за поддръжка."],
     outage: ["None. The full health check runs, so the server is busier for a minute.", "Няма. Изпълнява се пълната проверка, затова сървърът е по-натоварен около минута."],
     backup: ["No.", "Не."],
     boundary: ["Nothing. Only the newest bundle is offered here.", "Нищо. Тук се предлага само най-новият пакет."],
     verification: ["The file is offered for download once written.", "Файлът може да се изтегли, след като бъде създаден."],
-  }, locale)}${actionForm("support-bundle", localize(locale, "Write a support bundle", "Създаване на пакет за поддръжка"))}${current}</div></div></section>`
+  }, locale)}${actionForm("support-bundle", localize(locale, "Write a support bundle", "Създаване на пакет"))}${current}</div></div></section>`
 }
 
 const ADVANCED_UNIT: Record<AdvancedUnit, { en: string; bg: string }> = {
@@ -2942,7 +2942,7 @@ function advancedSection(view: MaintenanceView, disabledReason: string, locale: 
   const form = view.mayManage
     ? `<form method="post" action="/status/maintenance/advanced/preview"><div class="form-grid">${rows}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form><form method="post" action="/status/maintenance/advanced/preview"><input type="hidden" name="reset" value="all"><button type="submit">${localize(locale, "Return every value to its default", "Връщане на всички стойности по подразбиране")}</button></form>`
     : `<div class="form-grid">${rows}</div><p class="component-detail">${escapeHtml(disabledReason)}</p>`
-  return `<section class="section" aria-labelledby="maintenance-advanced"><h2 id="maintenance-advanced">${localize(locale, "Advanced settings", "Разширени настройки")}</h2><div class="card"><details class="component"${overridden > 0 ? " open" : ""}><summary class="component-name">${overridden > 0 ? localize(locale, `${overridden} value(s) differ from the defaults`, `Различни от стойностите по подразбиране: ${overridden}`) : localize(locale, "Every value is the release default", "Всички стойности са по подразбиране")}</summary><p class="component-detail">${localize(locale, "Defaults suit most hospitals. Change these only for a reason you can write down: each value can only be set within limits that keep backups and safety policies intact. Console: sudo losporctl config advanced", "Стойностите по подразбиране са подходящи за повечето болници. Променяйте ги само по причина, която можете да запишете: всяка стойност може да се задава само в граници, които не нарушават резервните копия и правилата за безопасност. Конзола: sudo losporctl config advanced")}</p>${facts}${form}</details></div></section>`
+  return `<section class="section" aria-labelledby="maintenance-advanced"><h2 id="maintenance-advanced">${localize(locale, "Advanced settings", "Разширени настройки")}</h2><div class="card"><details class="component"${overridden > 0 ? " open" : ""}><summary class="component-name">${overridden > 0 ? localize(locale, `${overridden} value(s) differ from the defaults`, `Различни от стойностите по подразбиране: ${overridden}`) : localize(locale, "Every value is the release default", "Всички стойности са по подразбиране")}</summary><p class="component-detail">${localize(locale, "Defaults suit most hospitals. Change these only for a reason you can write down: each value can only be set within limits that keep backups and safety policies intact. Console: sudo losporctl config advanced", "Стойностите по подразбиране са подходящи за повечето болници. Променяйте ги само с причина; границите пазят резервните копия и безопасността. Конзола: sudo losporctl config advanced")}</p>${facts}${form}</details></div></section>`
 }
 
 export function renderAdvancedConfirm(
@@ -2963,7 +2963,7 @@ export function renderAdvancedConfirm(
     .map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`).join("")
   return page(
     localize(locale, "Apply these advanced settings?", "Да се приложат ли тези разширени настройки?"),
-    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm advanced settings", "Потвърждаване на разширените настройки")}</div></div></header><main><section class="section" aria-labelledby="advanced-confirm"><h2 id="advanced-confirm">${localize(locale, "These values will change", "Тези стойности ще се променят")}</h2><div class="card">${rows}<div class="component"><p>${localize(locale, "Only the services these values belong to restart, usually for under a minute. The health check runs afterwards, and if it fails the previous values are restored automatically.", "Рестартират се само услугите, до които се отнасят стойностите, обикновено за по-малко от минута. След това се изпълнява проверка на системата и ако тя не успее, предишните стойности се връщат автоматично.")}</p><form method="post" action="/status/maintenance/advanced/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("advanced-password", locale)}<button type="submit">${localize(locale, "Apply these values", "Прилагане на стойностите")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm advanced settings", "Потвърждаване на разширените настройки")}</div></div></header><main><section class="section" aria-labelledby="advanced-confirm"><h2 id="advanced-confirm">${localize(locale, "These values will change", "Тези стойности ще се променят")}</h2><div class="card">${rows}<div class="component"><p>${localize(locale, "Only the services these values belong to restart, usually for under a minute. The health check runs afterwards, and if it fails the previous values are restored automatically.", "Засегнатите услуги се рестартират (обикновено под минута). Ако проверката след това не успее, предишните стойности се връщат автоматично.")}</p><form method="post" action="/status/maintenance/advanced/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("advanced-password", locale)}<button type="submit">${localize(locale, "Apply these values", "Прилагане")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
     locale,
   )
 }
@@ -2971,7 +2971,7 @@ export function renderAdvancedConfirm(
 function settingsSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
   const title = `<h2 id="maintenance-settings">${localize(locale, "Site settings", "Настройки на инсталацията")}</h2>`
   if (!view.settings) {
-    return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="empty">${localize(locale, "The host has not reported the site settings.", "Сървърът не е отчел настройките на инсталацията.")}</div></div></section>`
+    return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="empty">${localize(locale, "The host has not reported the site settings.", "Настройките не могат да се заредят.")}</div></div></section>`
   }
   const settings = view.settings.settings
   const unrepresentable = Object.values(settings).some(setting => setting.value === null)
@@ -2986,12 +2986,12 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
   }, locale)
   const networks = networkListsState(view.settings)
   const networkNotes = [
-    networks?.statusOpenToAllPrivate ? localize(locale, "Status can be opened from every internal hospital network, as installed. Enter the IT management networks below; the computer you are using must be in the list.", "По подразбиране Status се отваря от всяка вътрешна мрежа на болницата. Въведете по-долу мрежите за ИТ управление; компютърът, който използвате, трябва да е в списъка.") : "",
-    networks?.researchClosed ? localize(locale, `The Research website is closed (${RESEARCH_CLOSED}), as installed. Enter the Research or VPN networks below to open it.`, `Сайтът за изследвания е затворен (${RESEARCH_CLOSED}) по подразбиране. Въведете по-долу мрежите за изследвания или VPN, за да го отворите.`) : "",
+    networks?.statusOpenToAllPrivate ? localize(locale, "Status can be opened from every internal hospital network, as installed. Enter the IT management networks below; the computer you are using must be in the list.", "По подразбиране Status се отваря от всяка вътрешна мрежа на болницата. Ограничете го до мрежите за ИТ управление; компютърът, от който работите, трябва да е в списъка.") : "",
+    networks?.researchClosed ? localize(locale, `The Research website is closed (${RESEARCH_CLOSED}), as installed. Enter the Research or VPN networks below to open it.`, `Сайтът за изследвания е затворен по подразбиране. Въведете мрежите за изследвания или VPN, за да го отворите.`) : "",
   ].filter(Boolean).map(note => `<p class="component-detail"><b>${escapeHtml(note)}</b></p>`).join("")
   let form: string
   if (unrepresentable) {
-    form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Една от настройките на сървъра не може да се покаже тук точно, затова настройките се променят от конзолата: sudo losporctl config plan.")}</p>`
+    form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Една от настройките не може да се покаже тук, затова промените се правят от конзолата: sudo losporctl config plan.")}</p>`
   } else if (!view.mayManage) {
     // Read-only, not invisible. Replacing the whole form with the reason meant
     // that the moment a session could not change the settings it could not see
@@ -3042,14 +3042,14 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
           break
         case "supply":
           control = select(placeholder(["connected", "offline"])
-            + option("connected", localize(locale, "Connected to the internet", "Свързан с интернет"))
-            + option("offline", localize(locale, "Offline, from media", "Без интернет, от носител")))
+            + option("connected", localize(locale, "Over the internet", "През интернет"))
+            + option("offline", localize(locale, "Offline (from a USB medium)", "Без интернет (от USB носител)")))
           break
         case "reboot-policy":
           // Blank is a real answer here, so it is an option rather than a gap.
           control = select(option("", localize(locale, "Not set", "Не е зададено"))
-            + option("manual", localize(locale, "Only by hand", "Само ръчно"))
-            + option("window", localize(locale, "Inside the update window", "В прозореца за обновявания")))
+            + option("manual", localize(locale, "By hand", "Ръчно"))
+            + option("window", localize(locale, "Automatically, in the update window", "Автоматично, в прозореца за обновявания")))
           break
         case "time":
           control = `<input id="${id}" name="${setting.key}" type="time" value="${escapeHtml(value)}" autocomplete="off">`
@@ -3088,11 +3088,11 @@ export function renderSettingsConfirm(
   const hidden = EDITABLE_SETTINGS.filter(setting => submitted[setting.key] !== undefined)
     .map(setting => `<input type="hidden" name="${setting.key}" value="${escapeHtml(submitted[setting.key]!)}">`).join("")
   const networks = proposal.changes.some(change => change.key.endsWith("_CIDRS"))
-    ? `<div class="banner warn" role="alert"><strong>${localize(locale, "Network lists decide who can open the site. The computer you are using now stays allowed, but check every other computer that needs access.", "Списъците с мрежи определят кой може да отваря сайта. Компютърът, който използвате сега, остава разрешен, но проверете всеки друг компютър, който трябва да има достъп.")}</strong></div>`
+    ? `<div class="banner warn" role="alert"><strong>${localize(locale, "Network lists decide who can open the site. The computer you are using now stays allowed, but check every other computer that needs access.", "Мрежите определят кой може да отваря сайта. Този компютър остава разрешен; проверете дали всички други, които трябва да имат достъп, са в списъка.")}</strong></div>`
     : ""
   return page(
     localize(locale, "Apply these settings?", "Да се приложат ли тези настройки?"),
-    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm settings change", "Потвърждаване на промяната")}</div></div></header><main><section class="section" aria-labelledby="settings-confirm"><h2 id="settings-confirm">${localize(locale, "These settings will change", "Тези настройки ще се променят")}</h2><div class="card">${rows}<div class="component">${networks}<p>${localize(locale, "Services whose settings change restart, usually for under a minute. The health check runs afterwards, and if it fails the previous settings are restored automatically.", "Услугите с променени настройки се рестартират, обикновено за по-малко от минута. След това се изпълнява проверка на системата и ако тя не успее, предишните настройки се връщат автоматично.")}</p><form method="post" action="/status/maintenance/settings/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("settings-password", locale)}<button type="submit">${localize(locale, "Apply these settings", "Прилагане на настройките")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm settings change", "Потвърждаване на промяната")}</div></div></header><main><section class="section" aria-labelledby="settings-confirm"><h2 id="settings-confirm">${localize(locale, "These settings will change", "Тези настройки ще се променят")}</h2><div class="card">${rows}<div class="component">${networks}<p>${localize(locale, "Services whose settings change restart, usually for under a minute. The health check runs afterwards, and if it fails the previous settings are restored automatically.", "Засегнатите услуги се рестартират (обикновено под минута). Ако проверката след това не успее, предишните настройки се връщат автоматично.")}</p><form method="post" action="/status/maintenance/settings/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("settings-password", locale)}<button type="submit">${localize(locale, "Apply these settings", "Прилагане")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
     locale,
   )
 }
