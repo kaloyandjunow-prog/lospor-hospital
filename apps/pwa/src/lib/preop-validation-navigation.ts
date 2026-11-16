@@ -1,5 +1,5 @@
 import type { PreopSection } from "@/lib/preop-form-schema"
-import { evaluatePreopReadiness, validatePreopPatch } from "@lospor/core/clinical-validation"
+import { evaluatePreopReadiness, validatePreopPatch, type PreopVitalsRequirement } from "@lospor/core/clinical-validation"
 
 export const PREOP_REQUIRED_FIELD_SECTION: Record<string, PreopSection> = {
   ageYears: "patient",
@@ -40,8 +40,8 @@ export function preopInvalidSubmitMessage(
  * procedure, vitals and Mallampati came one notice later (found on the
  * appliance, 1.5.0). Core is asked directly here and the two lists merged.
  */
-export function preopMissingFieldKeys(invalidKeys: string[], values: Record<string, unknown>): string[] {
-  const core = [...validatePreopPatch(values).issues, ...evaluatePreopReadiness(values).issues]
+export function preopMissingFieldKeys(invalidKeys: string[], values: Record<string, unknown>, vitals?: PreopVitalsRequirement): string[] {
+  const core = [...validatePreopPatch(values).issues, ...evaluatePreopReadiness(values, vitals).issues]
     .map(issue => issue.path[0])
     .filter((key): key is string => Boolean(key))
   const order = Object.keys(PREOP_REQUIRED_FIELD_SECTION)

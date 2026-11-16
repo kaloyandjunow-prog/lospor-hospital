@@ -262,7 +262,7 @@ export const SECRETS_ESCROW_PROPOSAL_FILE = "secrets-escrow.passphrase.v1"
 
 export type MaintenanceRequest = {
   requestId: string
-  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
+  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-check" | "os-update" | "os-upgrade" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
   /** Pseudonymous Status-operator provenance, derived by Status itself. */
   operatorRef: string
   /** The complete proposed site.env, advanced.env or off-host destination, or the escrow passphrase, for those four only. */
@@ -285,7 +285,7 @@ export async function submitMaintenanceRequest(
   now: number,
 ): Promise<"submitted" | "already-pending"> {
   if (!/^[a-f0-9]{32}$/.test(request.requestId)
-    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered)$/.test(request.action)
+    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-check|os-update|os-upgrade|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered)$/.test(request.action)
     || !/^status-operator-[a-f0-9]{16}$/.test(request.operatorRef)
     || (request.action === "config" || request.action === "advanced" || request.action === "offhost-config" || request.action === "secrets-escrow") !== (request.proposal !== undefined)
     || (request.action === "secrets-escrow-delivered") !== (request.delivered !== undefined)

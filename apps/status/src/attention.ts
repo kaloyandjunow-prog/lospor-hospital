@@ -48,7 +48,7 @@ export function attentionItems(input: {
   const add = (item: AttentionItem) => { if (!items.some(existing => existing.id === item.id)) items.push(item) }
 
   if (status("host-activation-lock") === "outage" || code("host-restore-lock") === "HOST_RESTORE_LOCK_INVALID") {
-    add({ id: "recovery", level: "now", en: "An update or restore stopped part way. Nothing else should be changed until Hospital IT has looked.", bg: "Актуализация или възстановяване спря по средата. Не променяйте нищо друго, докато ИТ отделът не провери.", href: OVERVIEW, actionEn: "Hospital IT: sudo losporctl status", actionBg: "ИТ отдел: sudo losporctl status" })
+    add({ id: "recovery", level: "now", en: "An update or restore stopped part way. Nothing else should be changed until Hospital IT has looked.", bg: "Обновяване или възстановяване спря по средата. Не променяйте нищо друго, докато ИТ отделът не провери.", href: OVERVIEW, actionEn: "Hospital IT: sudo losporctl status", actionBg: "ИТ отдел: sudo losporctl status" })
   }
   if (input.maintenance?.phase === "needs-operator") {
     add({ id: "maintenance-stopped", level: "now", en: "A maintenance operation stopped and needs Hospital IT at the console.", bg: "Операция по поддръжка спря и ИТ отделът трябва да провери конзолата.", href: MAINTENANCE, actionEn: "See Maintenance", actionBg: "Вижте „Поддръжка“" })
@@ -58,7 +58,7 @@ export function attentionItems(input: {
     add({ id: "services-down", level: "now", en: "Some appliance services are not running.", bg: "Някои услуги на системата не работят.", href: OVERVIEW, actionEn: "Hospital IT: sudo losporctl status", actionBg: "ИТ отдел: sudo losporctl status" })
   }
   if (code("host-storage") === "HOST_STORAGE_CRITICAL") {
-    add({ id: "disk", level: "now", en: "The server is almost out of disk space. Backups and updates will stop.", bg: "На сървъра почти няма свободно място. Резервните копия и актуализациите ще спрат.", href: OVERVIEW, actionEn: "Hospital IT: free space or add disk", actionBg: "ИТ отдел: освободете място или добавете диск" })
+    add({ id: "disk", level: "now", en: "The server is almost out of disk space. Backups and updates will stop.", bg: "На сървъра почти няма свободно място. Резервните копия и обновяванията ще спрат.", href: OVERVIEW, actionEn: "Hospital IT: free space or add disk", actionBg: "ИТ отдел: освободете място или добавете диск" })
   } else if (code("host-storage") === "HOST_STORAGE_LOW") {
     add({ id: "disk", level: "soon", en: "Disk space on the server is getting low.", bg: "Свободното място на сървъра намалява.", href: OVERVIEW, actionEn: "Hospital IT: plan more disk", actionBg: "ИТ отдел: предвидете още дисково пространство" })
   }
@@ -82,17 +82,17 @@ export function attentionItems(input: {
   }
   const escrow = code("key-escrow")
   if (escrow === "KEY_ESCROW_STALE" || escrow === "KEY_ESCROW_EVIDENCE_INVALID") {
-    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхраненото копие на тайните вече не съответства на използваните ключове. Направете ново копие.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create a new escrow copy", actionBg: "Създаване на ново копие на тайните" })
+    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхраненото копие на ключовете и паролите вече не съответства на използваните ключове. Направете ново копие.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create a new escrow copy", actionBg: "Създаване на ново копие на ключовете и паролите" })
   } else if (escrow === "KEY_ESCROW_MISSING") {
-    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Инсталационните тайни не са копирани извън сървъра.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create the escrow copy", actionBg: "Създаване на копие на тайните" })
+    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Ключовете и паролите на инсталацията не са копирани извън сървъра.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create the escrow copy", actionBg: "Създаване на копие" })
   }
   // Every secret left the appliance in that file. Shown for a week, so a copy
   // nobody expected is noticed by whoever opens Status next.
   if (input.escrowDownloadedAt != null && input.now - input.escrowDownloadedAt <= 7 * DAY_MS) {
-    add({ id: "escrow-downloaded", level: "note", en: `A secrets escrow copy was downloaded from Status on ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. If nobody at the hospital expected it, treat it as a security incident.`, bg: `Копие на тайните е изтеглено от Status на ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. Ако никой в болницата не го е очаквал, третирайте го като инцидент със сигурността.`, href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "See Secrets escrow", actionBg: "Вижте „Резервно копие на тайните“" })
+    add({ id: "escrow-downloaded", level: "note", en: `A secrets escrow copy was downloaded from Status on ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. If nobody at the hospital expected it, treat it as a security incident.`, bg: `Копие на ключовете и паролите е изтеглено от Status на ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. Ако никой в болницата не го е очаквал, третирайте го като инцидент със сигурността.`, href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "See Secrets escrow", actionBg: "Вижте „Копие на ключовете и паролите“" })
   }
   if (status("host-update-agent") === "degraded" || status("update-agent") === "outage" || status("update-agent") === "degraded") {
-    add({ id: "agent", level: "today", en: "The host maintenance agent is not working, so updates and Maintenance requests will not run.", bg: "Агентът за поддръжка на сървъра не работи, затова актуализациите и заявките от „Поддръжка“ няма да се изпълняват.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Актуализации“" })
+    add({ id: "agent", level: "today", en: "The host maintenance agent is not working, so updates and Maintenance requests will not run.", bg: "Услугата за поддръжка на сървъра не работи, затова обновяванията и заявките от „Поддръжка“ няма да се изпълняват.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Обновявания“" })
   }
   for (const component of ["retention", "case-close"] as const) {
     if (status(component) === "outage") {
@@ -101,7 +101,7 @@ export function attentionItems(input: {
   }
   const update = code("appliance-update")
   if (update === "UPDATE_AVAILABLE" || update === "UPDATE_DOWNLOADED_READY_TO_APPLY") {
-    add({ id: "release", level: "soon", en: "A new LOSPOR release is available.", bg: "Налична е нова версия на LOSPOR.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Актуализации“" })
+    add({ id: "release", level: "soon", en: "A new LOSPOR release is available.", bg: "Налична е нова версия на LOSPOR.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Обновявания“" })
   }
 
   const hostOs = input.hostOs
@@ -113,17 +113,17 @@ export function attentionItems(input: {
     add({ id: "os-support", level: "soon", en: "Standard support for this Ubuntu release ends within six months.", bg: "Стандартната поддръжка на тази версия на Ubuntu приключва до шест месеца.", href: osHref, actionEn: "See Ubuntu", actionBg: "Вижте Ubuntu" })
   }
   if (os === "HOST_OS_AUTOMATIC_UPDATES_OFF" || os === "HOST_OS_AUTOMATIC_UPDATES_FAILED") {
-    add({ id: "os-automatic", level: "today", en: "Ubuntu's automatic security updates are off or failing.", bg: "Автоматичните актуализации за сигурност на Ubuntu са изключени или не успяват.", href: osHref, actionEn: "Install security updates now", actionBg: "Инсталиране на актуализациите сега" })
+    add({ id: "os-automatic", level: "today", en: "Ubuntu's automatic security updates are off or failing.", bg: "Автоматичните обновявания за сигурност на Ubuntu са изключени или не успяват.", href: osHref, actionEn: "Install security updates now", actionBg: "Инсталиране на обновяванията сега" })
   }
   if (os === "HOST_OS_SECURITY_UPDATES_PENDING") {
-    add({ id: "os-updates", level: "today", en: `${hostOs?.securityUpdates ?? "Some"} Ubuntu security updates are waiting.`, bg: `Чакат ${hostOs?.securityUpdates ?? "няколко"} актуализации за сигурност на Ubuntu.`, href: osHref, actionEn: "Install security updates now", actionBg: "Инсталиране на актуализациите сега" })
+    add({ id: "os-updates", level: "today", en: `${hostOs?.securityUpdates ?? "Some"} Ubuntu security updates are waiting.`, bg: `Чакат ${hostOs?.securityUpdates ?? "няколко"} обновявания за сигурност на Ubuntu.`, href: osHref, actionEn: "Install security updates now", actionBg: "Инсталиране на обновяванията сега" })
   }
   if (hostOs?.rebootRequired && os !== "HOST_OS_REBOOT_SCHEDULED") {
     const since = hostOs.rebootRequiredSince ? input.now - Date.parse(hostOs.rebootRequiredSince) : 0
-    add({ id: "os-reboot", level: since > 7 * DAY_MS ? "today" : "soon", en: "Ubuntu needs a server restart to finish installing updates.", bg: "Ubuntu трябва да рестартира сървъра, за да завърши актуализациите.", href: osHref, actionEn: "Restart the server", actionBg: "Рестартиране на сървъра" })
+    add({ id: "os-reboot", level: since > 7 * DAY_MS ? "today" : "soon", en: "Ubuntu needs a server restart to finish installing updates.", bg: "Ubuntu трябва да рестартира сървъра, за да завърши обновяванията.", href: osHref, actionEn: "Restart the server", actionBg: "Рестартиране на сървъра" })
   }
   if (hostOs?.dockerUpdates) {
-    add({ id: "os-docker", level: "note", en: "Docker has updates. They restart every service, so Hospital IT installs them in the maintenance window.", bg: "Има актуализации за Docker. Те рестартират всички услуги, затова ИТ отделът ги инсталира в прозореца за поддръжка.", href: osHref, actionEn: "Hospital IT: sudo losporctl host upgrade", actionBg: "ИТ отдел: sudo losporctl host upgrade" })
+    add({ id: "os-docker", level: "note", en: "Docker has updates. They restart every service, so Hospital IT installs them in the maintenance window.", bg: "Има обновявания за Docker. Те рестартират всички услуги, затова ИТ отделът ги инсталира в прозореца за поддръжка.", href: osHref, actionEn: "Hospital IT: sudo losporctl host upgrade", actionBg: "ИТ отдел: sudo losporctl host upgrade" })
   }
 
   // Restore drills: evidence from Status or from the off-host copy. The
@@ -179,13 +179,13 @@ function connectionItems(
   if (ehr?.configured) {
     const quiet = ehr.lastReceivedAt ? now - Date.parse(ehr.lastReceivedAt) : null
     if (quiet === null) {
-      items.push({ id: "ehr-quiet", level: "soon", en: "Nothing has arrived from the hospital system since it was set up.", bg: "От болничната система още не е пристигнало нищо, откакто е настроена.", href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+      items.push({ id: "ehr-quiet", level: "soon", en: "Nothing has arrived from the hospital system since it was set up.", bg: "От болничната система още не е пристигнало нищо, откакто е настроена.", href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „БИС“" })
     } else if (quiet > EHR_QUIET_WARN_MS) {
       const [en, bg] = quietFor(quiet)
-      items.push({ id: "ehr-quiet", level: quiet > EHR_QUIET_BAD_MS ? "today" : "soon", en: `Nothing has arrived from the hospital system for ${en}. Laboratory results are not reaching the records.`, bg: `От болничната система не е пристигнало нищо от ${bg}. Лабораторните резултати не стигат до записите.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+      items.push({ id: "ehr-quiet", level: quiet > EHR_QUIET_BAD_MS ? "today" : "soon", en: `Nothing has arrived from the hospital system for ${en}. Laboratory results are not reaching the records.`, bg: `От болничната система не е пристигнало нищо от ${bg}. Лабораторните резултати не стигат до записите.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „БИС“" })
     }
     if (ehr.readFailures24h) {
-      items.push({ id: "ehr-reads", level: "today", en: `The hospital system could not be read ${ehr.readFailures24h} time(s) in the last 24 hours. Clinicians may see empty allergy or laboratory lists for those patients.`, bg: `Болничната система не можа да бъде прочетена ${ehr.readFailures24h} път(и) през последните 24 часа. Лекарите може да видят празни списъци с алергии или изследвания за тези пациенти.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+      items.push({ id: "ehr-reads", level: "today", en: `The hospital system could not be read ${ehr.readFailures24h} time(s) in the last 24 hours. Clinicians may see empty allergy or laboratory lists for those patients.`, bg: `Болничната система не можа да бъде прочетена ${ehr.readFailures24h} път(и) през последните 24 часа. Лекарите може да видят празни списъци с алергии или изследвания за тези пациенти.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „БИС“" })
     }
     if (ehr.unmappedCodes) {
       items.push({ id: "ehr-unmapped", level: "soon", en: `${ehr.unmappedCodes} code(s) from the hospital system are not mapped, so their values are not brought into records.`, bg: `${ehr.unmappedCodes} код(а) от болничната система не са съпоставени, затова стойностите им не влизат в записите.`, href: "/status/control/codes", actionEn: "Map the codes", actionBg: "Съпоставете кодовете" })
@@ -200,7 +200,7 @@ function connectionItems(
   const update = byComponent.get("appliance-update")?.code
   if (byComponent.get("update-supply")?.code !== "UPDATE_SUPPLY_OFFLINE"
     && (update === "UPDATE_CHECK_FAILED" || update === "UPDATE_CHECK_NEVER_RUN" || update === "UPDATE_CHECK_STALE")) {
-    items.push({ id: "update-check", level: "soon", en: "The appliance cannot check for new releases, so it would not know about a security fix.", bg: "Системата не може да провери за нови версии и не би разбрала за поправка на сигурността.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Актуализации“" })
+    items.push({ id: "update-check", level: "soon", en: "The appliance cannot check for new releases, so it would not know about a security fix.", bg: "Системата не може да провери за нови версии и не би разбрала за поправка на сигурността.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Обновявания“" })
   }
   if (byComponent.get("browser")?.status === "outage") {
     items.push({ id: "research-down", level: "today", en: "The Research website is not answering.", bg: "Сайтът за изследвания не отговаря.", href: OVERVIEW, actionEn: "Hospital IT: sudo losporctl status", actionBg: "ИТ отдел: sudo losporctl status" })

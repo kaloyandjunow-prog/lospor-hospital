@@ -5,18 +5,21 @@ set +x
 # Ubuntu maintenance for the server the appliance runs on.
 #
 #   sudo losporctl host state             what Ubuntu reports, in plain words
+#   sudo losporctl host check             refresh Ubuntu's package lists, so the
+#                                         count of waiting updates is current
 #   sudo losporctl host security-update   install Ubuntu security updates now
 #   sudo losporctl host reboot            take a backup, then restart the server
 #   sudo losporctl host upgrade           take a backup, install every update
 #                                         (Docker included), restart the
 #                                         services and run doctor
 #
-# Status reaches security-update and the restart through the systemd unit
-# lospor-host-os-maintenance@.service (run-unit ACTION): the maintenance agent's
-# own sandbox keeps /usr and /etc read-only, which is right for everything else
-# it does. Ubuntu is updated the way it updates itself every night, through
-# unattended-upgrades and its security origins; upgrade is the console-only
-# exception, because updating Docker restarts every clinical service.
+# Status reaches check, security-update, upgrade and the restart through the
+# systemd unit lospor-host-os-maintenance@.service (run-unit ACTION): the
+# maintenance agent's own sandbox keeps /usr and /etc read-only, which is right
+# for everything else it does. Ubuntu updates itself every night through
+# unattended-upgrades and its security origins. upgrade installs everything
+# else as well, Docker included, which restarts every clinical service: Status
+# offers it on the Updates page as the step before a LOSPOR update (1.11.0).
 #
 # Every operation takes the shared maintenance lock, so it never runs beside a
 # backup, restore, update or terminology change, and appends one line of
@@ -43,17 +46,20 @@ update_appliance_home="$appliance_home"
 
 usage() {
   operator_error \
-    "Usage: host-os-maintenance.sh state | security-update | reboot | reboot-now | upgrade | run-unit security-update|reboot-now | unit-active security-update | recorded-since security-update EPOCH" \
-    "Употреба: host-os-maintenance.sh state | security-update | reboot | reboot-now | upgrade | run-unit security-update|reboot-now | unit-active security-update | recorded-since security-update EPOCH"
+    "Usage: host-os-maintenance.sh state | check | security-update | reboot | reboot-now | upgrade | run-unit check|security-update|upgrade|reboot-now | unit-active security-update|upgrade | recorded-since check|security-update|upgrade EPOCH" \
+    "Употреба: host-os-maintenance.sh state | check | security-update | reboot | reboot-now | upgrade | run-unit check|security-update|upgrade|reboot-now | unit-active security-update|upgrade | recorded-since check|security-update|upgrade EPOCH"
   exit 2
 }
 
 action="${1:-}"
 case "$action:$#" in
-  state:1|security-update:1|reboot:1|reboot-now:1|upgrade:1) ;;
-  run-unit:2) case "$2" in security-update|reboot-now) ;; *) usage ;; esac ;;
-  unit-active:2) [ "$2" = security-update ] || usage ;;
-  recorded-since:3) { [ "$2" = security-update ] && printf '%s\n' "$3" | grep -Eq '^[0-9]{1,12}$'; } || usage ;;
+  state:1|check:1|security-update:1|reboot:1|reboot-now:1|upgrade:1) ;;
+  run-unit:2) case "$2" in check|security-update|upgrade|reboot-now) ;; *) usage ;; esac ;;
+  unit-active:2) case "$2" in security-update|upgrade) ;; *) usage ;; esac ;;
+  recorded-since:3)
+    case "$2" in check|security-update|upgrade) ;; *) usage ;; esac
+    printf '%s\n' "$3" | grep -Eq '^[0-9]{1,12}$' || usage
+    ;;
   *) usage ;;
 esac
 if [ "$test_only" != 1 ] && [ "$(id -u)" -ne 0 ]; then
@@ -101,6 +107,35 @@ reboot_hint() {
     operator_say "Ubuntu asks for a restart to finish. Restart from Status, or: sudo losporctl host reboot" \
       "Ubuntu иска рестартиране, за да завърши. Рестартирайте от Status или: sudo losporctl host reboot"
   fi
+}
+
+# Refresh Ubuntu's package lists, then ask host monitoring to count again, so
+# Status shows what is waiting now rather than as of the last nightly refresh.
+check() {
+  take_lock check
+  mkdir -p "$evidence_dir"
+  chmod 0700 "$evidence_dir"
+  log="$evidence_dir/last-check.log"
+  result=passed
+  export DEBIAN_FRONTEND=noninteractive
+  timeout 900 apt-get update -q > "$log" 2>&1 || result=failed
+  chmod 0600 "$log"
+  update_io_lock_release
+  if [ "$result" = failed ] && grep -Eq 'Could not get lock|Lock could not be acquired|is another process using it' "$log"; then
+    record check busy
+    operator_error "Ubuntu's own update is running right now; nothing was checked. Try again in a few minutes." \
+      "В момента върви собственото обновяване на Ubuntu; нищо не е проверено. Опитайте отново след няколко минути."
+    exit 75
+  fi
+  record check "$result"
+  if [ "$result" = failed ]; then
+    operator_error "Ubuntu's package sources could not be reached. The details are in .data/host-os/last-check.log." \
+      "Източниците на пакети на Ubuntu не са достъпни. Подробностите са в .data/host-os/last-check.log."
+    exit 1
+  fi
+  # Host monitoring counts the waiting updates; it sees the new lists and counts afresh.
+  systemctl start --no-block lospor-host-observability.service >/dev/null 2>&1 || true
+  operator_say "Ubuntu's package lists are current." "Списъците с пакети на Ubuntu са актуални."
 }
 
 security_update() {
@@ -170,7 +205,9 @@ upgrade() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q || result=failed
   if [ "$result" = passed ]; then
-    apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade || result=failed
+    # --with-new-pkgs: a new kernel, and with it its security fixes, arrives as
+    # a new package, which a plain upgrade holds back. Nothing is removed.
+    apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --with-new-pkgs upgrade || result=failed
   fi
   update_io_lock_release
   # Updating Docker restarts the daemon and every container with it: bring the
@@ -223,17 +260,18 @@ else:
 PY
 }
 
-# Started by the maintenance agent. A security update runs to the end and its
-# result is read back from the evidence; a restart is started and not waited for.
+# Started by the maintenance agent. A check, a security update or an upgrade
+# runs to the end and its result is read back from the evidence; a restart is
+# started and not waited for.
 run_unit() {
   unit="lospor-host-os-maintenance@$1.service"
   case "$1" in
-    security-update)
+    check|security-update|upgrade)
       before=0; [ ! -f "$evidence" ] || before="$(wc -l < "$evidence" | tr -d '[:space:]')"
       systemctl start "$unit" || true
       after=0; [ ! -f "$evidence" ] || after="$(wc -l < "$evidence" | tr -d '[:space:]')"
       [ "$after" -gt "$before" ] || { echo HOST_OS_UNIT_DID_NOT_RECORD >&2; exit 1; }
-      case "$(last_result security-update)" in
+      case "$(last_result "$1")" in
         passed) exit 0 ;;
         busy) echo UPDATE_MAINTENANCE_BUSY >&2; exit 75 ;;
         *) exit 1 ;;
@@ -264,6 +302,7 @@ recorded_since() {
 
 case "$action" in
   state) state ;;
+  check) check ;;
   security-update) security_update ;;
   reboot) backup_first reboot; reboot_now ;;
   reboot-now) reboot_now ;;

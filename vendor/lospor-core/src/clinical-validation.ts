@@ -412,7 +412,48 @@ function hasAnyClinicalAge(preop: Record<string, unknown>): boolean {
     || preop.ageUnit !== undefined
 }
 
-export function evaluatePreopReadiness(preop: Record<string, unknown> | null | undefined): ClinicalValidationResult {
+/**
+ * Which preoperative vital signs a site requires, per population, from Status
+ * (10.6.0). A paediatric list often has no preoperative vitals at all, so a
+ * hospital can make the section optional, or keep it and let individual
+ * readings go. Leaving a reading out of the requirement never hides it: the
+ * form still offers it and the record keeps whatever was entered.
+ *
+ * Absent (an older server, or before the case read arrives) means all three,
+ * the rule every release before 10.6.0 applied. SpO2 and temperature were
+ * never required and are not part of it.
+ */
+export type PreopVitalsRequirement = {
+  bloodPressure: boolean
+  heartRate: boolean
+  respiratoryRate: boolean
+}
+
+export const ALL_PREOP_VITALS_REQUIRED: Readonly<PreopVitalsRequirement> = Object.freeze({
+  bloodPressure: true,
+  heartRate: true,
+  respiratoryRate: true,
+})
+
+function preopVitalsMissing(
+  preop: Record<string, unknown>,
+  required: PreopVitalsRequirement,
+): { bloodPressure: boolean; heartRate: boolean; respiratoryRate: boolean } {
+  return {
+    bloodPressure: required.bloodPressure
+      && preop.bpUnobtainable !== true
+      && (!isFilledNumber(preop.bpSystolic) || !isFilledNumber(preop.bpDiastolic)),
+    heartRate: required.heartRate && preop.heartRateUnobtainable !== true && !isFilledNumber(preop.heartRate),
+    respiratoryRate: required.respiratoryRate
+      && preop.respiratoryRateUnobtainable !== true
+      && !isFilledNumber(preop.respiratoryRate),
+  }
+}
+
+export function evaluatePreopReadiness(
+  preop: Record<string, unknown> | null | undefined,
+  vitals: PreopVitalsRequirement = ALL_PREOP_VITALS_REQUIRED,
+): ClinicalValidationResult {
   if (!preop) return { valid: false, issues: [issue("missing_preop", "preop")] }
   const issues: ClinicalIssue[] = []
   if (!hasCompleteClinicalAge(preop)) issues.push(issue("missing_age", preop.clinicalMode === "PEDIATRIC" ? "ageValue" : "ageYears"))
@@ -425,18 +466,10 @@ export function evaluatePreopReadiness(preop: Record<string, unknown> | null | u
   if (!hasPlannedProcedure(preop)) {
     issues.push(issue("missing_procedure", "procedures"))
   }
-  if (
-    preop.bpUnobtainable !== true
-    && (!isFilledNumber(preop.bpSystolic) || !isFilledNumber(preop.bpDiastolic))
-  ) {
-    issues.push(issue("missing_blood_pressure", "bpSystolic"))
-  }
-  if (preop.heartRateUnobtainable !== true && !isFilledNumber(preop.heartRate)) {
-    issues.push(issue("missing_heart_rate", "heartRate"))
-  }
-  if (preop.respiratoryRateUnobtainable !== true && !isFilledNumber(preop.respiratoryRate)) {
-    issues.push(issue("missing_respiratory_rate", "respiratoryRate"))
-  }
+  const missingVitals = preopVitalsMissing(preop, vitals)
+  if (missingVitals.bloodPressure) issues.push(issue("missing_blood_pressure", "bpSystolic"))
+  if (missingVitals.heartRate) issues.push(issue("missing_heart_rate", "heartRate"))
+  if (missingVitals.respiratoryRate) issues.push(issue("missing_respiratory_rate", "respiratoryRate"))
   if (preop.airwayUnobtainable !== true && !preop.mallampati) {
     issues.push(issue("missing_airway", "mallampati"))
   }
@@ -628,6 +661,11 @@ export type CaseReadinessInput = {
   preop?: Record<string, unknown> | null
   intraop?: Record<string, unknown> | null
   postop?: Record<string, unknown> | null
+  /**
+   * The site's preoperative vitals rule for this case's population (10.6.0).
+   * The server reads it from the profile; absent means all three required.
+   */
+  preopVitals?: PreopVitalsRequirement
 }
 
 export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalValidationResult {
@@ -648,7 +686,7 @@ export function evaluateCaseFinalization(input: CaseReadinessInput): ClinicalVal
     // records), and trusting that row would silently evaluate a pediatric
     // age using adult rules.
     const preop = { ...input.preop, clinicalMode: input.clinicalMode }
-    const sections = evaluatePreopSectionCompletion(preop)
+    const sections = evaluatePreopSectionCompletion(preop, input.preopVitals)
     for (const [section, completion] of Object.entries(sections)) {
       if (completion === "empty" || completion === "incomplete") {
         issues.push(issue("incomplete_preop", `preop.${section}`))
@@ -735,6 +773,7 @@ export type SectionCompletion = "empty" | "incomplete" | "complete" | "optional"
 
 export function evaluatePreopSectionCompletion(
   preop: Record<string, unknown> | null | undefined,
+  vitals: PreopVitalsRequirement = ALL_PREOP_VITALS_REQUIRED,
 ): Record<PreopSection, SectionCompletion> {
   const value = preop ?? {}
   const filled = (...fields: string[]) => fields.some(field => {
@@ -754,14 +793,12 @@ export function evaluatePreopSectionCompletion(
   ) && (
     hasPlannedProcedure(value)
   )
-  const physicalComplete = (
-    value.bpUnobtainable === true
-    || (isFilledNumber(value.bpSystolic) && isFilledNumber(value.bpDiastolic))
-  ) && (
-    value.heartRateUnobtainable === true || isFilledNumber(value.heartRate)
-  ) && (
-    value.respiratoryRateUnobtainable === true || isFilledNumber(value.respiratoryRate)
-  )
+  const missingVitals = preopVitalsMissing(value, vitals)
+  const physicalComplete = !missingVitals.bloodPressure && !missingVitals.heartRate && !missingVitals.respiratoryRate
+  // Nothing required: the section is optional, like medical history, until a
+  // reading is entered.
+  const physicalOptional = !vitals.bloodPressure && !vitals.heartRate && !vitals.respiratoryRate
+  const physicalFilled = filled("bpSystolic", "bpDiastolic", "heartRate", "respiratoryRate")
   const airwayComplete = value.airwayUnobtainable === true || Boolean(value.mallampati)
   return {
     demographics: demographicsComplete
@@ -777,9 +814,11 @@ export function evaluatePreopSectionCompletion(
       "malignantHyperthermiaHistory", "dentalProsthetics", "looseTeeth",
       "difficultAirwayHistory",
     ) ? "complete" : "optional",
-    physical_exam: physicalComplete
-      ? "complete"
-      : filled("bpSystolic", "bpDiastolic", "heartRate", "respiratoryRate") ? "incomplete" : "empty",
+    physical_exam: physicalOptional
+      ? physicalFilled ? "complete" : "optional"
+      : physicalComplete
+        ? "complete"
+        : physicalFilled ? "incomplete" : "empty",
     airway: airwayComplete
       ? "complete"
       : filled("mallampati", "mouthOpeningCm", "thyromental", "neckMobility") ? "incomplete" : "empty",

@@ -28,6 +28,8 @@ vi.mock("@/lib/prisma", () => ({
     // highest case a clinician currently owns, so that handing a case away
     // cannot lower the ceiling and reissue a number already on a chart.
     caseCodeSequence: { upsert: caseCodeSequenceUpsertMock },
+    // No published profile: the pre-10.6.0 vitals rule, all three required.
+    preopAssessmentProfile: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 }))
 vi.mock("@/lib/clinical-transaction", () => ({

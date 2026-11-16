@@ -1,6 +1,9 @@
+import { startsWithKnownMedicine } from "@lospor/core/medications"
+import { medicationRows } from "@lospor/core/vocabulary/medications"
 import type { Prisma } from "@/generated/prisma/client"
 import { EVENT_FREE_TEXT_KEYS } from "@/lib/clinical-pii"
 import { redactText } from "@/lib/pii-check"
+import { isTypedMedication } from "@lospor/core/preop-orders"
 
 type ExportRow = Prisma.CaseGetPayload<{ select: typeof CASE_SELECT }>
 
@@ -80,9 +83,18 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
         ...answer,
         valueText: text(answer.valueText),
       })),
+      // A medication picked from the drug list is a drug name and leaves as
+      // coded vocabulary. One typed as written (1.11.0) -- no ATC code, no INN
+      // -- can say anything, so it is cleaned of ЕГН, long numbers, dates and
+      // email, and withheld with the other text when the policy says text may
+      // not leave. The name guess (two capitalised words) would also erase a
+      // trade name -- "Prestarium Neo" -- so it stands down when the text starts
+      // with a medicine the list knows, and stays on for anything else.
       medications: c.preop.medications.map(row => ({
         ...row,
-        nameRaw: codedRequiredText(row.nameRaw),
+        nameRaw: isTypedMedication(row) && row.nameRaw
+          ? (includeText ? redactText(row.nameRaw, { nameHeuristic: !startsWithKnownMedicine(medicationRows(), row.nameRaw) }) : "")
+          : codedRequiredText(row.nameRaw),
       })),
     } : c.preop,
     events: (c.events ?? []).map(e => ({

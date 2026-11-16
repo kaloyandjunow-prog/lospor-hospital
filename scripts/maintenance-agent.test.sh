@@ -426,6 +426,29 @@ BACKUP_EXIT=1 run_agent
 ! grep -q 'reboot-now' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_REBOOT_BACKUP_FAILED ] || fail "the server restarted after its backup failed"
 ok "Ubuntu updates run through their unit, and a restart happens only after a backup"
 
+# 14a. A check and a full server update from the Updates page run through their units (1.11.0).
+reset_state
+request os-check "$id1" -
+run_agent
+grep -qx 'host-os-maintenance run-unit check' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_CHECKED ] || fail "a check was not run and reported"
+reset_state
+request os-check "$id1" -
+HOST_OS_EXIT=1 run_agent
+[ "$(code)" = MAINTENANCE_OS_CHECK_FAILED ] || fail "a failed check was not reported"
+reset_state
+request os-upgrade "$id1" -
+run_agent
+grep -qx 'host-os-maintenance run-unit upgrade' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_UPGRADED ] || fail "a server update was not run and reported"
+reset_state
+request os-upgrade "$id1" -
+HOST_OS_EXIT=75 run_agent
+[ "$(code)" = MAINTENANCE_BUSY ] || fail "a busy server update was not reported as busy"
+reset_state
+request os-upgrade "$id1" -
+HOST_OS_EXIT=1 run_agent
+[ "$(code)" = MAINTENANCE_OS_UPGRADE_FAILED ] || fail "a failed server update was not reported"
+ok "a check and a server update run through their units and are reported"
+
 # 14b. The Ubuntu update restarts this agent while it works. That is not an interruption: the agent reports what
 #      the update's unit recorded, after the unit has ended. And a request left in inflight after its result was
 #      written (the stop came between the two) no longer blocks every later request.
@@ -456,6 +479,14 @@ echo 2 > "$work/calls.active"
 HOST_OS_RECORDED=passed run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
 [ "$(grep -c 'host-os-maintenance unit-active security-update' "$work/calls")" = 3 ] && [ "$(code)" = MAINTENANCE_OS_UPDATED ]   || fail "the agent did not wait for the unit that was still working (asked $(grep -c 'unit-active' "$work/calls") times, got $(code))"
 rm -f "$work/calls.active"
+# The same holds for a server update (1.11.0), read from the upgrade unit's record.
+reset_state
+mkdir -p "$private/maintenance/inflight" "$private/maintenance/terminal"
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1\tos-upgrade\t%s\t-\t%s\t%s\n' "$id1" "$(now)" "$operator" > "$private/maintenance/inflight/maintenance.request.v1.tsv"
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1\t%s\tRUNNING\tos-upgrade\t%s\tMAINTENANCE_RUNNING\t%s\n' "$(now)" "$id1" "$operator" > "$private/maintenance/transition.v1.tsv"
+HOST_OS_RECORDED=passed run_agent MAINTENANCE_OS_UPDATE_WAIT_SECONDS=0
+grep -q 'host-os-maintenance recorded-since upgrade' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_UPGRADED ] \
+  || fail "a restarted agent did not read the upgrade unit's record (got: $(code))"
 # A request whose result is recorded but whose file stayed in inflight is cleared, and the next request runs.
 reset_state
 mkdir -p "$private/maintenance/inflight" "$private/maintenance/terminal"

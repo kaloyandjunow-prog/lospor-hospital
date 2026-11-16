@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { AuthService } from "./auth.js"
 import { createStatusApp } from "./app.js"
@@ -439,13 +442,13 @@ describe("Status Hospital control plane", () => {
         return response.text()
       }),
     )
-    const [preop, clinical, ehr, codes, identity, research, central, ai] = await fetchAll(["preop", "clinical", "ehr", "codes", "identity", "research", "central", "ai"], "maphub")
+    const [preop, clinical, ehr, codes, identity, research, central, ai, questions] = await fetchAll(["preop", "clinical", "ehr", "codes", "identity", "research", "central", "ai", "preop/questions"], "maphub")
     const legacy = (await fetchAll(["clinical", "ehr", "research", "ai"], "legacy")).join("")
-    expect(legacy).toContain("Настройка за ЕГН")
-    expect(legacy).toContain("Карта на лабораторните кодове")
+    expect(legacy).toContain("ЕГН и номер на ИЗ")
+    expect(legacy).toContain("Кодове на изследванията")
     expect(legacy).toContain("Разрешения за изследвания")
     // Both skins expose every preop page through the same tabs.
-    expect(legacy).toContain('href="/status/control/preop/sections"')
+    expect(legacy).toContain('href="/status/control/preop/questions"')
     expect(legacy).toContain('href="/status/control/preop/orders"')
     expect(legacy).toContain('href="/status/control/preop/documents"')
     expect(legacy).toContain('href="/status/control/postop"')
@@ -454,69 +457,71 @@ describe("Status Hospital control plane", () => {
     expect(legacy).toContain('href="/status/control/intraop"')
     expect(legacy).toContain('href="/status/control/drug-colors"')
     expect((legacy.match(/class="statusnav subnav control-subnav"/g) ?? []).length).toBe(4)
-    expect(preop).toContain('href="/status/control/preop/sections"')
+    expect(preop).toContain('href="/status/control/preop/questions"')
     expect(preop).toContain('href="/status/control/postop"')
-    expect(preop).toContain('href="/status/control/theatres"')
-    expect(preop).toContain('href="/status/control/indicators"')
+    // Theatres and indicators belong to the Hospital group (1.11.0): its first page is linked from every page.
+    expect(preop).toContain('href="/status/control/hospital"')
+    expect(preop).toContain('href="/status/control/clinical"')
     expect(preop).toContain('href="/status/control/intraop"')
     expect(preop).toContain('href="/status/control/drug-colors"')
     expect(preop).not.toContain('class="statusnav subnav control-subnav"')
     expect(preop).not.toContain(':root:not([data-skin="legacy"]) .subnav{display:none}')
-    expect(identity).toContain("Настройка за ЕГН")
-    expect(codes).toContain("Карта на лабораторните кодове")
-    expect(central).toContain("Изпращане към Central (само изходящо)")
+    expect(identity).toContain("ЕГН и номер на ИЗ")
+    expect(codes).toContain("Кодове на изследванията")
+    expect(central).toContain("Връзка с Central")
     const all = preop + clinical + ehr + codes + identity + research + central + ai + legacy
     expect(all).toContain('<html lang="bg"')
 
-    expect(research).toContain("Одобрение на конкретни OMOP набори")
+    expect(research).toContain("Одобряване на набори от данни (OMOP)")
     expect(research).toContain(HASH)
-    expect(research).toContain("Активен профил, който може да получи разрешение")
+    expect(research).toContain("Профил")
     expect(research).toContain("началник на отделение")
     expect(research).not.toContain("HEAD_OF_DEPT")
-    expect(central).toContain("Изключено по подразбиране")
+    expect(central).toContain("Връзката е само изходяща")
     expect(central).toContain("https://central.example.test")
     expect(central).toContain("hospital-signing-key-1")
     expect(central).toContain("Клиентският сертификат е валиден от")
     expect(central).toContain("CA на Central е валиден до")
     expect(central).toContain("central-encryption-key-1")
-    expect(central).toContain("Версии на манифеста, поддържани от Central")
+    expect(central).toContain("Версии на формата в Central")
     expect(central).toContain("67_108_864".replaceAll("_", ""))
     expect(central).toContain("4194304")
-    expect(central).toContain("Опашки: Нов опит: 1")
-    expect(central).toContain("#7 · Нов опит")
+    expect(central).toContain("По състояние: За повторен опит: 1")
+    expect(central).toContain("#7 · За повторен опит")
     expect(central).not.toContain('{&quot;RETRY&quot;')
 
-    expect(ai).toContain("Външен ИИ (Mistral)")
-    expect(ai).toContain("Данните за достъп са настроени на")
+    expect(ai).toContain("Помощ от ИИ (Mistral, ЕС)")
+    expect(ai).toContain("Въведени на")
     expect(ai).toContain('name="credential" type="password"')
 
-    expect(identity).toContain("Настройка за ЕГН")
-    expect(identity).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
-    expect(ehr).toContain("Канал за импорт от БИС")
-    expect(ehr).toContain("Наблюдаваната папка не изисква данни за достъп")
+    expect(identity).toContain("ЕГН и номер на ИЗ")
+    expect(identity).toContain("Свързване по ЕГН")
+    expect(ehr).toContain("Връзка с БИС")
+    expect(ehr).toContain("При връзка чрез папка не са нужни данни за достъп")
 
     expect(clinical).toContain("Документиране на педиатрични случаи")
-    expect(clinical).toContain("постоянна функция на болничната версия")
+    expect(clinical).toContain("Педиатричното документиране е винаги включено")
     expect(clinical).toContain("pediatric-v2")
-    expect(clinical).toContain("Готовност на базовата конфигурация")
+    expect(clinical).toContain("Правилата са готови")
     expect(clinical).toContain("Не е готово")
     expect(clinical).toContain("Не е избрана базова конфигурация за системата")
-    expect(clinical).toContain("Политиката е включена")
+    expect(clinical).toContain("Работят в момента")
     expect(clinical).toContain("Публикуван")
     expect(clinical).not.toContain("PUBLISHED")
     expect(clinical).toContain(ADULT_BASELINE_HASH)
     expect(clinical).toContain(PEDIATRIC_BASELINE_HASH)
     // The preop editor has its own page; the guidance page no longer holds it.
     expect(clinical).not.toContain("data-preop-order-list")
-    expect(preop).not.toContain("Готовност на базовата конфигурация")
-    expect(preop).toContain("data-preop-order-list")
-    expect(preop).toContain("data-preop-order-row")
-    expect(preop).toContain('draggable="true"')
-    expect(preop).toContain('data-move="up"')
-    expect(preop).toContain('data-move="down"')
+    expect(preop).not.toContain("Правилата са готови")
+    // The page opens on the sections tab (1.11.0); the questions are a tab of their own.
+    expect(preop).toContain('href="/status/control/preop" aria-current="page">Раздели</a>')
+    expect(questions).toContain("data-preop-order-row")
+    expect(questions).toContain('draggable="true"')
+    expect(questions).toContain('data-move="up"')
+    expect(questions).toContain('data-move="down"')
     // Status sends script-src 'self': an inline <script> is blocked by the
     // browser, which left drag and the arrow buttons doing nothing.
-    expect(preop).toContain('<script src="/status/preop-order.js" defer></script>')
+    expect(questions).toContain('<script src="/status/preop-order.js" defer></script>')
     expect(clinical).not.toMatch(/<script>\(\(\) =>/)
     const script = await app.request("/status/preop-order.js")
     expect(script.status).toBe(200)
@@ -529,7 +534,7 @@ describe("Status Hospital control plane", () => {
     expect(all).not.toContain("patientName")
     expect(all).not.toContain("credentialCiphertext")
     expect(all).not.toContain("credentialAuthTag")
-    expect(controlPlane.get).toHaveBeenCalledTimes(12) // one read per page: eight skin pages, four legacy
+    expect(controlPlane.get).toHaveBeenCalledTimes(13) // one read per page: nine skin pages, four legacy
   })
 
   it("saves the complete preoperative profile only after password confirmation", async () => {
@@ -611,7 +616,7 @@ describe("Status Hospital control plane", () => {
     }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
-    const response = await app.request("/status/control/preop", { headers: { cookie } })
+    const response = await app.request("/status/control/preop/questions", { headers: { cookie } })
     expect(response.status).toBe(200)
     const html = await response.text()
     const section = (id: string) => html.slice(html.indexOf("id=\"" + id + "\""), html.indexOf("</section>", html.indexOf("id=\"" + id + "\"")))
@@ -629,7 +634,7 @@ describe("Status Hospital control plane", () => {
     for (const part of [adults, kids]) {
       expect(part).not.toContain("data-stable-key=\"" + base.stableKey + "\"")
       expect(part).toContain("type=\"hidden\" name=\"order_" + base.stableKey + "\" value=\"0\"")
-      expect(part).toContain("Постоянно място във формуляра")
+      expect(part).toContain("Фиксирано място във формата")
     }
     // Required for children, not for adults.
     expect(kids).toContain("name=\"required_" + base.stableKey + "\" value=\"true\" checked")
@@ -655,7 +660,7 @@ describe("Status Hospital control plane", () => {
     view.preoperative.administration = { catalog: [functional, procedure], activeProfile: adult, activeProfiles: { ADULT: adult, PEDIATRIC: { ...adult, id: "profile-2", questions: [] } } }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop/questions", { headers: { cookie } })).text()
     const adults = html.slice(html.indexOf("id=\"preop-adults\""), html.indexOf("</section>", html.indexOf("id=\"preop-adults\"")))
     const kids = html.slice(html.indexOf("id=\"preop-children\""), html.indexOf("</section>", html.indexOf("id=\"preop-children\"")))
     // Off while only one of its questions is on; the questions keep their own boxes.
@@ -664,7 +669,7 @@ describe("Status Hospital control plane", () => {
     expect(adults).toContain("name=\"enabled_A15_FUNCTIONAL_STATUS\" value=\"true\" checked")
     expect(kids).not.toContain("score_GUPTA")
     // Only one of the two on: Status says Gupta is not drawn anywhere.
-    expect(adults).toContain("data-testid=\"score-partial-GUPTA\">Включени са само част от тези въпроси, затова Gupta не се изчислява и не се показва никъде.")
+    expect(adults).toContain("data-testid=\"score-partial-GUPTA\">Включени са само част от въпросите на Gupta, затова скорът не се изчислява.")
     expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-switch")
     expect(await (await app.request("/status/preop-order.js")).text()).toContain("data-score-partial")
 
@@ -724,7 +729,7 @@ describe("Status Hospital control plane", () => {
   it("protects the hospital-wide read-only case viewer policy with the Status password and reason", async () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    const page = await app.request("/status/control/case-access", { headers: { cookie } })
     expect(await page.text()).toContain('action="/status/control/case-visibility"')
 
     const response = await app.request("/status/control/case-visibility", {
@@ -742,7 +747,7 @@ describe("Status Hospital control plane", () => {
   it("changes the hospital name on the record only with the Status password and a reason", async () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    const page = await app.request("/status/control/hospital", { headers: { cookie } })
     const html = await page.text()
     expect(html).toContain('action="/status/control/hospital-name"')
     expect(html).toContain('data-testid="hospital-name-control"')
@@ -777,11 +782,11 @@ describe("Status Hospital control plane", () => {
       return form
     }
 
-    it("sits beside the hospital name on the clinical page, in every skin", async () => {
+    it("sits beside the hospital name on the hospital details page, in every skin", async () => {
       const { app, auth } = setup()
       const cookie = await passwordCookie(app, auth)
       for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
-        const html = await (await app.request("/status/control/clinical", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+        const html = await (await app.request("/status/control/hospital", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
         expect(html, skin).toContain('data-testid="hospital-logo-control"')
         expect(html, skin).toContain('enctype="multipart/form-data"')
       }
@@ -1785,10 +1790,10 @@ describe("the watched folder (1.5.0)", () => {
     const cookie = await passwordCookie(app, setupResult.auth)
     const body = await (await app.request("/status/control/ehr", { headers: { cookie } })).text()
 
-    expect(body).toContain("<b>Файлове, чакащи прочитане</b>2")
+    expect(body).toContain("<b>Чакащи файлове</b>2")
     expect(body).toContain("14 приети за преглед, 1 отказани")
     expect(body).toContain("<code>adm-77.json</code> — identifierType не е нито IZ, нито EGN")
-    expect(body).toContain("Файл чака повече от десет минути")
+    expect(body).toContain("Файл чака над 10 минути")
     expect(body).toContain('action="/status/control/ehr-transport/check-file" enctype="multipart/form-data"')
   })
 
@@ -2116,6 +2121,32 @@ describe("the operating theatres (10.0.0)", () => {
     const refused = await post(app, cookie, "/status/control/operating-theatres", { action: "rename", id: "t1", name: "Зала 2" })
     expect(await refused.text()).toContain("Действаща зала вече има това име")
   })
+
+  // A save answers on the form's own address, which no menu knows: the group's
+  // submenu disappeared right after "saved", and the page lost its place in
+  // the menus (1.11.0).
+  it("keeps the menus on this page after a save", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.spyOn(controlPlane, "get").mockResolvedValue(withTheatres())
+    const cookie = await passwordCookie(app, auth)
+    const saved = await (await post(app, cookie, "/status/control/operating-theatres", { action: "add", name: "Зала 2" })).text()
+    expect(saved).toMatch(/<nav class="chips"[^>]*>.*<a href="\/status\/control\/theatres" aria-current="page">/)
+    expect(saved).toMatch(/<a href="\/status\/control\/preop"[^>]*>/)
+  })
+})
+
+describe("the preoperative form's menus after a save (1.11.0)", () => {
+  it("keeps the clinical submenu and the form's own tabs", async () => {
+    const { app, auth, controlPlane } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const saved = await (await app.request("/status/control/preop-sections", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ part: "sections", population: "ADULT", reason: "Ward agreed the change", password: "Initial password phrase1!" }).toString(),
+    })).text()
+    expect(controlPlane).toBeDefined()
+    expect(saved).toMatch(/<nav class="chips"[^>]*>.*<a href="\/status\/control\/preop" aria-current="page">/)
+  })
 })
 
 describe("the Legacy skin keeps up with the modern ones", () => {
@@ -2306,4 +2337,134 @@ describe("the Card preview tab of the SPS page (10.3.0)", () => {
       preview.mockClear()
     }
   })
+})
+
+// 1.11.0 moved the hospital's name and logo, and colleagues' case access, to
+// pages of their own, and opened the preop form on its sections. Every skin,
+// Legacy included, must still reach every control, and a save must come back
+// to the page it was made on.
+describe("the 1.11.0 pages in every skin", () => {
+  const skins = ["maphub", "sidebar", "inbox", "index", "console", "legacy"] as const
+  const pages: Record<string, string[]> = {
+    "/status/control/hospital": ['action="/status/control/hospital-name"', 'data-testid="hospital-logo-control"'],
+    "/status/control/case-access": ['action="/status/control/case-visibility"'],
+    "/status/control/preop/questions": ["data-preop-order-row", 'action="/status/control/preop-profile'],
+    "/status/control/preop": ['href="/status/control/preop/questions"'],
+    "/status/control/clinical": ['action="/status/control/guidance"'],
+  }
+
+  it("shows every moved control, in every skin", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const skin of skins) {
+      for (const [path, markers] of Object.entries(pages)) {
+        const html = await (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}` } })).text()
+        for (const marker of markers) expect(html, `${skin} ${path}`).toContain(marker)
+      }
+    }
+  })
+
+  it("lists the new pages in the Legacy control menu", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie: `${cookie}; lospor_status_skin=legacy` } })).text()
+    expect(html).toContain('href="/status/control/hospital"')
+    expect(html).toContain('href="/status/control/case-access"')
+  })
+
+  it("comes back to the hospital page after saving its name", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const skin of skins) {
+      const saved = await (await app.request("/status/control/hospital-name", {
+        method: "POST",
+        headers: origin({ cookie: `${cookie}; lospor_status_skin=${skin}`, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams({ institutionId: "inst-1", name: "УМБАЛ Тест", reason: "New name from today", password: "Initial password phrase1!" }).toString(),
+      })).text()
+      expect(saved, skin).toContain('action="/status/control/hospital-name"')
+    }
+  })
+})
+
+// Every page Status serves must be reachable by clicking, from the first page,
+// in every skin -- Legacy included (1.11.0, after the menus were regrouped).
+// The crawl follows only links on the pages; nothing is typed in.
+describe("every Status page can be reached by clicking, in every skin", () => {
+  const PAGES = [
+    "/status/", "/status/services", "/status/accounts", "/status/go-live", "/status/release", "/status/terminology",
+    "/status/preferences",
+    "/status/control/preop", "/status/control/preop/questions", "/status/control/preop/orders", "/status/control/preop/documents",
+    "/status/control/intraop", "/status/control/intraop/readings", "/status/control/intraop/acceptance", "/status/control/intraop/cards",
+    "/status/control/clinical", "/status/control/drug-colors", "/status/control/postop",
+    "/status/control/hospital", "/status/control/theatres", "/status/control/identity", "/status/control/indicators",
+    "/status/control/ehr", "/status/control/codes", "/status/control/ai",
+    "/status/control/research", "/status/control/central",
+    "/status/control/case-access", "/status/control/history",
+    "/status/maintenance/backups", "/status/maintenance/host-os", "/status/maintenance/escrow", "/status/maintenance/support",
+  ]
+  // Shown inside another page instead of having a link of its own: the modern
+  // skins put related maintenance sections on one page (1.5.4); Legacy keeps
+  // its four original control pages and its single overview.
+  const within = (skin: string): Record<string, { page: string; marker: string }> => ({
+    "/status/maintenance/offhost": { page: "/status/maintenance/backups", marker: 'id="maintenance-offhost"' },
+    "/status/maintenance/rotation": { page: "/status/maintenance/escrow", marker: 'id="maintenance-rotation"' },
+    "/status/maintenance/settings": { page: "/status/maintenance/support", marker: 'id="maintenance-settings"' },
+    "/status/maintenance/advanced": { page: "/status/maintenance/support", marker: 'id="maintenance-advanced"' },
+    ...(skin === "legacy" ? {
+      "/status/services": { page: "/status/", marker: "Hospital appliance status" },
+      "/status/control/codes": { page: "/status/control/ehr", marker: "Laboratory code map" },
+      "/status/control/identity": { page: "/status/control/ehr", marker: "National identifier" },
+      "/status/control/central": { page: "/status/control/research", marker: "action=\"/status/control/central/policy\"" },
+    } : {}),
+  })
+
+  async function crawl(app: ReturnType<typeof setup>["app"], cookie: string, skin: string) {
+    const seen = new Map<string, string>()
+    const queue = ["/status/"]
+    while (queue.length) {
+      const path = queue.shift()!
+      if (seen.has(path)) continue
+      const response = await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })
+      if (response.status >= 300 && response.status < 400) { seen.set(path, ""); continue }
+      if (!(response.headers.get("content-type") ?? "").includes("text/html")) { seen.set(path, ""); continue }
+      const html = await response.text()
+      seen.set(path, html)
+      for (const match of html.matchAll(/href="(\/status\/[^"#?]*)/g)) {
+        const next = match[1]!
+        if (!seen.has(next) && !/\.(js|png|css)$/.test(next) && !next.includes("/download") && !next.includes("support-bundle")) queue.push(next)
+      }
+    }
+    return seen
+  }
+
+  // The full example view, and the server state folders the overview and the
+  // maintenance pages read.
+  function fullSetup() {
+    const base = setup()
+    const workspace = mkdtempSync(join(tmpdir(), "lospor-status-reach-"))
+    const dirs = ["state", "signals", "requests"].map(name => join(workspace, name))
+    for (const directory of dirs) mkdirSync(directory, { recursive: true })
+    const db = new StatusDatabase(":memory:")
+    databases.push(db)
+    const auth = new AuthService(db, Buffer.alloc(32, 9), 4, () => NOW)
+    const config = {
+      defaultLocale: "bg", basePath: "/status", eventTokens: new Map(), rateLimitKey: Buffer.alloc(32, 3),
+      snapshotToken: "s".repeat(32), probeTimeoutMs: 1_000,
+      updateStateDir: dirs[0], signalsDir: dirs[1], updateRequestsDir: dirs[2],
+    } as unknown as StatusConfig
+    return { app: createStatusApp({ db, auth, config, controlPlane: base.controlPlane, now: () => NOW }), auth, workspace }
+  }
+
+  it.each(["maphub", "sidebar", "inbox", "index", "console", "legacy"])("%s", async skin => {
+    const { app, auth, workspace } = fullSetup()
+    const cookie = await passwordCookie(app as never, auth)
+    const seen = await crawl(app as never, cookie, skin)
+    rmSync(workspace, { recursive: true, force: true })
+    const shownWithin = within(skin)
+    const missing = PAGES.filter(page => !seen.get(page) && !shownWithin[page])
+    for (const [page, { page: host, marker }] of Object.entries(shownWithin)) {
+      if (!seen.get(page) && !(seen.get(host) ?? "").includes(marker)) missing.push(page)
+    }
+    expect(missing, `${skin}: pages no button leads to`).toEqual([])
+  }, 60_000)
 })

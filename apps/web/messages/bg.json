@@ -1218,6 +1218,8 @@
     "substanceAbuse": "Употреба на психоактивни вещества",
     "medicationsSection": "Текущи медикаменти",
     "medicationsPlaceholder": "Без лични данни — изброете всички медикаменти с дози и кратност…",
+    "medicationAddTyped": "Добави „{typed}“ както е написано",
+    "medicationTypedMark": "въведено ръчно",
     "vitalsSection": "Физикален преглед — жизнени показатели",
     "bloodPressure": "Артериално налягане (mmHg)",
     "unableToObtain": "Неизмерено",

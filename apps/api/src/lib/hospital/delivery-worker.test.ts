@@ -4,8 +4,11 @@ import { CentralApiError } from "./central-client"
 // @/lib/prisma (imported by delivery-worker.ts) imports "server-only", which
 // throws outside a Server Component; releaseOutcome touches no database.
 vi.mock("server-only", () => ({}))
+// Central is asked for its capabilities before a batch is sent (1.11.0).
+vi.mock("./central-client", async original => ({ ...await original<typeof import("./central-client")>(), fetchCentralCapabilities: vi.fn() }))
 
-const { heldBatchAction, releaseOutcome } = await import("./delivery-worker")
+const { assertCentralTakesOurContract, forgetCentralCapabilities, heldBatchAction, releaseOutcome } = await import("./delivery-worker")
+const { fetchCentralCapabilities } = await import("./central-client")
 
 /**
  * releaseOutcome decides what a failed delivery attempt becomes: RETRY (the
@@ -87,5 +90,41 @@ describe("heldBatchAction", () => {
     for (const status of ["READY", "PROCESSING", "ACCEPTED"]) {
       expect(heldBatchAction({ status, receipt: null })).toBe("poll")
     }
+  })
+})
+
+/**
+ * A Central speaking an older contract would receipt a newer batch and drop
+ * the columns it does not know (1.11.0). The batch waits, retryably, under a
+ * code Status explains, and goes once Central is updated.
+ */
+describe("sending only to a Central that speaks this appliance's contract", () => {
+  const capabilities = (exchangeContractVersion?: string) => vi.mocked(fetchCentralCapabilities).mockResolvedValue({ exchangeContractVersion } as never)
+
+  it("sends to a Central on the same contract, and to one that announces none (taken as 2.9.0)", async () => {
+    forgetCentralCapabilities()
+    capabilities("2.9.1")
+    await expect(assertCentralTakesOurContract("https://central.test")).resolves.toBeUndefined()
+    forgetCentralCapabilities()
+    capabilities(undefined)
+    await expect(assertCentralTakesOurContract("https://central.test")).resolves.toBeUndefined()
+  })
+
+  it("holds the batch, retryably, while Central speaks an older contract", async () => {
+    forgetCentralCapabilities()
+    capabilities("2.8.0")
+    const refusal = await assertCentralTakesOurContract("https://central.test").catch(error => error)
+    expect(refusal).toBeInstanceOf(CentralApiError)
+    expect(refusal).toMatchObject({ code: "CENTRAL_CONTRACT_TOO_OLD", retryable: true })
+    expect(releaseOutcome(refusal, 2).status).toBe("RETRY")
+  })
+
+  it("asks Central again only after ten minutes", async () => {
+    forgetCentralCapabilities()
+    capabilities("2.9.1")
+    vi.mocked(fetchCentralCapabilities).mockClear()
+    await assertCentralTakesOurContract("https://central.test")
+    await assertCentralTakesOurContract("https://central.test")
+    expect(fetchCentralCapabilities).toHaveBeenCalledTimes(1)
   })
 })

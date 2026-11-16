@@ -20,7 +20,7 @@ describe("unit indicators page (10.0.0)", () => {
     const full = renderIndicatorsPage(indicatorsFixture(), "bg")
     expect(full).toContain('name="sbp_INFANT"')
     expect(full).toContain('name="map_ADULT" inputmode="decimal" value="65"')
-    expect(full).toContain("вградено: САН &lt; 65")
+    expect(full).toContain("по подразбиране: САН &lt; 65")
     expect(full).not.toMatch(/data-testid="indicators-named" checked|value="true" checked data-testid="indicators-named"/)
   })
 

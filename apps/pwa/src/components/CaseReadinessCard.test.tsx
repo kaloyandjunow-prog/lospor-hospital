@@ -86,3 +86,15 @@ describe("where a Go to lands", () => {
     expect(READINESS_KINDS.length).toBeGreaterThan(20)
   })
 })
+
+describe("preop vitals a hospital has made optional (10.6.0)", () => {
+  it("drops the examination blocker only where the hospital's rule allows it", async () => {
+    const { defaultPreopSectionConfig } = await import("@lospor/core/preop-orders")
+    const noVitals = { clinicalMode: "PEDIATRIC", preop: { ...PREOP, bpSystolic: null, bpDiastolic: null, heartRate: null, respiratoryRate: null } }
+    const optional = { sectionConfigs: { PEDIATRIC: { ...defaultPreopSectionConfig("PEDIATRIC"), vitals: { required: false, bloodPressure: true, heartRate: true, respiratoryRate: true } } } }
+    const exam = (profiles: unknown) => shownReadiness(noVitals, null, profiles as never).blockers
+      .filter(item => item.kind === "incomplete_preop_physical_exam")
+    expect(exam(null)).toHaveLength(1)
+    expect(exam(optional)).toHaveLength(0)
+  })
+})

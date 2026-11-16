@@ -133,6 +133,19 @@ export function preopSectionsUpdateFromForm(
     for (const key of formSectionKeys(sections, population, part === "postop" ? "POSTOP" : "PREOP")) {
       next.sections[key] = ticked(body, `section_${key}`)
     }
+    // The preop form also carries the vitals and typed-medication switches
+    // (1.11.0), where the API offers them.
+    if (part === "sections" && sections.vitalsSwitches?.length) {
+      next.vitals = {
+        required: ticked(body, "vitals_required"),
+        bloodPressure: ticked(body, "vitals_bloodPressure"),
+        heartRate: ticked(body, "vitals_heartRate"),
+        respiratoryRate: ticked(body, "vitals_respiratoryRate"),
+      }
+    }
+    if (part === "sections" && sections.medicationsFreeText) {
+      next.medicationsFreeText = ticked(body, "medications_free_text")
+    }
   } else if (part === "orders") {
     next.orderOptions = orderRows(current, body, newKey)
   } else {

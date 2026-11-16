@@ -12,6 +12,50 @@ export const MANIFEST_VERSION = 1 as const
 export const SUPPORTED_MANIFEST_VERSIONS = [1] as const
 export const COMPATIBILITY_MONTHS = 24
 
+/**
+ * The version of this contract: the CSV columns and the rules a batch is
+ * written to. It is the package version, held to it by a test (2.9.1).
+ *
+ * The manifest version above stayed 1 through every 2.x release, so nothing
+ * told an older Central that a batch had columns it did not know. It read the
+ * CSV by name, accepted the batch, receipted it, and silently dropped them.
+ * Since 2.9.1 each side says which contract it speaks: Central announces its
+ * own in the capabilities and refuses a batch written to a newer one, and the
+ * Hospital asks before it sends and holds its batches until Central catches
+ * up.
+ */
+export const EXCHANGE_CONTRACT_VERSION = "2.9.1"
+
+/**
+ * What a Central that announces no contract is taken to speak. Every Central
+ * before 2.9.1 announces none, and the newest of them is 2.9.0; an older one
+ * cannot be told apart, which is why the operator notes say to update Central
+ * first.
+ */
+export const UNANNOUNCED_CENTRAL_CONTRACT = "2.9.0"
+
+function contractLevel(version: string): [number, number] | null {
+  const match = /^(\d+)\.(\d+)\.\d+$/.exec(version)
+  return match ? [Number(match[1]), Number(match[2])] : null
+}
+
+/**
+ * Whether a Central speaking `central` takes a batch written to `batch`.
+ *
+ * Columns change with the minor version; a patch changes no column. So a batch
+ * is taken when its major.minor is not newer than Central's. A batch that names
+ * no contract was written before 2.9.1 and is taken as before; a Central that
+ * names none is taken to speak UNANNOUNCED_CENTRAL_CONTRACT. An unreadable
+ * version is not taken.
+ */
+export function centralTakesContract(central: string | null | undefined, batch: string | null | undefined): boolean {
+  if (batch == null) return true
+  const theirs = contractLevel(central ?? UNANNOUNCED_CENTRAL_CONTRACT)
+  const ours = contractLevel(batch)
+  if (!theirs || !ours) return false
+  return ours[0] < theirs[0] || (ours[0] === theirs[0] && ours[1] <= theirs[1])
+}
+
 export const OMOP_TABLES = [
   // CARE_SITE is a dimension, not a clinical event: one row per place, which
   // VISIT_OCCURRENCE then references by care_site_id. Sites previously wrote
@@ -183,6 +227,8 @@ export type VersionSet = {
   dataDictionary: string
   conceptMap: string
   redactionProfile: string
+  /** The contract the batch was written to (2.9.1); absent from earlier Hospitals. */
+  exchangeContract?: string
 }
 
 export type SiteIdentity = {
@@ -296,6 +342,8 @@ export type ExchangeCapabilitiesV1 = {
   centralEncryptionPublicKeyPem: string
   receiptSigningKeyId: string
   receiptSigningPublicKeyPem: string
+  /** The contract this Central speaks (2.9.1); absent from earlier Centrals. */
+  exchangeContractVersion?: string
 }
 
 export type ManifestValidation =
@@ -353,6 +401,10 @@ export function validateManifest(value: unknown): ManifestValidation {
       "dataDictionary", "conceptMap", "redactionProfile",
     ]) {
       if (!text(value.versions[field])) errors.push(`versions.${field} is required`)
+    }
+    if (value.versions.exchangeContract !== undefined &&
+        (typeof value.versions.exchangeContract !== "string" || !contractLevel(value.versions.exchangeContract))) {
+      errors.push("versions.exchangeContract must be X.Y.Z")
     }
   }
   if (!["PASS", "WARNING", "FAIL"].includes(String(value.qualityStatus))) {

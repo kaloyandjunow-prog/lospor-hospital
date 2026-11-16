@@ -49,9 +49,9 @@ export function renderCardPreviewPage(
 ): string {
   const intro = `<p>${localize(locale,
     "What a treatment card shows a clinician after a complication, for a sample patient: the questions, the rows, and the doses worked out on the patient's age and weight. Nothing is charted from here and no case is read. Whether the card is on for this hospital is set on the Switches tab.",
-    "Какво показва картата за лечение на лекаря след усложнение, за примерен пациент: въпросите, редовете и дозите, изчислени по възрастта и теглото. Оттук нищо не се записва и не се чете случай. Дали картата е включена за болницата, се задава в раздела „Превключватели“.")}</p>`
+    "Как изглежда смарт картата за примерен пациент: въпроси, стъпки и дози според възрастта и теглото. Нищо не се записва. Включването на картите е в „Настройки“.")}</p>`
   if (!view || !automations) {
-    return `${renderIntraopTabs("cards", locale)}<div class="component" id="intraop-cards">${intro}<div class="empty">${localize(locale, "This API does not offer the card preview yet.", "Този API още не предлага прегледа на картите.")}</div></div>`
+    return `${renderIntraopTabs("cards", locale)}<div class="component" id="intraop-cards">${intro}<div class="empty">${localize(locale, "This API does not offer the card preview yet.", "Не е налично в тази версия.")}</div></div>`
   }
   const cards = automations.automations.filter(item => item.group === "treatmentSuggestions" && item.id.startsWith("card:"))
   const patientOptions = view.patients.map(patient => `<option value="${escapeHtml(patient.key)}"${patient.key === query.patient ? " selected" : ""}>${escapeHtml(locale === "bg" ? patient.labelBg : patient.labelEn)}</option>`).join("")
@@ -83,9 +83,9 @@ export function renderCardPreviewPage(
     const question = card.question ? `<p class="card-preview-question">${escapeHtml(locale === "bg" ? card.question.bg : card.question.en)}</p>` : ""
     const branches = card.branches ? `<p class="card-preview-branches">${card.branches.prompt ? `${escapeHtml(locale === "bg" ? card.branches.prompt.bg : card.branches.prompt.en)} ` : ""}${card.branches.options.map(option => `<span class="intraop-stat">${escapeHtml(locale === "bg" ? option.title.bg : option.title.en)}</span>`).join(" ")}</p>` : ""
     body = `<div class="card-preview" data-testid="card-preview" data-kind="${escapeHtml(card.kind)}"${card.redStrip ? " data-urgent" : ""}>
-<header><strong>${escapeHtml(locale === "bg" ? card.complicationBg : card.complication)}</strong> ${status}<span class="component-detail">${card.kind === "checklist" ? localize(locale, "Checklist", "Списък със стъпки") : localize(locale, "Treatment card", "Карта за лечение")} · ${escapeHtml(locale === "bg" ? card.patient.labelBg : card.patient.labelEn)}</span>${card.redStrip ? `<span class="card-preview-strip">${localize(locale, "Time-critical: a red strip shows the time since onset", "Времево критично: червена лента показва времето от началото")}</span>` : ""}</header>
+<header><strong>${escapeHtml(locale === "bg" ? card.complicationBg : card.complication)}</strong> ${status}<span class="component-detail">${card.kind === "checklist" ? localize(locale, "Checklist", "Списък със стъпки") : localize(locale, "Smart card", "Смарт карта")} · ${escapeHtml(locale === "bg" ? card.patient.labelBg : card.patient.labelEn)}</span>${card.redStrip ? `<span class="card-preview-strip">${localize(locale, "Time-critical: a red strip shows the time since onset", "Спешно по време: червената лента показва времето от началото")}</span>` : ""}</header>
 ${question}${branches}<ul class="card-preview-rows">${card.rows.map(row).join("")}</ul></div>
-<p class="component-detail">${localize(locale, "Each row opens the usual sheet with this prefilled; the clinician saves or closes it. A dose from the drug's own suggestion is worked out by the sheet.", "Всеки ред отваря обичайния лист с това попълнено; лекарят го записва или затваря. Доза по предложението за лекарството се изчислява от самия лист.")}</p>`
+<p class="component-detail">${localize(locale, "Each row opens the usual sheet with this prefilled; the clinician saves or closes it. A dose from the drug's own suggestion is worked out by the sheet.", "Всеки ред отваря обичайния лист с попълнени стойности; лекарят го записва или затваря. Дозата се изчислява от листа.")}</p>`
   }
   return `${renderIntraopTabs("cards", locale)}<div class="component" id="intraop-cards">${intro}${form}${body}</div>`
 }

@@ -54,26 +54,26 @@ export function renderIndicatorsPage(view: IndicatorsView | null | undefined, lo
   const title = ""
   const intro = `<p>${localize(locale,
     "Aggregate figures over the department's cases — activity, times, case mix, airway, drugs, the gas footprint, fluids, intraoperative events, recovery and documentation — open to every user in the department. No figure is shown for fewer than five cases. They are worked out from the live record and never exported.",
-    "Обобщени данни за случаите на отделението — дейност, времена, профил на случаите, дихателни пътища, медикаменти, въглероден отпечатък на газовете, течности, интраоперативни събития, възстановяване и документация — достъпни за всеки потребител в отделението. Не се показват данни за по-малко от пет случая. Изчисляват се от текущите записи и никога не се изнасят.")}</p>`
+    "Обобщени данни за случаите на отделението: дейност, времена, видове случаи, дихателни пътища, медикаменти, въглероден отпечатък на газовете, течности, интраоперативни събития, възстановяване и документация. Видими за всеки потребител в отделението. Групи с под 5 случая не се показват. Данните не се изнасят.")}</p>`
   if (!view) {
-    return `<div class="component" id="${ANCHOR}">${title}${intro}<div class="empty">${localize(locale, "This API does not offer the unit indicators yet.", "Този API още не предлага индикаторите на отделението.")}</div></div>`
+    return `<div class="component" id="${ANCHOR}">${title}${intro}<div class="empty">${localize(locale, "This API does not offer the unit indicators yet.", "Не е налично в тази версия.")}</div></div>`
   }
   const { config, defaults } = view
   const label = (entry: { labelEn: string; labelBg: string }) => escapeHtml(locale === "bg" ? entry.labelBg : entry.labelEn)
   const bands = config.hypotensionBands.map(band => {
     const bundled = defaults.hypotensionBands.find(item => item.key === band.key)
-    const hint = bundled ? `${localize(locale, "bundled", "вградено")}: ${bundled.mapBelow != null ? `${localize(locale, "MAP", "САН")} &lt; ${bundled.mapBelow}` : ""}${bundled.mapBelow != null && bundled.sbpBelow != null ? " · " : ""}${bundled.sbpBelow != null ? `${localize(locale, "SBP", "САН")} &lt; ${bundled.sbpBelow}` : ""}` : ""
-    return `<tr data-band="${escapeHtml(band.key)}"><th scope="row">${label(band)}<span class="component-detail">${hint}</span></th><td><input class="ind-number" name="map_${escapeHtml(band.key)}" inputmode="decimal" value="${value(band.mapBelow)}" aria-label="${localize(locale, "MAP below", "САН под")} — ${label(band)}"></td><td><input class="ind-number" name="sbp_${escapeHtml(band.key)}" inputmode="decimal" value="${value(band.sbpBelow)}" aria-label="${localize(locale, "Systolic below", "Систолно под")} — ${label(band)}"></td></tr>`
+    const hint = bundled ? `${localize(locale, "bundled", "по подразбиране")}: ${bundled.mapBelow != null ? `${localize(locale, "MAP", "САН")} &lt; ${bundled.mapBelow}` : ""}${bundled.mapBelow != null && bundled.sbpBelow != null ? " · " : ""}${bundled.sbpBelow != null ? `${localize(locale, "SBP", "САН")} &lt; ${bundled.sbpBelow}` : ""}` : ""
+    return `<tr data-band="${escapeHtml(band.key)}"><th scope="row">${label(band)}<span class="component-detail">${hint}</span></th><td><input class="ind-number" name="map_${escapeHtml(band.key)}" inputmode="decimal" value="${value(band.mapBelow)}" aria-label="${localize(locale, "MAP below", "САН под")} — ${label(band)}"></td><td><input class="ind-number" name="sbp_${escapeHtml(band.key)}" inputmode="decimal" value="${value(band.sbpBelow)}" aria-label="${localize(locale, "Systolic below", "Систолно АН под")} — ${label(band)}"></td></tr>`
   }).join("")
   const single = (name: string, current: number, bundled: number, en: string, bg: string, unit: string) =>
-    `<label>${localize(locale, en, bg)}<span class="ind-inline"><input class="ind-number" name="${name}" inputmode="decimal" required value="${current}"> ${unit}</span><span class="component-detail">${localize(locale, "bundled", "вградено")}: ${bundled} ${unit}</span></label>`
+    `<label>${localize(locale, en, bg)}<span class="ind-inline"><input class="ind-number" name="${name}" inputmode="decimal" required value="${current}"> ${unit}</span><span class="component-detail">${localize(locale, "bundled", "по подразбиране")}: ${bundled} ${unit}</span></label>`
 
   return `<div class="component" id="${ANCHOR}">${title}${intro}<form method="post" action="${INDICATORS_PATH}#${ANCHOR}" data-testid="indicators-form">
 <h4>${localize(locale, "Hypotension, by age", "Хипотенсия според възрастта")}</h4>
 <p class="component-detail">${localize(locale,
     "A blood pressure reading is hypotensive below either value set for the patient's age; leave a value empty to not use it. Time in hypotension is counted from the chart's readings, each standing for its 5 minutes and up to 15 until the next. Bundled: children by Pediatric Advanced Life Support (AHA 2020), adults MAP below 65 mmHg.",
-    "Измерването е хипотенсия под която и да е от стойностите за възрастта на пациента; оставете празно, за да не се използва. Времето в хипотенсия се брои по измерванията в картата — всяко важи за своите 5 минути и до 15 до следващото. Вградено: при деца по Pediatric Advanced Life Support (AHA 2020), при възрастни САН под 65 mmHg.")}</p>
-<table class="ind-bands"><thead><tr><th>${localize(locale, "Age band", "Възрастова група")}</th><th>${localize(locale, "MAP below (mmHg)", "САН под (mmHg)")}</th><th>${localize(locale, "Systolic below (mmHg)", "Систолно под (mmHg)")}</th></tr></thead><tbody>${bands}</tbody></table>
+    "Хипотенсия е измерване под някоя от стойностите за възрастта; празно поле не се използва. Времето в хипотенсия се брои по измерванията (всяко важи 5 минути, до 15 до следващото). По подразбиране: при деца по PALS (AHA 2020), при възрастни САН под 65 mmHg.")}</p>
+<table class="ind-bands"><thead><tr><th>${localize(locale, "Age band", "Възрастова група")}</th><th>${localize(locale, "MAP below (mmHg)", "САН под (mmHg)")}</th><th>${localize(locale, "Systolic below (mmHg)", "Систолно АН под (mmHg)")}</th></tr></thead><tbody>${bands}</tbody></table>
 <h4>${localize(locale, "Other thresholds", "Други прагове")}</h4>
 <div class="form-grid">
 ${single("spo2Below", config.spo2Below, defaults.spo2Below, "Desaturation: SpO₂ below", "Десатурация: SpO₂ под", "%")}
@@ -82,11 +82,11 @@ ${single("painAbove", config.painAbove, defaults.painAbove, "Recovery pain: scor
 ${single("paedAtLeast", config.paedAtLeast, defaults.paedAtLeast, "Emergence delirium: PAED at least", "Делир при събуждане: PAED поне", "")}
 </div>
 <h4>${localize(locale, "Opioid use per anaesthesiologist", "Употреба на опиоиди по анестезиолог")}</h4>
-<label class="check"><input type="checkbox" name="namedClinicians" value="true"${config.namedClinicians ? " checked" : ""} data-testid="indicators-named"> ${localize(locale, "Show colleagues by name to the whole department", "Показване на колегите по име на цялото отделение")}</label>
+<label class="check"><input type="checkbox" name="namedClinicians" value="true"${config.namedClinicians ? " checked" : ""} data-testid="indicators-named"> ${localize(locale, "Show colleagues by name to the whole department", "Колегите се виждат по име")}</label>
 <p class="component-detail">${localize(locale,
     "Off (bundled): each user sees their own row named and colleagues as letters, and can filter by themself only. On: every user sees every colleague's figures by name, and can filter by any of them. This is monitoring of staff; switch it on only with the department's agreement.",
-    "Изключено (вградено): всеки потребител вижда своя ред с име, а колегите — с букви, и може да филтрира само по себе си. Включено: всеки вижда данните на всички колеги по име и може да филтрира по всеки от тях. Това е наблюдение на персонала; включвайте го само със съгласието на отделението.")}</p>
-<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save the unit indicators settings", "Запазване на настройките на индикаторите")}</button></form></div>`
+    "Изключено (по подразбиране): всеки вижда себе си по име, а колегите с букви. Включено: всички се виждат по име и може да се филтрира по всеки. Това е наблюдение на персонала; включвайте го само със съгласието на отделението.")}</p>
+<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save the unit indicators settings", "Запазване")}</button></form></div>`
 }
 
 export const INDICATORS_STYLE = `.ind-bands{width:100%;border-collapse:collapse;margin:.6rem 0}.ind-bands th,.ind-bands td{border-bottom:1px solid var(--line);padding:.45rem .5rem;text-align:left;vertical-align:middle}.ind-bands th[scope=row]{font-weight:650}.ind-bands th[scope=row] .component-detail{display:block;font-weight:400}

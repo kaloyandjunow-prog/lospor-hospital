@@ -1,5 +1,52 @@
 # Changelog - LOSPOR Hospital
 
+## [1.11.0] - 2026-11-16
+
+Vendors Core, API, Web and PWA 10.6.0 and the Central exchange contract 2.9.1; Browser stays 0.11.2. No database
+migration. The update screen still asks for the verified backup first. Central 2.9.0 keeps receiving data as before:
+contract 2.9.1 changes no column. Update Central to 2.9.1 when convenient.
+
+### Added
+
+- **Preoperative vital signs can be optional** (Status → Preoperative form → Sections, separately for adults and
+  children). Either the whole block, or blood pressure, heart rate and respiratory rate one by one. The fields are
+  always shown; an optional one does not stop the case from going on to the operation or from being closed. Many
+  children's lists record no vital signs before theatre. Nothing changes until someone changes the switch: all three
+  stay required.
+- **A current medication can be typed as written** when it is not in the drug list (Status → Preoperative form →
+  Sections, off by default). The search then ends with „Добави „…“ както е написано“, and the medication is marked
+  „въведено ръчно“. It has no code: research receives it as text, and the allergy check compares it by name only.
+- **Updating the server from Status** (Updates, step 1, before the LOSPOR update). **Check for system updates**
+  sits beside **Check for new versions** and counts what Ubuntu and Docker have waiting; **Update the server** asks
+  for the administrator password and runs what `sudo losporctl host upgrade` runs, in the same order: a verified
+  backup, Ubuntu with its security fixes and Docker, the services back, a health check. A failure says not to apply
+  the LOSPOR update. `host upgrade` now also installs new kernels (`--with-new-pkgs`), which a plain upgrade held
+  back, and `sudo losporctl host check` refreshes the package lists.
+- **The appliance checks which version Central runs** before sending research data. From the next release that adds
+  research columns on, an older Central would accept the data and silently lose them; instead the data waits on the
+  appliance, Status says „Central е с по-стара версия…“, and it is sent once Central is updated.
+
+### Changed
+
+- **A typed medication leaves for research cleaned** of ЕГН, phone numbers, dates and e-mail, and is withheld when
+  the export policy says free text may not leave. A trade name the drug list knows ("Prestarium Neo 5 mg") keeps its
+  name; anything else also goes through the person-name check.
+
+### Changed — Status
+
+- **Menus by what they are for.** Табло за управление, Състояние, Клинична работа (in the order of a case), Болница,
+  Системна комуникация, Изследвания, Акаунти, Поддръжка. The hospital's name and logo have their own page (Болница →
+  Данни за болницата), and so has colleagues' case access (Акаунти). The preoperative form opens on its sections.
+- **Clearer Bulgarian** on every page reviewed so far: one save button and one reason field per form, shorter
+  explanations, no repeated text, technical identifiers folded under „Технически данни“.
+
+### Fixed
+
+- **One typed medication made the whole list look like personal data** where identifying text is checked at save,
+  drugs from the list included.
+- **Status: submenus vanished right after a save.** The page answered on the form's own address, which no menu knew;
+  the menus now follow the page the form belongs to.
+
 ## [1.10.0] - 2026-11-16
 
 Vendors Core, API, Web and PWA 10.5.0 and the Central exchange contract 2.9.0; Browser stays 0.11.2. No database

@@ -41,7 +41,7 @@ import { saveIntraopAutomation, readIntraopAutomation } from "@/lib/intraop-auto
 import { intraopAutomationControlView } from "./intraop-automation-control"
 import { readIndicatorConfig, saveIndicatorConfig } from "@/lib/indicators"
 import { DEFAULT_INDICATOR_CONFIG } from "@lospor/core/indicators"
-import { MEDICATION_HOLD_HOURS, POSTOP_FIXED_SECTIONS, PREOP_FIXED_SECTIONS, PREOP_SWITCHABLE_SECTIONS, sectionForm } from "@lospor/core/preop-orders"
+import { MEDICATION_HOLD_HOURS, POSTOP_FIXED_SECTIONS, PREOP_FIXED_SECTIONS, PREOP_MEDICATIONS_FREE_TEXT_LABEL, PREOP_SWITCHABLE_SECTIONS, PREOP_VITALS_SETTING_LABELS, sectionForm } from "@lospor/core/preop-orders"
 import {
   BUNDLED_CONSENT_TEMPLATES,
   CONSENT_POPULATIONS,
@@ -458,6 +458,15 @@ export const preopSectionsUpdateSchema = z.object({
     hoursMode: z.enum(["REQUIRED", "OPTIONAL", "NONE"]).optional(),
   }).strict()).max(120),
   consultSpecialtyKeys: z.array(z.string().trim().min(1).max(20)).max(NHIS_SPECIALTIES.length),
+  // Which preop vitals are required, and whether a medication may be typed as
+  // written (1.11.0). Left out, they stay as they are.
+  vitals: z.object({
+    required: z.boolean(),
+    bloodPressure: z.boolean(),
+    heartRate: z.boolean(),
+    respiratoryRate: z.boolean(),
+  }).strict().optional(),
+  medicationsFreeText: z.boolean().optional(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -1739,11 +1748,16 @@ async function preopSectionsControlView() {
       // The postoperative form's switches are kept with the preop ones.
       form: sectionForm(section),
     })),
-    fixed: PREOP_FIXED_SECTIONS.map(section => ({ ...section })),
+    // The vitals have their own switches below the sections (1.11.0), so they
+    // are no longer listed with what is always on and required.
+    fixed: PREOP_FIXED_SECTIONS.filter(section => section.key !== "VITALS").map(section => ({ ...section })),
     postopFixed: POSTOP_FIXED_SECTIONS.map(section => ({ ...section })),
     specialties: NHIS_SPECIALTIES.map(item => ({ key: item.key, labelEn: item.labelEn, labelBg: item.labelBg, clinical: item.clinical, doctor: item.role === "Лекари" })),
     holdHours: [...MEDICATION_HOLD_HOURS],
     configs: { ADULT: configOf("ADULT"), PEDIATRIC: configOf("PEDIATRIC") },
+    // Status has no Core: the labels of the 1.11.0 switches travel with the view.
+    vitalsSwitches: PREOP_VITALS_SETTING_LABELS.map(entry => ({ ...entry })),
+    medicationsFreeText: { ...PREOP_MEDICATIONS_FREE_TEXT_LABEL },
   }
 }
 
@@ -1759,6 +1773,8 @@ export async function updateHospitalPreopSections(input: z.infer<typeof preopSec
       sections: parsed.sections,
       orderOptions: parsed.orderOptions,
       consultSpecialtyKeys: parsed.consultSpecialtyKeys,
+      vitals: parsed.vitals,
+      medicationsFreeText: parsed.medicationsFreeText,
     }, parsed.reason, parsed.population)
     await logAuditInTransaction(tx, actor.id, "HOSPITAL_PREOP_SECTIONS_UPDATE", profile.id, {
       reasonRecorded: Boolean(parsed.reason),

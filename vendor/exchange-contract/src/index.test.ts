@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   EXCHANGE_SCHEMA,
+  centralTakesContract,
   canonicalJson,
   compareSequence,
   validateManifest,
@@ -105,5 +106,31 @@ describe("exchange contract", () => {
     expect(compareSequence(4, 4)).toBe("EXPECTED")
     expect(compareSequence(4, 3)).toBe("DUPLICATE")
     expect(compareSequence(4, 7)).toBe("GAP")
+  })
+})
+
+describe("which contract a batch was written to (2.9.1)", () => {
+  it("is taken by a Central whose contract is not older, by major.minor", () => {
+    expect(centralTakesContract("2.9.1", "2.9.1")).toBe(true)
+    expect(centralTakesContract("2.9.1", "2.9.7")).toBe(true)
+    expect(centralTakesContract("2.10.0", "2.9.1")).toBe(true)
+    expect(centralTakesContract("2.9.1", "2.10.0")).toBe(false)
+    expect(centralTakesContract("2.9.1", "3.0.0")).toBe(false)
+  })
+
+  it("takes a Central that announces none to speak 2.9.0, and a batch that names none as before", () => {
+    expect(centralTakesContract(undefined, "2.9.1")).toBe(true)
+    expect(centralTakesContract(undefined, "2.10.0")).toBe(false)
+    expect(centralTakesContract("2.9.1", undefined)).toBe(true)
+    expect(centralTakesContract("2.9.1", "garbage")).toBe(false)
+  })
+
+  it("refuses a manifest whose contract is not X.Y.Z, and allows one that names none", () => {
+    const named = validManifest()
+    named.versions = { ...named.versions, exchangeContract: "2.9" }
+    expect(validateManifest(named).ok).toBe(false)
+    named.versions = { ...named.versions, exchangeContract: "2.9.1" }
+    expect(validateManifest(named).ok).toBe(true)
+    expect(validateManifest(validManifest()).ok).toBe(true)
   })
 })

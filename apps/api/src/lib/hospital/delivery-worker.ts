@@ -1,6 +1,9 @@
 import { rm } from "node:fs/promises"
 import {
+  EXCHANGE_CONTRACT_VERSION,
+  UNANNOUNCED_CENTRAL_CONTRACT,
   canonicalJson,
+  centralTakesContract,
   type EncryptionEnvelope,
   type ExchangeManifestV1,
   type ExchangeReceiptV1,
@@ -9,6 +12,7 @@ import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import {
   CentralApiError,
+  fetchCentralCapabilities,
   readCentralBatchStatus,
   uploadCentralBatch,
 } from "./central-client"
@@ -367,6 +371,44 @@ async function pollReceipt(
   return false
 }
 
+/** Central's capabilities, asked at most every ten minutes. */
+let capabilitiesSeen: { baseUrl: string; at: number; contract: string | undefined } | null = null
+const CAPABILITIES_TTL_MS = 10 * 60 * 1000
+
+/** Exported for tests: forget what Central last said. */
+export function forgetCentralCapabilities(): void {
+  capabilitiesSeen = null
+}
+
+/**
+ * Refuses to send while Central speaks an older contract than this appliance
+ * writes (1.11.0). An older Central reads a newer batch's CSV by name,
+ * receipts it, and silently drops the columns it does not know, so the batch
+ * waits instead: retryably, under the code Status names, until Central is
+ * updated. A Central before 2.9.1 announces no contract and is taken to speak
+ * 2.9.0.
+ */
+export async function assertCentralTakesOurContract(baseUrl: string): Promise<void> {
+  const now = Date.now()
+  if (!capabilitiesSeen || capabilitiesSeen.baseUrl !== baseUrl || now - capabilitiesSeen.at > CAPABILITIES_TTL_MS) {
+    const capabilities = await fetchCentralCapabilities(baseUrl)
+    capabilitiesSeen = { baseUrl, at: now, contract: capabilities.exchangeContractVersion }
+  }
+  if (!centralTakesContract(capabilitiesSeen.contract, EXCHANGE_CONTRACT_VERSION)) {
+    throw new CentralApiError(
+      409,
+      "CENTRAL_CONTRACT_TOO_OLD",
+      true,
+      `Central speaks exchange contract ${capabilitiesSeen.contract ?? UNANNOUNCED_CENTRAL_CONTRACT}; this appliance writes ${EXCHANGE_CONTRACT_VERSION}`,
+    )
+  }
+}
+
+async function centralBaseUrl(): Promise<string | null> {
+  const installation = await prisma.hospitalInstallation.findUnique({ where: { id: "local" }, select: { centralBaseUrl: true } })
+  return installation?.centralBaseUrl ?? null
+}
+
 async function deliverBatch(batchId: string, workerId: string): Promise<void> {
   const [batch, installation] = await Promise.all([
     prisma.centralDeliveryBatch.findUnique({ where: { id: batchId } }),
@@ -377,6 +419,7 @@ async function deliverBatch(batchId: string, workerId: string): Promise<void> {
       !installation.multipartChunkBytes) {
     throw new Error("Generated batch is incomplete")
   }
+  await assertCentralTakesOurContract(installation.centralBaseUrl)
   await prisma.centralDeliveryBatch.updateMany({
     where: { id: batch.id, leaseOwner: workerId },
     data: { status: "UPLOADING" },
@@ -421,6 +464,9 @@ export async function processOneCentralDelivery(
     if (batch.status === "PENDING" ||
         batch.status === "RETRY" ||
         batch.status === "GENERATING") {
+      // Not worth building a batch Central cannot take yet.
+      const baseUrl = await centralBaseUrl()
+      if (baseUrl) await assertCentralTakesOurContract(baseUrl)
       if (batch.status === "GENERATING") {
         await prisma.centralDeliveryBatch.update({
           where: { id: batchId },

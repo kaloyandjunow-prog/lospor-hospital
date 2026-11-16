@@ -98,3 +98,47 @@ describe("the pages", () => {
     expect(html).toContain('name="spec_1001" value="true" checked')
   })
 })
+
+/**
+ * Preop vitals required or optional, and medications typed as written
+ * (1.11.0): on the preop sections form, per population, where the API offers
+ * them.
+ */
+describe("the vitals and typed-medication switches (1.11.0)", () => {
+  const withSwitches = () => {
+    const sections = preopSectionsFixture()
+    sections.vitalsSwitches = [
+      { key: "required", labelEn: "Vital signs required", labelBg: "Жизнените показатели са задължителни" },
+      { key: "bloodPressure", labelEn: "Blood pressure", labelBg: "Артериално налягане" },
+      { key: "heartRate", labelEn: "Heart rate", labelBg: "Сърдечна честота" },
+      { key: "respiratoryRate", labelEn: "Respiratory rate", labelBg: "Дихателна честота" },
+    ]
+    sections.medicationsFreeText = { labelEn: "Typed medications", labelBg: "Свободно въведени медикаменти" }
+    sections.configs.PEDIATRIC = { ...sections.configs.PEDIATRIC!, vitals: { required: false, bloodPressure: true, heartRate: true, respiratoryRate: true }, medicationsFreeText: true }
+    return sections
+  }
+
+  it("shows them on the preop form, as each population has them, and not on the postop one", () => {
+    const html = renderPreopSectionsEditor(withSwitches(), "bg")
+    expect(html).toMatch(/name="vitals_required" value="true" checked data-testid="vitals-required-ADULT"/)
+    expect(html).toMatch(/name="vitals_required" value="true" {2}data-testid="vitals-required-PEDIATRIC"/)
+    expect(html).toMatch(/name="medications_free_text" value="true" {2}data-testid="medications-free-text-box-ADULT"/)
+    expect(html).toMatch(/name="medications_free_text" value="true" checked data-testid="medications-free-text-box-PEDIATRIC"/)
+    expect(renderPostopFormEditor(withSwitches(), "bg")).not.toContain("vitals_required")
+    expect(preopSectionsShape(withSwitches())).toBe(true)
+  })
+
+  it("sends what the form ticked, and nothing from a form that does not carry them", () => {
+    const update = preopSectionsUpdateFromForm(withSwitches(), "PEDIATRIC", "sections", { vitals_required: "true", vitals_bloodPressure: "true" }, REASON)
+    expect(update.vitals).toEqual({ required: true, bloodPressure: true, heartRate: false, respiratoryRate: false })
+    expect(update.medicationsFreeText).toBe(false)
+    const orders = preopSectionsUpdateFromForm(withSwitches(), "PEDIATRIC", "orders", {}, REASON)
+    expect(orders.vitals).toBeUndefined()
+    expect(orders.medicationsFreeText).toBeUndefined()
+  })
+
+  it("is left out where the API does not offer it", () => {
+    expect(renderPreopSectionsEditor(preopSectionsFixture(), "en")).not.toContain("vitals_required")
+    expect(preopSectionsUpdateFromForm(preopSectionsFixture(), "ADULT", "sections", {}, REASON).vitals).toBeUndefined()
+  })
+})

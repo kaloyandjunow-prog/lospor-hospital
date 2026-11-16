@@ -69,7 +69,7 @@ describe("Status screen localization", () => {
     }
     const body = renderDashboard(dashboard, "bg")
     expect(body).toContain("Автоматично приключване на случаи")
-    expect(body).toContain("Копие на инсталационните тайни")
+    expect(body).toContain("Копие на ключовете и паролите")
     expect(body).not.toContain("Automatic case closure")
     expect(body).not.toContain("Installation secrets escrow")
   })
@@ -118,7 +118,7 @@ describe("Status screen localization", () => {
       mayApply: false,
     }
     expect(renderRelease(base, "en")).toContain("Update mode has not been selected")
-    expect(renderRelease(base, "bg")).toContain("Не е избран начин на актуализиране")
+    expect(renderRelease(base, "bg")).toContain("Не е избран начин на обновяване")
     expect(renderRelease({ ...base, agentMode: "console-only" }, "en"))
       .toContain("intentionally console-only")
   })

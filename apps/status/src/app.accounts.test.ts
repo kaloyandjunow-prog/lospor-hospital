@@ -173,7 +173,7 @@ describe("Status account workflows", () => {
     const body = await response.text()
     expect(response.status).toBe(200)
     expect(body).toContain('<html lang="bg"')
-    expect(body).toContain("Създаване на профил")
+    expect(body).toContain("Създаване и връзка за активиране")
     // Scoped to the creation form's own select. A page-wide search for
     // value="ADMIN" also matches the role-change form on an existing account,
     // which must offer the clinical administrator role in order to show the
@@ -186,13 +186,13 @@ describe("Status account workflows", () => {
     expect(accessProfile).toContain('value="RESEARCH_ONLY"')
     expect(accessProfile).not.toContain('value="ADMIN"')
     expect(body).toContain('pattern="[A-Za-z][A-Za-z0-9._-]{2,63}"')
-    expect(body).toContain("Може да има главни и малки букви и те се запазват")
-    expect(body).toContain("никога не се използва за вход")
+    expect(body).toContain("3–64 знака: латински букви, цифри")
+    expect(body).toContain("не служи за вход")
     expect(body).toContain("@Dr.Iva")
     expect(body).toContain("clinical-admin@example.test")
     expect(body).not.toContain("/status/accounts/admin-1/recovery")
-    expect(body).toContain("сам по себе си не дава достъп до медицински записи")
-    expect(body).toContain("Няма отделни нива на права")
+    expect(body).toContain("не дава вход в клиничното приложение и достъп до медицински записи")
+    expect(body).toContain("имат еднакви права")
     expect(accountControl.list).toHaveBeenCalledTimes(1)
   })
 

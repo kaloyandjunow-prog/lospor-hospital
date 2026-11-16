@@ -20,6 +20,7 @@ const text: PreopSectionOverviewText = {
   meds: "meds hint",
   flags: "flags hint",
   vitalsRequired: "vitals required",
+  vitalsOptional: "vitals optional",
   mallampatiRequired: "mallampati required",
   labsHint: "labs hint",
   asaRequired: "asa required",
@@ -116,5 +117,15 @@ describe("preop section overview wording (2026-10-18)", () => {
     expect(summary("patient")).toBe("67 г. · Ж · 88 kg")
     expect(summary("history")).toBe("Придружаващи заболявания: 2")
     expect(summary("anamnesis")).toBe("Алергия · Пушач")
+  })
+})
+
+describe("preop vitals a hospital has made optional (10.6.0)", () => {
+  it("does not mark the examination required, and says the vitals are optional", () => {
+    const none = { bloodPressure: false, heartRate: false, respiratoryRate: false }
+    const exam = buildPreopSectionItems({}, labels, text, none).find(item => item.key === "exam")!
+    expect(exam).toMatchObject({ required: false, summary: "vitals optional" })
+    const stillRequired = buildPreopSectionItems({}, labels, text).find(item => item.key === "exam")!
+    expect(stillRequired).toMatchObject({ required: true, summary: "vitals required" })
   })
 })

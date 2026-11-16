@@ -8,7 +8,18 @@ import type { StatusConfig } from "./config.js"
 import { StatusDatabase } from "./db.js"
 import { totpCode } from "./mfa.js"
 import { renderTerminology, type TerminologyView } from "./ui.js"
-import { NAV_GROUPS, NAV_PATHS, STATUS_SKINS, attentionHref, withUi, type StatusSkin } from "./ui-shell.js"
+import { NAV_GROUPS, NAV_PATHS, STATUS_SKINS, attentionHref, currentItem, withUi, type StatusSkin } from "./ui-shell.js"
+
+// A save answers on the form's own address, which is not a page; the menus
+// take the nearest page above it (1.11.0).
+describe("the page a form's own address belongs to", () => {
+  it("is the nearest page above it", () => {
+    expect(currentItem("/status/accounts/abc123/role")?.item.id).toBe("accounts")
+    expect(currentItem("/status/terminology/actions")?.item.id).toBe("terminology")
+    expect(currentItem("/status/maintenance/settings/apply")?.item.id).toBe("support")
+    expect(currentItem("/status/nowhere/at/all")).toBeNull()
+  })
+})
 
 // Hospital 1.5.4: Status gets five skins with the map hub as default, a
 // legacy skin that keeps the old look, light and dark, and Display settings.
@@ -129,7 +140,7 @@ describe("the legacy skin", () => {
 describe("language and theme", () => {
   it("names the navigation in Bulgarian", () => {
     const html = render("maphub", "password", "bg")
-    for (const name of ["Преглед", "Връзки", "Клинични настройки", "Хора", "Актуализации и резервни копия", "Терминологичен пакет"]) expect(html).toContain(name)
+    for (const name of ["Табло за управление", "Системна комуникация", "Състояние", "Клинична работа", "Болница", "Изследвания", "Акаунти", "Поддръжка", "Номенклатури"]) expect(html).toContain(name)
   })
 
   it("follows the computer by default and marks an explicit choice on <html>", () => {

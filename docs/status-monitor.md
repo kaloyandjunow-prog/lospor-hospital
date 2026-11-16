@@ -38,12 +38,14 @@ layout differ. The new skins group the pages by job:
 
 | Group | Pages |
 | --- | --- |
-| Overview | The map, people using LOSPOR now, cases per day, one to-do list, going live |
-| Services | Availability over 24 hours, 7 days or 90 days; checks; incidents; events |
-| Connections | Hospital system, Codes, Terminology package, LOSPOR Central, AI assistance |
-| Clinical setup | Preoperative form (questions, summary page, written consent), Calculated guidance, Patient identification (ЕГН policy) |
-| People | Accounts and Status administrators, Research access |
-| Updates and backups | Updates, Backups, Server, Security, Support and settings, Going live |
+| Dashboard | The map, users right now, cases per day, the to-do list, going live |
+| Status | Availability over 24 hours, 7 days or 90 days; checks; incidents; events |
+| Clinical work | Preoperative form (sections, questions, orders and instructions, summary and consent), SPS, Calculated guidance, Drug colours, Postoperative form |
+| Hospital | Hospital details, Operating theatres, Patient identification, Unit indicators |
+| System communication | Hospital information system (HIS), Codes, Terminology, AI assistance |
+| Research | Research access, LOSPOR Central |
+| Accounts | Accounts and Status administrators, Colleagues' cases, Change history |
+| Maintenance | Updates, Backups, Server, Security, Installation settings, Going live |
 
 "Using it now" counts people with a session active in the last ten minutes;
 cases per day are totals. Neither names a person, patient or case.

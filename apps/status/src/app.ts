@@ -16,7 +16,7 @@ import {
 } from "./signals.js"
 import type { MaintenanceView, MedicationSearch, ReleaseView } from "./ui.js"
 import { PERIOP_LOGO_PNG } from "./brand.js"
-import { DEFAULT_SKIN, NAV_PATHS, STATUS_UI_SCRIPT, isLegacy, parseRange, parseSkin, parseTheme, withUi } from "./ui-shell.js"
+import { DEFAULT_SKIN, NAV_PATHS, STATUS_UI_SCRIPT, isLegacy, parseRange, parseSkin, parseTheme, ui, withUi } from "./ui-shell.js"
 import {
   PREOP_ORDER_SCRIPT,
   STATUS_NAV,
@@ -128,7 +128,7 @@ function windowDescription(locale: StatusLocale): string {
   return localize(
     locale,
     "Unless you choose to apply it immediately, this will be applied during the overnight maintenance window, when no list is running.",
-    "Ако не изберете незабавно прилагане, актуализацията ще бъде приложена през нощния прозорец за поддръжка, когато не тече оперативна програма.",
+    "Ако не изберете незабавно прилагане, обновяването ще бъде приложено през нощния прозорец за поддръжка, когато не тече оперативна програма.",
   )
 }
 
@@ -1254,7 +1254,11 @@ export function createStatusApp({
     const trend = section === "intraop/acceptance" ? await controlPlane.intraopAcceptance().catch(() => null) : undefined
     const cardPreview = section === "intraop/cards" && cardQuery ? await controlPlane.cardPreview(cardQuery).catch(() => null) : undefined
     const history = section === "history" && historyQuery ? await controlPlane.auditHistory(historyQuery).catch(() => null) : undefined
-    return renderControlPlane(
+    // The menus follow the page, not the address. A save answers on the
+    // form's own address (/status/control/preop-sections), which no menu
+    // knows, so the group's submenu disappeared right after "saved" (1.11.0).
+    // Every section is its page's address under /status/control.
+    return withUi({ ...ui(), path: section ? `/status/control/${section}` : ui().path }, () => renderControlPlane(
       current.view,
       locale,
       error ?? (current.error ? controlPlaneMessage(current.error, locale) : undefined),
@@ -1272,7 +1276,7 @@ export function createStatusApp({
       cardPreview,
       cardQuery,
       labScanDraft,
-    )
+    ))
   }
 
   // One unmapped medication code's search of the medication list, asked for
@@ -1469,10 +1473,14 @@ export function createStatusApp({
   app.get("/status/control/preop", context => controlGet(context, "preop"))
   // 1.7.0: the preoperative form's tabs, and the postoperative form.
   app.get("/status/control/preop/sections", context => controlGet(context, "preop/sections"))
+  app.get("/status/control/preop/questions", context => controlGet(context, "preop/questions"))
   app.get("/status/control/preop/orders", context => controlGet(context, "preop/orders"))
   app.get("/status/control/preop/documents", context => controlGet(context, "preop/documents"))
   app.get("/status/control/postop", context => controlGet(context, "postop"))
   app.get("/status/control/drug-colors", context => controlGet(context, "drug-colors"))
+  // 1.11.0: the hospital's own details, and colleagues' cases, each their own page.
+  app.get("/status/control/hospital", context => controlGet(context, "hospital"))
+  app.get("/status/control/case-access", context => controlGet(context, "case-access"))
   app.get("/status/control/theatres", context => controlGet(context, "theatres"))
   app.get("/status/control/indicators", context => controlGet(context, "indicators"))
   app.get("/status/control/intraop", context => controlGet(context, "intraop"))
@@ -1594,7 +1602,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The hospital-wide case-reading policy was saved and audited. Write permissions were not changed.", "Политиката за четене на случаите в болницата е запазена и записана в одитния журнал. Правата за запис не са променени."),
-    "clinical",
+    "case-access",
   ))
 
   // The logo, for the preview on the Status page: the administrator's session, never public.
@@ -1626,7 +1634,7 @@ export function createStatusApp({
     (locale, removed) => removed
       ? localize(locale, "The hospital logo was removed and audited.", "Логото на болницата е премахнато и записано в одитния журнал.")
       : localize(locale, "The hospital logo was saved and audited. It prints at the top of the preop summary, the consent and the anaesthesia record.", "Логото на болницата е запазено и записано в одитния журнал. Печата се най-горе на предоперативното обобщение, съгласието и анестезиологичния протокол."),
-    "clinical",
+    "hospital",
     undefined,
     1.5 * 1024 * 1024,
   ))
@@ -1639,7 +1647,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The hospital name on the record was saved and audited. Records show it from now on, finished ones included.", "Името на болницата в протокола е запазено и записано в одитния журнал. Протоколите го показват оттук нататък, включително завършените."),
-    "clinical",
+    "hospital",
   ))
 
   app.post("/status/control/preop-profile", context => sensitiveControlAction(
@@ -1678,7 +1686,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The preoperative profile was saved and audited. Cases of that population pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите от тази група получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
-    "preop",
+    "preop/questions",
   ))
 
   // The preop sections, the postop sections, the order lists or the
@@ -2015,7 +2023,7 @@ export function createStatusApp({
     },
     locale => localize(locale,
       "The EHR endpoint was saved and audited. Any stored credential was cleared, because a secret belongs to the arrangement it was issued for.",
-      "Адресът на БИС е запазен и записан в одитния журнал. Запазените данни за достъп бяха изтрити, защото тайната важи само за настройката, за която е издадена."),
+      "Адресът на БИС е запазен и записан в одитния журнал. Запазените данни за достъп бяха изтрити, защото те важат само за настройката, за която са издадени."),
     "ehr",
   ))
 
@@ -2561,7 +2569,7 @@ export function createStatusApp({
     if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
     const action = parsed.body.action
     if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill" && action !== "offhost-disable"
-      && action !== "os-update" && action !== "os-reboot" && action !== "support-bundle" && action !== "rotate-credentials") {
+      && action !== "os-update" && action !== "os-upgrade" && action !== "os-reboot" && action !== "support-bundle" && action !== "rotate-credentials") {
       return context.html(await maintenancePage(locale, kind, {
         error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
       }), 400)
@@ -2604,6 +2612,7 @@ export function createStatusApp({
         "offhost-drill": "STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED",
         "offhost-disable": "STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED",
         "os-update": "STATUS_MAINTENANCE_OS_UPDATE_REQUESTED",
+        "os-upgrade": "STATUS_MAINTENANCE_OS_UPGRADE_REQUESTED",
         "os-reboot": "STATUS_MAINTENANCE_OS_REBOOT_REQUESTED",
         "support-bundle": "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED",
         "rotate-credentials": "STATUS_MAINTENANCE_ROTATION_REQUESTED",
@@ -2616,13 +2625,15 @@ export function createStatusApp({
         "offhost-drill": "A drill from the off-host copy was requested from Status",
         "offhost-disable": "Turning off off-host copies was requested from Status",
         "os-update": "Installing Ubuntu security updates was requested from Status",
+        "os-upgrade": "Updating the server (Ubuntu and Docker) was requested from Status",
         "os-reboot": "A server restart was requested from Status",
         "support-bundle": "A support bundle was requested from Status",
         "rotate-credentials": "A credential rotation was requested from Status",
       } as const)[action],
       facts: { operatorRef: confirmed.operatorRef },
     })
-    return context.redirect("/status/maintenance", 303)
+    // The server update is step 1 on the Updates page, which follows it.
+    return context.redirect(action === "os-upgrade" ? "/status/release" : "/status/maintenance", 303)
   })
 
   // The newest support bundle, as a download. losporctl reduced it to
@@ -2700,7 +2711,7 @@ export function createStatusApp({
         sessionToken,
         error: outcome === "already-pending"
           ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
-          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за копие на тайните не можа да бъде записана. Нищо не е променено."),
+          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за копие на ключовете и паролите не можа да бъде записана. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
     db.insertEvent({
@@ -2726,26 +2737,26 @@ export function createStatusApp({
     const unavailable = async (message: [string, string], status: 403 | 404 | 409) =>
       context.html(await maintenancePage(locale, kind, { sessionToken, error: localize(locale, message[0], message[1]) }), status)
     if (kind !== "password") {
-      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Сесия с токен за възстановяване не може да изтегля копието на тайните."], 403)
+      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Сесия с токен за възстановяване не може да изтегля копието на ключовете и паролите."], 403)
     }
     const offer = await readSecretsEscrowOffer(config.updateStateDir, now())
     const operatorRef = operatorRefOf(sessionToken)
     if (!offer) {
-      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие на тайните за изтегляне. Първо създайте такова; копието е достъпно 30 минути."], 404)
+      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие на ключовете и паролите за изтегляне. Първо създайте такова; копието е достъпно 30 минути."], 404)
     }
     if (offer.operatorRef !== operatorRef) {
-      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие на тайните е направено от друг администратор. Само той е видял паролата му, затова само той може да го изтегли."], 403)
+      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие на ключовете и паролите е направено от друг администратор. Може да го изтегли само той."], 403)
     }
     const bytes = await readSecretsEscrowBundle(config.updateStateDir, offer)
     if (!bytes) {
-      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието на тайните на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
+      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието на ключовете и паролите на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
     }
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action: "secrets-escrow-delivered", operatorRef, delivered: offer.sha256,
     }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
-      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "На сървъра чака друга заявка за поддръжка. Изтеглете копието на тайните отново след минута."], 409)
+      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "На сървъра чака друга заявка за поддръжка. Изтеглете копието на ключовете и паролите отново след минута."], 409)
     }
     db.insertEvent({
       id: requestId,
@@ -3118,11 +3129,25 @@ export function createStatusApp({
     const operatorBlocked = agent?.phase === "needs-operator"
     const installedVersion = config.installedVersion ?? update?.installedVersion ?? "-"
     const fetchedVersion = agent?.preparedVersion ?? update?.fetchedVersion
-    const [installedDossier, fetchedDossier] = await Promise.all([
+    const [installedDossier, fetchedDossier, hostOs, maintenance] = await Promise.all([
       readReleaseDossier(config.updateStateDir, installedVersion),
       readReleaseDossier(config.updateStateDir, fetchedVersion),
+      readHostOsSignal(config.updateStateDir, now()),
+      readMaintenanceAgentSignal(config.updateStateDir, now()),
     ])
+    // Step 1, the server (1.11.0): offered only with a healthy, idle agent.
+    const maintenanceBusy = maintenance !== null && ["accepted", "working", "needs-operator"].includes(maintenance.phase)
+    const lastServer = maintenance?.lastAction === "os-check" || maintenance?.lastAction === "os-upgrade"
+      ? { action: maintenance.lastAction, code: maintenance.resultCode }
+      : undefined
+    const server = {
+      hostOs,
+      busy: maintenanceBusy,
+      ...(lastServer ? { last: lastServer } : {}),
+      mayManage: (extra.mayApply ?? true) && agentMode === "healthy" && maintenance !== null && !maintenanceBusy,
+    }
     return {
+      server,
       ...(installedDossier ? { installedDossier } : {}),
       ...(fetchedDossier ? { fetchedDossier } : {}),
       installedVersion: config.installedVersion ?? update?.installedVersion ?? "-",
@@ -3167,7 +3192,7 @@ export function createStatusApp({
     const view = await releaseView(locale)
     if (!view.mayPrepare || !view.latestVersion || view.latestVersion === view.installedVersion) {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "No healthy update agent can prepare that release.", "Няма работещ агент за актуализации, който да подготви тази версия."),
+        error: localize(locale, "No healthy update agent can prepare that release.", "Няма работеща услуга за поддръжка, която да подготви тази версия."),
       }), locale))
     }
     const outcome = await requestFetch(config.updateRequestsDir, view.latestVersion, now())
@@ -3191,12 +3216,51 @@ export function createStatusApp({
     const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     const view = await releaseView(locale)
-    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "Няма работещ агент за актуализации, който да провери за нови версии.") }), locale, kind))
+    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "Няма работеща услуга за поддръжка, която да провери за нови версии.") }), locale, kind))
     const outcome = await requestCheck(config.updateRequestsDir, now()).catch(error => maintenanceRequestFailed(newRequestId(), error))
-    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "Проверка за актуализации вече чака. Не е подадена нова заявка.") }), locale, kind))
+    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "Проверка за обновявания вече чака. Не е подадена нова заявка.") }), locale, kind))
     if (outcome === "failed") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "The update check request could not be recorded.", "Заявката за проверка не можа да бъде записана.") }), locale, kind))
     return context.redirect("/status/release", 303)
   })
+  // Step 1 of an update (1.11.0): refresh Ubuntu's package lists so the page
+  // counts what is waiting now. It installs nothing, so like the release check
+  // it needs no password, only an administrator signed in with one.
+  app.post("/status/actions/os-check", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(session)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const operatorRef = operatorRefOf(session)
+    const view = await releaseView(locale, { mayApply: kind === "password" })
+    if (!operatorRef || !view.server?.mayManage) {
+      return context.html(renderRelease(await releaseView(locale, {
+        mayApply: kind === "password",
+        error: localize(locale, "A system update check cannot be requested right now. Nothing was requested.", "В момента не може да се поиска проверка за системни обновявания. Не е подадена заявка."),
+      }), locale, kind), 409)
+    }
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, { requestId, action: "os-check", operatorRef }, now())
+      .catch(error => maintenanceRequestFailed(requestId, error))
+    if (outcome !== "submitted") {
+      return context.html(renderRelease(await releaseView(locale, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
+          : localize(locale, "The check request could not be recorded.", "Заявката за проверка не можа да бъде записана."),
+      }), locale, kind), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_OS_CHECK_REQUESTED",
+      severity: "info",
+      message: "A check for Ubuntu and Docker updates was requested from Status",
+      facts: { operatorRef },
+    })
+    return context.redirect("/status/release", 303)
+  })
+
   // Acts on nothing. A POST rather than a GET so the confirmation cannot be
   // prefetched, bookmarked, or arrived at by a link someone was sent.
   app.post("/status/actions/apply", async context => {
@@ -3265,7 +3329,7 @@ export function createStatusApp({
 
     if (outcome === "already-pending") {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "An update is already waiting to be applied. Nothing further was requested.", "Вече има актуализация, която чака да бъде приложена. Не е подадена нова заявка."),
+        error: localize(locale, "An update is already waiting to be applied. Nothing further was requested.", "Вече има обновяване, което чака да бъде приложено. Не е подадена нова заявка."),
       }), locale))
     }
     if (outcome === "failed") {

@@ -188,6 +188,7 @@ went, and whether Ubuntu needs a restart. The same facts are at the console:
 
 ```sh
 sudo losporctl host state
+sudo losporctl host check
 sudo losporctl host security-update
 sudo losporctl host reboot
 sudo losporctl host upgrade
@@ -204,8 +205,15 @@ sudo losporctl host upgrade
   queued or running. The default, `manual`, leaves it to Hospital IT.
 - Docker's own updates restart every clinical service, so the nightly run never
   installs them. `sudo losporctl host upgrade` installs every update, Docker
-  included, after a backup, then brings the services back and runs doctor. Run
-  it in the maintenance window.
+  and new kernels included, after a backup, then brings the services back and
+  runs doctor. Run it in the maintenance window.
+- The same upgrade is step 1 on Status → **Updates** (1.11.0), before the LOSPOR
+  update itself. **Check for system updates** (beside **Check for new versions**)
+  refreshes Ubuntu's package lists and counts what is waiting
+  (`sudo losporctl host check`); **Update the server** asks for the
+  administrator password and runs `host upgrade`. If it fails, do not apply a
+  LOSPOR update until `sudo losporctl check` is clean. Offline installations
+  have no package sources to reach, so the check reports that.
 
 Each operation is recorded in `.data/host-os/operations.v1.tsv`.
 

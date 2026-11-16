@@ -76,40 +76,46 @@ const PASSWORD: readonly StatusAudience[] = ["password"]
  * may open; the routes still enforce that themselves.
  */
 export const NAV_GROUPS: readonly NavGroup[] = [
-  { id: "overview", en: "Overview", bg: "Преглед", items: [
-    { id: "overview", path: "/status/", en: "Overview", bg: "Преглед", descEn: "Is LOSPOR working, and is there anything you must do?", descBg: "Работи ли LOSPOR и има ли нещо, което трябва да направите?", audiences: BOTH },
+  { id: "overview", en: "Dashboard", bg: "Табло за управление", items: [
+    { id: "overview", path: "/status/", en: "Dashboard", bg: "Табло за управление", descEn: "Is LOSPOR working, and is there anything you must do?", descBg: "Работи ли LOSPOR и има ли нещо, което трябва да направите?", audiences: BOTH },
   ] },
-  { id: "services", en: "Services", bg: "Услуги", items: [
-    { id: "services", path: "/status/services", en: "Services and events", bg: "Услуги и събития", descEn: "How each part has worked, and what happened.", descBg: "Как е работила всяка част и какво се е случило.", audiences: BOTH },
+  { id: "services", en: "Status", bg: "Състояние", items: [
+    { id: "services", path: "/status/services", en: "Status", bg: "Състояние", descEn: "How each part has worked, and what happened.", descBg: "Как е работила всяка част и какво се е случило.", audiences: BOTH },
   ] },
-  { id: "connections", en: "Connections", bg: "Връзки", items: [
-    { id: "hospital", path: "/status/control/ehr", en: "Hospital system", bg: "Болнична система", descEn: "The link that brings patient data from the hospital system.", descBg: "Връзката, която носи данните на пациента от болничната информационна система.", audiences: PASSWORD },
-    { id: "codes", path: "/status/control/codes", en: "Codes", bg: "Кодове", descEn: "How the hospital's lab, drug and vital-sign codes become LOSPOR's.", descBg: "Как кодовете на болницата за изследвания, лекарства и жизнени показатели стават кодове на LOSPOR.", audiences: PASSWORD },
-    { id: "terminology", path: "/status/terminology", en: "Terminology package", bg: "Терминологичен пакет", descEn: "The approved terminology package in use, and the one kept for going back.", descBg: "Използваният одобрен терминологичен пакет и този, запазен за връщане.", audiences: BOTH },
-    { id: "central", path: "/status/control/central", en: "LOSPOR Central", bg: "LOSPOR Central", descEn: "Sends finished, de-identified cases to LOSPOR Central. Push only.", descBg: "Изпраща завършените обезличени случаи към LOSPOR Central. Само изходящо.", audiences: PASSWORD },
-    { id: "ai", path: "/status/control/ai", en: "AI assistance", bg: "Помощ от ИИ", descEn: "Mistral (EU) for lab and monitor scans and adult advice.", descBg: "Mistral (ЕС) за сканиране на изследвания и монитор и за съвети при възрастни.", audiences: PASSWORD },
-  ] },
-  { id: "clinical", en: "Clinical setup", bg: "Клинични настройки", items: [
-    { id: "preop", path: "/status/control/preop", also: ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"], en: "Preoperative form", bg: "Предоперативна форма", descEn: "Its sections, the questions asked, ward orders and medication instructions, the summary page and the written consent.", descBg: "Разделите, задаваните въпроси, назначенията и указанията за медикаментите, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
+  { id: "clinical", en: "Clinical work", bg: "Клинична работа", items: [
+    { id: "preop", path: "/status/control/preop", also: ["/status/control/preop/sections", "/status/control/preop/questions", "/status/control/preop/orders", "/status/control/preop/documents"], en: "Preoperative form", bg: "Предоперативна форма", descEn: "Its sections, the questions asked, ward orders and medication instructions, the summary page and the written consent.", descBg: "Разделите, задаваните въпроси, назначенията и указанията за медикаментите, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
     { id: "intraop", path: "/status/control/intraop", also: ["/status/control/intraop/readings", "/status/control/intraop/acceptance", "/status/control/intraop/cards"], en: "SPS — Smart Prediction System", bg: "SPS — Система за интелигентно прогнозиране", descEn: "The questions, suggestions and reminders on the intraoperative record, and the dantrolene vials in stock.", descBg: "Въпросите, предложенията и напомнянията в интраоперативния запис и наличните флакони дантролен.", audiences: PASSWORD },
-    { id: "postop", path: "/status/control/postop", en: "Postoperative form", bg: "Следоперативна форма", descEn: "Its sections, the pain scales by age, and what a case needs to be finalised.", descBg: "Разделите, скалите за болка според възрастта и какво е нужно, за да се приключи случай.", audiences: PASSWORD },
-    { id: "theatres", path: "/status/control/theatres", en: "Operating theatres", bg: "Операционни зали", descEn: "Whether cases are given a theatre, and the theatres' names.", descBg: "Дали на случаите се задава зала, и имената на залите.", audiences: PASSWORD },
-    { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотенсия според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
-    { id: "drug-colors", path: "/status/control/drug-colors", en: "Drug colours", bg: "Цветове на лекарствата", descEn: "The colour of each drug group, and of any drug, on the chart and in its menus.", descBg: "Цветът на всяка група лекарства и на всяко лекарство в картата и менютата ѝ.", audiences: PASSWORD },
     { id: "guidance", path: "/status/control/clinical", en: "Calculated guidance", bg: "Изчислени насоки", descEn: "Dose guidance for adults and children, and the rule baselines it uses.", descBg: "Насоки за дозиране при възрастни и деца и базовите правила, на които се основават.", audiences: PASSWORD },
-    { id: "identity", path: "/status/control/identity", en: "Patient identification", bg: "Идентификация на пациента", descEn: "Which number identifies a patient on screens and printouts.", descBg: "Кой номер идентифицира пациента на екрана и в разпечатките.", audiences: PASSWORD },
+    { id: "drug-colors", path: "/status/control/drug-colors", en: "Drug colours", bg: "Цветове на лекарствата", descEn: "The colour of each drug group, and of any drug, on the chart and in its menus.", descBg: "Цветът на всяка група лекарства и на всяко лекарство в картата и менютата ѝ.", audiences: PASSWORD },
+    { id: "postop", path: "/status/control/postop", en: "Postoperative form", bg: "Следоперативна форма", descEn: "Its sections, the pain scales by age, and what a case needs to be finalised.", descBg: "Разделите, скалите за болка според възрастта и какво е нужно за приключване на случай.", audiences: PASSWORD },
   ] },
-  { id: "people", en: "People", bg: "Хора", items: [
-    { id: "accounts", path: "/status/accounts", en: "Accounts", bg: "Профили", descEn: "Everyone who signs in to LOSPOR, and the Status administrators.", descBg: "Всички, които влизат в LOSPOR, и администраторите на Status.", audiences: PASSWORD },
+  { id: "facility", en: "Hospital", bg: "Болница", items: [
+    { id: "hospital-details", path: "/status/control/hospital", en: "Hospital details", bg: "Данни за болницата", descEn: "The hospital's name and the logo printed on its documents.", descBg: "Името на болницата и логото, отпечатвано на документите.", audiences: PASSWORD },
+    { id: "theatres", path: "/status/control/theatres", en: "Operating theatres", bg: "Операционни зали", descEn: "Whether cases are given a theatre, and the theatres' names.", descBg: "Дали на случаите се задава зала, и имената на залите.", audiences: PASSWORD },
+    { id: "identity", path: "/status/control/identity", en: "Patient identification", bg: "Идентификация на пациента", descEn: "Which number identifies a patient on screens and printouts.", descBg: "Кой номер идентифицира пациента на екрана и в разпечатките.", audiences: PASSWORD },
+    { id: "indicators", path: "/status/control/indicators", en: "Unit indicators", bg: "Индикатори на отделението", descEn: "Hypotension thresholds by age, the other thresholds, and whether colleagues are named.", descBg: "Прагове за хипотенсия според възрастта, другите прагове и дали колегите се показват по име.", audiences: PASSWORD },
+  ] },
+  { id: "connections", en: "System communication", bg: "Системна комуникация", items: [
+    { id: "hospital", path: "/status/control/ehr", en: "Hospital system", bg: "Болнична информационна система (БИС)", descEn: "The link that brings patient data from the hospital system.", descBg: "Връзката, по която пристигат данните на пациента от БИС.", audiences: PASSWORD },
+    { id: "codes", path: "/status/control/codes", en: "Codes", bg: "Кодове от БИС", descEn: "How the hospital's lab, drug and vital-sign codes become LOSPOR's.", descBg: "Съпоставяне на кодовете от БИС за изследвания, лекарства и жизнени показатели с тези в LOSPOR.", audiences: PASSWORD },
+    { id: "terminology", path: "/status/terminology", en: "Terminology package", bg: "Номенклатури", descEn: "The approved terminology package in use, and the one kept for going back.", descBg: "Действащият пакет с номенклатури и предишният, запазен за връщане.", audiences: BOTH },
+    { id: "ai", path: "/status/control/ai", en: "AI assistance", bg: "Помощ от ИИ", descEn: "Mistral (EU) for lab and monitor scans and adult advice.", descBg: "Mistral (ЕС): разчитане на изследвания и монитор, съвети при възрастни.", audiences: PASSWORD },
+  ] },
+  { id: "studies", en: "Research", bg: "Изследвания", items: [
     { id: "research", path: "/status/control/research", en: "Research access", bg: "Достъп за изследвания", descEn: "Research grants and the exact OMOP exports approved.", descBg: "Разрешения за изследвания и одобрените OMOP набори.", audiences: PASSWORD },
+    { id: "central", path: "/status/control/central", en: "LOSPOR Central", bg: "LOSPOR Central", descEn: "Sends finished, de-identified cases to LOSPOR Central. Push only.", descBg: "Изпращане на приключените обезличени (анонимизирани) случаи към LOSPOR Central. Връзката е само изходяща.", audiences: PASSWORD },
+  ] },
+  { id: "people", en: "Accounts", bg: "Акаунти", items: [
+    { id: "accounts", path: "/status/accounts", en: "Accounts", bg: "Профили", descEn: "Everyone who signs in to LOSPOR, and the Status administrators.", descBg: "Всички, които влизат в LOSPOR, и администраторите на Status.", audiences: PASSWORD },
+    { id: "case-access", path: "/status/control/case-access", en: "Colleagues' cases", bg: "Достъп до случаите на колеги", descEn: "Whether clinicians can read the cases their colleagues recorded.", descBg: "Дали лекарите могат да четат случаите, записани от колегите им.", audiences: PASSWORD },
     { id: "history", path: "/status/control/history", en: "Change history", bg: "История на промените", descEn: "Who changed which setting or account, and when.", descBg: "Кой коя настройка или кой профил е променил, и кога.", audiences: PASSWORD },
   ] },
-  { id: "care", en: "Updates and backups", bg: "Актуализации и резервни копия", items: [
-    { id: "updates", path: "/status/release", en: "Updates", bg: "Актуализации", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
+  { id: "care", en: "Maintenance", bg: "Поддръжка", items: [
+    { id: "updates", path: "/status/release", en: "Updates", bg: "Обновявания", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
     { id: "backups", path: "/status/maintenance/backups", also: ["/status/maintenance", "/status/maintenance/offhost"], en: "Backups", bg: "Резервни копия", descEn: "Nightly copies, copies kept elsewhere, and restore drills.", descBg: "Нощни копия, копия извън сървъра и пробно възстановяване.", audiences: BOTH },
-    { id: "server", path: "/status/maintenance/host-os", en: "Server", bg: "Сървър", descEn: "The Ubuntu server and the host agent that carries out maintenance.", descBg: "Сървърът с Ubuntu и агентът, който изпълнява поддръжката.", audiences: BOTH },
-    { id: "security", path: "/status/maintenance/escrow", also: ["/status/maintenance/rotation"], en: "Security", bg: "Сигурност", descEn: "Installation secrets escrow and credential rotation.", descBg: "Копие на инсталационните тайни и смяна на данните за достъп.", audiences: BOTH },
-    { id: "support", path: "/status/maintenance/support", also: ["/status/maintenance/settings", "/status/maintenance/advanced"], en: "Support and settings", bg: "Поддръжка и настройки", descEn: "Support bundle, site settings and advanced settings.", descBg: "Пакет за поддръжка, настройки на инсталацията и разширени настройки.", audiences: BOTH },
+    { id: "server", path: "/status/maintenance/host-os", en: "Server", bg: "Сървър", descEn: "The Ubuntu server and the host agent that carries out maintenance.", descBg: "Сървърът с Ubuntu и услугата за поддръжка.", audiences: BOTH },
+    { id: "security", path: "/status/maintenance/escrow", also: ["/status/maintenance/rotation"], en: "Security", bg: "Сигурност", descEn: "Installation secrets escrow and credential rotation.", descBg: "Копие на ключовете и паролите и смяна на данните за достъп.", audiences: BOTH },
+    { id: "support", path: "/status/maintenance/support", also: ["/status/maintenance/settings", "/status/maintenance/advanced"], en: "Installation settings", bg: "Настройки на инсталацията", descEn: "Support bundle, site settings and advanced settings.", descBg: "Пакет за поддръжка, настройки на инсталацията и разширени настройки.", audiences: BOTH },
     { id: "golive", path: "/status/go-live", en: "Going live", bg: "Пускане в работа", descEn: "Everything to check and sign before clinical use.", descBg: "Всичко, което трябва да се провери и подпише преди клинична употреба.", audiences: BOTH },
   ] },
 ]
@@ -145,7 +151,13 @@ export function currentItem(path = ui().path): { group: NavGroup | null; item: N
   }
   if (current === "/status/control") return { group: NAV_GROUPS[2]!, item: NAV_GROUPS[2]!.items[0]! }
   const extra = EXTRA_PAGES.find(item => item.path === current)
-  return extra ? { group: null, item: extra } : null
+  if (extra) return { group: null, item: extra }
+  // A form's own address (/status/accounts/<id>/role, /status/terminology/actions)
+  // is not a page. A save answers on it, and the menus used to lose their place
+  // there: the group's submenu vanished right after "saved" (1.11.0). The page
+  // a form belongs to is the nearest one above its address.
+  const parent = current.slice(0, current.lastIndexOf("/"))
+  return parent.length > "/status".length ? currentItem(parent) : null
 }
 
 const label = (locale: StatusLocale, entry: { en: string; bg: string }) => locale === "bg" ? entry.bg : entry.en
@@ -202,7 +214,7 @@ export function skinHeader(locale: StatusLocale, audience: StatusAudience, langu
       ["inbox", "/status/", localize(locale, "Needs you", "Чака ви"), localize(locale, "things to do", "задачи")],
       ["watch", "/status/services", localize(locale, "Watch", "Наблюдение"), localize(locale, "services and events", "услуги и събития")],
       ["configure", "/status/configure", localize(locale, "Configure", "Настройки"), localize(locale, "every setting", "всички настройки")],
-      ...(audience === "password" ? [["people", "/status/accounts", localize(locale, "People", "Хора"), localize(locale, "accounts and access", "профили и достъп")]] : []),
+      ...(audience === "password" ? [["people", "/status/accounts", localize(locale, "People", "Акаунти"), localize(locale, "accounts and access", "профили и достъп")]] : []),
     ] as const
     const rail = `<nav class="skin-nav rail" aria-label="${navLabel}">${intents.map(([id, href, name, sub]) => `<a class="nav-item" href="${href}"${current(id === intent && (found?.item.id !== "configure" || id === "configure"))}><b>${escapeHtml(name)}</b><small>${escapeHtml(sub)}</small></a>`).join("")}</nav>`
     return `${head()}${rail}${chips(groupOf(activeGroup))}${pageTitle(locale, fallbackTitle)}`
@@ -304,7 +316,7 @@ export function attentionHref(href: string): string {
 
 export function todoList(items: readonly AttentionItem[], locale: StatusLocale, limit?: number): string {
   const shown = items.slice(0, limit ?? items.length)
-  if (!shown.length) return `<p class="empty">${localize(locale, "Nothing needs doing. Routine care is on track.", "Нищо не изисква действие. Текущата поддръжка е наред.")}</p>`
+  if (!shown.length) return `<p class="empty">${localize(locale, "No tasks planned, and every service is working.", "Няма планирани задачи и всички услуги работят.")}</p>`
   return `<ul class="todo">${shown.map(item => `<li class="lv-${item.level}"><span class="lv">${escapeHtml(localize(locale, LEVEL_TEXT[item.level][0], LEVEL_TEXT[item.level][1]))}</span><span>${escapeHtml(localize(locale, item.en, item.bg))}</span><a class="btn" href="${escapeHtml(attentionHref(item.href))}">${escapeHtml(localize(locale, item.actionEn, item.actionBg))}</a></li>`).join("")}</ul>`
 }
 
@@ -339,7 +351,11 @@ export function availabilityStrips(
 }
 
 type MapState = "good" | "warn" | "bad" | "off"
-type MapNode = { href: string; x: number; y: number; en: string; bg: string; sub: string; state: MapState }
+/**
+ * A box on the map. `sub` is the full sentence, read in the list and on hover;
+ * `short` and the box names are what fits inside the box (about 28 characters).
+ */
+type MapNode = { href: string; x: number; y: number; en: string; bg: string; boxEn?: string; boxBg?: string; sub: string; short?: string; state: MapState }
 
 const RANK: Record<MapState, number> = { off: 0, good: 1, warn: 2, bad: 3 }
 const worse = (left: MapState, right: MapState): MapState => RANK[right] > RANK[left] ? right : left
@@ -357,7 +373,7 @@ function span(ms: number, locale: StatusLocale): string {
 function relative(iso: string | null, now: number, locale: StatusLocale): string {
   if (!iso) return localize(locale, "nothing received yet", "още нищо не е получено")
   const ago = span(now - Date.parse(iso), locale)
-  return localize(locale, `last data ${ago} ago`, `получено преди ${ago}`)
+  return localize(locale, `Last contact with the hospital system ${ago} ago`, `Последна връзка с болничната система е засечена преди ${ago}`)
 }
 
 /**
@@ -378,9 +394,9 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
   const ai = snapshot?.integrations?.ai
   const central = byId.get("central")
 
-  const hospitalSystem = (): Pick<MapNode, "sub" | "state"> => {
+  const hospitalSystem = (): Pick<MapNode, "sub" | "short" | "state"> => {
     if (!ehr) return noData
-    if (!ehr.configured) return { sub: localize(locale, "not set up", "не е настроена"), state: "off" }
+    if (!ehr.configured) return { sub: localize(locale, "The connection to the HIS is not set up", "Не е настроена връзката с БИС"), short: localize(locale, "not set up", "връзката не е настроена"), state: "off" }
     if (!ehr.lastReceivedAt) return { sub: relative(null, now, locale), state: "warn" }
     const quiet = now - Date.parse(ehr.lastReceivedAt)
     const silent = localize(locale, `no data for ${span(quiet, locale)}`, `няма данни от ${span(quiet, locale)}`)
@@ -388,10 +404,10 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
     if (ehr.readFailures24h) return { sub: localize(locale, `${ehr.readFailures24h} failed reads in 24 h`, `${ehr.readFailures24h} неуспешни четения за 24 h`), state: "warn" }
     if (quiet > EHR_QUIET_WARN_MS) return { sub: silent, state: "warn" }
     if (ehr.unmappedCodes) return { sub: localize(locale, `${ehr.unmappedCodes} codes not mapped`, `${ehr.unmappedCodes} несъпоставени кода`), state: "warn" }
-    return { sub: relative(ehr.lastReceivedAt, now, locale), state: "good" }
+    return { sub: relative(ehr.lastReceivedAt, now, locale), short: localize(locale, `contact ${span(now - Date.parse(ehr.lastReceivedAt), locale)} ago`, `връзка преди ${span(now - Date.parse(ehr.lastReceivedAt), locale)}`), state: "good" }
   }
 
-  const mistral = (): Pick<MapNode, "sub" | "state"> => {
+  const mistral = (): Pick<MapNode, "sub" | "short" | "state"> => {
     if (!ai) return noData
     if (!ai.enabled) return { sub: localize(locale, "switched off", "изключен"), state: "off" }
     if (ai.check?.state === "key-refused") return { sub: localize(locale, "Mistral refuses the key", "Mistral отказва ключа"), state: "bad" }
@@ -399,36 +415,37 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
     return { sub: localize(locale, "switched on, answering", "включен, отговаря"), state: "good" }
   }
 
-  const centralBox = (): Pick<MapNode, "sub" | "state"> => {
+  const centralBox = (): Pick<MapNode, "sub" | "short" | "state"> => {
     if (!central) return noData
     if (central.status === "not-configured") return { sub: localize(locale, "not set up", "не е настроен"), state: "off" }
     const waiting = snapshot?.central.casesWithUnacceptedChanges ?? 0
     const since = snapshot?.centralOldestWaitingSince
     const oldest = waiting && since ? now - Date.parse(since) : 0
     const sub = oldest
-      ? localize(locale, `${waiting} waiting, oldest ${span(oldest, locale)}`, `${waiting} чакат, най-старият ${span(oldest, locale)}`)
-      : localize(locale, `${waiting} waiting`, `${waiting} чакат`)
-    return { sub, state: worse(stateOf(central.status), oldest > CENTRAL_WAIT_WARN_MS ? "warn" : "good") }
+      ? localize(locale, `${waiting} cases waiting, the oldest for ${span(oldest, locale)}`, `${waiting} случая чакат, най-старият от ${span(oldest, locale)}`)
+      : localize(locale, `${waiting} cases waiting`, `${waiting} случая чакат`)
+    const short = oldest ? localize(locale, `${waiting} waiting, ${span(oldest, locale)}`, `${waiting} чакат, от ${span(oldest, locale)}`) : undefined
+    return { sub, short, state: worse(stateOf(central.status), oldest > CENTRAL_WAIT_WARN_MS ? "warn" : "good") }
   }
 
-  const backups = (): Pick<MapNode, "sub" | "state"> => {
-    if (ids.has("backup")) return { sub: localize(locale, "backups stopped", "копията са спрели"), state: "bad" }
-    if (ids.has("offhost")) return { sub: localize(locale, "copies elsewhere failing", "копирането навън не успява"), state: "warn" }
-    if (byId.get("offhost-backup")?.code === "OFFHOST_BACKUP_NOT_CONFIGURED") return { sub: localize(locale, "only on this server", "само на този сървър"), state: "warn" }
+  const backups = (): Pick<MapNode, "sub" | "short" | "state"> => {
+    if (ids.has("backup")) return { sub: localize(locale, "Backups are not being made", "Резервните копия не се създават"), short: localize(locale, "not being made", "не се създават"), state: "bad" }
+    if (ids.has("offhost")) return { sub: localize(locale, "The backup copy outside the server failed", "Резервното копие извън сървъра е неуспешно"), short: localize(locale, "copy outside failed", "копието навън е неуспешно"), state: "warn" }
+    if (byId.get("offhost-backup")?.code === "OFFHOST_BACKUP_NOT_CONFIGURED") return { sub: localize(locale, "Copies outside the server are not set up or have a problem", "Копията извън сървъра не са настроени или изпитват проблем"), short: localize(locale, "no copy outside the server", "няма копие извън сървъра"), state: "warn" }
     if (ids.has("drill")) return { sub: localize(locale, "restore drill due", "предстои пробно възстановяване"), state: "warn" }
-    return { sub: localize(locale, "in order", "наред"), state: "good" }
+    return { sub: localize(locale, "Up to date", "Актуални"), state: "good" }
   }
 
-  const updates = (): Pick<MapNode, "sub" | "state"> => {
-    if (ids.has("agent")) return { sub: localize(locale, "agent not working", "агентът не работи"), state: "bad" }
-    if (byId.get("update-supply")?.code === "UPDATE_SUPPLY_OFFLINE") return { sub: localize(locale, "installed by hand", "инсталират се ръчно"), state: "off" }
+  const updates = (): Pick<MapNode, "sub" | "short" | "state"> => {
+    if (ids.has("agent")) return { sub: localize(locale, "Updates and maintenance are not being carried out", "Обновяванията и поддръжката не се изпълняват"), short: localize(locale, "maintenance not running", "поддръжката не се изпълнява"), state: "bad" }
+    if (byId.get("update-supply")?.code === "UPDATE_SUPPLY_OFFLINE") return { sub: localize(locale, "Updates are installed offline only: no or broken internet connection", "Обновяванията се инсталират само офлайн, поради липса на или нарушена връзка с интернет"), short: localize(locale, "offline only", "само офлайн"), state: "off" }
     const code = byId.get("appliance-update")?.code
     if (code === "UPDATE_CHECK_FAILED" || code === "UPDATE_CHECK_NEVER_RUN" || code === "UPDATE_CHECK_STALE") return { sub: localize(locale, "cannot check for updates", "не може да провери"), state: "warn" }
     if (attention.some(item => item.id === "release")) return { sub: localize(locale, "new release ready", "има нова версия"), state: "warn" }
     return { sub: localize(locale, "up to date", "няма нови версии"), state: "good" }
   }
 
-  const research = (): Pick<MapNode, "sub" | "state"> => {
+  const research = (): Pick<MapNode, "sub" | "short" | "state"> => {
     const browser = byId.get("browser")
     if (!browser) return noData
     if (browser.status === "outage") return { sub: localize(locale, "not answering", "не отговаря"), state: "bad" }
@@ -439,10 +456,10 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
   }
 
   return [
-    { href: "/status/accounts", x: 112, y: 62, en: "Phones and computers", bg: "Телефони и компютри", ...(users ? { sub: localize(locale, `${users.activeUsers} using it now`, `${users.activeUsers} го използват сега`), state: "good" as const } : noData) },
-    { href: "/status/release", x: 112, y: 200, en: "Updates", bg: "Актуализации", ...updates() },
+    { href: "/status/accounts", x: 112, y: 62, en: "Users right now", bg: "Потребителите в момента", ...(users ? { sub: String(users.activeUsers), state: "good" as const } : noData) },
+    { href: "/status/release", x: 112, y: 200, en: "Updates", bg: "Обновявания", ...updates() },
     { href: "/status/maintenance/backups", x: 112, y: 338, en: "Backups", bg: "Резервни копия", ...backups() },
-    { href: "/status/control/ehr", x: 568, y: 62, en: "Hospital system", bg: "Болнична система", ...hospitalSystem() },
+    { href: "/status/control/ehr", x: 568, y: 62, en: "Hospital information system (HIS)", bg: "Болнична информационна система (БИС)", boxEn: "HIS", boxBg: "БИС", ...hospitalSystem() },
     { href: "/status/control/central", x: 568, y: 200, en: "LOSPOR Central", bg: "LOSPOR Central", ...centralBox() },
     { href: "/status/control/ai", x: 568, y: 338, en: "Mistral AI (EU)", bg: "Mistral AI (ЕС)", ...mistral() },
     { href: "/status/control/research", x: 340, y: 352, en: "Research", bg: "Изследвания", ...research() },
@@ -457,10 +474,10 @@ function coreParts(data: DashboardData): { id: string; en: string; bg: string; s
     .filter(id => byId.has(id)).map(part)
   return [
     { id: "web", en: "Web", bg: "Уеб", state: part("web") },
-    { id: "pwa", en: "Phone app", bg: "Приложение", state: part("pwa") },
+    { id: "pwa", en: "Mobile app", bg: "Мобилно приложение", state: part("pwa") },
     { id: "api", en: "API", bg: "API", state: part("api") },
     { id: "database", en: "Database", bg: "База данни", state: part("database") },
-    { id: "proxy", en: "Gateway", bg: "Шлюз", state: part("proxy") },
+    { id: "proxy", en: "Gateway", bg: "HTTPS вход", state: part("proxy") },
     { id: "server", en: "Server", bg: "Сървър", state: host.length ? host.reduce(worse, "good") : "off" },
   ]
 }
@@ -476,11 +493,11 @@ export function overviewMap(data: DashboardData, attention: readonly AttentionIt
     const traffic = node.state === "good" ? `<circle class="packet" r="3.5"><animateMotion dur="${(2.2 + index * .35).toFixed(2)}s" repeatCount="indefinite" path="${d}"/></circle>` : ""
     return `<path class="wire ${node.state}" d="${d}"/>${traffic}`
   }).join("")
-  const box = (node: MapNode) => `<a href="${node.href}" class="node ${node.state}"><rect x="${node.x - 94}" y="${node.y - 23}" width="188" height="46" rx="12"/><circle cx="${node.x - 79}" cy="${node.y - 6}" r="4.5"/><text x="${node.x - 69}" y="${node.y - 1}">${escapeHtml(label(locale, node))}</text><text class="sub" x="${node.x - 69}" y="${node.y + 14}">${escapeHtml(node.sub)}</text></a>`
+  const box = (node: MapNode) => `<a href="${node.href}" class="node ${node.state}"><rect x="${node.x - 94}" y="${node.y - 23}" width="188" height="46" rx="12"/><circle cx="${node.x - 79}" cy="${node.y - 6}" r="4.5"/><text x="${node.x - 69}" y="${node.y - 1}">${escapeHtml(locale === "bg" ? node.boxBg ?? node.bg : node.boxEn ?? node.en)}</text><text class="sub" x="${node.x - 69}" y="${node.y + 14}">${escapeHtml(node.short ?? node.sub)}</text><title>${escapeHtml(`${label(locale, node)}: ${node.sub}`)}</title></a>`
   const dots = parts.map((item, index) => `<circle class="${item.state}" cx="${cx - 82 + (index % 2) * 96}" cy="${cy - 10 + Math.floor(index / 2) * 22}" r="4.5"/><text class="sub" x="${cx - 72 + (index % 2) * 96}" y="${cy - 6 + Math.floor(index / 2) * 22}">${escapeHtml(label(locale, item))}</text>`).join("")
-  const core = `<a href="/status/services" class="node core ${worst}"><rect x="${cx - 102}" y="${cy - 62}" width="204" height="124" rx="18"/><text x="${cx - 84}" y="${cy - 34}" class="strong">${localize(locale, "LOSPOR appliance", "Системата LOSPOR")}</text><g class="parts">${dots}</g></a>`
-  const coreSub = known.length ? parts.filter(item => item.state === "bad" || item.state === "warn").map(item => label(locale, item)).join(", ") || localize(locale, "all parts working", "всички части работят") : localize(locale, "no data yet", "още няма данни")
-  const list = `<ul class="map-list" aria-label="${localize(locale, "The appliance and its connections", "Системата и връзките ѝ")}">${[{ href: "/status/services", en: "LOSPOR appliance", bg: "Системата LOSPOR", sub: coreSub, state: worst }, ...nodes].map(node => `<li><a href="${node.href}"><span class="state-dot ${node.state}" aria-hidden="true"></span><span>${escapeHtml(label(locale, node))}</span><small>${escapeHtml(node.sub)}</small></a></li>`).join("")}</ul>`
+  const core = `<a href="/status/services" class="node core ${worst}"><rect x="${cx - 102}" y="${cy - 62}" width="204" height="124" rx="18"/><text x="${cx - 84}" y="${cy - 34}" class="strong">${localize(locale, "LOSPOR", "LOSPOR")}</text><g class="parts">${dots}</g></a>`
+  const coreSub = known.length ? parts.filter(item => item.state === "bad" || item.state === "warn").map(item => label(locale, item)).join(", ") || localize(locale, "Server hardware and services are working", "Хардуерът и услугите на сървъра работят") : localize(locale, "no data yet", "още няма данни")
+  const list = `<ul class="map-list" aria-label="${localize(locale, "The appliance and its connections", "Системата и връзките ѝ")}">${[{ href: "/status/services", en: "LOSPOR", bg: "LOSPOR", sub: coreSub, state: worst }, ...nodes].map(node => `<li><a href="${node.href}"><span class="state-dot ${node.state}" aria-hidden="true"></span><span>${escapeHtml(label(locale, node))}</span><small>${escapeHtml(node.sub)}</small></a></li>`).join("")}</ul>`
   return list + `<svg class="map" viewBox="0 0 680 400" role="group" aria-label="${localize(locale, "Map of the appliance and its connections. Each box opens its page.", "Карта на системата и връзките ѝ. Всяко поле отваря своята страница.")}">${wires}${core}${nodes.map(box).join("")}</svg>`
 }
 
@@ -511,7 +528,7 @@ export function verdictCard(className: string, text: string, todayCount: number,
   const todo = todayCount === 0
     ? localize(locale, "Nothing to do today.", "Днес няма задачи.")
     : localize(locale, `${todayCount} thing(s) to do today.`, `Задачи за днес: ${todayCount}.`)
-  return `<section class="verdict ${dot}" role="status"><span class="state-dot ${dot}" aria-hidden="true"></span><div><strong>${escapeHtml(text)}</strong><span>${escapeHtml(todo)} ${localize(locale, "Checked", "Проверено")} ${escapeHtml(checked)} UTC.</span></div></section>`
+  return `<section class="verdict ${dot}" role="status"><span class="state-dot ${dot}" aria-hidden="true"></span><div><strong>${escapeHtml(text)}</strong><span>${escapeHtml(todo)} ${localize(locale, "Last checked at", "Последна проверка в")} ${escapeHtml(checked)} UTC.</span></div></section>`
 }
 
 export function configureBody(audience: StatusAudience, locale: StatusLocale): string {

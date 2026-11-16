@@ -42,7 +42,7 @@ export const GO_LIVE_SIGNOFF_ITEMS: readonly {
   {
     id: "host-patch-policy",
     en: "The host security-update policy, maintenance window and monitoring owner are recorded",
-    bg: "Правилата за актуализации на сървъра, прозорецът за поддръжка и отговорникът за наблюдението са записани",
+    bg: "Правилата за обновявания на сървъра, прозорецът за поддръжка и отговорникът за наблюдението са записани",
   },
   {
     id: "clinical-acceptance",
@@ -173,48 +173,48 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
     id: "backup", stage: "protect", owner: "appliance",
     whyEn: "Without a current, verified backup a failed disk loses every case.",
     whyBg: "Без актуално проверено резервно копие повреда на диска унищожава всички случаи.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Направи резервно копие сега" },
+    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Резервно копие сега" },
   },
   {
     id: "offhost-backup", stage: "protect", owner: "hospital-it",
     whyEn: "Optional. A backup kept only on this server is lost together with it, so it must leave the server one way or another: here, or by the hospital backing up the whole VM (for example Hyper-V or Veeam backup), which carries LOSPOR's verified backups with it.",
-    whyBg: "По избор. Резервно копие, което е само на този сървър, се губи заедно с него, затова трябва да излезе от сървъра по един или друг начин: оттук или чрез резервно копие на цялата виртуална машина от болницата (например с Hyper-V или Veeam), което включва и проверените резервни копия на LOSPOR.",
+    whyBg: "По избор. Копие само на този сървър се губи заедно с него. Изнесете го оттук или с резервно копие на цялата виртуална машина (например Hyper-V или Veeam).",
     action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Set up copies kept elsewhere", bg: "Настройте копиране извън сървъра" },
   },
   {
     id: "key-escrow", stage: "protect", owner: "hospital-it",
     whyEn: "Backups hold only fingerprints of the secrets. If the server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good, even from a good backup. Status writes them into one locked file you download to a USB stick on your own computer; at the console instead: sudo losporctl secrets escrow /media/usb.",
-    whyBg: "Резервните копия съдържат само отпечатъци на тайните. Ако сървърът бъде загубен и тайните му не съществуват другаде, всички запазени данни за самоличност на пациентите стават нечетими завинаги, дори от изправно резервно копие. Status ги записва в един заключен файл, който изтегляте на USB памет от своя компютър; или от конзолата: sudo losporctl secrets escrow /media/usb.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създаване на копие на тайните" },
+    whyBg: "Резервните копия не съдържат ключовете и паролите на инсталацията. Ако сървърът бъде загубен и те не са запазени другаде, данните за самоличност на пациентите стават нечетими завинаги, дори от изправно резервно копие. Status ги записва в един заключен файл за USB памет; или от конзолата: sudo losporctl secrets escrow /media/usb.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създаване на копие" },
   },
   {
     id: "restore-drill", stage: "protect", owner: "hospital-it",
     whyEn: "Only a restore that was actually tried proves the copies can be used. Run a restore drill in Status, a drill from the off-host copy, or restore the VM backup onto a spare VM. It is due again every 92 days.",
-    whyBg: "Само реално изпробвано възстановяване доказва, че копията са използваеми. Пуснете пробно възстановяване в Status, проверка от копието извън сървъра или възстановете резервното копие на виртуалната машина в резервна машина. Повтаря се на всеки 92 дни.",
+    whyBg: "Само изпробвано възстановяване доказва, че копията работят. Пуснете пробно възстановяване в Status или възстановете копието на виртуалната машина на резервна машина. Повтаря се на всеки 92 дни.",
     action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Run a restore drill", bg: "Пуснете пробно възстановяване" },
   },
   {
     id: "update-route", stage: "maintain", owner: "appliance",
     whyEn: "Security fixes reach the appliance only through a working update route.",
-    whyBg: "Поправките за сигурност достигат до системата само по работещ канал за актуализации.",
-    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверява канала за нови версии" },
+    whyBg: "Поправките за сигурност стигат до инсталацията само ако обновяването работи.",
+    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверка за нови версии" },
   },
   {
     id: "host-os", stage: "maintain", owner: "appliance",
     whyEn: "Ubuntu's own security updates protect everything that runs on it.",
-    whyBg: "Актуализациите за сигурност на Ubuntu пазят всичко, което работи на сървъра.",
+    whyBg: "Обновяванията за сигурност на Ubuntu пазят всичко, което работи на сървъра.",
     action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
   },
   {
     id: "host-patch-policy", stage: "maintain", owner: "hospital-it",
     whyEn: "Someone has to own the server: its maintenance window, its monitoring and who is called.",
     whyBg: "Някой трябва да отговаря за сървъра: прозореца за поддръжка, наблюдението и кого да търсят при проблем.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
+    action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Server", bg: "Вижте „Сървър“" },
   },
   {
     id: "terminology", stage: "content", owner: "hospital-it",
     whyEn: "Optional. This release already carries ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and the research numbers for all of them. Import an Athena package only when research needs a newer vocabulary release; place the package folder on the server first.",
-    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, списъка с лекарства, английски синоними на диагнозите и кодовете им за изследвания. Импортирайте пакет от Athena само ако изследванията изискват по-нова версия на речниците; първо поставете папката на пакета на сървъра.",
+    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, лекарства и изследвания. Заредете пакет от Athena само ако изследванията изискват по-нова версия; първо поставете папката на пакета на сървъра.",
     action: { kind: "link", href: "/status/terminology#term-actions", en: "Import a package", bg: "Импортирайте пакет" },
   },
   {
@@ -301,19 +301,19 @@ export function evaluateGoLive(input: {
     {
       id: "key-escrow",
       en: "Installation secrets are escrowed off the appliance",
-      bg: "Инсталационните тайни са копирани извън системата",
+      bg: "Ключовете и паролите на инсталацията са копирани извън сървъра",
       satisfied: code("key-escrow") === "KEY_ESCROW_ACKNOWLEDGED",
     },
     {
       id: "update-route",
       en: "The update route and host update agent are working",
-      bg: "Каналът за актуализации и агентът за актуализации работят",
+      bg: "Обновяването и услугата за поддръжка работят",
       satisfied: operational("update-supply") && operational("host-update-agent"),
     },
     {
       id: "host-os",
       en: "Ubuntu security updates are automatic and current",
-      bg: "Актуализациите за сигурност на Ubuntu се инсталират автоматично и навреме",
+      bg: "Обновяванията за сигурност на Ubuntu се инсталират автоматично и навреме",
       satisfied: ["HOST_OS_CURRENT", "HOST_OS_REBOOT_SCHEDULED", "HOST_OS_SUPPORT_ENDING"].includes(code("host-os") ?? ""),
     },
     {
@@ -325,7 +325,7 @@ export function evaluateGoLive(input: {
     {
       id: "terminology",
       en: "Optional: an Athena terminology package is imported",
-      bg: "По избор: импортиран е пакет с терминология от Athena",
+      bg: "По избор: зареден е пакет с номенклатури от Athena",
       satisfied: Boolean(input.terminology?.packageId && input.terminology.activatedAt)
         && input.terminology?.phase !== "needs-operator",
       // The release bundles the codes clinical use needs. A package that was

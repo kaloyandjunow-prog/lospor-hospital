@@ -5,7 +5,6 @@ import { Stack, useRouter, useLocalSearchParams, useFocusEffect } from "expo-rou
 import Ionicons from "@expo/vector-icons/Ionicons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Controller, useForm, useWatch } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager, isServerRefusal } from "@/lib/autosave-manager"
 import { usePreopProfile } from "@/lib/use-preop-profile"
@@ -18,7 +17,7 @@ import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftCanBeWritten, local
 import { useAuth } from "@/lib/auth-context"
 import { usePreopFormOpen } from "@/lib/preop-open-forms"
 import { buildPreopPayload } from "@/lib/preop-payload"
-import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
+import { medicationFreeTextRow, usePreopVitalsResolver, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
 import { buildPreopSectionItems, preopOverviewText } from "@/lib/preop-section-overview"
 import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
@@ -215,8 +214,9 @@ export default function NewCaseScreen() {
   const [preopFinalizedAt, setPreopFinalizedAt] = useState<string | null>(null)
   const [preopCaseStatus,  setPreopCaseStatus]  = useState<string | null>(null)
 
+  const vitalsRule = usePreopVitalsResolver()
   const { control, handleSubmit, setValue, getValues, reset, formState: { errors } } = useForm<FormInput, unknown, FormData>({
-    resolver: zodResolver(preopFormSchema),
+    resolver: vitalsRule.resolver,
     defaultValues: {
       clinicalMode: "ADULT",
       // Sex, ASA and elective/emergency start unset, and the vital signs start
@@ -482,7 +482,7 @@ export default function NewCaseScreen() {
 
   // useWatch re-renders on every field change on native and web (watch(callback) is unreliable on Expo web).
   const _allFormValues = useWatch({ control })
-  const preopProfile = usePreopProfile({ caseId, pediatric: pediatricMode, values: _allFormValues as Record<string, unknown>, form: { getAnswers: () => getValues("preopAnswers") ?? [], setAnswers: answers => setValue("preopAnswers", answers, { shouldDirty: true }) } })
+  const preopProfile = usePreopProfile({ caseId, pediatric: pediatricMode, values: _allFormValues as Record<string, unknown>, form: { getAnswers: () => getValues("preopAnswers") ?? [], setAnswers: answers => setValue("preopAnswers", answers, { shouldDirty: true }) }, vitalsRule: vitalsRule.rule })
   const sectionConfig = preopProfile.sectionConfig
   const anyAiOn = clinicalAi.clinicalAdvice.enabled || clinicalAi.labImageExtraction.enabled || clinicalAi.monitorOcr.enabled
   const offSectionKeys = ([
@@ -869,7 +869,7 @@ export default function NewCaseScreen() {
   }
 
   function onInvalid(invalid: Record<string, unknown>) {
-    const keys = preopMissingFieldKeys(Object.keys(invalid), getValues() as Record<string, unknown>)
+    const keys = preopMissingFieldKeys(Object.keys(invalid), getValues() as Record<string, unknown>, preopProfile.vitalsRequired)
     const first = keys[0]
     const target = first ? PREOP_REQUIRED_FIELD_SECTION[first] : undefined
     if (target) jumpTo(target)
@@ -967,7 +967,7 @@ export default function NewCaseScreen() {
   }
 
   function computeSectionItems() {
-    return buildPreopSectionItems(getValues(), SECTION_LABELS, preopOverviewText(tc))
+    return buildPreopSectionItems(getValues(), SECTION_LABELS, preopOverviewText(tc), preopProfile.vitalsRequired)
   }
 
   const blockedField =
@@ -1133,7 +1133,7 @@ export default function NewCaseScreen() {
 
             <SectionCard title={tc("sectionMeds")} onLayout={(y) => { sectionY.current.meds = y }} visible={showSection("meds")}>
               <Controller control={control} name="currentMedications" render={({ field }) => (
-                <SearchTagInput kind="medication" label={tc("medicationSearch")} value={(field.value ?? []).map((item) => ({ code: item.atcCode ?? item.inn ?? item.label, label: item.label, inn: item.inn, atcCode: item.atcCode }))} onChange={(items) => field.onChange(items.map((item) => ({ label: item.label, inn: item.inn, atcCode: item.atcCode })))} endpoint="/api/search/drugs" placeholder={tc("searchMedications")} onFocus={() => scrollToSection("meds", 60)} error={blockedErrorFor("currentMedications")} />
+                <SearchTagInput kind="medication" label={tc("medicationSearch")} value={(field.value ?? []).map((item) => ({ code: item.atcCode ?? item.inn ?? item.label, label: item.label, inn: item.inn, atcCode: item.atcCode }))} onChange={(items) => field.onChange(items.map((item) => ({ label: item.label, inn: item.inn, atcCode: item.atcCode })))} endpoint="/api/search/drugs" placeholder={tc("searchMedications")} onFocus={() => scrollToSection("meds", 60)} error={blockedErrorFor("currentMedications")} freeTextRow={preopProfile.sectionConfig.medicationsFreeText ? medicationFreeTextRow(tc) : undefined} />
               )} />
               {questionList("current_medications")}
             </SectionCard>
@@ -1150,21 +1150,21 @@ export default function NewCaseScreen() {
                 <View style={screenWidth < 360 ? undefined : { flex: 1 }}>
                   <Controller control={control} name="bpSystolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
-                      <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.bpSystolic?.message, tc)} />
+                      <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required={preopProfile.vitalsRequired.bloodPressure} error={localizedPreopValidationMessage(errors.bpSystolic?.message, tc)} />
                     )} />
                   )} />
                 </View>
                 <View style={screenWidth < 360 ? undefined : { flex: 1 }}>
                   <Controller control={control} name="bpDiastolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
-                      <VitalNumber label={tc("dbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 5 : bpDiastolicRange?.min ?? 1} max={bpDiastolicRange?.max ?? 200} step={bpDiastolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required />
+                      <VitalNumber label={tc("dbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 5 : bpDiastolicRange?.min ?? 1} max={bpDiastolicRange?.max ?? 200} step={bpDiastolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required={preopProfile.vitalsRequired.bloodPressure} />
                     )} />
                   )} />
                 </View>
               </View>
               <Controller control={control} name="heartRate" render={({ field }) => (
                 <Controller control={control} name="heartRateUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : heartRateRange?.min ?? 1} max={pediatricMode ? 350 : heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.heartRate?.message, tc)} />
+                  <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : heartRateRange?.min ?? 1} max={pediatricMode ? 350 : heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required={preopProfile.vitalsRequired.heartRate} error={localizedPreopValidationMessage(errors.heartRate?.message, tc)} />
                 )} />
               )} />
               {preopProfile.shownField("heartArrhythmia") ? <Controller control={control} name="heartArrhythmia" render={({ field }) => <ClinicalYesNoRow label={tc("arrhythmiaLabel")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} /> : null}
@@ -1181,7 +1181,7 @@ export default function NewCaseScreen() {
               )} />
               <Controller control={control} name="respiratoryRate" render={({ field }) => (
                 <Controller control={control} name="respiratoryRateUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("respiratoryRateLabel")} unit="/min" value={field.value} onChange={field.onChange} min={respiratoryRange?.min ?? 0} max={pediatricMode ? 150 : respiratoryRange?.max ?? 50} step={respiratoryRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.respiratoryRate?.message, tc)} />
+                  <VitalNumber label={tc("respiratoryRateLabel")} unit="/min" value={field.value} onChange={field.onChange} min={respiratoryRange?.min ?? 0} max={pediatricMode ? 150 : respiratoryRange?.max ?? 50} step={respiratoryRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(null) }} labelUnableToObtain={tc("unableToObtain")} required={preopProfile.vitalsRequired.respiratoryRate} error={localizedPreopValidationMessage(errors.respiratoryRate?.message, tc)} />
                 )} />
               )} />
               <Field label={tc("physicalExamReport")} error={blockedErrorFor("physicalExamReport")}>

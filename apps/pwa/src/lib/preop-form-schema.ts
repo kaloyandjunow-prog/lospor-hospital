@@ -1,9 +1,17 @@
+import { useRef } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import type { Resolver } from "react-hook-form"
+import { isTypedMedication } from "@lospor/core/preop-orders"
+import type { ClinicalStringKey } from "@/i18n/clinical-strings"
+import { formatMessage } from "@/i18n/locale"
+import type { TagItem } from "@/components/SearchTagInput"
 import { z } from "zod"
 import {
   CLINICAL_NUMBER_RULES,
   evaluatePreopReadiness,
   validatePreopPatch,
   type ClinicalValidationResult,
+  type PreopVitalsRequirement,
 } from "@lospor/core/clinical-validation"
 
 const preopNumber = (field: string) => {
@@ -27,7 +35,7 @@ function addCoreIssues(
   }
 }
 
-export const preopFormSchema = z.object({
+const preopFormObject = z.object({
   // API-owned definition-driven answers. The PWA’s specialized controls
   // round-trip these rows and never invent a second question catalog.
   preopAnswers: z.array(z.object({
@@ -196,10 +204,21 @@ export const preopFormSchema = z.object({
     takenAt: z.string().datetime().optional(),
   })).default([]),
 })
-  .superRefine((d, ctx) => {
+
+/**
+ * The form schema with the hospital's preop vitals rule for this population
+ * (10.6.0). The rule arrives with the case read, after the form exists, so the
+ * screen builds the schema at validation time. Without one all three vitals
+ * are required, as before.
+ */
+export function preopFormSchemaFor(vitals?: PreopVitalsRequirement) {
+  return preopFormObject.superRefine((d, ctx) => {
     addCoreIssues(validatePreopPatch(d), ctx)
-    addCoreIssues(evaluatePreopReadiness(d), ctx)
+    addCoreIssues(evaluatePreopReadiness(d, vitals), ctx)
   })
+}
+
+export const preopFormSchema = preopFormSchemaFor()
 
 export type PreopFormInput = z.input<typeof preopFormSchema>
 export type PreopFormData = z.output<typeof preopFormSchema>
@@ -221,3 +240,29 @@ export type PreopSection =
   | "wardOrders"
   | "medInstructions"
   | "premedication"
+
+/**
+ * The preop form's resolver, under the hospital's vitals rule (10.6.0).
+ *
+ * The rule arrives with the profile, after the form exists, so the resolver
+ * reads it from `rule` each time it validates; usePreopProfile keeps `rule`
+ * current. Until a profile is seen all three vitals are required.
+ */
+export function usePreopVitalsResolver(): {
+  resolver: Resolver<PreopFormInput, unknown, PreopFormData>
+  rule: { current: PreopVitalsRequirement | undefined }
+} {
+  const rule = useRef<PreopVitalsRequirement | undefined>(undefined)
+  const resolver: Resolver<PreopFormInput, unknown, PreopFormData> = (values, context, options) =>
+    zodResolver(preopFormSchemaFor(rule.current))(values, context, options)
+  return { resolver, rule }
+}
+
+/** The medication search's last row, where the hospital lets a medication be typed as written (10.6.0). */
+export function medicationFreeTextRow(tc: (key: ClinicalStringKey) => string) {
+  return {
+    label: (typed: string) => formatMessage(tc("medicationAddTyped"), { typed }),
+    typedMark: tc("medicationTypedMark"),
+    isTyped: (item: TagItem) => isTypedMedication(item),
+  }
+}

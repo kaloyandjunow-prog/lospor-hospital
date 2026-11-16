@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
+export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-check" | "os-update" | "os-upgrade" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
 
 export type DrillEvidence = {
   completedAt: string
@@ -30,7 +30,7 @@ export type AdvancedSetting = { value: number; minimum: number; maximum: number;
 export type SiteConfigSignal = { settings: Record<string, SiteSetting>; advanced?: Record<string, AdvancedSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot", "support-bundle", "rotate-credentials", "secrets-escrow", "secrets-escrow-delivered"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-check", "os-update", "os-upgrade", "os-reboot", "support-bundle", "rotate-credentials", "secrets-escrow", "secrets-escrow-delivered"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(
@@ -126,11 +126,11 @@ export const EDITABLE_SETTINGS: readonly EditableSetting[] = [
   { key: "AUTH_EMAIL_FROM_NAME", en: "Sender name of sign-in e-mails", bg: "Име на подателя на писмата за вход", kind: "name" },
   { key: "ACME_EMAIL", en: "Certificate notice e-mail", bg: "Имейл за известия за сертификата", kind: "optional-email" },
   { key: "LOSPOR_DEFAULT_LOCALE", en: "Default language", bg: "Език по подразбиране", kind: "locale" },
-  { key: "HOSPITAL_UPDATE_SUPPLY_MODE", en: "Update route", bg: "Канал за актуализации", kind: "supply" },
-  { key: "HOSPITAL_UPDATE_WINDOW_START", en: "Update window opens", bg: "Начало на прозореца за актуализации", kind: "time" },
-  { key: "HOSPITAL_UPDATE_WINDOW_END", en: "Update window closes", bg: "Край на прозореца за актуализации", kind: "time" },
-  { key: "HOSPITAL_UPDATE_TIMEZONE", en: "Update window time zone", bg: "Часова зона на прозореца за актуализации", kind: "timezone" },
-  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates", bg: "Рестартиране след актуализации на Ubuntu", kind: "reboot-policy" },
+  { key: "HOSPITAL_UPDATE_SUPPLY_MODE", en: "Update route", bg: "Начин на обновяване", kind: "supply" },
+  { key: "HOSPITAL_UPDATE_WINDOW_START", en: "Update window opens", bg: "Начало на прозореца за обновявания", kind: "time" },
+  { key: "HOSPITAL_UPDATE_WINDOW_END", en: "Update window closes", bg: "Край на прозореца за обновявания", kind: "time" },
+  { key: "HOSPITAL_UPDATE_TIMEZONE", en: "Update window time zone", bg: "Часова зона на прозореца за обновявания", kind: "timezone" },
+  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates", bg: "Рестартиране на сървъра", kind: "reboot-policy" },
 ]
 
 const EMAIL = /^[A-Za-z0-9.!#%&*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/
@@ -292,12 +292,12 @@ export type AdvancedSettingLabel = {
 
 export const ADVANCED_SETTINGS: readonly AdvancedSettingLabel[] = [
   { key: "HOSPITAL_BACKUP_INTERVAL_SECONDS", en: "Take a backup every", bg: "Резервно копие на всеки", unit: "hours", factor: 3600 },
-  { key: "HOSPITAL_BACKUP_RETRY_SECONDS", en: "After a failed backup, try again after", bg: "След неуспешно резервно копие — нов опит след", unit: "minutes", factor: 60 },
+  { key: "HOSPITAL_BACKUP_RETRY_SECONDS", en: "After a failed backup, try again after", bg: "Повторен опит при неуспешно копие след", unit: "minutes", factor: 60 },
   { key: "HOSPITAL_BACKUP_KEEP_ALL_SECONDS", en: "Keep every backup for", bg: "Всяко резервно копие се пази", unit: "days", factor: 86400 },
   { key: "HOSPITAL_BACKUP_DAILY_POINTS", en: "Then keep one backup a day for", bg: "След това по едно резервно копие на ден за", unit: "days", factor: 1 },
-  { key: "HOSPITAL_BACKUP_RESERVE_BYTES", en: "Disk space backups always leave free", bg: "Свободно място, което резервните копия винаги оставят", unit: "gib", factor: 1024 ** 3 },
-  { key: "HOSPITAL_BACKUP_SPACE_MULTIPLIER_PERCENT", en: "Free space needed for a new backup, as a share of the last one", bg: "Нужно свободно място за ново резервно копие, спрямо размера на последното", unit: "percent", factor: 1 },
-  { key: "RESEARCH_EXPORT_RETENTION_DAYS", en: "Keep research export files for", bg: "Файловете с изследователски експорти се пазят", unit: "days", factor: 1 },
+  { key: "HOSPITAL_BACKUP_RESERVE_BYTES", en: "Disk space backups always leave free", bg: "Минимално свободно място на диска", unit: "gib", factor: 1024 ** 3 },
+  { key: "HOSPITAL_BACKUP_SPACE_MULTIPLIER_PERCENT", en: "Free space needed for a new backup, as a share of the last one", bg: "Нужно свободно място за ново копие (спрямо последното)", unit: "percent", factor: 1 },
+  { key: "RESEARCH_EXPORT_RETENTION_DAYS", en: "Keep research export files for", bg: "Изтеглените изследователски данни се пазят", unit: "days", factor: 1 },
   { key: "HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS", en: "Keep batches Central accepted for", bg: "Пакетите, приети от Central, се пазят", unit: "days", factor: 1 },
   { key: "HOSPITAL_EXPORT_BATCH_CASE_LIMIT", en: "Cases in one batch to Central", bg: "Случаи в един пакет към Central", unit: "count", factor: 1 },
   { key: "HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS", en: "Check for a new release every", bg: "Проверка за нова версия на всеки", unit: "hours", factor: 3600 },
