@@ -89,21 +89,21 @@ export function renderPreopSectionsEditor(sections: PreopSectionsView | undefine
 export function renderPostopFormEditor(sections: PreopSectionsView | undefined, locale: StatusLocale): string {
   if (!sections) return ""
   const fixed = sections.postopFixed ?? []
-  const scales = `<details class="component" open><summary class="component-name">${localize(locale, "Pain and delirium scales, by age", "Скали за болка и делир, според възрастта")}</summary><ul class="component-detail" data-testid="postop-pain-rules">
-<li>${localize(locale, "Adults, and children from 8 years: NRS, 0 to 10.", "Възрастни и деца от 8 години: NRS, от 0 до 10.")}</li>
-<li>${localize(locale, "Children from 28 days to under 8 years: FLACC and FPS-R, both offered. The clinician fills in either, both or neither.", "Деца от 28 дни до 8 години: FLACC и FPS-R, предлагат се и двете. Лекарят попълва едната, двете или никоя.")}</li>
+  const scales = `<details class="component" open><summary class="component-name">${localize(locale, "Pain and delirium scales, by age", "Скали за болка и делир по възраст")}</summary><ul class="component-detail" data-testid="postop-pain-rules">
+<li>${localize(locale, "Adults, and children from 8 years: NRS, 0 to 10.", "От 8 години: NRS (0–10).")}</li>
+<li>${localize(locale, "Children from 28 days to under 8 years: FLACC and FPS-R, both offered. The clinician fills in either, both or neither.", "От 28 дни до 8 години: FLACC и FPS-R; попълва се едната, двете или никоя.")}</li>
 <li>${localize(locale, "Newborns under 28 days: NIPS.", "Новородени до 28 дни: NIPS.")}</li>
-<li>${localize(locale, "Every child, 0 to 18 years: PAED for emergence delirium, when that section is on.", "Всяко дете от 0 до 18 години: PAED за делир при събуждане, когато разделът е включен.")}</li>
-<li>${localize(locale, "Each scale is scored item by item and the total is worked out; there are no sliders. The scales themselves are bundled and cannot be edited.", "Всяка скала се оценява по показатели и сборът се изчислява; няма плъзгачи. Самите скали са вградени и не могат да се променят.")}</li>
+<li>${localize(locale, "Every child, 0 to 18 years: PAED for emergence delirium, when that section is on.", "Деца до 18 години: PAED за делир при събуждане (ако разделът е включен).")}</li>
+<li>${localize(locale, "Each scale is scored item by item and the total is worked out; there are no sliders. The scales themselves are bundled and cannot be edited.", "Скалите са вградени; сборът се изчислява автоматично.")}</li>
 </ul></details>`
-  const finalise = `<details class="component"><summary class="component-name">${localize(locale, "What a case needs before it can be finalised", "Какво е нужно, за да се приключи случай")}</summary><ul class="component-detail" data-testid="finalise-requirements">
-<li>${localize(locale, "Preop: age, sex, height, weight; diagnosis and procedure; blood pressure, heart rate and respiratory rate (or unable to obtain); Mallampati (or unable to obtain); ASA.", "Предоперативно: възраст, пол, ръст, тегло; диагноза и процедура; кръвно налягане, пулс и дишане (или невъзможно за измерване); Mallampati (или невъзможно за оценка); ASA.")}</li>
-<li>${localize(locale, "Intraop: start and end time, the technique, no entries after the end, every infusion stop confirmed.", "Интраоперативно: начален и краен час, техниката, без записи след края, потвърдено спиране на всяка инфузия.")}</li>
+  const finalise = `<details class="component"><summary class="component-name">${localize(locale, "What a case needs before it can be finalised", "Какво е нужно за приключване на случай")}</summary><ul class="component-detail" data-testid="finalise-requirements">
+<li>${localize(locale, "Preop: age, sex, height, weight; diagnosis and procedure; the vital signs set as required (Preoperative form → Sections); Mallampati (or unable to obtain); ASA.", "Предоперативно: възраст, пол, ръст, тегло; диагноза и процедура; задължителните жизнени показатели (вижте „Предоперативна форма“ → „Раздели“); Mallampati (или „невъзможно за оценка“); ASA.")}</li>
+<li>${localize(locale, "Intraop: start and end time, the technique, no entries after the end, every infusion stop confirmed.", "Интраоперативно: начален и краен час, техника; без записи след края; потвърдено спиране на всяка инфузия.")}</li>
 <li>${localize(locale, "Postop: every item of the recovery score (Aldrete for adults, Steward for children) and the disposition.", "Следоперативно: всички показатели на скора при възстановяване (Aldrete при възрастни, Steward при деца) и насочването.")}</li>
-</ul><p class="component-detail">${localize(locale, "These are fixed by the release, not by Status. Fields needed to finalise carry a red star in the forms.", "Те се определят от версията, а не от Status. Полетата, нужни за приключване, са отбелязани с червена звездичка във формите.")}</p></details>`
+</ul><p class="component-detail">${localize(locale, "These are fixed by the release, not by Status. Fields needed to finalise carry a red star in the forms.", "Полетата, нужни за приключване, са отбелязани с червена звездичка във формите.")}</p></details>`
   return `<div class="component preop-populations" id="postop-sections"><h3>${localize(locale, "Sections of the postoperative form", "Раздели на следоперативната форма")}</h3><p>${localize(locale,
     "A section switched off is not shown. The recovery score and the disposition are always on: a case cannot be finalised without them.",
-    "Изключеният раздел не се показва. Скорът при възстановяване и насочването са винаги включени: без тях случаят не може да бъде приключен.")}</p><h4>${localize(locale, "Always on", "Винаги включени")}</h4>${fixedList(fixed, locale)}${byPopulation("postop", locale, (population, anchor) => sectionSwitches(sections, population, anchor, "POSTOP", locale))}${scales}${finalise}</div>`
+    "Изключеният раздел не се показва.")}</p><h4>${localize(locale, "Always on", "Винаги включени")}</h4>${fixedList(fixed, locale)}${byPopulation("postop", locale, (population, anchor) => sectionSwitches(sections, population, anchor, "POSTOP", locale))}${scales}${finalise}</div>`
 }
 
 function hoursText(mode: string, locale: StatusLocale): string {
