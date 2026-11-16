@@ -226,7 +226,7 @@ describe("the OMOP export cleans free text only", () => {
 })
 
 describe("a current medication typed as written (10.6.0)", () => {
-  const preop = (redactExportRow(row) as unknown as { preop: { medications: { nameRaw: string }[] } }).preop
+  const preop = (redactExportRow(row914) as unknown as { preop: { medications: { nameRaw: string }[] } }).preop
 
   it("loses dates and numbers but keeps its trade name, while one picked from the list passes through", () => {
     expect(preop.medications[0].nameRaw).toBe("Sodium Chloride")
@@ -234,5 +234,10 @@ describe("a current medication typed as written (10.6.0)", () => {
     expect(preop.medications[1].nameRaw).not.toMatch(/12.03.2026|0888123456/)
     // Not a medicine the list knows: the name guess stays on.
     expect(preop.medications[2].nameRaw).not.toContain("Ivan Petrov")
+  })
+
+  it("is withheld with the other text where the policy says text may not leave", () => {
+    const withheld = (redactExportRow(row914, { includeRedactedText: false }) as unknown as { preop: { medications: { nameRaw: string }[] } }).preop
+    expect(withheld.medications.map(row => row.nameRaw)).toEqual(["", "", ""])
   })
 })

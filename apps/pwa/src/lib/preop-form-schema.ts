@@ -36,7 +36,6 @@ function addCoreIssues(
 }
 
 const preopFormObject = z.object({
-  clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
   // API-owned definition-driven answers. The PWA’s specialized controls
   // round-trip these rows and never invent a second question catalog.
   preopAnswers: z.array(z.object({
@@ -47,6 +46,12 @@ const preopFormObject = z.object({
     valueNumber: z.number().nullable().optional(),
     valueDate: z.string().datetime().nullable().optional(),
   }).passthrough()).default([]),
+  patientNumber: z.string().trim().max(128).optional(),
+  // The ЕГН that joins this patient's admissions. Sent once at creation, never stored on the device.
+  patientNationalId: z.string().trim().max(32).optional(),
+  // Hospital 1.9.2: the year the ИЗ № belongs to, chosen in the first 60 days. Sent once at creation.
+  patientNumberYear: z.number().int().optional(),
+  clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
   // nullable, not merely optional. Switching a case out of pediatric mode has
   // to clear the stored precise age, and only an explicit null survives into
   // the patch -- undefined is dropped before it reaches the wire.
