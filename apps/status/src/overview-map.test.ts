@@ -69,35 +69,35 @@ describe("the overview map", () => {
   it("is all green, with nothing to do, when everything works", () => {
     const { nodes, attention } = view(snapshot())
     expect(Object.values(nodes).map(node => [node.en, node.state])).toEqual([
-      ["Phones and computers", "good"], ["Updates", "good"], ["Backups", "good"], ["Hospital system", "good"],
+      ["Users right now", "good"], ["Updates", "good"], ["Backups", "good"], ["Hospital information system (HIS)", "good"],
       ["LOSPOR Central", "good"], ["Mistral AI (EU)", "good"], ["Research", "good"],
     ])
-    expect(nodes["LOSPOR Central"]!.sub).toBe("2 waiting, oldest 3 h")
+    expect(nodes["LOSPOR Central"]!.sub).toBe("2 cases waiting, the oldest for 3 h")
     expect(attention).toEqual([])
   })
 
   it("turns the hospital system amber after a quiet day and red after three", () => {
-    expect(view(snapshot({ ehr: { lastReceivedAt: ago(20 * H) } })).nodes["Hospital system"]!.state).toBe("good")
+    expect(view(snapshot({ ehr: { lastReceivedAt: ago(20 * H) } })).nodes["Hospital information system (HIS)"]!.state).toBe("good")
     const day = view(snapshot({ ehr: { lastReceivedAt: ago(30 * H) } }))
-    expect(day.nodes["Hospital system"]).toMatchObject({ state: "warn", sub: "no data for 30 h" })
+    expect(day.nodes["Hospital information system (HIS)"]).toMatchObject({ state: "warn", sub: "no data for 30 h" })
     expect(day.attention.find(item => item.id === "ehr-quiet")?.level).toBe("soon")
     const days = view(snapshot({ ehr: { lastReceivedAt: ago(76 * H) } }))
-    expect(days.nodes["Hospital system"]).toMatchObject({ state: "bad", sub: "no data for 3 days" })
+    expect(days.nodes["Hospital information system (HIS)"]).toMatchObject({ state: "bad", sub: "no data for 3 days" })
     expect(days.attention.find(item => item.id === "ehr-quiet")?.level).toBe("today")
   })
 
   it("shows failed reads and unmapped codes from the hospital system", () => {
     const reads = view(snapshot({ ehr: { readFailures24h: 4 } }))
-    expect(reads.nodes["Hospital system"]).toMatchObject({ state: "warn", sub: "4 failed reads in 24 h" })
+    expect(reads.nodes["Hospital information system (HIS)"]).toMatchObject({ state: "warn", sub: "4 failed reads in 24 h" })
     expect(reads.ids).toContain("ehr-reads")
     const codes = view(snapshot({ ehr: { unmappedCodes: 7 } }))
-    expect(codes.nodes["Hospital system"]).toMatchObject({ state: "warn", sub: "7 codes not mapped" })
+    expect(codes.nodes["Hospital information system (HIS)"]).toMatchObject({ state: "warn", sub: "7 codes not mapped" })
     expect(codes.attention.find(item => item.id === "ehr-unmapped")?.href).toBe("/status/control/codes")
   })
 
   it("leaves a hospital system that is not set up grey, with nothing to do", () => {
     const { nodes, ids } = view(snapshot({ ehr: { configured: false, lastReceivedAt: null } }))
-    expect(nodes["Hospital system"]!.state).toBe("off")
+    expect(nodes["Hospital information system (HIS)"]!.state).toBe("off")
     expect(ids.filter(id => id.startsWith("ehr-"))).toEqual([])
   })
 
@@ -123,7 +123,7 @@ describe("the overview map", () => {
 
   it("turns backups amber when copies exist only on this server", () => {
     const { nodes } = view(snapshot(), components({ "offhost-backup": ["not-configured", "OFFHOST_BACKUP_NOT_CONFIGURED"] }))
-    expect(nodes.Backups).toMatchObject({ state: "warn", sub: "only on this server" })
+    expect(nodes.Backups).toMatchObject({ state: "warn", sub: "Copies outside the server are not set up or have a problem" })
   })
 
   it("draws Research: red when the website does not answer, amber after failed exports", () => {
@@ -143,9 +143,9 @@ describe("the overview map", () => {
 
   it("says how long the oldest case has waited for Central, amber after two days", () => {
     const { nodes, attention } = view(snapshot({ waiting: 3, centralOldestWaitingSince: ago(9 * 24 * H) }))
-    expect(nodes["LOSPOR Central"]).toMatchObject({ state: "warn", sub: "3 waiting, oldest 9 days" })
+    expect(nodes["LOSPOR Central"]).toMatchObject({ state: "warn", sub: "3 cases waiting, the oldest for 9 days" })
     expect(attention.find(item => item.id === "central-waiting")?.en).toContain("9 days")
-    expect(view(snapshot({ waiting: 0, centralOldestWaitingSince: null })).nodes["LOSPOR Central"]!.sub).toBe("0 waiting")
+    expect(view(snapshot({ waiting: 0, centralOldestWaitingSince: null })).nodes["LOSPOR Central"]!.sub).toBe("0 cases waiting")
   })
 
   it("notes a new administrator for a week", () => {

@@ -619,7 +619,7 @@ export function renderLogin(error: string | null, initialized: boolean, locale: 
       "Системният администратор още не е създаден. ИТ отделът трябва да завърши инсталацията от конзолата на сървъра.")
     : error
   return page(
-    localize(locale, "Hospital appliance status — sign in", "Състояние на болничната система — вход"),
+    localize(locale, "Hospital appliance status — sign in", "Състояние на инсталацията — вход"),
     `<main class="login-wrap"><section class="login" aria-labelledby="login-title">${languageSwitcher(locale, "/status/login")}<div class="brand">LOSPOR Hospital</div><h1 id="login-title">${localize(locale, "Appliance status", "Състояние на системата")}</h1><p>${localize(locale, "This independent page remains available if the clinical API or database is unavailable.", "Тази страница работи отделно и остава достъпна, дори когато клиничното приложение или базата данни не работят.")}</p>${message ? `<div class="error" role="alert">${escapeHtml(message)}</div>` : ""}<form method="post" action="/status/login"><label for="email">${localize(locale, "Appliance administrator email", "Имейл на системния администратор")}</label><input id="email" name="email" type="email" autocomplete="username" maxlength="254" required><label for="password">${localize(locale, "Password", "Парола")}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" ${initialized ? "" : "disabled"}>${localize(locale, "Sign in", "Вход")}</button></form><div class="divider">${localize(locale, "or use console recovery", "или влезте с токен за възстановяване от конзолата")}</div><form method="post" action="/status/login"><label for="recovery-token">${localize(locale, "Single-use recovery token", "Еднократен токен за възстановяване")}</label><input id="recovery-token" name="recoveryToken" type="password" autocomplete="off" maxlength="256" required><button type="submit" ${initialized ? "" : "disabled"}>${localize(locale, "Use recovery token", "Вход с токена")}</button></form></section></main>`,
     locale,
   )
@@ -652,7 +652,7 @@ export function renderMfaLogin(
     ? `${qrSvg ? `<div class="qr" aria-label="${localize(locale, "Authenticator QR code", "QR код за приложението за удостоверяване")}">${qrSvg}</div>` : ""}<div class="secret-card"><h2>${localize(locale, "Manual setup key", "Ключ за ръчна настройка")}</h2><div class="secret">${escapeHtml(challenge.manualKey ?? "")}</div></div>`
     : ""
   return page(
-    localize(locale, "Hospital appliance status — verification", "Състояние на болничната система — потвърждение"),
+    localize(locale, "Hospital appliance status — verification", "Състояние на инсталацията — потвърждение"),
     `<main class="login-wrap"><section class="login" aria-labelledby="mfa-title">${mfaLanguageSwitcher(locale, challenge.challengeToken)}<div class="brand">LOSPOR Hospital</div><h1 id="mfa-title">${enrollment ? localize(locale, "Set up two-step verification", "Включване на потвърждаването в две стъпки") : localize(locale, "Two-step verification", "Потвърждаване в две стъпки")}</h1><p>${instructions}</p><p class="meta">${localize(locale, "This sign-in request expires", "Тази заявка за вход изтича")} ${escapeHtml(expiresAt)} UTC.</p>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${setup}<form method="post" action="/status/login/mfa"><input type="hidden" name="challengeToken" value="${escapeHtml(challenge.challengeToken)}"><label for="mfa-code">${enrollment ? localize(locale, "6-digit verification code", "6-цифрен код") : localize(locale, "Verification or recovery code", "Код за потвърждение или възстановяване")}</label><input id="mfa-code" name="code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" minlength="6" maxlength="32" ${enrollment ? 'inputmode="numeric" pattern="[0-9]{6}"' : ""} required autofocus><button type="submit">${localize(locale, "Verify and sign in", "Потвърждаване и вход")}</button></form><p><a href="/status/login">${localize(locale, "Start sign-in again", "Нов опит за вход")}</a></p></section></main>`,
     locale,
   )
@@ -660,7 +660,7 @@ export function renderMfaLogin(
 
 export function renderMfaRecoveryCodes(codes: readonly string[], locale: StatusLocale = "bg", continueTo = "/status/"): string {
   return page(
-    localize(locale, "Hospital appliance status — recovery codes", "Състояние на болничната система — кодове за възстановяване"),
+    localize(locale, "Hospital appliance status — recovery codes", "Състояние на инсталацията — кодове за възстановяване"),
     `<main class="login-wrap"><section class="login secret-card" aria-labelledby="recovery-title"><div class="brand">LOSPOR Hospital</div><h1 id="recovery-title">${localize(locale, "Save your recovery codes now", "Запазете кодовете за възстановяване сега")}</h1><div class="error" role="alert">${localize(locale, "These ten codes are shown only once. Each code can be used for one sign-in. Store them offline in the hospital IT password vault; anyone who has one can sign in as the appliance operator.", "Тези десет кода се показват само веднъж. Всеки код важи за един вход. Пазете ги извън компютъра, в хранилището за пароли на ИТ отдела: всеки, който има такъв код, може да влезе като системен администратор.")}</div><ol class="secret">${codes.map(code => `<li>${escapeHtml(code)}</li>`).join("")}</ol><p>${localize(locale, "Print or save this page before continuing. The appliance stores only irreversible hashes of these codes.", "Отпечатайте или запазете тази страница, преди да продължите. Сървърът пази само необратими хешове на кодовете.")}</p><p><a class="button" href="${escapeHtml(continueTo)}">${localize(locale, "I saved the codes — continue", "Запазих кодовете — продължи")}</a></p></section></main>`,
     locale,
   )
@@ -670,13 +670,13 @@ export function banner(components: ComponentView[], locale: StatusLocale): { cla
   const byId = new Map(components.map(item => [item.component, item]))
   const isOut = (id: string) => byId.get(id)?.status === "outage"
   const major = isOut("api") || isOut("database") || isOut("proxy") || (isOut("web") && isOut("pwa"))
-  if (major) return { className: "bad", symbol: "!", text: localize(locale, "Major clinical service outage", "Сериозен срив на клиничните услуги") }
+  if (major) return { className: "bad", symbol: "!", text: localize(locale, "Major clinical service outage", "Сериозен срив в клиничните услуги") }
   const clinical = components.filter(item => item.group === "clinical")
   if (!clinical.length || clinical.some(item => item.status === "unknown")) {
     return { className: "unknown", symbol: "?", text: localize(locale, "Clinical status is being established", "Проверява се състоянието на клиничните услуги") }
   }
   if (clinical.some(item => item.status === "outage" || item.status === "degraded")) {
-    return { className: "warn", symbol: "!", text: localize(locale, "Some clinical services are degraded", "Някои клинични услуги работят с проблеми") }
+    return { className: "warn", symbol: "!", text: localize(locale, "Some clinical services are degraded", "Някои клинични услуги изпитват проблеми") }
   }
   return { className: "good", symbol: "✓", text: localize(locale, "Clinical services operational", "Клиничните услуги работят") }
 }
@@ -2075,7 +2075,7 @@ export function renderDashboard(
     ? utcDate(data.lastCheckedAt, locale)
     : localize(locale, "not yet", "още няма проверка")
   return page(
-    localize(locale, "Hospital appliance status", "Състояние на болничната система"),
+    localize(locale, "Hospital appliance status", "Състояние на инсталацията"),
     `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Състояние на системата (отделна страница)"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${attentionSection(attention, locale)}${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и изпращане на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Тази страница показва само работна информация, не клинични записи. Тя не може да отчете спиране на тока, на Docker, на физическия сървър или на болничната мрежа.`)}</footer></div>`,
     locale,
     true,
@@ -3123,7 +3123,7 @@ export function renderOverview(
     ? `${todo}<div class="overview">${map}<div class="stack">${side}</div></div>`
     : `<div class="overview">${map}<div class="stack">${todo}${side}</div></div>`
   return page(
-    localize(locale, "Hospital appliance status", "Състояние на болничната система"),
+    localize(locale, "Hospital appliance status", "Състояние на инсталацията"),
     `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>${verdictCard(state.className, state.text, today, checked, locale)}${body}</main><footer class="foot">${localize(locale, "Operational information only, no clinical record. Counts are totals; no person, patient or case is shown.", "Само работна информация, без клинични записи. Показват се само общи бройки: никой човек, пациент или случай.")}</footer></div>`,
     locale,
     true,
