@@ -71,6 +71,15 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
       // redaction as every other note before it can leave.
       familyAnesthesiaDetails: text(c.preop.familyAnesthesiaDetails),
       difficultAirwayNotes: text(c.preop.difficultAirwayNotes),
+      // A typed answer to a catalogue question leaves as the observation value.
+      // The server accepts any string for it, so it is prose as far as this
+      // export can tell: cleaned like a note, and withheld with the other text
+      // when the policy says text may not leave. Option keys and states are
+      // coded and pass through.
+      assessmentAnswers: (c.preop.assessmentAnswers ?? []).map(answer => ({
+        ...answer,
+        valueText: text(answer.valueText),
+      })),
       medications: c.preop.medications.map(row => ({
         ...row,
         nameRaw: codedRequiredText(row.nameRaw),

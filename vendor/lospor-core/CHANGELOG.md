@@ -1,5 +1,14 @@
 # Changelog - LOSPOR Core
 
+## [10.5.0] - 2026-11-16
+
+Released with API 10.5.0 (OMOP exchange contract 2.9.0). Core itself carries one label fix.
+
+### Fixed
+
+- **ICD-10 N18.2–N18.5** read "Хронично бъбречно заболяване, стадий N", as the NHIS nomenclature writes it, not
+  "стадии".
+
 ## [10.4.2] - 2026-11-15
 
 ### Fixed

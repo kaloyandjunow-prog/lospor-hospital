@@ -1,5 +1,13 @@
 # Changelog - LOSPOR Mobile
 
+## [10.5.0] - 2026-11-16
+
+Released with API 10.5.0 (OMOP exchange contract 2.9.0, ICD-10 mapping, security fixes); no client change.
+
+### Changed
+
+- Core 10.5.0: ICD-10 N18.2–N18.5 read "стадий".
+
 ## [10.4.2] - 2026-11-15
 
 ### Fixed
