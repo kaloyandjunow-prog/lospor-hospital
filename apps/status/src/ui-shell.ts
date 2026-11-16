@@ -76,8 +76,8 @@ const PASSWORD: readonly StatusAudience[] = ["password"]
  * may open; the routes still enforce that themselves.
  */
 export const NAV_GROUPS: readonly NavGroup[] = [
-  { id: "overview", en: "Overview", bg: "Преглед", items: [
-    { id: "overview", path: "/status/", en: "Overview", bg: "Преглед", descEn: "Is LOSPOR working, and is there anything you must do?", descBg: "Работи ли LOSPOR и има ли нещо, което трябва да направите?", audiences: BOTH },
+  { id: "overview", en: "Dashboard", bg: "Табло за управление", items: [
+    { id: "overview", path: "/status/", en: "Dashboard", bg: "Табло за управление", descEn: "Is LOSPOR working, and is there anything you must do?", descBg: "Работи ли LOSPOR и има ли нещо, което трябва да направите?", audiences: BOTH },
   ] },
   { id: "services", en: "Services", bg: "Услуги", items: [
     { id: "services", path: "/status/services", en: "Services and events", bg: "Услуги и събития", descEn: "How each part has worked, and what happened.", descBg: "Как е работила всяка част и какво се е случило.", audiences: BOTH },
