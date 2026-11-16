@@ -259,7 +259,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   UPDATE_CHECK_STALE: "Повече от две седмици няма успешна проверка за по-нова версия.",
   UPDATE_CHECK_NEVER_RUN: "Системата още не е проверявала за по-нова версия.",
   UPDATE_AGENT_READY: "Услугата за поддръжка работи. Няма версия, която чака прилагане.",
-  UPDATE_ACCEPTED: "Заявката е получена от агента.",
+  UPDATE_ACCEPTED: "Заявката е приета.",
   UPDATE_QUEUED: "Заявката е приета и чака прозореца за поддръжка. Дотогава нищо няма да се промени.",
   UPDATE_PREPARING: "Версията се изтегля и се проверява криптографски. Работещите услуги не се променят.",
   UPDATE_PREPARED: "Подписаната версия и нейните Docker образи са проверени и готови за прилагане.",
@@ -268,10 +268,10 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   UPDATE_ALREADY_INSTALLED: "Тази версия вече е инсталирана и проверена.",
   UPDATE_CANCELLED: "Чакащата заявка за обновяване беше отменена. Версията не е променена.",
   UPDATE_PREPARE_FAILED: "Версията не можа да бъде изтеглена и проверена. Работещите услуги не са променени.",
-  UPDATE_APPLY_FAILED: "Подготвената версия не можа да бъде приложена. Прегледайте журнала на агента, преди да опитате отново.",
+  UPDATE_APPLY_FAILED: "Версията не можа да бъде приложена. ИТ отделът трябва да прегледа журнала на услугата за поддръжка, преди да опита отново.",
   UPDATE_ACTIVATION_LOCK_PRESENT: "Има заключване от прекъснато активиране. Проверете го с поддържаната команда за възстановяване; то никога не се премахва автоматично.",
   UPDATE_ACTIVATION_NEEDS_RECOVERY: "Активирането е започнало, но не е завършило в проверено състояние. Преди следващо обновяване техник трябва да го провери и възстанови.",
-  UPDATE_AMBIGUOUS_APPLY: "Агентът се рестартира по време на прилагане. Промяна на базата или услугите с неясен резултат няма да бъде повторена автоматично.",
+  UPDATE_AMBIGUOUS_APPLY: "Услугата за поддръжка се рестартира по време на прилагането. Действие с неясен резултат няма да се повтори автоматично.",
   UPDATE_COMMIT_MISMATCH: "Активирането приключи, но инсталираната версия не съвпада с подготвената. Нужно е техническо възстановяване.",
   UPDATE_INFLIGHT_CONFLICT: "Има повече от една започната заявка за обновяване. Нищо няма да се изпълни, докато техник не ги прегледа.",
   UPDATE_INFLIGHT_MISSING: "Записаното състояние сочи прието обновяване, но защитеното копие на заявката липсва. Нужна е техническа проверка.",
@@ -281,7 +281,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   UPDATE_STATE_CORRUPT: "Защитеното състояние на обновяванията не премина строгата проверка. Нищо няма да бъде приложено автоматично.",
   UPDATE_REQUEST_EXPIRED: "Заявката е по-стара от допустимия брой дни и е отказана.",
   UPDATE_REQUEST_FUTURE: "Часът на заявката е твърде далеч в бъдещето. Проверете часовника на системата; нищо не е приложено.",
-  UPDATE_REQUEST_LOCK_TIMEOUT: "Агентът не можа да заключи опашката със заявки. Няма приета заявка.",
+  UPDATE_REQUEST_LOCK_TIMEOUT: "Услугата за поддръжка е заета с друга заявка. Нищо не е прието; опитайте отново.",
   UPDATE_REQUEST_MALFORMED: "Заявката е в невалиден или непълен формат и е отказана.",
   UPDATE_REQUEST_OVERSIZED: "Заявката е по-голяма от допустимото и е отказана.",
   UPDATE_REQUEST_POLICY_INVALID: "Настройката за максимална давност на заявките е невалидна. Заявки няма да се изпълняват, докато не бъде поправена.",
@@ -2702,7 +2702,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
   // line, and it is the reason a form below it may be disabled. The skins show
   // it on the Server page, and on any page whose forms it is disabling.
   const showAgent = isLegacy() || active.slug === "host-os" || Boolean(disabledReason)
-  const agent = `<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section>`
+  const agent = `<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Услуга за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section>`
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
@@ -2803,33 +2803,33 @@ function hostOsSection(
   const title = `<h2 id="maintenance-host-os">${localize(locale, "Server operating system (Ubuntu)", "Операционна система на сървъра (Ubuntu)")}</h2>`
   const os = view.hostOs
   if (!os) {
-    return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="empty">${localize(locale, "Host monitoring has not reported Ubuntu's state. Hospital IT can check it with: sudo losporctl host state", "Наблюдението на сървъра не е отчело състоянието на Ubuntu. ИТ отделът може да го провери с: sudo losporctl host state")}</div></div></section>`
+    return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="empty">${localize(locale, "Host monitoring has not reported Ubuntu's state. Hospital IT can check it with: sudo losporctl host state", "Състоянието на Ubuntu не е отчетено. ИТ отделът може да го провери с: sudo losporctl host state")}</div></div></section>`
   }
   const unknown = localize(locale, "unknown", "неизвестно")
   const when = (value: string | null) => value ?? unknown
   const facts = `<div class="facts">${[
     releaseFact(localize(locale, "Ubuntu release", "Версия на Ubuntu"), os.release ?? unknown),
-    releaseFact(localize(locale, "Security fixes until", "Обновявания за сигурност до"), when(os.standardSupportEnds)),
+    releaseFact(localize(locale, "Security fixes until", "Поддръжка за сигурност до"), when(os.standardSupportEnds)),
     releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
     releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
     releaseFact(localize(locale, "Automatic security updates", "Автоматични обновявания за сигурност"), hostOsWord(os.automaticUpdates, locale)),
     releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
     releaseFact(localize(locale, "Restart needed", "Нужно е рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${when(os.rebootRequiredSince)}`, `да, от ${when(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
-    releaseFact(localize(locale, "Running since", "Работи от"), when(os.bootedAt)),
-    releaseFact(localize(locale, "Restart policy", "Кога се рестартира"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновявания") : localize(locale, "manual", "ръчно")),
-    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последна операция от LOSPOR"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
+    releaseFact(localize(locale, "Running since", "Последно рестартиране"), when(os.bootedAt)),
+    releaseFact(localize(locale, "Restart policy", "Рестартиране"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновявания") : localize(locale, "manual", "ръчно")),
+    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последно действие от Status"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
   ].join("")}</div>`
   const docker = os.dockerUpdates
-    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновявания за Docker. Инсталирането им рестартира всички клинични услуги, затова ИТ отделът го прави от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
+    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновявания за Docker. Те рестартират всички клинични услуги, затова ИТ отделът ги инсталира от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
     : ""
-  const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновяванията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Същите обновявания за сигурност, които Ubuntu инсталира сам всяка нощ, но веднага. Docker не се обновява оттук.")}</div>${actionFacts({
+  const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновяванията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Инсталира веднага обновяванията за сигурност, които Ubuntu иначе инсталира през нощта. Docker не се обновява оттук.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работеща услуга за поддръжка и достъпно огледало на Ubuntu."],
     outage: ["Usually none. A few system services may restart.", "Обикновено няма. Някои системни услуги може да се рестартират."],
     backup: ["No: application data is not touched.", "Не: данните на приложението не се засягат."],
     boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
     verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
   }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на обновяванията сега"))}</div>`
-  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши обновяванията.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за обновявания, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За да го прави системата сама, изберете „В прозореца за обновявания“ за рестартирането в „Настройки на инсталацията“.")}</div>${actionFacts({
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши обновяванията.") : localize(locale, "Ubuntu does not need a restart right now.", "Не е нужно рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "Сървърът се рестартира сам в прозореца за обновявания, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За автоматично рестартиране изберете „В прозореца за обновявания“ в „Настройки на инсталацията“.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a successful backup.", "Работеща услуга за поддръжка и успешно резервно копие."],
     outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: лекарите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът не се върне."],
     backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверено резервно копие; ако то не успее, сървърът не се рестартира."],
