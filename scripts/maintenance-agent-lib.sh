@@ -40,7 +40,7 @@ maintenance_agent_init() {
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-check|os-update|os-upgrade|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -442,6 +442,20 @@ maintenance_run_os_update() {
     > "$maintenance_agent_dir/last-operation.log" 2>&1
 }
 
+# Refresh Ubuntu's package lists, so Status counts the waiting updates afresh.
+maintenance_run_os_check() {
+  sh "$update_root/scripts/host-os-maintenance.sh" run-unit check \
+    > "$maintenance_agent_dir/last-operation.log" 2>&1
+}
+
+# Every Ubuntu update, Docker included, after a verified backup; the services
+# come back and doctor checks them (1.11.0). Like the security update it may
+# restart this agent part way: maintenance_reconcile_os_update reads the result.
+maintenance_run_os_upgrade() {
+  sh "$update_root/scripts/host-os-maintenance.sh" run-unit upgrade \
+    > "$maintenance_agent_dir/last-operation.log" 2>&1
+}
+
 # A restart is offered only after a fresh verified backup. The restart itself is
 # started after the result is recorded, because it ends this agent too.
 maintenance_run_os_reboot() {
@@ -653,6 +667,8 @@ maintenance_process_consumed() {
     config) maintenance_run_config ;;
     advanced) maintenance_run_advanced ;;
     os-update) maintenance_run_os_update ;;
+    os-check) maintenance_run_os_check ;;
+    os-upgrade) maintenance_run_os_upgrade ;;
     support-bundle) maintenance_run_support_bundle ;;
     rotate-credentials) maintenance_run_rotation ;;
     secrets-escrow) maintenance_run_secrets_escrow ;;
@@ -675,7 +691,9 @@ maintenance_process_consumed() {
     rotate-credentials:0) maintenance_code=MAINTENANCE_ROTATION_COMMITTED ;;
     advanced:0) maintenance_code=MAINTENANCE_ADVANCED_APPLIED ;;
     os-update:0) maintenance_code=MAINTENANCE_OS_UPDATED ;;
-    os-update:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
+    os-update:75|os-check:75|os-upgrade:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
+    os-check:0) maintenance_code=MAINTENANCE_OS_CHECKED ;;
+    os-upgrade:0) maintenance_code=MAINTENANCE_OS_UPGRADED ;;
     os-reboot:0) maintenance_code=MAINTENANCE_OS_REBOOT_STARTED ;;
     support-bundle:0) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_CREATED ;;
     secrets-escrow:0) maintenance_code=MAINTENANCE_ESCROW_READY ;;
@@ -695,6 +713,8 @@ maintenance_process_consumed() {
           drill) maintenance_code=MAINTENANCE_DRILL_FAILED ;;
           config|advanced) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
           os-update) maintenance_code=MAINTENANCE_OS_UPDATE_FAILED ;;
+          os-check) maintenance_code=MAINTENANCE_OS_CHECK_FAILED ;;
+          os-upgrade) maintenance_code=MAINTENANCE_OS_UPGRADE_FAILED ;;
           support-bundle) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_FAILED ;;
           secrets-escrow) maintenance_code=MAINTENANCE_ESCROW_FAILED ;;
           secrets-escrow-delivered) maintenance_code=MAINTENANCE_ESCROW_NOT_OFFERED ;;
@@ -758,7 +778,7 @@ maintenance_consume_pending() {
 maintenance_reconcile_startup() {
   if maintenance_transition_read; then
     if [ "$maintenance_transition_phase" = RUNNING ]; then
-      if [ "$maintenance_transition_action" = os-update ]; then
+      if [ "$maintenance_transition_action" = os-update ] || [ "$maintenance_transition_action" = os-upgrade ]; then
         # The update runs in its own unit and restarts this agent while it works, so being stopped here is the
         # normal way for it to end. Report what the unit recorded, not "interrupted".
         maintenance_reconcile_os_update
@@ -809,18 +829,27 @@ maintenance_clear_leftover_inflight() {
 MAINTENANCE_OS_UPDATE_WAIT_POLLS="${MAINTENANCE_OS_UPDATE_WAIT_POLLS:-720}"
 MAINTENANCE_OS_UPDATE_WAIT_SECONDS="${MAINTENANCE_OS_UPDATE_WAIT_SECONDS:-5}"
 maintenance_reconcile_os_update() {
+  # os-update runs the security-update unit; os-upgrade (1.11.0) the upgrade unit.
+  maintenance_unit=security-update
+  maintenance_done=MAINTENANCE_OS_UPDATED
+  maintenance_failed=MAINTENANCE_OS_UPDATE_FAILED
+  if [ "$maintenance_transition_action" = os-upgrade ]; then
+    maintenance_unit=upgrade
+    maintenance_done=MAINTENANCE_OS_UPGRADED
+    maintenance_failed=MAINTENANCE_OS_UPGRADE_FAILED
+  fi
   maintenance_wait_polls=0
   while [ "$maintenance_wait_polls" -lt "$MAINTENANCE_OS_UPDATE_WAIT_POLLS" ] \
-    && sh "$update_root/scripts/host-os-maintenance.sh" unit-active security-update >/dev/null 2>&1; do
+    && sh "$update_root/scripts/host-os-maintenance.sh" unit-active "$maintenance_unit" >/dev/null 2>&1; do
     maintenance_wait_polls=$((maintenance_wait_polls + 1))
     sleep "$MAINTENANCE_OS_UPDATE_WAIT_SECONDS"
   done
-  maintenance_recorded="$(sh "$update_root/scripts/host-os-maintenance.sh" recorded-since security-update \
+  maintenance_recorded="$(sh "$update_root/scripts/host-os-maintenance.sh" recorded-since "$maintenance_unit" \
     "$maintenance_transition_epoch" 2>/dev/null || true)"
   case "$maintenance_recorded" in
-    passed) maintenance_terminal_write COMPLETED os-update "$maintenance_transition_id" MAINTENANCE_OS_UPDATED "$maintenance_transition_operator" ;;
-    busy) maintenance_terminal_write FAILED os-update "$maintenance_transition_id" MAINTENANCE_BUSY "$maintenance_transition_operator" ;;
-    failed) maintenance_terminal_write FAILED os-update "$maintenance_transition_id" MAINTENANCE_OS_UPDATE_FAILED "$maintenance_transition_operator" ;;
-    *) maintenance_terminal_write FAILED os-update "$maintenance_transition_id" MAINTENANCE_INTERRUPTED "$maintenance_transition_operator" ;;
+    passed) maintenance_terminal_write COMPLETED "$maintenance_transition_action" "$maintenance_transition_id" "$maintenance_done" "$maintenance_transition_operator" ;;
+    busy) maintenance_terminal_write FAILED "$maintenance_transition_action" "$maintenance_transition_id" MAINTENANCE_BUSY "$maintenance_transition_operator" ;;
+    failed) maintenance_terminal_write FAILED "$maintenance_transition_action" "$maintenance_transition_id" "$maintenance_failed" "$maintenance_transition_operator" ;;
+    *) maintenance_terminal_write FAILED "$maintenance_transition_action" "$maintenance_transition_id" MAINTENANCE_INTERRUPTED "$maintenance_transition_operator" ;;
   esac
 }

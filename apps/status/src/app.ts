@@ -2569,7 +2569,7 @@ export function createStatusApp({
     if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
     const action = parsed.body.action
     if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill" && action !== "offhost-disable"
-      && action !== "os-update" && action !== "os-reboot" && action !== "support-bundle" && action !== "rotate-credentials") {
+      && action !== "os-update" && action !== "os-upgrade" && action !== "os-reboot" && action !== "support-bundle" && action !== "rotate-credentials") {
       return context.html(await maintenancePage(locale, kind, {
         error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
       }), 400)
@@ -2612,6 +2612,7 @@ export function createStatusApp({
         "offhost-drill": "STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED",
         "offhost-disable": "STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED",
         "os-update": "STATUS_MAINTENANCE_OS_UPDATE_REQUESTED",
+        "os-upgrade": "STATUS_MAINTENANCE_OS_UPGRADE_REQUESTED",
         "os-reboot": "STATUS_MAINTENANCE_OS_REBOOT_REQUESTED",
         "support-bundle": "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED",
         "rotate-credentials": "STATUS_MAINTENANCE_ROTATION_REQUESTED",
@@ -2624,13 +2625,15 @@ export function createStatusApp({
         "offhost-drill": "A drill from the off-host copy was requested from Status",
         "offhost-disable": "Turning off off-host copies was requested from Status",
         "os-update": "Installing Ubuntu security updates was requested from Status",
+        "os-upgrade": "Updating the server (Ubuntu and Docker) was requested from Status",
         "os-reboot": "A server restart was requested from Status",
         "support-bundle": "A support bundle was requested from Status",
         "rotate-credentials": "A credential rotation was requested from Status",
       } as const)[action],
       facts: { operatorRef: confirmed.operatorRef },
     })
-    return context.redirect("/status/maintenance", 303)
+    // The server update is step 1 on the Updates page, which follows it.
+    return context.redirect(action === "os-upgrade" ? "/status/release" : "/status/maintenance", 303)
   })
 
   // The newest support bundle, as a download. losporctl reduced it to
@@ -3126,11 +3129,25 @@ export function createStatusApp({
     const operatorBlocked = agent?.phase === "needs-operator"
     const installedVersion = config.installedVersion ?? update?.installedVersion ?? "-"
     const fetchedVersion = agent?.preparedVersion ?? update?.fetchedVersion
-    const [installedDossier, fetchedDossier] = await Promise.all([
+    const [installedDossier, fetchedDossier, hostOs, maintenance] = await Promise.all([
       readReleaseDossier(config.updateStateDir, installedVersion),
       readReleaseDossier(config.updateStateDir, fetchedVersion),
+      readHostOsSignal(config.updateStateDir, now()),
+      readMaintenanceAgentSignal(config.updateStateDir, now()),
     ])
+    // Step 1, the server (1.11.0): offered only with a healthy, idle agent.
+    const maintenanceBusy = maintenance !== null && ["accepted", "working", "needs-operator"].includes(maintenance.phase)
+    const lastServer = maintenance?.lastAction === "os-check" || maintenance?.lastAction === "os-upgrade"
+      ? { action: maintenance.lastAction, code: maintenance.resultCode }
+      : undefined
+    const server = {
+      hostOs,
+      busy: maintenanceBusy,
+      ...(lastServer ? { last: lastServer } : {}),
+      mayManage: (extra.mayApply ?? true) && agentMode === "healthy" && maintenance !== null && !maintenanceBusy,
+    }
     return {
+      server,
       ...(installedDossier ? { installedDossier } : {}),
       ...(fetchedDossier ? { fetchedDossier } : {}),
       installedVersion: config.installedVersion ?? update?.installedVersion ?? "-",
@@ -3205,6 +3222,45 @@ export function createStatusApp({
     if (outcome === "failed") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "The update check request could not be recorded.", "Заявката за проверка не можа да бъде записана.") }), locale, kind))
     return context.redirect("/status/release", 303)
   })
+  // Step 1 of an update (1.11.0): refresh Ubuntu's package lists so the page
+  // counts what is waiting now. It installs nothing, so like the release check
+  // it needs no password, only an administrator signed in with one.
+  app.post("/status/actions/os-check", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(session)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const operatorRef = operatorRefOf(session)
+    const view = await releaseView(locale, { mayApply: kind === "password" })
+    if (!operatorRef || !view.server?.mayManage) {
+      return context.html(renderRelease(await releaseView(locale, {
+        mayApply: kind === "password",
+        error: localize(locale, "A system update check cannot be requested right now. Nothing was requested.", "В момента не може да се поиска проверка за системни обновявания. Не е подадена заявка."),
+      }), locale, kind), 409)
+    }
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, { requestId, action: "os-check", operatorRef }, now())
+      .catch(error => maintenanceRequestFailed(requestId, error))
+    if (outcome !== "submitted") {
+      return context.html(renderRelease(await releaseView(locale, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
+          : localize(locale, "The check request could not be recorded.", "Заявката за проверка не можа да бъде записана."),
+      }), locale, kind), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_OS_CHECK_REQUESTED",
+      severity: "info",
+      message: "A check for Ubuntu and Docker updates was requested from Status",
+      facts: { operatorRef },
+    })
+    return context.redirect("/status/release", 303)
+  })
+
   // Acts on nothing. A POST rather than a GET so the confirmation cannot be
   // prefetched, bookmarked, or arrived at by a link someone was sent.
   app.post("/status/actions/apply", async context => {

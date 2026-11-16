@@ -73,7 +73,7 @@ Usage: sudo losporctl COMMAND
   config certificate local | acme EMAIL | operator FULLCHAIN KEY CA
   config ports HTTPS STATUS
   config advanced [show] | set KEY VALUE | reset KEY|all
-  host state | security-update | reboot | upgrade
+  host state | check | security-update | reboot | upgrade
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
   secrets escrow DIRECTORY          Write the secrets, encrypted, to a USB stick or share
@@ -99,7 +99,7 @@ EOF
   config certificate local | acme ИМЕЙЛ | operator FULLCHAIN КЛЮЧ CA
   config ports HTTPS STATUS
   config advanced [show] | set КЛЮЧ СТОЙНОСТ | reset КЛЮЧ|all
-  host state | security-update | reboot | upgrade
+  host state | check | security-update | reboot | upgrade
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
   secrets escrow ДИРЕКТОРИЯ         Тайните, шифровани, на USB памет или споделена папка
@@ -818,8 +818,8 @@ advanced_command() {
 }
 
 host_command() {
-  [ "$#" -eq 1 ] || fail_usage "Usage: sudo losporctl host state | security-update | reboot | upgrade" \
-                               "Употреба: sudo losporctl host state | security-update | reboot | upgrade"
+  [ "$#" -eq 1 ] || fail_usage "Usage: sudo losporctl host state | check | security-update | reboot | upgrade" \
+                               "Употреба: sudo losporctl host state | check | security-update | reboot | upgrade"
   case "$1" in
     state)
       if [ "$json" -eq 1 ]; then
@@ -831,7 +831,7 @@ host_command() {
         run host-os-maintenance.sh state
       fi
       ;;
-    security-update) run host-os-maintenance.sh "$1" ;;
+    check|security-update) run host-os-maintenance.sh "$1" ;;
     reboot)
       confirm "A backup is taken first, then the server restarts. Clinicians cannot use LOSPOR for a few minutes." \
               "Първо се прави архив, после сървърът се рестартира. Клиницистите не могат да използват LOSPOR няколко минути."
@@ -842,8 +842,8 @@ host_command() {
               "Първо се прави архив, после се инсталират всички обновления, включително Docker. Обновяване на Docker рестартира всички клинични услуги: направете го в прозореца за поддръжка."
       run host-os-maintenance.sh upgrade
       ;;
-    *) fail_usage "Usage: sudo losporctl host state | security-update | reboot | upgrade" \
-                  "Употреба: sudo losporctl host state | security-update | reboot | upgrade" ;;
+    *) fail_usage "Usage: sudo losporctl host state | check | security-update | reboot | upgrade" \
+                  "Употреба: sudo losporctl host state | check | security-update | reboot | upgrade" ;;
   esac
 }
 

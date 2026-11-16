@@ -16,6 +16,12 @@ contract 2.9.1 changes no column. Update Central to 2.9.1 when convenient.
 - **A current medication can be typed as written** when it is not in the drug list (Status → Preoperative form →
   Sections, off by default). The search then ends with „Добави „…“ както е написано“, and the medication is marked
   „въведено ръчно“. It has no code: research receives it as text, and the allergy check compares it by name only.
+- **Updating the server from Status** (Updates, step 1, before the LOSPOR update). **Check for system updates**
+  sits beside **Check for new versions** and counts what Ubuntu and Docker have waiting; **Update the server** asks
+  for the administrator password and runs what `sudo losporctl host upgrade` runs, in the same order: a verified
+  backup, Ubuntu with its security fixes and Docker, the services back, a health check. A failure says not to apply
+  the LOSPOR update. `host upgrade` now also installs new kernels (`--with-new-pkgs`), which a plain upgrade held
+  back, and `sudo losporctl host check` refreshes the package lists.
 - **The appliance checks which version Central runs** before sending research data. From the next release that adds
   research columns on, an older Central would accept the data and silently lose them; instead the data waits on the
   appliance, Status says „Central е с по-стара версия…“, and it is sent once Central is updated.

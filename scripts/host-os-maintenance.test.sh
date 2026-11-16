@@ -38,6 +38,8 @@ STUB
 echo "systemctl $*" >> "$CALLS"
 case "$*" in
   "start lospor-host-os-maintenance@security-update.service") sh "$HOST_OS_SCRIPT" security-update >/dev/null 2>&1 || true ;;
+  "start lospor-host-os-maintenance@check.service") sh "$HOST_OS_SCRIPT" check >/dev/null 2>&1 || true ;;
+  "start lospor-host-os-maintenance@upgrade.service") sh "$HOST_OS_SCRIPT" upgrade >/dev/null 2>&1 || true ;;
 esac
 exit 0
 STUB
@@ -105,13 +107,37 @@ ok "a restart backs up first, is recorded, and never follows a failed backup"
 fixture
 os_arguments=upgrade
 run_os env || fail "an upgrade failed"
-[ "$(tr '\n' ';' < "$work/calls")" = 'backup-now.sh;apt-get update -q;apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade;docker compose up -d --wait --wait-timeout 300;doctor.sh;' ] \
+[ "$(tr '\n' ';' < "$work/calls")" = 'backup-now.sh;apt-get update -q;apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --with-new-pkgs upgrade;docker compose up -d --wait --wait-timeout 300;doctor.sh;' ] \
   || fail "the upgrade did not run in order (got: $(tr '\n' ';' < "$work/calls"))"
 [ "$(evidence)" = 'upgrade passed' ] || fail "a passed upgrade was not recorded"
 ok "a full upgrade backs up, installs, restarts the services and runs doctor"
 
+# 6b. Status starts the same upgrade through its unit and reads the result back (1.11.0).
+fixture
+os_arguments="run-unit upgrade"
+run_os env || fail "an upgrade through the unit was not reported as passed"
+grep -qx "systemctl start lospor-host-os-maintenance@upgrade.service" "$work/calls" && grep -qx doctor.sh "$work/calls" || fail "the upgrade unit was not started and run to the end"
+fixture
+set +e; run_os env STUB_EXIT=1; result=$?; set -e
+[ "$result" = 1 ] && ! grep -q "apt-get -y" "$work/calls" || fail "an upgrade through the unit installed after its backup failed (exit $result)"
+ok "Status upgrades through the unit, backup first, and reads the result back"
+
+# 6c. A check refreshes the lists only, records it and asks monitoring to count again.
+fixture
+os_arguments="run-unit check"
+run_os env || fail "a check through the unit failed"
+got="$(grep -v -x 'systemctl start lospor-host-os-maintenance@check.service' "$work/calls" | tr '\n' ';')"
+[ "$got" = 'apt-get update -q;systemctl start --no-block lospor-host-observability.service;' ] \
+  || fail "a check did more than refresh the lists (got: $got)"
+[ "$(evidence)" = "check passed" ] || fail "a passed check was not recorded"
+fixture
+os_arguments=check
+set +e; run_os env APT_EXIT=1; result=$?; set -e
+[ "$result" = 1 ] && [ "$(evidence)" = "check failed" ] || fail "an unreachable mirror was not reported (exit $result)"
+ok "a check only refreshes the package lists and is recorded"
+
 # 7. Anything but the fixed actions is wrong usage and does nothing.
-for os_arguments in "rm -rf" "run-unit upgrade" "run-unit" ""; do
+for os_arguments in "rm -rf" "run-unit state" "run-unit" ""; do
   fixture
   set +e; run_os env; result=$?; set -e
   [ "$result" = 2 ] && [ ! -s "$work/calls" ] || fail "\"$os_arguments\" was not refused as wrong usage (exit $result)"
@@ -148,10 +174,13 @@ run_os env || fail "recorded-since failed"
 os_arguments="recorded-since security-update $since_after"
 run_os env || fail "recorded-since failed after the record"
 [ -z "$(cat "$work/out")" ] || fail "a record from before the request was taken for its result (got: $(cat "$work/out"))"
-for os_arguments in "recorded-since security-update soon" "recorded-since upgrade 1" "unit-active upgrade"; do
+os_arguments="recorded-since upgrade $since_before"
+run_os env || fail "recorded-since upgrade failed"
+[ "$(cat "$work/out")" = failed ] || fail "the upgrade record was not read (got: $(cat "$work/out"))"
+for os_arguments in "recorded-since security-update soon" "recorded-since reboot 1" "unit-active check"; do
   set +e; run_os env; result=$?; set -e
   [ "$result" = 2 ] || fail "\"$os_arguments\" was not refused as wrong usage (exit $result)"
 done
-ok "the update's own record is read from the time the request began, and only for the update"
+ok "the update's and the upgrade's own records are read from the time the request began"
 
 echo "host OS maintenance tests passed ($tests)"

@@ -673,3 +673,63 @@ describe("secrets escrow from Status", () => {
     expect(existsSync(join(requestsDir, MAINTENANCE_REQUEST_FILE))).toBe(false)
   })
 })
+
+// Step 1 of an update (1.11.0): the server's own updates, from the Updates page,
+// before the LOSPOR update. The check needs no password; the update does.
+describe("the server step on the Updates page", () => {
+  it("checks for system updates beside the release check, without a password", async () => {
+    const { app, auth, stateDir, requestsDir, db } = setup()
+    hostOs(stateDir)
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    for (const text of ["Check for new versions", "Check for system updates", "Step 1. The server (Ubuntu and Docker)", "Step 2. LOSPOR", "Update the server"]) {
+      expect(body).toContain(text)
+    }
+    expect(body.indexOf('action="/status/actions/check"')).toBeLessThan(body.indexOf('action="/status/actions/os-check"'))
+    expect((await post(app, "/status/actions/os-check", cookie, {})).status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("os-check")
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_OS_CHECK_REQUESTED")).toBe(true)
+  })
+
+  it("updates the server only after the password, and comes back to the Updates page", async () => {
+    const { app, auth, stateDir, requestsDir, db } = setup()
+    hostOs(stateDir, { dockerUpdates: true })
+    const cookie = await signIn(auth)
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "os-upgrade", password: "wrong password" })).status).not.toBe(303)
+    expect(readdirSync(requestsDir)).toEqual([])
+    const done = await post(app, "/status/maintenance/actions", cookie, { action: "os-upgrade", password: PASSWORD })
+    expect(done.status).toBe(303)
+    expect(done.headers.get("location")).toBe("/status/release")
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("os-upgrade")
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_OS_UPGRADE_REQUESTED")).toBe(true)
+  })
+
+  it("offers no server update when nothing is waiting, and nothing while the agent works", async () => {
+    const { app, auth, stateDir } = setup({ phase: "working", resultCode: "MAINTENANCE_RUNNING", lastAction: "os-upgrade" })
+    hostOs(stateDir)
+    const cookie = await signIn(auth)
+    const busy = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(busy).toContain("An operation is running on the server.")
+    expect(busy).not.toContain('value="os-upgrade"')
+    expect(busy).not.toContain('action="/status/actions/os-check"')
+    hostOs(stateDir, { securityUpdates: 0, otherUpdates: 0, dockerUpdates: false })
+    const idle = setup({ phase: "completed", resultCode: "MAINTENANCE_OS_UPGRADED", lastAction: "os-upgrade" })
+    hostOs(idle.stateDir, { securityUpdates: 0, otherUpdates: 0, dockerUpdates: false })
+    const idleCookie = await signIn(idle.auth)
+    const current = await (await idle.app.request("/status/release", { headers: headers({ cookie: idleCookie }) })).text()
+    expect(current).toContain("The server is up to date (Ubuntu, security fixes and Docker)")
+    expect(current).toContain("Nothing is waiting.")
+    expect(current).not.toContain('value="os-upgrade"')
+  })
+
+  it("lets a recovery session look but not ask", async () => {
+    const { app, auth, stateDir, requestsDir } = setup()
+    hostOs(stateDir)
+    const cookie = await signIn(auth, true)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("Step 1. The server (Ubuntu and Docker)")
+    expect(body).not.toContain('value="os-upgrade"')
+    expect((await post(app, "/status/actions/os-check", cookie, {})).status).toBe(409)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+})

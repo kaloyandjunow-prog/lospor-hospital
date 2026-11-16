@@ -459,6 +459,8 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED: "Заявено е изключване на копията извън сървъра от Status",
   STATUS_MAINTENANCE_ADVANCED_REQUESTED: "Заявена е промяна на разширените настройки от Status",
   STATUS_MAINTENANCE_OS_UPDATE_REQUESTED: "Заявено е инсталиране на обновявания за сигурност на Ubuntu от Status",
+  STATUS_MAINTENANCE_OS_CHECK_REQUESTED: "Заявена е проверка за системни обновявания от Status",
+  STATUS_MAINTENANCE_OS_UPGRADE_REQUESTED: "Заявено е обновяване на сървъра (Ubuntu и Docker) от Status",
   STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
   STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED: "Заявен е пакет за поддръжка от Status",
   STATUS_MAINTENANCE_ROTATION_REQUESTED: "Заявена е смяна на данните за достъп от Status",
@@ -525,7 +527,7 @@ const PAGE_STYLE = `
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}a{color:inherit}.shell{width:min(1040px,calc(100% - 2rem));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 0}.brand{font-weight:760;letter-spacing:-.02em}.subbrand{color:var(--muted);font-size:.86rem}.banner{border-radius:14px;padding:1.15rem 1.25rem;color:#fff;margin:.75rem 0 2rem;display:flex;gap:.8rem;align-items:center}.banner.good{background:var(--good)}.banner.warn{background:var(--warn)}.banner.bad{background:var(--bad)}.banner.unknown{background:var(--unknown)}.banner strong{font-size:1.12rem}.dot{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid currentColor;border-radius:50%;font-size:.75rem;font-weight:bold;flex:none}.section{margin:2rem 0}.section h2{font-size:1.05rem;margin:0 0 .65rem}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.component{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.component:last-child{border-bottom:0}.component-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.component-name{font-weight:670}.component-detail{font-size:.86rem;color:var(--muted);margin-top:.2rem}.state{white-space:nowrap;font-weight:650;font-size:.9rem}.state::before{content:"";display:inline-block;width:.62rem;height:.62rem;border-radius:50%;background:currentColor;margin-right:.4rem}.step-action{margin-top:.5rem}
 .step-action a{font-weight:650;text-decoration:underline}
 .step-command{display:inline-block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.85rem;background:var(--line);border-radius:6px;padding:.25rem .5rem;overflow-wrap:anywhere}
-.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.subnav{order:0;border-top:0;border-bottom:1px solid var(--line);padding:0 0 .5rem;margin:0 0 1.1rem}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.score-partial{border-left:4px solid var(--warn);background:#fff8ec;color:#5c3d06;padding:.6rem .75rem;margin:.6rem 0 0}.score-partial[hidden]{display:none}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input,select,textarea{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem;background:#fff;color:var(--ink)}textarea{min-height:7rem;resize:vertical}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.header-actions{display:flex;align-items:center;gap:.55rem}.top{flex-wrap:wrap;gap:.6rem 1rem}.ident{min-width:0}a.brand{text-decoration:none}.statusnav{display:flex;flex-wrap:wrap;gap:.15rem .35rem;order:3;width:100%;border-top:1px solid var(--line);padding-top:.55rem}.statusnav a{text-decoration:none;color:var(--muted);font-weight:650;font-size:.9rem;padding:.5rem .7rem;border-radius:8px;min-height:2.4rem;display:inline-flex;align-items:center}.statusnav a:hover{background:var(--card);color:var(--ink)}.statusnav a[aria-current=page]{color:var(--ink);background:var(--card);box-shadow:inset 0 -2px 0 var(--ink)}.statusnav a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.subnav{order:0;border-top:0;border-bottom:1px solid var(--line);padding:0 0 .5rem;margin:0 0 1.1rem}.language{display:flex;gap:.25rem;margin:0}.language button{margin:0;padding:.35rem .55rem;background:transparent;color:var(--ink);border:1px solid var(--line)}.language button[aria-pressed=true]{background:var(--ink);color:#fff}.login .language{justify-content:flex-end;margin-bottom:.75rem}.language-label{font-size:.78rem;color:var(--muted);align-self:center;margin-right:.2rem}.language-links{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.75rem}.language-links a{border:1px solid var(--line);border-radius:8px;padding:.35rem .55rem;text-decoration:none}.language-links a[aria-current=true]{background:var(--ink);color:#fff}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.notice{border-left:4px solid var(--good);background:#effaf4;color:#185735;padding:.75rem}.score-partial{border-left:4px solid var(--warn);background:#fff8ec;color:#5c3d06;padding:.6rem .75rem;margin:.6rem 0 0}.score-partial[hidden]{display:none}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.form-grid .wide{grid-column:1/-1}.account-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) minmax(145px,.8fr) auto;gap:1rem;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.account-row:last-child{border-bottom:0}.account-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end}.account-actions form{margin:0}.account-actions button{margin:0;padding:.45rem .65rem;font-size:.82rem}.admin-action{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.25rem}.admin-action summary{font-weight:650;cursor:pointer}.admin-action button{margin-top:.7rem}.secret{font:600 .9rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;direction:ltr}.secret-card{border:3px solid var(--ink);padding:1.25rem;background:#fff}.secret-card h2{margin-top:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.check-actions{display:flex;flex-wrap:wrap;gap:0 .75rem}.check-actions form{margin:0}
 .qr{display:grid;place-items:center;margin:1rem auto;padding:.5rem;width:max-content;max-width:100%;border:1px solid var(--line);background:#fff}.qr svg{display:block;max-width:248px;width:100%;height:auto}.checks{display:grid;gap:.45rem;margin:.75rem 0}.checks.cols{grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:.15rem 1.2rem}.checks.cols .mono{white-space:nowrap;overflow-wrap:normal}.check{display:flex;align-items:flex-start;gap:.55rem;font-weight:500;margin:.25rem 0}.check input{width:auto;flex:none;margin:.25rem 0 0}.pad{padding:1rem}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}fieldset{border:1px solid var(--line);border-radius:9px;padding:.75rem 1rem;margin-top:1rem}legend{font-weight:650;padding:0 .3rem}
 .preop-population{display:none}.preop-population:target,.preop-populations:not(:has(.preop-population:target)) .preop-population[data-default]{display:block}.preop-switch{display:flex;gap:.4rem;margin:.8rem 0}.preop-switch a{border:1px solid var(--line);border-radius:999px;padding:.35rem .9rem;text-decoration:none}.preop-populations:has(#preop-adults:target) .preop-switch a[data-population="ADULT"],.preop-populations:has(#preop-children:target) .preop-switch a[data-population="PEDIATRIC"],.preop-populations:not(:has(.preop-population:target)) .preop-switch a[data-population="ADULT"]{background:var(--info);color:#fff;border-color:var(--info)}.preop-group-heading{margin:1.2rem 0 .4rem}
 .preop-populations:has(.preop-population[data-pop="ADULT"]:target) .preop-switch a[data-population="ADULT"],.preop-populations:has(.preop-population[data-pop="PEDIATRIC"]:target) .preop-switch a[data-population="PEDIATRIC"]{background:var(--info);color:#fff;border-color:var(--info)}
@@ -2111,11 +2113,27 @@ export type ReleaseView = {
   /** The verified release dossier of the installed and of the downloaded release, when the host has one. */
   installedDossier?: ReleaseDossier
   fetchedDossier?: ReleaseDossier
+  /**
+   * Step 1, the server under LOSPOR (1.11.0): what Ubuntu reports and the
+   * maintenance agent's last check or server update. Absent before the
+   * release page knew about it, which renders as before.
+   */
+  server?: ServerStepView
   notice?: string
   error?: string
 }
 
-const releaseFact = (name: string, value: string) =>
+export type ServerStepView = {
+  hostOs: HostOsSignal | null
+  /** The maintenance agent is working on something, so nothing more can be asked for. */
+  busy: boolean
+  /** The maintenance agent's last check or server update, when one was the last thing it did. */
+  last?: { action: "os-check" | "os-upgrade"; code: string }
+  /** A password session with a healthy, idle maintenance agent. */
+  mayManage: boolean
+}
+
+const releaseFact =(name: string, value: string) =>
   `<div class="fact"><b>${escapeHtml(name)}</b>${escapeHtml(value)}</div>`
 
 function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocale): string {
@@ -2145,6 +2163,52 @@ function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocal
     ? localize(locale, `Verified against the signed release. No critical vulnerabilities${expiries.length ? `; the first accepted exception expires ${expiries[0]}` : ""}.`, `Проверено спрямо подписаното издание. Няма критични уязвимости${expiries.length ? `; първото прието изключение изтича на ${expiries[0]}` : ""}.`)
     : localize(locale, "Verified against the signed release, but it reports critical vulnerabilities. Ask LOSPOR support before applying.", "Проверено спрямо подписаното издание, но отчита критични уязвимости. Попитайте поддръжката на LOSPOR, преди да го приложите.")
   return `<div class="component"><div class="component-name">${escapeHtml(title)}</div><div class="component-detail">${escapeHtml(verdict)} <a href="${escapeHtml(dossier.build.runUrl)}" rel="noreferrer">${localize(locale, "Build record on GitHub", "Запис за изграждането в GitHub")}</a></div><div class="facts">${facts}</div></div>`
+}
+
+/**
+ * Step 1 of an update (1.11.0): the server under LOSPOR. Ubuntu, its security
+ * fixes and Docker are installed in one go, in the order losporctl host upgrade
+ * uses: backup, packages, services back, health check. Doing it before the
+ * LOSPOR update keeps the two outages to one window.
+ */
+function serverStep(server: ServerStepView, agentHealthy: boolean, locale: StatusLocale): string {
+  const title = `<div class="component-name" id="server-step">${localize(locale, "Step 1. The server (Ubuntu and Docker)", "Стъпка 1. Сървърът (Ubuntu и Docker)")}</div>`
+  const os = server.hostOs
+  if (!os) {
+    return `<div class="component">${title}<div class="component-detail">${localize(locale, "Host monitoring has not reported Ubuntu's state yet.", "Състоянието на Ubuntu още не е отчетено.")}</div></div>`
+  }
+  const unknown = localize(locale, "unknown", "неизвестно")
+  const count = (value: number | null) => value === null ? unknown : String(value)
+  const waiting = (os.securityUpdates ?? 0) + (os.otherUpdates ?? 0) > 0 || os.dockerUpdates === true
+  const facts = `<div class="facts">${[
+    releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), count(os.securityUpdates)),
+    releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), count(os.otherUpdates)),
+    releaseFact("Docker", os.dockerUpdates === null ? unknown : os.dockerUpdates ? localize(locale, "update waiting", "има обновяване") : localize(locale, "up to date", "актуален")),
+    releaseFact(localize(locale, "Last checked", "Последна проверка"), os.updatesCheckedAt ?? unknown),
+  ].join("")}</div>`
+  const last = server.last
+    ? `<div class="component-detail">${escapeHtml(maintenanceResult(server.last.code, locale))}</div>`
+    : ""
+  const restart = os.rebootRequired
+    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Ubuntu needs a restart to finish.", "Ubuntu трябва да се рестартира, за да завърши.")}</strong> <a href="/status/maintenance/host-os#maintenance-host-os">${localize(locale, "Restart on the Server page", "Рестартиране в „Сървър“")}</a></div>`
+    : ""
+  let action: string
+  if (server.busy) {
+    action = `<p>${localize(locale, "An operation is running on the server. This page follows it.", "На сървъра тече операция. Страницата показва напредъка.")}</p>`
+  } else if (!agentHealthy || !server.mayManage) {
+    action = ""
+  } else if (waiting) {
+    action = `${actionFacts({
+      prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работеща услуга за поддръжка и достъп до източниците на Ubuntu."],
+      outage: ["Yes when Docker is updated: every clinical service restarts, usually for a few minutes.", "Да, ако се обновява Docker: всички клинични услуги се рестартират, обикновено за няколко минути."],
+      backup: ["Yes, a verified backup is taken first; if it fails, nothing is installed.", "Да, първо се прави проверено резервно копие; ако то не успее, нищо не се инсталира."],
+      boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
+      verification: ["The services start again and the system is checked. A failure is shown here; do not apply a LOSPOR update then.", "Услугите тръгват отново и системата се проверява. Неуспех се показва тук; тогава не прилагайте обновяване на LOSPOR."],
+    }, locale)}<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="os-upgrade">${passwordConfirm("os-upgrade-password", locale)}<button type="submit">${localize(locale, "Update the server", "Обновяване на сървъра")}</button></form>`
+  } else {
+    action = `<p>${localize(locale, "Nothing is waiting. Check again before a LOSPOR update.", "Няма чакащи обновявания. Проверете отново преди обновяване на LOSPOR.")}</p>`
+  }
+  return `<div class="component">${title}<div class="component-detail">${localize(locale, "Do this before the LOSPOR update: backup, Ubuntu with its security fixes and Docker, the services back, a health check.", "Направете го преди обновяването на LOSPOR: резервно копие, Ubuntu с поправките за сигурност и Docker, пускане на услугите и проверка.")}</div>${facts}${last}${restart}${action}</div>`
 }
 
 function dossierSection(view: ReleaseView, locale: StatusLocale): string {
@@ -2213,14 +2277,22 @@ export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", au
   }
 
   const checkAction = view.agentMode === "healthy"
-    ? `<form method="post" action="/status/actions/check"><button type="submit">${localize(locale, "Check for updates", "Проверка за обновявания")}</button></form>`
+    ? `<form method="post" action="/status/actions/check"><button type="submit">${localize(locale, "Check for new versions", "Проверка за нови версии")}</button></form>`
+    : ""
+  const serverCheck = view.server && view.agentMode === "healthy" && view.server.mayManage && !view.server.busy
+    ? `<form method="post" action="/status/actions/os-check"><button type="submit">${localize(locale, "Check for system updates", "Проверка за системни обновявания")}</button></form>`
     : ""
   const notice = view.notice ? `<div class="banner good" role="status"><strong>${escapeHtml(view.notice)}</strong></div>` : ""
   const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
+  // With the server step the two checks sit side by side above both steps.
+  const checks = view.server ? `<div class="component"><div class="check-actions">${checkAction}${serverCheck}</div></div>` : ""
+  const steps = view.server
+    ? `${checks}${serverStep(view.server, view.agentMode === "healthy", locale)}<div class="component"><div class="component-name">${localize(locale, "Step 2. LOSPOR", "Стъпка 2. LOSPOR")}</div>${action}</div>`
+    : `<div class="component">${checkAction}${action}</div>`
 
   return page(
     localize(locale, "Hospital appliance release", "Версия на инсталацията"),
-    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на инсталацията"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази инсталация")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${checkAction}${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането рестартира клиничните услуги и може да промени базата данни, затова е отделна стъпка.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на инсталацията"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази инсталация")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card">${steps}</div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането рестартира клиничните услуги и може да промени базата данни, затова е отделна стъпка.")}</footer></div>`,
     locale,
     true,
   )
@@ -2526,6 +2598,10 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_ADVANCED_APPLIED: { en: "The advanced settings were applied and the health check passed.", bg: "Разширените настройки са приложени и проверката на системата е успешна." },
   MAINTENANCE_ADVANCED_INVALID: { en: "The host found an advanced value outside its limits. Nothing was changed.", bg: "Сървърът откри разширена стойност извън допустимите граници. Нищо не е променено." },
   MAINTENANCE_OS_UPDATED: { en: "Ubuntu security updates were installed.", bg: "Обновяванията за сигурност на Ubuntu са инсталирани." },
+  MAINTENANCE_OS_CHECKED: { en: "Ubuntu's package lists are current. The count of waiting updates refreshes within a minute.", bg: "Проверката приключи. Броят на чакащите обновявания се опреснява до минута." },
+  MAINTENANCE_OS_CHECK_FAILED: { en: "Ubuntu's package sources could not be reached. Hospital IT can see why in .data/host-os/last-check.log.", bg: "Източниците на обновявания на Ubuntu не са достъпни. ИТ отделът може да види причината в .data/host-os/last-check.log." },
+  MAINTENANCE_OS_UPGRADED: { en: "The server is up to date (Ubuntu, security fixes and Docker) and the health check passed.", bg: "Сървърът е обновен (Ubuntu, поправките за сигурност и Docker) и проверката на системата е успешна." },
+  MAINTENANCE_OS_UPGRADE_FAILED: { en: "Updating the server or the health check afterwards failed. Do not apply a LOSPOR update; Hospital IT runs: sudo losporctl check", bg: "Обновяването на сървъра или проверката след него не успя. Не прилагайте обновяване на LOSPOR; ИТ отделът да изпълни: sudo losporctl check" },
   MAINTENANCE_OS_UPDATE_FAILED: { en: "Installing Ubuntu security updates failed. Hospital IT can see why in .data/host-os/last-security-update.log.", bg: "Инсталирането на обновяванията за сигурност на Ubuntu не успя. ИТ отделът може да види причината в .data/host-os/last-security-update.log." },
   MAINTENANCE_OS_REBOOT_STARTED: { en: "A backup was taken and the server restart was started. Clinical services return on their own in a few minutes.", bg: "Направено е резервно копие и сървърът се рестартира. Клиничните услуги ще се върнат сами след няколко минути." },
   MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED: { en: "Ubuntu needed a restart: a backup was taken and the server restarted itself in the update window.", bg: "Ubuntu изискваше рестартиране: направено е резервно копие и сървърът се рестартира сам в прозореца за обновявания." },
@@ -2787,7 +2863,7 @@ const HOST_OS_WORDS: Record<string, { en: string; bg: string }> = {
   started: { en: "started", bg: "започнато" },
   "security-update": { en: "Security updates", bg: "Обновявания за сигурност" },
   reboot: { en: "Server restart", bg: "Рестартиране на сървъра" },
-  upgrade: { en: "Full upgrade (console)", bg: "Пълно обновяване (от конзолата)" },
+  upgrade: { en: "Server update (Ubuntu and Docker)", bg: "Обновяване на сървъра (Ubuntu и Docker)" },
 }
 
 function hostOsWord(value: string, locale: StatusLocale): string {
@@ -2820,7 +2896,7 @@ function hostOsSection(
     ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последно действие от Status"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
   ].join("")}</div>`
   const docker = os.dockerUpdates
-    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновявания за Docker. Те рестартират всички клинични услуги, затова ИТ отделът ги инсталира от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
+    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service: install them from Updates, step 1 (or at the console: sudo losporctl host upgrade).", "Има обновявания за Docker. Те рестартират всички клинични услуги: инсталирайте ги от „Обновявания“, стъпка 1 (или от конзолата: sudo losporctl host upgrade).")}</strong> <a href="/status/release#server-step">${localize(locale, "Open Updates", "Към „Обновявания“")}</a></div>`
     : ""
   const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновяванията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Инсталира веднага обновяванията за сигурност, които Ubuntu иначе инсталира през нощта. Docker не се обновява оттук.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работеща услуга за поддръжка и достъпно огледало на Ubuntu."],
