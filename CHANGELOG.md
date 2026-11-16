@@ -1,5 +1,36 @@
 # Changelog - LOSPOR Hospital
 
+## [1.11.0] - 2026-11-16
+
+Vendors Core, API, Web and PWA 10.6.0 and the Central exchange contract 2.9.1; Browser stays 0.11.2. No database
+migration. The update screen still asks for the verified backup first. Central 2.9.0 keeps receiving data as before:
+contract 2.9.1 changes no column. Update Central to 2.9.1 when convenient.
+
+### Added
+
+- **Preoperative vital signs can be optional** (Status → Preoperative form → Sections, separately for adults and
+  children). Either the whole block, or blood pressure, heart rate and respiratory rate one by one. The fields are
+  always shown; an optional one does not stop the case from going on to the operation or from being closed. Many
+  children's lists record no vital signs before theatre. Nothing changes until someone changes the switch: all three
+  stay required.
+- **A current medication can be typed as written** when it is not in the drug list (Status → Preoperative form →
+  Sections, off by default). The search then ends with „Добави „…“ както е написано“, and the medication is marked
+  „въведено ръчно“. It has no code: research receives it as text, and the allergy check compares it by name only.
+- **The appliance checks which version Central runs** before sending research data. From the next release that adds
+  research columns on, an older Central would accept the data and silently lose them; instead the data waits on the
+  appliance, Status says „Central е с по-стара версия…“, and it is sent once Central is updated.
+
+### Changed
+
+- **A typed medication leaves for research cleaned** of ЕГН, phone numbers, dates and e-mail, and is withheld when
+  the export policy says free text may not leave. A trade name the drug list knows ("Prestarium Neo 5 mg") keeps its
+  name; anything else also goes through the person-name check.
+
+### Fixed
+
+- **One typed medication made the whole list look like personal data** where identifying text is checked at save,
+  drugs from the list included.
+
 ## [1.10.0] - 2026-11-16
 
 Vendors Core, API, Web and PWA 10.5.0 and the Central exchange contract 2.9.0; Browser stays 0.11.2. No database
