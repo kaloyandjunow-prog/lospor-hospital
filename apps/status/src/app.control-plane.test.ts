@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { AuthService } from "./auth.js"
 import { createStatusApp } from "./app.js"
@@ -2381,4 +2384,87 @@ describe("the 1.11.0 pages in every skin", () => {
       expect(saved, skin).toContain('action="/status/control/hospital-name"')
     }
   })
+})
+
+// Every page Status serves must be reachable by clicking, from the first page,
+// in every skin -- Legacy included (1.11.0, after the menus were regrouped).
+// The crawl follows only links on the pages; nothing is typed in.
+describe("every Status page can be reached by clicking, in every skin", () => {
+  const PAGES = [
+    "/status/", "/status/services", "/status/accounts", "/status/go-live", "/status/release", "/status/terminology",
+    "/status/preferences",
+    "/status/control/preop", "/status/control/preop/questions", "/status/control/preop/orders", "/status/control/preop/documents",
+    "/status/control/intraop", "/status/control/intraop/readings", "/status/control/intraop/acceptance", "/status/control/intraop/cards",
+    "/status/control/clinical", "/status/control/drug-colors", "/status/control/postop",
+    "/status/control/hospital", "/status/control/theatres", "/status/control/identity", "/status/control/indicators",
+    "/status/control/ehr", "/status/control/codes", "/status/control/ai",
+    "/status/control/research", "/status/control/central",
+    "/status/control/case-access", "/status/control/history",
+    "/status/maintenance/backups", "/status/maintenance/host-os", "/status/maintenance/escrow", "/status/maintenance/support",
+  ]
+  // Shown inside another page instead of having a link of its own: the modern
+  // skins put related maintenance sections on one page (1.5.4); Legacy keeps
+  // its four original control pages and its single overview.
+  const within = (skin: string): Record<string, { page: string; marker: string }> => ({
+    "/status/maintenance/offhost": { page: "/status/maintenance/backups", marker: 'id="maintenance-offhost"' },
+    "/status/maintenance/rotation": { page: "/status/maintenance/escrow", marker: 'id="maintenance-rotation"' },
+    "/status/maintenance/settings": { page: "/status/maintenance/support", marker: 'id="maintenance-settings"' },
+    "/status/maintenance/advanced": { page: "/status/maintenance/support", marker: 'id="maintenance-advanced"' },
+    ...(skin === "legacy" ? {
+      "/status/services": { page: "/status/", marker: "Hospital appliance status" },
+      "/status/control/codes": { page: "/status/control/ehr", marker: "Laboratory code map" },
+      "/status/control/identity": { page: "/status/control/ehr", marker: "National identifier" },
+      "/status/control/central": { page: "/status/control/research", marker: "action=\"/status/control/central/policy\"" },
+    } : {}),
+  })
+
+  async function crawl(app: ReturnType<typeof setup>["app"], cookie: string, skin: string) {
+    const seen = new Map<string, string>()
+    const queue = ["/status/"]
+    while (queue.length) {
+      const path = queue.shift()!
+      if (seen.has(path)) continue
+      const response = await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })
+      if (response.status >= 300 && response.status < 400) { seen.set(path, ""); continue }
+      if (!(response.headers.get("content-type") ?? "").includes("text/html")) { seen.set(path, ""); continue }
+      const html = await response.text()
+      seen.set(path, html)
+      for (const match of html.matchAll(/href="(\/status\/[^"#?]*)/g)) {
+        const next = match[1]!
+        if (!seen.has(next) && !/\.(js|png|css)$/.test(next) && !next.includes("/download") && !next.includes("support-bundle")) queue.push(next)
+      }
+    }
+    return seen
+  }
+
+  // The full example view, and the server state folders the overview and the
+  // maintenance pages read.
+  function fullSetup() {
+    const base = setup()
+    const workspace = mkdtempSync(join(tmpdir(), "lospor-status-reach-"))
+    const dirs = ["state", "signals", "requests"].map(name => join(workspace, name))
+    for (const directory of dirs) mkdirSync(directory, { recursive: true })
+    const db = new StatusDatabase(":memory:")
+    databases.push(db)
+    const auth = new AuthService(db, Buffer.alloc(32, 9), 4, () => NOW)
+    const config = {
+      defaultLocale: "bg", basePath: "/status", eventTokens: new Map(), rateLimitKey: Buffer.alloc(32, 3),
+      snapshotToken: "s".repeat(32), probeTimeoutMs: 1_000,
+      updateStateDir: dirs[0], signalsDir: dirs[1], updateRequestsDir: dirs[2],
+    } as unknown as StatusConfig
+    return { app: createStatusApp({ db, auth, config, controlPlane: base.controlPlane, now: () => NOW }), auth, workspace }
+  }
+
+  it.each(["maphub", "sidebar", "inbox", "index", "console", "legacy"])("%s", async skin => {
+    const { app, auth, workspace } = fullSetup()
+    const cookie = await passwordCookie(app as never, auth)
+    const seen = await crawl(app as never, cookie, skin)
+    rmSync(workspace, { recursive: true, force: true })
+    const shownWithin = within(skin)
+    const missing = PAGES.filter(page => !seen.get(page) && !shownWithin[page])
+    for (const [page, { page: host, marker }] of Object.entries(shownWithin)) {
+      if (!seen.get(page) && !(seen.get(host) ?? "").includes(marker)) missing.push(page)
+    }
+    expect(missing, `${skin}: pages no button leads to`).toEqual([])
+  }, 60_000)
 })
