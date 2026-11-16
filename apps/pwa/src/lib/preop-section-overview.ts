@@ -5,6 +5,7 @@ import { formatMessage } from "@/i18n/locale"
 import {
   evaluatePreopSectionCompletion,
   type PreopSection as CorePreopSection,
+  type PreopVitalsRequirement,
 } from "@lospor/core/clinical-validation"
 
 export type PreopSectionLabel = {
@@ -19,6 +20,7 @@ export type PreopSectionOverviewText = {
   meds: string
   flags: string
   vitalsRequired: string
+  vitalsOptional: string
   mallampatiRequired: string
   labsHint: string
   asaRequired: string
@@ -50,7 +52,7 @@ export function preopOverviewText(tc: (key: ClinicalStringKey) => string): Preop
   return {
     patientHint: tc("overviewPatientHint"), diagnosisAndProcedure: tc("diagnosisAndProcedure"),
     comorbidities: tc("overviewComorbidities"), meds: tc("overviewMeds"), flags: tc("overviewFlags"),
-    vitalsRequired: tc("overviewVitalsReq"), mallampatiRequired: tc("overviewMallampatiReq"),
+    vitalsRequired: tc("overviewVitalsReq"), vitalsOptional: tc("overviewVitalsOptional"), mallampatiRequired: tc("overviewMallampatiReq"),
     labsHint: tc("overviewLabsHint"), asaRequired: tc("overviewASAReq"),
     age: tc("overviewAge"), sexMale: tc("sexMaleShort"), sexFemale: tc("sexFemaleShort"),
     comorbidityCount: tc("overviewComorbidityCount"), medicationCount: tc("overviewMedicationCount"),
@@ -75,9 +77,11 @@ type PreopSectionValues = Partial<PreopFormInput & PreopFormData>
 export function buildPreopSectionItems(
   values: PreopSectionValues,
   labels: PreopSectionLabel[],
-  text: PreopSectionOverviewText
+  text: PreopSectionOverviewText,
+  /** The hospital's preop vitals rule (10.6.0); absent, all three are required. */
+  vitals?: PreopVitalsRequirement,
 ): PreopSectionOverviewItem[] {
-  const completion = evaluatePreopSectionCompletion(values as Record<string, unknown>)
+  const completion = evaluatePreopSectionCompletion(values as Record<string, unknown>, vitals)
   // The order sections are optional and Core's completion does not know them.
   const coreSection: Partial<Record<PreopSection, CorePreopSection>> = {
     patient: "demographics",
@@ -90,8 +94,11 @@ export function buildPreopSectionItems(
     labs: "labs",
     risk: "risk_scores",
   }
+  // The examination is required only while the hospital requires a reading of it.
+  const examRequired = !vitals || vitals.bloodPressure || vitals.heartRate || vitals.respiratoryRate
   const requiredSections = new Set<PreopSection>([
-    "patient", "case", "exam", "airway", "risk",
+    "patient", "case", "airway", "risk",
+    ...(examRequired ? ["exam" as const] : []),
   ])
   const hasBP = values.bpSystolic != null || !!values.bpUnobtainable
   const hasHR = values.heartRate != null || !!values.heartRateUnobtainable
@@ -135,7 +142,7 @@ export function buildPreopSectionItems(
         done = hasBP && hasHR && hasSpO2
         summary = values.bpSystolic != null
           ? `${text.bp} ${values.bpSystolic}/${values.bpDiastolic ?? "?"} \u00b7 ${text.hr} ${values.heartRate ?? "-"}`
-          : text.vitalsRequired
+          : examRequired ? text.vitalsRequired : text.vitalsOptional
         break
       case "airway":
         required = true

@@ -10,7 +10,8 @@ import {
   type PreopAssessmentProfile,
 } from "@lospor/core/preop-assessment"
 import { preopAgeInYears } from "@lospor/core/preop-documents"
-import { preopSectionConfigFor } from "@lospor/core/preop-orders"
+import { preopSectionConfigFor, preopVitalsRequirementFor } from "@lospor/core/preop-orders"
+import type { PreopVitalsRequirement } from "@lospor/core/clinical-validation"
 import { apiFetch, apiJson } from "./api"
 import { clinicalSyncKv } from "./clinical-sync-kv"
 import type { PreopPendingSuggestion, PreopQuestionAnswer } from "@/components/preop/PreopQuestionList"
@@ -67,11 +68,14 @@ export function usePreopProfile({
   pediatric,
   values,
   form,
+  vitalsRule,
 }: {
   caseId: string | null
   pediatric: boolean
   values: Record<string, unknown>
   form: FormAccess
+  /** Kept current with this population's vitals rule, for the form's resolver (10.6.0). */
+  vitalsRule?: { current: PreopVitalsRequirement | undefined }
 }) {
   const profiles = usePreopProfiles()
   const [suggestions, setSuggestions] = useState<PreopPendingSuggestion[]>([])
@@ -80,6 +84,11 @@ export function usePreopProfile({
   // The hospital's switchable sections and order rows for this population; the
   // bundled defaults until a profile has been seen.
   const sectionConfig = useMemo(() => preopSectionConfigFor(profiles?.sectionConfigs, mode), [profiles, mode])
+  // Which preop vitals this hospital requires for this population (10.6.0).
+  const vitalsRequired = useMemo(() => preopVitalsRequirementFor(sectionConfig), [sectionConfig])
+  useEffect(() => {
+    if (vitalsRule) vitalsRule.current = vitalsRequired
+  }, [vitalsRule, vitalsRequired])
 
   const loadSuggestions = useCallback(async () => {
     if (!caseId) return setSuggestions([])
@@ -121,6 +130,7 @@ export function usePreopProfile({
   return {
     profile,
     sectionConfig,
+    vitalsRequired,
     mode: mode as "ADULT" | "PEDIATRIC",
     states: preopAnswerStates(values),
     optionKeys: preopAnswerOptionKeys(values),

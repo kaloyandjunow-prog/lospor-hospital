@@ -34,6 +34,12 @@ type Props = {
   onFocus?: () => void
   required?: boolean
   error?: string
+  /**
+   * Offer what was typed as the dropdown's last row, so an entry that is not
+   * in the list can be added as written (10.6.0, current medications). Its
+   * chip carries `typedMark`.
+   */
+  freeTextRow?: { label: (typed: string) => string; typedMark: string; isTyped: (item: TagItem) => boolean }
 }
 
 export function SearchTagInput({
@@ -49,6 +55,7 @@ export function SearchTagInput({
   onFocus,
   required = false,
   error,
+  freeTextRow,
 }: Props) {
   const { language, t } = usePreferences()
   const [query, setQuery] = useState("")
@@ -120,6 +127,12 @@ export function SearchTagInput({
     if (maxItems && value.length + 1 >= maxItems) setOpen(false)
   }
 
+  function addTyped() {
+    const typed = query.trim()
+    if (!typed) return
+    addItem({ code: typed, label: typed })
+  }
+
   function closeSearch() {
     setOpen(false)
     setQuery("")
@@ -143,7 +156,7 @@ export function SearchTagInput({
       {value.length > 0 ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8 }}>
           {value.map((item, idx) => (
-            <Chip key={`${item.code || item.label}-${idx}`} label={item.label} onRemove={() => removeItem(item.code || item.label)} />
+            <Chip key={`${item.code || item.label}-${idx}`} label={freeTextRow?.isTyped(item) ? `${item.label} · ${freeTextRow.typedMark}` : item.label} onRemove={() => removeItem(item.code || item.label)} />
           ))}
         </View>
       ) : null}
@@ -224,7 +237,7 @@ export function SearchTagInput({
                 </View>
               ) : null}
 
-              {!loading && query.trim().length >= minQueryLength && visibleResults.length === 0 ? (
+              {!loading && !freeTextRow && query.trim().length >= minQueryLength && visibleResults.length === 0 ? (
                 <View style={{ padding: 14 }}>
                   <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: "800" }}>{t("noResultsFor")} "{query}"</Text>
                 </View>
@@ -261,6 +274,19 @@ export function SearchTagInput({
                     )
                   })}
                 </ScrollView>
+              ) : null}
+
+              {/* After the list, never instead of it: a drug from the list is
+                  still the first thing offered. */}
+              {!loading && freeTextRow && query.trim().length >= minQueryLength ? (
+                <TouchableOpacity
+                  testID="search-tag-typed-row"
+                  accessibilityRole="button"
+                  onPress={addTyped}
+                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: visibleResults.length > 0 ? 1 : 0, borderTopColor: colors.border }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "800", fontStyle: "italic" }}>{freeTextRow.label(query.trim())}</Text>
+                </TouchableOpacity>
               ) : null}
             </View>
           ) : null}

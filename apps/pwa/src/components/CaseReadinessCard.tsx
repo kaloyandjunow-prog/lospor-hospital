@@ -3,6 +3,9 @@ import { Text, TouchableOpacity, View } from "react-native"
 import { useRouter } from "expo-router"
 import { caseReadiness, type CaseReadiness, type ReadinessItem, type ReadinessKind } from "@lospor/core/case-readiness"
 import { usePreferences } from "@/lib/preferences-context"
+import { usePreopProfiles } from "@/lib/use-preop-profile"
+import { preopSectionConfigFor, preopVitalsRequirementFor } from "@lospor/core/preop-orders"
+import type { PreopAssessmentProfile } from "@lospor/core/preop-assessment"
 import { colors, withAlpha } from "@/theme/colors"
 
 type CaseLike = {
@@ -92,9 +95,12 @@ const TEXT = {
   bg: { title: "Преди случаят да бъде приключен", warnings: "Заслужава поглед (не блокира)", goTo: "Към", stage: { preop: "Предоп.", intraop: "Интраоп.", postop: "Следоп." } },
 } as const
 
-export function readinessOf(caseData: CaseLike): CaseReadiness {
+export function readinessOf(caseData: CaseLike, profiles?: PreopAssessmentProfile | null): CaseReadiness {
+  const mode = caseData.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT"
   return caseReadiness({
-    clinicalMode: caseData.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT",
+    clinicalMode: mode,
+    // The hospital's preop vitals rule (10.6.0), the one the server finalizes by.
+    preopVitals: preopVitalsRequirementFor(preopSectionConfigFor(profiles?.sectionConfigs, mode)),
     preop: (caseData.preop ?? null) as Record<string, unknown> | null,
     intraop: (caseData.intraop ?? null) as Record<string, unknown> | null,
     postop: (caseData.postop ?? null) as Record<string, unknown> | null,
@@ -107,15 +113,21 @@ export function readinessOf(caseData: CaseLike): CaseReadiness {
  * server still said no. This screen stays mounted while the clinician goes
  * and fixes things, so a remembered refusal alone would go stale.
  */
-export function shownReadiness(caseData: CaseLike, refusal: CaseReadiness | null): CaseReadiness {
-  const local = readinessOf(caseData)
+export function shownReadiness(caseData: CaseLike, refusal: CaseReadiness | null, profiles?: PreopAssessmentProfile | null): CaseReadiness {
+  const local = readinessOf(caseData, profiles)
   return local.blockers.length === 0 && refusal ? refusal : local
 }
 
 /** "Finalise (3)": the count of what still blocks, beside the button. */
-export function finaliseLabel(label: string, caseData: CaseLike, refusal: CaseReadiness | null): string {
-  const count = shownReadiness(caseData, refusal).blockers.length
+export function finaliseLabel(label: string, caseData: CaseLike, refusal: CaseReadiness | null, profiles?: PreopAssessmentProfile | null): string {
+  const count = shownReadiness(caseData, refusal, profiles).blockers.length
   return count > 0 ? `${label} (${count})` : label
+}
+
+/** finaliseLabel under the hospital's preop vitals rule (10.6.0), for the Finalise button's text. */
+export function FinaliseLabel({ label, caseData, refusal }: { label: string; caseData: CaseLike; refusal: CaseReadiness | null }) {
+  const profiles = usePreopProfiles()
+  return <>{finaliseLabel(label, caseData, refusal, profiles)}</>
 }
 
 /** The screen and part of it a "Go to" opens, as this app routes them. */
@@ -141,11 +153,12 @@ export function CaseReadinessCard({ caseId, caseData, refusal, canEdit }: {
 }) {
   const router = useRouter()
   const { language } = usePreferences()
+  const profiles = usePreopProfiles()
   if (!canEdit || caseData.status === "COMPLETE") return null
   const locale = language === "bg" ? "bg" : "en"
   const copy = COPY[locale]
   const text = TEXT[locale]
-  const readiness = shownReadiness(caseData, refusal)
+  const readiness = shownReadiness(caseData, refusal, profiles)
   if (readiness.blockers.length === 0 && readiness.warnings.length === 0) return null
 
   const row = (item: ReadinessItem, blocker: boolean) => (

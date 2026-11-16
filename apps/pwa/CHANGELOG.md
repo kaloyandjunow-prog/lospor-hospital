@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Mobile
 
+## [10.6.0] - 2026-11-16
+
+Released with Core and API 10.6.0.
+
+### Added
+
+- **Preoperative vitals the hospital has made optional.** Validation, the Continue list, the section overview
+  ("Жизнените показатели не са задължителни") and the asterisks follow the rule set in Status for the patient's
+  population. The readiness card and the Finalise count follow it too, as the server does.
+- **A current medication typed as written**, where the hospital has turned it on: the search ends with
+  "Добави „…“ както е написано", and the chip is marked "въведено ръчно".
+
 ## [10.5.0] - 2026-11-16
 
 Released with API 10.5.0 (OMOP exchange contract 2.9.0, ICD-10 mapping, security fixes); no client change.
