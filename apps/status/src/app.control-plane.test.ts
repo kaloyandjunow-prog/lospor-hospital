@@ -2335,3 +2335,50 @@ describe("the Card preview tab of the SPS page (10.3.0)", () => {
     }
   })
 })
+
+// 1.11.0 moved the hospital's name and logo, and colleagues' case access, to
+// pages of their own, and opened the preop form on its sections. Every skin,
+// Legacy included, must still reach every control, and a save must come back
+// to the page it was made on.
+describe("the 1.11.0 pages in every skin", () => {
+  const skins = ["maphub", "sidebar", "inbox", "index", "console", "legacy"] as const
+  const pages: Record<string, string[]> = {
+    "/status/control/hospital": ['action="/status/control/hospital-name"', 'data-testid="hospital-logo-control"'],
+    "/status/control/case-access": ['action="/status/control/case-visibility"'],
+    "/status/control/preop/questions": ["data-preop-order-row", 'action="/status/control/preop-profile'],
+    "/status/control/preop": ['href="/status/control/preop/questions"'],
+    "/status/control/clinical": ['action="/status/control/guidance"'],
+  }
+
+  it("shows every moved control, in every skin", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const skin of skins) {
+      for (const [path, markers] of Object.entries(pages)) {
+        const html = await (await app.request(path, { headers: { cookie: `${cookie}; lospor_status_skin=${skin}` } })).text()
+        for (const marker of markers) expect(html, `${skin} ${path}`).toContain(marker)
+      }
+    }
+  })
+
+  it("lists the new pages in the Legacy control menu", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const html = await (await app.request("/status/control/clinical", { headers: { cookie: `${cookie}; lospor_status_skin=legacy` } })).text()
+    expect(html).toContain('href="/status/control/hospital"')
+    expect(html).toContain('href="/status/control/case-access"')
+  })
+
+  it("comes back to the hospital page after saving its name", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    for (const skin of skins) {
+      const saved = await (await app.request("/status/control/hospital-name", {
+        method: "POST",
+        headers: origin({ cookie: `${cookie}; lospor_status_skin=${skin}`, "content-type": "application/x-www-form-urlencoded" }),
+        body: new URLSearchParams({ institutionId: "inst-1", name: "УМБАЛ Тест", reason: "New name from today", password: "Initial password phrase1!" }).toString(),
+      })).text()
+      expect(saved, skin).toContain('action="/status/control/hospital-name"')
+    }
+  })
+})
