@@ -52,11 +52,17 @@ Bulgarian, and checks every answer before it creates anything:
 Then nothing needs typing, and the window follows it through:
 
 1. Ubuntu installs by itself and the VM switches off (about 20 minutes).
-2. The wizard removes the installation media. For an offline install it attaches
+2. The wizard removes the installation media and makes the VM's MAC address
+   static (the one Ubuntu installed with). For an offline install it attaches
    a disk holding the release files, then starts the VM.
 3. At first boot the server installs LOSPOR by itself:
    - If the two DNS names are not there yet, it says so, with the server's
-     address, and continues once IT adds them.
+     address and MAC, and continues once IT adds them. It waits an hour; after
+     that, run `sudo systemctl start firstboot-lospor` on the console.
+   - **The server takes its address from DHCP.** IT reserves that address for
+     the MAC shown (or gives the server the address as a fixed one), at the
+     same time as the DNS names. Without it a later lease can move the server
+     and the names stop reaching it. The wizard's last window repeats both.
    - Its installer verifies the maintainer's signature exactly as it does at the
      console.
 4. The window ends with the Go-live address, or with the reason the install

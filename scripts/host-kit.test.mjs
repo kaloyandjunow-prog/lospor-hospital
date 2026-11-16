@@ -437,6 +437,40 @@ test("Hyper-V's key-value items are read back as the first boot wrote them", { s
   assert.equal(output.trim(), "installed|https://lospor.hospital.bg/status/go-live|2")
 })
 
+// ── A DHCP address that stays (1.11.1) ───────────────────────────────────────
+
+test("the VM keeps the MAC Ubuntu installed with, so a DHCP reservation holds", () => {
+  // Frozen while the VM is off after Ubuntu, before LOSPOR's first boot.
+  const removal = kit.indexOf("Remove-LosporDvdDrives $Name")
+  const freeze = kit.indexOf("Set-LosporStaticMac $Name", removal)
+  const start = kit.indexOf("Start-VM -VM $vm", removal)
+  assert.ok(removal > 0 && freeze > removal && freeze < start, "the MAC is not made static between Ubuntu and the first boot")
+  assert.match(kit, /Set-VMNetworkAdapter -VMNetworkAdapter \$adapter -StaticMacAddress \$adapter\.MacAddress/)
+  // Someone who stopped waiting is told the same step.
+  assert.match(kit, /\$manual \+= "   Set-VMNetworkAdapter -VMName/)
+  // The end says which address to reserve, for which MAC, in the kit and the wizard.
+  assert.match(kit, /Ask IT to reserve \$\(\$network\.Address\) in DHCP for MAC \$\(\$network\.Mac\)/)
+  assert.match(wizard, /Помолете ИТ да резервира \$\(\$result\.address\) в DHCP за MAC \$\(\$result\.mac\)/)
+  // And the server says it while it waits for DNS, when IT is adding the names.
+  const firstboot = readFileSync(join(root, "infra/host/autoinstall/lospor-firstboot.sh"), "utf8")
+  assert.match(firstboot, /reserve that address in DHCP\$\{mac:\+ for MAC \$mac\}/)
+})
+
+test("the MAC is frozen only once assigned, and written as DHCP servers show it", { skip: noPowershell }, () => {
+  const output = runPowershell([
+    '$a = Test-LosporMacToFreeze $true "00155D006904"',
+    '$b = Test-LosporMacToFreeze $false "00155D006904"',
+    '$c = Test-LosporMacToFreeze $true "000000000000"',
+    '$d = Test-LosporMacToFreeze $true ""',
+    '"$a|$b|$c|$d"',
+    '$n = ConvertTo-LosporVmNetwork @("fe80::1", "192.168.0.50", "10.0.0.2") "00155d006904"',
+    '"$($n.Address)|$($n.Mac)"',
+    '$e = ConvertTo-LosporVmNetwork @() "000000000000"',
+    '"[$($e.Address)]|[$($e.Mac)]"',
+  ].join("\n")).trim().split("\n")
+  assert.deepEqual(output, ["True|False|False|False", "192.168.0.50|00-15-5D-00-69-04", "[]|[]"])
+})
+
 // ── Following the installation: a progress window, not a still console ───────
 
 test("the wizard follows the installation in a window, and the console keeps its text", () => {

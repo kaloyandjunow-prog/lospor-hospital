@@ -175,7 +175,11 @@ while ! getent ahosts "$HOSPITAL_CLINICAL_DOMAIN" >/dev/null 2>&1 || ! getent ah
   # The address is known only now that the VM has one, so it is said here:
   # this is when IT adds the two DNS records.
   address="$(hostname -I 2>/dev/null | awk '{ print $1 }')"
-  [ "$waited" -gt 0 ] || report installing "Waiting for DNS: add $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN pointing to this server's address ${address:-(not known yet)}. Installation continues by itself once both resolve."
+  # The address came from DHCP: reserve it with the MAC, or a later lease can
+  # move the server away from these names (1.11.1).
+  interface="$(ip -o route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')"
+  mac="$(cat "/sys/class/net/${interface:-none}/address" 2>/dev/null | tr 'a-f:' 'A-F-' || true)"
+  [ "$waited" -gt 0 ] || report installing "Waiting for DNS: add $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN pointing to this server's address ${address:-(not known yet)}, and reserve that address in DHCP${mac:+ for MAC $mac}. Installation continues by itself once both names resolve."
   sleep 15
   waited=$((waited + 15))
 done

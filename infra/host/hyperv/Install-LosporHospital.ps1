@@ -588,7 +588,7 @@ function Invoke-WindowWizard {
         $heading.Text = T "3. The hospital" "3. Болницата"
         Add-Field "ClinicalDomain" (T "Clinical address" "Клиничен адрес") (New-TextBox $a.ClinicalDomain) $null
         Add-Field "ResearchDomain" (T "Research website address" "Адрес за изследвания") (New-TextBox $a.ResearchDomain) $null
-        Add-Note (T "Two DNS names in the hospital's DNS, both pointing to this server. If they are not there yet, the installation waits, shows the server's address, and continues once IT adds them." "Две имена в DNS на болницата, и двете сочещи към този сървър. Ако още ги няма, инсталацията изчаква, показва адреса на сървъра и продължава, когато ИТ ги добави.")
+        Add-Note (T "Two DNS names in the hospital's DNS, both pointing to this server. If they are not there yet, the installation waits, shows the server's address, and continues once IT adds them. The server takes its address from DHCP: IT reserves it, with the MAC shown at the end." "Две имена в DNS на болницата, и двете сочещи към този сървър. Ако още ги няма, инсталацията изчаква, показва адреса на сървъра и продължава, когато ИТ ги добави. Сървърът получава адреса си от DHCP: ИТ го резервира с MAC адреса, показан накрая.")
         Add-Field "HospitalName" (T "Hospital name" "Име на болницата") (New-TextBox $a.HospitalName) $null
         Add-Field "HospitalCity" (T "City" "Град") (New-TextBox $a.HospitalCity) $null
       }
@@ -777,8 +777,13 @@ if (Test-Path -LiteralPath $resultPath) { $result = Get-Content -Raw -Encoding U
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 
 $installed = $result -and $result.state -eq "installed"
+# The address came from DHCP: unless IT reserves it, a later lease can move the
+# server away from its DNS names (1.11.1).
+$reserve = if ($result -and $result.address) {
+  T "`n`nAsk IT to reserve $($result.address) in DHCP for MAC $($result.mac), or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it." "`n`nПомолете ИТ да резервира $($result.address) в DHCP за MAC $($result.mac) или да даде на сървъра този постоянен адрес. Иначе по-късно сървърът може да получи друг адрес и DNS имената вече няма да водят до него."
+} else { "" }
 $message = if ($installed) {
-  T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use.`n`nServer console: user lospor, with the server password." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба.`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
+  (T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба.") + $reserve + (T "`n`nServer console: user lospor, with the server password." "`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра.")
 } elseif ($result) {
   T "The installation did not finish.`n`n$($result.message)`n`nServer console: user lospor, with the server password." "Инсталацията не завърши.`n`n$($result.message)`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
 } else {

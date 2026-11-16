@@ -1,5 +1,17 @@
 # Changelog - LOSPOR Hospital
 
+## [1.11.1] - 2026-11-16
+
+Installer only: nothing changes on an installed appliance. Install new sites with this kit.
+
+### Fixed
+
+- **The server's address could change after installation.** A VM from the Hyper-V kit takes its address from the
+  hospital's DHCP with a dynamic MAC, so a new lease, or the VM moving to another host, could give it another
+  address while the two DNS names kept pointing to the old one. The kit now makes the MAC Ubuntu installed with
+  static, and says which address to reserve in DHCP for which MAC: while the server waits for DNS, and in the
+  wizard's last window.
+
 ## [1.11.0] - 2026-11-16
 
 Vendors Core, API, Web and PWA 10.6.0 and the Central exchange contract 2.9.1; Browser stays 0.11.2. No database

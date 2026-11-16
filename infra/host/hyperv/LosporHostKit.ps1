@@ -289,6 +289,24 @@ function ConvertTo-LosporInstallAnswers([hashtable] $Answers) {
 }
 
 <#
+  Whether a VM's MAC is to be made static (1.11.1): only a dynamic one that
+  Hyper-V has already assigned, which is the MAC Ubuntu installed with.
+#>
+function Test-LosporMacToFreeze($Dynamic, [string] $Mac) {
+  return [bool] $Dynamic -and $Mac -match '^[0-9A-Fa-f]{12}$' -and $Mac -ne "000000000000"
+}
+
+<# The first IPv4 address, and the MAC written as DHCP servers show it: 00-15-5D-00-69-04. #>
+function ConvertTo-LosporVmNetwork([string[]] $Addresses, [string] $Mac) {
+  $address = @($Addresses) | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' } | Select-Object -First 1
+  $pretty = $null
+  if ($Mac -match '^[0-9A-Fa-f]{12}$' -and $Mac -ne "000000000000") {
+    $pretty = (($Mac.ToUpperInvariant() -split '(..)') | Where-Object { $_ }) -join '-'
+  }
+  return [pscustomobject] @{ Address = $address; Mac = $pretty }
+}
+
+<#
   The guest's key-value items, as Hyper-V returns them (Msvm_KvpExchangeDataItem
   XML), as a name-to-value table.
 #>
