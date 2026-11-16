@@ -178,7 +178,7 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   {
     id: "offhost-backup", stage: "protect", owner: "hospital-it",
     whyEn: "Optional. A backup kept only on this server is lost together with it, so it must leave the server one way or another: here, or by the hospital backing up the whole VM (for example Hyper-V or Veeam backup), which carries LOSPOR's verified backups with it.",
-    whyBg: "По избор. Резервно копие, което е само на този сървър, се губи заедно с него, затова трябва да излезе от сървъра по един или друг начин: оттук или чрез резервно копие на цялата виртуална машина от болницата (например с Hyper-V или Veeam), което включва и проверените резервни копия на LOSPOR.",
+    whyBg: "По избор. Копие само на този сървър се губи заедно с него. Изнесете го оттук или с резервно копие на цялата виртуална машина (например Hyper-V или Veeam).",
     action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Set up copies kept elsewhere", bg: "Настройте копиране извън сървъра" },
   },
   {
@@ -190,14 +190,14 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   {
     id: "restore-drill", stage: "protect", owner: "hospital-it",
     whyEn: "Only a restore that was actually tried proves the copies can be used. Run a restore drill in Status, a drill from the off-host copy, or restore the VM backup onto a spare VM. It is due again every 92 days.",
-    whyBg: "Само реално изпробвано възстановяване доказва, че копията са използваеми. Пуснете пробно възстановяване в Status, проверка от копието извън сървъра или възстановете резервното копие на виртуалната машина в резервна машина. Повтаря се на всеки 92 дни.",
+    whyBg: "Само изпробвано възстановяване доказва, че копията работят. Пуснете пробно възстановяване в Status или възстановете копието на виртуалната машина на резервна машина. Повтаря се на всеки 92 дни.",
     action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Run a restore drill", bg: "Пуснете пробно възстановяване" },
   },
   {
     id: "update-route", stage: "maintain", owner: "appliance",
     whyEn: "Security fixes reach the appliance only through a working update route.",
-    whyBg: "Поправките за сигурност достигат до системата само по работещ канал за обновявания.",
-    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверява канала за нови версии" },
+    whyBg: "Поправките за сигурност стигат до инсталацията само ако обновяването работи.",
+    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверка за нови версии" },
   },
   {
     id: "host-os", stage: "maintain", owner: "appliance",
@@ -209,12 +209,12 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
     id: "host-patch-policy", stage: "maintain", owner: "hospital-it",
     whyEn: "Someone has to own the server: its maintenance window, its monitoring and who is called.",
     whyBg: "Някой трябва да отговаря за сървъра: прозореца за поддръжка, наблюдението и кого да търсят при проблем.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
+    action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Server", bg: "Вижте „Сървър“" },
   },
   {
     id: "terminology", stage: "content", owner: "hospital-it",
     whyEn: "Optional. This release already carries ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and the research numbers for all of them. Import an Athena package only when research needs a newer vocabulary release; place the package folder on the server first.",
-    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, списъка с лекарства, английски синоними на диагнозите и кодовете им за изследвания. Импортирайте пакет от Athena само ако изследванията изискват по-нова версия на речниците; първо поставете папката на пакета на сървъра.",
+    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, лекарства и изследвания. Заредете пакет от Athena само ако изследванията изискват по-нова версия; първо поставете папката на пакета на сървъра.",
     action: { kind: "link", href: "/status/terminology#term-actions", en: "Import a package", bg: "Импортирайте пакет" },
   },
   {
@@ -301,13 +301,13 @@ export function evaluateGoLive(input: {
     {
       id: "key-escrow",
       en: "Installation secrets are escrowed off the appliance",
-      bg: "Ключовете и паролите на инсталацията са копирани извън системата",
+      bg: "Ключовете и паролите на инсталацията са копирани извън сървъра",
       satisfied: code("key-escrow") === "KEY_ESCROW_ACKNOWLEDGED",
     },
     {
       id: "update-route",
       en: "The update route and host update agent are working",
-      bg: "Каналът за обновявания и услугата за поддръжка работят",
+      bg: "Обновяването и услугата за поддръжка работят",
       satisfied: operational("update-supply") && operational("host-update-agent"),
     },
     {
@@ -325,7 +325,7 @@ export function evaluateGoLive(input: {
     {
       id: "terminology",
       en: "Optional: an Athena terminology package is imported",
-      bg: "По избор: импортиран е пакет с терминология от Athena",
+      bg: "По избор: зареден е пакет с номенклатури от Athena",
       satisfied: Boolean(input.terminology?.packageId && input.terminology.activatedAt)
         && input.terminology?.phase !== "needs-operator",
       // The release bundles the codes clinical use needs. A package that was
