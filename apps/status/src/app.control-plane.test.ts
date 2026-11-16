@@ -441,7 +441,7 @@ describe("Status Hospital control plane", () => {
     )
     const [preop, clinical, ehr, codes, identity, research, central, ai] = await fetchAll(["preop", "clinical", "ehr", "codes", "identity", "research", "central", "ai"], "maphub")
     const legacy = (await fetchAll(["clinical", "ehr", "research", "ai"], "legacy")).join("")
-    expect(legacy).toContain("Настройка за ЕГН")
+    expect(legacy).toContain("ЕГН и номер на ИЗ")
     expect(legacy).toContain("Кодове на изследванията")
     expect(legacy).toContain("Разрешения за изследвания")
     // Both skins expose every preop page through the same tabs.
@@ -462,7 +462,7 @@ describe("Status Hospital control plane", () => {
     expect(preop).toContain('href="/status/control/drug-colors"')
     expect(preop).not.toContain('class="statusnav subnav control-subnav"')
     expect(preop).not.toContain(':root:not([data-skin="legacy"]) .subnav{display:none}')
-    expect(identity).toContain("Настройка за ЕГН")
+    expect(identity).toContain("ЕГН и номер на ИЗ")
     expect(codes).toContain("Кодове на изследванията")
     expect(central).toContain("Връзка с Central")
     const all = preop + clinical + ehr + codes + identity + research + central + ai + legacy
@@ -490,8 +490,8 @@ describe("Status Hospital control plane", () => {
     expect(ai).toContain("Въведени на")
     expect(ai).toContain('name="credential" type="password"')
 
-    expect(identity).toContain("Настройка за ЕГН")
-    expect(identity).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
+    expect(identity).toContain("ЕГН и номер на ИЗ")
+    expect(identity).toContain("Свързване по ЕГН")
     expect(ehr).toContain("Връзка с БИС")
     expect(ehr).toContain("При връзка чрез папка не са нужни данни за достъп")
 
