@@ -1748,7 +1748,9 @@ async function preopSectionsControlView() {
       // The postoperative form's switches are kept with the preop ones.
       form: sectionForm(section),
     })),
-    fixed: PREOP_FIXED_SECTIONS.map(section => ({ ...section })),
+    // The vitals have their own switches below the sections (1.11.0), so they
+    // are no longer listed with what is always on and required.
+    fixed: PREOP_FIXED_SECTIONS.filter(section => section.key !== "VITALS").map(section => ({ ...section })),
     postopFixed: POSTOP_FIXED_SECTIONS.map(section => ({ ...section })),
     specialties: NHIS_SPECIALTIES.map(item => ({ key: item.key, labelEn: item.labelEn, labelBg: item.labelBg, clinical: item.clinical, doctor: item.role === "Лекари" })),
     holdHours: [...MEDICATION_HOLD_HOURS],
