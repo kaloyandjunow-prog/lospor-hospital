@@ -93,6 +93,11 @@ function Show-LosporInstallProgress {
   $detail.Location = New-Object System.Drawing.Point(18, 294); $detail.Size = New-Object System.Drawing.Size(766, 60)
   $detail.ForeColor = [System.Drawing.Color]::DimGray
 
+  # What the administrator still has to do, in plain dark text under the result (1.11.2).
+  $note = New-Object System.Windows.Forms.Label
+  $note.Location = New-Object System.Drawing.Point(18, 358); $note.Size = New-Object System.Drawing.Size(766, 62)
+  $note.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold); $note.Visible = $false
+
   $showDetails = New-Object System.Windows.Forms.CheckBox
   $showDetails.Location = New-Object System.Drawing.Point(18, 358); $showDetails.Size = New-Object System.Drawing.Size(300, 24)
   $showDetails.Text = T "Show details" "Подробности"
@@ -109,7 +114,7 @@ function Show-LosporInstallProgress {
   $close.Location = New-Object System.Drawing.Point(684, 548); $close.Size = New-Object System.Drawing.Size(100, 36)
   $close.Text = T "Close" "Затваряне"
   $close.add_Click({ $form.Close() })
-  $form.Controls.AddRange(@($heading, $intro, $bar, $now, $elapsed, $detail, $showDetails, $log, $goLive, $close))
+  $form.Controls.AddRange(@($heading, $intro, $bar, $now, $elapsed, $detail, $note, $showDetails, $log, $goLive, $close))
 
   # ── the kit, in the background ─────────────────────────────────────────────
   $session = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
@@ -209,6 +214,13 @@ function Show-LosporInstallProgress {
       $heading.Text = T "LOSPOR Hospital is installed" "LOSPOR Hospital е инсталиран"
       $now.Text = T "Installed." "Инсталирано."; $now.ForeColor = [System.Drawing.Color]::ForestGreen
       $detail.Text = T "Open $($state.Url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use. Server console: user lospor, with the server password." "Отворете $($state.Url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба. Конзола на сървъра: потребител lospor, с паролата за сървъра."
+      # The address came from DHCP: unless IT reserves it, a later lease can move
+      # the server away from its DNS names (1.11.2: the window did not say it).
+      $hint = Get-LosporDhcpHintFor $result $script:Locale
+      if ($hint) {
+        $note.Text = $hint; $note.Visible = $true
+        $showDetails.Top = 428; $log.Top = 456; $log.Height = 84
+      }
       $goLive.Visible = $true
     } else {
       $state.Failed = $true

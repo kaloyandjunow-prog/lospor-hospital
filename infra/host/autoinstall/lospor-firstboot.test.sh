@@ -44,7 +44,7 @@ answers() {
   mkdir -p "$state"
   {
     printf 'LOSPOR-HOSPITAL-INSTALL-ANSWERS-V1\n'
-    printf 'LOSPOR_DEFAULT_LOCALE=bg\n'
+    printf 'LOSPOR_DEFAULT_LOCALE=%s\n' "${answers_locale:-en}"
     printf 'HOSPITAL_CLINICAL_DOMAIN=localhost\n'
     printf 'HOSPITAL_RESEARCH_DOMAIN=localhost\n'
     printf 'HOSPITAL_TLS_MODE=%s\n' "${1:-local}"
@@ -203,5 +203,25 @@ printf '#!/bin/sh\necho no\n' > "$work/bin/timedatectl"
 run env PATH="$work/bin:$PATH" LOSPOR_FIRSTBOOT_CLOCK_WAIT_SECONDS=5 || fail "an unsynchronized clock stopped the first boot before the installer could say so"
 [ -f "$work/record.env" ] || fail "the installer was not reached with an unsynchronized clock"
 ok "the first boot waits for the clock to be confirmed, for a bounded time, and says so"
+
+# 9. What the administrator reads in the window is in the language chosen in the wizard.
+mkdir -p "$work/bin"
+printf '#!/bin/sh\necho no\n' > "$work/bin/timedatectl"
+chmod +x "$work/bin/timedatectl"
+answers_locale=bg
+answers local
+sed -i 's/^HOSPITAL_CLINICAL_DOMAIN=.*/HOSPITAL_CLINICAL_DOMAIN=lospor.invalid/' "$state/answers.env"
+if run env PATH="$work/bin:$PATH"; then fail "an unresolvable name was accepted"; fi
+bg_message="$(kvp_value LosporInstallMessage)"
+case "$bg_message" in *"Сървърът не намира lospor.invalid"*) ;; *) fail "the DNS failure was not in Bulgarian (got: $bg_message)" ;; esac
+answers local
+run STUB_STEPS=1 LOSPOR_FIRSTBOOT_POLL_SECONDS=1 PATH="$work/bin:$PATH" LOSPOR_FIRSTBOOT_CLOCK_WAIT_SECONDS=5 || fail "the Bulgarian first boot did not finish"
+grep -q "Чака се часовникът на сървъра да бъде потвърден" "$log" || fail "the clock wait was not in Bulgarian"
+grep -q "Инсталира се LOSPOR Hospital. Отнема около 10 до 40 минути." "$log" || fail "the start of the installation was not in Bulgarian"
+grep -q "Инсталира се LOSPOR Hospital: Стартиране на LOSPOR и проверка на работата му" "$log" || fail "step 8 was not named in Bulgarian"
+[ "$(kvp_value LosporInstallState)" = installed ] || fail "the Bulgarian installation did not finish"
+kvp_value LosporInstallMessage | grep -q "LOSPOR Hospital е инсталиран" || fail "the finish was not in Bulgarian"
+answers_locale=en
+ok "the first boot's messages are in the wizard's language"
 
 printf 'firstboot tests passed (%s)\n' "$tests"

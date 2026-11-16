@@ -584,11 +584,40 @@ test("the VM keeps the MAC Ubuntu installed with, so a DHCP reservation holds", 
   assert.match(kit, /\$manual \+= "   Set-VMNetworkAdapter -VMName/)
   // The end says which address to reserve, for which MAC, in the kit and the wizard.
   assert.match(kit, /-Proxy \$Proxy -Direct \$Direct/)
-  assert.match(kit, /Ask IT to reserve \$\(\$network\.Address\) in DHCP for MAC \$\(\$network\.Mac\)/)
-  assert.match(wizard, /Помолете ИТ да резервира \$\(\$result\.address\) в DHCP за MAC \$\(\$result\.mac\)/)
+  assert.match(kit, /Get-LosporDhcpHint \$network\.Address \$network\.Mac "en"/)
+  // The window the administrator actually sees (the progress window) says it too:
+  // in 1.11.1 only the console message did, and the graphical wizard never showed it.
+  assert.match(wizard, /Get-LosporDhcpHintFor \$result \$script:Locale/)
+  assert.match(progressWindow, /\$hint = Get-LosporDhcpHintFor \$result \$script:Locale\n\s+if \(\$hint\) \{\n\s+\$note\.Text = \$hint; \$note\.Visible = \$true/)
+  assert.match(progressWindow, /\$detail, \$note, \$showDetails/)
   // And the server says it while it waits for DNS, when IT is adding the names.
   const firstboot = readFileSync(join(root, "infra/host/autoinstall/lospor-firstboot.sh"), "utf8")
   assert.match(firstboot, /reserve that address in DHCP\$\{mac:\+ for MAC \$mac\}/)
+})
+
+test("the DHCP hint names the address and MAC in the wizard's language, and is empty without an address", { skip: noPowershell }, () => {
+  const output = runPowershell([
+    'Set-StrictMode -Version 2.0',
+    '"[" + (Get-LosporDhcpHint "192.168.0.102" "00-15-5D-00-69-16" "en") + "]"',
+    '"[" + (Get-LosporDhcpHint "192.168.0.102" "00-15-5D-00-69-16" "bg") + "]"',
+    '"[" + (Get-LosporDhcpHint "192.168.0.102" "" "en") + "]"',
+    '"[" + (Get-LosporDhcpHint "" "00-15-5D-00-69-16" "bg") + "]"',
+    // The result file of a failed installation has no address or mac at all: strict mode must not stop on that.
+    '$failed = [pscustomobject] @{ state = "failed"; message = "x" }',
+    '"[" + (Get-LosporDhcpHintFor $failed "bg") + "]"',
+    '$installed = [pscustomobject] @{ state = "installed"; address = "10.1.2.3"; mac = "00-15-5D-00-00-01" }',
+    '"[" + (Get-LosporDhcpHintFor $installed "en") + "]"',
+    '"[" + (Get-LosporDhcpHintFor $null "bg") + "]"',
+  ].join("\n")).trim().split("\n")
+  assert.deepEqual(output, [
+    "[Ask IT to reserve 192.168.0.102 in DHCP for MAC 00-15-5D-00-69-16, or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it.]",
+    "[Помолете ИТ да резервира 192.168.0.102 в DHCP за MAC 00-15-5D-00-69-16 или да даде на сървъра този постоянен адрес. Иначе по-късно сървърът може да получи друг адрес и DNS имената вече няма да водят до него.]",
+    "[Ask IT to reserve 192.168.0.102 in DHCP, or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it.]",
+    "[]",
+    "[]",
+    "[Ask IT to reserve 10.1.2.3 in DHCP for MAC 00-15-5D-00-00-01, or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it.]",
+    "[]",
+  ])
 })
 
 test("the MAC is frozen only once assigned, and written as DHCP servers show it", { skip: noPowershell }, () => {

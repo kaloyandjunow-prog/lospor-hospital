@@ -688,7 +688,7 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
       Write-Host ""
       Write-Host "LOSPOR Hospital is installed. Next: $($progress.Url)"
       if ($network.Address) {
-        Write-Host "Ask IT to reserve $($network.Address) in DHCP for MAC $($network.Mac) (or give the server that fixed address), so the two DNS names keep pointing to it."
+        Write-Host (Get-LosporDhcpHint $network.Address $network.Mac "en")
       }
       Write-LosporResult "installed" $progress.Message $progress.Url $network
     } else {

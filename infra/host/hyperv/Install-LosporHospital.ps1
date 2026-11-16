@@ -784,9 +784,8 @@ Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 $installed = $result -and $result.state -eq "installed"
 # The address came from DHCP: unless IT reserves it, a later lease can move the
 # server away from its DNS names (1.11.1).
-$reserve = if ($result -and $result.address) {
-  T "`n`nAsk IT to reserve $($result.address) in DHCP for MAC $($result.mac), or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it." "`n`nПомолете ИТ да резервира $($result.address) в DHCP за MAC $($result.mac) или да даде на сървъра този постоянен адрес. Иначе по-късно сървърът може да получи друг адрес и DNS имената вече няма да водят до него."
-} else { "" }
+$reserveHint = Get-LosporDhcpHintFor $result $script:Locale
+$reserve = if ($reserveHint) { "`n`n$reserveHint" } else { "" }
 $message = if ($installed) {
   (T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба.") + $reserve + (T "`n`nServer console: user lospor, with the server password." "`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра.")
 } elseif ($result) {

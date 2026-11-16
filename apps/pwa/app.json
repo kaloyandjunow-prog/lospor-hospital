@@ -2,7 +2,7 @@
   "expo": {
     "name": "LOSPOR Hospital",
     "slug": "lospor-hospital",
-    "version": "1.11.1",
+    "version": "1.11.2",
     "scheme": "lospor-hospital",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

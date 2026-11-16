@@ -2184,7 +2184,7 @@ function serverStep(server: ServerStepView, agentHealthy: boolean, locale: Statu
     releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), count(os.securityUpdates)),
     releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), count(os.otherUpdates)),
     releaseFact("Docker", os.dockerUpdates === null ? unknown : os.dockerUpdates ? localize(locale, "update waiting", "има обновяване") : localize(locale, "up to date", "актуален")),
-    releaseFact(localize(locale, "Last checked", "Последна проверка"), os.updatesCheckedAt ?? unknown),
+    releaseFact(localize(locale, "Last checked", "Последна проверка"), os.updatesCheckedAt ? `${utcDate(Date.parse(os.updatesCheckedAt), locale)} UTC` : unknown),
   ].join("")}</div>`
   const last = server.last
     ? `<div class="component-detail">${escapeHtml(maintenanceResult(server.last.code, locale))}</div>`
@@ -2882,18 +2882,20 @@ function hostOsSection(
     return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="empty">${localize(locale, "Host monitoring has not reported Ubuntu's state. Hospital IT can check it with: sudo losporctl host state", "Състоянието на Ubuntu не е отчетено. ИТ отделът може да го провери с: sudo losporctl host state")}</div></div></section>`
   }
   const unknown = localize(locale, "unknown", "неизвестно")
+  // A date as it is, a moment as people read it (not 2026-11-16T22:01:29Z).
   const when = (value: string | null) => value ?? unknown
+  const at = (value: string | null) => value ? `${utcDate(Date.parse(value), locale)} UTC` : unknown
   const facts = `<div class="facts">${[
     releaseFact(localize(locale, "Ubuntu release", "Версия на Ubuntu"), os.release ?? unknown),
     releaseFact(localize(locale, "Security fixes until", "Поддръжка за сигурност до"), when(os.standardSupportEnds)),
     releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
     releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
     releaseFact(localize(locale, "Automatic security updates", "Автоматични обновявания за сигурност"), hostOsWord(os.automaticUpdates, locale)),
-    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
-    releaseFact(localize(locale, "Restart needed", "Нужно е рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${when(os.rebootRequiredSince)}`, `да, от ${when(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
-    releaseFact(localize(locale, "Running since", "Последно рестартиране"), when(os.bootedAt)),
+    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${at(os.lastAutomaticRunAt)}`),
+    releaseFact(localize(locale, "Restart needed", "Нужно е рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${at(os.rebootRequiredSince)}`, `да, от ${at(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
+    releaseFact(localize(locale, "Running since", "Последно рестартиране"), at(os.bootedAt)),
     releaseFact(localize(locale, "Restart policy", "Рестартиране"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновявания") : localize(locale, "manual", "ръчно")),
-    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последно действие от Status"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
+    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последно действие от Status"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${at(os.lastOperation.at)}`)] : []),
   ].join("")}</div>`
   const docker = os.dockerUpdates
     ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service: install them from Updates, step 1 (or at the console: sudo losporctl host upgrade).", "Има обновявания за Docker. Те рестартират всички клинични услуги: инсталирайте ги от „Обновявания“, стъпка 1 (или от конзолата: sudo losporctl host upgrade).")}</strong> <a href="/status/release#server-step">${localize(locale, "Open Updates", "Към „Обновявания“")}</a></div>`
