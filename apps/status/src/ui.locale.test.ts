@@ -118,7 +118,7 @@ describe("Status screen localization", () => {
       mayApply: false,
     }
     expect(renderRelease(base, "en")).toContain("Update mode has not been selected")
-    expect(renderRelease(base, "bg")).toContain("Не е избран начин на актуализиране")
+    expect(renderRelease(base, "bg")).toContain("Не е избран начин на обновяване")
     expect(renderRelease({ ...base, agentMode: "console-only" }, "en"))
       .toContain("intentionally console-only")
   })

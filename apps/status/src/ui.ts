@@ -258,27 +258,27 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   UPDATE_CHECK_FAILED: "Последната проверка не успя да се свърже със списъка с версии, затова не е ясно дали има по-нова версия.",
   UPDATE_CHECK_STALE: "Повече от две седмици няма успешна проверка за по-нова версия.",
   UPDATE_CHECK_NEVER_RUN: "Системата още не е проверявала за по-нова версия.",
-  UPDATE_AGENT_READY: "Агентът за актуализации работи. Няма версия, която чака прилагане.",
+  UPDATE_AGENT_READY: "Услугата за поддръжка работи. Няма версия, която чака прилагане.",
   UPDATE_ACCEPTED: "Заявката е получена от агента.",
   UPDATE_QUEUED: "Заявката е приета и чака прозореца за поддръжка. Дотогава нищо няма да се промени.",
   UPDATE_PREPARING: "Версията се изтегля и се проверява криптографски. Работещите услуги не се променят.",
   UPDATE_PREPARED: "Подписаната версия и нейните Docker образи са проверени и готови за прилагане.",
-  UPDATE_APPLYING: "Актуализацията се прилага. Тази страница няма да отговаря няколко минути и ще се върне сама.",
-  UPDATE_COMPLETED: "Актуализацията завърши. Показаната по-горе версия вече работи.",
+  UPDATE_APPLYING: "Обновяването се прилага. Тази страница няма да отговаря няколко минути и ще се върне сама.",
+  UPDATE_COMPLETED: "Обновяването завърши. Показаната по-горе версия вече работи.",
   UPDATE_ALREADY_INSTALLED: "Тази версия вече е инсталирана и проверена.",
-  UPDATE_CANCELLED: "Чакащата заявка за актуализация беше отменена. Версията не е променена.",
+  UPDATE_CANCELLED: "Чакащата заявка за обновяване беше отменена. Версията не е променена.",
   UPDATE_PREPARE_FAILED: "Версията не можа да бъде изтеглена и проверена. Работещите услуги не са променени.",
   UPDATE_APPLY_FAILED: "Подготвената версия не можа да бъде приложена. Прегледайте журнала на агента, преди да опитате отново.",
   UPDATE_ACTIVATION_LOCK_PRESENT: "Има заключване от прекъснато активиране. Проверете го с поддържаната команда за възстановяване; то никога не се премахва автоматично.",
-  UPDATE_ACTIVATION_NEEDS_RECOVERY: "Активирането е започнало, но не е завършило в проверено състояние. Преди следваща актуализация техник трябва да го провери и възстанови.",
+  UPDATE_ACTIVATION_NEEDS_RECOVERY: "Активирането е започнало, но не е завършило в проверено състояние. Преди следващо обновяване техник трябва да го провери и възстанови.",
   UPDATE_AMBIGUOUS_APPLY: "Агентът се рестартира по време на прилагане. Промяна на базата или услугите с неясен резултат няма да бъде повторена автоматично.",
   UPDATE_COMMIT_MISMATCH: "Активирането приключи, но инсталираната версия не съвпада с подготвената. Нужно е техническо възстановяване.",
-  UPDATE_INFLIGHT_CONFLICT: "Има повече от една започната заявка за актуализация. Нищо няма да се изпълни, докато техник не ги прегледа.",
-  UPDATE_INFLIGHT_MISSING: "Записаното състояние сочи приета актуализация, но защитеното копие на заявката липсва. Нужна е техническа проверка.",
+  UPDATE_INFLIGHT_CONFLICT: "Има повече от една започната заявка за обновяване. Нищо няма да се изпълни, докато техник не ги прегледа.",
+  UPDATE_INFLIGHT_MISSING: "Записаното състояние сочи прието обновяване, но защитеното копие на заявката липсва. Нужна е техническа проверка.",
   UPDATE_INFLIGHT_OWNERSHIP_FAILED: "Сървърът не можа да прехвърли приетата заявка към root. Тя няма да бъде изпълнена.",
   UPDATE_ORPHANED_INFLIGHT: "Има защитена заявка без съответно записано състояние. Тя няма да бъде изпълнена автоматично.",
   UPDATE_PREPARED_DESCRIPTOR_INVALID: "Състоянието на подготвената версия липсва, променено е или не съвпада с проверените файлове.",
-  UPDATE_STATE_CORRUPT: "Защитеното състояние на актуализациите не премина строгата проверка. Нищо няма да бъде приложено автоматично.",
+  UPDATE_STATE_CORRUPT: "Защитеното състояние на обновяванията не премина строгата проверка. Нищо няма да бъде приложено автоматично.",
   UPDATE_REQUEST_EXPIRED: "Заявката е по-стара от допустимия брой дни и е отказана.",
   UPDATE_REQUEST_FUTURE: "Часът на заявката е твърде далеч в бъдещето. Проверете часовника на системата; нищо не е приложено.",
   UPDATE_REQUEST_LOCK_TIMEOUT: "Агентът не можа да заключи опашката със заявки. Няма приета заявка.",
@@ -288,11 +288,11 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   UPDATE_REQUEST_REPLAYED: "Заявка с този идентификатор вече е приключила и не може да бъде изпълнена повторно.",
   UPDATE_REQUEST_UNSAFE: "Заявката не е безопасен обикновен файл и е отказана.",
   UPDATE_TIMEZONE_CALCULATION_FAILED: "Следващият прозорец за поддръжка не можа да бъде изчислен в настроената часова зона.",
-  UPDATE_FAILED: "Актуализацията не завърши и промените бяха върнати. Системата работи с предишната версия.",
-  UPDATE_NEEDS_OPERATOR: "Актуализацията спря по средата и никой не е отстранил проблема. Не рестартирайте системата; свържете се с отговорника за нея.",
-  UPDATE_AGENT_UNAVAILABLE: "Агентът за актуализации не е подал сигнал от десет минути. Актуализации няма да се прилагат, докато не заработи отново.",
-  UPDATE_AGENT_CONFIGURED_FAILED: "Агентът за актуализации на сървъра е настроен, но не подава сигнал. Актуализирането от браузъра не е достъпно.",
-  UPDATE_CONSOLE_ONLY: "Тази система умишлено се актуализира от конзолата на сървъра, а не от Status.",
+  UPDATE_FAILED: "Обновяването не завърши и промените бяха върнати. Системата работи с предишната версия.",
+  UPDATE_NEEDS_OPERATOR: "Обновяването спря по средата и никой не е отстранил проблема. Не рестартирайте системата; свържете се с отговорника за нея.",
+  UPDATE_AGENT_UNAVAILABLE: "Услугата за поддръжка не отговаря от десет минути. Обновявания няма да се прилагат, докато не заработи отново.",
+  UPDATE_AGENT_CONFIGURED_FAILED: "Услугата за поддръжка на сървъра не отговаря. Обновяване от браузъра не е възможно.",
+  UPDATE_CONSOLE_ONLY: "Тази инсталация се обновява от конзолата на сървъра, а не от Status.",
   HOST_OBSERVABILITY_MISSING: "Наблюдението на сървъра не е подало валидни данни. Състоянието е неизвестно, а не изправно.",
   HOST_OBSERVABILITY_STALE: "Данните от сървъра са по-стари от три минути. Състоянието е неизвестно, докато не дойдат нови.",
   HOST_STORAGE_OK: "Наблюдаваните файлови системи имат достатъчно свободно място.",
@@ -318,22 +318,22 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   KEY_ESCROW_MISSING: "Няма потвърждение, че .env и secrets/ са копирани извън системата. Резервните копия съдържат само отпечатъците им, така че загубата им завинаги прави нечетими всички запазени данни за самоличност на пациентите.",
   KEY_ESCROW_STALE: "Потвърждението вече не съответства на използваните ключове. Направете ново копие на текущите тайни и го отбележете отново.",
   KEY_ESCROW_EVIDENCE_INVALID: "Потвърждението за копие на тайните е невалидно или небезопасно.",
-  HOST_UPDATE_AGENT_HEALTHY: "Агентът за актуализации на сървъра е активен и подава сигнал.",
-  HOST_UPDATE_AGENT_STALE: "Агентът за актуализации на сървъра не е активен или отдавна не е подал сигнал.",
-  HOST_UPDATE_AGENT_CONSOLE_ONLY: "Актуализирането от браузъра е умишлено изключено; използва се конзолата на сървъра.",
-  HOST_UPDATE_AGENT_UNKNOWN: "Не можа да се установи дали агентът за актуализации е инсталиран.",
+  HOST_UPDATE_AGENT_HEALTHY: "Услугата за поддръжка на сървъра работи.",
+  HOST_UPDATE_AGENT_STALE: "Услугата за поддръжка на сървъра не работи или не отговаря.",
+  HOST_UPDATE_AGENT_CONSOLE_ONLY: "Обновяването от браузъра е умишлено изключено; използва се конзолата на сървъра.",
+  HOST_UPDATE_AGENT_UNKNOWN: "Не можа да се установи дали услугата за поддръжка е инсталирана.",
   HOST_CERTIFICATE_VALID: "HTTPS сертификатът е валиден още повече от 30 дни.",
   HOST_CERTIFICATE_EXPIRING: "HTTPS сертификатът изтича в следващите 30 дни.",
-  HOST_OS_CURRENT: "Актуализациите за сигурност на Ubuntu се инсталират автоматично и навреме.",
-  HOST_OS_REBOOT_SCHEDULED: "Ubuntu трябва да се рестартира и системата ще го направи сама в следващия прозорец за актуализации.",
-  HOST_OS_REBOOT_REQUIRED: "Ubuntu трябва да рестартира сървъра, за да завърши актуализациите. Рестартирайте го от „Поддръжка“.",
-  HOST_OS_SECURITY_UPDATES_PENDING: "Има чакащи актуализации за сигурност на Ubuntu, които автоматичното актуализиране не е инсталирало. Инсталирайте ги от „Поддръжка“.",
-  HOST_OS_AUTOMATIC_UPDATES_OFF: "Автоматичните актуализации за сигурност на Ubuntu са изключени или не са инсталирани.",
-  HOST_OS_AUTOMATIC_UPDATES_FAILED: "Последната автоматична актуализация за сигурност на Ubuntu не успя.",
+  HOST_OS_CURRENT: "Обновяванията за сигурност на Ubuntu се инсталират автоматично и навреме.",
+  HOST_OS_REBOOT_SCHEDULED: "Ubuntu трябва да се рестартира и системата ще го направи сама в следващия прозорец за обновявания.",
+  HOST_OS_REBOOT_REQUIRED: "Ubuntu трябва да рестартира сървъра, за да завърши обновяванията. Рестартирайте го от „Поддръжка“.",
+  HOST_OS_SECURITY_UPDATES_PENDING: "Има чакащи обновявания за сигурност на Ubuntu, които автоматичното обновяване не е инсталирало. Инсталирайте ги от „Поддръжка“.",
+  HOST_OS_AUTOMATIC_UPDATES_OFF: "Автоматичните обновявания за сигурност на Ubuntu са изключени или не са инсталирани.",
+  HOST_OS_AUTOMATIC_UPDATES_FAILED: "Последното автоматично обновяване за сигурност на Ubuntu не успя.",
   HOST_OS_SUPPORT_ENDING: "Стандартната поддръжка на тази версия на Ubuntu приключва до шест месеца.",
   HOST_OS_UNSUPPORTED: "Тази версия на Ubuntu вече не получава поправки за сигурност.",
-  HOST_OS_MISSING: "Наблюдението на сървъра не е отчело състоянието на актуализациите на Ubuntu.",
-  HOST_OS_STALE: "Състоянието на актуализациите на Ubuntu не е отчитано повече от три минути.",
+  HOST_OS_MISSING: "Наблюдението на сървъра не е отчело състоянието на обновяванията на Ubuntu.",
+  HOST_OS_STALE: "Състоянието на обновяванията на Ubuntu не е отчитано повече от три минути.",
   HOST_CERTIFICATE_EXPIRED: "HTTPS сертификатът е изтекъл.",
   HOST_CERTIFICATE_MISSING: "Сертификатът за HTTPS, предоставен от болницата, липсва или е небезопасен.",
   HOST_CERTIFICATE_UNKNOWN: "Срокът на HTTPS сертификата не можа да бъде установен.",
@@ -346,9 +346,9 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_ACTIVATION_LOCK_CLEAR: "Няма заключване за активиране на версия.",
   HOST_ACTIVATION_LOCK_PRESENT: "Има заключване за активиране на версия. Използвайте поддържаната команда за възстановяване на сървъра и никога не го премахвайте ръчно.",
   HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е в защитена директория, достъпна само за root.",
-  UPDATE_SUPPLY_OFFLINE: "Избрани са актуализации без интернет. Версиите идват от проверен USB носител.",
-  UPDATE_SUPPLY_CONNECTED: "Избрани са актуализации през интернет. Версиите се изтеглят от публичните издания в GitHub и се проверяват по подпис; не са нужни данни за достъп.",
-  UPDATE_SUPPLY_MODE_INVALID: "Начинът на получаване на актуализации е невалиден; няма работещ канал за актуализации.",
+  UPDATE_SUPPLY_OFFLINE: "Избрани са обновявания без интернет. Версиите идват от проверен USB носител.",
+  UPDATE_SUPPLY_CONNECTED: "Избрани са обновявания през интернет. Версиите се изтеглят от публичните издания в GitHub и се проверяват по подпис; не са нужни данни за достъп.",
+  UPDATE_SUPPLY_MODE_INVALID: "Начинът на получаване на обновявания е невалиден; няма работещ канал за обновявания.",
   BACKUP_VERIFIED: "Последното резервно копие премина проверката на контролната сума.",
   BACKUP_AGING: "Провереното резервно копие скоро ще бъде просрочено.",
   BACKUP_OVERDUE: "Провереното резервно копие е просрочено.",
@@ -458,7 +458,7 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED: "Заявено е задаване на място за копиране извън сървъра от Status",
   STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED: "Заявено е изключване на копията извън сървъра от Status",
   STATUS_MAINTENANCE_ADVANCED_REQUESTED: "Заявена е промяна на разширените настройки от Status",
-  STATUS_MAINTENANCE_OS_UPDATE_REQUESTED: "Заявено е инсталиране на актуализации за сигурност на Ubuntu от Status",
+  STATUS_MAINTENANCE_OS_UPDATE_REQUESTED: "Заявено е инсталиране на обновявания за сигурност на Ubuntu от Status",
   STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
   STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED: "Заявен е пакет за поддръжка от Status",
   STATUS_MAINTENANCE_ROTATION_REQUESTED: "Заявена е смяна на данните за достъп от Status",
@@ -481,20 +481,20 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   retention: "Изтриване на данни с изтекъл срок",
   "case-close": "Автоматично приключване на случаи",
   "delivery-worker": "Процес за изпращане към Central",
-  "appliance-update": "Версия на системата",
-  "update-agent": "Агент за актуализации",
+  "appliance-update": "Версия на инсталацията",
+  "update-agent": "Услуга за поддръжка на сървъра",
   "host-storage": "Дисково пространство на сървъра",
   "host-clock": "Часовник на сървъра",
   "host-backup": "Актуалност на резервното копие",
   "offhost-backup": "Копие извън сървъра",
   "key-escrow": "Копие на инсталационните тайни",
-  "host-update-agent": "Агент за актуализации",
+  "host-update-agent": "Услуга за поддръжка на сървъра",
   "host-certificate": "Срок на HTTPS сертификата",
-  "host-os": "Актуализации за сигурност на Ubuntu",
+  "host-os": "Обновявания за сигурност на Ubuntu",
   "host-services": "Услуги на сървъра",
   "host-restore-lock": "Заключване при възстановяване",
   "host-activation-lock": "Заключване при активиране на версия",
-  "update-supply": "Канал за актуализации",
+  "update-supply": "Канал за обновявания",
   migrations: "Миграции на базата данни",
   "research-storage": "Място за изследователски експорти",
   email: "Системна електронна поща",
@@ -579,7 +579,7 @@ export const STATUS_NAV: readonly {
   { path: "/status/control", en: "Hospital controls", bg: "Управление", audiences: ["password"] },
   { path: "/status/terminology", en: "Terminology", bg: "Терминология", audiences: ["password", "recovery"] },
   { path: "/status/maintenance", en: "Maintenance", bg: "Поддръжка", audiences: ["password", "recovery"] },
-  { path: "/status/release", en: "Updates", bg: "Актуализации", audiences: ["password", "recovery"] },
+  { path: "/status/release", en: "Updates", bg: "Обновявания", audiences: ["password", "recovery"] },
 ]
 
 /**
@@ -723,7 +723,7 @@ export function applianceFacts(data: DashboardData, locale: StatusLocale): strin
   const stale = !data.snapshotReceivedAt || Date.now() - data.snapshotReceivedAt > 45_000
   const storage = snapshot.research.storage
   const unknown = localize(locale, "Unknown", "Неизвестно")
-  return `<div class="facts"><div class="fact"><b>${localize(locale, "Declared appliance release", "Версия на системата")}</b>${escapeHtml(snapshot.versions.hospital ?? unknown)}</div><div class="fact"><b>${localize(locale, "Vendored API / Core base", "Вградена версия на API / Core")}</b>${escapeHtml(snapshot.versions.api ?? unknown)} / ${escapeHtml(snapshot.versions.core ?? unknown)}</div><div class="fact"><b>${localize(locale, "Clinical database size", "Размер на клиничната база данни")}</b>${escapeHtml(formatBytes(snapshot.database.logicalSize.bytes))}</div><div class="fact"><b>${localize(locale, "Research storage available", "Свободно място за изследователски данни")}</b>${escapeHtml(formatBytes(storage.availableBytes))}</div><div class="fact"><b>${localize(locale, "Cases awaiting Central acceptance", "Случаи, които чакат приемане в Central")}</b>${snapshot.central.casesWithUnacceptedChanges}</div><div class="fact"><b>${localize(locale, "Information freshness", "Актуалност на данните")}</b>${stale ? localize(locale, "Cached — currently stale", "От кеша — неактуални") : localize(locale, "Current", "Актуални")}</div></div>`
+  return `<div class="facts"><div class="fact"><b>${localize(locale, "Declared appliance release", "Версия на инсталацията")}</b>${escapeHtml(snapshot.versions.hospital ?? unknown)}</div><div class="fact"><b>${localize(locale, "Vendored API / Core base", "Вградена версия на API / Core")}</b>${escapeHtml(snapshot.versions.api ?? unknown)} / ${escapeHtml(snapshot.versions.core ?? unknown)}</div><div class="fact"><b>${localize(locale, "Clinical database size", "Размер на клиничната база данни")}</b>${escapeHtml(formatBytes(snapshot.database.logicalSize.bytes))}</div><div class="fact"><b>${localize(locale, "Research storage available", "Свободно място за изследователски данни")}</b>${escapeHtml(formatBytes(storage.availableBytes))}</div><div class="fact"><b>${localize(locale, "Cases awaiting Central acceptance", "Случаи, които чакат приемане в Central")}</b>${snapshot.central.casesWithUnacceptedChanges}</div><div class="fact"><b>${localize(locale, "Information freshness", "Актуалност на данните")}</b>${stale ? localize(locale, "Cached — currently stale", "От кеша — неактуални") : localize(locale, "Current", "Актуални")}</div></div>`
 }
 
 function accountState(account: ManagedAccount, locale: StatusLocale): string {
@@ -2134,7 +2134,7 @@ function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocal
     releaseFact(localize(locale, "High vulnerabilities", "Уязвимости с висока тежест"), String(vulnerabilities.high)),
     releaseFact(localize(locale, "Accepted exceptions", "Приети изключения"), exceptionsText),
     releaseFact(
-      localize(locale, "Going back after migration", "Връщане към предишна версия след промяна на базата"),
+      localize(locale, "Going back after migration", "Връщане към предишната версия"),
       compatibility.rollbackPolicy === "service-compatible"
         ? localize(locale, `services, for ${compatibility.rollbackWindowDays} day(s)`, `само услугите, до ${compatibility.rollbackWindowDays} дни`)
         : localize(locale, "from a verified backup", "от проверено резервно копие"),
@@ -2169,58 +2169,58 @@ export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", au
     && ["accepted", "queued", "preparing", "applying"].includes(view.agentPhase)
 
   const facts = [
-    releaseFact(localize(locale, "Installed", "Инсталирана"), view.installedVersion),
-    releaseFact(localize(locale, "Newest published", "Най-нова публикувана"), view.latestVersion ?? localize(locale, "not known", "неизвестна")),
-    releaseFact(localize(locale, "Downloaded", "Изтеглена"), view.fetchedVersion ?? localize(locale, "none", "няма")),
+    releaseFact(localize(locale, "Installed", "Инсталирана версия"), view.installedVersion),
+    releaseFact(localize(locale, "Newest published", "Най-нова версия"), view.latestVersion ?? localize(locale, "not known", "неизвестна")),
+    releaseFact(localize(locale, "Downloaded", "Изтеглена версия"), view.fetchedVersion ?? localize(locale, "none", "няма")),
     releaseFact(
-      localize(locale, "Rollback after migration", "Връщане към предишна версия след промяна на базата"),
+      localize(locale, "Rollback after migration", "Връщане към предишната версия"),
       view.rollbackPolicy === "service-compatible"
-        ? localize(locale, "proved service rollback", "проверено връщане само на услугите")
+        ? localize(locale, "proved service rollback", "възможно без възстановяване на базата")
         : view.rollbackPolicy === "backup-required"
-          ? localize(locale, "verified backup recovery required", "изисква възстановяване от проверено резервно копие")
+          ? localize(locale, "verified backup recovery required", "изисква възстановяване от резервно копие")
           : localize(locale, "not known", "неизвестно"),
     ),
   ].join("")
 
   // What the agent is doing, in the same words the dashboard uses.
   const agent = view.agentMode === "healthy" && view.agentCode
-    ? `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Агент за актуализации")}</div><div class="component-detail">${escapeHtml(codeMessage(view.agentCode, locale, view.agentCode))}${
+    ? `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Услуга за поддръжка на сървъра")}</div><div class="component-detail">${escapeHtml(codeMessage(view.agentCode, locale, view.agentCode))}${
         view.scheduledFor ? ` ${localize(locale, "Scheduled for", "Насрочено за")} ${escapeHtml(view.scheduledFor)} UTC.` : ""
       }</div></div>`
     : view.agentMode === "failed"
-      ? `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Агент за актуализации")}</div><div class="component-detail">${localize(locale, "The update agent is configured but its heartbeat is stale. Preparation and Apply are unavailable until the host service is repaired.", "Агентът за актуализации е настроен, но отдавна не е подал сигнал. Подготовката и прилагането не са достъпни, докато услугата на сървъра не бъде поправена.")}</div></div>`
+      ? `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Услуга за поддръжка на сървъра")}</div><div class="component-detail">${localize(locale, "The update agent is configured but its heartbeat is stale. Preparation and Apply are unavailable until the host service is repaired.", "Услугата за поддръжка на сървъра не отговаря. Подготовката и прилагането са спрени, докато ИТ отделът не я поправи.")}</div></div>`
       : view.agentMode === "console-only"
-        ? `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Агент за актуализации")}</div><div class="component-detail">${localize(locale, "This appliance is intentionally console-only. Updates are prepared and applied from the server console.", "Тази система умишлено се актуализира само от конзолата. Версиите се подготвят и прилагат от конзолата на сървъра.")}</div></div>`
-        : `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Агент за актуализации")}</div><div class="component-detail">${localize(locale, "Update mode has not been selected. Hospital IT must install the host agent or explicitly choose console-only updates.", "Не е избран начин на актуализиране. ИТ отделът трябва да инсталира агента на сървъра или изрично да избере актуализиране само от конзолата.")}</div></div>`
+        ? `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Услуга за поддръжка на сървъра")}</div><div class="component-detail">${localize(locale, "This appliance is intentionally console-only. Updates are prepared and applied from the server console.", "Тази инсталация се обновява само от конзолата на сървъра.")}</div></div>`
+        : `<div class="component"><div class="component-name">${localize(locale, "Update agent", "Услуга за поддръжка на сървъра")}</div><div class="component-detail">${localize(locale, "Update mode has not been selected. Hospital IT must install the host agent or explicitly choose console-only updates.", "Не е избран начин на обновяване. ИТ отделът трябва да инсталира услугата за поддръжка или да избере обновяване само от конзолата.")}</div></div>`
 
   let action: string
   if (busy) {
     // Nothing to press. Offering a button that would be refused reads as a
     // broken page rather than as a considered refusal.
-    action = `<p>${localize(locale, "An update is already under way. This page will follow it.", "Вече тече актуализация. Тази страница ще следи напредъка ѝ.")}</p>`
+    action = `<p>${localize(locale, "An update is already under way. This page will follow it.", "Тече обновяване. Страницата показва напредъка.")}</p>`
   } else if (view.agentMode !== "healthy") {
-    action = `<p>${localize(locale, "Browser update controls are unavailable because there is no healthy host update agent. No request can be submitted from this page.", "Актуализирането от браузъра не е достъпно, защото на сървъра няма работещ агент. От тази страница не може да се подаде заявка.")}</p>`
+    action = `<p>${localize(locale, "Browser update controls are unavailable because there is no healthy host update agent. No request can be submitted from this page.", "Обновяване от браузъра не е възможно: услугата за поддръжка на сървъра не работи.")}</p>`
   } else if (!view.mayApply) {
     // A recovery session is break-glass for a lost password. It blocks nothing
     // legitimate: anyone who can issue a recovery token has console access.
-    action = `<p>${localize(locale, "You signed in with a recovery token. Recovery sessions can download an update but cannot apply one, because applying restarts the clinical services. Sign in with the administrator password to apply it.", "Влезли сте с токен за възстановяване. Така можете да изтеглите актуализация, но не и да я приложите, защото прилагането рестартира клиничните услуги. Влезте с администраторската парола, за да я приложите.")}</p>`
+    action = `<p>${localize(locale, "You signed in with a recovery token. Recovery sessions can download an update but cannot apply one, because applying restarts the clinical services. Sign in with the administrator password to apply it.", "Със сесия за възстановяване можете да изтеглите обновяването, но не и да го приложите. Влезте с администраторската парола.")}</p>`
   } else if (readyToApply) {
     action = `<form method="post" action="/status/actions/apply"><input type="hidden" name="targetLockSha256" value="${escapeHtml(view.fetchedLockSha256!)}"><p>${escapeHtml(view.windowDescription)}</p><button type="submit">${localize(locale, "Apply", "Прилагане на")} ${escapeHtml(view.fetchedVersion!)}</button></form>`
   } else if (view.mayPrepare && view.latestVersion && view.latestVersion !== view.installedVersion) {
-    action = `<form method="post" action="/status/actions/fetch"><p>${localize(locale, "The release has not been downloaded yet. Downloading changes nothing that is running; it can be applied afterwards.", "Версията още не е изтеглена. Изтеглянето не променя работещите услуги; прилагането е отделна следваща стъпка.")}</p><button type="submit">${localize(locale, "Download and verify", "Изтегляне и проверка на")} ${escapeHtml(view.latestVersion)}</button></form>`
+    action = `<form method="post" action="/status/actions/fetch"><p>${localize(locale, "The release has not been downloaded yet. Downloading changes nothing that is running; it can be applied afterwards.", "Версията още не е изтеглена. Изтеглянето не засяга работата; прилагането е отделна стъпка.")}</p><button type="submit">${localize(locale, "Download and verify", "Изтегляне и проверка на")} ${escapeHtml(view.latestVersion)}</button></form>`
   } else {
-    action = `<p>${localize(locale, "This appliance is running the newest release it knows about. Nothing to do.", "Системата работи с най-новата известна версия. Не е нужно нищо да правите.")}</p>`
+    action = `<p>${localize(locale, "This appliance is running the newest release it knows about. Nothing to do.", "Инсталирана е най-новата версия.")}</p>`
   }
 
   const checkAction = view.agentMode === "healthy"
-    ? `<form method="post" action="/status/actions/check"><button type="submit">${localize(locale, "Check for updates", "Проверка за актуализации")}</button></form>`
+    ? `<form method="post" action="/status/actions/check"><button type="submit">${localize(locale, "Check for updates", "Проверка за обновявания")}</button></form>`
     : ""
   const notice = view.notice ? `<div class="banner good" role="status"><strong>${escapeHtml(view.notice)}</strong></div>` : ""
   const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
 
   return page(
-    localize(locale, "Hospital appliance release", "Версия на болничната система"),
-    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Актуализиране")}</h2><div class="card"><div class="component">${checkAction}${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на актуализация рестартира клиничните услуги и може да промени базата данни. Затова то е отделна стъпка от изтеглянето.")}</footer></div>`,
+    localize(locale, "Hospital appliance release", "Версия на инсталацията"),
+    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на инсталацията"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази инсталация")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${checkAction}${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането рестартира клиничните услуги и може да промени базата данни, затова е отделна стъпка.")}</footer></div>`,
     locale,
     true,
   )
@@ -2255,7 +2255,7 @@ function terminologyResult(code: string, locale: StatusLocale): string {
     TERMINOLOGY_RESUME_FAILED: ["The resumed import did not complete. The live generation was retained.", "Възобновеният импорт не завърши. Действащата версия е запазена."],
     TERMINOLOGY_ROLLBACK_FAILED: ["Rollback did not complete safely. Keep clinical access closed and review the host.", "Връщането не завърши безопасно. Оставете клиничния достъп затворен и проверете сървъра."],
     TERMINOLOGY_FINALIZE_FAILED: ["Finalization did not complete safely. Review the host before another operation.", "Финализирането не завърши безопасно. Проверете сървъра преди следваща операция."],
-    TERMINOLOGY_MAINTENANCE_BUSY: ["A backup or release operation is using the shared maintenance lock. Try again after it finishes.", "Резервно копиране или актуализация използва общото заключване за поддръжка. Опитайте отново, когато приключи."],
+    TERMINOLOGY_MAINTENANCE_BUSY: ["A backup or release operation is using the shared maintenance lock. Try again after it finishes.", "Резервно копиране или обновяване използва общото заключване за поддръжка. Опитайте отново, когато приключи."],
     TERMINOLOGY_REQUEST_MALFORMED: ["The host refused an invalid terminology request.", "Сървърът отказа невалидна заявка за терминология."],
     TERMINOLOGY_REQUEST_UNSAFE: ["The host refused an unsafe terminology request file.", "Сървърът отказа небезопасен файл със заявка за терминология."],
     TERMINOLOGY_REQUEST_EXPIRED: ["The terminology request expired before it could be processed.", "Заявката за терминология изтече, преди да бъде обработена."],
@@ -2470,8 +2470,8 @@ export function renderApplyConfirm(
   // seconds while somebody is reading a warning loses their place mid-sentence,
   // and this is the one page that must be read.
   return page(
-    localize(locale, "Apply this update?", "Да се приложи ли актуализацията?"),
-    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm update", "Потвърждаване на актуализацията")}</div></div></header><main><section class="section" aria-labelledby="confirm-title"><h2 id="confirm-title">${localize(locale, "Apply", "Прилагане на")} ${escapeHtml(version)}?</h2><div class="card"><div class="component"><p><strong>${localize(locale, "This restarts the clinical services.", "Това рестартира клиничните услуги.")}</strong> ${localize(locale, "Clinicians will not be able to open or save a case while it happens, and this page will stop responding for a few minutes. It comes back on its own.", "Докато трае, лекарите няма да могат да отварят и запазват случаи, а тази страница няма да отговаря няколко минути. След това ще се върне сама.")}</p><p>${localize(locale, "The update may also change the database in ways that cannot be undone. A backup is taken first, automatically, before anything is altered.", "Актуализацията може да промени и базата данни по начин, който не може да се отмени. Преди каквато и да е промяна автоматично се прави резервно копие.")}</p>${rollbackPolicy === "backup-required" ? `<div class="banner warn" role="alert"><strong>${localize(locale, "This release has no proved old-app/new-schema service rollback. If activation fails after migration starts, recovery uses the verified pre-update backup and requires a technician.", "За тази версия няма проверено връщане само на услугите към стария код с новата база. Ако активирането се провали след началото на миграцията, възстановяването става от проверено резервно копие отпреди актуализацията и изисква техник.")}</strong></div>` : ""}<p>${escapeHtml(windowDescription)}</p></div><div class="component"><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="scheduled"><button type="submit">${localize(locale, "Yes, apply it", "Да, приложете го")}</button></form><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="override"><p class="component-detail">${localize(locale, "Or, if this cannot wait:", "Ако не може да чака:")}</p><button type="submit" class="danger">${localize(locale, "Apply immediately, outside the maintenance window", "Прилагане веднага, извън прозореца за поддръжка")}</button></form><p><a href="/status/release">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    localize(locale, "Apply this update?", "Да се приложи ли обновяването?"),
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm update", "Потвърждаване на обновяването")}</div></div></header><main><section class="section" aria-labelledby="confirm-title"><h2 id="confirm-title">${localize(locale, "Apply", "Прилагане на")} ${escapeHtml(version)}?</h2><div class="card"><div class="component"><p><strong>${localize(locale, "This restarts the clinical services.", "Това рестартира клиничните услуги.")}</strong> ${localize(locale, "Clinicians will not be able to open or save a case while it happens, and this page will stop responding for a few minutes. It comes back on its own.", "Докато трае, лекарите няма да могат да отварят и запазват случаи, а тази страница няма да отговаря няколко минути. След това ще се върне сама.")}</p><p>${localize(locale, "The update may also change the database in ways that cannot be undone. A backup is taken first, automatically, before anything is altered.", "Обновяването може да промени и базата данни по начин, който не може да се отмени. Преди каквато и да е промяна автоматично се прави резервно копие.")}</p>${rollbackPolicy === "backup-required" ? `<div class="banner warn" role="alert"><strong>${localize(locale, "This release has no proved old-app/new-schema service rollback. If activation fails after migration starts, recovery uses the verified pre-update backup and requires a technician.", "За тази версия няма проверено връщане само на услугите към стария код с новата база. Ако активирането се провали след началото на миграцията, възстановяването става от проверено резервно копие отпреди обновяването и изисква техник.")}</strong></div>` : ""}<p>${escapeHtml(windowDescription)}</p></div><div class="component"><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="scheduled"><button type="submit">${localize(locale, "Yes, apply it", "Да, приложете го")}</button></form><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="override"><p class="component-detail">${localize(locale, "Or, if this cannot wait:", "Ако не може да чака:")}</p><button type="submit" class="danger">${localize(locale, "Apply immediately, outside the maintenance window", "Прилагане веднага, извън прозореца за поддръжка")}</button></form><p><a href="/status/release">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
     locale,
   )
 }
@@ -2525,10 +2525,10 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_OFFHOST_DRILL_FAILED: { en: "The off-host drill failed. Hospital IT should review .data/offhost on the console.", bg: "Проверката на копието извън сървъра не успя. ИТ отделът трябва да прегледа .data/offhost в конзолата." },
   MAINTENANCE_ADVANCED_APPLIED: { en: "The advanced settings were applied and the health check passed.", bg: "Разширените настройки са приложени и проверката на системата е успешна." },
   MAINTENANCE_ADVANCED_INVALID: { en: "The host found an advanced value outside its limits. Nothing was changed.", bg: "Сървърът откри разширена стойност извън допустимите граници. Нищо не е променено." },
-  MAINTENANCE_OS_UPDATED: { en: "Ubuntu security updates were installed.", bg: "Актуализациите за сигурност на Ubuntu са инсталирани." },
-  MAINTENANCE_OS_UPDATE_FAILED: { en: "Installing Ubuntu security updates failed. Hospital IT can see why in .data/host-os/last-security-update.log.", bg: "Инсталирането на актуализациите за сигурност на Ubuntu не успя. ИТ отделът може да види причината в .data/host-os/last-security-update.log." },
+  MAINTENANCE_OS_UPDATED: { en: "Ubuntu security updates were installed.", bg: "Обновяванията за сигурност на Ubuntu са инсталирани." },
+  MAINTENANCE_OS_UPDATE_FAILED: { en: "Installing Ubuntu security updates failed. Hospital IT can see why in .data/host-os/last-security-update.log.", bg: "Инсталирането на обновяванията за сигурност на Ubuntu не успя. ИТ отделът може да види причината в .data/host-os/last-security-update.log." },
   MAINTENANCE_OS_REBOOT_STARTED: { en: "A backup was taken and the server restart was started. Clinical services return on their own in a few minutes.", bg: "Направено е резервно копие и сървърът се рестартира. Клиничните услуги ще се върнат сами след няколко минути." },
-  MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED: { en: "Ubuntu needed a restart: a backup was taken and the server restarted itself in the update window.", bg: "Ubuntu изискваше рестартиране: направено е резервно копие и сървърът се рестартира сам в прозореца за актуализации." },
+  MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED: { en: "Ubuntu needed a restart: a backup was taken and the server restarted itself in the update window.", bg: "Ubuntu изискваше рестартиране: направено е резервно копие и сървърът се рестартира сам в прозореца за обновявания." },
   MAINTENANCE_ROTATION_COMMITTED: { en: "The credentials were rotated and every new one verified. Everyone signs in again. Escrow the installation secrets again now.", bg: "Данните за достъп са сменени и всяка нова стойност е проверена. Всички трябва да влязат отново. Сега запишете отново инсталационните тайни на сигурно място." },
   MAINTENANCE_ROTATION_ROLLED_BACK: { en: "The rotation did not verify, so the previous credentials were restored. Nothing changed for users.", bg: "Смяната не премина проверката, затова предишните данни за достъп са върнати. За потребителите нищо не се промени." },
   MAINTENANCE_ROTATION_REFUSED: { en: "The rotation could not be prepared. Nothing was changed. Hospital IT can see why with: sudo losporctl secrets state", bg: "Смяната не можа да бъде подготвена. Нищо не е променено. ИТ отделът може да види причината с: sudo losporctl secrets state" },
@@ -2565,7 +2565,7 @@ function actionFacts(facts: ActionFacts, locale: StatusLocale): string {
     row("Needs", "Нужно е", facts.prerequisites),
     row("Service interruption", "Прекъсване на работата", facts.outage),
     row("Backup first", "Резервно копие преди това", facts.backup),
-    row("Maintenance lock", "Заключване за поддръжка", ["Shared with backups, updates and terminology: one operation at a time.", "Общо за резервните копия, актуализациите и терминологията: само по една операция наведнъж."]),
+    row("Maintenance lock", "Заключване за поддръжка", ["Shared with backups, updates and terminology: one operation at a time.", "Общо за резервните копия, обновяванията и терминологията: само по една операция наведнъж."]),
     row("Cannot be undone", "Не може да се отмени", facts.boundary),
     row("Checked afterwards", "Проверява се след това", facts.verification),
   ].join("")}</div>`
@@ -2785,9 +2785,9 @@ const HOST_OS_WORDS: Record<string, { en: string; bg: string }> = {
   passed: { en: "succeeded", bg: "успешно" },
   busy: { en: "waited for another operation", bg: "изчака друга операция" },
   started: { en: "started", bg: "започнато" },
-  "security-update": { en: "Security updates", bg: "Актуализации за сигурност" },
+  "security-update": { en: "Security updates", bg: "Обновявания за сигурност" },
   reboot: { en: "Server restart", bg: "Рестартиране на сървъра" },
-  upgrade: { en: "Full upgrade (console)", bg: "Пълна актуализация (от конзолата)" },
+  upgrade: { en: "Full upgrade (console)", bg: "Пълно обновяване (от конзолата)" },
 }
 
 function hostOsWord(value: string, locale: StatusLocale): string {
@@ -2809,27 +2809,27 @@ function hostOsSection(
   const when = (value: string | null) => value ?? unknown
   const facts = `<div class="facts">${[
     releaseFact(localize(locale, "Ubuntu release", "Версия на Ubuntu"), os.release ?? unknown),
-    releaseFact(localize(locale, "Security fixes until", "Актуализации за сигурност до"), when(os.standardSupportEnds)),
-    releaseFact(localize(locale, "Security updates waiting", "Чакащи актуализации за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
-    releaseFact(localize(locale, "Other updates waiting", "Други чакащи актуализации"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
-    releaseFact(localize(locale, "Automatic security updates", "Автоматични актуализации за сигурност"), hostOsWord(os.automaticUpdates, locale)),
-    releaseFact(localize(locale, "Last automatic run", "Последна автоматична актуализация"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
+    releaseFact(localize(locale, "Security fixes until", "Обновявания за сигурност до"), when(os.standardSupportEnds)),
+    releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
+    releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
+    releaseFact(localize(locale, "Automatic security updates", "Автоматични обновявания за сигурност"), hostOsWord(os.automaticUpdates, locale)),
+    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
     releaseFact(localize(locale, "Restart needed", "Нужно е рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${when(os.rebootRequiredSince)}`, `да, от ${when(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
     releaseFact(localize(locale, "Running since", "Работи от"), when(os.bootedAt)),
-    releaseFact(localize(locale, "Restart policy", "Кога се рестартира"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за актуализации") : localize(locale, "manual", "ръчно")),
+    releaseFact(localize(locale, "Restart policy", "Кога се рестартира"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновявания") : localize(locale, "manual", "ръчно")),
     ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последна операция от LOSPOR"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
   ].join("")}</div>`
   const docker = os.dockerUpdates
-    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има актуализации за Docker. Инсталирането им рестартира всички клинични услуги, затова ИТ отделът го прави от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
+    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновявания за Docker. Инсталирането им рестартира всички клинични услуги, затова ИТ отделът го прави от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
     : ""
-  const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на актуализациите за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Същите актуализации за сигурност, които Ubuntu инсталира сам всяка нощ, но веднага. Docker не се актуализира оттук.")}</div>${actionFacts({
+  const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновяванията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Същите обновявания за сигурност, които Ubuntu инсталира сам всяка нощ, но веднага. Docker не се обновява оттук.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работещ агент на сървъра и достъпно огледало на Ubuntu."],
     outage: ["Usually none. A few system services may restart.", "Обикновено няма. Някои системни услуги може да се рестартират."],
     backup: ["No: application data is not touched.", "Не: данните на приложението не се засягат."],
     boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
     verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
-  }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на актуализациите сега"))}</div>`
-  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши актуализациите.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за актуализации, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За да го прави системата сама, изберете „В прозореца за актуализации“ за рестартирането в „Настройки на инсталацията“.")}</div>${actionFacts({
+  }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на обновяванията сега"))}</div>`
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши обновяванията.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за обновявания, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За да го прави системата сама, изберете „В прозореца за обновявания“ за рестартирането в „Настройки на инсталацията“.")}</div>${actionFacts({
     prerequisites: ["A healthy host agent and a successful backup.", "Работещ агент на сървъра и успешно резервно копие."],
     outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: лекарите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът не се върне."],
     backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверено резервно копие; ако то не успее, сървърът не се рестартира."],
@@ -3049,7 +3049,7 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
           // Blank is a real answer here, so it is an option rather than a gap.
           control = select(option("", localize(locale, "Not set", "Не е зададено"))
             + option("manual", localize(locale, "Only by hand", "Само ръчно"))
-            + option("window", localize(locale, "Inside the update window", "В прозореца за актуализации")))
+            + option("window", localize(locale, "Inside the update window", "В прозореца за обновявания")))
           break
         case "time":
           control = `<input id="${id}" name="${setting.key}" type="time" value="${escapeHtml(value)}" autocomplete="off">`

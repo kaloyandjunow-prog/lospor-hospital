@@ -111,7 +111,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     { id: "history", path: "/status/control/history", en: "Change history", bg: "История на промените", descEn: "Who changed which setting or account, and when.", descBg: "Кой коя настройка или кой профил е променил, и кога.", audiences: PASSWORD },
   ] },
   { id: "care", en: "Maintenance", bg: "Поддръжка", items: [
-    { id: "updates", path: "/status/release", en: "Updates", bg: "Актуализации", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
+    { id: "updates", path: "/status/release", en: "Updates", bg: "Обновявания", descEn: "New LOSPOR releases, checked against the signature before anything is installed.", descBg: "Нови версии на LOSPOR, проверени спрямо подписа преди инсталиране.", audiences: BOTH },
     { id: "backups", path: "/status/maintenance/backups", also: ["/status/maintenance", "/status/maintenance/offhost"], en: "Backups", bg: "Резервни копия", descEn: "Nightly copies, copies kept elsewhere, and restore drills.", descBg: "Нощни копия, копия извън сървъра и пробно възстановяване.", audiences: BOTH },
     { id: "server", path: "/status/maintenance/host-os", en: "Server", bg: "Сървър", descEn: "The Ubuntu server and the host agent that carries out maintenance.", descBg: "Сървърът с Ubuntu и агентът, който изпълнява поддръжката.", audiences: BOTH },
     { id: "security", path: "/status/maintenance/escrow", also: ["/status/maintenance/rotation"], en: "Security", bg: "Сигурност", descEn: "Installation secrets escrow and credential rotation.", descBg: "Копие на инсталационните тайни и смяна на данните за достъп.", audiences: BOTH },
@@ -457,7 +457,7 @@ export function mapNodes(data: DashboardData, attention: readonly AttentionItem[
 
   return [
     { href: "/status/accounts", x: 112, y: 62, en: "Users right now", bg: "Потребителите в момента", ...(users ? { sub: String(users.activeUsers), state: "good" as const } : noData) },
-    { href: "/status/release", x: 112, y: 200, en: "Updates", bg: "Актуализации", ...updates() },
+    { href: "/status/release", x: 112, y: 200, en: "Updates", bg: "Обновявания", ...updates() },
     { href: "/status/maintenance/backups", x: 112, y: 338, en: "Backups", bg: "Резервни копия", ...backups() },
     { href: "/status/control/ehr", x: 568, y: 62, en: "Hospital information system (HIS)", bg: "Болнична информационна система (БИС)", boxEn: "HIS", boxBg: "БИС", ...hospitalSystem() },
     { href: "/status/control/central", x: 568, y: 200, en: "LOSPOR Central", bg: "LOSPOR Central", ...centralBox() },

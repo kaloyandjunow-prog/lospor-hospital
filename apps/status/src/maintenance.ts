@@ -126,11 +126,11 @@ export const EDITABLE_SETTINGS: readonly EditableSetting[] = [
   { key: "AUTH_EMAIL_FROM_NAME", en: "Sender name of sign-in e-mails", bg: "Име на подателя на писмата за вход", kind: "name" },
   { key: "ACME_EMAIL", en: "Certificate notice e-mail", bg: "Имейл за известия за сертификата", kind: "optional-email" },
   { key: "LOSPOR_DEFAULT_LOCALE", en: "Default language", bg: "Език по подразбиране", kind: "locale" },
-  { key: "HOSPITAL_UPDATE_SUPPLY_MODE", en: "Update route", bg: "Канал за актуализации", kind: "supply" },
-  { key: "HOSPITAL_UPDATE_WINDOW_START", en: "Update window opens", bg: "Начало на прозореца за актуализации", kind: "time" },
-  { key: "HOSPITAL_UPDATE_WINDOW_END", en: "Update window closes", bg: "Край на прозореца за актуализации", kind: "time" },
-  { key: "HOSPITAL_UPDATE_TIMEZONE", en: "Update window time zone", bg: "Часова зона на прозореца за актуализации", kind: "timezone" },
-  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates", bg: "Рестартиране след актуализации на Ubuntu", kind: "reboot-policy" },
+  { key: "HOSPITAL_UPDATE_SUPPLY_MODE", en: "Update route", bg: "Канал за обновявания", kind: "supply" },
+  { key: "HOSPITAL_UPDATE_WINDOW_START", en: "Update window opens", bg: "Начало на прозореца за обновявания", kind: "time" },
+  { key: "HOSPITAL_UPDATE_WINDOW_END", en: "Update window closes", bg: "Край на прозореца за обновявания", kind: "time" },
+  { key: "HOSPITAL_UPDATE_TIMEZONE", en: "Update window time zone", bg: "Часова зона на прозореца за обновявания", kind: "timezone" },
+  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates", bg: "Рестартиране след обновявания на Ubuntu", kind: "reboot-policy" },
 ]
 
 const EMAIL = /^[A-Za-z0-9.!#%&*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/

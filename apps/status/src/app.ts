@@ -128,7 +128,7 @@ function windowDescription(locale: StatusLocale): string {
   return localize(
     locale,
     "Unless you choose to apply it immediately, this will be applied during the overnight maintenance window, when no list is running.",
-    "Ако не изберете незабавно прилагане, актуализацията ще бъде приложена през нощния прозорец за поддръжка, когато не тече оперативна програма.",
+    "Ако не изберете незабавно прилагане, обновяването ще бъде приложено през нощния прозорец за поддръжка, когато не тече оперативна програма.",
   )
 }
 
@@ -3175,7 +3175,7 @@ export function createStatusApp({
     const view = await releaseView(locale)
     if (!view.mayPrepare || !view.latestVersion || view.latestVersion === view.installedVersion) {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "No healthy update agent can prepare that release.", "Няма работещ агент за актуализации, който да подготви тази версия."),
+        error: localize(locale, "No healthy update agent can prepare that release.", "Няма работеща услуга за поддръжка, която да подготви тази версия."),
       }), locale))
     }
     const outcome = await requestFetch(config.updateRequestsDir, view.latestVersion, now())
@@ -3199,9 +3199,9 @@ export function createStatusApp({
     const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     const view = await releaseView(locale)
-    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "Няма работещ агент за актуализации, който да провери за нови версии.") }), locale, kind))
+    if (view.agentMode !== "healthy") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "No healthy update agent can check for releases.", "Няма работеща услуга за поддръжка, която да провери за нови версии.") }), locale, kind))
     const outcome = await requestCheck(config.updateRequestsDir, now()).catch(error => maintenanceRequestFailed(newRequestId(), error))
-    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "Проверка за актуализации вече чака. Не е подадена нова заявка.") }), locale, kind))
+    if (outcome === "already-pending") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "An update check is already waiting. Nothing further was requested.", "Проверка за обновявания вече чака. Не е подадена нова заявка.") }), locale, kind))
     if (outcome === "failed") return context.html(renderRelease(await releaseView(locale, { error: localize(locale, "The update check request could not be recorded.", "Заявката за проверка не можа да бъде записана.") }), locale, kind))
     return context.redirect("/status/release", 303)
   })
@@ -3273,7 +3273,7 @@ export function createStatusApp({
 
     if (outcome === "already-pending") {
       return context.html(renderRelease(await releaseView(locale, {
-        error: localize(locale, "An update is already waiting to be applied. Nothing further was requested.", "Вече има актуализация, която чака да бъде приложена. Не е подадена нова заявка."),
+        error: localize(locale, "An update is already waiting to be applied. Nothing further was requested.", "Вече има обновяване, което чака да бъде приложено. Не е подадена нова заявка."),
       }), locale))
     }
     if (outcome === "failed") {

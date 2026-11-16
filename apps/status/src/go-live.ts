@@ -42,7 +42,7 @@ export const GO_LIVE_SIGNOFF_ITEMS: readonly {
   {
     id: "host-patch-policy",
     en: "The host security-update policy, maintenance window and monitoring owner are recorded",
-    bg: "Правилата за актуализации на сървъра, прозорецът за поддръжка и отговорникът за наблюдението са записани",
+    bg: "Правилата за обновявания на сървъра, прозорецът за поддръжка и отговорникът за наблюдението са записани",
   },
   {
     id: "clinical-acceptance",
@@ -196,13 +196,13 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   {
     id: "update-route", stage: "maintain", owner: "appliance",
     whyEn: "Security fixes reach the appliance only through a working update route.",
-    whyBg: "Поправките за сигурност достигат до системата само по работещ канал за актуализации.",
+    whyBg: "Поправките за сигурност достигат до системата само по работещ канал за обновявания.",
     action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверява канала за нови версии" },
   },
   {
     id: "host-os", stage: "maintain", owner: "appliance",
     whyEn: "Ubuntu's own security updates protect everything that runs on it.",
-    whyBg: "Актуализациите за сигурност на Ubuntu пазят всичко, което работи на сървъра.",
+    whyBg: "Обновяванията за сигурност на Ubuntu пазят всичко, което работи на сървъра.",
     action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
   },
   {
@@ -307,13 +307,13 @@ export function evaluateGoLive(input: {
     {
       id: "update-route",
       en: "The update route and host update agent are working",
-      bg: "Каналът за актуализации и агентът за актуализации работят",
+      bg: "Каналът за обновявания и услугата за поддръжка работят",
       satisfied: operational("update-supply") && operational("host-update-agent"),
     },
     {
       id: "host-os",
       en: "Ubuntu security updates are automatic and current",
-      bg: "Актуализациите за сигурност на Ubuntu се инсталират автоматично и навреме",
+      bg: "Обновяванията за сигурност на Ubuntu се инсталират автоматично и навреме",
       satisfied: ["HOST_OS_CURRENT", "HOST_OS_REBOOT_SCHEDULED", "HOST_OS_SUPPORT_ENDING"].includes(code("host-os") ?? ""),
     },
     {
