@@ -1,5 +1,45 @@
 # Changelog - LOSPOR Hospital
 
+## [1.10.0] - 2026-11-16
+
+Vendors Core, API, Web and PWA 10.5.0 and the Central exchange contract 2.9.0; Browser stays 0.11.2. No database
+migration. The update screen still asks for the verified backup first. **Update Central to 2.9.0 first.** An older Central
+accepts a 2.9.0 batch but reads its columns by name and drops the new ones, so the times below would be lost
+for every case sent before Central is updated.
+
+### Changed — research export (OMOP)
+
+Found by a 200-case end-to-end export, appliance → Central → OMOP CDM 5.4, on 2026-11-15.
+
+- **Times reach research.** Observations, devices and the end of a procedure carry their time: gas settings, pump
+  rates, positions, a device's time in and out, monitoring for the whole anaesthesia, general anaesthesia at the
+  Induction marker.
+- **One row per fact.** The technique, airway device, airway tool and ventilation mode no longer leave a second,
+  empty observation beside the row that already carries them.
+- **Standard concepts** for blood loss, a drug allergy and the charted age.
+- **LOSPOR's own research numbers** (from 2,000,000,000) for what the international vocabularies cannot name:
+  Aldrete, Apfel, POVOC, Steward, PAED, NIPS, TCI settings, fluid totals and others, instead of 0.
+- **Rule and preset provenance** stays in the appliance's audit and no longer leaves as patient data.
+- **ICD-10 diagnoses map far more often.** NHIS codes one level more detailed than the international research
+  vocabulary (an injury's place and activity, a joint's site) now take their parent's concept, with the full code
+  kept; codes WHO retired map through their retired concept. Research links for ICD-10: 39,211 of 39,613 codes (was
+  15,838). The update rebuilds the research links itself ("Връзките за изследвания са обновени").
+
+### Fixed
+
+- **A typed preoperative answer left uncleaned.** The answer to a question typed as text now goes through the same
+  cleaning as every note, and is withheld when the export policy says free text may not leave.
+- **Central could record a delivered batch as cancelled.** When the answer to a finished upload was lost, the retry
+  rebuilt the batch, Central refused it as different content under the same number, and the appliance marked it
+  CANCELLED, although Central held it. The appliance now asks Central what it already has before building a batch
+  again or giving up on it.
+- **ICD-10 N18.2–N18.5** read "стадий", as the NHIS nomenclature writes it.
+
+### Security
+
+- Caddy's go-jose/v3 CVE-2026-116587 stays an accepted risk for 1.10.0 (no fixed release exists; the appliance
+  runs no ACME server, the only thing that parses attacker-supplied keys).
+
 ## [1.9.2] - 2026-11-15
 
 Vendors Core, API, Web and PWA 10.4.2; Browser stays 0.11.2. No database migration. The update screen still asks
