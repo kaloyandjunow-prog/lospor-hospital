@@ -2023,7 +2023,7 @@ export function createStatusApp({
     },
     locale => localize(locale,
       "The EHR endpoint was saved and audited. Any stored credential was cleared, because a secret belongs to the arrangement it was issued for.",
-      "Адресът на БИС е запазен и записан в одитния журнал. Запазените данни за достъп бяха изтрити, защото тайната важи само за настройката, за която е издадена."),
+      "Адресът на БИС е запазен и записан в одитния журнал. Запазените данни за достъп бяха изтрити, защото те важат само за настройката, за която са издадени."),
     "ehr",
   ))
 
@@ -2708,7 +2708,7 @@ export function createStatusApp({
         sessionToken,
         error: outcome === "already-pending"
           ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "На сървъра вече чака заявка за поддръжка. Тя не е заменена.")
-          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за копие на тайните не можа да бъде записана. Нищо не е променено."),
+          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за копие на ключовете и паролите не можа да бъде записана. Нищо не е променено."),
       }), outcome === "already-pending" ? 409 : 500)
     }
     db.insertEvent({
@@ -2734,26 +2734,26 @@ export function createStatusApp({
     const unavailable = async (message: [string, string], status: 403 | 404 | 409) =>
       context.html(await maintenancePage(locale, kind, { sessionToken, error: localize(locale, message[0], message[1]) }), status)
     if (kind !== "password") {
-      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Сесия с токен за възстановяване не може да изтегля копието на тайните."], 403)
+      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Сесия с токен за възстановяване не може да изтегля копието на ключовете и паролите."], 403)
     }
     const offer = await readSecretsEscrowOffer(config.updateStateDir, now())
     const operatorRef = operatorRefOf(sessionToken)
     if (!offer) {
-      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие на тайните за изтегляне. Първо създайте такова; копието е достъпно 30 минути."], 404)
+      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие на ключовете и паролите за изтегляне. Първо създайте такова; копието е достъпно 30 минути."], 404)
     }
     if (offer.operatorRef !== operatorRef) {
-      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие на тайните е направено от друг администратор. Само той е видял паролата му, затова само той може да го изтегли."], 403)
+      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие на ключовете и паролите е направено от друг администратор. Може да го изтегли само той."], 403)
     }
     const bytes = await readSecretsEscrowBundle(config.updateStateDir, offer)
     if (!bytes) {
-      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието на тайните на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
+      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието на ключовете и паролите на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
     }
     const requestId = newRequestId()
     const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
       requestId, action: "secrets-escrow-delivered", operatorRef, delivered: offer.sha256,
     }, now()).catch(error => maintenanceRequestFailed(requestId, error))
     if (outcome !== "submitted") {
-      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "На сървъра чака друга заявка за поддръжка. Изтеглете копието на тайните отново след минута."], 409)
+      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "На сървъра чака друга заявка за поддръжка. Изтеглете копието на ключовете и паролите отново след минута."], 409)
     }
     db.insertEvent({
       id: requestId,

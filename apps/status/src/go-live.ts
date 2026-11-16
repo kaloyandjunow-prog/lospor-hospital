@@ -184,8 +184,8 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   {
     id: "key-escrow", stage: "protect", owner: "hospital-it",
     whyEn: "Backups hold only fingerprints of the secrets. If the server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good, even from a good backup. Status writes them into one locked file you download to a USB stick on your own computer; at the console instead: sudo losporctl secrets escrow /media/usb.",
-    whyBg: "Резервните копия съдържат само отпечатъци на тайните. Ако сървърът бъде загубен и тайните му не съществуват другаде, всички запазени данни за самоличност на пациентите стават нечетими завинаги, дори от изправно резервно копие. Status ги записва в един заключен файл, който изтегляте на USB памет от своя компютър; или от конзолата: sudo losporctl secrets escrow /media/usb.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създаване на копие на тайните" },
+    whyBg: "Резервните копия не съдържат ключовете и паролите на инсталацията. Ако сървърът бъде загубен и те не са запазени другаде, данните за самоличност на пациентите стават нечетими завинаги, дори от изправно резервно копие. Status ги записва в един заключен файл за USB памет; или от конзолата: sudo losporctl secrets escrow /media/usb.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създаване на копие" },
   },
   {
     id: "restore-drill", stage: "protect", owner: "hospital-it",
@@ -301,7 +301,7 @@ export function evaluateGoLive(input: {
     {
       id: "key-escrow",
       en: "Installation secrets are escrowed off the appliance",
-      bg: "Инсталационните тайни са копирани извън системата",
+      bg: "Ключовете и паролите на инсталацията са копирани извън системата",
       satisfied: code("key-escrow") === "KEY_ESCROW_ACKNOWLEDGED",
     },
     {

@@ -69,7 +69,7 @@ describe("Status screen localization", () => {
     }
     const body = renderDashboard(dashboard, "bg")
     expect(body).toContain("Автоматично приключване на случаи")
-    expect(body).toContain("Копие на инсталационните тайни")
+    expect(body).toContain("Копие на ключовете и паролите")
     expect(body).not.toContain("Automatic case closure")
     expect(body).not.toContain("Installation secrets escrow")
   })

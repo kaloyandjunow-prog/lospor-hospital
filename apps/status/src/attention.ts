@@ -82,14 +82,14 @@ export function attentionItems(input: {
   }
   const escrow = code("key-escrow")
   if (escrow === "KEY_ESCROW_STALE" || escrow === "KEY_ESCROW_EVIDENCE_INVALID") {
-    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхраненото копие на тайните вече не съответства на използваните ключове. Направете ново копие.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create a new escrow copy", actionBg: "Създаване на ново копие на тайните" })
+    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхраненото копие на ключовете и паролите вече не съответства на използваните ключове. Направете ново копие.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create a new escrow copy", actionBg: "Създаване на ново копие на ключовете и паролите" })
   } else if (escrow === "KEY_ESCROW_MISSING") {
-    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Инсталационните тайни не са копирани извън сървъра.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create the escrow copy", actionBg: "Създаване на копие на тайните" })
+    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Ключовете и паролите на инсталацията не са копирани извън сървъра.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create the escrow copy", actionBg: "Създаване на копие" })
   }
   // Every secret left the appliance in that file. Shown for a week, so a copy
   // nobody expected is noticed by whoever opens Status next.
   if (input.escrowDownloadedAt != null && input.now - input.escrowDownloadedAt <= 7 * DAY_MS) {
-    add({ id: "escrow-downloaded", level: "note", en: `A secrets escrow copy was downloaded from Status on ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. If nobody at the hospital expected it, treat it as a security incident.`, bg: `Копие на тайните е изтеглено от Status на ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. Ако никой в болницата не го е очаквал, третирайте го като инцидент със сигурността.`, href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "See Secrets escrow", actionBg: "Вижте „Резервно копие на тайните“" })
+    add({ id: "escrow-downloaded", level: "note", en: `A secrets escrow copy was downloaded from Status on ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. If nobody at the hospital expected it, treat it as a security incident.`, bg: `Копие на ключовете и паролите е изтеглено от Status на ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. Ако никой в болницата не го е очаквал, третирайте го като инцидент със сигурността.`, href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "See Secrets escrow", actionBg: "Вижте „Копие на ключовете и паролите“" })
   }
   if (status("host-update-agent") === "degraded" || status("update-agent") === "outage" || status("update-agent") === "degraded") {
     add({ id: "agent", level: "today", en: "The host maintenance agent is not working, so updates and Maintenance requests will not run.", bg: "Услугата за поддръжка на сървъра не работи, затова обновяванията и заявките от „Поддръжка“ няма да се изпълняват.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Обновявания“" })
