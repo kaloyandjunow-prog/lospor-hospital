@@ -82,7 +82,7 @@ describe("SPS page (10.2.0)", () => {
 
   it("degrades when the API does not offer the page yet", () => {
     expect(renderIntraopPage(null, "en")).toContain("This API does not offer SPS yet.")
-    expect(renderIntraopPage(undefined, "bg")).toContain("още не предлага")
+    expect(renderIntraopPage(undefined, "bg")).toContain("Не е налично в тази версия.")
   })
 
   it("reads the form: ticked boxes on, a comma as a decimal point, groups from the view", () => {

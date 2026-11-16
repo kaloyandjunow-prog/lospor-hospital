@@ -74,9 +74,9 @@ export function sparkline(monthly: ReadonlyArray<number | null>): string {
 export function renderAcceptancePage(trend: AcceptanceTrendView | null | undefined, automations: IntraopAutomationView | null | undefined, locale: StatusLocale): string {
   const intro = `<p>${localize(locale,
     "How each question, suggestion and reminder was received, month by month, over the finished cases of the last year. A line that is rarely taken is a line worth switching off or rewording; one that used to be taken and no longer is has changed for the clinicians. Counts only: no case, clinician or patient is named.",
-    "Как всеки въпрос, предложение и напомняне е бил приет, по месеци, върху приключилите случаи през последната година. Ред, който рядко се приема, е ред за изключване или преформулиране; ред, който е бил приеман, а вече не е, се е променил за лекарите. Само броячи: не се назовава случай, лекар или пациент.")}</p>`
+    "Колко често всеки въпрос, предложение и напомняне е приеман, по месеци, за последната година. Рядко приеман ред е кандидат за изключване или преформулиране.")}</p>`
   if (!trend || !automations) {
-    return `${renderIntraopTabs("acceptance", locale)}<div class="component" id="intraop-acceptance">${intro}<div class="empty">${localize(locale, "This API does not report the acceptance yet.", "Този API още не показва приемането.")}</div></div>`
+    return `${renderIntraopTabs("acceptance", locale)}<div class="component" id="intraop-acceptance">${intro}<div class="empty">${localize(locale, "This API does not report the acceptance yet.", "Не е налично в тази версия.")}</div></div>`
   }
   const names = new Map(automations.automations.map(item => [item.id, item]))
   const groups = new Map(automations.groups.map(item => [item.key, item]))
@@ -102,7 +102,7 @@ export function renderAcceptancePage(trend: AcceptanceTrendView | null | undefin
     : `<table class="trend-table" data-testid="trend-table"><thead><tr><th>${localize(locale, "Line", "Ред")}</th><th>${localize(locale, "Share taken, by month", "Дял приети, по месеци")}</th><th>${localize(locale, "Answers", "Отговори")}</th><th>${localize(locale, "Taken", "Приети")}</th><th title="${localize(locale, "Latest three months against the three before, in percentage points", "Последните три месеца спрямо предишните три, в процентни пункта")}">${localize(locale, "Change", "Промяна")}</th></tr></thead><tbody>${rows}</tbody></table>
 <p class="component-detail">${localize(locale,
       `The curve is blank in a month with fewer than ${TREND_MIN_ANSWERS} answers; the dotted guide marks ${percent} %. Rarely taken means ${TREND_NOISY_ANSWERS} answers or more with fewer than ${percent} % taken.`,
-      `Кривата е празна за месец с по-малко от ${TREND_MIN_ANSWERS} отговора; пунктираната линия отбелязва ${percent} %. Рядко се приема означава ${TREND_NOISY_ANSWERS} отговора или повече с под ${percent} % приети.`)}${quiet > 0 ? ` ${quiet} ${localize(locale, "lines had no answers.", "реда нямат отговори.")}` : ""}</p>`
+      `Месец с под ${TREND_MIN_ANSWERS} отговора не се показва. Пунктираната линия е ${percent} %. „Рядко се приема“: поне ${TREND_NOISY_ANSWERS} отговора и под ${percent} % приети.`)}${quiet > 0 ? ` ${quiet} ${localize(locale, "lines had no answers.", "реда нямат отговори.")}` : ""}</p>`
   return `${renderIntraopTabs("acceptance", locale)}<div class="component" id="intraop-acceptance">${intro}${casesRow}${table}</div>`
 }
 

@@ -72,7 +72,7 @@ describe("the Unusual readings page (10.2.0)", () => {
     const bg = renderReadingsPage(readingsFixture(), "bg")
     expect(bg).toContain("Необичайни показания")
     expect(bg).toContain("Възрастова група")
-    expect(bg).toContain("Запазване на границите")
+    expect(bg).toContain("Плъзгачът задава какъв дял")
     expect(renderReadingsPage(null, "en")).toContain("does not report the readings yet")
   })
 
@@ -85,8 +85,8 @@ describe("the Unusual readings page (10.2.0)", () => {
   })
 
   it("names the tabs the same way on the Switches page", () => {
-    expect(renderIntraopTabs("switches", "en")).toMatch(/<a href="\/status\/control\/intraop" aria-current="page">Switches<\/a>/)
-    expect(renderIntraopTabs("switches", "bg")).toContain("Превключватели")
+    expect(renderIntraopTabs("switches", "en")).toMatch(/<a href="\/status\/control\/intraop" aria-current="page">Settings<\/a>/)
+    expect(renderIntraopTabs("switches", "bg")).toContain("Настройки")
   })
 
   it("has every word the script writes, in both languages", () => {

@@ -21,10 +21,10 @@ const fail = () => new ControlPlaneClientError("INTRAOP_AUTOMATION_INVALID")
 /** The tabs of the SPS page, in the chips every skin uses for a page's tabs (the preoperative form's are the same). */
 export function renderIntraopTabs(active: "switches" | "readings" | "acceptance" | "cards", locale: StatusLocale): string {
   const tabs: Array<["switches" | "readings" | "acceptance" | "cards", string, string]> = [
-    ["switches", "/status/control/intraop", localize(locale, "Switches", "Превключватели")],
+    ["switches", "/status/control/intraop", localize(locale, "Settings", "Настройки")],
     ["readings", INTRAOP_READINGS_PATH, localize(locale, "Unusual readings", "Необичайни показания")],
-    ["acceptance", INTRAOP_ACCEPTANCE_PATH, localize(locale, "Acceptance trend", "Тенденция на приемане")],
-    ["cards", "/status/control/intraop/cards", localize(locale, "Card preview", "Преглед на карти")],
+    ["acceptance", INTRAOP_ACCEPTANCE_PATH, localize(locale, "Statistics", "Статистика")],
+    ["cards", "/status/control/intraop/cards", localize(locale, "Smart cards", "Смарт карти")],
   ]
   return `<nav class="statusnav subnav preop-tabs" aria-label="${localize(locale, "SPS — Smart Prediction System", "SPS — Система за интелигентно прогнозиране")}">${tabs.map(([id, href, name]) =>
     `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${name}</a>`).join("")}</nav>`
@@ -96,9 +96,9 @@ function dataBlock(view: IntraopReadingsView, locale: StatusLocale): string {
 export function renderReadingsPage(view: IntraopReadingsView | null | undefined, locale: StatusLocale): string {
   const intro = `<p>${localize(locale,
     "Set how unusual a reading must be before the chart asks whether to log hypotension, bradycardia or tachycardia. The limits come from this hospital's own readings, per age band, and the fixed rules always stay on beside them. Hypertension is judged on the patient's own baseline, set on the Switches tab.",
-    "Задайте колко необичайно трябва да е едно показание, преди графиката да попита дали да запише хипотенсия, брадикардия или тахикардия. Границите идват от показанията на самата болница по възрастови групи, а фиксираните правила винаги остават до тях. Хипертенсията се преценява по изходната стойност на самия пациент и се задава в раздела „Превключватели“.")}</p>`
+    "Колко необичаен трябва да е пулсът или кръвното налягане, за да попита графиката за хипотенсия, брадикардия или тахикардия. Границите се изчисляват от показанията в болницата по възрастови групи; фиксираните правила важат винаги. Хипертенсията се задава в „Настройки“.")}</p>`
   if (!view) {
-    return `${renderIntraopTabs("readings", locale)}<div class="component" id="${ANCHOR}">${intro}<div class="empty">${localize(locale, "This API does not report the readings yet.", "Този API още не показва показанията.")}</div></div>`
+    return `${renderIntraopTabs("readings", locale)}<div class="component" id="${ANCHOR}">${intro}<div class="empty">${localize(locale, "This API does not report the readings yet.", "Не е налично в тази версия.")}</div></div>`
   }
   const label = (entry: { labelEn: string; labelBg: string }) => escapeHtml(locale === "bg" ? entry.labelBg : entry.labelEn)
   const tailOptions = (selected: number) => view.tailSteps.map(step => `<option value="${step}"${step === selected ? " selected" : ""}>${String(step).replace(".", ",")} %</option>`).join("")
@@ -128,7 +128,7 @@ export function renderReadingsPage(view: IntraopReadingsView | null | undefined,
 <div class="ur-slider"><div class="ur-slidertop"><label for="ur-lo">${localize(locale, "Low limit", "Долна граница")}</label><b id="ur-lo-text"></b></div><input id="ur-lo" type="range" min="0" max="${view.tailSteps.length - 1}" step="1" value="0"><div class="ur-ticks">${view.tailSteps.map(step => `<span>${String(step).replace(".", ",")}</span>`).join("")}</div></div>
 <div class="ur-slider" id="ur-hi-card"><div class="ur-slidertop"><label for="ur-hi">${localize(locale, "High limit", "Горна граница")}</label><b id="ur-hi-text"></b></div><input id="ur-hi" type="range" min="0" max="${view.tailSteps.length - 1}" step="1" value="0"><div class="ur-ticks">${view.tailSteps.map(step => `<span>${String(step).replace(".", ",")}</span>`).join("")}</div></div>
 </div>
-<p class="component-detail">${localize(locale, "The sliders set the share of this band's readings counted as unusual at each end, for the selected sign. Each sign in each band keeps its own setting. The dashed purple line is the fixed rule.", "Плъзгачите задават дела от показанията на тази група, считан за необичаен във всеки край, за избрания показател. Всеки показател във всяка група има собствена настройка. Лилавата прекъсната линия е фиксираното правило.")}</p></section>
+<p class="component-detail">${localize(locale, "The sliders set the share of this band's readings counted as unusual at each end, for the selected sign. Each sign in each band keeps its own setting. The dashed purple line is the fixed rule.", "Плъзгачът задава какъв дял от показанията на групата е необичаен във всеки край. Всяка група и показател имат своя настройка. Лилавата прекъсната линия е фиксираното правило.")}</p></section>
 <aside class="ur-side"><section class="ur-card"><div class="ur-label">${localize(locale, "With these limits", "С тези граници")}</div>
 <div><span class="ur-big" id="ur-any"></span> <span class="component-detail">${localize(locale, "of cases in this band would get at least one question from the statistics", "от случаите в тази група биха получили поне един въпрос от статистиката")}</span></div>
 <div><span class="ur-big small" id="ur-any-all"></span> <span class="component-detail">${localize(locale, "with the fixed rules too", "и с фиксираните правила")}</span></div>
@@ -137,15 +137,15 @@ export function renderReadingsPage(view: IntraopReadingsView | null | undefined,
 </div>
 <section class="ur-card"><div class="ur-foot"><div><div class="ur-label">${localize(locale, "How the limits moved", "Как са се движили границите")}</div><div class="component-detail" id="ur-hist-sub"></div></div><div class="component-detail" id="ur-hist-now"></div></div>
 <div class="ur-chartbox"><svg id="ur-hist" viewBox="0 0 760 240" role="img" aria-label="${localize(locale, "The limits over time", "Границите във времето")}"></svg></div>
-<p class="component-detail">${localize(locale, "Each point is the limit as it stood at the end of that month, from all readings so far, at the slider setting. Before the band reached the minimum the line is dotted: those limits were not used.", "Всяка точка е границата в края на съответния месец, от всички показания дотогава, при настройката на плъзгача. Преди групата да достигне минимума линията е точкована: тези граници не са били използвани.")}</p></section>
+<p class="component-detail">${localize(locale, "Each point is the limit as it stood at the end of that month, from all readings so far, at the slider setting. Before the band reached the minimum the line is dotted: those limits were not used.", "Всяка точка е границата в края на месеца. Точкувано: групата още няма достатъчно случаи и границата не е използвана.")}</p></section>
 </div>`
 
   const form = `<form method="post" action="${INTRAOP_READINGS_PATH}#${ANCHOR}" id="ur-form" data-testid="readings-form">
-<div class="ur-selects"><p class="component-detail">${localize(locale, "Each limit is the share of a band's readings counted as unusual at that end. Smaller shares ask less often.", "Всяка граница е делът от показанията на групата, считан за необичаен в този край. По-малките дялове питат по-рядко.")}</p>
+<div class="ur-selects"><p class="component-detail">${localize(locale, "Each limit is the share of a band's readings counted as unusual at that end. Smaller shares ask less often.", "По-малкият дял означава по-рядко питане.")}</p>
 <table class="ind-bands intraop-tails"><thead><tr><th>${localize(locale, "Age band", "Възрастова група")}</th>${signHeads}</tr></thead><tbody>${rows}</tbody></table></div>
-<label class="ur-min">${localize(locale, "Statistics start after this many cases in a band", "Статистиката започва след толкова случая в групата")}<span class="ind-inline"><input class="ind-number" name="minCases" inputmode="numeric" required value="${view.config.minCases}" data-testid="readings-min-cases"></span><span class="component-detail">${localize(locale, "bundled", "вградено")}: ${view.defaultMinCases} · ${view.minCasesRange.min}–${view.minCasesRange.max}. ${localize(locale, "Until then only the fixed rules ask.", "Дотогава питат само фиксираните правила.")}</span></label>
+<label class="ur-min">${localize(locale, "Statistics start after this many cases in a band", "Статистиката се използва след толкова случая в групата")}<span class="ind-inline"><input class="ind-number" name="minCases" inputmode="numeric" required value="${view.config.minCases}" data-testid="readings-min-cases"></span><span class="component-detail">${localize(locale, "bundled", "по подразбиране")}: ${view.defaultMinCases} · ${view.minCasesRange.min}–${view.minCasesRange.max}. ${localize(locale, "Until then only the fixed rules ask.", "Дотогава питат само фиксираните правила.")}</span></label>
 <div class="ur-actions"><button type="button" class="ur-reset" id="ur-reset" hidden>${localize(locale, "Reset this band", "Нулиране на тази група")}</button></div>
-<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save the limits", "Запазване на границите")}</button>
+<label>${localize(locale, "Reason for the change", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save the limits", "Запазване")}</button>
 </form>`
 
   return `${renderIntraopTabs("readings", locale)}<div class="component" id="${ANCHOR}">${intro}${widget}${form}${dataBlock(view, locale)}<script src="/status/unusual-readings.js" defer></script></div>`
