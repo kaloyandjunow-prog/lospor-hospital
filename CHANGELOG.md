@@ -26,6 +26,11 @@ server from the wizard, start to finish, on an external switch and photographing
   under a Bulgarian window.
 - **Moments are written as dates and times** on the Updates page and on the Server page (13.09.2026 06:00:00 UTC),
   not as 2026-09-13T06:00:00Z.
+- **Clearer Bulgarian in Status** on the Състояние page, the sign-in pages and the display settings. The server
+  clock is "сверен" (it comes from the Hyper-V host, not "по мрежата"); "Двуфакторно удостоверяване" everywhere;
+  "Достъпност", "Инциденти" and the page's name "Състояние"; "Сайт за изследвания" and "Вход на системата" in the
+  checks; "Вид на менюто" and "Тема"; plain wording for the backup, off-server copy, key and update messages;
+  min and h as units; the events say "вътрешните пароли" and "номенклатури". A test keeps the retired wording out.
 
 Vendors Core, API, Web and PWA 10.6.0; Browser stays 0.11.2.
 
