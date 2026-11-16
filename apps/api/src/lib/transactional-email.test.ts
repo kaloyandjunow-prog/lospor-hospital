@@ -32,7 +32,7 @@ describe("transactional email keeps addresses out of the log", () => {
     expect(String(warn.mock.calls[0][0])).not.toContain("anaesthetist@example.org")
   })
 
-  it("keeps Brevo's error code and drops the body that repeats the address", async () => {
+  it("keeps only the status and never reads the body that repeats the address", async () => {
     vi.stubEnv("BREVO_API_KEY", "test-key")
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
       JSON.stringify({ code: "invalid_parameter", message: "email is not valid: anaesthetist@example.org" }),
@@ -42,7 +42,8 @@ describe("transactional email keeps addresses out of the log", () => {
     const error = await sendTransactionalEmail(message).then(() => null, (caught: unknown) => caught as Error)
 
     expect(error).toBeInstanceOf(Error)
-    expect(error?.message).toBe("Brevo email failed 400 (invalid_parameter)")
+    // The appliance reads nothing of the body, not even the code (hospital overlay).
+    expect(error?.message).toBe("BREVO_EMAIL_FAILED_400")
   })
 
   it("keeps only the status when the body is not a bare code", async () => {
@@ -54,6 +55,6 @@ describe("transactional email keeps addresses out of the log", () => {
 
     const error = await sendTransactionalEmail(message).then(() => null, (caught: unknown) => caught as Error)
 
-    expect(error?.message).toBe("Brevo email failed 400")
+    expect(error?.message).toBe("BREVO_EMAIL_FAILED_400")
   })
 })

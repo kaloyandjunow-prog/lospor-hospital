@@ -137,6 +137,24 @@ import { mapSelectionsToOmop } from "./omop-mapper/domains/selections"
 import { mapComplicationsToOmop } from "./omop-mapper/domains/complications"
 import { mapPostopToOmop } from "./omop-mapper/domains/postop"
 
+/**
+ * The three pseudonymous ids a case exports under.
+ *
+ * Appliance-only in effect: with an identity context the person id derives from
+ * the hospital-scoped patient pseudonym, so a patient's repeat admissions land
+ * on one person. Without one it falls back to the case id, which is the
+ * serverless behaviour of one person per case. Exported because the Hospital
+ * export batcher needs the same ids to build its manifest.
+ */
+export function omopSourceIds(caseId: string, ctx?: Pick<ExportContext, "identityByCase">) {
+  const personKey = ctx?.identityByCase?.[caseId]?.personKey ?? caseId
+  return {
+    personId: pseudonymId("person", personKey),
+    observationPeriodId: pseudonymId("obsperiod", caseId),
+    visitId: pseudonymId("visit", caseId),
+  }
+}
+
 export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundle {
   resetIds(ctx?.rowIdStart ?? 1)
 
@@ -177,10 +195,15 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
   const sourceValue = (prefix: string, sourceVocabulary?: string | null, sourceCode?: string | null, label?: string | null) =>
     sourceVocabulary && sourceCode ? `${sourceVocabulary}:${sourceCode}${label ? ` - ${label}` : ""}` : `${prefix}:${label ?? "unknown"}`
 
+  // Captured before the loop: the per-case CaseMapperCtx below is also called
+  // `ctx`, so inside the loop the export context is otherwise shadowed.
+  const exportCtx = ctx
+
   // Each case in its own zone: research dates and times are the theatre's (2026-10-19).
   for (const c of cases) inCaseZone(c.intraop?.timezone, () => {
-    const personId = pseudonymId("person", c.id)
-    const visitId  = pseudonymId("visit", c.id)
+    const sourceIds = omopSourceIds(c.id, exportCtx)
+    const personId = sourceIds.personId
+    const visitId = sourceIds.visitId
     // Prefer the real instants. The legacy startTime/endTime columns hold a bare
     // wall clock on a dummy date (2000-01-01) with no zone, so using them as a
     // date would export the year 2000 for every legacy case; fall back to
@@ -342,6 +365,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
         // defines it.
         const labDate = isoDate(lab.takenAt) ?? fallbackDate
         const labInstant = isoInstant(lab.takenAt) ?? fallbackDate
+        const labUnitConceptId = lab.unitCanon ? LAB_UNIT_CONCEPTS[lab.unitCanon] ?? 0 : 0
+        const labUnitSourceValue = lab.unitCanon ?? lab.unit ?? null
         measurements.push({
           measurement_id:              nextId(),
           person_id:                   personId,
@@ -351,8 +376,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
           measurement_type_concept_id: 32817,
           value_as_number:             lab.valueNum,
           value_as_concept_id: null,
-          unit_concept_id:             lab.unitCanon ? LAB_UNIT_CONCEPTS[lab.unitCanon] ?? 0 : 0,
-          unit_source_value:           lab.unitCanon ?? lab.unit ?? null,
+          unit_concept_id:             labUnitConceptId,
+          unit_source_value:           labUnitSourceValue,
           measurement_source_value:    labSource,
           // The value as the lab reported it. For a numeric result this is the
           // unparsed original; for a qualitative one it is the only value there
@@ -371,6 +396,35 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
         // keyed by the same source value the measurement row uses.
         if (lab.abnormalFlag) {
           sourceObservation("LOSPOR:LAB_ABNORMAL_FLAG", `${labSource}=${lab.abnormalFlag}`, labDate)
+        }
+        // OMOP MEASUREMENT has reference ranges but no critical limits. Keep
+        // the laboratory's explicit limits as numeric observations instead of
+        // placing them in range_low/high, which would falsely describe the
+        // ordinary reference interval. The analyte source and unit stay with
+        // each threshold, so separate tests in one case cannot be confused.
+        if (lab.criticalLow != null) {
+          sourceObservation(
+            "LOSPOR:LAB_CRITICAL_LOW",
+            `${labSource}=${lab.criticalLow}`,
+            labDate,
+            lab.criticalLow,
+            0,
+            0,
+            labUnitConceptId,
+            labUnitSourceValue,
+          )
+        }
+        if (lab.criticalHigh != null) {
+          sourceObservation(
+            "LOSPOR:LAB_CRITICAL_HIGH",
+            `${labSource}=${lab.criticalHigh}`,
+            labDate,
+            lab.criticalHigh,
+            0,
+            0,
+            labUnitConceptId,
+            labUnitSourceValue,
+          )
         }
       }
     }
@@ -465,9 +519,10 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
   for (const row of measurements) {
     if (!row.measurement_concept_id) row.measurement_concept_id = losporConceptId(row.measurement_source_value)
   }
+  const uniquePersons = [...new Map(persons.map(person => [person.person_id, person])).values()]
 
   const tableCounts = {
-    person: persons.length,
+    person: uniquePersons.length,
     observation_period: observationPeriods.length,
     visit_occurrence: visits.length,
     condition_occurrence: conditions.length,
@@ -513,7 +568,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       data_quality_status:     deriveQualityStatus(qualityWarnings),
       deidentification: {
         mode:                              "pseudonymised",
-        person_id_strategy:               "deterministic 52-bit identifier derived from SHA-256 of the internal case ID (optionally salted) — not reversible without the source database. One person per case: no patient identifier is stored, so the same patient across two operations appears as two persons.",
+        person_id_strategy:               ctx?.identityByCase ? "deterministic 52-bit identifier derived from a hospital-scoped patient pseudonym, without exporting the local identifier. Where the site records a national identifier, the pseudonym is the patient's and admissions link to one person. Otherwise it is the admission's: a record number is reissued per admission and restarts each January, so a patient returning appears as a new person. The pseudonym is hospital-scoped either way, so a patient treated at two sites is two persons." : "deterministic 52-bit identifier derived from SHA-256 of the internal case ID (optionally salted); one person is emitted per case when no Hospital identity context is supplied.",
         direct_patient_identifiers_stored: false,
         event_timestamp_precision:        "exact_datetime",
         residual_linkage_risks: [
@@ -525,7 +580,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       note: "Numeric observations carry their value in observation.value_as_number and, unchanged, as text in observation.value_as_string; genuinely textual observations populate value_as_string only. OMOP concept IDs are emitted only where LOSPOR has a confident local mapping. Source vocabulary, source code, English/Bulgarian labels, and source-only rows are preserved for research traceability. Pediatric mode, precise age at procedure, rule provenance, pediatric risk scores, and recovery scores are preserved as source observations with concept_id 0 until reviewed mappings exist. person_id is a deterministic pseudonym derived from SHA-256 of the internal case ID — no patient names, national IDs, or direct identifiers are stored. PERSON carries an approximate year_of_birth derived from age at operation (month and day are unknown, not defaulted); race and ethnicity are not collected and are emitted as concept 0. OBSERVATION_PERIOD spans the operation only. Intraoperative event timestamps are preserved at exact DateTime precision for clinical sequence analysis — see residual_linkage_risks.",
     },
     care_site:             [...careSites.values()],
-    person:                persons,
+    person:                uniquePersons,
     observation_period:    observationPeriods,
     visit_occurrence:      visits,
     condition_occurrence:  withSuggestion(conditions),

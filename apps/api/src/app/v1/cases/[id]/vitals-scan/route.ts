@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { corsHeaders } from "@/lib/cors"
-import { logAudit } from "@/lib/audit"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { canWriteCase } from "@/lib/access-control"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
-import { DEFAULT_VISION_MODEL } from "@/lib/mistral-models"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
-import { clinicalAiRefusal } from "@/lib/deployment-capabilities"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { mistralModelUnavailable } from "@/lib/hospital/external-ai-models"
+import { logAudit } from "@/lib/audit"
 import { bisFromScan, tofRatioFromScan } from "@lospor/core/monitor-scan"
 
-const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY ?? ""
 const MISTRAL_TIMEOUT_MS = Number(process.env.MISTRAL_TIMEOUT_MS ?? 45_000)
 
 const CORS = (req: NextRequest) => corsHeaders(req)
@@ -20,10 +23,19 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // Resolve before loading a case or reading the clinical monitor image.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
+
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const refusal = clinicalAiRefusal("monitorOcr")
-  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status })
 
   const rl = await rateLimit(`vitals-scan:${user.id}`, 30, 60 * 60 * 1000)
   if (!rl.allowed) {
@@ -39,7 +51,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     select: {
       userId: true,
+      // The case's own institution, which canReadCase requires for a head of
+      // department -- it compares record.institutionId, and the owner-institution
+      // fallback was deliberately removed. Selecting only the owner left this
+      // undefined, so every same-institution HOD was refused scanning on a
+      // colleague's case while the list view showed it to them.
       institutionId: true,
+      createdById: true,
       user: { select: { institutionId: true } },
       preop: { select: { aiOptIn: true } },
     },
@@ -47,11 +65,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!canWriteCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  // Consent check from DB — ignores any client-supplied aiOptIn.
+  // Consent check from the database -- it ignores any client-supplied aiOptIn.
   //
   // This route sends a photograph of a monitor screen to an external provider.
   // No text redaction is possible on an image and none is attempted, so it is
-  // at least as sensitive as the advice routes that have always been gated —
+  // at least as sensitive as the advice routes that have always been gated --
   // yet it was reachable with the AI opt-in unticked, while the consent text
   // beside that tickbox promises no names or free text ever leave.
   if (!existing.preop?.aiOptIn) {
@@ -76,18 +94,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Image too large. Please use a lower quality or crop the image." }, { status: 413 })
   }
 
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
+
   // Without this a hung provider connection holds the request open
   // indefinitely; the other two AI routes have always had one.
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), MISTRAL_TIMEOUT_MS)
   try {
-    const res = await fetchMistralChatCompletions(MISTRAL_API_KEY, {
+    const res = await fetchMistralChatCompletions(apiKey, {
       // Pinned, not floating. Everything else in the appliance is fixed to a
       // digest or checksum; "mistral-small-latest" let one clinical behaviour
-      // change without a release. The default itself was also stale:
-      // pixtral-12b-2409 was retired, so this failed the moment a key was
-      // configured -- see src/lib/mistral-models.ts.
-      model: process.env.MISTRAL_VISION_MODEL ?? DEFAULT_VISION_MODEL,
+      // change without a release, and it read the same env var as read-labs
+      // while defaulting to a different model.
+      model: aiAccess.visionModel,
       messages: [
         {
           role: "user",
@@ -108,8 +136,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }, { signal: controller.signal })
 
     if (!res.ok) {
-      // body withheld: provider errors can echo the clinical payload
-      console.error("[vitals-scan] Mistral error:", res.status)
+      // Provider bodies may echo clinical output or request data; do not read them.
+      console.error("[vitals-scan] AI_PROVIDER_RESPONSE_FAILED")
+      if (await mistralModelUnavailable(res)) {
+        void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "vitals-scan", failureKind: "model-unavailable" })
+        return NextResponse.json({
+          error: "The configured AI model is no longer offered by Mistral. Hospital IT must choose another in Status.",
+          code: "EXTERNAL_AI_MODEL_UNAVAILABLE",
+        }, { status: 503 })
+      }
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "vitals-scan", failureKind: "provider", httpStatus: res.status,
+      })
       return NextResponse.json({ error: "AI analysis failed" }, { status: 502 })
     }
 
@@ -119,6 +157,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Extract JSON from response (Mistral sometimes wraps in markdown)
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) {
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "vitals-scan", failureKind: "invalid-response",
+      })
       return NextResponse.json({ error: "Could not parse monitor readings" }, { status: 422 })
     }
 
@@ -141,12 +182,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // These are broad physical plausibility bounds, not age-specific normal
     // ranges. Core supplies the soft pediatric interpretation after extraction.
     //
-    // The type check is not redundant with the annotation above: `vitals` is a
-    // bare `JSON.parse(...) as {...}`, so the model can return anything. The
-    // previous form only nulled values that were numerically out of range, and
-    // a non-number fails every comparison silently — {"systolic": "not visible"}
-    // is neither < 20 nor > 300, so it reached the client as a string and into
-    // a vitals field. Anything that is not a finite number is discarded.
+    // The previous form only nulled values that were numerically out of range,
+    // and a non-number fails every comparison silently -- {"systolic": "not
+    // visible"} is neither < 20 nor > 300, so it reached the client as a string
+    // and into a vitals field. Anything that is not a finite number is
+    // discarded.
     const plausible = (value: unknown, min: number, max: number): number | null =>
       typeof value === "number" && Number.isFinite(value) && value >= min && value <= max
         ? value
@@ -177,7 +217,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json(checked)
   } catch (err) {
-    console.error("[vitals-scan]", err)
+    if (err instanceof Error && err.name === "AbortError") {
+      console.error("[vitals-scan] AI_PROVIDER_TIMEOUT")
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "vitals-scan", failureKind: "timeout",
+      })
+      return NextResponse.json({ error: "Monitor scan timed out. Please try again." }, { status: 504 })
+    }
+    const failureKind = err instanceof SyntaxError ? "invalid-response" : "network"
+    console.error("[vitals-scan] AI_PROVIDER_REQUEST_FAILED")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "vitals-scan", failureKind,
+    })
     return NextResponse.json({ error: "AI analysis failed" }, { status: 500 })
   } finally {
     clearTimeout(timeout)
