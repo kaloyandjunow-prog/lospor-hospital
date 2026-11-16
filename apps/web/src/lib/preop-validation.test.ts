@@ -82,3 +82,16 @@ describe("which preoperative fields this form still wants", () => {
     )).toEqual(["ageValue"])
   })
 })
+
+describe("vitals a hospital has made optional (10.6.0)", () => {
+  const noVitals = complete({ bpSystolic: undefined, bpDiastolic: undefined, heartRate: undefined, respiratoryRate: undefined })
+
+  it("wants all three when the server sends no rule", () => {
+    expect(missingPreopFields(noVitals, NOTHING_UNOBTAINABLE, false)).toEqual(["bp", "heartRate", "respiratoryRate"])
+  })
+
+  it("wants none when the section is optional, and only the readings left required otherwise", () => {
+    expect(missingPreopFields(noVitals, NOTHING_UNOBTAINABLE, false, { bloodPressure: false, heartRate: false, respiratoryRate: false })).toEqual([])
+    expect(missingPreopFields(noVitals, NOTHING_UNOBTAINABLE, false, { bloodPressure: false, heartRate: true, respiratoryRate: false })).toEqual(["heartRate"])
+  })
+})

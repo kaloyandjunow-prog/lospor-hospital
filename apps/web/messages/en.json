@@ -1218,6 +1218,8 @@
     "substanceAbuse": "Substance abuse",
     "medicationsSection": "Current medications",
     "medicationsPlaceholder": "No patient-identifying information — list current medications with doses and frequency…",
+    "medicationAddTyped": "Add “{typed}” as written",
+    "medicationTypedMark": "typed",
     "vitalsSection": "Physical examination — Vitals",
     "bloodPressure": "Blood Pressure (mmHg)",
     "unableToObtain": "Unable to obtain",

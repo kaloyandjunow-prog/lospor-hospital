@@ -1,4 +1,4 @@
-import { evaluatePreopReadiness } from "@lospor/core/clinical-validation"
+import { evaluatePreopReadiness, type PreopVitalsRequirement } from "@lospor/core/clinical-validation"
 
 import type { PreopData } from "@/components/forms/preopSchema"
 
@@ -21,10 +21,15 @@ const FORM_FIELD: Readonly<Record<string, string>> = {
   mallampati: "airway",
 }
 
+/**
+ * `vitals` is the hospital's rule for this population (10.6.0): a reading it
+ * has made optional is never reported missing. Absent, all three are required.
+ */
 export function missingPreopFields(
   data: PreopData,
   vitalsUTO: Set<string>,
   airwayUTO: boolean,
+  vitals?: PreopVitalsRequirement,
 ): string[] {
   const readiness = evaluatePreopReadiness({
     ...data,
@@ -32,7 +37,7 @@ export function missingPreopFields(
     heartRateUnobtainable: vitalsUTO.has("heartRate"),
     respiratoryRateUnobtainable: vitalsUTO.has("respiratoryRate"),
     airwayUnobtainable: airwayUTO,
-  })
+  }, vitals)
   return readiness.issues.flatMap(item => {
     const field = item.path[item.path.length - 1]
     return field ? [FORM_FIELD[field] ?? field] : []

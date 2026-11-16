@@ -10,6 +10,7 @@ import { usePendingCloseCountdown } from "@/hooks/usePendingCloseCountdown"
 import type { LABELS } from "@/components/case-summary/labels"
 import { finalizeErrorMessage } from "@/components/case-summary/finalize-error"
 import { caseReadiness, readinessFromRefusal, type CaseReadiness } from "@lospor/core/case-readiness"
+import { preopSectionConfigFor, preopVitalsRequirementFor, type PreopSectionConfig } from "@lospor/core/preop-orders"
 import { ReadinessPanel } from "@/components/case-summary/ReadinessPanel"
 import { serverMessage } from "@/lib/server-message"
 
@@ -52,7 +53,11 @@ export function ReviewBar({
    * the same rules the server finalizes by (1.5.0), shown before anyone presses
    * the button and counted beside it.
    */
-  readinessCase: { clinicalMode?: string | null; preop?: unknown; intraop?: unknown; postop?: unknown }
+  readinessCase: {
+    clinicalMode?: string | null; preop?: unknown; intraop?: unknown; postop?: unknown
+    /** The case read's profiles: the hospital's preop vitals rule comes from them (10.6.0). */
+    preopProfile?: { sectionConfigs?: Partial<Record<"ADULT" | "PEDIATRIC", PreopSectionConfig>> } | null
+  }
   onFinalized: (finalizedAt: string) => void
   onUnfinalized: () => void
 }) {
@@ -69,6 +74,11 @@ export function ReviewBar({
     preop: (readinessCase.preop ?? null) as Record<string, unknown> | null,
     intraop: (readinessCase.intraop ?? null) as Record<string, unknown> | null,
     postop: (readinessCase.postop ?? null) as Record<string, unknown> | null,
+    // The rule the server finalizes by, so the list shown is the one it checks.
+    preopVitals: preopVitalsRequirementFor(preopSectionConfigFor(
+      readinessCase.preopProfile?.sectionConfigs,
+      readinessCase.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT",
+    )),
   })
   const shown = refusal ?? readiness
 

@@ -53,7 +53,8 @@ import type { PreopLayout } from "@/lib/preop-layout"
 import { LabResultsSection } from "@/components/forms/sections/LabResultsSection"
 import { PreopMedicationInstructionsSection, PreopWardOrdersSection } from "@/components/forms/PreopOrdersSections"
 import { PreopPremedicationOrderSection } from "@/components/forms/PreopPremedicationOrder"
-import { preopSectionConfigFor } from "@lospor/core/preop-orders"
+import { preopSectionConfigFor, preopVitalsRequirementFor } from "@lospor/core/preop-orders"
+import { PreopMedicationsField } from "@/components/forms/PreopMedicationsField"
 import { PreopCaseSection, PreopDemographicsSection } from "@/components/forms/PreopPatientSections"
 import { PreopQuestionList, type PreopPendingSuggestion, type PreopQuestionAnswer } from "@/components/forms/PreopQuestionList"
 import {
@@ -77,7 +78,6 @@ function numberOrNull(value: unknown): number | null {
 }
 
 type Icd10SearchItem = { code: string; description: string; descriptionBg?: string }
-type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?: string }
 
 
 export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, preopProfile: profiles, focus, stages }: {
@@ -155,6 +155,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   // Which optional sections this hospital asks, for adults or for children.
   const sectionConfig = useMemo(() => preopSectionConfigFor(profiles?.sectionConfigs, preopMode), [profiles, preopMode])
   const sectionOn = (key: keyof typeof sectionConfig.sections) => sectionConfig.sections[key]
+  // Which preoperative vitals this hospital requires for this population (10.6.0).
+  const vitalsRequired = useMemo(() => preopVitalsRequirementFor(sectionConfig), [sectionConfig])
   const shown = (stableKey: string) => isPreopQuestionShown(preopProfile, stableKey, preopMode)
   const shownField = (field: string) => !QUESTION_OF_FIELD[field] || shown(QUESTION_OF_FIELD[field])
   const formValues = watch() as unknown as Record<string, unknown>
@@ -317,7 +319,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   // The rule itself lives in @/lib/preop-validation, where it is testable
   // without a form around it.
-  const validate = (data: PreopData) => missingPreopFields(data, vitalsUTO, airwayUTO)
+  const validate = (data: PreopData) => missingPreopFields(data, vitalsUTO, airwayUTO, vitalsRequired)
 
   /** Same mapping @/lib/preop-validation uses for the readiness check's own field names. */
   const ZOD_ERROR_FIELD: Readonly<Record<string, string>> = {
@@ -396,7 +398,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     reportFieldErrorsAndJump(errs)
   }
 
-  const missingFields = sidebar ? new Set(missingPreopFields(formValues as unknown as PreopData, vitalsUTO, airwayUTO)) : new Set<string>()
+  const missingFields = sidebar ? new Set(missingPreopFields(formValues as unknown as PreopData, vitalsUTO, airwayUTO, vitalsRequired)) : new Set<string>()
   const anyMissing = (...keys: string[]) => keys.some(key => missingFields.has(key))
   // The drugs a medication instruction can name: the current medication list as it stands.
   const currentMedicationChoices = ((formValues.currentMedications ?? []) as Tag[]).filter(tag => !!tag.label).map(tag => ({ label: tag.label, inn: tag.inn, atcCode: tag.atcCode }))
@@ -536,18 +538,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       {sectionOn("CURRENT_MEDICATIONS") && (
       <SectionCard id="preop-sec-medications" title={t("preop.medicationsSection")}>
         <Controller name="currentMedications" control={control} render={({ field }) => (
-          <TagInput
-            value={(field.value ?? []) as Tag[]}
-            onChange={field.onChange}
-            searchUrl="/api/search/drugs"
-            renderSuggestion={(item: DrugSearchItem) => ({
-              label: item.inn ? `${item.inn}${item.strength ? ` ${item.strength}` : ""}` : item.name,
-              sub: item.name !== item.inn ? item.name : undefined,
-              inn: item.inn ?? undefined,
-              atcCode: item.atcCode ?? undefined,
-            })}
-            placeholder={t("preop.medicationsPlaceholder")}
-          />
+          <PreopMedicationsField value={(field.value ?? []) as Tag[]} onChange={field.onChange} allowTyped={!!sectionConfig.medicationsFreeText} />
         )} />
         <RejectionNote msg={rejectionOf("currentMedications")} />
         {questionList("current_medications")}
@@ -577,7 +568,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           {/* BP */}
           <div className="space-y-2 sm:col-span-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.bloodPressure")} <span className="text-red-500">*</span></Label>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.bloodPressure")}{vitalsRequired.bloodPressure && <span className="text-red-500"> *</span>}</Label>
               <button type="button"
                 onClick={() => toggleUTO("bp", () => { setValue("bpSystolic", undefined); setValue("bpDiastolic", undefined) })}
                 className={`text-xs px-2.5 py-1 rounded-full border transition-all ${vitalsUTO.has("bp") ? "bg-slate-200 border-slate-400 text-slate-700 font-semibold" : "border-slate-200 text-slate-400 hover:border-slate-300"}`}>
@@ -607,10 +598,10 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           </div>
 
           {([
-            { id: "heartRate",      label: t("preop.heartRate"),      min: isPediatric ? 10 : heartRateRange.min,       max: heartRateRange.max,    step: heartRateRange.step,    unit: "bpm",  required: true,  slider: true, measurement: undefined as "temperature" | undefined },
+            { id: "heartRate",      label: t("preop.heartRate"),      min: isPediatric ? 10 : heartRateRange.min,       max: heartRateRange.max,    step: heartRateRange.step,    unit: "bpm",  required: vitalsRequired.heartRate,  slider: true, measurement: undefined as "temperature" | undefined },
             { id: "spO2",           label: t("preop.spO2"),           min: isPediatric ? 20 : spo2Range.min,            max: spo2Range.max,         step: spo2Range.step,         unit: "%",    required: false, slider: true, measurement: undefined as "temperature" | undefined },
             { id: "temperature",    label: t("preop.temperature"),    min: isPediatric ? 25 : temperatureRange.min,     max: temperatureRange.max,  step: temperatureRange.step, unit: "°C",   required: false, slider: true, measurement: "temperature" as "temperature" | undefined },
-            { id: "respiratoryRate",label: t("preop.respiratoryRate"),min: isPediatric ? 1 : respiratoryRange.min,       max: respiratoryRange.max,  step: respiratoryRange.step, unit: "/min", required: true,  slider: true, measurement: undefined as "temperature" | undefined },
+            { id: "respiratoryRate",label: t("preop.respiratoryRate"),min: isPediatric ? 1 : respiratoryRange.min,       max: respiratoryRange.max,  step: respiratoryRange.step, unit: "/min", required: vitalsRequired.respiratoryRate,  slider: true, measurement: undefined as "temperature" | undefined },
           ] as const).map(v => (
             <div key={v.id} className="space-y-2">
               <div className="flex items-center justify-between">

@@ -1,5 +1,23 @@
 # Changelog - LOSPOR Web App
 
+## [10.6.0] - 2026-11-16
+
+Released with Core and API 10.6.0.
+
+### Added
+
+- **Preoperative vitals the hospital has made optional.** The form follows the rule set in Status for the
+  patient's population: a reading that is optional loses its red asterisk, is not reported missing and does not
+  stop Continue. The review bar's list of what blocks finalising follows the same rule, as the server does.
+- **A current medication typed as written**, where the hospital has turned it on: the search ends with
+  "Добави „…“ както е написано", and the chip is marked "въведено ръчно". A drug from the list stays the first
+  choice, so Enter still picks it.
+
+### Changed
+
+- With the switch off (the default), the medication field offers the list only. Enter used to add the typed text
+  whenever the search found nothing.
+
 ## [10.5.0] - 2026-11-16
 
 Released with API 10.5.0 (OMOP exchange contract 2.9.0, ICD-10 mapping, security fixes); no client change.

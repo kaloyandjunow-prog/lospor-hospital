@@ -19,6 +19,12 @@ interface Props<T> {
   disabled?: boolean
   allowFreeText?: boolean
   minSearchLength?: number
+  /**
+   * Offer what was typed as the dropdown's last row, so an entry that is not
+   * in the list can be added as written (10.6.0, current medications). The
+   * chip of such an entry carries `typedMark`. Implies free text.
+   */
+  freeTextRow?: { label: (typed: string) => string; typedMark: string; isTyped: (tag: Tag) => boolean }
 }
 
 // Module-level client cache — persists for the browser session
@@ -29,7 +35,9 @@ export function TagInput<T>({
   placeholder = "Type to search…", disabled,
   allowFreeText = true,
   minSearchLength = 3,
+  freeTextRow,
 }: Props<T>) {
+  const freeText = allowFreeText || !!freeTextRow
   const [query, setQuery]             = useState("")
   const [suggestions, setSuggestions] = useState<T[]>([])
   const [open, setOpen]               = useState(false)
@@ -110,19 +118,23 @@ export function TagInput<T>({
     onChange((value ?? []).filter(t => t.label !== label))
   }
 
+  // The typed row sits after the suggestions and is reached like one of them.
+  const typedRow = !!freeTextRow && query.trim().length >= minSearchLength
+  const rowCount = suggestions.length + (typedRow ? 1 : 0)
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "ArrowDown" && open) { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); return }
+    if (e.key === "ArrowDown" && open) { e.preventDefault(); setHighlighted(h => Math.min(h + 1, rowCount - 1)); return }
     if (e.key === "ArrowUp"   && open) { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); return }
     if (e.key === "Escape") { e.preventDefault(); closeDropdown(); return }
     if (e.key === "Enter") {
       e.preventDefault()
       if (open && suggestions[highlighted]) addTag(suggestions[highlighted])
-      else if (allowFreeText && query.trim()) addFreeText(query)
+      else if (freeText && query.trim()) addFreeText(query)
       return
     }
     if (e.key === ",") {
       e.preventDefault()
-      if (allowFreeText && query.trim()) addFreeText(query)
+      if (freeText && query.trim()) addFreeText(query)
       return
     }
     if (e.key === "Backspace" && query === "" && (value ?? []).length > 0) {
@@ -166,7 +178,7 @@ export function TagInput<T>({
     }
   }, [open])
 
-  const dropdown = open && suggestions.length > 0 && typeof document !== "undefined"
+  const dropdown = open && rowCount > 0 && typeof document !== "undefined"
     ? createPortal(
         <div
           id="tag-input-portal"
@@ -198,6 +210,21 @@ export function TagInput<T>({
               </button>
             )
           })}
+          {typedRow && (
+            <button
+              type="button"
+              data-testid="tag-input-typed-row"
+              className={`w-full text-left px-3 py-2 text-sm italic border-t border-slate-100 dark:border-[#2e2e2e] transition-colors ${
+                highlighted === suggestions.length
+                  ? "bg-blue-50 dark:bg-blue-900/40"
+                  : "hover:bg-slate-50 dark:hover:bg-[#2a2a2a]"
+              }`}
+              onMouseEnter={() => setHighlighted(suggestions.length)}
+              onMouseDown={e => { e.preventDefault(); addFreeText(query) }}
+            >
+              {freeTextRow!.label(query.trim())}
+            </button>
+          )}
         </div>,
         document.body
       )
@@ -217,6 +244,7 @@ export function TagInput<T>({
             >
               <span className="truncate">{tag.label}</span>
               {tag.sub && <span className="text-blue-400 text-[10px]"> ({tag.sub})</span>}
+              {freeTextRow?.isTyped(tag) && <span className="text-blue-500 text-[10px] italic" data-testid="tag-input-typed-mark">· {freeTextRow.typedMark}</span>}
               {!disabled && (
                 <button
                   type="button"
