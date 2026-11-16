@@ -439,13 +439,13 @@ describe("Status Hospital control plane", () => {
         return response.text()
       }),
     )
-    const [preop, clinical, ehr, codes, identity, research, central, ai] = await fetchAll(["preop", "clinical", "ehr", "codes", "identity", "research", "central", "ai"], "maphub")
+    const [preop, clinical, ehr, codes, identity, research, central, ai, questions] = await fetchAll(["preop", "clinical", "ehr", "codes", "identity", "research", "central", "ai", "preop/questions"], "maphub")
     const legacy = (await fetchAll(["clinical", "ehr", "research", "ai"], "legacy")).join("")
     expect(legacy).toContain("ЕГН и номер на ИЗ")
     expect(legacy).toContain("Кодове на изследванията")
     expect(legacy).toContain("Разрешения за изследвания")
     // Both skins expose every preop page through the same tabs.
-    expect(legacy).toContain('href="/status/control/preop/sections"')
+    expect(legacy).toContain('href="/status/control/preop/questions"')
     expect(legacy).toContain('href="/status/control/preop/orders"')
     expect(legacy).toContain('href="/status/control/preop/documents"')
     expect(legacy).toContain('href="/status/control/postop"')
@@ -454,10 +454,11 @@ describe("Status Hospital control plane", () => {
     expect(legacy).toContain('href="/status/control/intraop"')
     expect(legacy).toContain('href="/status/control/drug-colors"')
     expect((legacy.match(/class="statusnav subnav control-subnav"/g) ?? []).length).toBe(4)
-    expect(preop).toContain('href="/status/control/preop/sections"')
+    expect(preop).toContain('href="/status/control/preop/questions"')
     expect(preop).toContain('href="/status/control/postop"')
-    expect(preop).toContain('href="/status/control/theatres"')
-    expect(preop).toContain('href="/status/control/indicators"')
+    // Theatres and indicators belong to the Hospital group (1.11.0): its first page is linked from every page.
+    expect(preop).toContain('href="/status/control/hospital"')
+    expect(preop).toContain('href="/status/control/clinical"')
     expect(preop).toContain('href="/status/control/intraop"')
     expect(preop).toContain('href="/status/control/drug-colors"')
     expect(preop).not.toContain('class="statusnav subnav control-subnav"')
@@ -509,14 +510,15 @@ describe("Status Hospital control plane", () => {
     // The preop editor has its own page; the guidance page no longer holds it.
     expect(clinical).not.toContain("data-preop-order-list")
     expect(preop).not.toContain("Правилата са готови")
-    expect(preop).toContain("data-preop-order-list")
-    expect(preop).toContain("data-preop-order-row")
-    expect(preop).toContain('draggable="true"')
-    expect(preop).toContain('data-move="up"')
-    expect(preop).toContain('data-move="down"')
+    // The page opens on the sections tab (1.11.0); the questions are a tab of their own.
+    expect(preop).toContain('href="/status/control/preop" aria-current="page">Раздели</a>')
+    expect(questions).toContain("data-preop-order-row")
+    expect(questions).toContain('draggable="true"')
+    expect(questions).toContain('data-move="up"')
+    expect(questions).toContain('data-move="down"')
     // Status sends script-src 'self': an inline <script> is blocked by the
     // browser, which left drag and the arrow buttons doing nothing.
-    expect(preop).toContain('<script src="/status/preop-order.js" defer></script>')
+    expect(questions).toContain('<script src="/status/preop-order.js" defer></script>')
     expect(clinical).not.toMatch(/<script>\(\(\) =>/)
     const script = await app.request("/status/preop-order.js")
     expect(script.status).toBe(200)
@@ -529,7 +531,7 @@ describe("Status Hospital control plane", () => {
     expect(all).not.toContain("patientName")
     expect(all).not.toContain("credentialCiphertext")
     expect(all).not.toContain("credentialAuthTag")
-    expect(controlPlane.get).toHaveBeenCalledTimes(12) // one read per page: eight skin pages, four legacy
+    expect(controlPlane.get).toHaveBeenCalledTimes(13) // one read per page: nine skin pages, four legacy
   })
 
   it("saves the complete preoperative profile only after password confirmation", async () => {
@@ -611,7 +613,7 @@ describe("Status Hospital control plane", () => {
     }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
-    const response = await app.request("/status/control/preop", { headers: { cookie } })
+    const response = await app.request("/status/control/preop/questions", { headers: { cookie } })
     expect(response.status).toBe(200)
     const html = await response.text()
     const section = (id: string) => html.slice(html.indexOf("id=\"" + id + "\""), html.indexOf("</section>", html.indexOf("id=\"" + id + "\"")))
@@ -655,7 +657,7 @@ describe("Status Hospital control plane", () => {
     view.preoperative.administration = { catalog: [functional, procedure], activeProfile: adult, activeProfiles: { ADULT: adult, PEDIATRIC: { ...adult, id: "profile-2", questions: [] } } }
     vi.spyOn(controlPlane, "get").mockResolvedValue(view)
     const cookie = await passwordCookie(app, auth)
-    const html = await (await app.request("/status/control/preop", { headers: { cookie } })).text()
+    const html = await (await app.request("/status/control/preop/questions", { headers: { cookie } })).text()
     const adults = html.slice(html.indexOf("id=\"preop-adults\""), html.indexOf("</section>", html.indexOf("id=\"preop-adults\"")))
     const kids = html.slice(html.indexOf("id=\"preop-children\""), html.indexOf("</section>", html.indexOf("id=\"preop-children\"")))
     // Off while only one of its questions is on; the questions keep their own boxes.

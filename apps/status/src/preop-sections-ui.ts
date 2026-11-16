@@ -151,12 +151,14 @@ export function renderPreopOrderListsEditor(sections: PreopSectionsView | undefi
 }
 
 /** The sub-tabs of the preoperative form's pages. */
-export const PREOP_TABS = ["questions", "sections", "orders", "documents"] as const
+// In the order the form is set up (1.11.0): which sections it has, then what
+// is asked in them; the page opens on the sections.
+export const PREOP_TABS = ["sections", "questions", "orders", "documents"] as const
 export type PreopTab = typeof PREOP_TABS[number]
 
 export function preopTabFor(section: string | undefined): PreopTab {
-  const tab = section?.startsWith("preop/") ? section.slice("preop/".length) : "questions"
-  return (PREOP_TABS as readonly string[]).includes(tab) ? tab as PreopTab : "questions"
+  const tab = section?.startsWith("preop/") ? section.slice("preop/".length) : "sections"
+  return (PREOP_TABS as readonly string[]).includes(tab) ? tab as PreopTab : "sections"
 }
 
 export function renderPreopTabs(active: PreopTab, locale: StatusLocale): string {
@@ -167,5 +169,5 @@ export function renderPreopTabs(active: PreopTab, locale: StatusLocale): string 
     documents: localize(locale, "Summary and consent", "Обобщение и съгласие"),
   }
   return `<nav class="statusnav subnav preop-tabs" aria-label="${localize(locale, "Preoperative form", "Предоперативна форма")}">${PREOP_TABS.map(tab =>
-    `<a href="/status/control/preop${tab === "questions" ? "" : `/${tab}`}"${tab === active ? ' aria-current="page"' : ""}>${labels[tab]}</a>`).join("")}</nav>`
+    `<a href="/status/control/preop${tab === "sections" ? "" : `/${tab}`}"${tab === active ? ' aria-current="page"' : ""}>${labels[tab]}</a>`).join("")}</nav>`
 }

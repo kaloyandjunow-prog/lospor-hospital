@@ -1473,6 +1473,7 @@ export function createStatusApp({
   app.get("/status/control/preop", context => controlGet(context, "preop"))
   // 1.7.0: the preoperative form's tabs, and the postoperative form.
   app.get("/status/control/preop/sections", context => controlGet(context, "preop/sections"))
+  app.get("/status/control/preop/questions", context => controlGet(context, "preop/questions"))
   app.get("/status/control/preop/orders", context => controlGet(context, "preop/orders"))
   app.get("/status/control/preop/documents", context => controlGet(context, "preop/documents"))
   app.get("/status/control/postop", context => controlGet(context, "postop"))
@@ -1685,7 +1686,7 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The preoperative profile was saved and audited. Cases of that population pick up the change on their next load; answers already given are kept.", "Профилът за предоперативна оценка е запазен и записан в одитния журнал. Случаите от тази група получават промяната при следващото си отваряне; вече дадените отговори се запазват."),
-    "preop",
+    "preop/questions",
   ))
 
   // The preop sections, the postop sections, the order lists or the
