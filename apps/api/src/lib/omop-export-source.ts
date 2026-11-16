@@ -4,102 +4,55 @@ import { redactText } from "@/lib/pii-check"
 
 type ExportRow = Prisma.CaseGetPayload<{ select: typeof CASE_SELECT }>
 
-// Redacts the free-text fields this export actually selects ??? scalar String
+// Redacts the free-text fields this export actually selects — scalar String
 // fields a clinician can type into directly, plus the freeform keyEvents
 // JSON blob and each CaseEvent's label/value. Coded fields (comorbidities,
 // diagnosesJson, proceduresJson, labRows) are left untouched: they're
 // structured vocabulary entries, and blanket-redacting them would corrupt
 // legitimate two-word diagnosis/institution labels via the name-pattern check.
-export type ExportRedactionOptions = {
-  /**
-   * Whether redacted free text leaves at all.
-   *
-   * The export policy has offered this to administrators since 1.0.0, storing
-   * and audit-logging the answer while nothing read it: free text was redacted
-   * and sent regardless. An administrator could switch it off and watch the
-   * setting save, and the text still left. A governance control that reports
-   * success and changes nothing is worse than not offering one.
-   *
-   * True keeps the existing behaviour -- the text leaves, redacted. False drops
-   * the free-text fields entirely, which is the stricter reading of the name
-   * and the only one an administrator turning it off could reasonably want.
-   * Coded fields are untouched either way; they are vocabulary entries, not
-   * prose, and dropping them would empty the export of its clinical content.
-   */
-  includeRedactedText?: boolean
-}
-
-export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = {}) {
-  const includeText = options.includeRedactedText ?? true
-  // Redacted when the text may leave, dropped when it may not.
-  const text = <T extends string | null | undefined>(value: T): T | null => {
-    if (!includeText) return null
-    return value ? (redactText(value) as T) : value
-  }
-  // The comment above explains why the coded JSON columns are left alone. The
-  // scalar columns below hold the *same* clinical vocabulary, and they were
-  // going through the full name-pattern check -- so a register received
-  // "[REDACTED]" where a diagnosis belonged. In Bulgarian it was worse than a
-  // guess misfiring: the old pattern treated every Cyrillic letter as a
-  // capital, so any two adjacent Cyrillic words matched and ordinary clinical
-  // text was destroyed wholesale on the way out.
-  //
-  // 9.14.2: coded fields now leave as they are. A diagnosis or drug name is not
-  // where a patient's identity is written, and on a hospital appliance
-  // identifying text is no longer refused at save, so free text -- which keeps
-  // every rule, the name rule included -- is where it is cleaned.
-  const codedText = <T extends string | null | undefined>(value: T): T | null => {
-    if (!includeText) return null
-    return value
-  }
-  // The same, for the coded fields the mapper types as non-nullable strings.
-  // They cannot be dropped to null without changing the row's shape, so they
-  // are emptied instead when text may not leave.
-  const codedRequiredText = (value: string): string =>
-    includeText ? value : ""
-
+//
+// That reasoning was right but was applied only to the JSON columns. The
+// scalar columns below hold the *same* clinical vocabulary, and they were
+// going through the full name-pattern check — so a register received
+// "[REDACTED]" where a diagnosis belonged ("Acute Cholecystitis" and
+// "Sodium Chloride" both read as names). They now use nameHeuristic: false,
+// which keeps every structural check — EGN, long numbers, dates, email — and
+// drops only the two-capitalised-words guess that cannot tell a disease from
+// a patient. Genuine prose keeps the guess on.
+//
+// 9.14.2: free text only. Coded fields now pass through as they are: the
+// structural checks still ran on them, and a diagnosis or drug name is not where
+// a patient's identity is written. Every free-text field keeps every rule, the
+// name rule included -- on a hospital appliance identifying text is no longer
+// refused at save, so this is where it is cleaned.
+export function redactExportRow(c: ExportRow) {
   return {
     ...c,
     preop: c.preop ? {
       ...c.preop,
-      // Coded clinical vocabulary.
-      diagnosis: codedRequiredText(c.preop.diagnosis),
-      plannedProcedure: codedRequiredText(c.preop.plannedProcedure),
-      allergyDetails: codedText(c.preop.allergyDetails),
-      currentMedications: codedText(c.preop.currentMedications),
+      // Coded clinical vocabulary (diagnosis, procedure, allergy and medication
+      // lists, medication names) passes through.
       // Free prose written by a clinician, so it goes through the same
       // redaction as every other note before it can leave.
-      familyAnesthesiaDetails: text(c.preop.familyAnesthesiaDetails),
-      difficultAirwayNotes: text(c.preop.difficultAirwayNotes),
-      medications: c.preop.medications.map(row => ({
-        ...row,
-        nameRaw: codedRequiredText(row.nameRaw),
-      })),
+      familyAnesthesiaDetails: c.preop.familyAnesthesiaDetails ? redactText(c.preop.familyAnesthesiaDetails) : c.preop.familyAnesthesiaDetails,
+      difficultAirwayNotes: c.preop.difficultAirwayNotes ? redactText(c.preop.difficultAirwayNotes) : c.preop.difficultAirwayNotes,
     } : c.preop,
     events: (c.events ?? []).map(e => ({
       ...e,
-      // label is the coded event/drug name; value is whatever was recorded
-      // against it, so only the label is exempt.
-      label: codedText(e.label),
-      value: text(e.value),
+      // label is the coded event/drug name and passes through; value is
+      // whatever was recorded against it.
+      value: e.value ? redactText(e.value) : e.value,
     })),
     complications: (c.complications ?? []).map(comp => ({
       ...comp,
-      note: text(comp.note),
+      note: comp.note ? redactText(comp.note) : comp.note,
     })),
     intraop: c.intraop ? {
       ...c.intraop,
-      complications: text(c.intraop.complications),
-      premedicationEvening: text(c.intraop.premedicationEvening),
-      premedicationMorning: text(c.intraop.premedicationMorning),
-      // The freeform timetable blob. Dropping it entirely would take the
-      // structured intraoperative record with it, so when text may not leave it
-      // is emptied rather than removed.
-      keyEvents: includeText ? redactEventFreeText(c.intraop.keyEvents) : {},
-      premedicationRows: c.intraop.premedicationRows.map(row => ({
-        ...row,
-        nameRaw: codedRequiredText(row.nameRaw),
-      })),
+      complications: c.intraop.complications ? redactText(c.intraop.complications) : c.intraop.complications,
+      premedicationEvening: c.intraop.premedicationEvening ? redactText(c.intraop.premedicationEvening) : c.intraop.premedicationEvening,
+      premedicationMorning: c.intraop.premedicationMorning ? redactText(c.intraop.premedicationMorning) : c.intraop.premedicationMorning,
+      keyEvents: redactEventFreeText(c.intraop.keyEvents),
     } : c.intraop,
   }
 }
@@ -127,31 +80,6 @@ export function redactEventFreeText<T>(keyEvents: T): T {
 export const CASE_SELECT = {
   id: true, researchId: true, createdAt: true, status: true, clinicalMode: true, clinicalRulesVersion: true,
   institutionId: true,
-  patientLink: {
-    select: {
-      identifierHash: true,
-      institutionId: true,
-      // A record number identifies an admission, so keying a person on it makes
-      // the same patient a new person at every admission. The person link is
-      // what joins them, when the site knows one.
-      personLink: { select: { identifierHash: true, institutionId: true } },
-    },
-  },
-  centralExportControl: { select: { decision: true, reasonCode: true } },
-  centralExportCheckpoint: {
-    select: {
-      lastAction: true, clinicalRevision: true, eventRevision: true,
-      relationalRevision: true, preopRevision: true, intraopRevision: true,
-      postopRevision: true, acceptedAt: true,
-    },
-  },
-  centralExportRejection: {
-    select: {
-      clinicalRevision: true, eventRevision: true, relationalRevision: true,
-      preopRevision: true, intraopRevision: true, postopRevision: true,
-      errorCode: true, rejectedAt: true,
-    },
-  },
   // A cancelled procedure (10.0.0): exported with its cancellation.
   cancelledAt: true, cancellationReason: true,
   user: { select: { institution: { select: { name: true } } } },
@@ -159,7 +87,7 @@ export const CASE_SELECT = {
     select: { section: true, fieldKey: true, presence: true },
   },
   selections: {
-    select: { section: true, category: true, value: true, ordinal: true, sourceVocabulary: true, sourceCode: true, standardConceptId: true, mappingStatus: true },
+    select: { section: true, category: true, value: true, ordinal: true, sourceVocabulary: true, sourceCode: true, standardConceptId: true, mappingStatus: true, },
     orderBy: [{ section: "asc" }, { category: "asc" }, { ordinal: "asc" }],
   },
   complications: {
@@ -223,7 +151,6 @@ export const CASE_SELECT = {
   },
   preop: {
     select: {
-      syncRevision: true,
       ageYears: true, ageValue: true, ageUnit: true, ageApproxDays: true,
       sex: true, heightCm: true, weightKg: true, bodySurfaceAreaM2: true,
       bpSystolic: true, bpDiastolic: true, heartRate: true, spO2: true,
@@ -260,13 +187,11 @@ export const CASE_SELECT = {
       difficultAirwayHistory: true, mallampati: true, labResults: true,
       labRows: {
         select: {
-          test: true, valueNum: true, value: true, unit: true, unitCanon: true, loincCode: true,
-          sourceVocabulary: true, sourceCode: true, takenAt: true, abnormalFlag: true,
+          test: true, valueNum: true, value: true, unitCanon: true, loincCode: true, abnormalFlag: true,
           // A result the lab reported as text, and the range it was judged
           // against. Without the range, "high" is an assertion the export
           // cannot support; without the text, a qualitative result vanished.
           referenceLow: true, referenceHigh: true,
-          criticalLow: true, criticalHigh: true,
           standardConceptId: true, mappingStatus: true,
         },
       },
@@ -338,11 +263,9 @@ export const CASE_SELECT = {
   },
   intraop: {
     select: {
-      syncRevision: true,
       startedAt: true, endedAt: true, timezone: true,
       startTime: true, endTime: true, durationMinutes: true, monthYear: true,
       techniques: true, keyEvents: true, airwayDevice: true,
-      presentsIntubated: true, airwayNotApplicable: true,
       // Airway management detail. None of this used to leave the appliance, so
       // an export could say a tube was placed but never which one, what size,
       // whether it was cuffed, or how hard the laryngoscopy was -- the part a
@@ -356,16 +279,6 @@ export const CASE_SELECT = {
       ventilationModes: true, ippv: true, jetVentilation: true, peepCmH2O: true,
       crystalloidsMl: true, colloidsMl: true, bloodMl: true, infusionsMl: true, urineMl: true, bloodLossMl: true,
       complications: true, premedicationEvening: true, premedicationMorning: true,
-      labRows: {
-        select: {
-          test: true, valueNum: true, value: true, unit: true, unitCanon: true, loincCode: true,
-          sourceVocabulary: true, sourceCode: true, takenAt: true, abnormalFlag: true,
-          referenceLow: true, referenceHigh: true,
-          criticalLow: true, criticalHigh: true,
-          standardConceptId: true, mappingStatus: true,
-        },
-        orderBy: [{ takenAt: "asc" }, { ordinal: "asc" }],
-      },
       vascularAccessRows: {
         select: { site: true, siteLabel: true, size: true, sizeUnit: true, depthCm: true, lumens: true, preexisting: true, failed: true, failedAt: true, insertedAt: true, ordinal: true, sourceVocabulary: true, sourceCode: true, standardConceptId: true, mappingStatus: true, },
         orderBy: { ordinal: "asc" },
@@ -381,7 +294,6 @@ export const CASE_SELECT = {
   },
   postop: {
     select: {
-      syncRevision: true,
       aldreteActivity: true, aldreteRespiration: true, aldreteCirculation: true, aldreteConsciousness: true, aldreteSpO2: true,
       aldreteTotal: true, painScoreNRS: true, pediatricPainScale: true,
       stewardConsciousness: true, stewardAirway: true, stewardMovement: true, stewardTotal: true,
@@ -403,9 +315,6 @@ export const CASE_SELECT = {
     take: 1,
     select: { id: true },
   },
-  clinicalRevision: true,
-  eventRevision: true,
-  relationalRevision: true,
   updatedAt:   true,
   finalizedAt: true,
 } satisfies Prisma.CaseSelect

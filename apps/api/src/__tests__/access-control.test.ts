@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   canReadCase,
   canAccessCaseWithOwnerFallback,
@@ -10,44 +10,15 @@ import {
 } from "@/lib/access-control"
 
 describe("access control helpers", () => {
-  beforeEach(() => vi.stubEnv("LOSPOR_DEPLOYMENT_MODE", ""))
-  afterEach(() => vi.unstubAllEnvs())
-
-  it("widens only hospital clinical reads when the persisted overlay is enabled", async () => {
-    vi.stubEnv("LOSPOR_DEPLOYMENT_MODE", "hospital")
-    const member = { id: "member-1", role: "MEMBER", accountKind: "CLINICAL", institutionId: "inst-1" }
-    const colleague = { userId: "colleague", createdById: "colleague", institutionId: "inst-1" }
-    const otherHospital = { userId: "other", createdById: "other", institutionId: "inst-2" }
-
-    await expect(canReadCase(member, colleague, true)).resolves.toBe(true)
-    await expect(canReadCase(member, otherHospital, true)).resolves.toBe(false)
-    await expect(canReadCase({ ...member, accountKind: "RESEARCH_ONLY" }, colleague, true)).resolves.toBe(false)
-    await expect(caseReadWhereForUser(member, undefined, true)).resolves.toEqual({
-      OR: [{ userId: "member-1" }, { createdById: "member-1" }, { institutionId: "inst-1" }],
-    })
-    expect(canWriteCase(member, colleague)).toBe(false)
-  })
-
-  it("keeps the member read scope narrow when the hospital overlay is off", async () => {
-    vi.stubEnv("LOSPOR_DEPLOYMENT_MODE", "hospital")
-    const member = { id: "member-1", role: "MEMBER", accountKind: "CLINICAL", institutionId: "inst-1" }
-    const colleague = { userId: "colleague", createdById: "colleague", institutionId: "inst-1" }
-
-    await expect(canReadCase(member, colleague, false)).resolves.toBe(false)
-    await expect(caseReadWhereForUser(member, undefined, false)).resolves.toEqual({
-      OR: [{ userId: "member-1" }, { createdById: "member-1", institutionId: "inst-1" }],
-    })
-  })
-
-  it("falls back to own cases for a head of department without an institution", async () => {
+  it("falls back to own cases for a head of department without an institution", () => {
     const user = { id: "hod-1", role: "HEAD_OF_DEPT", institutionId: null }
 
-    await expect(caseReadWhereForUser(user)).resolves.toEqual({ userId: "hod-1" })
-    await expect(canReadCase(user, { userId: "other", user: { institutionId: null } })).resolves.toBe(false)
-    await expect(canReadCase(user, { userId: "hod-1", user: { institutionId: null } })).resolves.toBe(true)
+    expect(caseReadWhereForUser(user)).toEqual({ userId: "hod-1" })
+    expect(canReadCase(user, { userId: "other", user: { institutionId: null } })).toBe(false)
+    expect(canReadCase(user, { userId: "hod-1", user: { institutionId: null } })).toBe(true)
   })
 
-  it("scopes head of department access to their institution, plus their own cases anywhere", async () => {
+  it("scopes head of department access to their institution, plus their own cases anywhere", () => {
     const user = { id: "hod-1", role: "HEAD_OF_DEPT", institutionId: "inst-1" }
 
     // Scopes by the case's own institution snapshot, or by being the
@@ -59,20 +30,20 @@ describe("access control helpers", () => {
     // unconditionally, before it ever looks at institution, so promoting a
     // clinician to HOD must not silently drop the cases assigned to them at
     // a different institution — that was the bug this OR fixes.
-    await expect(caseReadWhereForUser(user)).resolves.toEqual({
+    expect(caseReadWhereForUser(user)).toEqual({
       OR: [{ userId: "hod-1" }, { institutionId: "inst-1" }],
     })
     expect(caseWriteWhereForUser(user)).toEqual({
       OR: [{ userId: "hod-1" }, { institutionId: "inst-1" }],
     })
-    await expect(canReadCase(user, { userId: "other", institutionId: "inst-1" })).resolves.toBe(true)
-    await expect(canReadCase(user, { userId: "other", institutionId: "inst-2" })).resolves.toBe(false)
+    expect(canReadCase(user, { userId: "other", institutionId: "inst-1" })).toBe(true)
+    expect(canReadCase(user, { userId: "other", institutionId: "inst-2" })).toBe(false)
     // The owner's institution is not consulted, whichever it is.
-    await expect(canReadCase(user, { userId: "other", user: { institutionId: "inst-1" } })).resolves.toBe(false)
-    await expect(canReadCase(user, { userId: "other", user: { institutionId: "inst-2" } })).resolves.toBe(false)
+    expect(canReadCase(user, { userId: "other", user: { institutionId: "inst-1" } })).toBe(false)
+    expect(canReadCase(user, { userId: "other", user: { institutionId: "inst-2" } })).toBe(false)
     // canReadCase already said yes to this — the case reserving this
     // regression was that the list/detail scope disagreed with it.
-    await expect(canReadCase(user, { userId: "hod-1", institutionId: "inst-2" })).resolves.toBe(true)
+    expect(canReadCase(user, { userId: "hod-1", institutionId: "inst-2" })).toBe(true)
     expect(canWriteCase(user, { userId: "hod-1", institutionId: "inst-2" })).toBe(true)
   })
 
@@ -96,22 +67,22 @@ describe("access control helpers", () => {
     expect(colleagueWhereForUser({ id: "hod-1", role: "HEAD_OF_DEPT", institutionId: null })).toBeNull()
   })
 
-  it("gives a same-institution creator read-only access after handover", async () => {
+  it("gives a same-institution creator read-only access after handover", () => {
     const creator = { id: "creator", role: "MEMBER", institutionId: "inst-1" }
     const handedOver = {
       userId: "assignee",
       createdById: "creator",
       institutionId: "inst-1",
     }
-    await expect(canReadCase(creator, handedOver)).resolves.toBe(true)
+    expect(canReadCase(creator, handedOver)).toBe(true)
     expect(canWriteCase(creator, handedOver)).toBe(false)
-    await expect(caseCapabilitiesForUser(creator, handedOver)).resolves.toEqual({
+    expect(caseCapabilitiesForUser(creator, handedOver)).toEqual({
       canRead: true,
       canWrite: false,
       isCreator: true,
       isAssignee: false,
     })
-    await expect(caseReadWhereForUser(creator)).resolves.toEqual({
+    expect(caseReadWhereForUser(creator)).toEqual({
       OR: [
         { userId: "creator" },
         { createdById: "creator", institutionId: "inst-1" },
@@ -120,10 +91,10 @@ describe("access control helpers", () => {
     expect(caseWriteWhereForUser(creator)).toEqual({ userId: "creator" })
   })
 
-  it("drops creator visibility after the creator leaves the case institution", async () => {
-    await expect(canReadCase(
+  it("drops creator visibility after the creator leaves the case institution", () => {
+    expect(canReadCase(
       { id: "creator", role: "MEMBER", institutionId: "inst-2" },
       { userId: "assignee", createdById: "creator", institutionId: "inst-1" },
-    )).resolves.toBe(false)
+    )).toBe(false)
   })
 })
