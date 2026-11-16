@@ -19,6 +19,13 @@ Installer only: nothing changes on an installed appliance. Install new sites wit
 
 ### Fixed
 
+- **A new server could stop its first installation on "system clock is not confirmed synchronized".** The first
+  boot reached the readiness check seconds after the network came up, before the time server had answered (19 s later
+  on the server this was found on), and `time-sync.target` does not wait for it. The first boot now waits up to ten
+  minutes for the clock to be confirmed and says so; a clock that never synchronizes still fails the check, with its
+  own message. The server must reach a time server on UDP port 123, internal or public. After a failure the answers
+  are removed, because they hold the administrator's password, so the installation then has to be started again from
+  the console.
 - **The server's address could change after installation.** A VM from the Hyper-V kit takes its address from the
   hospital's DHCP with a dynamic MAC, so a new lease, or the VM moving to another host, could give it another
   address while the two DNS names kept pointing to the old one. The kit now makes the MAC Ubuntu installed with

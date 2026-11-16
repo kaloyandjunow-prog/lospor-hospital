@@ -179,4 +179,29 @@ grep -qx 'step=' "$result" || fail "the finished result still carries a step"
 grep -qx "LOSPOR_PROGRESS_FILE=$runtime/progress" "$work/record.env" || fail "the installer was not given the progress file"
 ok "each installer step is reported to Hyper-V while it runs, with its number"
 
+# 8. The installation waits for the clock to be confirmed, instead of stopping on a
+#    server whose time server answers a few seconds after the network is up.
+mkdir -p "$work/bin"
+cat > "$work/bin/timedatectl" <<'STUB'
+#!/bin/sh
+# Not synchronized for the first two asks, then synchronized.
+count="$(cat "$FAKE_CLOCK_COUNT" 2>/dev/null || echo 0)"
+printf '%s\n' "$((count + 1))" > "$FAKE_CLOCK_COUNT"
+if [ "$count" -ge 2 ]; then echo yes; else echo no; fi
+STUB
+chmod +x "$work/bin/timedatectl"
+answers local
+rm -f "$work/clock.count"
+run env PATH="$work/bin:$PATH" FAKE_CLOCK_COUNT="$work/clock.count" LOSPOR_FIRSTBOOT_CLOCK_WAIT_SECONDS=60 || fail "the installation did not go on once the clock was confirmed"
+[ "$(cat "$work/clock.count")" -ge 3 ] || fail "the installation did not wait for the clock"
+grep -q "Waiting for this server to synchronize its clock" "$log" || fail "the wait was not reported"
+[ -f "$work/record.env" ] || fail "the installer did not run after the clock was confirmed"
+# A clock that never synchronizes does not hold the installation forever: the
+# readiness check then fails with its own message.
+answers local
+printf '#!/bin/sh\necho no\n' > "$work/bin/timedatectl"
+run env PATH="$work/bin:$PATH" LOSPOR_FIRSTBOOT_CLOCK_WAIT_SECONDS=5 || fail "an unsynchronized clock stopped the first boot before the installer could say so"
+[ -f "$work/record.env" ] || fail "the installer was not reached with an unsynchronized clock"
+ok "the first boot waits for the clock to be confirmed, for a bounded time, and says so"
+
 printf 'firstboot tests passed (%s)\n' "$tests"

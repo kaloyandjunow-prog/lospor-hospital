@@ -42,6 +42,8 @@ kvp_pool=/var/lib/hyperv/.kvp_pool_1
 log=/var/log/lospor-firstboot.log
 console_user=lospor
 dns_wait_seconds=3600
+# How long to wait for the clock to be confirmed synchronized (below).
+clock_wait_seconds=600
 
 if [ "${LOSPOR_FIRSTBOOT_TEST_ONLY:-0}" = 1 ]; then
   state_dir="$LOSPOR_FIRSTBOOT_STATE_DIR"
@@ -54,6 +56,7 @@ if [ "${LOSPOR_FIRSTBOOT_TEST_ONLY:-0}" = 1 ]; then
   log="$LOSPOR_FIRSTBOOT_LOG"
   console_user="$(id -un)"
   dns_wait_seconds="${LOSPOR_FIRSTBOOT_DNS_WAIT_SECONDS:-0}"
+  clock_wait_seconds="${LOSPOR_FIRSTBOOT_CLOCK_WAIT_SECONDS:-0}"
 fi
 
 ANSWER_KEYS="LOSPOR_DEFAULT_LOCALE LOSPOR_RELEASE_VERSION HOSPITAL_CLINICAL_DOMAIN HOSPITAL_RESEARCH_DOMAIN HOSPITAL_TLS_MODE ACME_EMAIL HOSPITAL_INSTITUTION_NAME HOSPITAL_INSTITUTION_CITY HOSPITAL_BOOTSTRAP_ADMIN_EMAIL HOSPITAL_BOOTSTRAP_ADMIN_USERNAME HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME"
@@ -182,6 +185,22 @@ while ! getent ahosts "$HOSPITAL_CLINICAL_DOMAIN" >/dev/null 2>&1 || ! getent ah
   [ "$waited" -gt 0 ] || report installing "Waiting for DNS: add $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN pointing to this server's address ${address:-(not known yet)}, and reserve that address in DHCP${mac:+ for MAC $mac}. Installation continues by itself once both names resolve."
   sleep 15
   waited=$((waited + 15))
+done
+
+# ── The clock must be confirmed before the readiness check (1.11.1) ─────────
+# time-sync.target does not wait for NTP unless systemd-time-wait-sync is
+# enabled, and it is not: on a new server this script reaches the readiness
+# check seconds after the network is up, before systemd-timesyncd has contacted
+# a time server (19 s later, on the machine this was found on), and the
+# installation stopped on "system clock is not confirmed synchronized". Waiting
+# here, for a bounded time, lets the check see the truth; a clock that never
+# synchronizes still fails the check, with its own message.
+clock_waited=0
+while [ "$(timedatectl show --property=NTPSynchronized --value 2>/dev/null || true)" != yes ]; do
+  [ "$clock_waited" -lt "$clock_wait_seconds" ] || break
+  [ "$clock_waited" -gt 0 ] || report installing "Waiting for this server to synchronize its clock with a time server (NTP). Hospital IT: the server must reach one, internal or public, on UDP port 123."
+  sleep 5
+  clock_waited=$((clock_waited + 5))
 done
 
 # ── Secrets: into memory or into place, and off the disk ────────────────────

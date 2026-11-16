@@ -59,6 +59,9 @@ Then nothing needs typing, and the window follows it through:
    - If the two DNS names are not there yet, it says so, with the server's
      address and MAC, and continues once IT adds them. It waits an hour; after
      that, run `sudo systemctl start firstboot-lospor` on the console.
+   - It then waits, up to ten minutes, for the server's clock to be confirmed
+     by a time server (NTP, UDP port 123, internal or public). Without that the
+     readiness check stops the installation.
    - **The server takes its address from DHCP.** IT reserves that address for
      the MAC shown (or gives the server the address as a fixed one), at the
      same time as the DNS names. Without it a later lease can move the server
