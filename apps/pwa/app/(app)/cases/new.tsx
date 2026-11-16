@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ApiError, apiFetch, apiJson } from "@/lib/api"
+import { ApiError, apiFetch } from "@/lib/api"
 import { autosaveManager, isServerRefusal } from "@/lib/autosave-manager"
 import { usePreopProfile } from "@/lib/use-preop-profile"
 import { PREOP_MH_SUSCEPTIBILITY_GROUP, type PreopFormSection } from "@lospor/core/preop-assessment"
@@ -14,23 +14,17 @@ import { fetchMissingRequiredPreop, missingRequiredPreopMessage } from "@/lib/pr
 import { PreopQuestionList } from "@/components/preop/PreopQuestionList"
 import { PreopAnamnesisFields } from "@/components/preop/PreopAnamnesisFields"
 import { ensureSavedCaseForAi } from "@/lib/ensure-saved-case"
-import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftCanBeWritten, localDraftOwnerFromIdentity, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
-import { useAuth } from "@/lib/auth-context"
+import { deleteLocalCaseDraft, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
 import { usePreopFormOpen } from "@/lib/preop-open-forms"
 import { buildPreopPayload } from "@/lib/preop-payload"
 import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
 import { buildPreopSectionItems, preopOverviewText } from "@/lib/preop-section-overview"
 import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
+import { usePreopDraftLoader } from "@/lib/use-preop-draft-loader"
 import { autosaveDelayMs, isDiscreteTapChange } from "@/lib/preop-autosave-cadence"
 import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage, preopMissingFieldKeys } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
-import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
-import { PatientIdentityField } from "@/components/PatientIdentityField"
-import { EhrImportOffer } from "@/components/EhrImportOffer"
-import { recordEhrDecisions } from "@/lib/ehr-import"
-import { ehrFieldLabel } from "@/lib/ehr-field-labels"
-import { applyEhrImportToForm, toggleClinicalMode } from "@/lib/clinical-mode-switch"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { startIntraop } from "@/lib/start-intraop"
 import { usePreopDocumentSettings } from "@/lib/preop-documents"
@@ -38,7 +32,6 @@ import { ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } f
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
 import { ProcedureOperationPicker } from "@/components/ProcedureOperationPicker"
-const USE_NATIVE_DRIVER = Platform.OS !== "web"
 import { notify } from "@/lib/notify"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { PreopSectionCard as SectionCard } from "@/components/preop/PreopSectionCard"
@@ -83,7 +76,6 @@ import {
   PediatricFastingFields,
   PediatricVitalReferenceNote,
 } from "@/components/preop/PediatricPreopSections"
-import { useReadinessFocus } from "@/lib/use-readiness-focus"
 
 const SECTION_RAIL_EXPANDED_HEIGHT = 68
 
@@ -97,7 +89,7 @@ export default function NewCaseScreen() {
   const { continue: continueId, localId: localIdParam, focus } = useLocalSearchParams<{ continue?: string; localId?: string; focus?: string }>()
   const insets = useSafeAreaInsets()
   const { preopLayout, t, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit, shade } = usePreferences()
-  const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
+  const { clinicalAi, pediatricMode: pediatricModeCapability } = useDeploymentCapabilities()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const ageRange         = useRangeSpec("AGE_RANGE")
   const heightRange      = useRangeSpec("HEIGHT_RANGE")
@@ -198,8 +190,6 @@ export default function NewCaseScreen() {
     })
     return `${tc("fieldNotSavedOutOfRange")}: ${names.join(", ")}`
   }, [tc])
-  const { identity } = useAuth()
-  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
   const localIdRef = useRef<string | null>(localIdParam ?? null)
   const autosaveDraftRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveInFlightRef = useRef<Promise<void> | null>(null)
@@ -210,7 +200,6 @@ export default function NewCaseScreen() {
   const draftIdRef = useRef<string>(makeLocalCaseId())
   const [caseId, setCaseId] = useState<string | null>(null)
   usePreopFormOpen(caseId)
-  const [patientReference, setPatientReference] = useState<PatientReference | null>(null)
   const [persistedPediatricRecord, setPersistedPediatricRecord] = useState(false)
   const [preopFinalizedAt, setPreopFinalizedAt] = useState<string | null>(null)
   const [preopCaseStatus,  setPreopCaseStatus]  = useState<string | null>(null)
@@ -248,10 +237,6 @@ export default function NewCaseScreen() {
   const pediatricMode = clinicalMode === "PEDIATRIC"
 
   const rcriInputs = useWatch({ control, name: ["rcriIschemicHeart", "rcriCHF", "rcriCVD", "rcriInsulinDM", "rcriCreatinine"] })
-  // The record number as typed, for the import lookup. Watched rather than
-  // read from getValues so the offer appears as soon as it is entered.
-  const patientNumberWatch = useWatch({ control, name: "patientNumber" })
-  const patientNationalIdWatch = useWatch({ control, name: "patientNationalId" })
   const stopbangInputs = useWatch({ control, name: ["stopbangSnoring", "stopbangTired", "stopbangObserved", "stopbangBP", "stopbangNeck"] })
   // Not yet known (10.0.0): sets the procedure search aside.
   const procedureUndetermined = useWatch({ control, name: "procedureUndetermined" })
@@ -343,21 +328,20 @@ export default function NewCaseScreen() {
   // Attempt to create the case on the server with current form values.
   // Returns the new caseId on success, null on failure.
   const clearLocalDraft = useCallback(async () => {
-    if (localIdRef.current && draftOwner) {
-      await deleteLocalCaseDraft(localIdRef.current, draftOwner)
+    if (localIdRef.current) {
+      await deleteLocalCaseDraft(localIdRef.current)
       localIdRef.current = null
     }
-  }, [draftOwner])
+  }, [])
 
   const tryCreateServerCase = useCallback(async (values: FormInput): Promise<string | null> => {
-    if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
-    const result = await postPreopServerCase(values, draftIdRef.current, apiFetch, draftOwner)
+    const result = await postPreopServerCase(values, draftIdRef.current, apiFetch)
     if (!result) return null
     if (!result.ok) {
       if (result.status != null) {
-        console.error("[LOSPOR] POST /api/cases failed", result.status)
+        console.error("[LOSPOR] POST /api/cases failed", result.status, result.body ?? {})
       } else {
-        console.error("[LOSPOR] POST /api/cases NETWORK_ERROR")
+        console.error("[LOSPOR] POST /api/cases network error", result.error)
       }
       setSaveError(tc("caseSaveFailed"))
       return null
@@ -365,7 +349,6 @@ export default function NewCaseScreen() {
     setSaveError(null)
     caseIdRef.current = result.id
     setCaseId(result.id)
-    setPatientReference(result.patientReference)
     setPersistedPediatricRecord(values.clinicalMode === "PEDIATRIC")
     void clearLocalDraft()
     autosaveManager.hydrateSection(
@@ -386,99 +369,39 @@ export default function NewCaseScreen() {
       setBlockedIssue(null)
     }
     return result.id
-  }, [blockedMessage, clearLocalDraft, draftOwner, tc])
+  }, [blockedMessage, clearLocalDraft, tc])
 
   const persistLocalDraft = useCallback(async (values: FormInput): Promise<boolean> => {
-    if (!draftOwner) {
-      setSaveError(tc("storageDraftFailed"))
-      return false
-    }
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
-    const { patientNumber, patientNationalId: _patientNationalId, ...clinicalValues } = values
-    // A new case anchors its draft to the hospital patient number. Until one
-    // is entered there is nothing to write -- a form not yet filled in, not a
-    // fault -- so autosave stays silent and validation speaks at submit.
-    if (!await localDraftCanBeWritten({
-      localId: localIdRef.current,
-      owner: draftOwner,
-      serverCaseId: caseIdRef.current ?? undefined,
-      patientNumber,
-    })) return false
-    const ok = await saveLocalCaseDraft({
-      localId: localIdRef.current,
-      owner: draftOwner,
-      formValues: clinicalValues,
-      ...(caseIdRef.current ? { serverCaseId: caseIdRef.current } : { patientNumber }),
-    })
-    // State, not a log: a failure left on screen after the draft has since
-    // been written tells the clinician their work is unsaved when it is not.
+    const ok = await saveLocalCaseDraft(
+      localIdRef.current,
+      values,
+      caseIdRef.current ?? undefined,
+    )
+    // Set on failure and cleared on success: this banner is state, not a log.
+    // A failure left on screen after the draft has since been written tells
+    // the clinician their work is unsaved when it is saved.
     setSaveError(ok ? null : tc("storageDraftFailed"))
     return ok
-  }, [draftOwner, tc])
+  }, [tc])
 
-  // Load existing case when ?continue=<id> is in the URL
-  useEffect(() => {
-    if (!continueId) return
-    caseLoadedRef.current = false
-    caseIdRef.current = continueId
-    setCaseId(continueId)
-    // Flush any queued preop patch first: otherwise the GET below resets the form
-    // to the pre-edit snapshot while the patch waits for the 15 s flusher tick.
-    autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
-      apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string; patientReference?: unknown }>(`/api/cases/${continueId}`),
-      autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
-    ]))
-      .then(([caseData, queuedPreop]) => {
-        setPatientReference(patientReferenceFromResponse(caseData))
-        const p = caseData.preop ?? {}
-        const loadedValues = valuesFromServerPreop({ ...p, ...(queuedPreop ?? {}) }, caseData.clinicalMode) as FormInput
-        autosaveManager.hydrateSection(
-          continueId,
-          "preop",
-          buildPreopPayload(valuesFromServerPreop(p, caseData.clinicalMode) as FormInput),
-          p.syncRevision ?? p.updatedAt ?? null,
-        )
-        reset(loadedValues)
-        caseLoadedRef.current = true
-        setPersistedPediatricRecord(
-          (caseData.clinicalMode ?? loadedValues.clinicalMode) === "PEDIATRIC",
-        )
-        const managerState = autosaveManager.getState(continueId)
-        if (managerState.status === "blocked" && managerState.blocked) {
-          setBlockedIssue(managerState.blocked)
-          setSaveError(blockedMessage(managerState.blocked))
-          setDraftState("blocked")
-        }
-        setPreopFinalizedAt(caseData.finalizedAt ?? null)
-        setPreopCaseStatus(caseData.status ?? null)
-        void clearLocalDraft()
-      })
-      .catch(async (err: Error) => {
-        if (err instanceof ApiError && err.status === 404) {
-          caseIdRef.current = null
-          setCaseId(null)
-          setPersistedPediatricRecord(false)
-          notify(tc("errorLabel"), tc("draftNoLongerExists"))
-          router.replace("/(app)")
-          return
-        }
-        notify(tc("errorLabel"), tc("caseLoadFailed"))
-      })
-  }, [blockedMessage, clearLocalDraft, continueId, reset, router, tc])
-
-  // Restore local draft silently when opened from the dashboard via ?localId=
-  useEffect(() => {
-    if (continueId || !localIdParam || !draftOwner) return
-    loadLocalCaseDraft(localIdParam, draftOwner).then(draft => {
-      if (!draft) return
-      reset(draft.formValues as FormInput)
-      setDraftState("queued")
-    })
-  }, [continueId, draftOwner, localIdParam, reset])
-
-  // A readiness "Go to" opens the section it names once the case has loaded
-  // (9.14.0); upstream's shared loader does this, the appliance's own loads here.
-  useReadinessFocus(focus, caseLoadedRef, jumpTo)
+  // Reopening a case, by either route in. See @/lib/use-preop-draft-loader --
+  // including why a queued patch is flushed before the GET.
+  usePreopDraftLoader<FormInput>({
+    continueId,
+    localIdParam,
+    valuesFromServerPreop: (preop, mode) =>
+      valuesFromServerPreop(preop as ServerPreop, mode) as FormInput,
+    buildPreopPayload,
+    blockedMessage,
+    clearLocalDraft,
+    reset,
+    caseIdRef, caseLoadedRef, setCaseId, focus, jumpTo,
+    setPersistedPediatricRecord,
+    setBlockedIssue, setSaveError, setDraftState,
+    setPreopFinalizedAt, setPreopCaseStatus,
+    tc,
+  })
 
   // useWatch re-renders on every field change on native and web (watch(callback) is unreliable on Expo web).
   const _allFormValues = useWatch({ control })
@@ -539,12 +462,9 @@ export default function NewCaseScreen() {
               setDraftState(autosaveManager.getState(id).status === "blocked" ? "blocked" : "saved")
               return
             }
-            // Offline or error: save locally so the case appears on the dashboard.
-            // "queued" (and the "Saved locally" text it renders) is a claim
-            // about what actually happened, not a hope -- only make it when
-            // the write itself confirms it.
-            const storedLocally = await persistLocalDraft(values)
-            setDraftState(storedLocally ? "queued" : "blocked")
+            // Offline or error: save locally so the case appears on the dashboard
+            await persistLocalDraft(values)
+            setDraftState("queued")
             return
           }
           const preopPayload = buildPreopPayload(values)
@@ -570,8 +490,8 @@ export default function NewCaseScreen() {
             // Refused is not offline: never promise a 4xx "syncs when online".
             const refused = isServerRefusal(result.failure)
             setSaveError(tc(refused ? "caseSaveRefused" : "caseSaveQueued"))
-            const storedLocally = await persistLocalDraft(values)
-            setDraftState(refused || !storedLocally ? "blocked" : "queued")
+            await persistLocalDraft(values)
+            setDraftState(refused ? "blocked" : "queued")
           } else {
             setDraftState("idle")
           }
@@ -591,8 +511,8 @@ export default function NewCaseScreen() {
           if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 404 && error.status !== 409) {
             setSaveError(tc("caseSaveFailed"))
           }
-          const storedLocally = await persistLocalDraft(values).catch(() => false)
-          setDraftState(storedLocally ? "queued" : "blocked")
+          await persistLocalDraft(values).catch(() => {})
+          setDraftState("queued")
         }
       })()
       autosaveInFlightRef.current = task
@@ -628,8 +548,8 @@ export default function NewCaseScreen() {
     sectionFade.setValue(0)
     gestureScale.setValue(1)
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 240, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
-      Animated.timing(sectionFade, { toValue: 1, duration: 200, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 240, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(sectionFade, { toValue: 1, duration: 200, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
     ]).start()
   }, [gestureScale, screenWidth, sectionFade, slideAnim])
 
@@ -673,8 +593,8 @@ export default function NewCaseScreen() {
         // accelerated and stopped short at 60%, then the next one jumped in.
         const exitMs = sideSwipeExitMs(dir * screenWidth - sideSwipeFollow(gs.dx), gs.vx)
         Animated.parallel([
-          Animated.timing(slideAnim,   { toValue: dir * screenWidth, duration: exitMs, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
-          Animated.timing(sectionFade, { toValue: 0, duration: exitMs, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
+          Animated.timing(slideAnim,   { toValue: dir * screenWidth, duration: exitMs, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+          Animated.timing(sectionFade, { toValue: 0, duration: exitMs, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
         ]).start(() => {
           slideDir.current = -dir as 1 | -1
           setActiveSection(target)
@@ -683,15 +603,15 @@ export default function NewCaseScreen() {
         })
       } else {
         Animated.parallel([
-          Animated.spring(slideAnim,   { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 180, friction: 24 }),
-          Animated.timing(sectionFade, { toValue: 1, duration: 180, useNativeDriver: USE_NATIVE_DRIVER }),
+          Animated.spring(slideAnim,   { toValue: 0, useNativeDriver: true, tension: 180, friction: 24 }),
+          Animated.timing(sectionFade, { toValue: 1, duration: 180, useNativeDriver: true }),
         ]).start()
       }
     },
     onPanResponderTerminate: () => {
       Animated.parallel([
-        Animated.spring(slideAnim,   { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 180, friction: 24 }),
-        Animated.timing(sectionFade, { toValue: 1, duration: 180, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.spring(slideAnim,   { toValue: 0, useNativeDriver: true, tension: 180, friction: 24 }),
+        Animated.timing(sectionFade, { toValue: 1, duration: 180, useNativeDriver: true }),
       ]).start()
     },
   })).current
@@ -713,8 +633,8 @@ export default function NewCaseScreen() {
         return
       }
       Animated.parallel([
-        Animated.timing(slideAnim,   { toValue: -dir * screenWidth * 0.25, duration: 160, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
-        Animated.timing(sectionFade, { toValue: 0, duration: 160, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
+        Animated.timing(slideAnim,   { toValue: -dir * screenWidth * 0.25, duration: 160, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+        Animated.timing(sectionFade, { toValue: 0, duration: 160, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
       ]).start(() => {
         slideDir.current = dir as 1 | -1
         setActiveSection(section)
@@ -778,19 +698,6 @@ export default function NewCaseScreen() {
         setActiveSection(current)
       }
     }
-  }
-
-  // ИЗ № unless the site permits ЕГН and the clinician says so.
-  // The ЕГН finds the patient across admissions; without one, the record number.
-  const identifierType: "IZ" | "EGN" = patientNationalIdWatch?.trim() ? "EGN" : "IZ"
-
-  // Accepting is what brings the case into being: the imported values are
-  // usually what make it saveable. ensureCaseForAi does that and returns the
-  // id. A failure loses the decision record, not the values.
-  const recordAcceptedBeforeCase = async (importId: string, appliedKeys: string[]) => {
-    const id = await ensureCaseForAi()
-    if (!id) return
-    await recordEhrDecisions(id, importId, appliedKeys, [])
   }
 
   const ensureCaseForAi = () => ensureSavedCaseForAi({
@@ -914,14 +821,12 @@ export default function NewCaseScreen() {
         }
       } else {
         // No server case yet (offline during autosave); create it now
-        if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
-        const createResult = await postPreopServerCase(data, draftIdRef.current, apiFetch, draftOwner)
+        const createResult = await postPreopServerCase(data, draftIdRef.current, apiFetch)
         if (!createResult) throw new Error("Save failed")
         if (!createResult.ok) throw new Error(createResult.message)
         id = createResult.id
         caseIdRef.current = createResult.id
         setCaseId(createResult.id)
-        setPatientReference(createResult.patientReference)
         autosaveManager.hydrateSection(
           createResult.id,
           "preop",
@@ -1009,36 +914,6 @@ export default function NewCaseScreen() {
               </Text>
             )}
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
-              <PatientIdentityField
-                caseId={caseId}
-                egnPermitted={ehrImportCapability.egnPermitted}
-                control={control}
-                error={localizedPreopValidationMessage(errors.patientNumber?.message, tc)}
-                language={language}
-                reference={patientReference}
-                onReferenceChange={setPatientReference}
-                allowCorrection
-              />
-              {/* Directly under the number, because that is what it answers.
-                  The offer only exists once the case has an id and this
-                  deployment says it has a hospital system to ask. */}
-              <EhrImportOffer
-                caseId={caseId}
-                onAcceptedBeforeCase={recordAcceptedBeforeCase}
-                onRequestModeChange={pediatricModeCapability.enabled
-                  ? () => toggleClinicalMode(pediatricMode, getValues, setValue as never) : undefined}
-                identifierType={identifierType}
-                identifier={(patientNationalIdWatch?.trim() || patientNumberWatch) ?? null}
-                available={ehrImportCapability.enabled}
-                transport={ehrImportCapability.transport}
-                folderRequests={ehrImportCapability.folderRequests}
-                language={language}
-                current={getValues() as unknown as Record<string, unknown>}
-                currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}
-                labelFor={field => ehrFieldLabel(field, language)}
-                modeChangeAvailable={pediatricModeCapability.enabled}
-                onApply={(patch, modeChange) => applyEhrImportToForm(patch, modeChange, getValues as never, setValue as never)}
-              />
               <PediatricModeAgeFields
                 control={control}
                 setValue={setValue}
