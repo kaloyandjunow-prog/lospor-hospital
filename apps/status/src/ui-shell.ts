@@ -83,11 +83,11 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     { id: "services", path: "/status/services", en: "Status", bg: "Състояние", descEn: "How each part has worked, and what happened.", descBg: "Как е работила всяка част и какво се е случило.", audiences: BOTH },
   ] },
   { id: "connections", en: "System communication", bg: "Системна комуникация", items: [
-    { id: "hospital", path: "/status/control/ehr", en: "Hospital system", bg: "Болнична система", descEn: "The link that brings patient data from the hospital system.", descBg: "Връзката, която носи данните на пациента от болничната информационна система.", audiences: PASSWORD },
-    { id: "codes", path: "/status/control/codes", en: "Codes", bg: "Кодове", descEn: "How the hospital's lab, drug and vital-sign codes become LOSPOR's.", descBg: "Как кодовете на болницата за изследвания, лекарства и жизнени показатели стават кодове на LOSPOR.", audiences: PASSWORD },
-    { id: "terminology", path: "/status/terminology", en: "Terminology package", bg: "Терминологичен пакет", descEn: "The approved terminology package in use, and the one kept for going back.", descBg: "Използваният одобрен терминологичен пакет и този, запазен за връщане.", audiences: BOTH },
-    { id: "central", path: "/status/control/central", en: "LOSPOR Central", bg: "LOSPOR Central", descEn: "Sends finished, de-identified cases to LOSPOR Central. Push only.", descBg: "Изпраща завършените обезличени случаи към LOSPOR Central. Само изходящо.", audiences: PASSWORD },
-    { id: "ai", path: "/status/control/ai", en: "AI assistance", bg: "Помощ от ИИ", descEn: "Mistral (EU) for lab and monitor scans and adult advice.", descBg: "Mistral (ЕС) за сканиране на изследвания и монитор и за съвети при възрастни.", audiences: PASSWORD },
+    { id: "hospital", path: "/status/control/ehr", en: "Hospital system", bg: "Болнична информационна система (БИС)", descEn: "The link that brings patient data from the hospital system.", descBg: "Връзката, по която пристигат данните на пациента от БИС.", audiences: PASSWORD },
+    { id: "codes", path: "/status/control/codes", en: "Codes", bg: "Кодове от БИС", descEn: "How the hospital's lab, drug and vital-sign codes become LOSPOR's.", descBg: "Съпоставяне на кодовете от БИС за изследвания, лекарства и жизнени показатели с тези в LOSPOR.", audiences: PASSWORD },
+    { id: "terminology", path: "/status/terminology", en: "Terminology package", bg: "Номенклатури", descEn: "The approved terminology package in use, and the one kept for going back.", descBg: "Действащият пакет с номенклатури и предишният, запазен за връщане.", audiences: BOTH },
+    { id: "central", path: "/status/control/central", en: "LOSPOR Central", bg: "LOSPOR Central", descEn: "Sends finished, de-identified cases to LOSPOR Central. Push only.", descBg: "Изпращане на приключените обезличени (анонимизирани) случаи към LOSPOR Central. Връзката е само изходяща.", audiences: PASSWORD },
+    { id: "ai", path: "/status/control/ai", en: "AI assistance", bg: "Помощ от ИИ", descEn: "Mistral (EU) for lab and monitor scans and adult advice.", descBg: "Mistral (ЕС): разчитане на изследвания и монитор, съвети при възрастни.", audiences: PASSWORD },
   ] },
   { id: "clinical", en: "Clinical setup", bg: "Клинични настройки", items: [
     { id: "preop", path: "/status/control/preop", also: ["/status/control/preop/sections", "/status/control/preop/orders", "/status/control/preop/documents"], en: "Preoperative form", bg: "Предоперативна форма", descEn: "Its sections, the questions asked, ward orders and medication instructions, the summary page and the written consent.", descBg: "Разделите, задаваните въпроси, назначенията и указанията за медикаментите, страницата с обобщение и писменото съгласие.", audiences: PASSWORD },
@@ -99,7 +99,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     { id: "guidance", path: "/status/control/clinical", en: "Calculated guidance", bg: "Изчислени насоки", descEn: "Dose guidance for adults and children, and the rule baselines it uses.", descBg: "Насоки за дозиране при възрастни и деца и базовите правила, на които се основават.", audiences: PASSWORD },
     { id: "identity", path: "/status/control/identity", en: "Patient identification", bg: "Идентификация на пациента", descEn: "Which number identifies a patient on screens and printouts.", descBg: "Кой номер идентифицира пациента на екрана и в разпечатките.", audiences: PASSWORD },
   ] },
-  { id: "people", en: "People", bg: "Хора", items: [
+  { id: "people", en: "People", bg: "Акаунти", items: [
     { id: "accounts", path: "/status/accounts", en: "Accounts", bg: "Профили", descEn: "Everyone who signs in to LOSPOR, and the Status administrators.", descBg: "Всички, които влизат в LOSPOR, и администраторите на Status.", audiences: PASSWORD },
     { id: "research", path: "/status/control/research", en: "Research access", bg: "Достъп за изследвания", descEn: "Research grants and the exact OMOP exports approved.", descBg: "Разрешения за изследвания и одобрените OMOP набори.", audiences: PASSWORD },
     { id: "history", path: "/status/control/history", en: "Change history", bg: "История на промените", descEn: "Who changed which setting or account, and when.", descBg: "Кой коя настройка или кой профил е променил, и кога.", audiences: PASSWORD },
@@ -208,7 +208,7 @@ export function skinHeader(locale: StatusLocale, audience: StatusAudience, langu
       ["inbox", "/status/", localize(locale, "Needs you", "Чака ви"), localize(locale, "things to do", "задачи")],
       ["watch", "/status/services", localize(locale, "Watch", "Наблюдение"), localize(locale, "services and events", "услуги и събития")],
       ["configure", "/status/configure", localize(locale, "Configure", "Настройки"), localize(locale, "every setting", "всички настройки")],
-      ...(audience === "password" ? [["people", "/status/accounts", localize(locale, "People", "Хора"), localize(locale, "accounts and access", "профили и достъп")]] : []),
+      ...(audience === "password" ? [["people", "/status/accounts", localize(locale, "People", "Акаунти"), localize(locale, "accounts and access", "профили и достъп")]] : []),
     ] as const
     const rail = `<nav class="skin-nav rail" aria-label="${navLabel}">${intents.map(([id, href, name, sub]) => `<a class="nav-item" href="${href}"${current(id === intent && (found?.item.id !== "configure" || id === "configure"))}><b>${escapeHtml(name)}</b><small>${escapeHtml(sub)}</small></a>`).join("")}</nav>`
     return `${head()}${rail}${chips(groupOf(activeGroup))}${pageTitle(locale, fallbackTitle)}`
@@ -471,7 +471,7 @@ function coreParts(data: DashboardData): { id: string; en: string; bg: string; s
     { id: "pwa", en: "Mobile app", bg: "Мобилно приложение", state: part("pwa") },
     { id: "api", en: "API", bg: "API", state: part("api") },
     { id: "database", en: "Database", bg: "База данни", state: part("database") },
-    { id: "proxy", en: "Gateway", bg: "Шлюз", state: part("proxy") },
+    { id: "proxy", en: "Gateway", bg: "HTTPS вход", state: part("proxy") },
     { id: "server", en: "Server", bg: "Сървър", state: host.length ? host.reduce(worse, "good") : "off" },
   ]
 }

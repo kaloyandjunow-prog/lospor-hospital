@@ -1081,14 +1081,14 @@ function centralBatchErrorHint(code: string | null, locale: StatusLocale): strin
 
 function centralQueueStatusLabel(status: string, locale: StatusLocale): string {
   const labels: Record<string, [string, string]> = {
-    PENDING: ["Pending", "Изчаква"],
+    PENDING: ["Pending", "Чака"],
     GENERATING: ["Generating", "Създава се"],
-    READY: ["Ready", "Готов"],
+    READY: ["Ready", "Готов за изпращане"],
     UPLOADING: ["Uploading", "Изпраща се"],
-    AWAITING_RECEIPT: ["Awaiting receipt", "Чака потвърждение за получаване"],
+    AWAITING_RECEIPT: ["Awaiting receipt", "Чака потвърждение"],
     ACCEPTED: ["Accepted", "Приет"],
     REJECTED: ["Rejected", "Отхвърлен"],
-    RETRY: ["Retry", "Нов опит"],
+    RETRY: ["Retry", "За повторен опит"],
     CANCELLED: ["Cancelled", "Отменен"],
   }
   const label = labels[status]
@@ -1463,40 +1463,43 @@ export function renderControlPlane(
   ).join("") : `<div class="empty">${localize(locale, "No OMOP datasets await approval.", "Няма OMOP набори от данни, които чакат одобрение.")}</div>`
 
   const central = view?.central
+  // What an operator reads; the identifiers, keys, fingerprints and limits
+  // below are for whoever sets up or debugs the link, folded away (1.11.0).
   const certificateFacts = central ? `<div class="facts">
     ${textFact(localize(locale, "Central endpoint", "Адрес на Central"), central.endpoint)}
-    ${textFact(localize(locale, "Hospital site ID", "Идентификатор на болницата"), central.siteId)}
     ${textFact(localize(locale, "Hospital site code", "Код на болницата"), central.siteCode)}
-    ${textFact(localize(locale, "Institution ID", "Идентификатор на лечебното заведение"), central.institutionId)}
+    ${textFact(localize(locale, "Enrolled with Central", "Регистрирана в Central"), boolWord(central.enrolled, locale))}
+    ${dateFact(localize(locale, "Enrolled", "Регистрирана на"), central.enrolledAt, locale)}
+    ${textFact(localize(locale, "Transport locked", "Настройките са заключени"), boolWord(central.transportLocked, locale))}
+    ${dateFact(localize(locale, "Last capabilities check", "Последна проверка на Central"), central.lastCapabilitiesAt, locale)}
+    ${dateFact(localize(locale, "Last delivery", "Последно изпращане"), central.lastDeliveryAt, locale)}
+    ${textFact(localize(locale, "Compatible manifest", "Съвместим формат на пакетите"), boolWord(central.compatibility.compatible, locale))}
+  </div><details class="component-detail"><summary>${localize(locale, "Technical details", "Технически данни")}</summary><div class="facts">
+    ${textFact(localize(locale, "Hospital site ID", "ID на болницата в Central"), central.siteId)}
+    ${textFact(localize(locale, "Institution ID", "ID на лечебното заведение"), central.institutionId)}
     ${textFact(localize(locale, "Hospital signing key ID", "Идентификатор на подписващия ключ на болницата"), central.signingKeyId)}
     ${textFact(localize(locale, "Central encryption key ID", "Идентификатор на ключа за шифроване на Central"), central.centralEncryptionKeyId)}
     ${textFact(localize(locale, "Central receipt signing key ID", "Идентификатор на ключа, с който Central подписва потвържденията"), central.receiptSigningKeyId)}
-    ${textFact(localize(locale, "Transport locked", "Настройките за изпращане са заключени"), boolWord(central.transportLocked, locale))}
     ${hashFact(localize(locale, "Transport configuration SHA-256", "SHA-256 на настройките за изпращане"), central.transportConfigurationHash)}
-    ${dateFact(localize(locale, "Transport configured", "Изпращането е настроено"), central.transportConfiguredAt, locale)}
-    ${textFact(localize(locale, "Enrolled with Central", "Регистрирана в Central"), boolWord(central.enrolled, locale))}
-    ${dateFact(localize(locale, "Enrolled", "Регистрирана на"), central.enrolledAt, locale)}
-    ${dateFact(localize(locale, "Last capabilities check", "Последна проверка на възможностите"), central.lastCapabilitiesAt, locale)}
-    ${dateFact(localize(locale, "Last delivery", "Последно изпращане"), central.lastDeliveryAt, locale)}
+    ${dateFact(localize(locale, "Transport configured", "Настроено на"), central.transportConfiguredAt, locale)}
     ${hashFact(localize(locale, "Client certificate SHA-256", "SHA-256 на клиентския сертификат"), central.clientCertificate?.fingerprintSha256 ?? null)}
     ${dateFact(localize(locale, "Client certificate valid from", "Клиентският сертификат е валиден от"), central.clientCertificate?.validFrom ?? null, locale)}
     ${dateFact(localize(locale, "Client certificate valid to", "Клиентският сертификат е валиден до"), central.clientCertificate?.validTo ?? null, locale)}
     ${hashFact(localize(locale, "Central CA SHA-256", "SHA-256 на удостоверителния орган (CA) на Central"), central.caCertificate?.fingerprintSha256 ?? null)}
     ${dateFact(localize(locale, "Central CA valid from", "CA на Central е валиден от"), central.caCertificate?.validFrom ?? null, locale)}
     ${dateFact(localize(locale, "Central CA valid to", "CA на Central е валиден до"), central.caCertificate?.validTo ?? null, locale)}
-    ${textFact(localize(locale, "Compatible manifest", "Съвместим манифест"), boolWord(central.compatibility.compatible, locale))}
-    ${textFact(localize(locale, "Local manifest version", "Локална версия на манифеста"), central.compatibility.localManifestVersion)}
-    ${textFact(localize(locale, "Central supported manifest versions", "Версии на манифеста, поддържани от Central"), central.compatibility.supportedManifestVersions.join(", ") || null)}
+    ${textFact(localize(locale, "Local manifest version", "Версия на формата тук"), central.compatibility.localManifestVersion)}
+    ${textFact(localize(locale, "Central supported manifest versions", "Версии на формата в Central"), central.compatibility.supportedManifestVersions.join(", ") || null)}
     ${textFact(localize(locale, "Maximum upload bytes", "Максимален размер на пакет (байтове)"), central.compatibility.maximumUploadBytes === null ? null : String(central.compatibility.maximumUploadBytes))}
     ${textFact(localize(locale, "Multipart chunk bytes", "Размер на част при изпращане (байтове)"), central.compatibility.multipartChunkBytes === null ? null : String(central.compatibility.multipartChunkBytes))}
-  </div>` : ""
-  const transport = central ? `<form method="post" action="/status/control/central/transport"><div class="form-grid"><div><label>${localize(locale, "Central HTTPS endpoint", "HTTPS адрес на Central")}<input name="centralBaseUrl" type="url" value="${escapeHtml(central.endpoint ?? "")}" maxlength="2048" required></label></div><div><label>${localize(locale, "Hospital site code", "Код на болницата")}<input name="siteCode" value="${escapeHtml(central.siteCode ?? "")}" maxlength="32" required></label></div><div><label>${localize(locale, "Hospital site name", "Име на болницата")}<input name="siteName" maxlength="160" required></label></div><div><label>${localize(locale, "Institution", "Лечебно заведение")}<select name="institutionId" required>${institutionOptions}</select></label></div><div class="wide"><label>${localize(locale, "One-time Central enrollment token", "Еднократен токен за регистрация в Central")}<input name="token" type="password" autocomplete="off" minlength="20" maxlength="4096" required></label><p class="component-detail">${localize(locale, "The token is sent directly to the private API and is never shown on this page again.", "Токенът се изпраща директно към вътрешния API и повече не се показва на тази страница.")}</p></div><div class="wide"><label>${localize(locale, "Transport configuration reason", "Причина за настройването на изпращането")}<input name="reason" minlength="10" maxlength="1000" required></label></div><div class="wide"><label>${localize(locale, "Administrator password (transport lock)", "Администраторска парола (заключване на настройките за изпращане)")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label></div><div class="wide"><button type="submit">${localize(locale, "Configure and lock transport", "Настройване и заключване на изпращането")}</button></div></div></form>` : ""
-  const policy = central ? `<form method="post" action="/status/control/central/policy"><p class="component-detail">${localize(locale, "When enabled, every eligible finalized case is queued automatically. Drafts and incomplete cases remain local; clinicians do not approve cases one by one.", "Когато е включено, всеки завършен случай, който отговаря на условията, автоматично влиза в опашката за изпращане. Черновите и незавършените случаи остават само тук; лекарите не одобряват случаите един по един.")}</p><div class="checks"><label class="check"><input type="checkbox" name="enabled" value="true" ${central.policy?.enabled ? "checked" : ""}> ${localize(locale, "Approve automatic clinical delivery to Central", "Разрешаване на автоматично изпращане на клинични данни към Central")}</label><label class="check"><input type="checkbox" name="includeRedactedText" value="true" ${central.policy?.includeRedactedText !== false ? "checked" : ""}> ${localize(locale, "Include text after the BG/EN redaction policy", "Изпращане и на свободния текст, след премахване на личните данни (BG/EN)")}</label></div><input type="hidden" name="redactionProfile" value="bg-en-v1"><label>${localize(locale, "Clinical approval reason", "Причина за клиничното одобрение")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password (separate clinical lock)", "Администраторска парола (отделно заключване за клиничните данни)")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save clinical delivery policy", "Запазване на правилата за изпращане на клинични данни")}</button></form>` : ""
+  </div></details>` : ""
+  const transport = central ? `<form method="post" action="/status/control/central/transport"><div class="form-grid"><div><label>${localize(locale, "Central HTTPS endpoint", "HTTPS адрес на Central")}<input name="centralBaseUrl" type="url" value="${escapeHtml(central.endpoint ?? "")}" maxlength="2048" required></label></div><div><label>${localize(locale, "Hospital site code", "Код на болницата")}<input name="siteCode" value="${escapeHtml(central.siteCode ?? "")}" maxlength="32" required></label></div><div><label>${localize(locale, "Hospital site name", "Име на болницата")}<input name="siteName" maxlength="160" required></label></div><div><label>${localize(locale, "Institution", "Лечебно заведение")}<select name="institutionId" required>${institutionOptions}</select></label></div><div class="wide"><label>${localize(locale, "One-time Central enrollment token", "Еднократен токен за регистрация в Central")}<input name="token" type="password" autocomplete="off" minlength="20" maxlength="4096" required></label><p class="component-detail">${localize(locale, "The token is sent directly to the private API and is never shown on this page again.", "Токенът се използва веднъж и не се пази.")}</p></div><div class="wide"><label>${localize(locale, "Transport configuration reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label></div><div class="wide"><label>${localize(locale, "Administrator password (transport lock)", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label></div><div class="wide"><button type="submit">${localize(locale, "Configure and lock transport", "Свързване с Central")}</button></div></div></form>` : ""
+  const policy = central ? `<form method="post" action="/status/control/central/policy"><p class="component-detail">${localize(locale, "When enabled, every eligible finalized case is queued automatically. Drafts and incomplete cases remain local; clinicians do not approve cases one by one.", "Всеки приключен случай, който отговаря на условията, се изпраща автоматично. Черновите и неприключените случаи не се изпращат.")}</p><div class="checks"><label class="check"><input type="checkbox" name="enabled" value="true" ${central.policy?.enabled ? "checked" : ""}> ${localize(locale, "Approve automatic clinical delivery to Central", "Автоматично изпращане към Central")}</label><label class="check"><input type="checkbox" name="includeRedactedText" value="true" ${central.policy?.includeRedactedText !== false ? "checked" : ""}> ${localize(locale, "Include text after the BG/EN redaction policy", "Изпращане и на свободния текст (личните данни се премахват)")}</label></div><input type="hidden" name="redactionProfile" value="bg-en-v1"><label>${localize(locale, "Clinical approval reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password (separate clinical lock)", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save clinical delivery policy", "Запазване")}</button></form>` : ""
   const batchRows = central?.batches.length ? central.batches.map(batch => {
     const retry = batch.status === "RETRY" || batch.status === "REJECTED"
-      ? `<form method="post" action="/status/control/central/batches/${encodeURIComponent(batch.id)}/retry"><label>${localize(locale, "Retry reason", "Причина за нов опит")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Queue retry", "Нов опит")}</button></form>` : ""
-    return `<div class="component"><div class="component-head"><div><div class="component-name">#${batch.sequence} · ${escapeHtml(centralQueueStatusLabel(batch.status, locale))}</div><div class="component-detail">${localize(locale, "Cases", "Случаи")}: ${batch.caseCount} · ${localize(locale, "Attempts", "Опити")}: ${batch.attemptCount} · ${escapeHtml(batch.errorCode ?? localize(locale, "no failure", "без грешка"))}</div>${centralBatchErrorHint(batch.errorCode, locale)}<div class="component-detail mono">${localize(locale, "Manifest", "Манифест")}: ${escapeHtml(batch.manifestHash ?? "—")} · ${localize(locale, "Receipt", "Потвърждение за получаване")}: ${escapeHtml(batch.receiptHash ?? "—")}</div></div><strong>${batch.acceptedAt ? escapeHtml(utcDate(Date.parse(batch.acceptedAt), locale)) + " UTC" : ""}</strong></div>${retry}</div>`
-  }).join("") : `<div class="empty">${localize(locale, "No Central batches.", "Няма пакети за Central.")}</div>`
+      ? `<form method="post" action="/status/control/central/batches/${encodeURIComponent(batch.id)}/retry"><label>${localize(locale, "Retry reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Queue retry", "Нов опит")}</button></form>` : ""
+    return `<div class="component"><div class="component-head"><div><div class="component-name">#${batch.sequence} · ${escapeHtml(centralQueueStatusLabel(batch.status, locale))}</div><div class="component-detail">${localize(locale, "Cases", "Случаи")}: ${batch.caseCount} · ${localize(locale, "Attempts", "Опити")}: ${batch.attemptCount} · ${escapeHtml(batch.errorCode ?? localize(locale, "no failure", "без грешка"))}</div>${centralBatchErrorHint(batch.errorCode, locale)}<div class="component-detail mono">${localize(locale, "Batch (SHA-256)", "Пакет (SHA-256)")}: ${escapeHtml(batch.manifestHash ?? "—")} · ${localize(locale, "Receipt (SHA-256)", "Потвърждение (SHA-256)")}: ${escapeHtml(batch.receiptHash ?? "—")}</div></div><strong>${batch.acceptedAt ? escapeHtml(utcDate(Date.parse(batch.acceptedAt), locale)) + " UTC" : ""}</strong></div>${retry}</div>`
+  }).join("") : `<div class="empty">${localize(locale, "No Central batches.", "Няма изпратени пакети.")}</div>`
 
   const guidance = view?.guidance
   const preoperative = view?.preoperative
@@ -1556,10 +1559,10 @@ export function renderControlPlane(
     <div class="component"><div class="facts">
       ${textFact(localize(locale, "Hospital-wide colleague case reading", "Четене на случаи на колеги в болницата"), boolWord(caseVisibility.enabled, locale))}
       ${textFact(localize(locale, "Change reason recorded", "Записана причина за промяна"), boolWord(caseVisibility.changeReasonRecorded, locale))}
-      ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), caseVisibility.changedAt, locale)}
-      ${dateFact(localize(locale, "State last updated", "Състоянието е проверено на"), caseVisibility.updatedAt, locale)}
+      ${dateFact(localize(locale, "Policy last changed", "Последна промяна на разрешението"), caseVisibility.changedAt, locale)}
+      ${dateFact(localize(locale, "State last updated", "Последна проверка в"), caseVisibility.updatedAt, locale)}
     </div><p>${localize(locale, "When enabled, clinical members, heads of department and administrators can read cases recorded at this hospital. A colleague's case stays read-only: the switch never grants editing, AI actions, handover, correction or other writes. Research-only accounts and other hospitals remain outside the scope. New appliances start with this policy enabled.", "Когато е включена, клиничните лекари, началниците на отделения и администраторите могат да четат случаите, записани в тази болница. Случаят на колега остава само за четене: тази настройка никога не дава право за редакция, ИИ действия, предаване, корекция или друг запис. Профилите само за изследвания и другите болници остават извън обхвата. Новите инсталации започват с включена политика.")}</p>
-    <form method="post" action="/status/control/case-visibility"><div class="checks"><label class="check"><input type="checkbox" name="enabled" value="true" ${caseVisibility.enabled ? "checked" : ""}> ${localize(locale, "Allow clinical accounts to read hospital cases", "Разрешаване на клиничните профили да четат случаите на болницата")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save case-reading policy", "Запазване на настройката за четене на случаи")}</button></form></div>
+    <form method="post" action="/status/control/case-visibility"><div class="checks"><label class="check"><input type="checkbox" name="enabled" value="true" ${caseVisibility.enabled ? "checked" : ""}> ${localize(locale, "Allow clinical accounts to read hospital cases", "Разрешаване на клиничните профили да четат случаите на болницата")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save case-reading policy", "Запазване на настройката за четене на случаи")}</button></form></div>
   ` : ""
 
   const externalAi = view?.externalAi
@@ -1567,35 +1570,35 @@ export function renderControlPlane(
     ? externalAi.capability === "ENABLED"
       ? localize(locale, "Enabled", "Активен")
       : externalAi.capability === "DISABLED_BY_DEPLOYMENT"
-        ? localize(locale, "Disabled by hospital policy", "Изключено с решение на болницата")
-        : localize(locale, "Mistral credential is not configured", "Данните за достъп до Mistral не са настроени")
+        ? localize(locale, "Disabled by hospital policy", "Изключено")
+        : localize(locale, "Mistral credential is not configured", "Не е въведен API ключ за Mistral")
     : "—"
   const modelOptions = (options: string[] | undefined, selected: string | undefined) =>
     (options ?? []).map(model =>
       `<option value="${escapeHtml(model)}" ${model === selected ? "selected" : ""}>${escapeHtml(model)}</option>`).join("")
   const externalAiModels = externalAi?.advisorModel && externalAi.visionModel ? `
-    <div class="component"><h3>${localize(locale, "AI models", "ИИ модели")}</h3><p class="component-detail">${localize(locale, "Mistral retires models from time to time. When the chosen model is retired, AI features stop and Status records an AI request failure with the reason model-unavailable; choose another model here. Only models this release has been checked with are offered.", "Mistral периодично спира стари модели. Ако избраният модел бъде спрян, функциите с ИИ престават да работят и Status записва неуспешна заявка с причина model-unavailable — тогава изберете друг модел тук. Предлагат се само модели, проверени с тази версия.")}</p><form method="post" action="/status/control/external-ai/models"><label for="external-ai-advisor-model">${localize(locale, "Pre-operative advisor", "Предоперативен съветник")}</label><select id="external-ai-advisor-model" name="advisorModel">${modelOptions(externalAi.advisorModelOptions, externalAi.advisorModel)}</select><label for="external-ai-vision-model">${localize(locale, "Reading lab reports and monitor photos", "Разчитане на лабораторни резултати и снимки на монитор")}</label><select id="external-ai-vision-model" name="visionModel">${modelOptions(externalAi.visionModelOptions, externalAi.visionModel)}</select><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save models", "Запазване на моделите")}</button></form></div>` : ""
+    <div class="component"><h3>${localize(locale, "AI models", "Модели")}</h3><p class="component-detail">${localize(locale, "Mistral retires models from time to time. When the chosen model is retired, AI features stop and Status records an AI request failure with the reason model-unavailable; choose another model here. Only models this release has been checked with are offered.", "Mistral периодично спира стари модели. Ако избраният спре, функциите с ИИ спират да работят; тогава изберете друг. Показват се само модели, проверени с тази версия.")}</p><form method="post" action="/status/control/external-ai/models"><label for="external-ai-advisor-model">${localize(locale, "Pre-operative advisor", "Предоперативен съветник")}</label><select id="external-ai-advisor-model" name="advisorModel">${modelOptions(externalAi.advisorModelOptions, externalAi.advisorModel)}</select><label for="external-ai-vision-model">${localize(locale, "Reading lab reports and monitor photos", "Разчитане на лабораторни резултати и снимки на монитор")}</label><select id="external-ai-vision-model" name="visionModel">${modelOptions(externalAi.visionModelOptions, externalAi.visionModel)}</select><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save models", "Запазване")}</button></form></div>` : ""
   const externalAiControls = externalAi ? `
     <div class="component"><div class="facts">
       ${textFact(localize(locale, "Provider", "Доставчик"), "Mistral")}
-      ${textFact(localize(locale, "External AI policy enabled", "Външният ИИ е разрешен"), boolWord(externalAi.externalAiEnabled, locale))}
-      ${textFact(localize(locale, "Credential stored", "Има запазени данни за достъп"), boolWord(externalAi.credentialStored, locale))}
-      ${textFact(localize(locale, "Provider configured", "Доставчикът е настроен"), boolWord(externalAi.providerConfigured, locale))}
-      ${textFact(localize(locale, "Current capability", "Текущо състояние"), externalAiCapability)}
-      ${dateFact(localize(locale, "Credential configured", "Данните за достъп са настроени на"), externalAi.credentialConfiguredAt, locale)}
-      ${dateFact(localize(locale, "Credential last changed", "Данните за достъп са променени на"), externalAi.credentialChangedAt, locale)}
-      ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), externalAi.policyChangedAt, locale)}
+      ${textFact(localize(locale, "External AI policy enabled", "Разрешено"), boolWord(externalAi.externalAiEnabled, locale))}
+      ${textFact(localize(locale, "Credential stored", "API ключ"), boolWord(externalAi.credentialStored, locale))}
+      ${textFact(localize(locale, "Provider configured", "Настроено"), boolWord(externalAi.providerConfigured, locale))}
+      ${textFact(localize(locale, "Current capability", "Състояние"), externalAiCapability)}
+      ${dateFact(localize(locale, "Credential configured", "Въведени на"), externalAi.credentialConfiguredAt, locale)}
+      ${dateFact(localize(locale, "Credential last changed", "Последна смяна на API ключа"), externalAi.credentialChangedAt, locale)}
+      ${dateFact(localize(locale, "Policy last changed", "Последна промяна на разрешението"), externalAi.policyChangedAt, locale)}
       ${externalAi.advisorModel ? textFact(localize(locale, "Advisor model", "Модел на съветника"), externalAi.advisorModel) : ""}
       ${externalAi.visionModel ? textFact(localize(locale, "Image-reading model", "Модел за разчитане на изображения"), externalAi.visionModel) : ""}
-      ${externalAi.modelsChangedAt !== undefined ? dateFact(localize(locale, "Models last changed", "Моделите са променени на"), externalAi.modelsChangedAt, locale) : ""}
-      ${dateFact(localize(locale, "State last updated", "Състоянието е проверено на"), externalAi.updatedAt, locale)}
-    </div><p>${localize(locale, "When this policy is enabled and the provider is configured, a clinician's explicit external-AI action may send its selected clinical payload to Mistral. Saving the policy itself sends no clinical data.", "Когато това е разрешено и доставчикът е настроен, лекар може с изрично действие да изпрати избраните клинични данни към Mistral. Самото запазване на настройката не изпраща клинични данни.")}</p>
-    <form method="post" action="/status/control/external-ai/policy"><div class="checks"><label class="check"><input type="checkbox" name="externalAiEnabled" value="true" ${externalAi.externalAiEnabled ? "checked" : ""}> ${localize(locale, "Allow external-AI features for this hospital", "Разрешаване на функциите с външен ИИ за тази болница")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save external-AI policy", "Запазване на настройката за външен ИИ")}</button></form></div>
+      ${externalAi.modelsChangedAt !== undefined ? dateFact(localize(locale, "Models last changed", "Последна смяна на моделите"), externalAi.modelsChangedAt, locale) : ""}
+      ${dateFact(localize(locale, "State last updated", "Последна проверка в"), externalAi.updatedAt, locale)}
+    </div><p>${localize(locale, "When this policy is enabled and the provider is configured, a clinician's explicit external-AI action may send its selected clinical payload to Mistral. Saving the policy itself sends no clinical data.", "Когато е разрешено, лекарят сам решава кога да изпрати данни към Mistral. Самото разрешение не изпраща нищо.")}</p>
+    <form method="post" action="/status/control/external-ai/policy"><div class="checks"><label class="check"><input type="checkbox" name="externalAiEnabled" value="true" ${externalAi.externalAiEnabled ? "checked" : ""}> ${localize(locale, "Allow external-AI features for this hospital", "Разрешаване на помощта от ИИ")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save external-AI policy", "Запазване")}</button></form></div>
     ${externalAiModels}
     ${renderLabScanPanel(externalAi.labScan, locale, labScanDraft)}
-    <div class="component"><h3>${localize(locale, "Replace the Mistral credential","Замяна на данните за достъп до Mistral")}</h3><p class="component-detail">${localize(locale, "Enter a new credential. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Въведете новите данни за достъп. Status ги предава еднократно към вътрешния API и не пази и не получава обратно нито четимата, нито шифрованата им стойност.")}</p><form method="post" action="/status/control/external-ai/credential"><label>${localize(locale, "New Mistral credential", "Нови данни за достъп до Mistral")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за замяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Замяна на данните за достъп")}</button></form></div>
-    <div class="component"><h3>${localize(locale, "Remove the Mistral credential", "Премахване на данните за достъп до Mistral")}</h3><p>${localize(locale, "Removal immediately prevents external-AI provider access. It does not silently change the policy checkbox or any historical record.", "Премахването веднага спира достъпа до външния доставчик на ИИ. То не променя отметката за разрешение и не засяга стари записи.")}</p><form method="post" action="/status/control/external-ai/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-MISTRAL-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored Mistral credential", "Разбирам, че това премахва запазените данни за достъп до Mistral")}</label><label>${localize(locale, "Removal reason", "Причина за премахването")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
-  ` : `<div class="empty">${localize(locale, "External-AI controls are unavailable.", "Управлението на външен ИИ не е достъпно.")}</div>`
+    <div class="component"><h3>${localize(locale, "Replace the Mistral credential","Нов API ключ за Mistral")}</h3><p class="component-detail">${localize(locale, "Enter a new credential. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Ключът се пази шифрован и не се показва повече.")}</p><form method="post" action="/status/control/external-ai/credential"><label>${localize(locale, "New Mistral credential", "API ключ")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Запазване")}</button></form></div>
+    <div class="component"><h3>${localize(locale, "Remove the Mistral credential", "Премахване на API ключа за Mistral")}</h3><p>${localize(locale, "Removal immediately prevents external-AI provider access. It does not silently change the policy checkbox or any historical record.", "Помощта от ИИ спира веднага. Разрешението и старите записи остават.")}</p><form method="post" action="/status/control/external-ai/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-MISTRAL-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored Mistral credential", "Потвърждавам премахването")}</label><label>${localize(locale, "Removal reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
+  ` : `<div class="empty">${localize(locale, "External-AI controls are unavailable.", "Настройките за ИИ не могат да се заредят.")}</div>`
 
   const patientIdentifier = view?.patientIdentifier
   const patientIdentifierControls = patientIdentifier ? `
@@ -1603,10 +1606,10 @@ export function renderControlPlane(
       ${textFact(localize(locale, "National identifier (ЕГН) linking permitted", "Разрешено свързване с национален идентификатор (ЕГН)"), boolWord(patientIdentifier.egnPermitted, locale))}
       ${textFact(localize(locale, "Full ИЗ № shown while a case is open", "Пълен ИЗ № се показва при отворен случай"), boolWord(patientIdentifier.admissionNumberVisible !== false, locale))}
       ${textFact(localize(locale, "Change reason recorded", "Записана причина за промяна"), boolWord(patientIdentifier.changeReasonRecorded, locale))}
-      ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), patientIdentifier.changedAt, locale)}
-      ${dateFact(localize(locale, "State last updated", "Състоянието е проверено на"), patientIdentifier.updatedAt, locale)}
+      ${dateFact(localize(locale, "Policy last changed", "Последна промяна на разрешението"), patientIdentifier.changedAt, locale)}
+      ${dateFact(localize(locale, "State last updated", "Последна проверка в"), patientIdentifier.updatedAt, locale)}
     </div><p>${localize(locale, "ЕГН is what joins a patient's separate admissions into one person; a record number alone restarts every January and cannot do that job. Recording it is nonetheless a heavier privacy commitment than a record number, and the hospital -- not this software's vendor -- is the data controller for it. Turning this off does not remove any ЕГН already recorded; it only stops new links from being created.", "ЕГН е това, което свързва отделните хоспитализации на един пациент: номерът на ИЗ започва отначало всяка година и не може да го замени. Записването на ЕГН обаче засяга личните данни повече от номера на ИЗ, а администратор на тези данни е болницата, не производителят на софтуера. Изключването не изтрива вече записани ЕГН — само спира създаването на нови връзки.")}</p>
-    <form method="post" action="/status/control/patient-identifier"><div class="checks"><label class="check"><input type="checkbox" name="egnPermitted" value="true" ${patientIdentifier.egnPermitted ? "checked" : ""}> ${localize(locale, "Permit ЕГН linking for this hospital", "Разрешаване на свързване с ЕГН за тази болница")}</label><label class="check"><input type="checkbox" name="admissionNumberVisible" value="true" data-testid="admission-number-visible" ${patientIdentifier.admissionNumberVisible !== false ? "checked" : ""}> ${localize(locale, "Show the full ИЗ № (and the first six digits of a known ЕГН) on the dashboard and while a case is open", "Показване на пълния ИЗ № (и първите шест цифри на известен ЕГН) в таблото и при отворен случай")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save national-identifier policy", "Запазване на настройката за ЕГН")}</button></form></div>
+    <form method="post" action="/status/control/patient-identifier"><div class="checks"><label class="check"><input type="checkbox" name="egnPermitted" value="true" ${patientIdentifier.egnPermitted ? "checked" : ""}> ${localize(locale, "Permit ЕГН linking for this hospital", "Разрешаване на свързване с ЕГН за тази болница")}</label><label class="check"><input type="checkbox" name="admissionNumberVisible" value="true" data-testid="admission-number-visible" ${patientIdentifier.admissionNumberVisible !== false ? "checked" : ""}> ${localize(locale, "Show the full ИЗ № (and the first six digits of a known ЕГН) on the dashboard and while a case is open", "Показване на пълния ИЗ № (и първите шест цифри на известен ЕГН) в таблото и при отворен случай")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save national-identifier policy", "Запазване на настройката за ЕГН")}</button></form></div>
   ` : `<div class="empty">${localize(locale, "National-identifier controls are unavailable.", "Управлението на ЕГН не е достъпно.")}</div>`
 
   const ehrTransport = view?.ehrTransport
@@ -1614,16 +1617,16 @@ export function renderControlPlane(
     `<option value="${value}" ${ehrTransport?.transport === value ? "selected" : ""}>${localize(locale, label, labelBg)}</option>`
   const ehrTransportCapability = ehrTransport
     ? ehrTransport.capability === "ENABLED"
-      ? localize(locale, "Ready", "Готов")
+      ? localize(locale, "Ready", "Работи")
       : ehrTransport.capability === "DISABLED_BY_DEPLOYMENT"
-        ? localize(locale, "No transport chosen", "Не е избран канал")
-        : localize(locale, "Credential not configured", "Данните за достъп не са настроени")
+        ? localize(locale, "No transport chosen", "Не е избран начин на връзка")
+        : localize(locale, "Credential not configured", "Не са въведени данни за достъп")
     : "—"
   const ehrTransportCredentialSection = ehrTransport && (ehrTransport.transport === "FHIR" || ehrTransport.transport === "HL7V2")
     ? `
-    <div class="component"><h3>${localize(locale, "Replace the EHR transport credential", "Замяна на данните за достъп до БИС")}</h3><p class="component-detail">${localize(locale, "Enter a new credential for the currently chosen transport. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Въведете нови данни за достъп за избрания канал. Status ги предава еднократно към вътрешния API и не пази и не получава обратно нито четимата, нито шифрованата им стойност.")}</p><form method="post" action="/status/control/ehr-transport/credential"><label>${localize(locale, "New transport credential", "Нови данни за достъп за канала")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за замяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Замяна на данните за достъп")}</button></form></div>
-    <div class="component"><h3>${localize(locale, "Remove the EHR transport credential", "Премахване на данните за достъп до БИС")}</h3><p>${localize(locale, "Removal immediately prevents the FHIR/HL7v2 transport from reaching its endpoint. It does not change which transport is chosen or any historical record.", "Премахването веднага спира достъпа на канала FHIR/HL7v2 до адреса му. Избраният канал и старите записи не се променят.")}</p><form method="post" action="/status/control/ehr-transport/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-EHR-TRANSPORT-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored transport credential", "Разбирам, че това премахва запазените данни за достъп на канала")}</label><label>${localize(locale, "Removal reason", "Причина за премахването")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
-    ` : `<div class="empty">${localize(locale, "A watched folder needs no credential. Choose FHIR or HL7v2 above to configure one.", "Наблюдаваната папка не изисква данни за достъп. Изберете FHIR или HL7v2 по-горе, за да ги настроите.")}</div>`
+    <div class="component"><h3>${localize(locale, "Replace the EHR transport credential", "Нови данни за достъп до БИС")}</h3><p class="component-detail">${localize(locale, "Enter a new credential for the currently chosen transport. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Данните се пазят шифровани и не се показват повече.")}</p><form method="post" action="/status/control/ehr-transport/credential"><label>${localize(locale, "New transport credential", "Данни за достъп")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Запазване")}</button></form></div>
+    <div class="component"><h3>${localize(locale, "Remove the EHR transport credential", "Премахване на данните за достъп до БИС")}</h3><p>${localize(locale, "Removal immediately prevents the FHIR/HL7v2 transport from reaching its endpoint. It does not change which transport is chosen or any historical record.", "Връзката с БИС спира веднага. Вече получените данни остават.")}</p><form method="post" action="/status/control/ehr-transport/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-EHR-TRANSPORT-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored transport credential", "Потвърждавам премахването")}</label><label>${localize(locale, "Removal reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
+    ` : `<div class="empty">${localize(locale, "A watched folder needs no credential. Choose FHIR or HL7v2 above to configure one.", "При връзка чрез папка не са нужни данни за достъп.")}</div>`
   // ── which numbering a patient's number belongs to ─────────────────────────
   //
   // A hospital numbers the same person several ways -- admission number,
@@ -1647,23 +1650,23 @@ export function renderControlPlane(
     ? `<datalist id="ehr-numberings">${numberings.map(system => `<option value="${escapeHtml(system)}">`).join("")}</datalist>`
     : ""
   const identifierSystemsSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
-    <div class="component"><h3>${localize(locale, "Which numbering a patient number belongs to", "Към коя номерация принадлежи номерът на пациента")}</h3>
+    <div class="component"><h3>${localize(locale, "Which numbering a patient number belongs to", "Номерация на пациента")}</h3>
     <p class="component-detail">${localize(locale,
       "Until these are set, a patient found by number is accepted without being checked, and the review screen says so. Once set, a number found in the wrong numbering is refused. Use Look up a patient to see the numberings this server actually returns, or type one if the server will not answer.",
-      "Докато не са зададени, пациент, намерен по номер, се приема без проверка и екранът за преглед го показва. След като ги зададете, номер от друга номерация се отказва. С „Търсене на пациент“ можете да видите номерациите, които сървърът действително връща, или да въведете такава ръчно, ако сървърът не отговаря.")}</p>
+      "Ако не са зададени, пациент се приема по номер без проверка. Ако са зададени, номер от друга номерация се отказва. Номерацията може да се открие със „Запитване към БИС“ или да се въведе ръчно.")}</p>
     <form method="post" action="/status/control/ehr-transport/discover">
       <label>${localize(locale, "Look up a record number", "Търсене по номер на ИЗ")}<input name="identifier" maxlength="64" placeholder="${localize(locale, "a real record number", "реален номер на ИЗ")}"></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
-      <button type="submit">${localize(locale, "Ask the server", "Запитване към сървъра")}</button>
+      <button type="submit">${localize(locale, "Ask the server", "Запитване към БИС")}</button>
     </form>
     <form method="post" action="/status/control/ehr-transport/identifier-systems">${numberingOptions}
       <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерация за ИЗ №")}<input name="recordNumberSystem"${numberingList} maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
-      <label class="inline"><input type="checkbox" name="clearRecordNumberSystem"> ${localize(locale, "Clear it instead", "изчистете я")}</label>
+      <label class="inline"><input type="checkbox" name="clearRecordNumberSystem"> ${localize(locale, "Clear it instead", "изчистване")}</label>
       <label>${localize(locale, "Numbering for national identifiers (ЕГН)", "Номерация за ЕГН")}<input name="nationalIdentifierSystem"${numberingList} maxlength="2048" value="${escapeHtml(ehrTransport.nationalIdentifierSystem ?? "")}"></label>
-      <label class="inline"><input type="checkbox" name="clearNationalIdentifierSystem"> ${localize(locale, "Clear it instead", "изчистете я")}</label>
+      <label class="inline"><input type="checkbox" name="clearNationalIdentifierSystem"> ${localize(locale, "Clear it instead", "изчистване")}</label>
       <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
-      <button type="submit">${localize(locale, "Save the numberings", "Запазване на номерациите")}</button>
+      <button type="submit">${localize(locale, "Save the numberings", "Запазване")}</button>
     </form></div>
   ` : ""
 
@@ -1674,22 +1677,22 @@ export function renderControlPlane(
   // nowhere to say where to send. That is also why the policy could report
   // itself ready with no endpoint: it was the only reachable state.
   const ehrEndpointSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
-    <div class="component"><h3>${localize(locale, "Where this appliance sends", "Накъде се свързва сървърът")}</h3>
+    <div class="component"><h3>${localize(locale, "Where this appliance sends", "Адрес на БИС (FHIR)")}</h3>
     <p class="component-detail">${localize(locale,
       "The hospital FHIR base address and how this appliance identifies itself to it. Changing any of these clears the stored credential: a bearer token is not a client secret, and a secret issued for one authorisation server does not belong at another.",
-      "Базовият FHIR адрес на болницата и как сървърът се представя пред нея. Промяната на което и да е от тези полета изтрива запазените данни за достъп: постоянният токен не е клиентска тайна, а тайна, издадена от един сървър за оторизация, не бива да се използва при друг.")}</p>
+      "Смяната на адреса или на удостоверяването изтрива запазените данни за достъп; въведете ги отново.")}</p>
     <form method="post" action="/status/control/ehr-transport/endpoint">
       <label>${localize(locale, "FHIR base address", "Базов FHIR адрес")}<input name="endpoint" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.endpoint ?? "")}" placeholder="https://fhir.hospital.example/r4"></label>
-      <label>${localize(locale, "How this appliance authenticates", "Как се удостоверява сървърът")}<select name="authMode">
+      <label>${localize(locale, "How this appliance authenticates", "Удостоверяване")}<select name="authMode">
         <option value="STATIC_BEARER" ${ehrTransport.authMode === "STATIC_BEARER" ? "selected" : ""}>${localize(locale, "A fixed token", "Постоянен токен")}</option>
         <option value="OAUTH2_CLIENT_CREDENTIALS" ${ehrTransport.authMode === "OAUTH2_CLIENT_CREDENTIALS" ? "selected" : ""}>${localize(locale, "Client credentials (SMART on FHIR)", "Клиентски данни (SMART on FHIR)")}</option>
       </select></label>
-      <label>${localize(locale, "Token address, for client credentials", "Адрес за получаване на токен (при клиентски данни)")}<input name="tokenUrl" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.tokenUrl ?? "")}"></label>
+      <label>${localize(locale, "Token address, for client credentials", "Адрес за токен (само при SMART on FHIR)")}<input name="tokenUrl" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.tokenUrl ?? "")}"></label>
       <label>${localize(locale, "Client id", "Клиентски идентификатор")}<input name="clientId" maxlength="512" value="${escapeHtml(ehrTransport.clientId ?? "")}"></label>
       <label>${localize(locale, "Scope", "Обхват")}<input name="scope" maxlength="512" value="${escapeHtml(ehrTransport.scope ?? "")}"></label>
       <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
-      <button type="submit">${localize(locale, "Save the endpoint", "Запазване на адреса")}</button>
+      <button type="submit">${localize(locale, "Save the endpoint", "Запазване")}</button>
     </form></div>
 
     ${identifierSystemsSection}
@@ -1703,23 +1706,23 @@ export function renderControlPlane(
   // of them, and a sample can be checked here before it is dropped for real.
   const folderHealth = view?.ehrFolder ?? null
   const ehrFolderSection = ehrTransport && ehrTransport.transport === "FOLDER" ? `
-    <div class="component"><h3>${localize(locale, "The watched folder", "Наблюдаваната папка")}</h3>
+    <div class="component"><h3>${localize(locale, "The watched folder", "Папка на сървъра")}</h3>
     ${folderHealth ? `<div class="facts">
-      ${textFact(localize(locale, "Files waiting to be read", "Файлове, чакащи прочитане"), String(folderHealth.waiting))}
+      ${textFact(localize(locale, "Files waiting to be read", "Чакащи файлове"), String(folderHealth.waiting))}
       ${textFact(localize(locale, "Oldest waiting file", "Най-старият чакащ файл"), folderHealth.oldestWaitingSeconds === null ? localize(locale, "none", "няма") : waitingAge(folderHealth.oldestWaitingSeconds, locale))}
       ${dateFact(localize(locale, "Last file read", "Последен прочетен файл"), folderHealth.lastReadAt, locale)}
       ${textFact(localize(locale, "Last 24 hours", "Последните 24 часа"), localize(locale, `${folderHealth.last24h.imported} staged, ${folderHealth.last24h.rejected} refused`, `${folderHealth.last24h.imported} приети за преглед, ${folderHealth.last24h.rejected} отказани`))}
     </div>
-    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака повече от десет минути. Файловете се четат всяка минута, след като не са се променяли 30 секунди; файл, който продължава да чака, все още се записва или услугата за импорт от БИС не работи.")}</p>` : ""}
-    ${folderHealth.recentRejections.length ? `<p>${localize(locale, "Latest refused files (each has its answer in results/):", "Последно отказани файлове (за всеки има отговор в results/):")}</p><ul>${folderHealth.recentRejections.map(entry => `<li><code>${escapeHtml(entry.file)}</code> — ${escapeHtml(folderRejectReason(entry.reason, locale))} — ${escapeHtml(utcDate(Date.parse(entry.at), locale))} UTC${""}</li>`).join("")}</ul>` : ""}`
+    ${folderHealth.oldestWaitingSeconds !== null && folderHealth.oldestWaitingSeconds > 600 ? `<p class="component-detail">${localize(locale, "A file has waited more than ten minutes. Files are read every minute once they have stopped changing for 30 seconds; a file that keeps waiting is still being written, or the EHR worker is not running.", "Файл чака над 10 минути: или още се записва, или прочитането не работи.")}</p>` : ""}
+    ${folderHealth.recentRejections.length ? `<p>${localize(locale, "Latest refused files (each has its answer in results/):", "Последни отказани файлове (причината е в results/):")}</p><ul>${folderHealth.recentRejections.map(entry => `<li><code>${escapeHtml(entry.file)}</code> — ${escapeHtml(folderRejectReason(entry.reason, locale))} — ${escapeHtml(utcDate(Date.parse(entry.at), locale))} UTC${""}</li>`).join("")}</ul>` : ""}`
     : `<div class="empty">${localize(locale, "The folder could not be read just now.", "Папката не можа да бъде прочетена в момента.")}</div>`}
     <p class="component-detail">${localize(locale,
       "The hospital system writes one JSON file per patient into inbox/; every file read gets an answer in results/ saying what was staged, what was ignored and why. The format is in the folder-drop guide.",
       "Болничната система записва по един JSON файл на пациент в inbox/; за всеки прочетен файл в results/ се появява отговор кое е прието за преглед, кое е пропуснато и защо. Форматът е описан в ръководството за обмен чрез папка.")}</p>
-    <h4>${localize(locale, "Asking the hospital system for a patient", "Заявки към болничната система за пациент")}</h4>
+    <h4>${localize(locale, "Asking the hospital system for a patient", "Заявки за данни към БИС")}</h4>
     <p class="component-detail">${localize(locale,
       "When on, a clinician who looks up a patient nothing has arrived for causes a request file in outbox/, and the hospital system answers with an ordinary file in inbox/. Switch it on only once the hospital system's team has built that answer: a request nobody answers leaves the clinician waiting.",
-      "Когато е включено, търсене на пациент, за когото нищо не е пристигнало, създава файл със заявка в outbox/, а болничната система отговаря с обикновен файл в inbox/. Включете го едва когато екипът на болничната система е изградил този отговор: заявка без отговор оставя лекаря да чака.")}</p>
+      "Когато са включени, търсене на пациент без получени данни създава заявка в outbox/, а БИС отговаря с файл в inbox/. Включете ги едва когато БИС може да отговаря, иначе лекарят ще чака напразно.")}</p>
     <div class="facts">
       ${textFact(localize(locale, "Requests", "Заявки"), ehrTransport.folderRequestsEnabled ? localize(locale, "on", "включени") : localize(locale, "off", "изключени"))}
       ${dateFact(localize(locale, "Last changed", "Последна промяна"), ehrTransport.folderRequestsChangedAt ?? null, locale)}
@@ -1729,11 +1732,11 @@ export function renderControlPlane(
       <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
       <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
       <button type="submit"${ehrTransport.folderRequestsEnabled ? ` class="danger"` : ""}>${ehrTransport.folderRequestsEnabled
-        ? localize(locale, "Stop asking the hospital system", "Спиране на заявките към болничната система")
-        : localize(locale, "Start asking the hospital system", "Включване на заявките към болничната система")}</button>
+        ? localize(locale, "Stop asking the hospital system", "Изключване на заявките")
+        : localize(locale, "Start asking the hospital system", "Включване на заявките")}</button>
     </form>
     <form method="post" action="/status/control/ehr-transport/check-file" enctype="multipart/form-data">
-      <label>${localize(locale, "Check a file before it is dropped (nothing is imported)", "Проверка на файл преди поставянето му (нищо не се импортира)")}<input type="file" name="file" accept=".json,application/json" required></label>
+      <label>${localize(locale, "Check a file before it is dropped (nothing is imported)", "Проверка на файл (без импорт)")}<input type="file" name="file" accept=".json,application/json" required></label>
       <button type="submit">${localize(locale, "Check the file", "Проверка на файла")}</button>
     </form>
     ${fileCheck ? fileCheckHtml(fileCheck, locale) : ""}</div>
@@ -1741,19 +1744,19 @@ export function renderControlPlane(
 
   const ehrTransportControls = ehrTransport ? `
     <div class="component"><div class="facts">
-      ${textFact(localize(locale, "Chosen transport", "Избран канал"), ehrTransport.transport ?? localize(locale, "none", "няма"))}
-      ${textFact(localize(locale, "Credential stored", "Има запазени данни за достъп"), boolWord(ehrTransport.credentialStored, locale))}
-      ${textFact(localize(locale, "Current capability", "Текущо състояние"), ehrTransportCapability)}
-      ${dateFact(localize(locale, "Credential configured", "Данните за достъп са настроени на"), ehrTransport.credentialConfiguredAt, locale)}
-      ${dateFact(localize(locale, "Credential last changed", "Данните за достъп са променени на"), ehrTransport.credentialChangedAt, locale)}
-      ${dateFact(localize(locale, "Transport last changed", "Каналът е променен на"), ehrTransport.transportChangedAt, locale)}
-      ${dateFact(localize(locale, "State last updated", "Състоянието е проверено на"), ehrTransport.updatedAt, locale)}
-    </div><p>${localize(locale, "A watched folder is a filesystem path the hospital system writes into; it carries no secret and is fully configured the moment it is chosen. FHIR and HL7v2 reach outside the appliance and need a sealed credential below. Proposed values from any transport are staged for a clinician to review field by field -- nothing is written into a case on arrival.", "Наблюдаваната папка е папка на сървъра, в която болничната система записва файлове; тя не изисква тайна и е готова веднага щом я изберете. FHIR и HL7v2 се свързват извън сървъра и изискват защитени данни за достъп по-долу. Данните от всеки канал се предлагат на лекаря за преглед поле по поле — нищо не се записва в случая автоматично.")}</p>
-    <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Няма (импортът е изключен)")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Наблюдавана папка")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 — все още не е наличен")}</option></select><label>${localize(locale, "Transport change reason", "Причина за смяната на канала")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване на канала")}</button></form><form method="post" action="/status/control/ehr-transport/retention"><label for="ehr-retention-days">${localize(locale, "Days staged EHR data is kept before it is deleted (1 to 14)", "Колко дни се пазят импортираните данни преди изтриване (от 1 до 14)")}</label><input id="ehr-retention-days" name="days" type="number" min="1" max="14" value="${ehrTransport.stagingRetentionDays ?? 14}" required><p class="component-detail">${localize(locale, "Imports nobody reviewed, and the files the folder transport kept, are deleted by the daily retention run. They are offered to clinicians for at most 14 days, so they are never kept longer.", "Непрегледаните импорти и файловете, запазени от канала с папка, се изтриват при ежедневното почистване. Те се предлагат на лекарите най-много 14 дни, така че никога не се пазят по-дълго.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save retention", "Запазване на срока")}</button></form></div>
+      ${textFact(localize(locale, "Chosen transport", "Начин на връзка"), ehrTransport.transport ?? localize(locale, "none", "няма"))}
+      ${textFact(localize(locale, "Credential stored", "Данни за достъп"), boolWord(ehrTransport.credentialStored, locale))}
+      ${textFact(localize(locale, "Current capability", "Състояние"), ehrTransportCapability)}
+      ${dateFact(localize(locale, "Credential configured", "Въведени на"), ehrTransport.credentialConfiguredAt, locale)}
+      ${dateFact(localize(locale, "Credential last changed", "Последна промяна на данните за достъп"), ehrTransport.credentialChangedAt, locale)}
+      ${dateFact(localize(locale, "Transport last changed", "Последна смяна на начина на връзка"), ehrTransport.transportChangedAt, locale)}
+      ${dateFact(localize(locale, "State last updated", "Последна проверка в"), ehrTransport.updatedAt, locale)}
+    </div><p>${localize(locale, "A watched folder is a filesystem path the hospital system writes into; it carries no secret and is fully configured the moment it is chosen. FHIR and HL7v2 reach outside the appliance and need a sealed credential below. Proposed values from any transport are staged for a clinician to review field by field -- nothing is written into a case on arrival.", "Папка: БИС записва файлове в папка на сървъра; не са нужни данни за достъп. FHIR и HL7v2: сървърът се свързва с БИС и са нужни данни за достъп. При всички начини лекарят преглежда и потвърждава всяко поле; нищо не се записва автоматично.")}</p>
+    <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Връзка с БИС")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Изключено")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Папка на сървъра")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 (още не се поддържа)")}</option></select><label>${localize(locale, "Transport change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване")}</button></form><form method="post" action="/status/control/ehr-transport/retention"><label for="ehr-retention-days">${localize(locale, "Days staged EHR data is kept before it is deleted (1 to 14)", "Срок за съхранение на непрегледаните данни от БИС (1–14 дни)")}</label><input id="ehr-retention-days" name="days" type="number" min="1" max="14" value="${ehrTransport.stagingRetentionDays ?? 14}" required><p class="component-detail">${localize(locale, "Imports nobody reviewed, and the files the folder transport kept, are deleted by the daily retention run. They are offered to clinicians for at most 14 days, so they are never kept longer.", "След срока данните, които лекар не е прегледал, се изтриват автоматично.")}</p><label>${localize(locale, "Change reason", "Причина за промяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save retention", "Запазване")}</button></form></div>
     ${ehrTransportCredentialSection}
     ${ehrEndpointSection}
     ${ehrFolderSection}
-  ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Управлението на импорта от БИС не е достъпно.")}</div>`
+  ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Настройките на връзката с БИС не могат да се заредят.")}</div>`
 
   // ── the laboratory code map ────────────────────────────────────────────────
   //
@@ -1775,15 +1778,15 @@ export function renderControlPlane(
       <input type="hidden" name="code" value="${escapeHtml(row.code)}">
       <p><strong>${escapeHtml(row.code)}</strong>${row.reportedLabel ? ` — ${escapeHtml(row.reportedLabel)}` : ""}</p>
       <p class="component-detail">${row.system ? `${escapeHtml(row.system)} · ` : ""}${escapeHtml(seenFact(row))}</p>
-      <label>${localize(locale, "Record this as", "Записване като")}<select name="test" required><option value="">${localize(locale, "Choose a test…", "Изберете изследване…")}</option>${testOptions(null)}</select></label>
-      <label>${localize(locale, "Unit these results arrive in, only if they arrive without one", "Мерна единица на резултатите — само ако идват без такава")}<input name="assumedUnit" maxlength="64"></label>
+      <label>${localize(locale, "Record this as", "Съпоставяне с")}<select name="test" required><option value="">${localize(locale, "Choose a test…", "Изберете изследване…")}</option>${testOptions(null)}</select></label>
+      <label>${localize(locale, "Unit these results arrive in, only if they arrive without one", "Мерна единица (ако резултатът идва без такава)")}<input name="assumedUnit" maxlength="64"></label>
       <button type="submit">${localize(locale, "Map this code", "Съпоставяне на кода")}</button>
     </form></div>`).join("")
   const mappedRows = (labCodes?.mapped ?? []).map(row => `
     <div class="component"><div class="facts">
       ${textFact(escapeHtml(row.code), escapeHtml(row.test))}
-      ${textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име"))}
-      ${textFact(localize(locale, "Assumed unit", "Приета мерна единица"), row.assumedUnit ? escapeHtml(row.assumedUnit) : localize(locale, "none — read from each result", "няма — взема се от всеки резултат"))}
+      ${textFact(localize(locale, "Reported as", "Наименование от БИС"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "без наименование"))}
+      ${textFact(localize(locale, "Assumed unit", "Приета мерна единица"), row.assumedUnit ? escapeHtml(row.assumedUnit) : localize(locale, "none — read from each result", "от резултата"))}
       ${textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row)))}
       ${dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale)}
     </div><form method="post" action="/status/control/ehr-lab-codes/unmap">
@@ -1792,12 +1795,12 @@ export function renderControlPlane(
       <button type="submit" class="danger">${localize(locale, "Unmap", "Премахване на съпоставянето")}</button>
     </form></div>`).join("")
   const labCodeControls = labCodes ? `
-    <div class="component"><p>${localize(locale, "A hospital may send several codes for one test — an analyser each — and every one of them can point at the same entry here. Nothing is blocked while a code is unmapped: the result still reaches the clinician under whatever the laboratory called it, and mapping only decides where it lands. Codes already understood never appear below, so an empty first list means there is nothing left to answer.", "Една болница може да изпраща няколко кода за едно изследване — по един за всеки апарат — и всички те могат да сочат към един и същ запис тук. Нищо не се блокира, докато кодът не е съпоставен: резултатът пак стига до лекаря с името, което му е дала лабораторията, а съпоставянето решава само къде да се запише. Вече разпознатите кодове не се показват по-долу, така че празен първи списък означава, че няма какво повече да се съпоставя.")}</p></div>
+    <div class="component"><p>${localize(locale, "A hospital may send several codes for one test — an analyser each — and every one of them can point at the same entry here. Nothing is blocked while a code is unmapped: the result still reaches the clinician under whatever the laboratory called it, and mapping only decides where it lands. Codes already understood never appear below, so an empty first list means there is nothing left to answer.", "Един анализ може да идва с различни кодове, по един за всеки апарат; всички могат да се съпоставят с един запис в LOSPOR. Несъпоставен резултат пак стига до лекаря с името от лабораторията.")}</p></div>
     <h3>${localize(locale, "Waiting for an answer", "Чакат съпоставяне")}</h3>
-    ${unmappedRows || `<div class="empty">${localize(locale, "Every code this hospital has sent is understood.", "Всички кодове, изпратени от болницата, са разпознати.")}</div>`}
-    <h3>${localize(locale, "Already answered", "Вече съпоставени")}</h3>
-    ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Все още няма съпоставени местни кодове.")}</div>`}
-  ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Картата на лабораторните кодове не е достъпна.")}</div>`
+    ${unmappedRows || `<div class="empty">${localize(locale, "Every code this hospital has sent is understood.", "Няма несъпоставени кодове.")}</div>`}
+    <h3>${localize(locale, "Already answered", "Съпоставени")}</h3>
+    ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Няма съпоставени кодове.")}</div>`}
+  ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Кодовете на изследванията не могат да се заредят.")}</div>`
 
   // ── the medication code map ─────────────────────────────────────────────────
   //
@@ -1833,7 +1836,7 @@ export function renderControlPlane(
     "<form method='post' action='/status/control/ehr-medication-codes/map'>" +
     "<input type='hidden' name='system' value='" + escapeHtml(row.system) + "'>" +
     "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
-    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Съответно лекарство в LOSPOR") + "<select name='catalogId' required><option value=''>" +
+    "<label>" + localize(locale, "Interpret this as the LOSPOR drug", "Лекарство в LOSPOR") + "<select name='catalogId' required><option value=''>" +
     (options ? localize(locale, "Choose a drug…", "Изберете лекарство…") : localize(locale, "Search above to find the drug", "Потърсете лекарството по-горе")) + "</option>" + options + "</select></label>" +
     "<button type='submit'>" + localize(locale, "Map this medication", "Съпоставяне на лекарството") + "</button></form></div>"
   }
@@ -1841,8 +1844,8 @@ export function renderControlPlane(
   const mappedMedicationRows = (medicationCodes?.mapped ?? []).map(row =>
     "<div class='component'><div class='facts'>" +
     textFact(escapeHtml(row.code), escapeHtml(row.drugName)) +
-    textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име")) +
-    textFact(localize(locale, "INN / ATC", "МНН / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "не е в каталога"))) +
+    textFact(localize(locale, "Reported as", "Наименование от БИС"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "без наименование")) +
+    textFact(localize(locale, "INN / ATC", "МНН / ATC"), escapeHtml([row.inn, row.atcCode].filter(Boolean).join(" · ") || localize(locale, "not catalogued", "не е в списъка"))) +
     textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row))) +
     dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
     "</div><form method='post' action='/status/control/ehr-medication-codes/unmap'>" +
@@ -1850,12 +1853,12 @@ export function renderControlPlane(
     "<input type='hidden' name='code' value='" + escapeHtml(row.code) + "'>" +
     "<button type='submit' class='danger'>" + localize(locale, "Unmap", "Премахване на съпоставянето") + "</button></form></div>").join("")
   const medicationCodeControls = medicationCodes
-    ? "<div class='component'><p>" + localize(locale, "Unmapped medications are still offered to clinicians in the normal import review. Mapping only adds a LOSPOR Drug proposal to future imports; it does not backfill, rewrite, or reopen accepted or frozen cases.", "Несъпоставените лекарства пак се показват на лекарите при обичайния преглед на импорта. Съпоставянето само добавя предложение за лекарство от LOSPOR при бъдещи импорти; то не променя със задна дата и не отваря отново приети или заключени случаи.") + "</p></div>" +
+    ? "<div class='component'><p>" + localize(locale, "Unmapped medications are still offered to clinicians in the normal import review. Mapping only adds a LOSPOR Drug proposal to future imports; it does not backfill, rewrite, or reopen accepted or frozen cases.", "Несъпоставено лекарство пак стига до лекаря при прегледа на данните от БИС. Съпоставянето важи само за бъдещи данни.") + "</p></div>" +
       "<h3>" + localize(locale, "Waiting for an answer", "Чакат съпоставяне") + "</h3>" +
-      (unmappedMedicationRows || "<div class='empty'>" + localize(locale, "Every medication code this hospital has sent is understood.", "Всички лекарствени кодове, изпратени от болницата, са разпознати.") + "</div>") +
-      "<h3>" + localize(locale, "Already answered", "Вече съпоставени") + "</h3>" +
-      (mappedMedicationRows || "<div class='empty'>" + localize(locale, "No local medication codes have been mapped yet.", "Все още няма съпоставени местни лекарствени кодове.") + "</div>")
-    : "<div class='empty'>" + localize(locale, "The medication code map is unavailable.", "Картата на лекарствените кодове не е достъпна.") + "</div>"
+      (unmappedMedicationRows || "<div class='empty'>" + localize(locale, "Every medication code this hospital has sent is understood.", "Няма несъпоставени кодове.") + "</div>") +
+      "<h3>" + localize(locale, "Already answered", "Съпоставени") + "</h3>" +
+      (mappedMedicationRows || "<div class='empty'>" + localize(locale, "No local medication codes have been mapped yet.", "Няма съпоставени кодове.") + "</div>")
+    : "<div class='empty'>" + localize(locale, "The medication code map is unavailable.", "Кодовете на лекарствата не могат да се заредят.") + "</div>"
   // ── the PREOP vital-code map ──────────────────────────────────────────────
   const vitalCodes = view?.ehrVitalCodes
   const vitalFieldNames: Record<string, [string, string]> = {
@@ -1876,12 +1879,12 @@ export function renderControlPlane(
     "<p><strong>" + escapeHtml(row.code) + "</strong>" + (row.reportedLabel ? " — " + escapeHtml(row.reportedLabel) : "") + "</p>" +
     "<p class=\"component-detail\">" + (row.system ? escapeHtml(row.system) + " · " : "") + escapeHtml(seenFact(row)) + "</p>" +
     "<label>" + localize(locale, "Assign this code to", "Този код означава") + "<select name=\"field\" required><option value=\"\">" +
-    localize(locale, "Choose a PREOP vital…", "Изберете предоперативен показател…") + "</option>" + vitalFieldOptions(null) + "</select></label>" +
-    "<button type=\"submit\">" + localize(locale, "Assign vital", "Свързване с показателя") + "</button></form></div>").join("")
+    localize(locale, "Choose a PREOP vital…", "Изберете показател…") + "</option>" + vitalFieldOptions(null) + "</select></label>" +
+    "<button type=\"submit\">" + localize(locale, "Assign vital", "Съпоставяне") + "</button></form></div>").join("")
   const mappedVitalRows = (vitalCodes?.mapped ?? []).map(row =>
     "<div class=\"component\"><div class=\"facts\">" +
     textFact(escapeHtml(row.code), escapeHtml(vitalFieldName(row.field))) +
-    textFact(localize(locale, "Reported as", "Идва като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "не е изпратено име")) +
+    textFact(localize(locale, "Reported as", "Наименование от БИС"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "без наименование")) +
     textFact(localize(locale, "Traffic", "Получени стойности"), escapeHtml(seenFact(row))) +
     dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale) +
     "</div><form method=\"post\" action=\"/status/control/ehr-vital-codes/unmap\">" +
@@ -1889,12 +1892,12 @@ export function renderControlPlane(
     "<input type=\"hidden\" name=\"code\" value=\"" + escapeHtml(row.code) + "\">" +
     "<button type=\"submit\" class=\"danger\">" + localize(locale, "Unmap", "Премахване на съпоставянето") + "</button></form></div>").join("")
   const vitalCodeControls = vitalCodes
-    ? "<div class=\"component\"><p>" + localize(locale, "Unknown FHIR vital-sign codes are kept here until the hospital's code is assigned to one of the six PREOP vital fields. Nothing is guessed or written directly into a case; the assignment only teaches future imports where the value belongs.", "Непознатите FHIR кодове за жизнени показатели остават тук, докато кодът на болницата не бъде свързан с едно от шестте предоперативни полета за жизнени показатели. Нищо не се отгатва и не се записва директно в случай; свързването само показва на бъдещите импорти къде отива стойността.") + "</p></div>" +
+    ? "<div class=\"component\"><p>" + localize(locale, "Unknown FHIR vital-sign codes are kept here until the hospital's code is assigned to one of the six PREOP vital fields. Nothing is guessed or written directly into a case; the assignment only teaches future imports where the value belongs.", "Непознат код за жизнен показател остава тук, докато не бъде съпоставен с един от шестте предоперативни показателя. Съпоставянето важи само за бъдещи данни.") + "</p></div>" +
       "<h3>" + localize(locale, "Waiting for an answer", "Чакат съпоставяне") + "</h3>" +
-      (unmappedVitalRows || "<div class=\"empty\">" + localize(locale, "Every vital-sign code this hospital has sent is understood.", "Всички кодове за жизнени показатели, изпратени от болницата, са разпознати.") + "</div>") +
-      "<h3>" + localize(locale, "Already answered", "Вече съпоставени") + "</h3>" +
-      (mappedVitalRows || "<div class=\"empty\">" + localize(locale, "No local vital-sign codes have been assigned yet.", "Все още няма свързани местни кодове за жизнени показатели.") + "</div>")
-    : "<div class=\"empty\">" + localize(locale, "The PREOP vital-code map is unavailable.", "Картата на кодовете за предоперативни жизнени показатели не е достъпна.") + "</div>"
+      (unmappedVitalRows || "<div class=\"empty\">" + localize(locale, "Every vital-sign code this hospital has sent is understood.", "Няма несъпоставени кодове.") + "</div>") +
+      "<h3>" + localize(locale, "Already answered", "Съпоставени") + "</h3>" +
+      (mappedVitalRows || "<div class=\"empty\">" + localize(locale, "No local vital-sign codes have been assigned yet.", "Няма съпоставени кодове.") + "</div>")
+    : "<div class=\"empty\">" + localize(locale, "The PREOP vital-code map is unavailable.", "Кодовете на жизнените показатели не могат да се заредят.") + "</div>"
 
   // ── code-list addresses ────────────────────────────────────────────────────
   //
@@ -1934,27 +1937,27 @@ export function renderControlPlane(
       <input type="hidden" name="system" value="${escapeHtml(row.system)}">
       <p><strong>${escapeHtml(row.system)}</strong></p>
       <p class="component-detail">${codeSystemFacts(row)}</p>
-      <label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете списък…")}</option>${codeListOptions(null)}</select></label>
+      <label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете номенклатура…")}</option>${codeListOptions(null)}</select></label>
       <button type="submit">${localize(locale, "Save", "Запазване")}</button>
     </form></div>`).join("")
   const answeredSystems = (codeSystems?.answered ?? []).map(row => `
     <div class="component"><div class="facts">
       ${textFact(escapeHtml(row.system), escapeHtml(codeListName(row.list ?? "")))}
       ${textFact(localize(locale, "Traffic", "Получени стойности"), codeSystemFacts(row))}
-      ${dateFact(localize(locale, "Answered on", "Отговорено на"), row.answeredAt, locale)}
+      ${dateFact(localize(locale, "Answered on", "Посочено на"), row.answeredAt, locale)}
     </div><form method="post" action="/status/control/ehr-code-systems/answer">
       <input type="hidden" name="system" value="${escapeHtml(row.system)}">
       <input type="hidden" name="list" value="">
-      <button type="submit" class="danger">${localize(locale, "Take the answer back", "Отмяна на отговора")}</button>
+      <button type="submit" class="danger">${localize(locale, "Take the answer back", "Отмяна")}</button>
     </form></div>`).join("")
   const codeSystemControls = codeSystems ? `
-    <div class="component"><p>${localize(locale, "Each coded value arrives with the address of the list it belongs to, and NHIS publishes no address for its lists, so every hospital system invents its own. An address that names its list, such as …/CL013 or urn:…:ksmp, is recognised on its own. Any other address is listed below once something arrives from it; say once which list it is. Until then its codes still arrive, as the hospital labelled them.", "Всяка кодирана стойност идва с адреса на списъка, от който е, но НЗИС не публикува адреси за своите списъци и всяка болнична система си измисля собствени. Адрес, в който личи списъкът, например …/CL013 или urn:…:ksmp, се разпознава автоматично. Всеки друг адрес се показва по-долу, щом от него дойде нещо — посочете веднъж кой списък е. Дотогава кодовете му пак идват, с имената, които им е дала болницата.")}</p>
-    <form method="post" action="/status/control/ehr-code-systems/answer"><label>${localize(locale, "Address from the hospital system's documentation", "Адрес от документацията на болничната система")}<input name="system" maxlength="2048" required></label><label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете списък…")}</option>${codeListOptions(null)}</select></label><button type="submit">${localize(locale, "Add address", "Добавяне на адрес")}</button></form></div>
+    <div class="component"><p>${localize(locale, "Each coded value arrives with the address of the list it belongs to, and NHIS publishes no address for its lists, so every hospital system invents its own. An address that names its list, such as …/CL013 or urn:…:ksmp, is recognised on its own. Any other address is listed below once something arrives from it; say once which list it is. Until then its codes still arrive, as the hospital labelled them.", "Всяка кодирана стойност идва с адреса на номенклатурата си. НЗИС не публикува такива адреси и всяка БИС ползва свои. Адрес като …/CL013 се разпознава автоматично; за всеки друг посочете веднъж коя номенклатура е. Дотогава кодовете пак пристигат с наименованията от БИС.")}</p>
+    <form method="post" action="/status/control/ehr-code-systems/answer"><label>${localize(locale, "Address from the hospital system's documentation", "Адрес от документацията на БИС")}<input name="system" maxlength="2048" required></label><label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете номенклатура…")}</option>${codeListOptions(null)}</select></label><button type="submit">${localize(locale, "Add address", "Добавяне на адрес")}</button></form></div>
     <h3>${localize(locale, "Waiting for an answer", "Чакат съпоставяне")}</h3>
     ${waitingSystems || `<div class="empty">${localize(locale, "Every address this hospital has sent is understood.", "Всички адреси, изпратени от болницата, са разпознати.")}</div>`}
-    <h3>${localize(locale, "Already answered", "Вече съпоставени")}</h3>
+    <h3>${localize(locale, "Already answered", "Съпоставени")}</h3>
     ${answeredSystems || `<div class="empty">${localize(locale, "No addresses have been answered yet.", "Все още няма посочени адреси.")}</div>`}
-  ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
+  ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на номенклатурите не могат да се заредят.")}</div>`
 
   const newPages: { slug: string; label: string; html: string }[] = [
     { slug: "history", label: localize(locale, "Change history", "История на промените"), html: renderHistoryPage(history, historyQuery ?? { page: 0, category: "", action: "" }, locale) },
@@ -1975,11 +1978,11 @@ export function renderControlPlane(
       label: localize(locale, "EHR integration", "Интеграция с БИС"),
       html: `
     <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Настройка за ЕГН")}</h2><div class="card">${patientIdentifierControls}</div></section>
-    <section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Medication code map", "Карта на лекарствените кодове")}</h2><div class="card">${medicationCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "PREOP vital-code map", "Карта на кодовете за предоперативни жизнени показатели")}</h2><div class="card">${vitalCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>`,
+    <section class="section"><h2>${localize(locale, "EHR import transport", "Връзка с БИС")}</h2><div class="card">${ehrTransportControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Laboratory code map", "Кодове на изследванията")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Medication code map", "Кодове на лекарствата")}</h2><div class="card">${medicationCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "PREOP vital-code map", "Кодове на жизнените показатели")}</h2><div class="card">${vitalCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на номенклатурите")}</h2><div class="card">${codeSystemControls}</div></section>`,
     },
     {
       slug: "research",
@@ -1987,14 +1990,14 @@ export function renderControlPlane(
       html: `
     <section class="section"><h2>${localize(locale, "Research grants", "Разрешения за изследвания")}</h2><div class="card"><div class="component">${grantForm}</div>${grantRows}</div></section>
     <section class="section"><h2>${localize(locale, "Exact OMOP approvals", "Одобрение на конкретни OMOP набори")}</h2><div class="card">${omopRows}</div></section>
-    <section class="section"><h2>${localize(locale, "Central transport (push-only)", "Изпращане към Central (само изходящо)")}</h2><div class="card"><div class="component"><p><strong>${localize(locale, "Disabled by default.", "Изключено по подразбиране.")}</strong> ${localize(locale, "Central cannot query or write this hospital database.", "Central не може да чете от болничната база данни и да записва в нея.")}</p>${certificateFacts}${transport}</div></div></section>
+    <section class="section"><h2>${localize(locale, "Central transport (push-only)", "Връзка с Central")}</h2><div class="card"><div class="component"><p>${localize(locale, "The link is outgoing only: Central cannot read or write this hospital's database.", "Връзката е само изходяща: Central не може да чете и да записва в базата на болницата.")}</p>${certificateFacts}${transport}</div></div></section>
     <section class="section"><h2>${localize(locale, "Central automatic clinical delivery", "Автоматично изпращане на клинични данни към Central")}</h2><div class="card"><div class="component">${policy}</div></div></section>
-    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Опашки, пакети и подписани потвърждения от Central")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, които чакат потвърждение за приемане")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "Queues", "Опашки")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>`,
+    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Изпратени пакети")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, чакащи потвърждение")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "By state", "По състояние")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>`,
     },
     {
       slug: "ai",
       label: localize(locale, "External AI", "Външен ИИ"),
-      html: `<section class="section"><h2>${localize(locale, "External AI (Mistral)", "Външен ИИ (Mistral)")}</h2><div class="card">${externalAiControls}</div></section>`,
+      html: `<section class="section"><h2>${localize(locale, "External AI (Mistral)", "Помощ от ИИ (Mistral, ЕС)")}</h2><div class="card">${externalAiControls}</div></section>`,
     },
     ...newPages,
   ]
@@ -2005,20 +2008,20 @@ export function renderControlPlane(
     { slug: "preop", label: localize(locale, "Preoperative form", "Предоперативна форма"), html: `<section class="section"><h2 class="skin-dup">${localize(locale, "Preoperative form", "Предоперативна форма")}</h2>${renderPreopTabs(preopTab, locale)}<div class="card">${preopTabHtml}</div></section>` },
     ...newPages,
     { ...clinicalSection, html: `<section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Изчислени насоки")}</h2><div class="card">${guidancePolicy}${caseVisibilityControls}${hospitalNameControls}${hospitalLogoControls}</div></section>` },
-    { slug: "ehr", label: localize(locale, "Hospital system", "Болнична система"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Канал за импорт от БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },
-    { slug: "codes", label: localize(locale, "Codes", "Кодове"), html: `
-    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Medication code map", "Карта на лекарствените кодове")}</h2><div class="card">${medicationCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "PREOP vital-code map", "Карта на кодовете за предоперативни жизнени показатели")}</h2><div class="card">${vitalCodeControls}</div></section>
-    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>` },
+    { slug: "ehr", label: localize(locale, "Hospital system", "Болнична информационна система (БИС)"), html: `<section class="section"><h2>${localize(locale, "EHR import transport", "Връзка с БИС")}</h2><div class="card">${ehrTransportControls}</div></section>` },
+    { slug: "codes", label: localize(locale, "Codes", "Кодове от БИС"), html: `
+    <section class="section"><h2>${localize(locale, "Laboratory code map", "Кодове на изследванията")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Medication code map", "Кодове на лекарствата")}</h2><div class="card">${medicationCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "PREOP vital-code map", "Кодове на жизнените показатели")}</h2><div class="card">${vitalCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на номенклатурите")}</h2><div class="card">${codeSystemControls}</div></section>` },
     { slug: "identity", label: localize(locale, "Patient identification", "Идентификация на пациента"), html: `<section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Настройка за ЕГН")}</h2><div class="card">${patientIdentifierControls}</div></section>` },
     { slug: "research", label: localize(locale, "Research access", "Достъп за изследвания"), html: `
     <section class="section"><h2>${localize(locale, "Research grants", "Разрешения за изследвания")}</h2><div class="card"><div class="component">${grantForm}</div>${grantRows}</div></section>
     <section class="section"><h2>${localize(locale, "Exact OMOP approvals", "Одобрение на конкретни OMOP набори")}</h2><div class="card">${omopRows}</div></section>` },
     { slug: "central", label: "LOSPOR Central", html: `
-    <section class="section"><h2>${localize(locale, "Central transport (push-only)", "Изпращане към Central (само изходящо)")}</h2><div class="card"><div class="component"><p><strong>${localize(locale, "Disabled by default.", "Изключено по подразбиране.")}</strong> ${localize(locale, "Central cannot query or write this hospital database.", "Central не може да чете от болничната база данни и да записва в нея.")}</p>${certificateFacts}${transport}</div></div></section>
+    <section class="section"><h2>${localize(locale, "Central transport (push-only)", "Връзка с Central")}</h2><div class="card"><div class="component"><p>${localize(locale, "The link is outgoing only: Central cannot read or write this hospital's database.", "Връзката е само изходяща: Central не може да чете и да записва в базата на болницата.")}</p>${certificateFacts}${transport}</div></div></section>
     <section class="section"><h2>${localize(locale, "Central automatic clinical delivery", "Автоматично изпращане на клинични данни към Central")}</h2><div class="card"><div class="component">${policy}</div></div></section>
-    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Опашки, пакети и подписани потвърждения от Central")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, които чакат потвърждение за приемане")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "Queues", "Опашки")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>` },
+    <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Изпратени пакети")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, чакащи потвърждение")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "By state", "По състояние")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>` },
     aiSection,
   ]
   const sections = isLegacy() ? legacySections : skinSections
@@ -2040,8 +2043,8 @@ export function renderControlPlane(
 
   return page(
     localize(locale, "Hospital controls", "Управление на болничната система"),
-    `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "EHR integration, research, Central and external AI", "БИС, изследвания, Central и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Входът в Status не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие от всеки формуляр.")}</strong></div>${subnav}${active.html}
-    </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не съхранява и не показва токени за регистрация, пароли, данни за достъп до ИИ, шифровани данни за достъп, съдържание на сертификати или клинични записи.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "EHR integration, research, Central and external AI", "БИС, изследвания, Central и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Status не дава достъп до клинични и изследователски данни.")}</strong></div>${subnav}${active.html}
+    </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не показва пароли, ключове, сертификати и клинични данни.")}</footer></div>`,
     locale,
   )
 }
@@ -2288,8 +2291,8 @@ export function renderTerminology(view: TerminologyView, locale: StatusLocale = 
     releaseFact(localize(locale, "Version", "Версия"), state.packageVersion!),
     releaseFact(localize(locale, "Activated (UTC)", "Активирано (UTC)"), state.activatedAt!),
     releaseFact(localize(locale, "Manifest SHA-256", "SHA-256 на манифеста"), state.manifestSha256!),
-    releaseFact(localize(locale, "Rollback generation", "Версия за връщане"), state.rollbackAvailable ? localize(locale, "retained", "запазена") : localize(locale, "none", "няма")),
-  ].join("")}</div>` : `<div class="empty">${localize(locale, "No terminology package is imported. The codes bundled with this release are in use: ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and their research numbers. A package is optional.", "Няма импортиран пакет с терминология. Използват се кодовете, вградени в тази версия: МКБ-10 с български наименования, процедури, списъкът с лекарства, английски синоними на диагнозите и техните кодове за изследвания. Пакетът не е задължителен.")}</div>`
+    releaseFact(localize(locale, "Rollback generation", "Предишна версия"), state.rollbackAvailable ? localize(locale, "retained", "запазена") : localize(locale, "none", "няма")),
+  ].join("")}</div>` : `<div class="empty">${localize(locale, "No terminology package is imported. The codes bundled with this release are in use: ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and their research numbers. A package is optional.", "Няма зареден пакет. Използват се номенклатурите, вградени в LOSPOR: МКБ-10, процедури, лекарства, изследвания. Пакетът не е задължителен.")}</div>`
   const pendingLabel = state?.pendingPhase ? ({
     verified: localize(locale, "manifest verified", "манифестът е проверен"),
     staged: localize(locale, "isolated database staged", "изолираната база е подготвена"),
@@ -2298,37 +2301,37 @@ export function renderTerminology(view: TerminologyView, locale: StatusLocale = 
     activating: localize(locale, "activation interrupted", "активирането е прекъснато"),
   } as const)[state.pendingPhase] : null
   const pending = state?.pendingPhase
-    ? `<div class="component"><div class="component-name">${localize(locale, "Unfinished staged generation", "Незавършена подготвена версия")}</div><div class="component-detail">${localize(locale, "Recorded phase", "Записана фаза")}: ${escapeHtml(pendingLabel!)}. ${localize(locale, "Resume only with the same package directory.", "Възобновете само със същата папка на пакета.")}</div></div>`
+    ? `<div class="component"><div class="component-name">${localize(locale, "Unfinished staged generation", "Незавършено зареждане")}</div><div class="component-detail">${localize(locale, "Recorded phase", "Етап")}: ${escapeHtml(pendingLabel!)}. ${localize(locale, "Resume only with the same package directory.", "Възобновете само със същата папка на пакета.")}</div></div>`
     : ""
   let agent: string
   if (view.agentMode === "healthy" && state) {
     agent = `<div class="component"><div class="component-name">${localize(locale, "Terminology host workflow", "Работа с терминологията на сървъра")}</div><div class="component-detail">${escapeHtml(terminologyResult(state.resultCode, locale))}</div></div>`
   } else if (view.agentMode === "console-only") {
-    agent = `<div class="component"><div class="component-name">${localize(locale, "Console-only management", "Управление само от конзолата")}</div><div class="component-detail">${localize(locale, "Browser terminology requests are intentionally disabled. The supported terminology scripts remain available to Hospital IT on the server.", "Заявките за терминология от браузъра са умишлено изключени. Поддържаните скриптове за терминология остават достъпни за ИТ отдела на сървъра.")}</div></div>`
+    agent = `<div class="component"><div class="component-name">${localize(locale, "Console-only management", "Управление само от конзолата")}</div><div class="component-detail">${localize(locale, "Browser terminology requests are intentionally disabled. The supported terminology scripts remain available to Hospital IT on the server.", "Управлява се от ИТ отдела от конзолата на сървъра.")}</div></div>`
   } else {
-    agent = `<div class="component"><div class="component-name">${localize(locale, "Terminology host workflow", "Работа с терминологията на сървъра")}</div><div class="component-detail">${localize(locale, "No fresh, valid host projection is available. Browser operations are disabled rather than assuming the host is ready.", "Няма актуални и валидни данни от сървъра. Затова действията от браузъра са изключени, вместо да се приема, че сървърът е готов.")}</div></div>`
+    agent = `<div class="component"><div class="component-name">${localize(locale, "Terminology host workflow", "Работа с терминологията на сървъра")}</div><div class="component-detail">${localize(locale, "No fresh, valid host projection is available. Browser operations are disabled rather than assuming the host is ready.", "Няма актуални данни от сървъра, затова действията са изключени.")}</div></div>`
   }
 
   let actions: string
   if (!view.mayManage) {
     const detail = view.recoverySession
-      ? localize(locale, "A console-recovery session can inspect this page but cannot change terminology. Sign in with the administrator password and MFA.", "Сесия с токен за възстановяване може да преглежда тази страница, но не и да променя терминологията. Влезте с администраторската парола и потвърждаване в две стъпки.")
+      ? localize(locale, "A console-recovery session can inspect this page but cannot change terminology. Sign in with the administrator password and MFA.", "Сесията за възстановяване може само да преглежда. За промени влезте с администраторската парола.")
       : state?.phase === "needs-operator"
-        ? localize(locale, "The host has stopped after an ambiguous or invalid state. It will not retry from the browser; Hospital IT must review the console first.", "Сървърът е спрял след неясно или невалидно състояние. Операцията няма да се повтори от браузъра; ИТ отделът трябва първо да провери конзолата.")
+        ? localize(locale, "The host has stopped after an ambiguous or invalid state. It will not retry from the browser; Hospital IT must review the console first.", "Операцията спря с грешка. ИТ отделът трябва да провери конзолата.")
         : state && ["accepted", "working"].includes(state.phase)
-          ? localize(locale, "A terminology operation is already running. This page is read-only until it finishes.", "Вече тече операция с терминологията. Страницата е само за преглед, докато тя приключи.")
-          : localize(locale, "Browser terminology operations require a healthy host agent.", "Операциите с терминология от браузъра изискват работещ агент на сървъра.")
+          ? localize(locale, "A terminology operation is already running. This page is read-only until it finishes.", "Тече операция. Изчакайте да приключи.")
+          : localize(locale, "Browser terminology operations require a healthy host agent.", "Нужна е работеща услуга за поддръжка на сървъра.")
     actions = `<div class="empty">${detail}</div>`
   } else {
     const resume = state?.pendingPhase ? `<div class="component"><h3>${localize(locale, "Resume an unfinished import", "Възобновяване на незавършен импорт")}</h3>${terminologyActionForm("resume", locale, view.packages)}</div>` : ""
-    const rollback = state?.rollbackAvailable ? `<div class="component"><h3>${localize(locale, "Restore the retained generation", "Възстановяване на запазената версия")}</h3><p>${localize(locale, "Rollback switches the live database generation and temporarily stops the clinical apps. The currently rejected generation is retained for technical review.", "Връщането сменя действащата версия на базата и временно спира клиничните приложения. Отхвърлената текуща версия се запазва за техническа проверка.")}</p><form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="rollback"><label class="check"><input type="checkbox" name="confirmation" value="ROLLBACK-TERMINOLOGY" required><span>${localize(locale, "I intend to restore the retained terminology generation.", "Искам да възстановя запазената версия на терминологията.")}</span></label><label for="term-rollback-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="term-rollback-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" class="danger">${localize(locale, "Rollback terminology", "Връщане на терминологията")}</button></form></div>` : ""
-    const finalize = state?.rollbackAvailable ? `<div class="component"><h3>${localize(locale, "Permanently remove the rollback generation", "Окончателно изтриване на версията за връщане")}</h3><p><strong>${localize(locale, "This cannot be undone.", "Това не може да бъде отменено.")}</strong> ${localize(locale, "Finalize only after the active generation has been clinically accepted. The host checks readiness again before deleting the retained database generation.", "Приключете окончателно само след като активната версия е приета клинично. Преди да изтрие запазената версия на базата, сървърът отново проверява готовността.")}</p><form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="finalize"><label class="check"><input type="checkbox" name="confirmation" value="DELETE-ROLLBACK-GENERATION" required><span>${localize(locale, "I intend to permanently remove the only retained rollback generation.", "Искам окончателно да изтрия единствената запазена версия за връщане.")}</span></label><label for="term-finalize-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="term-finalize-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" class="danger">${localize(locale, "Permanently finalize", "Окончателно приключване")}</button></form></div>` : ""
-    const importAction = state?.pendingPhase ? "" : `<div class="component"><h3>${localize(locale, "Import an approved package", "Импорт на одобрен пакет")}</h3><p>${localize(locale, "Hospital IT must obtain and place licensed source files. Status never uploads, downloads or displays them. The host verifies the exact manifest and every SHA-256 before activation.", "ИТ отделът трябва да осигури и постави лицензираните изходни файлове. Status никога не ги качва, изтегля или показва. Преди активиране сървърът проверява манифеста и всяка SHA-256 сума.")}</p>${terminologyActionForm("import", locale, view.packages)}</div>`
+    const rollback = state?.rollbackAvailable ? `<div class="component"><h3>${localize(locale, "Restore the retained generation", "Възстановяване на запазената версия")}</h3><p>${localize(locale, "Rollback switches the live database generation and temporarily stops the clinical apps. The currently rejected generation is retained for technical review.", "Връщането временно спира клиничните приложения. Текущата версия се запазва за проверка.")}</p><form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="rollback"><label class="check"><input type="checkbox" name="confirmation" value="ROLLBACK-TERMINOLOGY" required><span>${localize(locale, "I intend to restore the retained terminology generation.", "Искам да възстановя запазената версия на терминологията.")}</span></label><label for="term-rollback-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="term-rollback-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" class="danger">${localize(locale, "Rollback terminology", "Връщане на терминологията")}</button></form></div>` : ""
+    const finalize = state?.rollbackAvailable ? `<div class="component"><h3>${localize(locale, "Permanently remove the rollback generation", "Окончателно изтриване на версията за връщане")}</h3><p><strong>${localize(locale, "This cannot be undone.", "Това не може да бъде отменено.")}</strong> ${localize(locale, "Finalize only after the active generation has been clinically accepted. The host checks readiness again before deleting the retained database generation.", "Направете го само след като новата версия е одобрена клинично.")}</p><form method="post" action="/status/terminology/actions"><input type="hidden" name="action" value="finalize"><label class="check"><input type="checkbox" name="confirmation" value="DELETE-ROLLBACK-GENERATION" required><span>${localize(locale, "I intend to permanently remove the only retained rollback generation.", "Искам окончателно да изтрия единствената запазена версия за връщане.")}</span></label><label for="term-finalize-password">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="term-finalize-password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" class="danger">${localize(locale, "Permanently finalize", "Окончателно приключване")}</button></form></div>` : ""
+    const importAction = state?.pendingPhase ? "" : `<div class="component"><h3>${localize(locale, "Import an approved package", "Импорт на одобрен пакет")}</h3><p>${localize(locale, "Hospital IT must obtain and place licensed source files. Status never uploads, downloads or displays them. The host verifies the exact manifest and every SHA-256 before activation.", "ИТ отделът поставя лицензираните файлове на сървъра. Преди активиране сървърът проверява целостта им.")}</p>${terminologyActionForm("import", locale, view.packages)}</div>`
     actions = `${importAction}${resume}${rollback}${finalize}`
   }
   return page(
     localize(locale, "Hospital terminology management", "Управление на терминологията"),
-    `<div class="shell">${statusHeader("/status/terminology", locale, audience, localize(locale, "Governed terminology generations", "Версии на терминологията"))}<main>${notice}${error}<section class="section" aria-labelledby="term-active"><h2 id="term-active">${localize(locale, "Active approved generation", "Активна одобрена версия")}</h2><div class="card">${active}${pending}${agent}</div></section><section class="section" aria-labelledby="term-actions"><h2 id="term-actions">${localize(locale, "Supported workflow", "Поддържан начин на работа")}</h2><div class="card">${actions}</div></section></main><footer class="foot">${localize(locale, "This page handles bounded operational intent and approved-package provenance only. It has no shell, database, patient-data, source-file or credential access.", "Тази страница изпраща само ограничени заявки за поддръжка и показва произхода на одобрения пакет. Тя няма достъп до команден ред, база данни, данни за пациенти, изходни файлове или данни за вход.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/terminology", locale, audience, localize(locale, "Governed terminology generations", "Версии на терминологията"))}<main>${notice}${error}<section class="section" aria-labelledby="term-active"><h2 id="term-active">${localize(locale, "Active approved generation", "Действаща версия")}</h2><div class="card">${active}${pending}${agent}</div></section><section class="section" aria-labelledby="term-actions"><h2 id="term-actions">${localize(locale, "Actions", "Действия")}</h2><div class="card">${actions}</div></section></main></div>`,
     locale,
   )
 }

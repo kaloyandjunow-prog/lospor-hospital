@@ -179,13 +179,13 @@ function connectionItems(
   if (ehr?.configured) {
     const quiet = ehr.lastReceivedAt ? now - Date.parse(ehr.lastReceivedAt) : null
     if (quiet === null) {
-      items.push({ id: "ehr-quiet", level: "soon", en: "Nothing has arrived from the hospital system since it was set up.", bg: "От болничната система още не е пристигнало нищо, откакто е настроена.", href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+      items.push({ id: "ehr-quiet", level: "soon", en: "Nothing has arrived from the hospital system since it was set up.", bg: "От болничната система още не е пристигнало нищо, откакто е настроена.", href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „БИС“" })
     } else if (quiet > EHR_QUIET_WARN_MS) {
       const [en, bg] = quietFor(quiet)
-      items.push({ id: "ehr-quiet", level: quiet > EHR_QUIET_BAD_MS ? "today" : "soon", en: `Nothing has arrived from the hospital system for ${en}. Laboratory results are not reaching the records.`, bg: `От болничната система не е пристигнало нищо от ${bg}. Лабораторните резултати не стигат до записите.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+      items.push({ id: "ehr-quiet", level: quiet > EHR_QUIET_BAD_MS ? "today" : "soon", en: `Nothing has arrived from the hospital system for ${en}. Laboratory results are not reaching the records.`, bg: `От болничната система не е пристигнало нищо от ${bg}. Лабораторните резултати не стигат до записите.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „БИС“" })
     }
     if (ehr.readFailures24h) {
-      items.push({ id: "ehr-reads", level: "today", en: `The hospital system could not be read ${ehr.readFailures24h} time(s) in the last 24 hours. Clinicians may see empty allergy or laboratory lists for those patients.`, bg: `Болничната система не можа да бъде прочетена ${ehr.readFailures24h} път(и) през последните 24 часа. Лекарите може да видят празни списъци с алергии или изследвания за тези пациенти.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „Болнична система“" })
+      items.push({ id: "ehr-reads", level: "today", en: `The hospital system could not be read ${ehr.readFailures24h} time(s) in the last 24 hours. Clinicians may see empty allergy or laboratory lists for those patients.`, bg: `Болничната система не можа да бъде прочетена ${ehr.readFailures24h} път(и) през последните 24 часа. Лекарите може да видят празни списъци с алергии или изследвания за тези пациенти.`, href: "/status/control/ehr", actionEn: "See Hospital system", actionBg: "Вижте „БИС“" })
     }
     if (ehr.unmappedCodes) {
       items.push({ id: "ehr-unmapped", level: "soon", en: `${ehr.unmappedCodes} code(s) from the hospital system are not mapped, so their values are not brought into records.`, bg: `${ehr.unmappedCodes} код(а) от болничната система не са съпоставени, затова стойностите им не влизат в записите.`, href: "/status/control/codes", actionEn: "Map the codes", actionBg: "Съпоставете кодовете" })

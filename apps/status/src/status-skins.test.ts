@@ -140,7 +140,7 @@ describe("the legacy skin", () => {
 describe("language and theme", () => {
   it("names the navigation in Bulgarian", () => {
     const html = render("maphub", "password", "bg")
-    for (const name of ["Табло за управление", "Системна комуникация", "Състояние", "Клинични настройки", "Хора", "Актуализации и резервни копия", "Терминологичен пакет"]) expect(html).toContain(name)
+    for (const name of ["Табло за управление", "Системна комуникация", "Състояние", "Клинични настройки", "Акаунти", "Актуализации и резервни копия", "Номенклатури"]) expect(html).toContain(name)
   })
 
   it("follows the computer by default and marks an explicit choice on <html>", () => {
