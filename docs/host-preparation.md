@@ -21,7 +21,8 @@ Both are in the release, and in the repository at the same paths.
 - Docker Engine and Compose from Docker's repository, with Docker's signing key
   pinned by its full fingerprint;
 - OpenSSL, curl, Python 3, gzip, tar and whiptail;
-- automatic security updates and time synchronisation;
+- automatic security updates and time synchronisation (chrony; under Hyper-V it reads the
+  host's clock, so no time server is needed, but the host's own clock must be right);
 - a console user `lospor`. There is no shared initial password: the Hyper-V
   kit makes a one-time password for each VM, and anyone using the seed directly
   sets their own (see VMware or bare metal below).
@@ -59,9 +60,11 @@ Then nothing needs typing, and the window follows it through:
    - If the two DNS names are not there yet, it says so, with the server's
      address and MAC, and continues once IT adds them. It waits an hour; after
      that, run `sudo systemctl start firstboot-lospor` on the console.
-   - It then waits, up to ten minutes, for the server's clock to be confirmed
-     by a time server (NTP, UDP port 123, internal or public). Without that the
-     readiness check stops the installation.
+   - It then waits, up to ten minutes, for the server's clock to be confirmed.
+     Under Hyper-V that is the host's clock, usually within a minute; elsewhere
+     it needs a time server (NTP, UDP port 123, internal or public). Without
+     it the readiness check stops the installation. Check on the Hyper-V host
+     that it keeps its own time: `w32tm /query /status`.
    - **The server takes its address from DHCP.** IT reserves that address for
      the MAC shown (or gives the server the address as a fixed one), at the
      same time as the DNS names. Without it a later lease can move the server

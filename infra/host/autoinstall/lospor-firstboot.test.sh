@@ -194,7 +194,7 @@ answers local
 rm -f "$work/clock.count"
 run env PATH="$work/bin:$PATH" FAKE_CLOCK_COUNT="$work/clock.count" LOSPOR_FIRSTBOOT_CLOCK_WAIT_SECONDS=60 || fail "the installation did not go on once the clock was confirmed"
 [ "$(cat "$work/clock.count")" -ge 3 ] || fail "the installation did not wait for the clock"
-grep -q "Waiting for this server to synchronize its clock" "$log" || fail "the wait was not reported"
+grep -q "Waiting for this server's clock to be confirmed" "$log" || fail "the wait was not reported"
 [ -f "$work/record.env" ] || fail "the installer did not run after the clock was confirmed"
 # A clock that never synchronizes does not hold the installation forever: the
 # readiness check then fails with its own message.

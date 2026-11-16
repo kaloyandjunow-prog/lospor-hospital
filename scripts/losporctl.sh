@@ -224,7 +224,7 @@ next_step() {
   case "$1:$2" in
     services:*) operator_text "Run: sudo losporctl check" "Изпълнете: sudo losporctl check" ;;
     storage:*) operator_text "Free disk space or add storage." "Освободете или добавете дисково пространство." ;;
-    clock:*) operator_text "Turn on time synchronization: sudo timedatectl set-ntp true" "Включете синхронизацията на часа: sudo timedatectl set-ntp true" ;;
+    clock:*) operator_text "Check where the server gets its time: sudo chronyc sources. It needs the Hyper-V host's clock or a time server on UDP port 123." "Проверете откъде сървърът взема времето: sudo chronyc sources. Нужен е часовникът на хоста Hyper-V или сървър за време на UDP порт 123." ;;
     backup:*) operator_text "Run: sudo losporctl backup run" "Изпълнете: sudo losporctl backup run" ;;
     offHostBackup:*) operator_text "Set up the copy elsewhere: see Backups in the documentation." "Настройте копието на друго място: вижте „Резервни копия“ в документацията." ;;
     keyEscrow:*) operator_text "Plug in a USB stick or mount a share from elsewhere, then run: sudo losporctl secrets escrow DIRECTORY" "Поставете USB памет или монтирайте споделена папка от друго място и изпълнете: sudo losporctl secrets escrow ДИРЕКТОРИЯ" ;;

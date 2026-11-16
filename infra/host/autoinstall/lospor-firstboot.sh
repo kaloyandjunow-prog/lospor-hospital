@@ -198,7 +198,7 @@ done
 clock_waited=0
 while [ "$(timedatectl show --property=NTPSynchronized --value 2>/dev/null || true)" != yes ]; do
   [ "$clock_waited" -lt "$clock_wait_seconds" ] || break
-  [ "$clock_waited" -gt 0 ] || report installing "Waiting for this server to synchronize its clock with a time server (NTP). Hospital IT: the server must reach one, internal or public, on UDP port 123."
+  [ "$clock_waited" -gt 0 ] || report installing "Waiting for this server's clock to be confirmed: under Hyper-V from the host's clock (usually under a minute), otherwise from a time server. Hospital IT: without a Hyper-V host, the server must reach one on UDP port 123."
   sleep 5
   clock_waited=$((clock_waited + 5))
 done

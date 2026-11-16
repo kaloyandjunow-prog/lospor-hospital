@@ -17,6 +17,12 @@ Installer only: nothing changes on an installed appliance. Install new sites wit
 - **Docker's signing key is carried in the Ubuntu seed** instead of being fetched from a keyserver, which does not
   use a proxy. A test checks it is the key with the pinned fingerprint, 9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88.
 
+- **Time without a time server.** The Ubuntu seed installs `chrony` instead of `systemd-timesyncd`. On Hyper-V it
+  reads the host's clock through the hypervisor (`/dev/ptp_hyperv`), which the host takes from the hospital's domain, so a
+  server that cannot reach a time server still has the right time within a minute of its first boot; the network time
+  sources stay as a second opinion. The host's own clock must be right. `losporctl status` now says
+  `sudo chronyc sources` where it told people to start a daemon this server no longer runs.
+
 ### Fixed
 
 - **A new server could stop its first installation on "system clock is not confirmed synchronized".** The first

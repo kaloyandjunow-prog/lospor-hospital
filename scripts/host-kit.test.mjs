@@ -102,7 +102,7 @@ test("the seed installs the appliance's prerequisites with Docker's key pinned b
   assert.doesNotMatch(seed.replace(/^\s*#.*$/gm, ""), /keyid:/)
   assert.match(seed, /^        key: \|\n          -----BEGIN PGP PUBLIC KEY BLOCK-----$/m)
   assert.match(seed, /^          -----END PGP PUBLIC KEY BLOCK-----$/m)
-  for (const pkg of ["docker-ce", "docker-compose-plugin", "openssl", "curl", "python3", "gzip", "tar", "whiptail", "unattended-upgrades", "systemd-timesyncd"]) {
+  for (const pkg of ["docker-ce", "docker-compose-plugin", "openssl", "curl", "python3", "gzip", "tar", "whiptail", "unattended-upgrades", "chrony"]) {
     assert.match(seed, new RegExp(`^    - ${pkg}$`, "m"), `${pkg} is not installed`)
   }
   assert.match(seed, /APT::Periodic::Unattended-Upgrade "1";/)
@@ -125,6 +125,23 @@ test("the carried Docker key is the one with the pinned fingerprint, and only th
   const rows = shown.stdout.split("\n")
   assert.equal(rows.filter(row => row.startsWith("pub:")).length, 1, "more than one primary key is carried")
   assert.equal(rows.find(row => row.startsWith("fpr:")).split(":")[9], dockerFingerprint, "the carried key is not the pinned one")
+})
+
+test("time comes from chrony, which also reads the Hyper-V host's clock where there is one", () => {
+  const body = seed.replace(/^\s*#.*$/gm, "")
+  // chrony and systemd-timesyncd both provide time-daemon and cannot be installed together.
+  assert.match(seed, /^    - chrony$/m)
+  assert.doesNotMatch(body, /systemd-timesyncd/)
+  assert.match(seed, /systemctl enable [^\n]*\bchrony\.service\b/)
+  // The refclock line is written at each start and only where the device exists:
+  // chrony stops at a refclock whose device is missing, and a disk may move.
+  const dropIn = seed.match(/chrony\.service\.d\/lospor-hyperv-clock\.conf <<'EOF'\n((?:      .*\n)+?)      EOF/)
+  assert.ok(dropIn, "the chrony drop-in is not written")
+  const text = dropIn[1].replace(/^ {6}/gm, "")
+  assert.match(text, /^\[Service\]\nExecStartPre=\+\/bin\/sh -c '/)
+  assert.match(text, /if \[ -e \/dev\/ptp_hyperv \]; then echo "refclock PHC \/dev\/ptp_hyperv poll 3 dpoll -2 offset 0" > \/etc\/chrony\/conf\.d\/lospor-hyperv\.conf; else rm -f \/etc\/chrony\/conf\.d\/lospor-hyperv\.conf; fi'$/m)
+  // systemd would read a bare % as a specifier.
+  assert.doesNotMatch(text, /%/)
 })
 
 test("there is no shared password: the seed carries a placeholder it refuses to install with", () => {

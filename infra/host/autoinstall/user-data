@@ -11,7 +11,9 @@
 # What it sets up: the minimal server, OpenSSH (keys only), Docker Engine and
 # Compose from Docker's repository with its signing key pinned by full
 # fingerprint, the host commands the appliance needs, automatic security
-# updates, time synchronisation, and a first console login that offers to start
+# updates, time synchronisation (chrony, which on Hyper-V also reads the
+# host's clock, so a server with no time server of its own still has the time),
+# and a first console login that offers to start
 # the LOSPOR installation. When Ubuntu is installed the machine switches off,
 # so the installation media can be removed before it starts again.
 #
@@ -139,7 +141,7 @@ autoinstall:
     - util-linux
     - openssh-client
     - unattended-upgrades
-    - systemd-timesyncd
+    - chrony
     # Hyper-V's key-value exchange: the host sees the VM's address, and the
     # Windows wizard sees the first installation's progress. It runs only on
     # Hyper-V (the service is conditioned on it) and is inert elsewhere.
@@ -162,12 +164,28 @@ autoinstall:
       printf 'Architectures: amd64\nSigned-By: /etc/apt/keyrings/docker.%s\n' "$ext" >> "$sources"
     # The Windows wizard puts the hospital's proxy here, when there is one.
     # lospor-kit: proxy
+    # Time (1.11.1). chrony replaces systemd-timesyncd. Under Hyper-V the host's
+    # clock, which the host takes from the hospital's domain, is read through the
+    # hypervisor (/dev/ptp_hyperv): no time server is needed, and the readiness
+    # check's "clock is synchronized" holds within a minute of the first boot.
+    # The network time sources Ubuntu configures stay as they are, so a wrong
+    # host clock is outvoted when a time server is reachable. chrony stops at a
+    # refclock whose device is missing, so the line is written at every start,
+    # and only where the device exists: the same disk may later run elsewhere.
+    - |
+      set -e
+      install -d -m 0755 /target/etc/systemd/system/chrony.service.d
+      cat > /target/etc/systemd/system/chrony.service.d/lospor-hyperv-clock.conf <<'EOF'
+      [Service]
+      ExecStartPre=+/bin/sh -c 'if [ -e /dev/ptp_hyperv ]; then echo "refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0" > /etc/chrony/conf.d/lospor-hyperv.conf; else rm -f /etc/chrony/conf.d/lospor-hyperv.conf; fi'
+      EOF
+      chmod 0644 /target/etc/systemd/system/chrony.service.d/lospor-hyperv-clock.conf
     # The one-time password works once, at the console, and must then be
     # changed. The kit removes this line when it is given an SSH key: an expired
     # password would refuse that key until someone had used the console.
     - curtin in-target -- chage -d 0 lospor # lospor-kit: expire
     - curtin in-target -- usermod -aG docker lospor
-    - curtin in-target -- systemctl enable docker.service containerd.service systemd-timesyncd.service unattended-upgrades.service
+    - curtin in-target -- systemctl enable docker.service containerd.service chrony.service unattended-upgrades.service
     # Security updates install on their own; the appliance's own updates stay a
     # deliberate action.
     - |
