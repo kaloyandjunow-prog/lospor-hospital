@@ -17,6 +17,7 @@
 
 import { DEFAULT_CONSULT_SPECIALTY_KEYS, NHIS_SPECIALTY_BY_KEY } from "./nhis-specialties"
 import { LAB_LIBRARY } from "./labs"
+import type { PreopVitalsRequirement } from "./clinical-validation"
 
 export type PreopPopulation = "ADULT" | "PEDIATRIC"
 export type PreopLanguage = "en" | "bg"
@@ -94,7 +95,7 @@ export const PREOP_FIXED_SECTIONS: readonly { key: string; labelEn: string; labe
   { key: "DEMOGRAPHICS", labelEn: "Demographics", labelBg: "Демографски данни", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "CASE_DETAILS", labelEn: "Case details", labelBg: "Данни за случая", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "ANAMNESIS", labelEn: "Anamnesis", labelBg: "Анамнеза", reasonEn: "Holds the allergies; its questions switch one by one", reasonBg: "Съдържа алергиите; въпросите му се включват поотделно" },
-  { key: "VITALS", labelEn: "Vital signs", labelBg: "Жизнени показатели", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
+  { key: "VITALS", labelEn: "Vital signs", labelBg: "Жизнени показатели", reasonEn: "Always shown; which readings are required is set below", reasonBg: "Да се показва винаги; кои показатели са задължителни се избира по-долу" },
   { key: "AIRWAY", labelEn: "Airway", labelBg: "Дихателни пътища", reasonEn: "Required to continue", reasonBg: "Задължителен за продължаване" },
   { key: "RISK", labelEn: "Risk scores (ASA)", labelBg: "Рискови скорове (ASA)", reasonEn: "ASA is required to continue", reasonBg: "ASA е задължителен за продължаване" },
 ])
@@ -222,6 +223,103 @@ export type PreopSectionConfig = {
   orderOptions: PreopOrderOption[]
   /** The CL006 keys a consultation can name. */
   consultSpecialtyKeys: string[]
+  /**
+   * Which preoperative vitals are required (10.6.0). Absent, from a server
+   * before 10.6.0, means all of them, as before.
+   */
+  vitals?: PreopVitalsSettings
+  /**
+   * Whether a current medication may be typed as written when it is not in the
+   * drug list (10.6.0). Off unless the hospital turns it on in Status; absent,
+   * from an older server, it is off.
+   */
+  medicationsFreeText?: boolean
+}
+
+// ── Current medications typed as written (10.6.0) ──────────────────────────
+
+/**
+ * The profile row the switch is stored under, beside the section switches. No
+ * row is off: a typed medication carries no code, so it reaches research as an
+ * unmapped name, and a hospital chooses that deliberately.
+ */
+export const PREOP_MEDICATIONS_FREE_TEXT_ROW = "MEDICATIONS_FREE_TEXT"
+
+export const PREOP_MEDICATIONS_FREE_TEXT_LABEL = Object.freeze({
+  labelEn: "Current medications can be typed when not in the list",
+  labelBg: "Хроничните медикаменти могат да се въвеждат свободно, когато ги няма в списъка",
+})
+
+export function isMedicationFreeTextAllowed(config: Pick<PreopSectionConfig, "medicationsFreeText"> | null | undefined): boolean {
+  return config?.medicationsFreeText === true
+}
+
+/**
+ * Whether a current medication was typed rather than picked from the drug
+ * list: it carries neither an ATC code nor an INN. Exports treat its name as
+ * prose, not as a drug name.
+ */
+export function isTypedMedication(item: { atcCode?: unknown; inn?: unknown } | null | undefined): boolean {
+  const filled = (value: unknown) => typeof value === "string" && value.trim() !== ""
+  return !filled(item?.atcCode) && !filled(item?.inn)
+}
+
+// ── Preoperative vitals: required or optional (10.6.0) ────────────────────
+
+/**
+ * The vitals section is always on the form; what Status chooses is whether
+ * its readings hold up the case. `required` is the whole section: off, no
+ * reading is required whatever the three below say. On, each of blood
+ * pressure, heart rate and respiratory rate is required or optional on its
+ * own. An optional reading is still offered and still exported when entered.
+ */
+export type PreopVitalsSettings = {
+  required: boolean
+  bloodPressure: boolean
+  heartRate: boolean
+  respiratoryRate: boolean
+}
+
+export type PreopVitalsSettingKey = keyof PreopVitalsSettings
+
+export const DEFAULT_PREOP_VITALS_SETTINGS: Readonly<PreopVitalsSettings> = Object.freeze({
+  required: true,
+  bloodPressure: true,
+  heartRate: true,
+  respiratoryRate: true,
+})
+
+/**
+ * The profile row keys the four switches are stored under, beside the
+ * section switches. Absent rows read as required.
+ */
+export const PREOP_VITALS_SETTING_ROWS: Readonly<Record<PreopVitalsSettingKey, string>> = Object.freeze({
+  required: "VITALS_REQUIRED",
+  bloodPressure: "VITALS_BP_REQUIRED",
+  heartRate: "VITALS_HR_REQUIRED",
+  respiratoryRate: "VITALS_RR_REQUIRED",
+})
+
+/** The switches as Status draws them, in order. */
+export const PREOP_VITALS_SETTING_LABELS: readonly { key: PreopVitalsSettingKey; labelEn: string; labelBg: string }[] = Object.freeze([
+  { key: "required", labelEn: "Vital signs required", labelBg: "Жизнените показатели са задължителни" },
+  { key: "bloodPressure", labelEn: "Blood pressure", labelBg: "Артериално налягане" },
+  { key: "heartRate", labelEn: "Heart rate", labelBg: "Сърдечна честота" },
+  { key: "respiratoryRate", labelEn: "Respiratory rate", labelBg: "Дихателна честота" },
+])
+
+export function preopVitalsSettingsOf(config: Pick<PreopSectionConfig, "vitals"> | null | undefined): PreopVitalsSettings {
+  return { ...DEFAULT_PREOP_VITALS_SETTINGS, ...(config?.vitals ?? {}) }
+}
+
+/** What the readiness and finalization checks require, from a population's configuration. */
+export function preopVitalsRequirementFor(config: Pick<PreopSectionConfig, "vitals"> | null | undefined): PreopVitalsRequirement {
+  const settings = preopVitalsSettingsOf(config)
+  return {
+    bloodPressure: settings.required && settings.bloodPressure,
+    heartRate: settings.required && settings.heartRate,
+    respiratoryRate: settings.required && settings.respiratoryRate,
+  }
 }
 
 export function defaultPreopSectionConfig(population: PreopPopulation): PreopSectionConfig {
@@ -231,6 +329,8 @@ export function defaultPreopSectionConfig(population: PreopPopulation): PreopSec
     sections,
     orderOptions: BUNDLED_PREOP_ORDER_OPTIONS.map(option => ({ ...option })),
     consultSpecialtyKeys: [...DEFAULT_CONSULT_SPECIALTY_KEYS],
+    vitals: { ...DEFAULT_PREOP_VITALS_SETTINGS },
+    medicationsFreeText: false,
   }
 }
 
@@ -250,7 +350,7 @@ export function preopSectionConfigFor(
   for (const section of PREOP_SWITCHABLE_SECTIONS) {
     if (section.requires && !sections[section.requires]) sections[section.key] = false
   }
-  return { ...config, sections }
+  return { ...config, sections, vitals: preopVitalsSettingsOf(config), medicationsFreeText: isMedicationFreeTextAllowed(config) }
 }
 
 export function isPreopSectionOn(config: PreopSectionConfig, key: PreopSectionKey): boolean {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { medicationById, medicationByNhisCode, medicationsWithAtc, searchMedications, type MedicationRow } from "./medications"
+import { medicationById, medicationByNhisCode, medicationsWithAtc, searchMedications, startsWithKnownMedicine, type MedicationRow } from "./medications"
 import { MEDICATION_ROW_COUNT, medicationRows } from "./vocabulary/medications"
 
 const row = (id: string, name: string, inn: string, atc: string, extra: Partial<MedicationRow> = {}): MedicationRow =>
@@ -68,5 +68,17 @@ describe("the generated list", () => {
     expect(searchMedications(all, "ramipril").length).toBeGreaterThan(3)
     expect(searchMedications(all, "C09AA05").every(r => r.atc === "C09AA05")).toBe(true)
     expect(searchMedications(all, "metformin")[0].atc).toBe("A10BA02")
+  })
+})
+
+describe("a medication typed as written (10.6.0)", () => {
+  it("is recognised by its first word as a product or an INN, and a person's name is not", () => {
+    const rows = medicationRows()
+    expect(startsWithKnownMedicine(rows, "Prestarium Neo 5 mg")).toBe(true)
+    expect(startsWithKnownMedicine(rows, "Concor Cor 2.5")).toBe(true)
+    expect(startsWithKnownMedicine(rows, "bisoprolol 5 mg")).toBe(true)
+    expect(startsWithKnownMedicine(rows, "Ivan Petrov")).toBe(false)
+    expect(startsWithKnownMedicine(rows, "Иван Петров")).toBe(false)
+    expect(startsWithKnownMedicine(rows, "")).toBe(false)
   })
 })

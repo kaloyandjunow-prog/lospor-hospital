@@ -88,3 +88,37 @@ export function medicationByNhisCode(rows: readonly MedicationRow[], code: strin
 export function medicationById(rows: readonly MedicationRow[], id: string): MedicationRow | undefined {
   return rows.find(row => row.id === id)
 }
+
+// ── A medication typed as written (10.6.0) ────────────────────────────────
+
+const knownWords = new WeakMap<readonly MedicationRow[], Set<string>>()
+
+function firstWord(text: string): string {
+  return text.trim().split(/[\s,/(]+/)[0]?.toLowerCase() ?? ""
+}
+
+/**
+ * Whether a medication typed as written starts with a word the list knows as
+ * the first word of a product or an INN: "Prestarium Neo 5 mg", "Concor Cor".
+ *
+ * The export and the save-time screen guess at a person's name from two
+ * capitalised words, which is exactly the shape of a trade name. This lets
+ * them drop the guess for a typed entry that is recognisably a medicine,
+ * and keep it for one that is not ("Ivan Petrov"). The list is in Latin
+ * script, so a trade name typed in Cyrillic keeps the guess: the safe side.
+ */
+export function startsWithKnownMedicine(rows: readonly MedicationRow[], text: string): boolean {
+  let words = knownWords.get(rows)
+  if (!words) {
+    words = new Set()
+    for (const row of rows) {
+      for (const source of [row.name, row.inn]) {
+        const word = firstWord(String(source ?? ""))
+        if (word.length >= 3) words.add(word)
+      }
+    }
+    knownWords.set(rows, words)
+  }
+  const word = firstWord(text)
+  return word.length >= 3 && words.has(word)
+}

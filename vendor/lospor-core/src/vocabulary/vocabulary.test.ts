@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 import { icd10Rows, ICD10_ROW_COUNT, procedureRows, PROCEDURE_ROW_COUNT, VOCABULARY_VERSION } from "./index"
 import { searchIcd10, searchProcedures } from "../search"
 
@@ -93,9 +93,21 @@ describe("offline vocabulary", () => {
 })
 
 describe("offline exact operations", () => {
-  it("hold every operation of a group, the same list the online endpoint gives", async () => {
-    const { procedureCodeRowsForGroup, PROCEDURE_CODE_COUNT } = await import("./procedure-codes")
-    const { filterProcedureCodes } = await import("../procedure-codes")
+  // The module holds every ICD-10-PCS code with its Bulgarian name (80,000+
+  // rows). Loading it is most of this test's time, and on a busy machine the
+  // transform alone ran past the 5 s test limit, failing a correct assertion.
+  // It loads once here, under a limit sized for the load; the test itself
+  // keeps the default.
+  let codes: typeof import("./procedure-codes")
+  let filter: typeof import("../procedure-codes")
+  beforeAll(async () => {
+    codes = await import("./procedure-codes")
+    filter = await import("../procedure-codes")
+  }, 60_000)
+
+  it("hold every operation of a group, the same list the online endpoint gives", () => {
+    const { procedureCodeRowsForGroup, PROCEDURE_CODE_COUNT } = codes
+    const { filterProcedureCodes } = filter
     expect(PROCEDURE_CODE_COUNT).toBeGreaterThan(80_000)
 
     const rows = procedureCodeRowsForGroup("cholecystectomy")

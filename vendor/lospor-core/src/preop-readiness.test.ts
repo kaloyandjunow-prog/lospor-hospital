@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { evaluateCaseFinalization, evaluatePreopReadiness } from "./clinical-validation"
+import { evaluateCaseFinalization, evaluatePreopReadiness, evaluatePreopSectionCompletion } from "./clinical-validation"
 
 /**
  * What a preoperative assessment must contain, from the one place both clients
@@ -147,5 +147,47 @@ describe("whether a preoperative assessment is finished", () => {
 
   it("says a missing assessment is missing", () => {
     expect(codes(null as never)).toEqual(["missing_preop"])
+  })
+})
+
+/**
+ * A hospital can make preoperative vitals optional, for the whole section or
+ * one reading at a time (10.6.0): many paediatric lists record none before
+ * theatre. The same rule must hold at "continue to intraop" and at
+ * finalization, or a case gets through the form and can never be closed.
+ */
+describe("preoperative vitals a hospital has made optional", () => {
+  const noVitals = complete({ bpSystolic: undefined, bpDiastolic: undefined, heartRate: undefined, respiratoryRate: undefined })
+  const ended = {
+    startedAt: new Date("2026-01-01T08:00:00Z"),
+    endedAt: new Date("2026-01-01T09:00:00Z"),
+    techniques: ["GENERAL"],
+  }
+  const recovered = { aldreteActivity: 2, aldreteRespiration: 2, aldreteCirculation: 2, aldreteConsciousness: 2, aldreteSpO2: 2, disposition: "WARD" }
+
+  it("still requires all three when nothing is configured", () => {
+    expect(codes(noVitals)).toEqual(["missing_blood_pressure", "missing_heart_rate", "missing_respiratory_rate"])
+  })
+
+  it("asks for none when the section is optional", () => {
+    const none = { bloodPressure: false, heartRate: false, respiratoryRate: false }
+    expect(evaluatePreopReadiness(noVitals, none).valid).toBe(true)
+    expect(evaluatePreopSectionCompletion(noVitals, none).physical_exam).toBe("optional")
+    expect(evaluatePreopSectionCompletion(complete(), none).physical_exam).toBe("complete")
+  })
+
+  it("asks only for the readings left required", () => {
+    const bpOnly = { bloodPressure: true, heartRate: false, respiratoryRate: false }
+    expect(evaluatePreopReadiness(noVitals, bpOnly).issues.map(item => item.code)).toEqual(["missing_blood_pressure"])
+    expect(evaluatePreopSectionCompletion(noVitals, bpOnly).physical_exam).toBe("empty")
+    expect(evaluatePreopSectionCompletion(complete({ heartRate: undefined, respiratoryRate: undefined }), bpOnly).physical_exam).toBe("complete")
+  })
+
+  it("lets a case without vitals be finalised only where the hospital allows it", () => {
+    const input = { clinicalMode: "ADULT" as const, preop: noVitals, intraop: ended, postop: recovered }
+    const blocking = (result: ReturnType<typeof evaluateCaseFinalization>) =>
+      result.issues.filter(item => item.path[0] === "preop.physical_exam").map(item => item.code)
+    expect(blocking(evaluateCaseFinalization(input))).toEqual(["incomplete_preop"])
+    expect(blocking(evaluateCaseFinalization({ ...input, preopVitals: { bloodPressure: false, heartRate: false, respiratoryRate: false } }))).toEqual([])
   })
 })
