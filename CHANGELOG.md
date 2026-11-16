@@ -26,10 +26,20 @@ contract 2.9.1 changes no column. Update Central to 2.9.1 when convenient.
   the export policy says free text may not leave. A trade name the drug list knows ("Prestarium Neo 5 mg") keeps its
   name; anything else also goes through the person-name check.
 
+### Changed — Status
+
+- **Menus by what they are for.** Табло за управление, Състояние, Клинична работа (in the order of a case), Болница,
+  Системна комуникация, Изследвания, Акаунти, Поддръжка. The hospital's name and logo have their own page (Болница →
+  Данни за болницата), and so has colleagues' case access (Акаунти). The preoperative form opens on its sections.
+- **Clearer Bulgarian** on every page reviewed so far: one save button and one reason field per form, shorter
+  explanations, no repeated text, technical identifiers folded under „Технически данни“.
+
 ### Fixed
 
 - **One typed medication made the whole list look like personal data** where identifying text is checked at save,
   drugs from the list included.
+- **Status: submenus vanished right after a save.** The page answered on the form's own address, which no menu knew;
+  the menus now follow the page the form belongs to.
 
 ## [1.10.0] - 2026-11-16
 
