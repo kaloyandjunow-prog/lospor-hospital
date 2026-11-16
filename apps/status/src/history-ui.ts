@@ -51,9 +51,9 @@ export function renderHistoryPage(view: AuditHistoryView | null | undefined, que
   const heading = `<h2>${localize(locale, "Change history", "История на промените")}</h2>`
   const intro = `<p>${localize(locale,
     "Who changed which hospital setting or account, and when. It records that a setting was changed, not why or to what: a reason an administrator gave is kept apart from the audit rows, and what a setting was set to is read on its own page.",
-    "Кой коя болнична настройка или кой профил е променил, и кога. Записва се, че настройка е променена, а не защо и на какво: причината, дадена от администратор, се пази отделно от одитните редове, а към какво е зададена настройката се вижда на нейната страница.")}</p>`
+    "Кой коя настройка или профил е променил и кога. Текущата стойност се вижда на страницата на самата настройка.")}</p>`
   if (!view) {
-    return `<section class="section" data-testid="history-page">${heading}<div class="card"><div class="component">${intro}<div class="empty">${localize(locale, "This API does not report the change history yet.", "Този API още не показва историята на промените.")}</div></div></div></section>`
+    return `<section class="section" data-testid="history-page">${heading}<div class="card"><div class="component">${intro}<div class="empty">${localize(locale, "This API does not report the change history yet.", "Не е налично в тази версия.")}</div></div></div></section>`
   }
   const categoryName = (key: string | null) => {
     const names = key ? CATEGORY_NAMES[key] : undefined
@@ -61,13 +61,13 @@ export function renderHistoryPage(view: AuditHistoryView | null | undefined, que
   }
   const categoryOptions = [`<option value="">${localize(locale, "All changes", "Всички промени")}</option>`,
     ...view.categories.map(key => `<option value="${escapeHtml(key)}"${key === query.category ? " selected" : ""}>${escapeHtml(categoryName(key))}</option>`)].join("")
-  const actionOptions = [`<option value="">${localize(locale, "Any kind", "Всякакъв вид")}</option>`,
+  const actionOptions = [`<option value="">${localize(locale, "Any kind", "Всички видове")}</option>`,
     ...view.actions.filter(item => !query.category || item.category === query.category).map(item => `<option value="${escapeHtml(item.code)}"${item.code === query.action ? " selected" : ""}>${escapeHtml(locale === "bg" ? item.labelBg : item.labelEn)}</option>`)].join("")
   const filter = `<form method="get" action="${HISTORY_PATH}" class="history-filter" data-testid="history-filter"><label>${localize(locale, "Area", "Област")}<select name="category">${categoryOptions}</select></label><label>${localize(locale, "Kind of change", "Вид промяна")}<select name="action">${actionOptions}</select></label><button type="submit">${localize(locale, "Show", "Покажи")}</button></form>`
 
   const rows = view.rows.map(row => `<tr data-testid="history-row" data-action="${escapeHtml(row.action)}"><td>${escapeHtml(stamp(row.at, locale))}</td><td>${escapeHtml(locale === "bg" ? row.labelBg : row.labelEn)}</td><td>${row.who ? escapeHtml(row.who) : "—"}</td><td class="component-detail">${escapeHtml(categoryName(row.category))}</td></tr>`).join("")
   const table = view.rows.length === 0
-    ? `<div class="empty" data-testid="history-empty">${localize(locale, "No change matches.", "Няма промяна, която да съвпада.")}</div>`
+    ? `<div class="empty" data-testid="history-empty">${localize(locale, "No change matches.", "Няма такива промени.")}</div>`
     : `<table class="history-table" data-testid="history-table"><thead><tr><th>${localize(locale, "When", "Кога")}</th><th>${localize(locale, "What changed", "Какво е променено")}</th><th>${localize(locale, "Who", "Кой")}</th><th>${localize(locale, "Area", "Област")}</th></tr></thead><tbody>${rows}</tbody></table>`
 
   const pages = Math.max(1, Math.ceil(view.total / view.pageSize))
