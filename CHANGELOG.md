@@ -1,5 +1,45 @@
 # Changelog - LOSPOR Hospital
 
+## [1.11.1] - 2026-11-16
+
+Installer only: nothing changes on an installed appliance. Install new sites with this kit.
+
+### Added
+
+- **A proxy for the installation** (the wizard's Hospital page, or `-Proxy http://proxy.hospital.bg:8080` on the
+  kit), for a hospital whose servers reach the internet only through one. Ubuntu's installer, apt (so also
+  **Update the server** in Status), Docker (the release images), the first installation and the update agent use it;
+  the clinical and research names stay direct, and `sudo` keeps the variables it would clear. It takes no user name
+  or password. A server installed earlier can be set by hand: Installation → Reaching the internet through a proxy.
+
+### Changed
+
+- **Docker's signing key is carried in the Ubuntu seed** instead of being fetched from a keyserver, which does not
+  use a proxy. A test checks it is the key with the pinned fingerprint, 9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88.
+
+- **Time from the Hyper-V host, without a time server.** The Ubuntu seed installs `chrony` instead of
+  `systemd-timesyncd`. On Hyper-V it takes the time from the host's clock through the hypervisor
+  (`/dev/ptp_hyperv`), which the host takes from the hospital's domain, and from nothing else: no time server is
+  needed and nothing leaves on UDP port 123. The time is right within a minute of the first boot. Elsewhere (VMware,
+  bare metal) Ubuntu's network sources stay and a time server must be reachable. The host's own clock must be right,
+  and nothing on the server can tell if it is not. `losporctl status` now says
+  `sudo chronyc sources` where it told people to start a daemon this server no longer runs.
+
+### Fixed
+
+- **A new server could stop its first installation on "system clock is not confirmed synchronized".** The first
+  boot reached the readiness check seconds after the network came up, before the time server had answered (19 s later
+  on the server this was found on), and `time-sync.target` does not wait for it. The first boot now waits up to ten
+  minutes for the clock to be confirmed and says so; a clock that never synchronizes still fails the check, with its
+  own message. The server must reach a time server on UDP port 123, internal or public. After a failure the answers
+  are removed, because they hold the administrator's password, so the installation then has to be started again from
+  the console.
+- **The server's address could change after installation.** A VM from the Hyper-V kit takes its address from the
+  hospital's DHCP with a dynamic MAC, so a new lease, or the VM moving to another host, could give it another
+  address while the two DNS names kept pointing to the old one. The kit now makes the MAC Ubuntu installed with
+  static, and says which address to reserve in DHCP for which MAC: while the server waits for DNS, and in the
+  wizard's last window.
+
 ## [1.11.0] - 2026-11-16
 
 Vendors Core, API, Web and PWA 10.6.0 and the Central exchange contract 2.9.1; Browser stays 0.11.2. No database

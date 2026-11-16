@@ -358,6 +358,27 @@ The command validates a candidate Caddy configuration before replacement and
 retains the last-known-good boundary. The direct Status fallback remains bound
 to loopback.
 
+## Reaching the internet through a proxy
+
+If the server goes out only through the hospital's proxy, give it in the wizard
+(**The hospital → Proxy**) or as `-Proxy http://proxy.hospital.bg:8080` to the
+kit. Ubuntu's installer, apt, Docker, the first installation and the update
+agent then use it, and the clinical and research names stay direct. Without the
+kit, or on a server installed before 1.11.1, set it by hand (as root), then
+`sudo systemctl daemon-reload`:
+
+| What | Where |
+|---|---|
+| Ubuntu updates, including **Update the server** in Status | `/etc/apt/apt.conf.d/95lospor-proxy`: `Acquire::http::Proxy "http://proxy:8080";` and the same for `https` |
+| The release images | `sudo systemctl edit docker`: `[Service]` `Environment="HTTPS_PROXY=http://proxy:8080" "NO_PROXY=localhost,127.0.0.1,CLINICAL-NAME,RESEARCH-NAME"` |
+| The check for new LOSPOR versions | the same for `lospor-update-agent` (lowercase `https_proxy` and `no_proxy` too) |
+| What is typed at the console | `/etc/environment`, and a `/etc/sudoers.d/` file with `Defaults env_keep += "http_proxy https_proxy no_proxy"`, because `sudo` clears them |
+
+The proxy takes no user name or password here. The containers are not given the
+proxy: their traffic stays inside the hospital, so sending to Central or to an
+external AI provider outside the hospital does not go through it. Without a
+proxy, an offline installation and USB updates still work.
+
 ## Terminology data
 
 The release carries what clinical use needs: ICD-10 with its Bulgarian names

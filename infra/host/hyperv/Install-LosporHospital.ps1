@@ -133,7 +133,7 @@ $a = @{
   VmDirectory = Join-Path $vmRoot "LOSPOR Hospital"
   Encrypt = $false; DiskPassphrase = ""; DiskPassphraseRepeat = ""
   ConsolePassword = ""; ConsolePasswordRepeat = ""; SshKey = ""
-  ClinicalDomain = ""; ResearchDomain = ""; HospitalName = ""; HospitalCity = ""
+  ClinicalDomain = ""; ResearchDomain = ""; HospitalName = ""; HospitalCity = ""; Proxy = ""
   TlsMode = "operator"; CertificateFormat = "pfx"; PfxPath = ""; PfxPassword = ""
   FullchainPath = ""; KeyPath = ""; CaPath = ""; AcmeEmail = ""
   AdminEmail = ""; AdminUsername = ""; AdminFirstName = ""; AdminLastName = ""; AdminPassword = ""; AdminPasswordRepeat = ""
@@ -160,7 +160,7 @@ function Add-AnswerProblems($Check, [string[]] $Fields) {
 function Get-KitAnswers {
   return @{
     Locale = $a.Locale; ReleaseVersion = $a.ReleaseVersion; ClinicalDomain = $a.ClinicalDomain; ResearchDomain = $a.ResearchDomain
-    TlsMode = $a.TlsMode; AcmeEmail = $a.AcmeEmail; HospitalName = $a.HospitalName; HospitalCity = $a.HospitalCity
+    TlsMode = $a.TlsMode; AcmeEmail = $a.AcmeEmail; HospitalName = $a.HospitalName; HospitalCity = $a.HospitalCity; Proxy = $a.Proxy
     AdminEmail = $a.AdminEmail; AdminUsername = $a.AdminUsername; AdminFirstName = $a.AdminFirstName; AdminLastName = $a.AdminLastName
   }
 }
@@ -209,7 +209,7 @@ function Test-LoginPage {
 
 function Test-HospitalPage {
   $check = New-Check
-  Add-AnswerProblems $check @("ClinicalDomain", "ResearchDomain", "HospitalName", "HospitalCity")
+  Add-AnswerProblems $check @("ClinicalDomain", "ResearchDomain", "HospitalName", "HospitalCity", "Proxy")
   if ($check.Errors.Count -eq 0) {
     foreach ($name in @($a.ClinicalDomain, $a.ResearchDomain)) {
       if (-not (Resolve-DnsName -Name $name -ErrorAction SilentlyContinue)) {
@@ -282,6 +282,7 @@ function Get-SummaryLines {
   $lines.Add((T "Server login: lospor$(if (([string] $a.SshKey).Trim()) { ', with an SSH key' })" "Вход в сървъра: lospor$(if (([string] $a.SshKey).Trim()) { ', с SSH ключ' })"))
   $lines.Add((T "Addresses: $($a.ClinicalDomain) (clinical), $($a.ResearchDomain) (research)" "Адреси: $($a.ClinicalDomain) (клиничен), $($a.ResearchDomain) (изследвания)"))
   $lines.Add((T "Hospital: $($a.HospitalName), $($a.HospitalCity)" "Болница: $($a.HospitalName), $($a.HospitalCity)"))
+  if (("$($a.Proxy)").Trim()) { $lines.Add((T "Internet through the proxy: $($a.Proxy)" "Интернет през прокси: $($a.Proxy)")) }
   $certificate = switch ($a.TlsMode) { "operator" { T "the hospital's own authority" "собственият удостоверителен център на болницата" } "acme" { "Let's Encrypt" } default { T "local (testing)" "локален (за тестове)" } }
   $lines.Add((T "Certificate: $certificate" "Сертификат: $certificate"))
   $lines.Add((T "Administrator: $($a.AdminFirstName) $($a.AdminLastName), $($a.AdminEmail), username $($a.AdminUsername)" "Администратор: $($a.AdminFirstName) $($a.AdminLastName), $($a.AdminEmail), потребител $($a.AdminUsername)"))
@@ -357,6 +358,7 @@ function Read-TextPage([string] $Id) {
       $a.ResearchDomain = Read-Answer (T "Research website address" "Адрес на сайта за изследвания") $a.ResearchDomain
       $a.HospitalName = Read-Answer (T "Hospital name" "Име на болницата") $a.HospitalName
       $a.HospitalCity = Read-Answer (T "City" "Град") $a.HospitalCity
+      $a.Proxy = Read-Answer (T "Proxy for the internet, http://host:port, empty if the server goes out directly" "Прокси за интернет, http://хост:порт, празно, ако сървърът излиза директно") $a.Proxy
     }
     "certificate" {
       $choice = Read-Answer (T "Certificate: 1) hospital's own authority  2) Let's Encrypt  3) local, for testing" "Сертификат: 1) собствен удостоверителен център на болницата  2) Let's Encrypt  3) локален, за тестове") "1"
@@ -588,9 +590,11 @@ function Invoke-WindowWizard {
         $heading.Text = T "3. The hospital" "3. Болницата"
         Add-Field "ClinicalDomain" (T "Clinical address" "Клиничен адрес") (New-TextBox $a.ClinicalDomain) $null
         Add-Field "ResearchDomain" (T "Research website address" "Адрес за изследвания") (New-TextBox $a.ResearchDomain) $null
-        Add-Note (T "Two DNS names in the hospital's DNS, both pointing to this server. If they are not there yet, the installation waits, shows the server's address, and continues once IT adds them." "Две имена в DNS на болницата, и двете сочещи към този сървър. Ако още ги няма, инсталацията изчаква, показва адреса на сървъра и продължава, когато ИТ ги добави.")
+        Add-Note (T "Two DNS names in the hospital's DNS, both pointing to this server. If they are not there yet, the installation waits, shows the server's address, and continues once IT adds them. The server takes its address from DHCP: IT reserves it, with the MAC shown at the end." "Две имена в DNS на болницата, и двете сочещи към този сървър. Ако още ги няма, инсталацията изчаква, показва адреса на сървъра и продължава, когато ИТ ги добави. Сървърът получава адреса си от DHCP: ИТ го резервира с MAC адреса, показан накрая.")
         Add-Field "HospitalName" (T "Hospital name" "Име на болницата") (New-TextBox $a.HospitalName) $null
         Add-Field "HospitalCity" (T "City" "Град") (New-TextBox $a.HospitalCity) $null
+        Add-Field "Proxy" (T "Proxy (optional)" "Прокси (по избор)") (New-TextBox $a.Proxy) $null
+        Add-Note (T "Only if the server reaches the internet through the hospital proxy: http://proxy.hospital.bg:8080, without a user name or password. Ubuntu, Docker and the updates then use it. Leave empty if the server goes out directly." "Само ако сървърът излиза в интернет през проксито на болницата: http://proxy.hospital.bg:8080, без потребителско име и парола. Ubuntu, Docker и обновяванията го ползват. Оставете празно, ако сървърът излиза директно.")
       }
       "certificate" {
         $heading.Text = T "4. The HTTPS certificate" "4. HTTPS сертификатът"
@@ -741,6 +745,7 @@ try {
     InstallAnswersDirectory = $answersDirectory; ResultPath = $resultPath
   }
   if ($a.Encrypt) { $kitArguments.EncryptDisk = $true; $kitArguments.DiskPassphrase = (& $secure $a.DiskPassphrase) }
+  if (("$($a.Proxy)").Trim()) { $kitArguments.Proxy = ("$($a.Proxy)").Trim(); $kitArguments.Direct = @($a.ClinicalDomain, $a.ResearchDomain) }
   if (([string] $a.SshKey).Trim()) {
     $keyPath = Join-Path $work "authorized-key.pub"
     [IO.File]::WriteAllText($keyPath, ([string] $a.SshKey).Trim(), $utf8)
@@ -777,8 +782,13 @@ if (Test-Path -LiteralPath $resultPath) { $result = Get-Content -Raw -Encoding U
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 
 $installed = $result -and $result.state -eq "installed"
+# The address came from DHCP: unless IT reserves it, a later lease can move the
+# server away from its DNS names (1.11.1).
+$reserve = if ($result -and $result.address) {
+  T "`n`nAsk IT to reserve $($result.address) in DHCP for MAC $($result.mac), or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it." "`n`nПомолете ИТ да резервира $($result.address) в DHCP за MAC $($result.mac) или да даде на сървъра този постоянен адрес. Иначе по-късно сървърът може да получи друг адрес и DNS имената вече няма да водят до него."
+} else { "" }
 $message = if ($installed) {
-  T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use.`n`nServer console: user lospor, with the server password." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба.`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
+  (T "LOSPOR Hospital is installed.`n`nOpen $($result.url) and sign in with the administrator email and password. Go-live leads the rest of the way to clinical use." "LOSPOR Hospital е инсталиран.`n`nОтворете $($result.url) и влезте с имейла и паролата на администратора. Страницата «Пускане в работа» води нататък до клинична употреба.") + $reserve + (T "`n`nServer console: user lospor, with the server password." "`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра.")
 } elseif ($result) {
   T "The installation did not finish.`n`n$($result.message)`n`nServer console: user lospor, with the server password." "Инсталацията не завърши.`n`n$($result.message)`n`nКонзола на сървъра: потребител lospor, с паролата за сървъра."
 } else {

@@ -131,7 +131,12 @@ function ConvertTo-LosporSeed {
     # the answers the wizard put on the seed disk.
     [string] $Firstboot,
     # The console password was chosen by a person, so it is not expired.
-    [switch] $ChosenPassword
+    [switch] $ChosenPassword,
+    # The hospital's proxy (1.11.1): Ubuntu's installer and the installed
+    # server reach the internet through it; $Direct (the appliance's own names)
+    # never does.
+    [string] $Proxy,
+    [string[]] $Direct
   )
   # cloud-init needs LF, and a checkout on Windows may have CRLF, which sh on
   # Ubuntu cannot run either.
@@ -168,6 +173,19 @@ function ConvertTo-LosporSeed {
     $text = $text.Replace("    - curtin in-target -- chage -d 0 lospor # lospor-kit: expire`n", "")
   }
 
+  $proxyMarker = "    # lospor-kit: proxy`n"
+  $carriesProxy = $false
+  if ($Proxy) {
+    if (-not (Test-LosporProxy $Proxy)) { throw "The proxy must look like http://proxy.hospital.bg:8080, without a user name or password." }
+    $version = "autoinstall:`n  version: 1`n"
+    if ($text.Contains($version) -and $text.Contains($proxyMarker)) {
+      $text = $text.Replace($version, "$($version)  proxy: $($Proxy.TrimEnd('/'))`n")
+      $text = $text.Replace($proxyMarker, (ConvertTo-LosporProxyCommand $Proxy $Direct))
+      $carriesProxy = $true
+    }
+  }
+  $text = $text.Replace($proxyMarker, "")
+
   $firstbootMarker = "    # lospor-kit: firstboot`n"
   $carriesFirstboot = $false
   if ($Firstboot -and $text.Contains($firstbootMarker)) {
@@ -176,7 +194,7 @@ function ConvertTo-LosporSeed {
   } else {
     $text = $text.Replace($firstbootMarker, "")
   }
-  return [pscustomobject] @{ Text = $text; CarriesBootstrap = $carriesBootstrap; SetsPassword = $setsPassword; CarriesFirstboot = $carriesFirstboot }
+  return [pscustomobject] @{ Text = $text; CarriesBootstrap = $carriesBootstrap; SetsPassword = $setsPassword; CarriesFirstboot = $carriesFirstboot; CarriesProxy = $carriesProxy }
 }
 
 <#
@@ -253,7 +271,51 @@ function Test-LosporInstallAnswers([hashtable] $Answers) {
   if ((& $value "AdminUsername") -cnotmatch '^[A-Za-z][A-Za-z0-9._-]{2,63}$') { & $add "AdminUsername" "The username needs 3 to 64 characters: a Latin letter first, then Latin letters, numbers, dots, dashes or underscores." "Потребителското име трябва да е от 3 до 64 знака: първо латинска буква, след това латински букви, цифри, точки, тирета или долни черти." }
   $version = & $value "ReleaseVersion"
   if ($version -and $version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { & $add "ReleaseVersion" "The release version is not valid." "Версията на изданието не е валидна." }
+  $proxy = & $value "Proxy"
+  if ($proxy -and -not (Test-LosporProxy $proxy)) { & $add "Proxy" "The proxy must look like http://proxy.hospital.bg:8080, without a user name or password." "Проксито трябва да е във вида http://proxy.hospital.bg:8080, без потребителско име и парола." }
   return ,$problems.ToArray()
+}
+
+<#
+  A proxy the server reaches the internet through (1.11.1): http:// or https://,
+  a host and an optional port, nothing else. No user name or password: Ubuntu's
+  installer keeps its configuration in logs.
+#>
+function Test-LosporProxy([string] $Proxy) {
+  if ($Proxy -notmatch '^https?://([A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)(:([0-9]{1,5}))?/?$') { return $false }
+  if ($Matches[4] -and ([int] $Matches[4] -lt 1 -or [int] $Matches[4] -gt 65535)) { return $false }
+  return $true
+}
+
+<#
+  The late-command that sends the installed server's own downloads through the
+  proxy: apt (Ubuntu's updates, also from Status), Docker (the release images),
+  the LOSPOR first boot and update agent (the release itself), and what is
+  typed at the console (/etc/environment, and sudo is told to keep the proxy
+  variables, which it clears by default). The appliance's own names and this
+  machine stay direct, so its health checks never leave it. The containers are
+  not given the proxy: their traffic stays inside the hospital.
+#>
+function ConvertTo-LosporProxyCommand([string] $Proxy, [string[]] $Direct) {
+  $utf8 = New-Object System.Text.UTF8Encoding($false)
+  $proxy = $Proxy.TrimEnd("/")
+  $noProxy = (@("localhost", "127.0.0.1", "::1") + @($Direct | Where-Object { $_ })) -join ","
+  $apt = "Acquire::http::Proxy `"$proxy`";`nAcquire::https::Proxy `"$proxy`";`n"
+  $unit = "[Service]`nEnvironment=`"HTTP_PROXY=$proxy`" `"HTTPS_PROXY=$proxy`" `"NO_PROXY=$noProxy`" `"http_proxy=$proxy`" `"https_proxy=$proxy`" `"no_proxy=$noProxy`"`n"
+  $environment = "http_proxy=$proxy`nhttps_proxy=$proxy`nno_proxy=$noProxy`nHTTP_PROXY=$proxy`nHTTPS_PROXY=$proxy`nNO_PROXY=$noProxy`n"
+  $sudoers = "Defaults env_keep += `"http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY`"`n"
+  $b64 = { param($Text) [Convert]::ToBase64String($utf8.GetBytes($Text)) }
+  $command = "    - |`n      set -e`n" +
+    "      printf '%s' '$(& $b64 $apt)' | base64 -d > /target/etc/apt/apt.conf.d/95lospor-proxy`n"
+  foreach ($service in @("docker.service", "firstboot-lospor.service", "lospor-update-agent.service")) {
+    $command += "      install -d -m 0755 /target/etc/systemd/system/$service.d`n" +
+      "      printf '%s' '$(& $b64 $unit)' | base64 -d > /target/etc/systemd/system/$service.d/lospor-proxy.conf`n"
+  }
+  $command += "      printf '%s' '$(& $b64 $environment)' | base64 -d >> /target/etc/environment`n" +
+    "      printf '%s' '$(& $b64 $sudoers)' | base64 -d > /target/etc/sudoers.d/95-lospor-proxy`n" +
+    "      chmod 0440 /target/etc/sudoers.d/95-lospor-proxy`n" +
+    "      curtin in-target -- visudo -cf /etc/sudoers.d/95-lospor-proxy`n"
+  return $command
 }
 
 <# The appliance's password policy: 8 to 256 characters, an uppercase letter, a number and a symbol. #>
@@ -286,6 +348,24 @@ function ConvertTo-LosporInstallAnswers([hashtable] $Answers) {
     $lines.Add("$key=$(([string] $Answers[$name]).Trim())")
   }
   return ($lines -join "`n") + "`n"
+}
+
+<#
+  Whether a VM's MAC is to be made static (1.11.1): only a dynamic one that
+  Hyper-V has already assigned, which is the MAC Ubuntu installed with.
+#>
+function Test-LosporMacToFreeze($Dynamic, [string] $Mac) {
+  return [bool] $Dynamic -and $Mac -match '^[0-9A-Fa-f]{12}$' -and $Mac -ne "000000000000"
+}
+
+<# The first IPv4 address, and the MAC written as DHCP servers show it: 00-15-5D-00-69-04. #>
+function ConvertTo-LosporVmNetwork([string[]] $Addresses, [string] $Mac) {
+  $address = @($Addresses) | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' } | Select-Object -First 1
+  $pretty = $null
+  if ($Mac -match '^[0-9A-Fa-f]{12}$' -and $Mac -ne "000000000000") {
+    $pretty = (($Mac.ToUpperInvariant() -split '(..)') | Where-Object { $_ }) -join '-'
+  }
+  return [pscustomobject] @{ Address = $address; Mac = $pretty }
 }
 
 <#

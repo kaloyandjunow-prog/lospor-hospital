@@ -91,7 +91,13 @@ param(
   [switch] $ConfirmInstall,
   # Start the installation and return, instead of waiting to remove the media.
   [switch] $NoWait,
-  [ValidateRange(20, 600)] [int] $InstallTimeoutMinutes = 120
+  [ValidateRange(20, 600)] [int] $InstallTimeoutMinutes = 120,
+  # The hospital's proxy, http://host:port, when the server reaches the internet
+  # only through one: for Ubuntu's installer, apt, Docker and LOSPOR's updates.
+  [string] $Proxy,
+  # Names that never go through the proxy: the appliance's own (the wizard
+  # gives its clinical and research names).
+  [string[]] $Direct
 )
 
 Set-StrictMode -Version 2.0
@@ -113,11 +119,33 @@ function Write-LosporProgress([string] $Stage, [string] $Message, [string] $Step
   try { [IO.File]::WriteAllText($ProgressPath, ($progress | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false))) } catch { }
 }
 
-function Write-LosporResult([string] $State, [string] $Message, [string] $Url) {
+function Write-LosporResult([string] $State, [string] $Message, [string] $Url, $Network = $null) {
   Write-LosporProgress $State $Message
   if (-not $ResultPath) { return }
   $result = [ordered] @{ state = $State; message = $Message; url = $Url; vm = $Name; consoleUser = "lospor" }
+  if ($Network -and $Network.Address) { $result.address = $Network.Address; $result.mac = $Network.Mac }
   [IO.File]::WriteAllText($ResultPath, ($result | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+}
+
+<#
+  The VM takes its address from the hospital's DHCP, and Hyper-V gives it a
+  dynamic MAC that can change when the VM moves to another host or is
+  recreated: DHCP then hands out another address and the DNS names point to
+  nothing. The MAC Ubuntu installed with is made static while the VM is off,
+  so a DHCP reservation for it holds (1.11.1).
+#>
+function Set-LosporStaticMac([string] $VmName) {
+  $adapter = Get-VMNetworkAdapter -VMName $VmName | Select-Object -First 1
+  if ($adapter -and (Test-LosporMacToFreeze $adapter.DynamicMacAddressEnabled $adapter.MacAddress)) {
+    Set-VMNetworkAdapter -VMNetworkAdapter $adapter -StaticMacAddress $adapter.MacAddress
+  }
+}
+
+<# The server's IPv4 address and MAC as Hyper-V reports them. #>
+function Get-LosporVmNetwork([string] $VmName) {
+  $adapter = Get-VMNetworkAdapter -VMName $VmName | Select-Object -First 1
+  if (-not $adapter) { return [pscustomobject] @{ Address = $null; Mac = $null } }
+  return ConvertTo-LosporVmNetwork @($adapter.IPAddresses) $adapter.MacAddress
 }
 
 function Stop-Kit([string] $Message) {
@@ -484,9 +512,10 @@ if ($ConsolePassword) {
 }
 $composed = ConvertTo-LosporSeed -Seed (Get-Content -Raw -LiteralPath $SeedPath) -Bootstrap $bootstrap `
   -PasswordHash $passwordHash -AuthorizedKey $key -DiskPassphrase $diskPassphrase `
-  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword)
+  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword) -Proxy $Proxy -Direct $Direct
 $seed = $composed.Text
 if (-not $composed.CarriesBootstrap) { Write-Warning "The seed at $SeedPath has no place for the LOSPOR installer; the VM will not carry it." }
+if ($Proxy -and -not $composed.CarriesProxy) { Stop-Kit "The seed at $SeedPath has no place for the proxy." }
 if ($firstboot -and -not $composed.CarriesFirstboot) { Stop-Kit "The seed at $SeedPath has no place for the first-boot installation." }
 if (-not $composed.SetsPassword) {
   Write-Warning "The seed at $SeedPath sets its own console password."
@@ -576,6 +605,7 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
     "   Get-VMHardDiskDrive -VMName `"$Name`" | Where-Object Path -eq `"$seedDisk`" | Remove-VMHardDiskDrive; Remove-Item `"$seedDisk`""
   )
   if ($autoinstallIso) { $manual += "   Remove-Item `"$autoinstallIso`"   # it erases the disk of any machine that boots from it" }
+  $manual += "   Set-VMNetworkAdapter -VMName `"$Name`" -StaticMacAddress (Get-VMNetworkAdapter -VMName `"$Name`" | Select-Object -First 1).MacAddress"
   $manual += "   Start-VM -Name `"$Name`""
 
   Write-LosporProgress "ubuntu" "Ubuntu is installing on its own (about 15 to 20 minutes)."
@@ -610,6 +640,7 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
     Remove-Item -LiteralPath $seedDisk -Force
     if ($autoinstallIso) { Remove-Item -LiteralPath $autoinstallIso -Force }
     if ($releaseDisk) { Add-VMHardDiskDrive -VM $vm -Path $releaseDisk | Out-Null }
+    Set-LosporStaticMac $Name
     Start-VM -VM $vm
     Write-Host ""
     Write-Host "Ubuntu is installed ($([int] ((Get-Date) - $started).TotalMinutes) minutes). The installation media are removed and the VM is starting."
@@ -653,9 +684,13 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
         Get-VMHardDiskDrive -VMName $Name | Where-Object { $_.Path -eq $releaseDisk } | Remove-VMHardDiskDrive
         Remove-Item -LiteralPath $releaseDisk -Force -ErrorAction SilentlyContinue
       }
+      $network = Get-LosporVmNetwork $Name
       Write-Host ""
       Write-Host "LOSPOR Hospital is installed. Next: $($progress.Url)"
-      Write-LosporResult "installed" $progress.Message $progress.Url
+      if ($network.Address) {
+        Write-Host "Ask IT to reserve $($network.Address) in DHCP for MAC $($network.Mac) (or give the server that fixed address), so the two DNS names keep pointing to it."
+      }
+      Write-LosporResult "installed" $progress.Message $progress.Url $network
     } else {
       Write-Host ""
       Write-Warning $progress.Message

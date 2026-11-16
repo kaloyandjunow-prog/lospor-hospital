@@ -21,7 +21,9 @@ Both are in the release, and in the repository at the same paths.
 - Docker Engine and Compose from Docker's repository, with Docker's signing key
   pinned by its full fingerprint;
 - OpenSSL, curl, Python 3, gzip, tar and whiptail;
-- automatic security updates and time synchronisation;
+- automatic security updates and time synchronisation (chrony; under Hyper-V it takes the
+  host's clock and nothing else, so no time server is needed, but the host's own clock
+  must be right);
 - a console user `lospor`. There is no shared initial password: the Hyper-V
   kit makes a one-time password for each VM, and anyone using the seed directly
   sets their own (see VMware or bare metal below).
@@ -44,7 +46,7 @@ Bulgarian, and checks every answer before it creates anything:
 |---|---|---|
 | The virtual machine | name, network switch, cores, memory, disk, folder, disk encryption | the switches that exist (an External one first), this machine's processors and memory; 8 cores, 24 GB and 400 GB prefilled, never below 8, 16 and 256 |
 | Signing in to the server | the `lospor` password, an SSH public key (Browse for the `.pub` file, or paste it) | |
-| The hospital | clinical and research addresses, hospital name and city | whether both names are in DNS yet |
+| The hospital | clinical and research addresses, hospital name and city, and a proxy if the server reaches the internet only through one | whether both names are in DNS yet; the proxy must look like `http://proxy.hospital.bg:8080`, without a user name or password |
 | The certificate | the hospital's own authority (one `.pfx` and its password, or PEM certificate, key and CA), Let's Encrypt (an email), or local | whether the `.pfx` opens, covers both names, is valid for 30 more days and includes the root, or a CA file is needed |
 | The administrator | email, username, first and last name, password | the appliance's password rules |
 | Check and install | the Ubuntu ISO, or download it | offline when the complete release files are beside the kit, otherwise online, always the kit's own version |
@@ -52,11 +54,22 @@ Bulgarian, and checks every answer before it creates anything:
 Then nothing needs typing, and the window follows it through:
 
 1. Ubuntu installs by itself and the VM switches off (about 20 minutes).
-2. The wizard removes the installation media. For an offline install it attaches
+2. The wizard removes the installation media and makes the VM's MAC address
+   static (the one Ubuntu installed with). For an offline install it attaches
    a disk holding the release files, then starts the VM.
 3. At first boot the server installs LOSPOR by itself:
    - If the two DNS names are not there yet, it says so, with the server's
-     address, and continues once IT adds them.
+     address and MAC, and continues once IT adds them. It waits an hour; after
+     that, run `sudo systemctl start firstboot-lospor` on the console.
+   - It then waits, up to ten minutes, for the server's clock to be confirmed.
+     Under Hyper-V that is the host's clock, usually within a minute; elsewhere
+     it needs a time server (NTP, UDP port 123, internal or public). Without
+     it the readiness check stops the installation. Check on the Hyper-V host
+     that it keeps its own time: `w32tm /query /status`.
+   - **The server takes its address from DHCP.** IT reserves that address for
+     the MAC shown (or gives the server the address as a fixed one), at the
+     same time as the DNS names. Without it a later lease can move the server
+     and the names stop reaching it. The wizard's last window repeats both.
    - Its installer verifies the maintainer's signature exactly as it does at the
      console.
 4. The window ends with the Go-live address, or with the reason the install
