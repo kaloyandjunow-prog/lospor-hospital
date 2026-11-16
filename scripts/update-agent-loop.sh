@@ -484,6 +484,16 @@ reconcile_startup() {
   fi
 }
 
+# On a first installation this agent is started by install.sh before the
+# activation records the installed release. A check at that moment answers "no
+# release is installed", and because the stamp below says it was done, the next
+# one came a day later: Status showed the newest version as unknown and the last
+# check as failed for a day (1.11.2). Until a release is recorded, the periodic
+# check simply waits, and stamps nothing. A person's own request still runs.
+release_recorded() {
+  [ -f "$(release_state_file "$appliance_home")" ]
+}
+
 check_due() {
   [ -f "$check_stamp" ] || return 0
   last="$(cat "$check_stamp" 2>/dev/null || echo 0)"
@@ -628,7 +638,7 @@ while true; do
     rm -f "$check_stamp"
     check_requested=1
   fi
-  if [ "$check_requested" -eq 1 ] || check_due; then run_check; fi
+  if [ "$check_requested" -eq 1 ] || { release_recorded && check_due; }; then run_check; fi
   [ "${HOSPITAL_UPDATE_AGENT_ONESHOT:-0}" != 1 ] || exit 0
   sleep "$poll"
 done
