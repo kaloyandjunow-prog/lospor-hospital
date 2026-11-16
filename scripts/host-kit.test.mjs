@@ -138,6 +138,9 @@ test("time comes from chrony, which also reads the Hyper-V host's clock where th
   const dropIn = seed.match(/chrony\.service\.d\/lospor-hyperv-clock\.conf <<'EOF'\n((?:      .*\n)+?)      EOF/)
   assert.ok(dropIn, "the chrony drop-in is not written")
   const text = dropIn[1].replace(/^ {6}/gm, "")
+  // Under Hyper-V the host clock is the only source: Ubuntu's pools are commented
+  // out of chrony.conf and its sources.d, and only there; elsewhere they stay.
+  assert.match(seed, /if \[ "\$\(systemd-detect-virt\)" = microsoft \]; then\n\s+for file in \/target\/etc\/chrony\/chrony\.conf \/target\/etc\/chrony\/sources\.d\/\*\.sources; do\n\s+if \[ -f "\$file" \]; then sed -i 's\/\^pool \/#pool \/; s\/\^server \/#server \/' "\$file"; fi\n\s+done\n\s+fi/)
   assert.match(text, /^\[Service\]\nExecStartPre=\+\/bin\/sh -c '/)
   assert.match(text, /if \[ -e \/dev\/ptp_hyperv \]; then echo "refclock PHC \/dev\/ptp_hyperv poll 3 dpoll -2 offset 0" > \/etc\/chrony\/conf\.d\/lospor-hyperv\.conf; else rm -f \/etc\/chrony\/conf\.d\/lospor-hyperv\.conf; fi'$/m)
   // systemd would read a bare % as a specifier.

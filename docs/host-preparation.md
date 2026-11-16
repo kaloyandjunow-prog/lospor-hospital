@@ -21,8 +21,9 @@ Both are in the release, and in the repository at the same paths.
 - Docker Engine and Compose from Docker's repository, with Docker's signing key
   pinned by its full fingerprint;
 - OpenSSL, curl, Python 3, gzip, tar and whiptail;
-- automatic security updates and time synchronisation (chrony; under Hyper-V it reads the
-  host's clock, so no time server is needed, but the host's own clock must be right);
+- automatic security updates and time synchronisation (chrony; under Hyper-V it takes the
+  host's clock and nothing else, so no time server is needed, but the host's own clock
+  must be right);
 - a console user `lospor`. There is no shared initial password: the Hyper-V
   kit makes a one-time password for each VM, and anyone using the seed directly
   sets their own (see VMware or bare metal below).

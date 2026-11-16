@@ -165,15 +165,21 @@ autoinstall:
     # The Windows wizard puts the hospital's proxy here, when there is one.
     # lospor-kit: proxy
     # Time (1.11.1). chrony replaces systemd-timesyncd. Under Hyper-V the host's
-    # clock, which the host takes from the hospital's domain, is read through the
-    # hypervisor (/dev/ptp_hyperv): no time server is needed, and the readiness
-    # check's "clock is synchronized" holds within a minute of the first boot.
-    # The network time sources Ubuntu configures stay as they are, so a wrong
-    # host clock is outvoted when a time server is reachable. chrony stops at a
-    # refclock whose device is missing, so the line is written at every start,
-    # and only where the device exists: the same disk may later run elsewhere.
+    # clock, which the host takes from the hospital's domain, is the only time
+    # source, read through the hypervisor (/dev/ptp_hyperv): no time server is
+    # needed, nothing is sent out on UDP port 123, and the readiness check's
+    # "clock is synchronized" holds within a minute of the first boot. Elsewhere
+    # (VMware, bare metal) Ubuntu's own network sources stay and a time server
+    # must be reachable. chrony stops at a refclock whose device is missing, so
+    # the refclock line is written at every start, and only where the device
+    # exists.
     - |
       set -e
+      if [ "$(systemd-detect-virt)" = microsoft ]; then
+        for file in /target/etc/chrony/chrony.conf /target/etc/chrony/sources.d/*.sources; do
+          if [ -f "$file" ]; then sed -i 's/^pool /#pool /; s/^server /#server /' "$file"; fi
+        done
+      fi
       install -d -m 0755 /target/etc/systemd/system/chrony.service.d
       cat > /target/etc/systemd/system/chrony.service.d/lospor-hyperv-clock.conf <<'EOF'
       [Service]
