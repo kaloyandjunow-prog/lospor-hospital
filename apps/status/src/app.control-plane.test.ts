@@ -496,19 +496,19 @@ describe("Status Hospital control plane", () => {
     expect(ehr).toContain("При връзка чрез папка не са нужни данни за достъп")
 
     expect(clinical).toContain("Документиране на педиатрични случаи")
-    expect(clinical).toContain("постоянна функция на болничната версия")
+    expect(clinical).toContain("Педиатричното документиране е винаги включено")
     expect(clinical).toContain("pediatric-v2")
-    expect(clinical).toContain("Готовност на базовата конфигурация")
+    expect(clinical).toContain("Правилата са готови")
     expect(clinical).toContain("Не е готово")
     expect(clinical).toContain("Не е избрана базова конфигурация за системата")
-    expect(clinical).toContain("Политиката е включена")
+    expect(clinical).toContain("Работят в момента")
     expect(clinical).toContain("Публикуван")
     expect(clinical).not.toContain("PUBLISHED")
     expect(clinical).toContain(ADULT_BASELINE_HASH)
     expect(clinical).toContain(PEDIATRIC_BASELINE_HASH)
     // The preop editor has its own page; the guidance page no longer holds it.
     expect(clinical).not.toContain("data-preop-order-list")
-    expect(preop).not.toContain("Готовност на базовата конфигурация")
+    expect(preop).not.toContain("Правилата са готови")
     expect(preop).toContain("data-preop-order-list")
     expect(preop).toContain("data-preop-order-row")
     expect(preop).toContain('draggable="true"')
@@ -724,7 +724,7 @@ describe("Status Hospital control plane", () => {
   it("protects the hospital-wide read-only case viewer policy with the Status password and reason", async () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    const page = await app.request("/status/control/case-access", { headers: { cookie } })
     expect(await page.text()).toContain('action="/status/control/case-visibility"')
 
     const response = await app.request("/status/control/case-visibility", {
@@ -742,7 +742,7 @@ describe("Status Hospital control plane", () => {
   it("changes the hospital name on the record only with the Status password and a reason", async () => {
     const { app, auth, controlPlane } = setup()
     const cookie = await passwordCookie(app, auth)
-    const page = await app.request("/status/control/clinical", { headers: { cookie } })
+    const page = await app.request("/status/control/hospital", { headers: { cookie } })
     const html = await page.text()
     expect(html).toContain('action="/status/control/hospital-name"')
     expect(html).toContain('data-testid="hospital-name-control"')
@@ -777,11 +777,11 @@ describe("Status Hospital control plane", () => {
       return form
     }
 
-    it("sits beside the hospital name on the clinical page, in every skin", async () => {
+    it("sits beside the hospital name on the hospital details page, in every skin", async () => {
       const { app, auth } = setup()
       const cookie = await passwordCookie(app, auth)
       for (const skin of ["maphub", "sidebar", "inbox", "index", "console", "legacy"]) {
-        const html = await (await app.request("/status/control/clinical", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
+        const html = await (await app.request("/status/control/hospital", { headers: { cookie: `${cookie}; lospor_status_skin=${skin}; lospor_status_locale=en` } })).text()
         expect(html, skin).toContain('data-testid="hospital-logo-control"')
         expect(html, skin).toContain('enctype="multipart/form-data"')
       }

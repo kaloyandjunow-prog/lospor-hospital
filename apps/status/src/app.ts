@@ -1477,6 +1477,9 @@ export function createStatusApp({
   app.get("/status/control/preop/documents", context => controlGet(context, "preop/documents"))
   app.get("/status/control/postop", context => controlGet(context, "postop"))
   app.get("/status/control/drug-colors", context => controlGet(context, "drug-colors"))
+  // 1.11.0: the hospital's own details, and colleagues' cases, each their own page.
+  app.get("/status/control/hospital", context => controlGet(context, "hospital"))
+  app.get("/status/control/case-access", context => controlGet(context, "case-access"))
   app.get("/status/control/theatres", context => controlGet(context, "theatres"))
   app.get("/status/control/indicators", context => controlGet(context, "indicators"))
   app.get("/status/control/intraop", context => controlGet(context, "intraop"))
@@ -1598,7 +1601,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The hospital-wide case-reading policy was saved and audited. Write permissions were not changed.", "Политиката за четене на случаите в болницата е запазена и записана в одитния журнал. Правата за запис не са променени."),
-    "clinical",
+    "case-access",
   ))
 
   // The logo, for the preview on the Status page: the administrator's session, never public.
@@ -1630,7 +1633,7 @@ export function createStatusApp({
     (locale, removed) => removed
       ? localize(locale, "The hospital logo was removed and audited.", "Логото на болницата е премахнато и записано в одитния журнал.")
       : localize(locale, "The hospital logo was saved and audited. It prints at the top of the preop summary, the consent and the anaesthesia record.", "Логото на болницата е запазено и записано в одитния журнал. Печата се най-горе на предоперативното обобщение, съгласието и анестезиологичния протокол."),
-    "clinical",
+    "hospital",
     undefined,
     1.5 * 1024 * 1024,
   ))
@@ -1643,7 +1646,7 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The hospital name on the record was saved and audited. Records show it from now on, finished ones included.", "Името на болницата в протокола е запазено и записано в одитния журнал. Протоколите го показват оттук нататък, включително завършените."),
-    "clinical",
+    "hospital",
   ))
 
   app.post("/status/control/preop-profile", context => sensitiveControlAction(
