@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { rm } from "node:fs/promises"
 import { join } from "node:path"
 import {
+  EXCHANGE_CONTRACT_VERSION,
   EXCHANGE_SCHEMA,
   canonicalJson,
   MANIFEST_VERSION,
@@ -425,6 +426,9 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
       // vintages there is no way to tell their rows apart after the fact.
       dataDictionary: bundle.metadata.data_dictionary_version,
       redactionProfile: policy?.redactionProfile ?? "bg-en-v1",
+      // The contract this batch is written to (1.11.0): a Central speaking an
+      // older one refuses it instead of dropping the columns it does not know.
+      exchangeContract: EXCHANGE_CONTRACT_VERSION,
     },
     qualityStatus: bundle.metadata.data_quality_status,
     cases: batch.cases.map(item => {

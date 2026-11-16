@@ -87,10 +87,17 @@ export type PreopOrderOptionView = {
   labTest: string | null
 }
 
+/** Which preoperative vitals a population requires (1.11.0): the section, then each reading. */
+export type PreopVitalsSettingsView = { required: boolean; bloodPressure: boolean; heartRate: boolean; respiratoryRate: boolean }
+
 export type PreopSectionConfigView = {
   sections: Record<string, boolean>
   orderOptions: PreopOrderOptionView[]
   consultSpecialtyKeys: string[]
+  /** Absent from an API before 1.11.0: all required. */
+  vitals?: PreopVitalsSettingsView
+  /** Whether a current medication may be typed as written (1.11.0); absent is off. */
+  medicationsFreeText?: boolean
 }
 
 /**
@@ -105,6 +112,10 @@ export type PreopSectionsView = {
   specialties: Array<{ key: string; labelEn: string; labelBg: string; clinical: boolean; doctor: boolean }>
   holdHours: number[]
   configs: Record<PreopPopulation, PreopSectionConfigView | null>
+  /** The vitals switches' labels, in order (1.11.0). */
+  vitalsSwitches?: Array<{ key: keyof PreopVitalsSettingsView; labelEn: string; labelBg: string }>
+  /** The typed-medication switch's label (1.11.0). */
+  medicationsFreeText?: { labelEn: string; labelBg: string }
 }
 
 /** One population's whole configuration, as the API's preop-sections control takes it. */
@@ -113,6 +124,8 @@ export type PreopSectionsUpdate = {
   sections: Record<string, boolean>
   orderOptions: Array<{ key: string; list: PreopOrderList; enabled: boolean; labelEn?: string; labelBg?: string; hoursMode?: PreopHoursMode }>
   consultSpecialtyKeys: string[]
+  vitals?: PreopVitalsSettingsView
+  medicationsFreeText?: boolean
   reason: string
 }
 
@@ -1272,6 +1285,8 @@ export function drugColorsShape(value: unknown): value is DrugColorsView {
 }
 
 /** Exported for the API's contract test: the view it sends must pass this. */
+const VITALS_KEYS = ["required", "bloodPressure", "heartRate", "respiratoryRate"] as const
+
 export function preopSectionsShape(value: unknown): value is PreopSectionsView {
   if (!isRecord(value)) return false
   const populations = ["ADULT", "PEDIATRIC"]
@@ -1290,8 +1305,14 @@ export function preopSectionsShape(value: unknown): value is PreopSectionsView {
   const config = (entry: unknown) => entry === null || (isRecord(entry) && isRecord(entry.sections)
     && Object.values(entry.sections).every(item => typeof item === "boolean")
     && Array.isArray(entry.orderOptions) && entry.orderOptions.length <= 200 && entry.orderOptions.every(option)
-    && Array.isArray(entry.consultSpecialtyKeys) && entry.consultSpecialtyKeys.every(item => text(item, 20)))
+    && Array.isArray(entry.consultSpecialtyKeys) && entry.consultSpecialtyKeys.every(item => text(item, 20))
+    && (entry.vitals === undefined || (isRecord(entry.vitals) && VITALS_KEYS.every(key => typeof (entry.vitals as Record<string, unknown>)[key] === "boolean")))
+    && (entry.medicationsFreeText === undefined || typeof entry.medicationsFreeText === "boolean"))
+  const labelled = (entry: unknown) => isRecord(entry) && text(entry.labelEn, 300) && text(entry.labelBg, 300)
   return Array.isArray(value.definitions) && value.definitions.every(definition)
+    && (value.vitalsSwitches === undefined || (Array.isArray(value.vitalsSwitches) && value.vitalsSwitches.length === VITALS_KEYS.length
+      && value.vitalsSwitches.every(entry => labelled(entry) && VITALS_KEYS.includes((entry as { key: unknown }).key as typeof VITALS_KEYS[number]))))
+    && (value.medicationsFreeText === undefined || labelled(value.medicationsFreeText))
     && Array.isArray(value.fixed) && value.fixed.every(fixedSection)
     && (value.postopFixed === undefined || (Array.isArray(value.postopFixed) && value.postopFixed.every(fixedSection)))
     && Array.isArray(value.specialties) && value.specialties.length <= 500 && value.specialties.every(item => isRecord(item)

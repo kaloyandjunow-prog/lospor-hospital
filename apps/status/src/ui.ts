@@ -1067,6 +1067,18 @@ function researchAccountRoleLabel(
   }[account.role]
 }
 
+/**
+ * What to do about a batch's failure, where the code alone does not say
+ * (1.11.0). Central speaking an older contract is not a fault here: the
+ * batches wait, and go once Central is updated.
+ */
+function centralBatchErrorHint(code: string | null, locale: StatusLocale): string {
+  if (code !== "CENTRAL_CONTRACT_TOO_OLD") return ""
+  return `<div class="component-detail" data-testid="central-contract-too-old">${localize(locale,
+    "Central runs an older version than this appliance and would lose part of the data. The data waits here and is sent by itself once Central is updated.",
+    "Central е с по-стара версия от този сървър и би загубил част от данните. Данните чакат тук и ще се изпратят сами, щом Central бъде обновен.")}</div>`
+}
+
 function centralQueueStatusLabel(status: string, locale: StatusLocale): string {
   const labels: Record<string, [string, string]> = {
     PENDING: ["Pending", "Изчаква"],
@@ -1483,7 +1495,7 @@ export function renderControlPlane(
   const batchRows = central?.batches.length ? central.batches.map(batch => {
     const retry = batch.status === "RETRY" || batch.status === "REJECTED"
       ? `<form method="post" action="/status/control/central/batches/${encodeURIComponent(batch.id)}/retry"><label>${localize(locale, "Retry reason", "Причина за нов опит")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Queue retry", "Нов опит")}</button></form>` : ""
-    return `<div class="component"><div class="component-head"><div><div class="component-name">#${batch.sequence} · ${escapeHtml(centralQueueStatusLabel(batch.status, locale))}</div><div class="component-detail">${localize(locale, "Cases", "Случаи")}: ${batch.caseCount} · ${localize(locale, "Attempts", "Опити")}: ${batch.attemptCount} · ${escapeHtml(batch.errorCode ?? localize(locale, "no failure", "без грешка"))}</div><div class="component-detail mono">${localize(locale, "Manifest", "Манифест")}: ${escapeHtml(batch.manifestHash ?? "—")} · ${localize(locale, "Receipt", "Потвърждение за получаване")}: ${escapeHtml(batch.receiptHash ?? "—")}</div></div><strong>${batch.acceptedAt ? escapeHtml(utcDate(Date.parse(batch.acceptedAt), locale)) + " UTC" : ""}</strong></div>${retry}</div>`
+    return `<div class="component"><div class="component-head"><div><div class="component-name">#${batch.sequence} · ${escapeHtml(centralQueueStatusLabel(batch.status, locale))}</div><div class="component-detail">${localize(locale, "Cases", "Случаи")}: ${batch.caseCount} · ${localize(locale, "Attempts", "Опити")}: ${batch.attemptCount} · ${escapeHtml(batch.errorCode ?? localize(locale, "no failure", "без грешка"))}</div>${centralBatchErrorHint(batch.errorCode, locale)}<div class="component-detail mono">${localize(locale, "Manifest", "Манифест")}: ${escapeHtml(batch.manifestHash ?? "—")} · ${localize(locale, "Receipt", "Потвърждение за получаване")}: ${escapeHtml(batch.receiptHash ?? "—")}</div></div><strong>${batch.acceptedAt ? escapeHtml(utcDate(Date.parse(batch.acceptedAt), locale)) + " UTC" : ""}</strong></div>${retry}</div>`
   }).join("") : `<div class="empty">${localize(locale, "No Central batches.", "Няма пакети за Central.")}</div>`
 
   const guidance = view?.guidance

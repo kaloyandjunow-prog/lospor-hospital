@@ -1,4 +1,4 @@
-import type { PreopFixedSectionView, PreopOrderOptionView, PreopPopulation, PreopSectionsView } from "./control-plane.js"
+import type { PreopFixedSectionView, PreopOrderOptionView, PreopPopulation, PreopSectionConfigView, PreopSectionsView, PreopVitalsSettingsView } from "./control-plane.js"
 import { formSectionKeys } from "./preop-sections-form.js"
 import { localize, type StatusLocale } from "./locale.js"
 import { escapeHtml } from "./util.js"
@@ -45,7 +45,36 @@ function sectionSwitches(sections: PreopSectionsView, population: Population, an
     return `<label class="check"><input type="checkbox" name="section_${escapeHtml(definition.key)}" value="true" ${config.sections[definition.key] !== false ? "checked" : ""} data-testid="section-${escapeHtml(definition.key)}-${population.id}"> ${label(definition, locale)}${needsNote}</label>`
   }).join("")
   const part = form === "POSTOP" ? "postop" : "sections"
-  return `<form method="post" action="/status/control/preop-sections#${anchor}"><input type="hidden" name="part" value="${part}"><input type="hidden" name="population" value="${population.id}"><div class="checks">${rows}</div>${confirm(locale)}<button type="submit">${localize(locale, "Save the sections for", "Запазване на разделите за")} ${localize(locale, population.en, population.bg).toLowerCase()}</button></form>`
+  const extra = form === "PREOP" ? `${vitalsSwitches(sections, config, population, locale)}${medicationsSwitch(sections, config, population, locale)}` : ""
+  return `<form method="post" action="/status/control/preop-sections#${anchor}"><input type="hidden" name="part" value="${part}"><input type="hidden" name="population" value="${population.id}"><div class="checks">${rows}</div>${extra}${confirm(locale)}<button type="submit">${localize(locale, "Save the sections for", "Запазване на разделите за")} ${localize(locale, population.en, population.bg).toLowerCase()}</button></form>`
+}
+
+/**
+ * Which preoperative vitals hold up the case (1.11.0). The vitals are always
+ * shown; these say which must be filled in -- or marked unobtainable -- before
+ * the case can continue and be finalised.
+ */
+function vitalsSwitches(sections: PreopSectionsView, config: PreopSectionConfigView, population: Population, locale: StatusLocale): string {
+  const switches = sections.vitalsSwitches ?? []
+  if (switches.length === 0) return ""
+  const current = { required: true, bloodPressure: true, heartRate: true, respiratoryRate: true, ...(config.vitals ?? {}) }
+  const box = (entry: { key: keyof PreopVitalsSettingsView; labelEn: string; labelBg: string }) =>
+    `<label class="check"><input type="checkbox" name="vitals_${entry.key}" value="true" ${current[entry.key] ? "checked" : ""} data-testid="vitals-${entry.key}-${population.id}"> ${label(entry, locale)}</label>`
+  const [section, ...readings] = switches
+  return `<fieldset class="checks" data-testid="vitals-${population.id}"><legend>${localize(locale, "Vital signs before the operation", "Жизнени показатели преди операцията")}</legend><p class="component-detail">${localize(locale,
+    "Ticked: must be filled in, or marked as impossible to measure, before the case can go on to the operation and be closed. Not ticked: can be left empty. The fields are shown either way.",
+    "Отметнато: трябва да се попълни или да се отбележи, че не може да се измери, преди случаят да продължи към операцията и да бъде приключен. Неотметнато: може да остане празно. Полетата се показват и в двата случая.")}</p>${section ? box(section) : ""}<p class="component-detail">${localize(locale,
+    "When vital signs are required, which of them:",
+    "Ако жизнените показатели са задължителни, кои от тях:")}</p>${readings.map(box).join("")}</fieldset>`
+}
+
+/** Whether a current medication can be typed when it is not in the list (1.11.0); off by default. */
+function medicationsSwitch(sections: PreopSectionsView, config: PreopSectionConfigView, population: Population, locale: StatusLocale): string {
+  const entry = sections.medicationsFreeText
+  if (!entry) return ""
+  return `<fieldset class="checks" data-testid="medications-free-text-${population.id}"><legend>${localize(locale, "Current medications", "Хронични медикаменти")}</legend><label class="check"><input type="checkbox" name="medications_free_text" value="true" ${config.medicationsFreeText === true ? "checked" : ""} data-testid="medications-free-text-box-${population.id}"> ${label(entry, locale)}</label><p class="component-detail">${localize(locale,
+    "A medication typed this way has no code: research receives it as written text, and the allergy check compares it by name only.",
+    "Така въведеното лекарство няма код: към изследванията отива като написан текст, а проверката за алергии го сравнява само по име.")}</p></fieldset>`
 }
 
 /** Preoperative form · Sections. */
