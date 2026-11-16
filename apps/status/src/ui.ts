@@ -2626,35 +2626,35 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
   const blocked = state?.phase === "needs-operator"
   let current: string
   if (view.agentMode === "console-only") {
-    current = localize(locale, "Browser maintenance is intentionally disabled on this appliance. Hospital IT uses losporctl at the console.", "Поддръжката от браузъра е умишлено изключена на тази система. ИТ отделът използва losporctl от конзолата.")
+    current = localize(locale, "Browser maintenance is intentionally disabled on this appliance. Hospital IT uses losporctl at the console.", "Тази инсталация се поддържа само от конзолата на сървъра.")
   } else if (view.agentMode !== "healthy" || !state) {
-    current = localize(locale, "No fresh report from the host maintenance agent. Browser maintenance is disabled rather than assuming the host is ready.", "Няма актуален отчет от агента за поддръжка на сървъра. Поддръжката от браузъра е изключена, вместо да се приема, че сървърът е готов.")
+    current = localize(locale, "No fresh report from the host maintenance agent. Browser maintenance is disabled rather than assuming the host is ready.", "Услугата за поддръжка на сървъра не отговаря, затова действията от тази страница са изключени.")
   } else {
     current = maintenanceResult(state.resultCode, locale)
   }
   const disabledReason = view.recoverySession
-    ? localize(locale, "A console-recovery session can view this page but cannot request maintenance.", "Сесия с токен за възстановяване може да преглежда страницата, но не и да заявява поддръжка.")
+    ? localize(locale, "A console-recovery session can view this page but cannot request maintenance.", "Сесията за възстановяване може само да преглежда. За действия влезте с администраторската парола.")
     : blocked
-      ? localize(locale, "The host stopped and needs Hospital IT at the console before anything else is requested.", "Сървърът е спрял и ИТ отделът трябва да провери конзолата, преди да се заявява друго.")
+      ? localize(locale, "The host stopped and needs Hospital IT at the console before anything else is requested.", "Операцията спря с грешка. ИТ отделът трябва да провери конзолата.")
       : busy
-        ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Тече операция по поддръжка. Страницата е само за преглед, докато тя приключи.")
-        : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
+        ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Тече операция. Изчакайте да приключи.")
+        : localize(locale, "Browser maintenance needs a healthy host agent.", "Нужна е работеща услуга за поддръжка на сървъра.")
   const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle", label: string, danger = false) => view.mayManage
     ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit"${danger ? ' class="danger"' : ""}>${escapeHtml(label)}</button></form>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
 
-  const backupCard = `<div class="component"><div class="component-name">${localize(locale, "Back up now", "Направи резервно копие сега")}</div>${actionFacts({
+  const backupCard = `<div class="component"><div class="component-name">${localize(locale, "Back up now", "Резервно копие сега")}</div>${actionFacts({
     prerequisites: ["The database running.", "Работещата база данни."],
     outage: ["None.", "Няма."],
     backup: ["This is the backup.", "Това е резервното копие."],
     boundary: ["Nothing.", "Нищо."],
     verification: ["The backup is checksum-verified before it counts; see Backup on the overview.", "Резервното копие се проверява с контролна сума, преди да се зачете; вижте „Резервно копие“ в прегледа."],
-  }, locale)}${actionForm("backup", localize(locale, "Back up now", "Направи резервно копие сега"))}</div>`
+  }, locale)}${actionForm("backup", localize(locale, "Back up now", "Резервно копие сега"))}</div>`
 
   const drills = state?.drills.length
     ? `<ol class="timeline">${[...state.drills].reverse().map(drill => `<li><time>${escapeHtml(drill.completedAt)}</time><strong>${drill.result === "passed" ? localize(locale, "Passed", "Успешно") : localize(locale, "Failed", "Неуспешно")}</strong> <span class="mono">${escapeHtml(drill.backup)}</span></li>`).join("")}</ol>`
-    : `<div class="empty">${localize(locale, "No restore drill has been run from Status yet.", "Все още няма пробно възстановяване, пуснато от Status.")}</div>`
-  const drillCard = `<div class="component"><div class="component-name">${localize(locale, "Restore drill", "Пробно възстановяване")}</div><div class="component-detail">${localize(locale, "Proves the newest backup can be restored: it is restored into a separate temporary database, migrated and validated, then the copy is removed. The live database is not touched.", "Доказва, че най-новото резервно копие може да бъде възстановено: то се възстановява в отделна временна база данни, мигрира се и се проверява, след което копието се изтрива. Работещата база данни не се засяга.")}</div>${actionFacts({
+    : `<div class="empty">${localize(locale, "No restore drill has been run from Status yet.", "Още няма пробно възстановяване.")}</div>`
+  const drillCard = `<div class="component"><div class="component-name">${localize(locale, "Restore drill", "Пробно възстановяване")}</div><div class="component-detail">${localize(locale, "Proves the newest backup can be restored: it is restored into a separate temporary database, migrated and validated, then the copy is removed. The live database is not touched.", "Проверява, че последното резервно копие може да се възстанови: възстановява го във временна база, проверява го и я изтрива. Работещата база не се засяга.")}</div>${actionFacts({
     prerequisites: ["At least one backup.", "Поне едно резервно копие."],
     outage: ["None. The server is busier for a minute or two.", "Няма. Сървърът е по-натоварен за минута-две."],
     backup: ["No.", "Не."],
@@ -2706,7 +2706,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Резервни копия, проверки и настройки"))}<main>${notice}${error}${subnav}${showAgent ? agent : ""}${skinPage.map(entry => entry.html).join("")}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и я изпълнява; възстановяването върху работещата база и аварийното възстановяване се правят само от конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Резервни копия, проверки и настройки"))}<main>${notice}${error}${subnav}${showAgent ? agent : ""}${skinPage.map(entry => entry.html).join("")}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само подава заявката; услугата за поддръжка я проверява и изпълнява. Възстановяване върху работещата база се прави само от конзолата.")}</footer></div>`,
     locale,
   )
 }
@@ -2749,13 +2749,13 @@ function offhostSection(
   }, locale)
   let current: string
   if (!destination) {
-    current = `<div class="empty">${localize(locale, "Off-host copies are not set up. A backup that exists only on this server is lost with it.", "Копирането извън сървъра не е настроено. Резервно копие, което е само на този сървър, се губи заедно с него.")}</div>`
+    current = `<div class="empty">${localize(locale, "Off-host copies are not set up. A backup that exists only on this server is lost with it.", "Копирането извън сървъра не е настроено. Копие само на този сървър се губи заедно с него.")}</div>`
   } else {
     const where = destination.type === "mount"
       ? localize(locale, `Share mounted at ${destination.path}`, `Споделена папка в ${destination.path}`)
       : `sftp://${destination.user}@${destination.host}:${destination.port}/${destination.directory}`
     const identities = destination.type === "sftp"
-      ? `<div class="component"><div class="component-name">${localize(locale, `Install this public key for ${destination.user} on the SFTP server`, `Инсталирайте този публичен ключ за ${destination.user} на SFTP сървъра`)}</div><div class="component-detail mono">${escapeHtml(offhost?.sshPublicKey ?? "")}</div><div class="component-name">${localize(locale, "Server host keys pinned at setup — confirm them with the server's administrator", "Ключове на сървъра, запомнени при настройката — потвърдете ги с администратора на сървъра")}</div><div class="component-detail mono">${(offhost?.hostKeyFingerprints ?? []).map(escapeHtml).join("<br>")}</div></div>`
+      ? `<div class="component"><div class="component-name">${localize(locale, `Install this public key for ${destination.user} on the SFTP server`, `Инсталирайте този публичен ключ за ${destination.user} на SFTP сървъра`)}</div><div class="component-detail mono">${escapeHtml(offhost?.sshPublicKey ?? "")}</div><div class="component-name">${localize(locale, "Server host keys pinned at setup — confirm them with the server's administrator", "Ключове на SFTP сървъра (потвърдете ги с администратора му)")}</div><div class="component-detail mono">${(offhost?.hostKeyFingerprints ?? []).map(escapeHtml).join("<br>")}</div></div>`
       : ""
     const drills = offhost?.drills.length
       ? `<ol class="timeline">${[...offhost.drills].reverse().map(drill => `<li><time>${escapeHtml(drill.completedAt)}</time><strong>${drill.result === "passed" ? localize(locale, "Passed", "Успешно") : localize(locale, "Failed", "Неуспешно")}</strong> <span class="mono">${escapeHtml(drill.backup)}</span></li>`).join("")}</ol>`
@@ -2764,14 +2764,14 @@ function offhostSection(
       releaseFact(localize(locale, "Destination", "Място за копиране"), where),
       releaseFact(localize(locale, "Last copy", "Последно копие"), offhostResult(offhost?.lastRun, locale)),
       releaseFact(localize(locale, "Last connection test", "Последна проверка на връзката"), offhostResult(offhost?.lastTest, locale)),
-      releaseFact(localize(locale, "Last drill from off-host", "Последна проверка от копие извън сървъра"), offhostResult(offhost?.lastDrill, locale)),
+      releaseFact(localize(locale, "Last drill from off-host", "Последно пробно възстановяване от копие извън сървъра"), offhostResult(offhost?.lastDrill, locale)),
       releaseFact(localize(locale, "Encryption key fingerprint", "Отпечатък на ключа за шифроване"), offhost?.encryptionKeyFingerprint ?? "-"),
-    ].join("")}</div>${identities}${actionForm("offhost-test", localize(locale, "Test the connection", "Проверка на връзката"))}${actionForm("offhost-drill", localize(locale, "Drill from the newest off-host copy", "Проверка от най-новото копие извън сървъра"))}${drills}<details class="admin-action"><summary>${localize(locale, "Turn off off-host copies", "Изключване на копията извън сървъра")}</summary><p class="component-detail">${localize(locale, "New backups stop being copied elsewhere, and Status warns until copies are set up again. Copies already made stay at the destination and the keys to read them are kept.", "Новите резервни копия спират да се копират другаде и Status предупреждава, докато копирането не бъде настроено отново. Вече направените копия остават на мястото, а ключовете за четенето им се пазят.")}</p>${actionForm("offhost-disable", localize(locale, "Turn off", "Изключване"))}</details>`
+    ].join("")}</div>${identities}${actionForm("offhost-test", localize(locale, "Test the connection", "Проверка на връзката"))}${actionForm("offhost-drill", localize(locale, "Drill from the newest off-host copy", "Пробно възстановяване от копие извън сървъра"))}${drills}<details class="admin-action"><summary>${localize(locale, "Turn off off-host copies", "Изключване на копията извън сървъра")}</summary><p class="component-detail">${localize(locale, "New backups stop being copied elsewhere, and Status warns until copies are set up again. Copies already made stay at the destination and the keys to read them are kept.", "Новите резервни копия няма да се копират извън сървъра. Вече направените остават, ключовете за тях също.")}</p>${actionForm("offhost-disable", localize(locale, "Turn off", "Изключване"))}</details>`
   }
   const setup = view.mayManage
-    ? `<details class="admin-action"${destination ? "" : " open"}><summary>${destination ? localize(locale, "Change the destination", "Смяна на мястото за копиране") : localize(locale, "Set up off-host copies", "Настройване на копиране извън сървъра")}</summary><form method="post" action="/status/maintenance/offhost"><fieldset><legend>${localize(locale, "Mounted network share (SMB or NFS)", "Монтирана мрежова папка (SMB или NFS)")}</legend><label class="check"><input type="radio" name="type" value="mount" required><span>${localize(locale, "Use a share Hospital IT has already mounted", "Използване на папка, вече монтирана от ИТ отдела")}</span></label><label for="offhost-path">${localize(locale, "Mount path", "Път на монтиране")}</label><input id="offhost-path" name="path" placeholder="/mnt/lospor-backups" maxlength="200" autocomplete="off"></fieldset><fieldset><legend>SFTP</legend><label class="check"><input type="radio" name="type" value="sftp"><span>${localize(locale, "Use an SFTP server (key authentication only)", "Използване на SFTP сървър (само с ключ)")}</span></label><div class="form-grid"><div><label for="offhost-host">${localize(locale, "Server", "Сървър")}</label><input id="offhost-host" name="host" maxlength="253" autocomplete="off"></div><div><label for="offhost-port">${localize(locale, "Port", "Порт")}</label><input id="offhost-port" name="port" value="22" inputmode="numeric" maxlength="5"></div><div><label for="offhost-user">${localize(locale, "User", "Потребител")}</label><input id="offhost-user" name="user" maxlength="32" autocomplete="off"></div><div><label for="offhost-directory">${localize(locale, "Directory", "Директория")}</label><input id="offhost-directory" name="directory" value="lospor-backups" maxlength="200" autocomplete="off"></div></div></fieldset>${passwordConfirm("offhost-password", locale)}<button type="submit">${localize(locale, "Save the destination", "Запазване на мястото за копиране")}</button></form></details>`
+    ? `<details class="admin-action"${destination ? "" : " open"}><summary>${destination ? localize(locale, "Change the destination", "Смяна на мястото за копиране") : localize(locale, "Set up off-host copies", "Настройване на копиране извън сървъра")}</summary><form method="post" action="/status/maintenance/offhost"><fieldset><legend>${localize(locale, "Mounted network share (SMB or NFS)", "Монтирана мрежова папка (SMB или NFS)")}</legend><label class="check"><input type="radio" name="type" value="mount" required><span>${localize(locale, "Use a share Hospital IT has already mounted", "Използване на папка, вече монтирана от ИТ отдела")}</span></label><label for="offhost-path">${localize(locale, "Mount path", "Път на монтиране")}</label><input id="offhost-path" name="path" placeholder="/mnt/lospor-backups" maxlength="200" autocomplete="off"></fieldset><fieldset><legend>SFTP</legend><label class="check"><input type="radio" name="type" value="sftp"><span>${localize(locale, "Use an SFTP server (key authentication only)", "Използване на SFTP сървър (само с ключ)")}</span></label><div class="form-grid"><div><label for="offhost-host">${localize(locale, "Server", "Сървър")}</label><input id="offhost-host" name="host" maxlength="253" autocomplete="off"></div><div><label for="offhost-port">${localize(locale, "Port", "Порт")}</label><input id="offhost-port" name="port" value="22" inputmode="numeric" maxlength="5"></div><div><label for="offhost-user">${localize(locale, "User", "Потребител")}</label><input id="offhost-user" name="user" maxlength="32" autocomplete="off"></div><div><label for="offhost-directory">${localize(locale, "Directory", "Директория")}</label><input id="offhost-directory" name="directory" value="lospor-backups" maxlength="200" autocomplete="off"></div></div></fieldset>${passwordConfirm("offhost-password", locale)}<button type="submit">${localize(locale, "Save the destination", "Запазване")}</button></form></details>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
-  return `<section class="section" aria-labelledby="maintenance-offhost"><h2 id="maintenance-offhost">${localize(locale, "Copies kept elsewhere", "Копия извън сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Each verified backup is encrypted on this server, copied to the destination, read back and compared. Only then does it count as kept elsewhere.", "Всяко проверено резервно копие се шифрова на този сървър, копира се на мястото, прочита се обратно и се сравнява. Едва тогава се смята за запазено извън сървъра.")}</div>${facts}${current}${setup}</div></div></section>`
+  return `<section class="section" aria-labelledby="maintenance-offhost"><h2 id="maintenance-offhost">${localize(locale, "Copies kept elsewhere", "Копия извън сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Each verified backup is encrypted on this server, copied to the destination, read back and compared. Only then does it count as kept elsewhere.", "Всяко резервно копие се шифрова, копира, прочита обратно и сравнява. Едва тогава се смята за запазено извън сървъра.")}</div>${facts}${current}${setup}</div></div></section>`
 }
 
 const HOST_OS_WORDS: Record<string, { en: string; bg: string }> = {
@@ -2823,14 +2823,14 @@ function hostOsSection(
     ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновявания за Docker. Инсталирането им рестартира всички клинични услуги, затова ИТ отделът го прави от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
     : ""
   const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновяванията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Същите обновявания за сигурност, които Ubuntu инсталира сам всяка нощ, но веднага. Docker не се обновява оттук.")}</div>${actionFacts({
-    prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работещ агент на сървъра и достъпно огледало на Ubuntu."],
+    prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работеща услуга за поддръжка и достъпно огледало на Ubuntu."],
     outage: ["Usually none. A few system services may restart.", "Обикновено няма. Някои системни услуги може да се рестартират."],
     backup: ["No: application data is not touched.", "Не: данните на приложението не се засягат."],
     boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват."],
     verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
   }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на обновяванията сега"))}</div>`
   const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu трябва да се рестартира, за да завърши обновяванията.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматично рестартиране системата се рестартира сама в прозореца за обновявания, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, choose “Inside the update window” for the restart in Site settings.", "За да го прави системата сама, изберете „В прозореца за обновявания“ за рестартирането в „Настройки на инсталацията“.")}</div>${actionFacts({
-    prerequisites: ["A healthy host agent and a successful backup.", "Работещ агент на сървъра и успешно резервно копие."],
+    prerequisites: ["A healthy host agent and a successful backup.", "Работеща услуга за поддръжка и успешно резервно копие."],
     outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: лекарите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът не се върне."],
     backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверено резервно копие; ако то не успее, сървърът не се рестартира."],
     boundary: ["Nothing clinical changes.", "Нищо клинично не се променя."],
@@ -2844,7 +2844,7 @@ function rotationSection(view: MaintenanceView, disabledReason: string, locale: 
     ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="rotate-credentials"><label class="check"><input type="checkbox" name="confirmation" value="ROTATE-CREDENTIALS" required> ${localize(locale, "I understand that everyone using LOSPOR signs in again, and that the installation secrets must be escrowed again afterwards", "Разбирам, че всички потребители на LOSPOR ще трябва да влязат отново и че след това инсталационните тайни трябва отново да се запишат на сигурно място")}</label>${passwordConfirm("rotate-credentials-password", locale)}<button type="submit" class="danger">${localize(locale, "Rotate the credentials", "Смяна на данните за достъп")}</button></form>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
   return `<section class="section" aria-labelledby="maintenance-rotation"><h2 id="maintenance-rotation">${localize(locale, "Credential rotation", "Смяна на данните за достъп")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Replaces the passwords and keys the appliance's own services use to talk to each other: the sign-in session key, the worker tokens, the Status tokens and both database passwords. Patient-identity and encryption keys are never rotated here, because changing them would make stored data unreadable.", "Сменя паролите и ключовете, с които услугите на системата комуникират помежду си: ключа за сесиите, токените на работните процеси, токените на Status и двете пароли за базата данни. Ключовете за самоличност на пациентите и за шифроване никога не се сменят оттук, защото смяната им би направила записаните данни нечетими.")}</div>${actionFacts({
-    prerequisites: ["A healthy host agent and no rotation already pending.", "Работещ агент на сървъра и няма започната смяна."],
+    prerequisites: ["A healthy host agent and no rotation already pending.", "Работеща услуга за поддръжка и няма започната смяна."],
     outage: ["Services restart for a few minutes, and everyone using the web app, phone app and printouts signs in again. Status sign-in is not affected.", "Услугите се рестартират за няколко минути и всички потребители на уеб приложението, мобилното приложение и разпечатките трябва да влязат отново. Входът в Status не се засяга."],
     backup: ["Not needed: patient data is not touched.", "Не е нужно: данните за пациентите не се засягат."],
     boundary: ["Old credentials stop working. If anything fails, the previous credentials are restored automatically.", "Старите данни за достъп спират да работят. Ако нещо се провали, предишните данни се връщат автоматично."],
@@ -2900,7 +2900,7 @@ function supportBundleSection(
     ? `<div class="facts">${releaseFact(localize(locale, "Last bundle written", "Последен пакет"), `${bundle.createdAt} · ${bundle.release}`)}</div><p><a href="/status/maintenance/support-bundle">${localize(locale, "Download the support bundle", "Изтегляне на пакета за поддръжка")}</a></p>`
     : `<div class="empty">${localize(locale, "No support bundle has been written yet.", "Все още няма създаден пакет за поддръжка.")}</div>`
   return `<section class="section" aria-labelledby="maintenance-support"><h2 id="maintenance-support">${localize(locale, "Support bundle", "Пакет за поддръжка")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "A file for LOSPOR support with versions, states, times and check results only: no patients, cases, accounts, names, addresses or secrets. Read it before you send it.", "Файл за поддръжката на LOSPOR само с версии, състояния, часове и резултати от проверки: без пациенти, случаи, профили, имена, адреси или тайни. Прегледайте го, преди да го изпратите.")}</div>${actionFacts({
-    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    prerequisites: ["A healthy host agent.", "Работеща услуга за поддръжка."],
     outage: ["None. The full health check runs, so the server is busier for a minute.", "Няма. Изпълнява се пълната проверка, затова сървърът е по-натоварен около минута."],
     backup: ["No.", "Не."],
     boundary: ["Nothing. Only the newest bundle is offered here.", "Нищо. Тук се предлага само най-новият пакет."],
@@ -2933,7 +2933,7 @@ function advancedSection(view: MaintenanceView, disabledReason: string, locale: 
   }).join("")
   const overridden = Object.values(advanced).filter(setting => setting.overridden).length
   const facts = actionFacts({
-    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    prerequisites: ["A healthy host agent.", "Работеща услуга за поддръжка."],
     outage: ["Only the services these values belong to restart, usually for under a minute.", "Рестартират се само услугите, до които се отнасят стойностите, обикновено за по-малко от минута."],
     backup: ["No: only settings change, and the previous values are kept.", "Не: променят се само настройки, а предишните стойности се пазят."],
     boundary: ["Nothing. If the health check fails, the previous values are restored automatically.", "Нищо. Ако проверката на системата не успее, предишните стойности се връщат автоматично."],
@@ -2978,7 +2978,7 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
   const consoleOnly = Object.entries(settings).filter(([, setting]) => !setting.editable)
     .map(([key, setting]) => `<div class="fact"><b class="mono">${escapeHtml(key)}</b>${escapeHtml(setting.value ?? "")}</div>`).join("")
   const facts = actionFacts({
-    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    prerequisites: ["A healthy host agent.", "Работеща услуга за поддръжка."],
     outage: ["Only the services whose settings changed restart, usually for under a minute.", "Рестартират се само услугите с променени настройки, обикновено за по-малко от минута."],
     backup: ["No: only settings change, and the previous settings are kept.", "Не: променят се само настройките, а предишните се пазят."],
     boundary: ["Nothing. If the health check fails, the previous settings are restored automatically.", "Нищо. Ако проверката на системата не успее, предишните настройки се връщат автоматично."],

@@ -173,7 +173,7 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
     id: "backup", stage: "protect", owner: "appliance",
     whyEn: "Without a current, verified backup a failed disk loses every case.",
     whyBg: "Без актуално проверено резервно копие повреда на диска унищожава всички случаи.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Направи резервно копие сега" },
+    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Резервно копие сега" },
   },
   {
     id: "offhost-backup", stage: "protect", owner: "hospital-it",
