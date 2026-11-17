@@ -1,5 +1,11 @@
 {
   email {$ACME_EMAIL}
+  # A browser sends no server name when the address is an IP address (IP mode,
+  # 1.12.0), and behind Docker's network Caddy cannot tell which address was
+  # dialled, so no certificate was chosen and the handshake failed. The clinical
+  # name is the certificate to offer then; in IP mode both sites share the one
+  # address and certificate.
+  default_sni {$HOSPITAL_CLINICAL_DOMAIN}
 }
 
 # HOSPITAL_TLS_MODE is the only normal TLS selector.  It expands to exactly one

@@ -194,10 +194,30 @@ clinical="$HOSPITAL_CLINICAL_DOMAIN"
 # here keeps the answers usable: the attempt is repeated by starting this
 # service again once DNS is right, without typing anything.
 waited=0
-while ! getent ahosts "$HOSPITAL_CLINICAL_DOMAIN" >/dev/null 2>&1 || ! getent ahosts "$HOSPITAL_RESEARCH_DOMAIN" >/dev/null 2>&1; do
+# IP mode (1.12.0): the addresses are the server's own, with no DNS record to
+# wait for. What has to be true instead is that the server has the address.
+is_ip_site() { printf '%s' "$1" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}(:[0-9]{1,5})?$'; }
+site_ready() {
+  if is_ip_site "$1"; then
+    ip -4 -o addr show 2>/dev/null | awk '{ print $4 }' | cut -d/ -f1 | grep -Fxq "${1%%:*}"
+  else
+    getent ahosts "$1" >/dev/null 2>&1
+  fi
+}
+while ! site_ready "$HOSPITAL_CLINICAL_DOMAIN" || ! site_ready "$HOSPITAL_RESEARCH_DOMAIN"; do
+  if is_ip_site "$HOSPITAL_CLINICAL_DOMAIN" && [ "$waited" -ge 120 ]; then
+    report failed "$(say "The server does not have the fixed address ${HOSPITAL_CLINICAL_DOMAIN}. Check the address, the gateway and the switch the server is connected to, then run on the console: sudo systemctl start firstboot-lospor" "Сървърът няма постоянния адрес ${HOSPITAL_CLINICAL_DOMAIN}. Проверете адреса, шлюза и комутатора, към който е свързан сървърът, после изпълнете в конзолата: sudo systemctl start firstboot-lospor")"
+    exit 1
+  fi
   if [ "$waited" -ge "$dns_wait_seconds" ]; then
     report failed "$(say "The server cannot resolve $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN in DNS. Ask IT to add both names pointing to this server, then run on the console: sudo systemctl start firstboot-lospor" "Сървърът не намира $HOSPITAL_CLINICAL_DOMAIN и $HOSPITAL_RESEARCH_DOMAIN в DNS. Помолете ИТ да добави и двете имена към този сървър, после изпълнете в конзолата: sudo systemctl start firstboot-lospor")"
     exit 1
+  fi
+  if is_ip_site "$HOSPITAL_CLINICAL_DOMAIN"; then
+    [ "$waited" -gt 0 ] || report installing "$(say "Waiting for the server to take its fixed address ${HOSPITAL_CLINICAL_DOMAIN}." "Чака се сървърът да вземе постоянния си адрес ${HOSPITAL_CLINICAL_DOMAIN}.")"
+    sleep 15
+    waited=$((waited + 15))
+    continue
   fi
   # The address is known only now that the VM has one, so it is said here:
   # this is when IT adds the two DNS records.

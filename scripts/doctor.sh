@@ -213,28 +213,41 @@ case "${HOSPITAL_TLS_MODE:-acme}" in
     ;;
 esac
 
+# IP mode: a site address is an IPv4 address (Research carries its own port).
+# Such a site needs no --resolve (there is no name to resolve) and the port is
+# part of the address instead of HOSPITAL_HTTPS_PORT.
+. "$root/scripts/readiness-lib.sh"
+site_url() {
+  if readiness_ip_site "$1"; then
+    case "$1" in
+      *:*) printf 'https://%s%s' "$1" "$2" ;;
+      *) printf 'https://%s:%s%s' "$1" "$HOSPITAL_HTTPS_PORT" "$2" ;;
+    esac
+  else
+    printf 'https://%s:%s%s' "$1" "$HOSPITAL_HTTPS_PORT" "$2"
+  fi
+}
+site_curl() {
+  # site_curl HOST PATH [curl options...]
+  host="$1"; site_path="$2"; shift 2
+  site_target="$(site_url "$host" "$site_path")"
+  if readiness_ip_site "$host"; then
+    if [ -n "$tls_ca" ]; then curl --cacert "$tls_ca" "$@" "$site_target"; else curl "$@" "$site_target"; fi
+  elif [ -n "$tls_ca" ]; then
+    curl --cacert "$tls_ca" --resolve "$host:$HOSPITAL_HTTPS_PORT:127.0.0.1" "$@" "$site_target"
+  else
+    curl --resolve "$host:$HOSPITAL_HTTPS_PORT:127.0.0.1" "$@" "$site_target"
+  fi
+}
+
 appliance_curl() {
   host="$1"; path="$2"
-  if [ -n "$tls_ca" ]; then
-    curl --cacert "$tls_ca" --resolve "$host:$HOSPITAL_HTTPS_PORT:127.0.0.1" \
-      --fail --silent --show-error "https://$host:$HOSPITAL_HTTPS_PORT$path" >/dev/null
-  else
-    curl --resolve "$host:$HOSPITAL_HTTPS_PORT:127.0.0.1" \
-      --fail --silent --show-error "https://$host:$HOSPITAL_HTTPS_PORT$path" >/dev/null
-  fi
+  site_curl "$host" "$path" --fail --silent --show-error >/dev/null
 }
 
 bounded_route() {
   host="$1"; path="$2"; label_en="$3"; label_bg="$4"
-  if [ -n "$tls_ca" ]; then
-    code="$(curl --cacert "$tls_ca" --resolve "$host:$HOSPITAL_HTTPS_PORT:127.0.0.1" \
-      --silent --show-error --output /dev/null --write-out '%{http_code}' \
-      "https://$host:$HOSPITAL_HTTPS_PORT$path")"
-  else
-    code="$(curl --resolve "$host:$HOSPITAL_HTTPS_PORT:127.0.0.1" \
-      --silent --show-error --output /dev/null --write-out '%{http_code}' \
-      "https://$host:$HOSPITAL_HTTPS_PORT$path")"
-  fi
+  code="$(site_curl "$host" "$path" --silent --show-error --output /dev/null --write-out '%{http_code}')"
   case "$code" in
     2??|3??) operator_say "$label_en is reachable from this host." "$label_bg е достъпен от този сървър." ;;
     403) operator_say "$label_en correctly enforces its configured network boundary (this host is outside it)." "$label_bg правилно прилага зададената мрежова граница (този сървър е извън нея)." ;;
@@ -245,7 +258,16 @@ bounded_route() {
 report_live_certificate() {
   host="$1"
   certificate="$(mktemp)"
-  if openssl s_client -connect "127.0.0.1:$HOSPITAL_HTTPS_PORT" -servername "$host" \
+  if readiness_ip_site "$host"; then
+    # An address has no server name to send; connect to the address itself.
+    case "$host" in *:*) certificate_target="$host" ;; *) certificate_target="$host:$HOSPITAL_HTTPS_PORT" ;; esac
+    certificate_name_option=""
+  else
+    certificate_target="127.0.0.1:$HOSPITAL_HTTPS_PORT"
+    certificate_name_option="-servername $host"
+  fi
+  # shellcheck disable=SC2086
+  if openssl s_client -connect "$certificate_target" $certificate_name_option \
     -showcerts </dev/null 2>/dev/null \
     | openssl x509 -outform PEM > "$certificate" 2>/dev/null \
     && [ -s "$certificate" ]; then

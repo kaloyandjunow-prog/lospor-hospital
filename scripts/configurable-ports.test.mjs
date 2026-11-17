@@ -92,3 +92,14 @@ test("the clinical HTTPS port is reachable from off-host", async () => {
   const ports = await publishedPorts({ HOSPITAL_TLS_MODE: "operator", COMPOSE_PROFILES: "", HOSPITAL_HTTPS_PORT: "8443" })
   assert.equal(find(ports, "443").hostIp, null)
 })
+
+test("IP mode publishes Research on its own port off-host; names keep an unused port on loopback", async () => {
+  const ip = await publishedPorts({ HOSPITAL_TLS_MODE: "local", COMPOSE_PROFILES: "", HOSPITAL_RESEARCH_PORT: "8443", HOSPITAL_RESEARCH_PUBLISH: "0.0.0.0" })
+  assert.equal(find(ip, "8443").host, "8443")
+  assert.equal(find(ip, "8443").hostIp, "0.0.0.0")
+  const names = await publishedPorts({ HOSPITAL_TLS_MODE: "operator", COMPOSE_PROFILES: "" })
+  assert.equal(find(names, "18443").hostIp, "127.0.0.1", "with names nothing listens on it, and it is not reachable")
+  // A site that moved HTTPS to 8443 must not collide with the unused port.
+  const moved = await publishedPorts({ HOSPITAL_TLS_MODE: "operator", COMPOSE_PROFILES: "", HOSPITAL_HTTPS_PORT: "8443" })
+  assert.equal(find(moved, "443").host, "8443")
+})

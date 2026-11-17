@@ -31,7 +31,26 @@ case "$mode:$profiles" in
     exit 1
     ;;
 esac
-if ! readiness_hostname "$clinical_domain" \
+if readiness_ip_site "$clinical_domain" || readiness_ip_site "$research_domain"; then
+  # IP mode: the clinical site is an IPv4 address and Research is an address
+  # with a port, so the two sites do not collapse into one. A public authority
+  # will not issue for a private address, hence no ACME.
+  if ! readiness_ipv4 "$clinical_domain" \
+    || ! readiness_ip_site "$research_domain" \
+    || [ "${research_domain#*:}" = "$research_domain" ] \
+    || [ "$clinical_domain" = "$research_domain" ]; then
+    operator_error \
+      "In IP mode Clinical must be an IPv4 address and Research an IPv4 address with a port, for example 192.168.1.50 and 192.168.1.50:8443." \
+      "При работа по IP адрес Clinical трябва да е IPv4 адрес, а Research - IPv4 адрес с порт, например 192.168.1.50 и 192.168.1.50:8443."
+    exit 1
+  fi
+  if [ "$mode" = acme ]; then
+    operator_error \
+      "A public authority does not issue certificates for private IP addresses; use the operator or local certificate mode." \
+      "Публичен удостоверител не издава сертификати за частни IP адреси; използвайте режим operator или local."
+    exit 1
+  fi
+elif ! readiness_hostname "$clinical_domain" \
   || ! readiness_hostname "$research_domain" \
   || [ "$clinical_domain" = "$research_domain" ]; then
   operator_error \
