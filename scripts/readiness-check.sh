@@ -190,7 +190,15 @@ if [ "$configuration_available" = true ]; then
     fail "$(pick 'clinical and Research must use different hostnames so their network boundaries cannot collapse' 'Clinical и Research трябва да използват различни имена, за да не се слеят мрежовите им граници')"
   fi
   for domain in "$clinical_domain" "$research_domain"; do
-    if readiness_hostname "$domain" && getent ahosts "$domain" >/dev/null 2>&1; then
+    if readiness_ip_site "$domain"; then
+      # IP mode: there is no DNS record to find. The address has to be one of
+      # this server's own, or nobody can reach the appliance on it.
+      if ip -4 -o addr show 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -Fxq "$(readiness_site_host "$domain")"; then
+        pass "$(pick "$domain: the address belongs to this server" "$domain: адресът е на този сървър")"
+      else
+        fail "$(pick "$domain: the address is not assigned to this server; give the server a fixed address first" "$domain: адресът не е зададен на този сървър; първо задайте на сървъра постоянен адрес")"
+      fi
+    elif readiness_hostname "$domain" && getent ahosts "$domain" >/dev/null 2>&1; then
       pass "$(pick "DNS resolves $domain" "DNS намира $domain")"
     else
       fail "$(pick "configured domain does not resolve: ${domain:-missing}" "Конфигурираният адрес не се намира в DNS: ${domain:-липсва}")"
@@ -469,7 +477,8 @@ if command -v ss >/dev/null 2>&1; then
   for port_spec in $(readiness_port_specs \
     "$(env_value HOSPITAL_HTTPS_PORT)" \
     "$(env_value HOSPITAL_STATUS_PORT)" \
-    "$(env_value HOSPITAL_TLS_MODE)"); do
+    "$(env_value HOSPITAL_TLS_MODE)" \
+    "$(case "$(env_value HOSPITAL_RESEARCH_DOMAIN)" in [0-9]*.[0-9]*.[0-9]*.[0-9]*:[0-9]*) env_value HOSPITAL_RESEARCH_DOMAIN | sed 's/.*://' ;; esac)"); do
     port="${port_spec%%:*}"
     rest="${port_spec#*:}"
     container_port="${rest%%:*}"

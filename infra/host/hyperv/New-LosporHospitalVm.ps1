@@ -97,7 +97,12 @@ param(
   [string] $Proxy,
   # Names that never go through the proxy: the appliance's own (the wizard
   # gives its clinical and research names).
-  [string[]] $Direct
+  [string[]] $Direct,
+  # IP mode (1.12.0): the server's fixed address, instead of one from DHCP.
+  [string] $StaticAddress,
+  [ValidateRange(0, 30)] [int] $PrefixLength = 0,
+  [string] $Gateway,
+  [string[]] $DnsServers
 )
 
 Set-StrictMode -Version 2.0
@@ -512,10 +517,12 @@ if ($ConsolePassword) {
 }
 $composed = ConvertTo-LosporSeed -Seed (Get-Content -Raw -LiteralPath $SeedPath) -Bootstrap $bootstrap `
   -PasswordHash $passwordHash -AuthorizedKey $key -DiskPassphrase $diskPassphrase `
-  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword) -Proxy $Proxy -Direct $Direct
+  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword) -Proxy $Proxy -Direct $Direct `
+  -StaticAddress $StaticAddress -PrefixLength $PrefixLength -Gateway $Gateway -DnsServers $DnsServers
 $seed = $composed.Text
 if (-not $composed.CarriesBootstrap) { Write-Warning "The seed at $SeedPath has no place for the LOSPOR installer; the VM will not carry it." }
 if ($Proxy -and -not $composed.CarriesProxy) { Stop-Kit "The seed at $SeedPath has no place for the proxy." }
+if ($StaticAddress -and -not $composed.CarriesNetwork) { Stop-Kit "The seed at $SeedPath has no place for the fixed address." }
 if ($firstboot -and -not $composed.CarriesFirstboot) { Stop-Kit "The seed at $SeedPath has no place for the first-boot installation." }
 if (-not $composed.SetsPassword) {
   Write-Warning "The seed at $SeedPath sets its own console password."
@@ -684,10 +691,11 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
         Get-VMHardDiskDrive -VMName $Name | Where-Object { $_.Path -eq $releaseDisk } | Remove-VMHardDiskDrive
         Remove-Item -LiteralPath $releaseDisk -Force -ErrorAction SilentlyContinue
       }
-      $network = Get-LosporVmNetwork $Name
+      # A fixed address needs no DHCP reservation, so none is suggested.
+      $network = if ($StaticAddress) { $null } else { Get-LosporVmNetwork $Name }
       Write-Host ""
       Write-Host "LOSPOR Hospital is installed. Next: $($progress.Url)"
-      if ($network.Address) {
+      if ($network -and $network.Address) {
         Write-Host (Get-LosporDhcpHint $network.Address $network.Mac "en")
       }
       Write-LosporResult "installed" $progress.Message $progress.Url $network

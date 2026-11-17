@@ -695,3 +695,93 @@ test("the progress bar moves through each stage, never past it, and fills when i
   assert.equal(installed, 1)
   assert.equal(unknown, 0)
 })
+
+// ── IP mode: a fixed address instead of DNS names (1.12.0) ───────────────────
+
+test("an IPv4 address is four numbers from 0 to 255", { skip: noPowershell }, () => {
+  const cases = [["192.168.1.50", "True"], ["10.0.0.1", "True"], ["192.168.1.256", "False"], ["192.168.1", "False"], ["lospor.hospital.bg", "False"], ["192.168.1.50:8443", "False"]]
+  const output = runPowershell(cases.map(([value]) => `"$([bool] (Test-LosporIpv4 '${value}'))"`).join("\n")).trim().split("\n")
+  assert.deepEqual(output, cases.map(([, expected]) => expected))
+})
+
+test("IP mode asks for the address, prefix, gateway and DNS, and refuses a public authority", { skip: noPowershell }, () => {
+  const output = runPowershell([
+    '$base = @{ Locale = "bg"; AccessMode = "ip"; ServerAddress = "192.168.1.50"; PrefixLength = "24"; Gateway = "192.168.1.1"; Dns = "192.168.1.2, 192.168.1.3"; TlsMode = "operator"; HospitalName = "H"; HospitalCity = "C"; AdminEmail = "a@h.bg"; AdminUsername = "admin"; AdminFirstName = "A"; AdminLastName = "B" }',
+    '$ok = Test-LosporInstallAnswers $base',
+    '"ok:$($ok.Count)"',
+    '$bad = $base.Clone(); $bad.ServerAddress = "192.168.1.300"; $bad.PrefixLength = "33"; $bad.Gateway = "gateway"; $bad.Dns = ""',
+    '"bad:" + (((Test-LosporInstallAnswers $bad) | ForEach-Object { $_.Field }) -join ",")',
+    '$acme = $base.Clone(); $acme.TlsMode = "acme"; $acme.AcmeEmail = "it@h.bg"',
+    '"acme:" + (((Test-LosporInstallAnswers $acme) | ForEach-Object { $_.Field }) -join ",")',
+    '$loopback = $base.Clone(); $loopback.ServerAddress = "127.0.0.1"',
+    '"loopback:" + (((Test-LosporInstallAnswers $loopback) | ForEach-Object { $_.Field }) -join ",")',
+    'Set-LosporIpAddresses $base',
+    '"clinical:" + $base.ClinicalDomain',
+    '"research:" + $base.ResearchDomain',
+    '[Console]::Out.Write((ConvertTo-LosporInstallAnswers $base))',
+  ].join("\n")).split("\n")
+  assert.equal(output[0], "ok:0")
+  assert.equal(output[1], "bad:ServerAddress,PrefixLength,Gateway,Dns")
+  assert.equal(output[2], "acme:TlsMode")
+  assert.equal(output[3], "loopback:ServerAddress")
+  assert.equal(output[4], "clinical:192.168.1.50")
+  assert.equal(output[5], "research:192.168.1.50:8443")
+  const answers = output.slice(6).join("\n")
+  assert.match(answers, /^HOSPITAL_CLINICAL_DOMAIN=192\.168\.1\.50$/m)
+  assert.match(answers, /^HOSPITAL_RESEARCH_DOMAIN=192\.168\.1\.50:8443$/m)
+})
+
+test("name mode needs none of the IP-mode answers", { skip: noPowershell }, () => {
+  const output = runPowershell([
+    '$base = @{ Locale = "bg"; ClinicalDomain = "lospor.hospital.bg"; ResearchDomain = "lospor-research.hospital.bg"; TlsMode = "local"; HospitalName = "H"; HospitalCity = "C"; AdminEmail = "a@h.bg"; AdminUsername = "admin"; AdminFirstName = "A"; AdminLastName = "B" }',
+    '"[$((Test-LosporInstallAnswers $base).Count)]"',
+    'Set-LosporIpAddresses $base',
+    '"clinical:" + $base.ClinicalDomain',
+  ].join("\n")).trim().split("\n")
+  assert.deepEqual(output, ["[0]", "clinical:lospor.hospital.bg"])
+})
+
+test("a fixed address becomes autoinstall's netplan, with no DHCP, and reaches the installed server", { skip: noPowershell }, () => {
+  const seedPath = join(root, "infra/host/autoinstall/user-data")
+  const quote = value => `'${value.replaceAll("'", "''")}'`
+  const compose = extra => runPowershell([
+    `$r = ConvertTo-LosporSeed -Seed ([IO.File]::ReadAllText(${quote(seedPath)})) -Bootstrap 'x' -PasswordHash '$6$salt$hash' ${extra}`,
+    '"$($r.CarriesNetwork)"',
+    "[Console]::Out.Write($r.Text)",
+  ].join("\n"))
+  const withAddress = compose("-StaticAddress 192.168.1.50 -PrefixLength 24 -Gateway 192.168.1.1 -DnsServers @('192.168.1.2','192.168.1.3')")
+  const [flag, ...rest] = withAddress.split("\n")
+  const text = rest.join("\n")
+  assert.equal(flag, "True")
+  assert.match(text, /^autoinstall:\n  version: 1\n  network:\n    version: 2\n    ethernets:\n      lospor0:\n        match:\n          name: "e\*"\n        dhcp4: false\n        dhcp6: false\n        addresses:\n          - "192\.168\.1\.50\/24"\n        routes:\n          - to: default\n            via: "192\.168\.1\.1"\n        nameservers:\n          addresses:\n            - "192\.168\.1\.2"\n            - "192\.168\.1\.3"\n/m)
+  const without = compose("")
+  assert.equal(without.split("\n")[0], "False")
+  assert.doesNotMatch(without, /^  network:$/m, "DHCP stays the default")
+  // Both a fixed address and a proxy: each in its own place, the proxy line before the network.
+  const both = compose("-StaticAddress 192.168.1.50 -PrefixLength 24 -Gateway 192.168.1.1 -DnsServers @('192.168.1.2') -Proxy http://proxy.hospital.bg:8080 -Direct @('192.168.1.50')")
+  assert.match(both, /^autoinstall:\n  version: 1\n  proxy: http:\/\/proxy\.hospital\.bg:8080\n  network:\n/m)
+})
+
+test("a fixed address that is not four numbers, a prefix and a gateway is refused before it reaches the seed", { skip: noPowershell }, () => {
+  const seedPath = join(root, "infra/host/autoinstall/user-data").replaceAll("'", "''")
+  const result = spawnSync(powershell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+    `. '${helper.replaceAll("'", "''")}'; ConvertTo-LosporSeed -Seed ([IO.File]::ReadAllText('${seedPath}')) -Bootstrap 'x' -PasswordHash 'h' -StaticAddress 192.168.1.50 -PrefixLength 40 -Gateway 192.168.1.1 -DnsServers @('192.168.1.2')`], { encoding: "utf8" })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr + result.stdout, /fixed address needs/)
+})
+
+test("the wizard offers IP mode in both interfaces and hands the kit the fixed address", () => {
+  assert.match(wizard, /AccessMode/)
+  assert.match(wizard, /Add-Field "ServerAddress"/)
+  assert.match(wizard, /Add-Field "Gateway"/)
+  assert.match(wizard, /Reach the server by: 1\) DNS names  2\) a fixed IP address/)
+  assert.match(wizard, /\$kitArguments\.StaticAddress = /)
+  assert.match(kit, /\[string\] \$StaticAddress/)
+  assert.match(kit, /Get-LosporVmNetwork \$Name/)
+  assert.match(kit, /if \(\$StaticAddress\) \{ \$null \}/, "a fixed address needs no DHCP reservation, so none is suggested")
+})
+
+test("the first boot waits for the fixed address instead of for DNS records", () => {
+  assert.match(firstboot, /is_ip_site\(\)/)
+  assert.match(firstboot, /does not have the fixed address/)
+})

@@ -26,8 +26,17 @@ case "$minimum_seconds" in ''|*[!0-9]*) exit 2 ;; esac
 # The answer is in the text, so read the text. Unrecognised output is refused
 # rather than guessed at -- a future wording change must break this loudly, not
 # quietly re-open the same hole.
+# IP mode (1.12.0): a site is an IPv4 address, Research with a port. The port is
+# not part of a certificate, and an address is checked as an address
+# (-checkip, which prints the same two sentences as -checkhost).
+site_host_part() { printf '%s' "${1%%:*}"; }
+site_is_ip() { printf '%s' "$(site_host_part "$1")" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; }
 certificate_covers_host() {
-  covers_output="$(openssl x509 -noout -checkhost "$1" -in "$2" 2>/dev/null)" || return 1
+  if site_is_ip "$1"; then
+    covers_output="$(openssl x509 -noout -checkip "$(site_host_part "$1")" -in "$2" 2>/dev/null)" || return 1
+  else
+    covers_output="$(openssl x509 -noout -checkhost "$1" -in "$2" 2>/dev/null)" || return 1
+  fi
   case "$covers_output" in
     *"does NOT match"*) return 1 ;;
     *"does match"*) return 0 ;;
@@ -84,12 +93,18 @@ fi
 
 verify_name() {
   verify_host="$1"
+  if site_is_ip "$verify_host"; then
+    verify_option="-verify_ip"
+    verify_host="$(site_host_part "$verify_host")"
+  else
+    verify_option="-verify_hostname"
+  fi
   if [ -s "$chain" ]; then
     openssl verify -CAfile "$authority" -untrusted "$chain" \
-      -purpose sslserver -verify_hostname "$verify_host" "$leaf" >/dev/null 2>&1
+      -purpose sslserver "$verify_option" "$verify_host" "$leaf" >/dev/null 2>&1
   else
     openssl verify -CAfile "$authority" \
-      -purpose sslserver -verify_hostname "$verify_host" "$leaf" >/dev/null 2>&1
+      -purpose sslserver "$verify_option" "$verify_host" "$leaf" >/dev/null 2>&1
   fi
 }
 if verify_name "$clinical_name"; then emit CLINICAL_VERIFY 1; else emit CLINICAL_VERIFY 0; fi

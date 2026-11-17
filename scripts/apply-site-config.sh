@@ -61,8 +61,15 @@ case "$(value LOSPOR_DEFAULT_LOCALE)" in bg|en) ;; *) problem "LOSPOR_DEFAULT_LO
 hostname_pattern='^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$'
 clinical="$(value HOSPITAL_CLINICAL_DOMAIN)"
 research="$(value HOSPITAL_RESEARCH_DOMAIN)"
-printf '%s\n' "$clinical" | grep -Eq "$hostname_pattern" || problem "HOSPITAL_CLINICAL_DOMAIN is not a DNS name" "HOSPITAL_CLINICAL_DOMAIN не е DNS име"
-printf '%s\n' "$research" | grep -Eq "$hostname_pattern" || problem "HOSPITAL_RESEARCH_DOMAIN is not a DNS name" "HOSPITAL_RESEARCH_DOMAIN не е DNS име"
+. "$root/scripts/readiness-lib.sh"
+if readiness_ip_site "$clinical" || readiness_ip_site "$research"; then
+  readiness_ipv4 "$clinical" || problem "in IP mode HOSPITAL_CLINICAL_DOMAIN must be an IPv4 address" "при работа по IP адрес HOSPITAL_CLINICAL_DOMAIN трябва да е IPv4 адрес"
+  { readiness_ip_site "$research" && [ "${research#*:}" != "$research" ]; } || problem "in IP mode HOSPITAL_RESEARCH_DOMAIN must be an IPv4 address with a port, for example 192.168.1.50:8443" "при работа по IP адрес HOSPITAL_RESEARCH_DOMAIN трябва да е IPv4 адрес с порт, например 192.168.1.50:8443"
+  [ "$(value HOSPITAL_TLS_MODE)" != acme ] || problem "a public authority does not issue certificates for IP addresses; use operator or local" "публичен удостоверител не издава сертификати за IP адреси; използвайте operator или local"
+else
+  printf '%s\n' "$clinical" | grep -Eq "$hostname_pattern" || problem "HOSPITAL_CLINICAL_DOMAIN is not a DNS name" "HOSPITAL_CLINICAL_DOMAIN не е DNS име"
+  printf '%s\n' "$research" | grep -Eq "$hostname_pattern" || problem "HOSPITAL_RESEARCH_DOMAIN is not a DNS name" "HOSPITAL_RESEARCH_DOMAIN не е DNS име"
+fi
 [ "$clinical" != "$research" ] || problem "the clinical and research names must differ" "клиничното и изследователското име трябва да се различават"
 tls_mode="$(value HOSPITAL_TLS_MODE)"
 case "$tls_mode" in
@@ -79,6 +86,14 @@ status_port="$(value HOSPITAL_STATUS_PORT)"; status_port="${status_port:-3443}"
 for port in "$https_port" "$status_port"; do
   case "$port" in ''|*[!0-9]*) problem "ports must be numbers" "портовете трябва да бъдат числа" ;; *) [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || problem "port $port is out of range" "порт $port е извън допустимия обхват" ;; esac
 done
+case "$research" in
+  [0-9]*.[0-9]*.[0-9]*.[0-9]*:[0-9]*)
+    # IP mode publishes the Research port too; it must not be one of the others.
+    research_port="${research##*:}"
+    { [ "$research_port" != "$https_port" ] && [ "$research_port" != "$status_port" ]; } \
+      || problem "the Research port $research_port is already the HTTPS or the Status port" "портът за изследванията $research_port вече е портът за HTTPS или за Status"
+    ;;
+esac
 [ "$https_port" != "$status_port" ] || problem "the HTTPS and Status ports must differ" "портовете за HTTPS и Status трябва да се различават"
 allow_all=""
 [ "$(value HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE)" != confirmed ] || allow_all="--allow-all-rfc1918"

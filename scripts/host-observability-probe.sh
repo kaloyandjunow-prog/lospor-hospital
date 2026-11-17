@@ -399,7 +399,7 @@ case "$tls_mode" in
     research_name="$(read_env_value HOSPITAL_RESEARCH_DOMAIN 2>/dev/null || true)"
     https_port="$(read_env_value HOSPITAL_HTTPS_PORT 2>/dev/null || true)"; https_port="${https_port:-443}"
     if ! printf '%s\n' "$clinical_name" | grep -Eq '^[A-Za-z0-9.-]{1,253}$' \
-        || ! printf '%s\n' "$research_name" | grep -Eq '^[A-Za-z0-9.-]{1,253}$' \
+        || ! printf '%s\n' "$research_name" | grep -Eq '^[A-Za-z0-9.-]{1,253}(:[0-9]{1,5})?$' \
         || ! printf '%s\n' "$https_port" | grep -Eq '^[0-9]{1,5}$'; then
       merge_certificate_state unknown
     elif [ "$https_port" -lt 1 ] || [ "$https_port" -gt 65535 ] \
@@ -410,8 +410,18 @@ case "$tls_mode" in
       for observed_domain in "$clinical_name" "$research_name"; do
         observed_certificate_index=$((observed_certificate_index + 1))
         live_certificate="$work/live-certificate-$observed_certificate_index.pem"
-        if printf '\n' | timeout 10 openssl s_client -connect "127.0.0.1:$https_port" \
-            -servername "$observed_domain" 2>/dev/null \
+        # IP mode (1.12.0): an address is connected to directly (Research on
+        # its own port) and has no server name to send.
+        if printf '%s' "$observed_domain" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}(:[0-9]{1,5})?$'; then
+          case "$observed_domain" in *:*) observed_target="$observed_domain" ;; *) observed_target="$observed_domain:$https_port" ;; esac
+          observed_name_option=""
+        else
+          observed_target="127.0.0.1:$https_port"
+          observed_name_option="-servername $observed_domain"
+        fi
+        # shellcheck disable=SC2086
+        if printf '\n' | timeout 10 openssl s_client -connect "$observed_target" \
+            $observed_name_option 2>/dev/null \
             | openssl x509 -outform PEM > "$live_certificate" 2>/dev/null \
             && [ -s "$live_certificate" ]; then
           live_certificate_warning_seconds=2592000

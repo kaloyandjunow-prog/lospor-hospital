@@ -136,7 +136,13 @@ function ConvertTo-LosporSeed {
     # server reach the internet through it; $Direct (the appliance's own names)
     # never does.
     [string] $Proxy,
-    [string[]] $Direct
+    [string[]] $Direct,
+    # IP mode (1.12.0): the server gets this fixed address instead of asking
+    # DHCP, so no DNS name or reservation is needed to reach it.
+    [string] $StaticAddress,
+    [int] $PrefixLength,
+    [string] $Gateway,
+    [string[]] $DnsServers
   )
   # cloud-init needs LF, and a checkout on Windows may have CRLF, which sh on
   # Ubuntu cannot run either.
@@ -173,6 +179,26 @@ function ConvertTo-LosporSeed {
     $text = $text.Replace("    - curtin in-target -- chage -d 0 lospor # lospor-kit: expire`n", "")
   }
 
+  $carriesNetwork = $false
+  if ($StaticAddress) {
+    if (-not (Test-LosporIpv4 $StaticAddress) -or -not (Test-LosporIpv4 $Gateway) -or $PrefixLength -lt 8 -or $PrefixLength -gt 30 `
+        -or @($DnsServers | Where-Object { -not (Test-LosporIpv4 $_) }).Count -gt 0 -or @($DnsServers).Count -eq 0) {
+      throw "The fixed address needs an IPv4 address, a prefix from 8 to 30, an IPv4 gateway and at least one IPv4 DNS server."
+    }
+    # Autoinstall's own network section is netplan: it is used while Ubuntu
+    # installs and stays on the installed server.
+    $dnsLines = (@($DnsServers) | ForEach-Object { "            - `"$_`"" }) -join "`n"
+    $network = "  network:`n    version: 2`n    ethernets:`n      lospor0:`n        match:`n          name: `"e*`"`n" +
+      "        dhcp4: false`n        dhcp6: false`n        addresses:`n          - `"$StaticAddress/$PrefixLength`"`n" +
+      "        routes:`n          - to: default`n            via: `"$Gateway`"`n" +
+      "        nameservers:`n          addresses:`n$dnsLines`n"
+    $version = "autoinstall:`n  version: 1`n"
+    if ($text.Contains($version) -and -not $text.Contains("`n  network:`n")) {
+      $text = $text.Replace($version, "$version$network")
+      $carriesNetwork = $true
+    }
+  }
+
   $proxyMarker = "    # lospor-kit: proxy`n"
   $carriesProxy = $false
   if ($Proxy) {
@@ -194,7 +220,7 @@ function ConvertTo-LosporSeed {
   } else {
     $text = $text.Replace($firstbootMarker, "")
   }
-  return [pscustomobject] @{ Text = $text; CarriesBootstrap = $carriesBootstrap; SetsPassword = $setsPassword; CarriesFirstboot = $carriesFirstboot; CarriesProxy = $carriesProxy }
+  return [pscustomobject] @{ Text = $text; CarriesBootstrap = $carriesBootstrap; SetsPassword = $setsPassword; CarriesFirstboot = $carriesFirstboot; CarriesProxy = $carriesProxy; CarriesNetwork = $carriesNetwork }
 }
 
 <#
@@ -243,6 +269,28 @@ function ConvertTo-LosporFirstbootCommand([string] $Firstboot) {
   appliance's password policy). Each problem names its field, in English and
   Bulgarian.
 #>
+<# A dotted IPv4 address, four numbers from 0 to 255. #>
+function Test-LosporIpv4([string] $Text) {
+  if ($Text -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { return $false }
+  foreach ($octet in $Text.Split(".")) { if ([int] $octet -gt 255) { return $false } }
+  return $true
+}
+
+<#
+  IP mode (1.12.0): the clinical address is the server's own fixed address and
+  Research is the same address on port 8443, because without DNS there is no
+  second name to tell the two sites apart. Called after the wizard has its
+  answers, so the rest of the kit sees the two addresses it always saw.
+#>
+$script:LosporResearchPort = 8443
+function Set-LosporIpAddresses([hashtable] $Answers) {
+  if ($Answers.ContainsKey("AccessMode") -and $Answers["AccessMode"] -eq "ip") {
+    $address = ([string] $Answers["ServerAddress"]).Trim()
+    $Answers["ClinicalDomain"] = $address
+    $Answers["ResearchDomain"] = "$($address):$($script:LosporResearchPort)"
+  }
+}
+
 function Test-LosporInstallAnswers([hashtable] $Answers) {
   $problems = New-Object System.Collections.Generic.List[object]
   $add = { param($Field, $En, $Bg) $problems.Add([pscustomobject] @{ Field = $Field; En = $En; Bg = $Bg }) }
@@ -252,10 +300,27 @@ function Test-LosporInstallAnswers([hashtable] $Answers) {
   if (@("bg", "en") -notcontains (& $value "Locale")) { & $add "Locale" "Choose Bulgarian or English." "Изберете български или английски." }
   $clinical = & $value "ClinicalDomain"
   $research = & $value "ResearchDomain"
-  if ($clinical -notmatch $hostname) { & $add "ClinicalDomain" "The clinical address must be a full DNS name, for example lospor.hospital.bg." "Клиничният адрес трябва да е пълно DNS име, например lospor.hospital.bg." }
-  if ($research -notmatch $hostname) { & $add "ResearchDomain" "The research address must be a full DNS name, for example lospor-research.hospital.bg." "Адресът за изследвания трябва да е пълно DNS име, например lospor-research.hospital.bg." }
-  if ($clinical -and $clinical -eq $research) { & $add "ResearchDomain" "The research address must differ from the clinical address." "Адресът за изследвания трябва да е различен от клиничния." }
   $mode = & $value "TlsMode"
+  if ((& $value "AccessMode") -eq "ip") {
+    # IP mode (1.12.0): the server has one fixed address and no DNS names. The
+    # clinical address is that address; Research is the same address on a port.
+    $address = & $value "ServerAddress"
+    if (-not (Test-LosporIpv4 $address)) { & $add "ServerAddress" "The server address must be an IPv4 address, for example 192.168.1.50." "Адресът на сървъра трябва да е IPv4 адрес, например 192.168.1.50." }
+    elseif ($address -match '^(0|127|169\.254|22[4-9]|2[3-5][0-9])\.') { & $add "ServerAddress" "Choose the fixed address this server will have on the hospital network." "Изберете постоянния адрес, който сървърът ще има в болничната мрежа." }
+    $prefix = & $value "PrefixLength"
+    if ($prefix -notmatch '^\d{1,2}$' -or [int] $prefix -lt 8 -or [int] $prefix -gt 30) { & $add "PrefixLength" "The network prefix is a number from 8 to 30, for example 24 for 255.255.255.0." "Дължината на мрежовия префикс е число от 8 до 30, например 24 за 255.255.255.0." }
+    $gateway = & $value "Gateway"
+    if (-not (Test-LosporIpv4 $gateway)) { & $add "Gateway" "The gateway must be an IPv4 address, for example 192.168.1.1." "Шлюзът трябва да е IPv4 адрес, например 192.168.1.1." }
+    elseif ($address -and (Test-LosporIpv4 $address) -and $address -eq $gateway) { & $add "Gateway" "The gateway cannot be the server's own address." "Шлюзът не може да е адресът на самия сървър." }
+    $dnsText = & $value "Dns"
+    $dnsServers = @($dnsText -split '[,\s;]+' | Where-Object { $_ })
+    if ($dnsServers.Count -eq 0 -or @($dnsServers | Where-Object { -not (Test-LosporIpv4 $_) }).Count -gt 0) { & $add "Dns" "Give one or two DNS servers as IPv4 addresses, separated by a comma." "Дайте един или два DNS сървъра като IPv4 адреси, разделени със запетая." }
+    if ($mode -eq "acme") { & $add "TlsMode" "A public authority does not issue certificates for an IP address. Use the hospital's own authority, or a local certificate for testing." "Публичен удостоверител не издава сертификати за IP адрес. Използвайте собствения удостоверителен център на болницата или локален сертификат за тест." }
+  } else {
+    if ($clinical -notmatch $hostname) { & $add "ClinicalDomain" "The clinical address must be a full DNS name, for example lospor.hospital.bg." "Клиничният адрес трябва да е пълно DNS име, например lospor.hospital.bg." }
+    if ($research -notmatch $hostname) { & $add "ResearchDomain" "The research address must be a full DNS name, for example lospor-research.hospital.bg." "Адресът за изследвания трябва да е пълно DNS име, например lospor-research.hospital.bg." }
+    if ($clinical -and $clinical -eq $research) { & $add "ResearchDomain" "The research address must differ from the clinical address." "Адресът за изследвания трябва да е различен от клиничния." }
+  }
   if (@("operator", "acme", "local") -notcontains $mode) { & $add "TlsMode" "Choose how the certificate is provided." "Изберете как се осигурява сертификатът." }
   if ($mode -eq "acme" -and (& $value "AcmeEmail") -notmatch '^[^\s@]+@[^\s@]+\.[^\s@]+$') { & $add "AcmeEmail" "Let's Encrypt needs an email address for its notices." "Let's Encrypt изисква имейл адрес за известията." }
   foreach ($field in @(
@@ -430,7 +495,8 @@ function Get-LosporPfxSummary([string] $Path, [string] $Password, [string[]] $Na
   if ($leaf) {
     foreach ($extension in $leaf.Extensions) {
       if ($extension.Oid.Value -eq "2.5.29.17") {
-        $dnsNames = @([regex]::Matches($extension.Format($false), 'DNS Name=([^,\s]+)') | ForEach-Object { $_.Groups[1].Value.ToLowerInvariant() })
+        # Both the names and, for IP mode, the addresses ("IP Address=192.168.1.50").
+        $dnsNames = @([regex]::Matches($extension.Format($false), '(?:DNS Name|IP Address)=([^,\s]+)') | ForEach-Object { $_.Groups[1].Value.ToLowerInvariant() })
       }
     }
   }

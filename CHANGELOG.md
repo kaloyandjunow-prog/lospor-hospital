@@ -1,5 +1,44 @@
 # Changelog - LOSPOR Hospital
 
+## [1.12.0] - 2026-11-17
+
+The appliance can be reached by a fixed IP address instead of DNS names, for a network segment where the hospital
+cannot add DNS records. An appliance that uses names behaves as before, apart from the two notes under Changed.
+
+### Added
+
+- **IP mode.** The clinical address is the server's IPv4 address (`https://192.168.1.50/`) and Research is the same
+  address on its own port (`https://192.168.1.50:8443/`, because there is no second name to tell the two sites
+  apart). Choose it in the Windows wizard (**The hospital → A fixed IP address, no DNS names**: address, prefix,
+  gateway, DNS) or by answering the installer's clinical question with the address. The kit gives the new server
+  that address itself, in Ubuntu's own network settings, so no DHCP reservation and no DNS record is needed; the first
+  installation waits only until the server has the address. Changing it later is
+  `sudo losporctl config addresses ADDRESS ADDRESS:PORT`.
+- **Certificates for an address.** The certificate must name the address as an IP address, not as a DNS name; the
+  wizard, the readiness check and the certificate check say so when it does not. A public authority (`acme`) does not
+  issue for a private address and is refused. `operator` and `local` work. Phones and computers trust the
+  certificate only if they trust its authority, so a personal phone without the hospital's authority installed warns
+  and cannot install the phone app. See *Reaching the server by IP address* in the installation guide.
+- Readiness, the configuration check, the health check (`doctor`), the certificate check and Status's certificate
+  monitor all understand an address: they connect to it directly and send no server name, and readiness checks that
+  the address belongs to this server instead of looking for a DNS record.
+
+### Changed
+
+- **Caddy offers the clinical certificate to a client that sends no server name.** A browser sends none for an IP
+  address, and behind Docker Caddy cannot tell which address was dialled, so the handshake failed. This applies to
+  names too: a client that sends no name now gets the clinical certificate instead of a failed handshake.
+- **Compose publishes one more port on Caddy**: Research's, on `127.0.0.1:18443` when the appliance uses names (nothing
+  listens there and it is not reachable), and on the network at the port in the Research address in IP mode. The
+  update recreates Caddy for it, a few seconds without the sites. The port is not 8443 so that a site that moved
+  HTTPS to 8443 cannot collide with it; in IP mode the Research port may not be the HTTPS or the Status port.
+
+### Verified
+
+A new server installed by the kit came up on its fixed address with its route, DNS and the internet; Caddy served
+both sites by address with a certificate carrying the IP. Not yet done for real: a complete LOSPOR installation in
+IP mode with a hospital's own certificate for an address.
+
 ## [1.11.2] - 2026-11-16
 
 Installer only: nothing changes on an installed appliance. Install new sites with this kit. Found by installing a new

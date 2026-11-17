@@ -100,7 +100,7 @@ site_config_check_source() {
       key = substr($0, 1, index($0, "=") - 1)
       if (seen[key]++) { print "SITE_CONFIG_DUPLICATE " name " " key > "/dev/stderr"; bad = 1 }
       site = index(keys, " " key " ") > 0
-      if (key == "COMPOSE_PROFILES") { print "SITE_CONFIG_DERIVED_KEY " name " " key > "/dev/stderr"; bad = 1 }
+      if (key == "COMPOSE_PROFILES" || key == "HOSPITAL_RESEARCH_PORT" || key == "HOSPITAL_RESEARCH_PUBLISH") { print "SITE_CONFIG_DERIVED_KEY " name " " key > "/dev/stderr"; bad = 1 }
       else if (kind == "site" && !site) { print "SITE_CONFIG_NOT_A_SITE_KEY " name " " key > "/dev/stderr"; bad = 1 }
       else if (kind == "appliance" && site) { print "SITE_CONFIG_SITE_KEY_IN_APPLIANCE " name " " key > "/dev/stderr"; bad = 1 }
     }
@@ -137,7 +137,7 @@ site_config_split_legacy() {
     awk -v keys=" $SITE_CONFIG_KEYS " -v site="$split_home/site.env.split.$$" -v appliance="$split_home/secrets/appliance.env.split.$$" '
       /^[[:space:]]*(#|$)/ { next }
       { key = substr($0, 1, index($0, "=") - 1) }
-      key == "COMPOSE_PROFILES" { next }
+      key == "COMPOSE_PROFILES" || key == "HOSPITAL_RESEARCH_PORT" || key == "HOSPITAL_RESEARCH_PUBLISH" { next }
       index(keys, " " key " ") > 0 { print > site; next }
       { print > appliance }
     ' "$split_env")
@@ -173,6 +173,18 @@ site_config_compile() {
   fi
   compile_profiles=""
   [ "$(site_config_value "$compile_site" HOSPITAL_TLS_MODE)" != acme ] || compile_profiles=tls-acme
+  # IP mode: Research is "ADDRESS:PORT", so Caddy listens on that port and
+  # Compose must publish it on the network. In name mode nothing listens on it,
+  # and it stays on loopback. Derived here, never set by hand.
+  compile_research="$(site_config_value "$compile_site" HOSPITAL_RESEARCH_DOMAIN)"
+  compile_research_port=18443
+  compile_research_publish=127.0.0.1
+  case "$compile_research" in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*:[0-9]*)
+      compile_research_port="${compile_research##*:}"
+      compile_research_publish=0.0.0.0
+      ;;
+  esac
   compile_target="$compile_home/.env"
   if [ -L "$compile_target" ] || { [ -e "$compile_target" ] && ! site_config_regular_file "$compile_target"; }; then
     echo "SITE_CONFIG_TARGET_UNSAFE .env" >&2
@@ -185,6 +197,8 @@ site_config_compile() {
       printf '# Change site.env, then apply the configuration. Secrets live in secrets/appliance.env.\n'
       grep -Ev '^[[:space:]]*(#|$)' "$compile_site" | tr -d '\r'
       printf 'COMPOSE_PROFILES=%s\n' "$compile_profiles"
+      printf 'HOSPITAL_RESEARCH_PORT=%s\n' "$compile_research_port"
+      printf 'HOSPITAL_RESEARCH_PUBLISH=%s\n' "$compile_research_publish"
       # An advanced override replaces the appliance's value rather than
       # following it, so no key appears twice for Compose to choose between.
       grep -Ev '^[[:space:]]*(#|$)' "$compile_appliance" | tr -d '\r' \

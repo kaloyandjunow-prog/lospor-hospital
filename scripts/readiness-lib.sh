@@ -83,6 +83,48 @@ readiness_hostname() {
   printf '%s' "$value" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
 }
 
+# A dotted IPv4 address: four numbers, each 0-255, no leading junk.
+# (POSIX sh has no local variables: each helper uses names of its own so one
+# call cannot overwrite another's.)
+readiness_ipv4() {
+  ipv4_value="${1:-}"
+  printf '%s' "$ipv4_value" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' || return 1
+  ipv4_old_ifs="$IFS"; IFS=.
+  # shellcheck disable=SC2086
+  set -- $ipv4_value
+  IFS="$ipv4_old_ifs"
+  for ipv4_octet in "$@"; do
+    [ "$ipv4_octet" -le 255 ] || return 1
+  done
+}
+
+# An address in IP mode: the clinical site is a bare IPv4 address, the research
+# site the same address with a port (a second name does not exist, so the port
+# tells the two sites apart). Anything else is a DNS name.
+readiness_ip_site() {
+  ip_site_value="${1:-}"
+  case "$ip_site_value" in
+    *:*)
+      readiness_ipv4 "${ip_site_value%:*}" || return 1
+      ip_site_port="${ip_site_value##*:}"
+      printf '%s' "$ip_site_port" | grep -Eq '^[0-9]{1,5}$' || return 1
+      [ "$ip_site_port" -ge 1 ] && [ "$ip_site_port" -le 65535 ]
+      ;;
+    *) readiness_ipv4 "$ip_site_value" ;;
+  esac
+}
+
+# The host part of a site address, without any port.
+readiness_site_host() {
+  printf '%s' "${1%%:*}"
+}
+
+# A site address: a DNS name or, in IP mode, an IPv4 address (research with a port).
+readiness_site_address() {
+  readiness_hostname "${1:-}" && ! printf '%s' "$1" | grep -Eq '^[0-9.]+$' && return 0
+  readiness_ip_site "${1:-}"
+}
+
 # The host ports the appliance will publish, as `host:container:service`.
 #
 # Derived rather than hardcoded because the readiness report runs before the
@@ -107,9 +149,16 @@ readiness_port_specs() {
     || https_port=443
   readiness_is_uint "$status_port" && [ "$status_port" -ge 1 ] && [ "$status_port" -le 65535 ] \
     || status_port=3443
+  # IP mode: Research answers on its own port at the same address, so that
+  # port is published too and has to be free.
+  research_extra=""
+  research_port="${4:-}"
+  if readiness_is_uint "$research_port" && [ "$research_port" -ge 1 ] && [ "$research_port" -le 65535 ]; then
+    research_extra=" $research_port:$research_port:caddy"
+  fi
   if [ "$tls_mode" = acme ]; then
-    printf '80:80:acme-http %s:443:caddy %s:3443:status' "$https_port" "$status_port"
+    printf '80:80:acme-http %s:443:caddy %s:3443:status%s' "$https_port" "$status_port" "$research_extra"
   else
-    printf '%s:443:caddy %s:3443:status' "$https_port" "$status_port"
+    printf '%s:443:caddy %s:3443:status%s' "$https_port" "$status_port" "$research_extra"
   fi
 }

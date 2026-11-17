@@ -100,8 +100,8 @@ msg() {
     bg:signature_invalid) printf '%s' "ПОДПИСЪТ НА ИЗДАНИЕТО НЕ СЪВПАДА С ДОВЕРЕНИЯ КЛЮЧ. Не инсталирайте тези файлове." ;;
     bg:fingerprint) printf '%s' "Отпечатък на ключа за подписване (от известието за инсталация; оставете празно, за да пропуснете)" ;;
     bg:acme_email) printf '%s' "Адрес за известия за сертификата" ;;
-    bg:clinical_domain) printf '%s' "Клиничен адрес (уеб, мобилно приложение, API)" ;;
-    bg:research_domain) printf '%s' "Адрес на Research Browser" ;;
+    bg:clinical_domain) printf '%s' "Клиничен адрес (уеб, мобилно приложение, API): DNS име или IPv4 адрес" ;;
+    bg:research_domain) printf '%s' "Адрес на Research Browser (при IP адрес: същия адрес с порт, напр. 192.168.1.50:8443)" ;;
     bg:supply_mode) printf '%s' "Откъде да бъдат взети образите на изданието?" ;;
     bg:resumed_settings) printf '%s' "Недовършената инсталация продължава с настройките, които вече е записала. За други настройки спрете и стартирайте инсталатора с --discard-unfinished. Клиничен адрес:" ;;
     bg:supply_offline_missing) printf '%s' "Избрано е инсталиране без мрежа, но носителят не съдържа всички offline части, изброени в lock." ;;
@@ -130,8 +130,8 @@ msg() {
     en:signature_invalid) printf '%s' "THE RELEASE SIGNATURE DOES NOT MATCH THE TRUSTED KEY. Do not install these files." ;;
     en:fingerprint) printf '%s' "Release signing key fingerprint (from your install notice; leave empty to skip)" ;;
     en:acme_email) printf '%s' "Address for certificate notices" ;;
-    en:clinical_domain) printf '%s' "Clinical name (web, phone app, API)" ;;
-    en:research_domain) printf '%s' "Research Browser name" ;;
+    en:clinical_domain) printf '%s' "Clinical name (web, phone app, API): a DNS name or an IPv4 address" ;;
+    en:research_domain) printf '%s' "Research Browser name (for an IP address: the same address with a port, e.g. 192.168.1.50:8443)" ;;
     en:supply_mode) printf '%s' "Where should the release images come from?" ;;
     en:resumed_settings) printf '%s' "The unfinished installation continues with the settings it already wrote. For other settings, stop and run the installer with --discard-unfinished. Clinical name:" ;;
     en:supply_offline_missing) printf '%s' "Installing without a network was chosen, but the media does not contain every offline part the lock lists." ;;
@@ -546,7 +546,13 @@ ask_supply_mode
 # prompt through a pipe for anything left unset.
 if [ ! -f .env ] && [ -z "$resumed_site" ]; then
   ask_value HOSPITAL_CLINICAL_DOMAIN "$(msg clinical_domain)" "lospor.example-hospital.org"
-  ask_value HOSPITAL_RESEARCH_DOMAIN "$(msg research_domain)" "lospor-research.example-hospital.org"
+  # An IPv4 address instead of a name is IP mode: there is no second name for
+  # Research, so it takes the same address on its own port.
+  if printf '%s' "$HOSPITAL_CLINICAL_DOMAIN" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
+    ask_value HOSPITAL_RESEARCH_DOMAIN "$(msg research_domain)" "$HOSPITAL_CLINICAL_DOMAIN:8443"
+  else
+    ask_value HOSPITAL_RESEARCH_DOMAIN "$(msg research_domain)" "lospor-research.example-hospital.org"
+  fi
   ask_tls_mode
   if [ "$HOSPITAL_TLS_MODE" = operator ]; then
     ask_value HOSPITAL_TLS_VERIFY_CA "$(msg tls_ca)" "/etc/ssl/certs/hospital-ca.crt"
@@ -554,7 +560,11 @@ if [ ! -f .env ] && [ -z "$resumed_site" ]; then
   if [ "$HOSPITAL_TLS_MODE" = acme ]; then
     ask_value ACME_EMAIL "$(msg acme_email)" "it@example-hospital.org"
   fi
-  : "${ACME_EMAIL:=it@$HOSPITAL_CLINICAL_DOMAIN}"
+  # Mail addresses cannot end in an IP address; in IP mode the placeholder
+  # domain keeps them valid. Nothing is sent to it.
+  mail_domain="$HOSPITAL_CLINICAL_DOMAIN"
+  if printf '%s' "$mail_domain" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then mail_domain="lospor.local"; fi
+  : "${ACME_EMAIL:=it@$mail_domain}"
   export ACME_EMAIL
   # The network lists are chosen in Status after installation, not guessed
   # here. Until Hospital IT narrows it, Status answers every private network
@@ -572,7 +582,7 @@ if [ ! -f .env ] && [ -z "$resumed_site" ]; then
   HOSPITAL_STATUS_ALLOWED_CIDRS="$(python3 scripts/network-boundaries.py --locale "$LOSPOR_DEFAULT_LOCALE" $network_override "$HOSPITAL_STATUS_ALLOWED_CIDRS")" \
     || die "$(msg status_cidrs)"
   export HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE HOSPITAL_TLS_VERIFY_CA
-  : "${AUTH_EMAIL_FROM:=no-reply@$HOSPITAL_CLINICAL_DOMAIN}"
+  : "${AUTH_EMAIL_FROM:=no-reply@$mail_domain}"
   HOSPITAL_SUPPORT_URL="$(python3 scripts/support-url.py --locale "$LOSPOR_DEFAULT_LOCALE" "${HOSPITAL_SUPPORT_URL:-}")" \
     || die "$(msg support_url)"
   : "${HOSPITAL_ADULT_GUIDANCE_DEFAULT:=true}"

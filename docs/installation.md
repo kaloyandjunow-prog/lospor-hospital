@@ -358,6 +358,51 @@ The command validates a candidate Caddy configuration before replacement and
 retains the last-known-good boundary. The direct Status fallback remains bound
 to loopback.
 
+## Reaching the server by IP address
+
+Where the hospital cannot add DNS records (a network segment with no name
+service, or a server reached only by address), LOSPOR can be installed with a
+fixed IPv4 address instead of names. Nothing else changes: the same web app,
+phone app, Status and Research Browser.
+
+| | Names (the default) | IP address |
+|---|---|---|
+| Clinical | `https://lospor.hospital.bg/` | `https://192.168.1.50/` |
+| Research | `https://lospor-research.hospital.bg/` | `https://192.168.1.50:8443/` |
+| Status | `https://lospor.hospital.bg/status/` | `https://192.168.1.50/status/` |
+| DNS records | two | none |
+| Certificate | operator, Let's Encrypt or local | **operator or local** (a public authority issues nothing for a private address) |
+
+Research is the same address on port 8443, because without a second name the
+port is what keeps its network boundary apart from the clinical site. The server
+publishes that port, so the firewall must allow it from the research network
+only.
+
+**With the Windows wizard**, choose **A fixed IP address, no DNS names** on
+**The hospital** page and give the address, the prefix (24 for 255.255.255.0),
+the gateway and one or two DNS servers. The kit gives the new server that
+address itself, so no DHCP reservation is needed, and the address has to belong
+to the network of the virtual switch you chose. The first installation then
+waits only until the server has the address.
+
+**Installing by hand**, answer the clinical question with the IPv4 address. The
+installer proposes `ADDRESS:8443` for Research. The server must already have
+the address (the readiness check says so if it does not), and it needs a fixed
+address of its own: set it with netplan, or reserve it in DHCP.
+
+**The certificate** must name the address as an IP address, not as a DNS name.
+With the hospital's authority, ask for a certificate with the subject
+alternative name `IP:192.168.1.50`; the wizard and the readiness check refuse
+one that does not carry it. A `local` certificate works the same way and warns
+on every device.
+
+**What it does not change.** Phones and computers trust the certificate only if
+they trust the authority that issued it, so a personal phone without the
+hospital's authority installed will warn, and cannot install the phone app (a
+browser installs a phone app only from a trusted HTTPS address). Changing the
+address later is `sudo losporctl config addresses 192.168.1.50 192.168.1.50:8443`
+and needs a new certificate.
+
 ## Reaching the internet through a proxy
 
 If the server goes out only through the hospital's proxy, give it in the wizard

@@ -30,7 +30,7 @@ make_certificate() {
 inspect() {
   sh "$root/scripts/tls-certificate-check.sh" \
     "$work/$1.pem" "$work/$2.key" "$work/$3.crt" \
-    clinical.test research.test 2592000
+    "${4:-clinical.test}" "${5:-research.test}" 2592000
 }
 
 # A dot in the CA name keeps the helper filenames distinct from certificate
@@ -77,5 +77,27 @@ ok "client-only EKU is rejected"
 report="$(inspect near-expiry near-expiry Trusted.key)"
 [ "$(value "$report" CHECKEND)" = 0 ] || fail "a certificate inside the 30-day floor passed"
 ok "the 30-day validity floor is enforced"
+
+# IP mode: the sites are an address and the same address with a port.
+make_certificate by-ip 'IP:192.168.1.50' serverAuth 90
+make_certificate wrong-ip 'IP:192.168.1.99' serverAuth 90
+make_certificate name-only 'DNS:clinical.test' serverAuth 90
+report="$(inspect by-ip by-ip Trusted.key 192.168.1.50 192.168.1.50:8443)"
+for field in LEAF_PRESENT KEY_MATCH CLINICAL_HOST RESEARCH_HOST SERVER_PURPOSE \
+  CLINICAL_VERIFY RESEARCH_VERIFY CHECKEND
+do
+  [ "$(value "$report" "$field")" = 1 ] || fail "a certificate for the IP address failed $field"
+done
+ok "a certificate for the server's IP address covers the address and the Research port"
+
+report="$(inspect wrong-ip wrong-ip Trusted.key 192.168.1.50 192.168.1.50:8443)"
+[ "$(value "$report" CLINICAL_HOST)" = 0 ] && [ "$(value "$report" CLINICAL_VERIFY)" = 0 ] \
+  || fail "a certificate for another IP address was accepted"
+ok "a certificate for a different IP address is rejected"
+
+report="$(inspect name-only name-only Trusted.key 192.168.1.50 192.168.1.50:8443)"
+[ "$(value "$report" CLINICAL_HOST)" = 0 ] \
+  || fail "a certificate with only a DNS name was accepted for an IP address"
+ok "a certificate that names only a DNS name does not cover an IP address"
 
 printf 'TLS certificate readiness tests passed (%s)\n' "$tests"

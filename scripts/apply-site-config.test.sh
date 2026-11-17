@@ -12,7 +12,7 @@ secret="$(printf 's%.0s' $(seq 64))"
 fixture() {
   rm -rf "$work/site" "$work/bin" "$work/docker.log"
   mkdir -p "$work/site/scripts" "$work/site/secrets" "$work/site/.data" "$work/bin"
-  for script in apply-site-config.sh installed-release-state.sh operator-locale.sh update-pipeline-lib.sh site-config.sh network-boundaries.py support-url.py; do
+  for script in apply-site-config.sh installed-release-state.sh operator-locale.sh update-pipeline-lib.sh site-config.sh readiness-lib.sh network-boundaries.py support-url.py; do
     cp "$source_root/scripts/$script" "$work/site/scripts/"
   done
   cat > "$work/site/scripts/doctor.sh" <<'STUB'
@@ -97,6 +97,57 @@ if run_apply env; then fail "a world-open allowlist was accepted"; fi
 grep -Fq 'HOSPITAL_RESEARCH_ALLOWED_CIDRS is not an exact, safe network list' "$work/out" || fail "the unsafe allowlist was not named"
 [ "$(cat "$work/site/.env")" = "$env_before" ] || fail "a refused change altered .env"
 ok "a world-open network allowlist is refused and nothing changes"
+
+# IP mode: the clinical site is an address, Research the same address with a port.
+fixture
+set_site HOSPITAL_CLINICAL_DOMAIN '192.168.1.50'
+set_site HOSPITAL_RESEARCH_DOMAIN '192.168.1.50:8443'
+set_site HOSPITAL_TLS_MODE operator
+set_site HOSPITAL_TLS_VERIFY_CA '/etc/ssl/certs/hospital-ca.crt'
+apply_mode=--plan
+run_apply env || fail "a valid IP-mode configuration was refused"
+ok "an IPv4 clinical address with Research on its own port is accepted"
+
+fixture
+set_site HOSPITAL_CLINICAL_DOMAIN '192.168.1.50'
+set_site HOSPITAL_RESEARCH_DOMAIN '192.168.1.51'
+apply_mode=--plan
+if run_apply env; then fail "IP mode without a Research port was accepted"; fi
+grep -Fq 'IPv4 address with a port' "$work/out" || fail "the missing Research port was not named"
+ok "IP mode without a Research port is refused"
+
+fixture
+set_site HOSPITAL_CLINICAL_DOMAIN '192.168.1.50'
+set_site HOSPITAL_RESEARCH_DOMAIN '192.168.1.50:8443'
+set_site HOSPITAL_TLS_MODE acme
+apply_mode=--plan
+if run_apply env; then fail "a public certificate authority was accepted for an IP address"; fi
+grep -Fq 'does not issue certificates for IP addresses' "$work/out" || fail "the ACME refusal was not explained"
+ok "ACME is refused for an IP address"
+
+fixture
+set_site HOSPITAL_CLINICAL_DOMAIN '192.168.1.50'
+set_site HOSPITAL_RESEARCH_DOMAIN '192.168.1.50:8443'
+set_site HOSPITAL_TLS_MODE local
+(. "$work/site/scripts/site-config.sh" && site_config_compile "$work/site")
+grep -Fxq 'HOSPITAL_RESEARCH_PORT=8443' "$work/site/.env" || fail "the Research port was not derived"
+grep -Fxq 'HOSPITAL_RESEARCH_PUBLISH=0.0.0.0' "$work/site/.env" || fail "the Research port is not published in IP mode"
+fixture
+(. "$work/site/scripts/site-config.sh" && site_config_compile "$work/site")
+grep -Fxq 'HOSPITAL_RESEARCH_PUBLISH=127.0.0.1' "$work/site/.env" || fail "name mode must keep the unused Research port on loopback"
+grep -Fxq 'HOSPITAL_RESEARCH_PORT=18443' "$work/site/.env" || fail "name mode must not use a port a moved HTTPS port could take"
+ok "IP mode publishes the Research port; name mode keeps it on loopback"
+
+fixture
+set_site HOSPITAL_CLINICAL_DOMAIN '192.168.1.50'
+set_site HOSPITAL_RESEARCH_DOMAIN '192.168.1.50:8443'
+set_site HOSPITAL_TLS_MODE local
+set_site HOSPITAL_HTTPS_PORT 8443
+apply_mode=--plan
+if run_apply env; then fail "a Research port equal to the HTTPS port was accepted"; fi
+grep -Fq 'is already the HTTPS or the Status port' "$work/out" || fail "the port clash was not named"
+ok "the Research port may not be the HTTPS or the Status port"
+apply_mode=--yes
 
 fixture
 printf 'HOSPITAL_POSTGRES_PASSWORD=typed-by-hand\n' >> "$work/site/site.env"

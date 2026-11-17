@@ -704,6 +704,10 @@ services:
       HOSPITAL_STATUS_ALLOWED_CIDRS: ${HOSPITAL_STATUS_ALLOWED_CIDRS:?HOSPITAL_STATUS_ALLOWED_CIDRS is required}
     ports:
       - "${HOSPITAL_HTTPS_PORT:-443}:443"
+      # IP mode only: Research answers on its own port at the same address.
+      # Derived by scripts/site-config.sh; on loopback, with nothing listening,
+      # when the appliance uses names.
+      - "${HOSPITAL_RESEARCH_PUBLISH:-127.0.0.1}:${HOSPITAL_RESEARCH_PORT:-18443}:${HOSPITAL_RESEARCH_PORT:-18443}"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       # An operator-supplied certificate, when there is one. Read-only, and a

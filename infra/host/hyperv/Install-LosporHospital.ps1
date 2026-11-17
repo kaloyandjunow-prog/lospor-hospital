@@ -134,6 +134,7 @@ $a = @{
   Encrypt = $false; DiskPassphrase = ""; DiskPassphraseRepeat = ""
   ConsolePassword = ""; ConsolePasswordRepeat = ""; SshKey = ""
   ClinicalDomain = ""; ResearchDomain = ""; HospitalName = ""; HospitalCity = ""; Proxy = ""
+  AccessMode = "name"; ServerAddress = ""; PrefixLength = "24"; Gateway = ""; Dns = ""
   TlsMode = "operator"; CertificateFormat = "pfx"; PfxPath = ""; PfxPassword = ""
   FullchainPath = ""; KeyPath = ""; CaPath = ""; AcmeEmail = ""
   AdminEmail = ""; AdminUsername = ""; AdminFirstName = ""; AdminLastName = ""; AdminPassword = ""; AdminPasswordRepeat = ""
@@ -158,8 +159,10 @@ function Add-AnswerProblems($Check, [string[]] $Fields) {
   }
 }
 function Get-KitAnswers {
+  Set-LosporIpAddresses $a
   return @{
     Locale = $a.Locale; ReleaseVersion = $a.ReleaseVersion; ClinicalDomain = $a.ClinicalDomain; ResearchDomain = $a.ResearchDomain
+    AccessMode = $a.AccessMode; ServerAddress = $a.ServerAddress; PrefixLength = $a.PrefixLength; Gateway = $a.Gateway; Dns = $a.Dns
     TlsMode = $a.TlsMode; AcmeEmail = $a.AcmeEmail; HospitalName = $a.HospitalName; HospitalCity = $a.HospitalCity; Proxy = $a.Proxy
     AdminEmail = $a.AdminEmail; AdminUsername = $a.AdminUsername; AdminFirstName = $a.AdminFirstName; AdminLastName = $a.AdminLastName
   }
@@ -209,8 +212,11 @@ function Test-LoginPage {
 
 function Test-HospitalPage {
   $check = New-Check
-  Add-AnswerProblems $check @("ClinicalDomain", "ResearchDomain", "HospitalName", "HospitalCity", "Proxy")
-  if ($check.Errors.Count -eq 0) {
+  Add-AnswerProblems $check @("ClinicalDomain", "ResearchDomain", "ServerAddress", "PrefixLength", "Gateway", "Dns", "HospitalName", "HospitalCity", "Proxy")
+  if ($check.Errors.Count -eq 0 -and $a.AccessMode -eq "ip") {
+    $check.Warnings.Add((T "The server will get the fixed address $($a.ServerAddress). Make sure no other device uses it, and that this address is in the network of the switch you chose." "Сървърът ще получи постоянния адрес $($a.ServerAddress). Уверете се, че никое друго устройство не го ползва и че адресът е от мрежата на избрания комутатор."))
+  }
+  if ($check.Errors.Count -eq 0 -and $a.AccessMode -ne "ip") {
     foreach ($name in @($a.ClinicalDomain, $a.ResearchDomain)) {
       if (-not (Resolve-DnsName -Name $name -ErrorAction SilentlyContinue)) {
         $check.Warnings.Add((T "$name is not in DNS yet. That is fine: the installation waits, shows the server's address, and continues once IT adds the name." "$name още не е в DNS. Това е наред: инсталацията изчаква, показва адреса на сървъра и продължава, когато ИТ добави името."))
@@ -224,7 +230,8 @@ function Test-CertificatePage {
   $check = New-Check
   Add-AnswerProblems $check @("TlsMode", "AcmeEmail")
   if ($a.TlsMode -eq "operator") {
-    $names = @($a.ClinicalDomain, $a.ResearchDomain)
+    # IP mode: one address, and the certificate must carry it as an IP address.
+    $names = if ($a.AccessMode -eq "ip") { @($a.ServerAddress) } else { @($a.ClinicalDomain, $a.ResearchDomain) }
     if ($a.CertificateFormat -eq "pfx") {
       if (-not (Test-Path -LiteralPath $a.PfxPath -PathType Leaf)) { $check.Errors.Add((T "Choose the .pfx file from the hospital's certificate office." "Изберете файла .pfx от удостоверителния център на болницата.")) }
       else {
@@ -280,7 +287,12 @@ function Get-SummaryLines {
   $lines.Add((T "Folder: $($a.VmDirectory)" "Папка: $($a.VmDirectory)"))
   if ($a.Encrypt) { $lines.Add((T "Disk encryption: on" "Шифроване на диска: включено")) }
   $lines.Add((T "Server login: lospor$(if (([string] $a.SshKey).Trim()) { ', with an SSH key' })" "Вход в сървъра: lospor$(if (([string] $a.SshKey).Trim()) { ', с SSH ключ' })"))
-  $lines.Add((T "Addresses: $($a.ClinicalDomain) (clinical), $($a.ResearchDomain) (research)" "Адреси: $($a.ClinicalDomain) (клиничен), $($a.ResearchDomain) (изследвания)"))
+  if ($a.AccessMode -eq "ip") {
+    $lines.Add((T "Fixed address: $($a.ServerAddress)/$($a.PrefixLength), gateway $($a.Gateway), DNS $($a.Dns)" "Постоянен адрес: $($a.ServerAddress)/$($a.PrefixLength), шлюз $($a.Gateway), DNS $($a.Dns)"))
+    $lines.Add((T "Addresses: https://$($a.ServerAddress) (clinical), https://$($a.ResearchDomain) (research)" "Адреси: https://$($a.ServerAddress) (клиничен), https://$($a.ResearchDomain) (изследвания)"))
+  } else {
+    $lines.Add((T "Addresses: $($a.ClinicalDomain) (clinical), $($a.ResearchDomain) (research)" "Адреси: $($a.ClinicalDomain) (клиничен), $($a.ResearchDomain) (изследвания)"))
+  }
   $lines.Add((T "Hospital: $($a.HospitalName), $($a.HospitalCity)" "Болница: $($a.HospitalName), $($a.HospitalCity)"))
   if (("$($a.Proxy)").Trim()) { $lines.Add((T "Internet through the proxy: $($a.Proxy)" "Интернет през прокси: $($a.Proxy)")) }
   $certificate = switch ($a.TlsMode) { "operator" { T "the hospital's own authority" "собственият удостоверителен център на болницата" } "acme" { "Let's Encrypt" } default { T "local (testing)" "локален (за тестове)" } }
@@ -354,8 +366,18 @@ function Read-TextPage([string] $Id) {
       $a.SshKey = if ($path -and (Test-Path -LiteralPath $path)) { (Get-Content -Raw -LiteralPath $path).Trim() } else { $path }
     }
     "hospital" {
-      $a.ClinicalDomain = Read-Answer (T "Clinical address (web, phone app)" "Клиничен адрес (уеб, мобилно приложение)") $a.ClinicalDomain
-      $a.ResearchDomain = Read-Answer (T "Research website address" "Адрес на сайта за изследвания") $a.ResearchDomain
+      $access = Read-Answer (T "Reach the server by: 1) DNS names  2) a fixed IP address" "Сървърът се достъпва чрез: 1) DNS имена  2) постоянен IP адрес") $(if ($a.AccessMode -eq "ip") { "2" } else { "1" })
+      $a.AccessMode = if ($access -eq "2") { "ip" } else { "name" }
+      if ($a.AccessMode -eq "ip") {
+        $a.ServerAddress = Read-Answer (T "Fixed IPv4 address of the server" "Постоянен IPv4 адрес на сървъра") $a.ServerAddress
+        $a.PrefixLength = Read-Answer (T "Network prefix length (24 = 255.255.255.0)" "Дължина на мрежовия префикс (24 = 255.255.255.0)") $a.PrefixLength
+        $a.Gateway = Read-Answer (T "Gateway" "Шлюз") $a.Gateway
+        $a.Dns = Read-Answer (T "DNS server(s), separated by a comma" "DNS сървър(и), разделени със запетая") $a.Dns
+        Set-LosporIpAddresses $a
+      } else {
+        $a.ClinicalDomain = Read-Answer (T "Clinical address (web, phone app)" "Клиничен адрес (уеб, мобилно приложение)") $a.ClinicalDomain
+        $a.ResearchDomain = Read-Answer (T "Research website address" "Адрес на сайта за изследвания") $a.ResearchDomain
+      }
       $a.HospitalName = Read-Answer (T "Hospital name" "Име на болницата") $a.HospitalName
       $a.HospitalCity = Read-Answer (T "City" "Град") $a.HospitalCity
       $a.Proxy = Read-Answer (T "Proxy for the internet, http://host:port, empty if the server goes out directly" "Прокси за интернет, http://хост:порт, празно, ако сървърът излиза директно") $a.Proxy
@@ -492,6 +514,11 @@ function Invoke-WindowWizard {
       Set-RowsVisible @("AcmeEmail") $script:ui["TlsAcme"].Checked
       Set-RowsVisible @("LocalNote") (-not $operator -and -not $script:ui["TlsAcme"].Checked)
     }
+    if ($script:ui.ContainsKey("AccessIp")) {
+      $ip = $script:ui["AccessIp"].Checked
+      Set-RowsVisible @("ClinicalDomain", "ResearchDomain") (-not $ip)
+      Set-RowsVisible @("ServerAddress", "PrefixLength", "Gateway", "Dns", "IpNote") $ip
+    }
   }
   function New-TextBox([string] $Value, [switch] $Secret) {
     $box = New-Object System.Windows.Forms.TextBox
@@ -588,8 +615,20 @@ function Invoke-WindowWizard {
       }
       "hospital" {
         $heading.Text = T "3. The hospital" "3. Болницата"
+        $accessName = New-Radio (T "DNS names in the hospital's DNS" "DNS имена в DNS на болницата") ($a.AccessMode -ne "ip")
+        $accessIp = New-Radio (T "A fixed IP address, no DNS names" "Постоянен IP адрес, без DNS имена") ($a.AccessMode -eq "ip")
+        $accessGroup = New-Object System.Windows.Forms.FlowLayoutPanel
+        $accessGroup.FlowDirection = "TopDown"; $accessGroup.Height = 60; $accessGroup.Controls.AddRange(@($accessName, $accessIp))
+        Add-Field "" (T "How people reach it" "Как се достъпва") $accessGroup $null -Wide -Row "Access"
+        $script:ui["AccessName"] = $accessName; $script:ui["AccessIp"] = $accessIp
+        foreach ($radio in @($accessName, $accessIp)) { $radio.Add_CheckedChanged({ Update-Rows }) }
         Add-Field "ClinicalDomain" (T "Clinical address" "Клиничен адрес") (New-TextBox $a.ClinicalDomain) $null
         Add-Field "ResearchDomain" (T "Research website address" "Адрес за изследвания") (New-TextBox $a.ResearchDomain) $null
+        Add-Field "ServerAddress" (T "Server IPv4 address" "IPv4 адрес на сървъра") (New-TextBox $a.ServerAddress) $null
+        Add-Field "PrefixLength" (T "Network prefix (24 = 255.255.255.0)" "Мрежов префикс (24 = 255.255.255.0)") (New-TextBox $a.PrefixLength) $null
+        Add-Field "Gateway" (T "Gateway" "Шлюз") (New-TextBox $a.Gateway) $null
+        Add-Field "Dns" (T "DNS servers (comma)" "DNS сървъри (със запетая)") (New-TextBox $a.Dns) $null
+        Add-Note -Row "IpNote" (T "The server gets this fixed address itself, so no DNS records and no DHCP reservation are needed. Research is the same address on port 8443. Phones and computers must trust the certificate: it has to be issued for this IP address." "Сървърът получава този постоянен адрес сам, така че не са нужни DNS записи, нито резервация в DHCP. Изследванията са на същия адрес на порт 8443. Телефоните и компютрите трябва да вярват на сертификата: той трябва да е издаден за този IP адрес.")
         Add-Note (T "Two DNS names in the hospital's DNS, both pointing to this server. If they are not there yet, the installation waits, shows the server's address, and continues once IT adds them. The server takes its address from DHCP: IT reserves it, with the MAC shown at the end." "Две имена в DNS на болницата, и двете сочещи към този сървър. Ако още ги няма, инсталацията изчаква, показва адреса на сървъра и продължава, когато ИТ ги добави. Сървърът получава адреса си от DHCP: ИТ го резервира с MAC адреса, показан накрая.")
         Add-Field "HospitalName" (T "Hospital name" "Име на болницата") (New-TextBox $a.HospitalName) $null
         Add-Field "HospitalCity" (T "City" "Град") (New-TextBox $a.HospitalCity) $null
@@ -645,12 +684,13 @@ function Invoke-WindowWizard {
   function Save-Page {
     $read = { param($Key) if ($script:ui.ContainsKey($Key)) { $control = $script:ui[$Key]; if ($control -is [System.Windows.Forms.NumericUpDown]) { return [int] $control.Value } if ($control -is [System.Windows.Forms.CheckBox]) { return $control.Checked } return ([string] $control.Text) } return $null }
     foreach ($key in @($script:ui.Keys)) {
-      if (@("LocaleBg", "LocaleEn", "Switch", "TlsOperator", "TlsAcme", "FormatPfx") -contains $key) { continue }
+      if (@("LocaleBg", "LocaleEn", "Switch", "TlsOperator", "TlsAcme", "FormatPfx", "AccessName", "AccessIp") -contains $key) { continue }
       $a[$key] = & $read $key
     }
     if ($script:ui.ContainsKey("LocaleEn")) { $a.Locale = if ($script:ui["LocaleEn"].Checked) { "en" } else { "bg" }; $script:Locale = $a.Locale }
     if ($script:ui.ContainsKey("Switch") -and $script:ui["Switch"].SelectedIndex -ge 0) { $a.Switch = $switches[$script:ui["Switch"].SelectedIndex].Name }
     if ($script:ui.ContainsKey("TlsOperator")) { $a.TlsMode = if ($script:ui["TlsOperator"].Checked) { "operator" } elseif ($script:ui["TlsAcme"].Checked) { "acme" } else { "local" } }
+    if ($script:ui.ContainsKey("AccessIp")) { $a.AccessMode = if ($script:ui["AccessIp"].Checked) { "ip" } else { "name" }; Set-LosporIpAddresses $a }
     if ($script:ui.ContainsKey("FormatPfx")) { $a.CertificateFormat = if ($script:ui["FormatPfx"].Checked) { "pfx" } else { "pem" } }
   }
 
@@ -745,7 +785,13 @@ try {
     InstallAnswersDirectory = $answersDirectory; ResultPath = $resultPath
   }
   if ($a.Encrypt) { $kitArguments.EncryptDisk = $true; $kitArguments.DiskPassphrase = (& $secure $a.DiskPassphrase) }
-  if (("$($a.Proxy)").Trim()) { $kitArguments.Proxy = ("$($a.Proxy)").Trim(); $kitArguments.Direct = @($a.ClinicalDomain, $a.ResearchDomain) }
+  if ($a.AccessMode -eq "ip") {
+    $kitArguments.StaticAddress = ([string] $a.ServerAddress).Trim()
+    $kitArguments.PrefixLength = [int] $a.PrefixLength
+    $kitArguments.Gateway = ([string] $a.Gateway).Trim()
+    $kitArguments.DnsServers = @(([string] $a.Dns) -split '[,\s;]+' | Where-Object { $_ })
+  }
+  if (("$($a.Proxy)").Trim()) { $kitArguments.Proxy = ("$($a.Proxy)").Trim(); $kitArguments.Direct = if ($a.AccessMode -eq "ip") { @(([string] $a.ServerAddress).Trim()) } else { @($a.ClinicalDomain, $a.ResearchDomain) } }
   if (([string] $a.SshKey).Trim()) {
     $keyPath = Join-Path $work "authorized-key.pub"
     [IO.File]::WriteAllText($keyPath, ([string] $a.SshKey).Trim(), $utf8)

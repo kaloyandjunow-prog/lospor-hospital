@@ -56,6 +56,19 @@ expect_false "fewer than 14 daily recovery points are rejected" readiness_backup
 expect_true "ordinary hospital hostname is accepted" readiness_hostname lospor.hospital.example
 expect_false "a URL is not accepted as a hostname" readiness_hostname https://lospor.example
 expect_false "a shell-like hostname is rejected" readiness_hostname 'lospor.example;id'
+expect_true "an IPv4 address is a valid IP-mode address" readiness_ipv4 192.168.1.50
+expect_false "an octet above 255 is not an address" readiness_ipv4 192.168.1.256
+expect_false "three numbers are not an address" readiness_ipv4 192.168.1
+expect_true "Research may carry a port in IP mode" readiness_ip_site 192.168.1.50:8443
+expect_false "port 0 is not a port" readiness_ip_site 192.168.1.50:0
+expect_false "port 70000 is not a port" readiness_ip_site 192.168.1.50:70000
+expect_false "a name is not an IP-mode address" readiness_ip_site lospor.hospital.example
+expect_true "a DNS name is a site address" readiness_site_address lospor.hospital.example
+expect_true "an IPv4 address is a site address" readiness_site_address 10.1.2.3
+expect_false "a malformed address is neither a name nor an IP" readiness_site_address 10.1.2.300
+expect_true "the host part of an address with a port" test "$(readiness_site_host 10.1.2.3:8443)" = 10.1.2.3
+expect_true "IP mode publishes the Research port too" test "$(readiness_port_specs 443 3443 operator 8443)" = "443:443:caddy 3443:3443:status 8443:8443:caddy"
+expect_true "name mode publishes no Research port" test "$(readiness_port_specs 443 3443 operator '')" = "443:443:caddy 3443:3443:status"
 expect_true "resource threshold accepts equality" readiness_at_least 8 8
 expect_false "resource threshold rejects undersizing" readiness_at_least 7 8
 expect_true "a 16 GB Hyper-V VM, as Docker reports it, has enough memory" readiness_memory_enough 16768016384
