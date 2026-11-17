@@ -72,7 +72,7 @@ export function attentionItems(input: {
     add({ id: "backup", level: "today", en: "Backups have stopped or cannot be verified.", bg: "Резервните копия са спрели или не могат да бъдат проверени.", href: `${MAINTENANCE}#maintenance-backups`, actionEn: "Back up now", actionBg: "Резервно копие сега" })
   }
   if (code("host-clock") === "HOST_CLOCK_UNSYNCHRONIZED") {
-    add({ id: "clock", level: "today", en: "The server clock is not synchronized. Record times and certificates depend on it.", bg: "Часовникът на сървъра не е синхронизиран. От него зависят часовете в записите и сертификатите.", href: OVERVIEW, actionEn: "Hospital IT: check time synchronization", actionBg: "ИТ отдел: проверете синхронизацията на часовника" })
+    add({ id: "clock", level: "today", en: "The server clock is not synchronized. Record times and certificates depend on it.", bg: "Часовникът на сървъра не е сверен. От него зависят часовете в записите и сертификатите.", href: OVERVIEW, actionEn: "Hospital IT: check time synchronization", actionBg: "ИТ отдел: проверете откъде сървърът взема часа" })
   }
   const offhost = code("offhost-backup")
   if (offhost === "OFFHOST_BACKUP_NOT_CONFIGURED") {

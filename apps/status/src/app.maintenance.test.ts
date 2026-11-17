@@ -686,6 +686,9 @@ describe("the server step on the Updates page", () => {
       expect(body).toContain(text)
     }
     expect(body.indexOf('action="/status/actions/check"')).toBeLessThan(body.indexOf('action="/status/actions/os-check"'))
+    // A moment is written as people read it, not as 2026-09-13T06:00:00Z.
+    expect(body).toContain("13/09/2026, 06:00:00 UTC")
+    expect(body).not.toContain("2026-09-13T06:00:00Z")
     expect((await post(app, "/status/actions/os-check", cookie, {})).status).toBe(303)
     expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("os-check")
     expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_OS_CHECK_REQUESTED")).toBe(true)

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.11.1",
+  "release": "1.11.2",
   "policy": "backup-required",
-  "justification": "Only the Hyper-V installation kit changes; the services and the database are those of 1.11.0, whose rollback policy carries over.",
+  "justification": "Only the Windows installation kit and the first-boot messages change; the services and the database are those of 1.11.1, whose rollback policy carries over.",
   "assessedBy": "maintainer",
   "assessedAt": "2026-11-16"
 }

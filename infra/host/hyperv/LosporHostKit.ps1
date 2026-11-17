@@ -369,6 +369,29 @@ function ConvertTo-LosporVmNetwork([string[]] $Addresses, [string] $Mac) {
 }
 
 <#
+  The sentence that says which address to reserve in DHCP, for the wizard's
+  last window (1.11.2). The wizard has two ways to end: the progress window and,
+  in the console, a plain message; both say it, from here.
+#>
+function Get-LosporDhcpHint([string] $Address, [string] $Mac, [string] $Locale) {
+  if (-not $Address) { return "" }
+  if ($Locale -eq "en") {
+    $for = if ($Mac) { " for MAC $Mac" } else { "" }
+    return "Ask IT to reserve $Address in DHCP$for, or to give the server that fixed address. Otherwise the server can get another address later and the DNS names stop reaching it."
+  }
+  $for = if ($Mac) { " за MAC $Mac" } else { "" }
+  return "Помолете ИТ да резервира $Address в DHCP$for или да даде на сървъра този постоянен адрес. Иначе по-късно сървърът може да получи друг адрес и DNS имената вече няма да водят до него."
+}
+
+<# The same, from the result file the kit wrote: its address and mac are there only when Hyper-V reported them. #>
+function Get-LosporDhcpHintFor($Result, [string] $Locale) {
+  if (-not $Result) { return "" }
+  $address = if ($Result.PSObject.Properties["address"]) { [string] $Result.address } else { "" }
+  $mac = if ($Result.PSObject.Properties["mac"]) { [string] $Result.mac } else { "" }
+  return Get-LosporDhcpHint $address $mac $Locale
+}
+
+<#
   The guest's key-value items, as Hyper-V returns them (Msvm_KvpExchangeDataItem
   XML), as a name-to-value table.
 #>

@@ -250,19 +250,19 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HTTP_REACHABLE: "Услугата отговаря.",
   HTTP_UNHEALTHY: "Услугата отговаря, но съобщава за неизправност.",
   HTTP_UNREACHABLE: "Няма връзка с услугата.",
-  TCP_REACHABLE: "Входната точка на системата отговаря.",
-  TCP_UNREACHABLE: "Няма връзка с входната точка на системата.",
+  TCP_REACHABLE: "Входът на системата отговаря.",
+  TCP_UNREACHABLE: "Няма връзка с входа на системата.",
   RELEASE_CURRENT: "Системата използва най-новата публикувана версия.",
-  UPDATE_AVAILABLE: "Публикувана е по-нова версия. Нищо не е променено; прилагането е отделна стъпка, която правите изрично.",
+  UPDATE_AVAILABLE: "Има по-нова версия. Нищо не е променено; прилагате я вие от „Обновявания“.",
   UPDATE_DOWNLOADED_READY_TO_APPLY: "По-нова версия е изтеглена, проверена и готова за прилагане.",
-  UPDATE_CHECK_FAILED: "Последната проверка не успя да се свърже със списъка с версии, затова не е ясно дали има по-нова версия.",
+  UPDATE_CHECK_FAILED: "Последната проверка не стигна до списъка с версии; не е известно дали има нова.",
   UPDATE_CHECK_STALE: "Повече от две седмици няма успешна проверка за по-нова версия.",
   UPDATE_CHECK_NEVER_RUN: "Системата още не е проверявала за по-нова версия.",
   UPDATE_AGENT_READY: "Услугата за поддръжка работи. Няма версия, която чака прилагане.",
   UPDATE_ACCEPTED: "Заявката е приета.",
   UPDATE_QUEUED: "Заявката е приета и чака прозореца за поддръжка. Дотогава нищо няма да се промени.",
-  UPDATE_PREPARING: "Версията се изтегля и се проверява криптографски. Работещите услуги не се променят.",
-  UPDATE_PREPARED: "Подписаната версия и нейните Docker образи са проверени и готови за прилагане.",
+  UPDATE_PREPARING: "Версията се изтегля и се проверява по подпис. Работещата система не се променя.",
+  UPDATE_PREPARED: "Версията е изтеглена, проверена и готова за прилагане.",
   UPDATE_APPLYING: "Обновяването се прилага. Тази страница няма да отговаря няколко минути и ще се върне сама.",
   UPDATE_COMPLETED: "Обновяването завърши. Показаната по-горе версия вече работи.",
   UPDATE_ALREADY_INSTALLED: "Тази версия вече е инсталирана и проверена.",
@@ -290,32 +290,32 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   UPDATE_TIMEZONE_CALCULATION_FAILED: "Следващият прозорец за поддръжка не можа да бъде изчислен в настроената часова зона.",
   UPDATE_FAILED: "Обновяването не завърши и промените бяха върнати. Системата работи с предишната версия.",
   UPDATE_NEEDS_OPERATOR: "Обновяването спря по средата и никой не е отстранил проблема. Не рестартирайте системата; свържете се с отговорника за нея.",
-  UPDATE_AGENT_UNAVAILABLE: "Услугата за поддръжка не отговаря от десет минути. Обновявания няма да се прилагат, докато не заработи отново.",
+  UPDATE_AGENT_UNAVAILABLE: "Услугата за поддръжка не отговаря от 10 min. Обновявания няма да се прилагат, докато не заработи отново.",
   UPDATE_AGENT_CONFIGURED_FAILED: "Услугата за поддръжка на сървъра не отговаря. Обновяване от браузъра не е възможно.",
   UPDATE_CONSOLE_ONLY: "Тази инсталация се обновява от конзолата на сървъра, а не от Status.",
   HOST_OBSERVABILITY_MISSING: "Наблюдението на сървъра не е подало валидни данни. Състоянието е неизвестно, а не изправно.",
-  HOST_OBSERVABILITY_STALE: "Данните от сървъра са по-стари от три минути. Състоянието е неизвестно, докато не дойдат нови.",
+  HOST_OBSERVABILITY_STALE: "Данните от сървъра са по-стари от 3 min. Състоянието е неизвестно, докато не дойдат нови.",
   HOST_STORAGE_OK: "Наблюдаваните файлови системи имат достатъчно свободно място.",
   HOST_STORAGE_LOW: "Свободното място в една или повече наблюдавани файлови системи намалява.",
   HOST_STORAGE_CRITICAL: "Свободното място в една или повече наблюдавани файлови системи е критично малко.",
   HOST_STORAGE_UNKNOWN: "Свободното място на сървъра не можа да бъде установено.",
-  HOST_CLOCK_SYNCHRONIZED: "Часовникът на сървъра е синхронизиран по мрежата.",
-  HOST_CLOCK_UNSYNCHRONIZED: "Часовникът на сървъра не е синхронизиран. Проверките на сертификати и часовете в клиничните записи може да са неточни.",
-  HOST_CLOCK_UNKNOWN: "Синхронизацията на часовника не можа да бъде установена.",
-  HOST_BACKUP_FRESH: "Защитеният запис за проверено резервно копие е в рамките на четиричасовото изискване и допустимото закъснение.",
-  HOST_BACKUP_AGING: "Последният защитен запис за проверено резервно копие наближава крайния срок.",
-  HOST_BACKUP_OVERDUE: "Последният защитен запис за проверено резервно копие е просрочен.",
-  HOST_BACKUP_MISSING: "Не е намерен валиден защитен запис за проверено резервно копие.",
-  HOST_BACKUP_EVIDENCE_INVALID: "Защитеният запис за проверено резервно копие е невалиден или небезопасен.",
-  OFFHOST_BACKUP_ACKNOWLEDGED: "Най-новото проверено резервно копие е потвърдено като копирано извън сървъра.",
+  HOST_CLOCK_SYNCHRONIZED: "Часовникът на сървъра е сверен.",
+  HOST_CLOCK_UNSYNCHRONIZED: "Часовникът на сървъра не е сверен: часовете в записите и сертификатите може да са неточни. Под Hyper-V часът идва от хоста, иначе от сървър за време.",
+  HOST_CLOCK_UNKNOWN: "Не можа да се установи дали часовникът е сверен.",
+  HOST_BACKUP_FRESH: "Има проверено резервно копие от последните 4 h.",
+  HOST_BACKUP_AGING: "Провереното резервно копие остарява.",
+  HOST_BACKUP_OVERDUE: "Провереното резервно копие е просрочено.",
+  HOST_BACKUP_MISSING: "Няма проверено резервно копие.",
+  HOST_BACKUP_EVIDENCE_INVALID: "Записът за провереното резервно копие е повреден.",
+  OFFHOST_BACKUP_ACKNOWLEDGED: "Най-новото резервно копие е копирано извън сървъра.",
   OFFHOST_BACKUP_AGING: "Последното потвърждение за копие извън сървъра остарява.",
-  OFFHOST_BACKUP_PENDING: "Най-новото проверено локално резервно копие още не е потвърдено като копирано извън сървъра.",
+  OFFHOST_BACKUP_PENDING: "Най-новото резервно копие още не е копирано извън сървъра.",
   OFFHOST_BACKUP_OVERDUE: "Последното потвърждение за копие извън сървъра е просрочено.",
   OFFHOST_BACKUP_MISSING: "Настроено е копиране извън сървъра, но все още няма валидно потвърждение.",
   OFFHOST_BACKUP_EVIDENCE_INVALID: "Записът за копие извън сървъра е невалиден или небезопасен.",
   OFFHOST_BACKUP_NOT_CONFIGURED: "Шифрованото копиране извън сървъра не е настроено.",
   KEY_ESCROW_ACKNOWLEDGED: "Потвърдено е, че ключовете и паролите на инсталацията са копирани извън сървъра.",
-  KEY_ESCROW_MISSING: "Няма потвърждение, че .env и secrets/ са копирани извън системата. Резервните копия съдържат само отпечатъците им, така че загубата им завинаги прави нечетими всички запазени данни за самоличност на пациентите.",
+  KEY_ESCROW_MISSING: "Ключовете и паролите на инсталацията не са копирани извън сървъра. Резервните копия не ги съдържат.",
   KEY_ESCROW_STALE: "Потвърждението вече не съответства на използваните ключове. Направете ново копие на текущите ключове и пароли и го отбележете отново.",
   KEY_ESCROW_EVIDENCE_INVALID: "Потвърждението за копие на ключовете и паролите е невалидно или небезопасно.",
   HOST_UPDATE_AGENT_HEALTHY: "Услугата за поддръжка на сървъра работи.",
@@ -333,7 +333,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_OS_SUPPORT_ENDING: "Стандартната поддръжка на тази версия на Ubuntu приключва до шест месеца.",
   HOST_OS_UNSUPPORTED: "Тази версия на Ubuntu вече не получава поправки за сигурност.",
   HOST_OS_MISSING: "Наблюдението на сървъра не е отчело състоянието на обновяванията на Ubuntu.",
-  HOST_OS_STALE: "Състоянието на обновяванията на Ubuntu не е отчитано повече от три минути.",
+  HOST_OS_STALE: "Състоянието на обновяванията на Ubuntu не е отчитано повече от 3 min.",
   HOST_CERTIFICATE_EXPIRED: "HTTPS сертификатът е изтекъл.",
   HOST_CERTIFICATE_MISSING: "Сертификатът за HTTPS, предоставен от болницата, липсва или е небезопасен.",
   HOST_CERTIFICATE_UNKNOWN: "Срокът на HTTPS сертификата не можа да бъде установен.",
@@ -348,7 +348,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_ACTIVATION_LOCK_INVALID: "Заключването за активиране на версия не е в защитена директория, достъпна само за root.",
   UPDATE_SUPPLY_OFFLINE: "Избрани са обновявания без интернет. Версиите идват от проверен USB носител.",
   UPDATE_SUPPLY_CONNECTED: "Избрани са обновявания през интернет. Версиите се изтеглят от публичните издания в GitHub и се проверяват по подпис; не са нужни данни за достъп.",
-  UPDATE_SUPPLY_MODE_INVALID: "Начинът на получаване на обновявания е невалиден; няма работещ канал за обновявания.",
+  UPDATE_SUPPLY_MODE_INVALID: "Начинът на обновяване е невалиден; обновяванията не работят.",
   BACKUP_VERIFIED: "Последното резервно копие премина проверката на контролната сума.",
   BACKUP_AGING: "Провереното резервно копие скоро ще бъде просрочено.",
   BACKUP_OVERDUE: "Провереното резервно копие е просрочено.",
@@ -377,7 +377,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   BACKUP_SIGNAL_WRITE_FAILED: "Крайният резултат от резервното копиране не можа да бъде записан в Status.",
   BACKUP_TEMP_CREATE_FAILED: "Не можа да бъде създадено защитено временно място за резервното копие.",
   CHECKSUM_FAILED: "Контролната сума на резервното копие не можа да бъде потвърдена.",
-  DELIVERY_WORKER_ACTIVE: "Процесът за изпращане към Central подава сигнал редовно.",
+  DELIVERY_WORKER_ACTIVE: "Изпращането към Central работи.",
   DELIVERY_WORKER_DELAYED: "Сигналът от процеса за изпращане закъснява.",
   DELIVERY_WORKER_STALE: "Процесът за изпращане спря да подава сигнал.",
   API_UNAVAILABLE: "Процесът за изпращане няма връзка с API.",
@@ -404,7 +404,7 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   OPERATOR_CREDENTIALS_SYNCHRONIZED: "Данните за вход на системния администратор в клиничното приложение и в Status съвпадат.",
   OPERATOR_CREDENTIALS_DIVERGED: "Данните за вход на системния администратор в клиничното приложение и в Status се различават и трябва да се изравнят.",
   OPERATOR_CREDENTIALS_UNKNOWN: "Не можа да се установи дали данните за вход на администратора съвпадат.",
-  STATUS_HISTORY_AVAILABLE: "Историята на работоспособността се записва.",
+  STATUS_HISTORY_AVAILABLE: "Историята на достъпността се записва.",
   STATUS_HISTORY_UNAVAILABLE: "Текущите проверки продължават, но историята временно не може да се записва.",
 }
 
@@ -429,12 +429,12 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_RECOVERY_LOGIN_SUCCEEDED: "Използван е токен за възстановяване за Status",
   STATUS_LOGIN_FAILED: "Неуспешен опит за вход в Status",
   STATUS_LOGIN_RATE_LIMITED: "Входът в Status е временно ограничен след много опити",
-  STATUS_MFA_CHALLENGE_ISSUED: "Поискано е потвърждаване в две стъпки при вход в Status",
-  STATUS_MFA_ENROLLED: "Системният администратор включи потвърждаване в две стъпки за Status",
-  STATUS_MFA_LOGIN_SUCCEEDED: "Системен администратор влезе в Status с потвърждаване в две стъпки",
+  STATUS_MFA_CHALLENGE_ISSUED: "Поискано е двуфакторно удостоверяване при вход в Status",
+  STATUS_MFA_ENROLLED: "Системният администратор включи двуфакторно удостоверяване за Status",
+  STATUS_MFA_LOGIN_SUCCEEDED: "Системен администратор влезе в Status с двуфакторно удостоверяване",
   STATUS_MFA_RECOVERY_CODE_USED: "Използван е еднократен код за възстановяване при вход в Status",
-  STATUS_MFA_LOGIN_FAILED: "Неуспешно потвърждаване в две стъпки при вход в Status",
-  STATUS_MFA_LOGIN_RATE_LIMITED: "Потвърждаването в две стъпки в Status е временно ограничено след много опити",
+  STATUS_MFA_LOGIN_FAILED: "Неуспешно двуфакторно удостоверяване при вход в Status",
+  STATUS_MFA_LOGIN_RATE_LIMITED: "Двуфакторното удостоверяване в Status е временно ограничено след много опити",
   STATUS_REAUTH_SUCCEEDED: "Действие с повишен риск в Status е потвърдено с парола",
   STATUS_REAUTH_FAILED: "Неуспешно потвърждаване на действие с повишен риск в Status",
   STATUS_REAUTH_RATE_LIMITED: "Действията с повишен риск в Status са временно ограничени след много опити",
@@ -444,10 +444,10 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_ADMIN_RECOVERY_ISSUED: "Издадена е връзка за възстановяване на администратор на Status",
   STATUS_ADMIN_RECOVERED: "Администратор на Status завърши възстановяване",
   STATUS_ADMIN_SUSPENDED: "Администратор на Status е блокиран",
-  STATUS_TERMINOLOGY_IMPORT_REQUESTED: "Заявен е импорт на терминология",
-  STATUS_TERMINOLOGY_RESUME_REQUESTED: "Заявено е възобновяване на импорт на терминология",
-  STATUS_TERMINOLOGY_ROLLBACK_REQUESTED: "Заявено е връщане на предишната терминология",
-  STATUS_TERMINOLOGY_FINALIZE_REQUESTED: "Заявено е окончателно изтриване на версията за връщане на терминологията",
+  STATUS_TERMINOLOGY_IMPORT_REQUESTED: "Заявено е зареждане на пакет с номенклатури",
+  STATUS_TERMINOLOGY_RESUME_REQUESTED: "Заявено е продължаване на зареждането на номенклатури",
+  STATUS_TERMINOLOGY_ROLLBACK_REQUESTED: "Заявено е връщане на предишните номенклатури",
+  STATUS_TERMINOLOGY_FINALIZE_REQUESTED: "Заявено е окончателно изтриване на предишните номенклатури",
   STATUS_GO_LIVE_SIGNOFF_RECORDED: "Записано е потвърждение за пускане в работа",
   STATUS_GO_LIVE_SIGNOFF_WITHDRAWN: "Оттеглено е потвърждение за пускане в работа",
   STATUS_MAINTENANCE_BACKUP_REQUESTED: "Заявено е резервно копие от Status",
@@ -463,7 +463,7 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_OS_UPGRADE_REQUESTED: "Заявено е обновяване на сървъра (Ubuntu и Docker) от Status",
   STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
   STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED: "Заявен е пакет за поддръжка от Status",
-  STATUS_MAINTENANCE_ROTATION_REQUESTED: "Заявена е смяна на данните за достъп от Status",
+  STATUS_MAINTENANCE_ROTATION_REQUESTED: "Заявена е смяна на вътрешните пароли от Status",
   STATUS_MAINTENANCE_ESCROW_REQUESTED: "Заявено е копие на ключовете и паролите от Status",
   STATUS_SECRETS_ESCROW_DOWNLOADED: "Копие на ключовете и паролите е изтеглено от Status",
 }
@@ -477,8 +477,8 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   database: "Клинична база данни",
   web: "Клинично уеб приложение",
   pwa: "Мобилно приложение (PWA)",
-  browser: "Browser за изследвания",
-  proxy: "Входна точка на системата",
+  browser: "Сайт за изследвания",
+  proxy: "Вход на системата",
   backup: "Проверено резервно копие",
   retention: "Изтриване на данни с изтекъл срок",
   "case-close": "Автоматично приключване на случаи",
@@ -490,7 +490,7 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   "host-backup": "Актуалност на резервното копие",
   "offhost-backup": "Копие извън сървъра",
   "key-escrow": "Копие на ключовете и паролите",
-  "host-update-agent": "Услуга за поддръжка на сървъра",
+  "host-update-agent": "Услуга за поддръжка (проверка на сървъра)",
   "host-certificate": "Срок на HTTPS сертификата",
   "host-os": "Обновявания за сигурност на Ubuntu",
   "host-services": "Услуги на сървъра",
@@ -503,7 +503,7 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   central: "Изпращане към Central",
   "research-exports": "Изследователски експорти",
   "operator-credentials": "Данни за вход на системния администратор",
-  "status-history": "История на работоспособността",
+  "status-history": "История на достъпността",
 }
 
 export function statusLabel(status: ComponentStatus, locale: StatusLocale): string {
@@ -621,8 +621,8 @@ export function renderLogin(error: string | null, initialized: boolean, locale: 
       "Системният администратор още не е създаден. ИТ отделът трябва да завърши инсталацията от конзолата на сървъра.")
     : error
   return page(
-    localize(locale, "Hospital appliance status — sign in", "Състояние на инсталацията — вход"),
-    `<main class="login-wrap"><section class="login" aria-labelledby="login-title">${languageSwitcher(locale, "/status/login")}<div class="brand">LOSPOR Hospital</div><h1 id="login-title">${localize(locale, "Appliance status", "Състояние на системата")}</h1><p>${localize(locale, "This independent page remains available if the clinical API or database is unavailable.", "Тази страница работи отделно и остава достъпна, дори когато клиничното приложение или базата данни не работят.")}</p>${message ? `<div class="error" role="alert">${escapeHtml(message)}</div>` : ""}<form method="post" action="/status/login"><label for="email">${localize(locale, "Appliance administrator email", "Имейл на системния администратор")}</label><input id="email" name="email" type="email" autocomplete="username" maxlength="254" required><label for="password">${localize(locale, "Password", "Парола")}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" ${initialized ? "" : "disabled"}>${localize(locale, "Sign in", "Вход")}</button></form><div class="divider">${localize(locale, "or use console recovery", "или влезте с токен за възстановяване от конзолата")}</div><form method="post" action="/status/login"><label for="recovery-token">${localize(locale, "Single-use recovery token", "Еднократен токен за възстановяване")}</label><input id="recovery-token" name="recoveryToken" type="password" autocomplete="off" maxlength="256" required><button type="submit" ${initialized ? "" : "disabled"}>${localize(locale, "Use recovery token", "Вход с токена")}</button></form></section></main>`,
+    localize(locale, "Hospital appliance status — sign in", "Вход в Status"),
+    `<main class="login-wrap"><section class="login" aria-labelledby="login-title">${languageSwitcher(locale, "/status/login")}<div class="brand">LOSPOR Hospital</div><h1 id="login-title">${localize(locale, "Appliance status", "Вход в Status")}</h1><p>${localize(locale, "This independent page remains available if the clinical API or database is unavailable.", "Status работи отделно и остава достъпен, дори клиничното приложение или базата данни да спрат.")}</p>${message ? `<div class="error" role="alert">${escapeHtml(message)}</div>` : ""}<form method="post" action="/status/login"><label for="email">${localize(locale, "Appliance administrator email", "Имейл")}</label><input id="email" name="email" type="email" autocomplete="username" maxlength="254" required><label for="password">${localize(locale, "Password", "Парола")}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" ${initialized ? "" : "disabled"}>${localize(locale, "Sign in", "Вход")}</button></form><div class="divider">${localize(locale, "or use console recovery", "или влезте с токен за възстановяване (от конзолата)")}</div><form method="post" action="/status/login"><label for="recovery-token">${localize(locale, "Single-use recovery token", "Еднократен токен за възстановяване")}</label><input id="recovery-token" name="recoveryToken" type="password" autocomplete="off" maxlength="256" required><button type="submit" ${initialized ? "" : "disabled"}>${localize(locale, "Use recovery token", "Вход с токена")}</button></form></section></main>`,
     locale,
   )
 }
@@ -643,7 +643,7 @@ export function renderMfaLogin(
     ? localize(
       locale,
       "Scan this QR code with an authenticator app, or enter the setup key manually. Then enter the 6-digit code. The QR code is generated inside the appliance and is not sent anywhere.",
-      "Сканирайте този QR код с приложение за удостоверяване или въведете ключа ръчно. След това въведете 6-цифрения код. QR кодът се създава на самия сървър и не се изпраща никъде.",
+      "Сканирайте QR кода с приложение за удостоверяване (например Microsoft Authenticator) или въведете ключа ръчно, после 6-цифрения код. Кодът се създава на сървъра и не напуска болницата.",
     )
     : localize(
       locale,
@@ -654,16 +654,16 @@ export function renderMfaLogin(
     ? `${qrSvg ? `<div class="qr" aria-label="${localize(locale, "Authenticator QR code", "QR код за приложението за удостоверяване")}">${qrSvg}</div>` : ""}<div class="secret-card"><h2>${localize(locale, "Manual setup key", "Ключ за ръчна настройка")}</h2><div class="secret">${escapeHtml(challenge.manualKey ?? "")}</div></div>`
     : ""
   return page(
-    localize(locale, "Hospital appliance status — verification", "Състояние на инсталацията — потвърждение"),
-    `<main class="login-wrap"><section class="login" aria-labelledby="mfa-title">${mfaLanguageSwitcher(locale, challenge.challengeToken)}<div class="brand">LOSPOR Hospital</div><h1 id="mfa-title">${enrollment ? localize(locale, "Set up two-step verification", "Включване на потвърждаването в две стъпки") : localize(locale, "Two-step verification", "Потвърждаване в две стъпки")}</h1><p>${instructions}</p><p class="meta">${localize(locale, "This sign-in request expires", "Тази заявка за вход изтича")} ${escapeHtml(expiresAt)} UTC.</p>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${setup}<form method="post" action="/status/login/mfa"><input type="hidden" name="challengeToken" value="${escapeHtml(challenge.challengeToken)}"><label for="mfa-code">${enrollment ? localize(locale, "6-digit verification code", "6-цифрен код") : localize(locale, "Verification or recovery code", "Код за потвърждение или възстановяване")}</label><input id="mfa-code" name="code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" minlength="6" maxlength="32" ${enrollment ? 'inputmode="numeric" pattern="[0-9]{6}"' : ""} required autofocus><button type="submit">${localize(locale, "Verify and sign in", "Потвърждаване и вход")}</button></form><p><a href="/status/login">${localize(locale, "Start sign-in again", "Нов опит за вход")}</a></p></section></main>`,
+    localize(locale, "Hospital appliance status — verification", "Вход в Status — двуфакторно удостоверяване"),
+    `<main class="login-wrap"><section class="login" aria-labelledby="mfa-title">${mfaLanguageSwitcher(locale, challenge.challengeToken)}<div class="brand">LOSPOR Hospital</div><h1 id="mfa-title">${enrollment ? localize(locale, "Set up two-step verification", "Включване на двуфакторното удостоверяване") : localize(locale, "Two-step verification", "Двуфакторно удостоверяване")}</h1><p>${instructions}</p><p class="meta">${localize(locale, "This sign-in request expires", "Валидно до")} ${escapeHtml(expiresAt)} UTC.${locale === "bg" ? " После започнете отначало." : ""}</p>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${setup}<form method="post" action="/status/login/mfa"><input type="hidden" name="challengeToken" value="${escapeHtml(challenge.challengeToken)}"><label for="mfa-code">${enrollment ? localize(locale, "6-digit verification code", "6-цифрен код") : localize(locale, "Verification or recovery code", "Код за потвърждение или възстановяване")}</label><input id="mfa-code" name="code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" minlength="6" maxlength="32" ${enrollment ? 'inputmode="numeric" pattern="[0-9]{6}"' : ""} required autofocus><button type="submit">${localize(locale, "Verify and sign in", "Потвърждаване и вход")}</button></form><p><a href="/status/login">${localize(locale, "Start sign-in again", "Започнете отначало")}</a></p></section></main>`,
     locale,
   )
 }
 
 export function renderMfaRecoveryCodes(codes: readonly string[], locale: StatusLocale = "bg", continueTo = "/status/"): string {
   return page(
-    localize(locale, "Hospital appliance status — recovery codes", "Състояние на инсталацията — кодове за възстановяване"),
-    `<main class="login-wrap"><section class="login secret-card" aria-labelledby="recovery-title"><div class="brand">LOSPOR Hospital</div><h1 id="recovery-title">${localize(locale, "Save your recovery codes now", "Запазете кодовете за възстановяване сега")}</h1><div class="error" role="alert">${localize(locale, "These ten codes are shown only once. Each code can be used for one sign-in. Store them offline in the hospital IT password vault; anyone who has one can sign in as the appliance operator.", "Тези десет кода се показват само веднъж. Всеки код важи за един вход. Пазете ги извън компютъра, в хранилището за пароли на ИТ отдела: всеки, който има такъв код, може да влезе като системен администратор.")}</div><ol class="secret">${codes.map(code => `<li>${escapeHtml(code)}</li>`).join("")}</ol><p>${localize(locale, "Print or save this page before continuing. The appliance stores only irreversible hashes of these codes.", "Отпечатайте или запазете тази страница, преди да продължите. Сървърът пази само необратими хешове на кодовете.")}</p><p><a class="button" href="${escapeHtml(continueTo)}">${localize(locale, "I saved the codes — continue", "Запазих кодовете — продължи")}</a></p></section></main>`,
+    localize(locale, "Hospital appliance status — recovery codes", "Вход в Status — кодове за възстановяване"),
+    `<main class="login-wrap"><section class="login secret-card" aria-labelledby="recovery-title"><div class="brand">LOSPOR Hospital</div><h1 id="recovery-title">${localize(locale, "Save your recovery codes now", "Запазете кодовете за възстановяване сега")}</h1><div class="error" role="alert">${localize(locale, "These ten codes are shown only once. Each code can be used for one sign-in. Store them offline in the hospital IT password vault; anyone who has one can sign in as the appliance operator.", "Десетте кода се показват само веднъж и всеки важи за един вход. Пазете ги в хранилището за пароли на ИТ отдела, не на този компютър: който има код, може да влезе като администратор.")}</div><ol class="secret">${codes.map(code => `<li>${escapeHtml(code)}</li>`).join("")}</ol><p>${localize(locale, "Print or save this page before continuing. The appliance stores only irreversible hashes of these codes.", "Запазете страницата, преди да продължите. Сървърът пази само необратими отпечатъци на кодовете.")}</p><p><a class="button" href="${escapeHtml(continueTo)}">${localize(locale, "I saved the codes — continue", "Запазих кодовете")}</a></p></section></main>`,
     locale,
   )
 }
@@ -692,7 +692,7 @@ function historyBars(history: DayStatus[] | undefined, locale: StatusLocale): st
   const description = locale === "bg"
     ? `${counts.operational} дни без проблеми, ${counts.degraded} дни с проблеми, ${counts.outage} дни с прекъсване, ${counts.unknown} дни без данни`
     : `${counts.operational} operational days, ${counts.degraded} degraded days, ${counts.outage} unavailable days, ${counts.unknown} unknown days`
-  return `<div class="history" role="img" aria-label="${localize(locale, "90-day availability history", "Работоспособност за последните 90 дни")}: ${escapeHtml(description)}">${values.map(item => `<span class="day ${item.status}" title="${escapeHtml(item.day)}: ${statusLabel(item.status, locale)}"></span>`).join("")}</div><div class="history-caption" aria-hidden="true"><span>${localize(locale, "90 days ago", "Преди 90 дни")}</span><span>${localize(locale, "Today", "Днес")}</span></div>`
+  return `<div class="history" role="img" aria-label="${localize(locale, "90-day availability history", "Достъпност за последните 90 дни")}: ${escapeHtml(description)}">${values.map(item => `<span class="day ${item.status}" title="${escapeHtml(item.day)}: ${statusLabel(item.status, locale)}"></span>`).join("")}</div><div class="history-caption" aria-hidden="true"><span>${localize(locale, "90 days ago", "Преди 90 дни")}</span><span>${localize(locale, "Today", "Днес")}</span></div>`
 }
 
 function componentRow(component: ComponentView, history: DayStatus[] | undefined, locale: StatusLocale): string {
@@ -2086,7 +2086,7 @@ export function renderDashboard(
     : localize(locale, "not yet", "още няма проверка")
   return page(
     localize(locale, "Hospital appliance status", "Състояние на инсталацията"),
-    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Състояние на системата (отделна страница)"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${attentionSection(attention, locale)}${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и изпращане на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Тази страница показва само работна информация, не клинични записи. Тя не може да отчете спиране на тока, на Docker, на физическия сървър или на болничната мрежа.`)}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Състояние на системата (отделна страница)"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${attentionSection(attention, locale)}${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и изпращане на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "Инциденти")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Тази страница показва само работна информация, не клинични записи. Тя не може да отчете спиране на тока, на Docker, на физическия сървър или на болничната мрежа.`)}</footer></div>`,
     locale,
     true,
   )
@@ -2184,7 +2184,7 @@ function serverStep(server: ServerStepView, agentHealthy: boolean, locale: Statu
     releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), count(os.securityUpdates)),
     releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), count(os.otherUpdates)),
     releaseFact("Docker", os.dockerUpdates === null ? unknown : os.dockerUpdates ? localize(locale, "update waiting", "има обновяване") : localize(locale, "up to date", "актуален")),
-    releaseFact(localize(locale, "Last checked", "Последна проверка"), os.updatesCheckedAt ?? unknown),
+    releaseFact(localize(locale, "Last checked", "Последна проверка"), os.updatesCheckedAt ? `${utcDate(Date.parse(os.updatesCheckedAt), locale)} UTC` : unknown),
   ].join("")}</div>`
   const last = server.last
     ? `<div class="component-detail">${escapeHtml(maintenanceResult(server.last.code, locale))}</div>`
@@ -2882,18 +2882,20 @@ function hostOsSection(
     return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="empty">${localize(locale, "Host monitoring has not reported Ubuntu's state. Hospital IT can check it with: sudo losporctl host state", "Състоянието на Ubuntu не е отчетено. ИТ отделът може да го провери с: sudo losporctl host state")}</div></div></section>`
   }
   const unknown = localize(locale, "unknown", "неизвестно")
+  // A date as it is, a moment as people read it (not 2026-11-16T22:01:29Z).
   const when = (value: string | null) => value ?? unknown
+  const at = (value: string | null) => value ? `${utcDate(Date.parse(value), locale)} UTC` : unknown
   const facts = `<div class="facts">${[
     releaseFact(localize(locale, "Ubuntu release", "Версия на Ubuntu"), os.release ?? unknown),
     releaseFact(localize(locale, "Security fixes until", "Поддръжка за сигурност до"), when(os.standardSupportEnds)),
     releaseFact(localize(locale, "Security updates waiting", "Чакащи обновявания за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
     releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновявания"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
     releaseFact(localize(locale, "Automatic security updates", "Автоматични обновявания за сигурност"), hostOsWord(os.automaticUpdates, locale)),
-    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
-    releaseFact(localize(locale, "Restart needed", "Нужно е рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${when(os.rebootRequiredSince)}`, `да, от ${when(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
-    releaseFact(localize(locale, "Running since", "Последно рестартиране"), when(os.bootedAt)),
+    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${at(os.lastAutomaticRunAt)}`),
+    releaseFact(localize(locale, "Restart needed", "Нужно е рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${at(os.rebootRequiredSince)}`, `да, от ${at(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
+    releaseFact(localize(locale, "Running since", "Последно рестартиране"), at(os.bootedAt)),
     releaseFact(localize(locale, "Restart policy", "Рестартиране"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновявания") : localize(locale, "manual", "ръчно")),
-    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последно действие от Status"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
+    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последно действие от Status"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${at(os.lastOperation.at)}`)] : []),
   ].join("")}</div>`
   const docker = os.dockerUpdates
     ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service: install them from Updates, step 1 (or at the console: sudo losporctl host upgrade).", "Има обновявания за Docker. Те рестартират всички клинични услуги: инсталирайте ги от „Обновявания“, стъпка 1 (или от конзолата: sudo losporctl host upgrade).")}</strong> <a href="/status/release#server-step">${localize(locale, "Open Updates", "Към „Обновявания“")}</a></div>`
@@ -3221,14 +3223,14 @@ export function renderServices(data: DashboardData, window: ServiceWindow, local
     ? `<ul class="rows">${data.components.map(component => `<li class="component"><div class="component-head"><div><div class="component-name">${escapeHtml(componentLabel(component, locale))}</div><div class="component-detail">${escapeHtml(codeMessage(component.code, locale, fallback))}</div></div><div class="state ${component.status}">${statusLabel(component.status, locale)}</div></div></li>`).join("")}</ul>`
     : `<div class="empty">${localize(locale, "Checks are being established.", "Проверките още не са завършили.")}</div>`
   return page(
-    localize(locale, "Services and events", "Услуги и събития"),
+    localize(locale, "Services and events", "Състояние"),
     `<div class="shell">${statusHeader("/status/", locale, audience, "")}<main>
-      <section class="section"><div class="sec-head"><h2>${localize(locale, "Availability", "Работоспособност")}</h2>${rangeSwitch(window.range, "/status/services", locale)}</div><div class="card pad">${availabilityStrips(windowRows(data, window, locale), window.range, locale)}</div></section>
+      <section class="section"><div class="sec-head"><h2>${localize(locale, "Availability", "Достъпност")}</h2>${rangeSwitch(window.range, "/status/services", locale)}</div><div class="card pad">${availabilityStrips(windowRows(data, window, locale), window.range, locale)}</div></section>
       <section class="section"><h2>${localize(locale, "Checks", "Проверки")}</h2><div class="card">${checks}</div></section>
-      <section class="section"><h2>${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section>
+      <section class="section"><h2>${localize(locale, "Incident history", "Инциденти")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section>
       <section class="section"><h2>${localize(locale, "Recent operational events", "Последни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма събития, които изискват внимание.")}</div>`}</div></section>
       <section class="section"><h2>${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section>
-    </main><footer class="foot">${localize(locale, "This monitor cannot report loss of power, Docker, the physical server or the hospital network.", "Тази страница не може да отчете спиране на тока, на Docker, на физическия сървър или на болничната мрежа.")}</footer></div>`,
+    </main><footer class="foot">${localize(locale, "This monitor cannot report loss of power, Docker, the physical server or the hospital network.", "Ако токът, сървърът или болничната мрежа спрат, тази страница не се отваря и не може да го отчете.")}</footer></div>`,
     locale,
     true,
   )

@@ -1,5 +1,39 @@
 # Changelog - LOSPOR Hospital
 
+## [1.11.2] - 2026-11-16
+
+Installer only: nothing changes on an installed appliance. Install new sites with this kit. Found by installing a new
+server from the wizard, start to finish, on an external switch and photographing every window.
+
+### Fixed
+
+- **The wizard's last window did not say which address to reserve in DHCP.** 1.11.1 said it only in the console
+  version and while the server waited for DNS, so an administrator who had added the DNS names beforehand never saw
+  it. The window that ends the installation now shows, in bold under the result, which address to reserve for which
+  MAC (or to give the server that address as a fixed one), in either language.
+- **On a new server the first check for new versions was lost for a day.** The update agent is started by the
+  installer before the activation records the installed release; its first check then answered "no release is
+  installed" and, marked as done, was not tried again until the next day. Status showed the newest version as
+  unknown and the last check as failed for a day on every new installation. The periodic check now waits until a
+  release is recorded and stamps nothing before that; a check a person asks for still runs at once.
+- **A failed installation could stop the wizard on a missing address.** Its result carries no address, and the
+  wizard's strict mode refused to read it; it now reads it safely.
+
+### Changed
+
+- **The server's messages in the progress window are in the wizard's language**: waiting for DNS, waiting for the
+  clock, certificate problems, each of the eight steps, why an installation stopped, and the end. They were English
+  under a Bulgarian window.
+- **Moments are written as dates and times** on the Updates page and on the Server page (13.09.2026 06:00:00 UTC),
+  not as 2026-09-13T06:00:00Z.
+- **Clearer Bulgarian in Status** on the Състояние page, the sign-in pages and the display settings. The server
+  clock is "сверен" (it comes from the Hyper-V host, not "по мрежата"); "Двуфакторно удостоверяване" everywhere;
+  "Достъпност", "Инциденти" and the page's name "Състояние"; "Сайт за изследвания" and "Вход на системата" in the
+  checks; "Вид на менюто" and "Тема"; plain wording for the backup, off-server copy, key and update messages;
+  min and h as units; the events say "вътрешните пароли" and "номенклатури". A test keeps the retired wording out.
+
+Vendors Core, API, Web and PWA 10.6.0; Browser stays 0.11.2.
+
 ## [1.11.1] - 2026-11-16
 
 Installer only: nothing changes on an installed appliance. Install new sites with this kit.

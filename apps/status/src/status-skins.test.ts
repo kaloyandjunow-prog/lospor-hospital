@@ -184,7 +184,7 @@ describe("Display settings", () => {
     expect(english).toContain("Legacy skin")
     expect(english).toMatch(/value="maphub" checked/)
     const bulgarian = await (await app.request("/status/preferences", { headers: headers({ cookie: `${cookie}; lospor_status_locale=bg; lospor_status_skin=legacy` }) })).text()
-    expect(bulgarian).toContain("Класически облик")
+    expect(bulgarian).toContain("Класически вид")
     expect(bulgarian).toMatch(/value="legacy" checked/)
     expect(bulgarian).toContain(".choices{")
   })

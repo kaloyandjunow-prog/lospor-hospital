@@ -282,12 +282,12 @@ export function losporLogo(label: string): string {
 
 
 const SKIN_TEXT: Record<StatusSkin, { en: string; bg: string; descEn: string; descBg: string }> = {
-  maphub: { en: "Map hub (default)", bg: "Карта (по подразбиране)", descEn: "The map is the front door. Groups across the top, pages as chips.", descBg: "Картата е входът. Групите са отгоре, страниците — като бутони." },
+  maphub: { en: "Map hub (default)", bg: "Карта (по подразбиране)", descEn: "The map is the front door. Groups across the top, pages as chips.", descBg: "Начало с карта на системата. Групите са отгоре, страниците под тях." },
   sidebar: { en: "Sidebar", bg: "Странично меню", descEn: "Every page in a fixed menu on the left.", descBg: "Всички страници в постоянно меню вляво." },
-  inbox: { en: "Inbox", bg: "Входяща кутия", descEn: "Organised by what you came to do: needs you, watch, configure, people.", descBg: "Подредено по това, за което сте дошли: за вас, наблюдение, настройки, хора." },
+  inbox: { en: "Inbox", bg: "Входяща кутия", descEn: "Organised by what you came to do: needs you, watch, configure, people.", descBg: "Подредено по това, за което сте дошли: за вас, наблюдение, настройки, акаунти." },
   index: { en: "Settings index", bg: "Указател на настройките", descEn: "A searchable list of every page. Press / to search.", descBg: "Списък на всички страници с търсене. Натиснете / за търсене." },
   console: { en: "Console", bg: "Конзола", descEn: "Drop-down menus and dense lists, for a big screen.", descBg: "Падащи менюта и плътни списъци за голям екран." },
-  legacy: { en: "Legacy", bg: "Класически", descEn: "Status as it looked before 1.5.4, unchanged.", descBg: "Status, какъвто беше преди 1.5.4, без промени." },
+  legacy: { en: "Legacy", bg: "Класически", descEn: "Status as it looked before 1.5.4, unchanged.", descBg: "Старият вид на Status (преди 1.5.4)." },
 }
 
 export function preferencesBody(locale: StatusLocale, saved: boolean): string {
@@ -295,9 +295,9 @@ export function preferencesBody(locale: StatusLocale, saved: boolean): string {
   const skinOption = (id: StatusSkin) => `<label class="choice${id === skin ? " on" : ""}"><input type="radio" name="skin" value="${id}"${id === skin ? " checked" : ""}><span class="thumb thumb-${id}" aria-hidden="true"><i></i><i></i><i></i></span><span><b>${escapeHtml(label(locale, SKIN_TEXT[id]))}</b><small>${escapeHtml(locale === "bg" ? SKIN_TEXT[id].descBg : SKIN_TEXT[id].descEn)}</small></span></label>`
   const themeText: Record<StatusTheme, [string, string]> = { system: ["Like this computer", "Като компютъра"], light: ["Light", "Светъл"], dark: ["Dark", "Тъмен"] }
   return `${saved ? `<div class="notice" role="status">${localize(locale, "Saved. These settings apply in this browser.", "Запазено. Настройките важат за този браузър.")}</div>` : ""}<form class="prefs" method="post" action="/status/preferences">
-    <section class="section"><h2>${localize(locale, "Skin", "Облик")}</h2><div class="choices">${(["maphub", "sidebar", "inbox", "index", "console"] as const).map(skinOption).join("")}</div>
-      <h3 class="legacy-h">${localize(locale, "Legacy skin", "Класически облик")}</h3><div class="choices">${skinOption("legacy")}</div></section>
-    <section class="section"><h2>${localize(locale, "Light or dark", "Светъл или тъмен")}</h2><div class="choices compact">${STATUS_THEMES.map(id => `<label class="choice${id === theme ? " on" : ""}"><input type="radio" name="theme" value="${id}"${id === theme ? " checked" : ""}><span><b>${escapeHtml(localize(locale, themeText[id][0], themeText[id][1]))}</b></span></label>`).join("")}</div></section>
+    <section class="section"><h2>${localize(locale, "Skin", "Вид на менюто")}</h2><div class="choices">${(["maphub", "sidebar", "inbox", "index", "console"] as const).map(skinOption).join("")}</div>
+      <h3 class="legacy-h">${localize(locale, "Legacy skin", "Класически вид")}</h3><div class="choices">${skinOption("legacy")}</div></section>
+    <section class="section"><h2>${localize(locale, "Light or dark", "Тема")}</h2><div class="choices compact">${STATUS_THEMES.map(id => `<label class="choice${id === theme ? " on" : ""}"><input type="radio" name="theme" value="${id}"${id === theme ? " checked" : ""}><span><b>${escapeHtml(localize(locale, themeText[id][0], themeText[id][1]))}</b></span></label>`).join("")}</div></section>
     <section class="section"><h2>${localize(locale, "Language", "Език")}</h2><div class="choices compact">${([["bg", "Български"], ["en", "English"]] as const).map(([id, name]) => `<label class="choice${id === locale ? " on" : ""}"><input type="radio" name="locale" value="${id}"${id === locale ? " checked" : ""}><span><b lang="${id}">${name}</b></span></label>`).join("")}</div></section>
     <button type="submit">${localize(locale, "Save", "Запазване")}</button></form>
     <section class="section about" aria-labelledby="about-title"><h2 id="about-title">${localize(locale, "About", "За системата")}</h2><div class="about-card">${losporLogo("LOSPOR — Large Open Source Perioperative Register")}<p>${localize(locale, "LOSPOR Hospital, the on-site appliance of the Large Open Source Perioperative Register. Open source under the AGPL-3.0 licence.", "LOSPOR Hospital — болничната система на Large Open Source Perioperative Register. Отворен код под лиценз AGPL-3.0.")}</p><div class="about-maker"><span>${localize(locale, "Made by", "Разработено от")}</span><a class="maker-badge" href="https://lospor.org" rel="noreferrer"><img src="/status/brand/periop-laboratories.png" alt="PeriOp Laboratories" width="96" height="32"></a></div></div></section>`

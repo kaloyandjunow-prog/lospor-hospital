@@ -48,7 +48,7 @@ describe("Status screen localization", () => {
   it("renders the complete login and dashboard shells in either language", () => {
     const bulgarianLogin = renderLogin(null, true, "bg")
     expect(bulgarianLogin).toContain('<html lang="bg"')
-    expect(bulgarianLogin).toContain("Имейл на системния администратор")
+    expect(bulgarianLogin).toContain("Вход в Status")
     expect(bulgarianLogin).toContain('name="locale" value="en"')
 
     const englishLogin = renderLogin(null, true, "en")
@@ -83,13 +83,13 @@ describe("Status screen localization", () => {
       otpauthUri: "otpauth://totp/LOSPOR",
     }
     const bulgarian = renderMfaLogin(null, challenge, "<svg></svg>", "bg")
-    expect(bulgarian).toContain("Включване на потвърждаването в две стъпки")
-    expect(bulgarian).toContain("QR кодът се създава на самия сървър")
+    expect(bulgarian).toContain("Включване на двуфакторното удостоверяване")
+    expect(bulgarian).toContain("Кодът се създава на сървъра и не напуска болницата")
     expect(bulgarian).not.toContain("Set up two-step verification")
     expect(renderMfaLogin(null, { ...challenge, enrollmentRequired: false }, null, "en"))
       .toContain("Verification or recovery code")
     const codes = Array.from({ length: 10 }, (_, index) => `AAAA-AAAA-AAAA-${String(index).padStart(4, "A")}`)
-    expect(renderMfaRecoveryCodes(codes, "bg")).toContain("Тези десет кода се показват само веднъж")
+    expect(renderMfaRecoveryCodes(codes, "bg")).toContain("Десетте кода се показват само веднъж")
     expect(renderMfaRecoveryCodes(codes, "en")).toContain("These ten codes are shown only once")
   })
 
@@ -121,5 +121,23 @@ describe("Status screen localization", () => {
     expect(renderRelease(base, "bg")).toContain("Не е избран начин на обновяване")
     expect(renderRelease({ ...base, agentMode: "console-only" }, "en"))
       .toContain("intentionally console-only")
+  })
+})
+
+// Words the 1.11.x review retired, so the status messages do not drift back
+// (the hospital clock comes from the Hyper-V host; the two-factor wording is the hospital's).
+describe("Bulgarian status messages keep the reviewed wording", () => {
+  const retired = [
+    [/в две стъпки/i, "двуфакторно удостоверяване"],
+    [/канал за обновявания/i, "начин на обновяване"],
+    [/по мрежата/i, "часът не идва само по мрежата"],
+    [/работоспособност/i, "достъпност"],
+    [/терминологи/i, "номенклатури"],
+    [/три минути|десет минути|четиричасов/i, "min и h като единици"],
+  ] as const
+  it.each([["messages", CODE_MESSAGE_BG], ["events", EVENT_MESSAGE_BG]])("no retired wording in the %s", (_name, table) => {
+    for (const [code, text] of Object.entries(table)) {
+      for (const [pattern, use] of retired) expect(text, `${code} should say: ${use}`).not.toMatch(pattern)
+    }
   })
 })

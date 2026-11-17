@@ -109,6 +109,20 @@ grep -Fxq "$(printf 'check\tbmanual')" "$work/calls" || fail "manual check reque
 [ ! -e "$requests/check.request" ] || fail "manual check request was not consumed"
 ok "manual check intent triggers an immediate registry check"
 
+# The agent is started before the activation records the installed release, on a
+# first installation. A periodic check then could only answer "nothing is
+# installed" and, stamped as done, would not be tried again for a day (1.11.2).
+reset_state
+rm -f "$home/.data/installed-release.tsv"
+run_agent env
+! grep -q '^check' "$work/calls" 2>/dev/null || fail "the agent checked the registry before any release was recorded"
+[ ! -e "$private/last-update-check" ] || fail "a check that could not be answered was stamped as done"
+printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1.4.0\t.data/releases/1.4.0/lospor-hospital-1.4.0\t%s\n' "$(printf lock | sha256sum | awk '{print $1}')" > "$home/.data/installed-release.tsv"
+run_agent env
+grep -q '^check' "$work/calls" || fail "the agent did not check once a release was recorded"
+[ -e "$private/last-update-check" ] || fail "the periodic check was not stamped once it ran"
+ok "the periodic check waits for a recorded release, without using up its turn"
+
 . "$scripts/update-pipeline-lib.sh"
 if [ "$(TZ=Europe/Sofia date -d '2026-03-29 20:00' -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" = 2026-03-29T17:00:00Z ]; then
   spring_now="$(date -u -d '2026-03-28T19:00:00Z' +%s)"

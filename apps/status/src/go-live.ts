@@ -281,7 +281,7 @@ export function evaluateGoLive(input: {
     {
       id: "clock",
       en: "The server clock is synchronized",
-      bg: "Часовникът на сървъра е синхронизиран",
+      bg: "Часовникът на сървъра е сверен",
       satisfied: operational("host-clock"),
     },
     {

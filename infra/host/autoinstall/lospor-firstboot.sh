@@ -75,6 +75,30 @@ kvp_record() {
   head -c "$((2048 - $(printf '%s' "$2" | head -c 2047 | wc -c)))" /dev/zero
 }
 
+# What the administrator reads in the wizard's window is in the language chosen
+# there (LOSPOR_DEFAULT_LOCALE, known once the answers are read; before that,
+# English). say ENGLISH BULGARIAN prints the one that applies.
+say() { if [ "${LOSPOR_DEFAULT_LOCALE:-}" = bg ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
+
+# The installer's eight steps, named as the Windows progress window names them.
+step_text() {
+  if [ "${LOSPOR_DEFAULT_LOCALE:-}" = bg ]; then
+    case "${1%%/*}" in
+      1) printf '%s' "Получаване на изданието" ;;
+      2) printf '%s' "Проверка на подписа на изданието" ;;
+      3) printf '%s' "Зареждане на образите на приложението" ;;
+      4) printf '%s' "Стартиране на базата данни" ;;
+      5) printf '%s' "Подготовка на базата данни" ;;
+      6) printf '%s' "Създаване на администратора" ;;
+      7) printf '%s' "Зареждане на списъците с лекарства и кодове" ;;
+      8) printf '%s' "Стартиране на LOSPOR и проверка на работата му" ;;
+      *) printf '%s' "$2" ;;
+    esac
+  else
+    printf '%s' "$2"
+  fi
+}
+
 # report STATE MESSAGE [URL] [STEP]: STEP is "N/8", the installer step reached.
 report() {
   printf 'state=%s\nmessage=%s\nurl=%s\nstep=%s\n' "$1" "$2" "${3:-}" "${4:-}" > "$result_file.tmp"
@@ -156,14 +180,14 @@ done
 case "$LOSPOR_DEFAULT_LOCALE" in bg|en) ;; *) stop "LOSPOR_DEFAULT_LOCALE must be bg or en." ;; esac
 case "$HOSPITAL_TLS_MODE" in operator|acme|local) ;; *) stop "HOSPITAL_TLS_MODE must be operator, acme or local." ;; esac
 # Unset, the installer would fill in its example address rather than ask.
-[ "$HOSPITAL_TLS_MODE" != acme ] || [ -n "${ACME_EMAIL:-}" ] || stop "A Let's Encrypt certificate needs an address for its notices."
+[ "$HOSPITAL_TLS_MODE" != acme ] || [ -n "${ACME_EMAIL:-}" ] || stop "$(say "A Let's Encrypt certificate needs an address for its notices." "Сертификат от Let's Encrypt изисква имейл адрес за известията.")"
 if [ -n "${LOSPOR_RELEASE_VERSION:-}" ]; then
   printf '%s\n' "$LOSPOR_RELEASE_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
-    || stop "LOSPOR_RELEASE_VERSION is not a release version."
+    || stop "$(say "LOSPOR_RELEASE_VERSION is not a release version." "LOSPOR_RELEASE_VERSION не е версия на издание.")"
 fi
 clinical="$HOSPITAL_CLINICAL_DOMAIN"
 [ -f "$state_dir/admin-password" ] && [ ! -L "$state_dir/admin-password" ] \
-  || stop "The administrator password did not reach this server. Install from the console: sudo sh $bootstrap"
+  || stop "$(say "The administrator password did not reach this server. Install from the console: sudo sh $bootstrap" "Паролата на администратора не стигна до сървъра. Инсталирайте от конзолата: sudo sh $bootstrap")"
 
 # ── The names must resolve before anything is consumed ──────────────────────
 # The installer's readiness check refuses names that do not resolve. Waiting
@@ -172,7 +196,7 @@ clinical="$HOSPITAL_CLINICAL_DOMAIN"
 waited=0
 while ! getent ahosts "$HOSPITAL_CLINICAL_DOMAIN" >/dev/null 2>&1 || ! getent ahosts "$HOSPITAL_RESEARCH_DOMAIN" >/dev/null 2>&1; do
   if [ "$waited" -ge "$dns_wait_seconds" ]; then
-    report failed "The server cannot resolve $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN in DNS. Ask IT to add both names pointing to this server, then run on the console: sudo systemctl start firstboot-lospor"
+    report failed "$(say "The server cannot resolve $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN in DNS. Ask IT to add both names pointing to this server, then run on the console: sudo systemctl start firstboot-lospor" "Сървърът не намира $HOSPITAL_CLINICAL_DOMAIN и $HOSPITAL_RESEARCH_DOMAIN в DNS. Помолете ИТ да добави и двете имена към този сървър, после изпълнете в конзолата: sudo systemctl start firstboot-lospor")"
     exit 1
   fi
   # The address is known only now that the VM has one, so it is said here:
@@ -182,7 +206,7 @@ while ! getent ahosts "$HOSPITAL_CLINICAL_DOMAIN" >/dev/null 2>&1 || ! getent ah
   # move the server away from these names (1.11.1).
   interface="$(ip -o route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')"
   mac="$(cat "/sys/class/net/${interface:-none}/address" 2>/dev/null | tr 'a-f:' 'A-F-' || true)"
-  [ "$waited" -gt 0 ] || report installing "Waiting for DNS: add $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN pointing to this server's address ${address:-(not known yet)}, and reserve that address in DHCP${mac:+ for MAC $mac}. Installation continues by itself once both names resolve."
+  [ "$waited" -gt 0 ] || report installing "$(say "Waiting for DNS: add $HOSPITAL_CLINICAL_DOMAIN and $HOSPITAL_RESEARCH_DOMAIN pointing to this server's address ${address:-(not known yet)}, and reserve that address in DHCP${mac:+ for MAC $mac}. Installation continues by itself once both names resolve." "Чака се DNS: добавете $HOSPITAL_CLINICAL_DOMAIN и $HOSPITAL_RESEARCH_DOMAIN към адреса на този сървър ${address:-(още не е известен)} и резервирайте този адрес в DHCP${mac:+ за MAC $mac}. Инсталацията продължава сама, щом и двете имена се намерят.")"
   sleep 15
   waited=$((waited + 15))
 done
@@ -198,7 +222,7 @@ done
 clock_waited=0
 while [ "$(timedatectl show --property=NTPSynchronized --value 2>/dev/null || true)" != yes ]; do
   [ "$clock_waited" -lt "$clock_wait_seconds" ] || break
-  [ "$clock_waited" -gt 0 ] || report installing "Waiting for this server's clock to be confirmed: under Hyper-V from the host's clock (usually under a minute), otherwise from a time server. Hospital IT: without a Hyper-V host, the server must reach one on UDP port 123."
+  [ "$clock_waited" -gt 0 ] || report installing "$(say "Waiting for this server's clock to be confirmed: under Hyper-V from the host's clock (usually under a minute), otherwise from a time server. Hospital IT: without a Hyper-V host, the server must reach one on UDP port 123." "Чака се часовникът на сървъра да бъде потвърден: под Hyper-V от часовника на хоста (обикновено под минута), иначе от сървър за време. За ИТ: без хост Hyper-V сървърът трябва да стига до такъв на UDP порт 123.")"
   sleep 5
   clock_waited=$((clock_waited + 5))
 done
@@ -207,7 +231,7 @@ done
 
 cat "$state_dir/admin-password" > "$runtime_dir/admin-password"
 destroy "$state_dir/admin-password"
-[ -s "$runtime_dir/admin-password" ] || stop "The administrator password is empty."
+[ -s "$runtime_dir/admin-password" ] || stop "$(say "The administrator password is empty." "Паролата на администратора е празна.")"
 
 tls_dir="$appliance_home/secrets/tls"
 certificate_inputs_present=0
@@ -216,7 +240,7 @@ for input in tls.pfx tls-fullchain.pem tls-private.key; do
 done
 
 if [ "$HOSPITAL_TLS_MODE" = operator ]; then
-  report installing "Placing the hospital certificate."
+  report installing "$(say "Placing the hospital certificate." "Поставя се сертификатът на болницата.")"
   install -d -m 0750 "$appliance_home"
   install -d -m 0700 "$appliance_home/secrets" "$tls_dir"
   if [ -f "$state_dir/tls.pfx" ]; then
@@ -233,9 +257,9 @@ if [ "$HOSPITAL_TLS_MODE" = operator ]; then
         break
       fi
     done
-    [ "$pfx_ok" -eq 1 ] || stop "The .pfx certificate file could not be opened with its password."
+    [ "$pfx_ok" -eq 1 ] || stop "$(say "The .pfx certificate file could not be opened with its password." "Файлът .pfx не може да се отвори с тази парола.")"
     grep -q 'BEGIN CERTIFICATE' "$runtime_dir/leaf.pem" && grep -q 'PRIVATE KEY' "$runtime_dir/key.pem" \
-      || stop "The .pfx file holds no server certificate with its private key."
+      || stop "$(say "The .pfx file holds no server certificate with its private key." "Файлът .pfx не съдържа сертификат за сървър заедно с частния му ключ.")"
     # The authorities inside the .pfx: intermediates go into the chain the
     # server presents, a self-signed root is what the appliance trusts.
     cp "$runtime_dir/leaf.pem" "$runtime_dir/fullchain.pem"
@@ -254,7 +278,7 @@ if [ "$HOSPITAL_TLS_MODE" = operator ]; then
       cp "$state_dir/tls-ca.pem" "$runtime_dir/roots.pem"
     fi
     [ -s "$runtime_dir/roots.pem" ] \
-      || stop "The .pfx file does not include the hospital's authority certificate. Give its CA file in the wizard as well."
+      || stop "$(say "The .pfx file does not include the hospital's authority certificate. Give its CA file in the wizard as well." "Файлът .pfx не съдържа сертификата на удостоверителния център на болницата. Подайте в съветника и файла на CA.")"
     install -m 0600 "$runtime_dir/fullchain.pem" "$tls_dir/fullchain.pem"
     install -m 0600 "$runtime_dir/key.pem" "$tls_dir/private.key"
     install -m 0644 "$runtime_dir/roots.pem" "$tls_dir/hospital-ca.pem"
@@ -263,13 +287,13 @@ if [ "$HOSPITAL_TLS_MODE" = operator ]; then
     install -m 0600 "$state_dir/tls-private.key" "$tls_dir/private.key"
     install -m 0644 "$state_dir/tls-ca.pem" "$tls_dir/hospital-ca.pem"
   else
-    stop "The hospital certificate files did not reach this server."
+    stop "$(say "The hospital certificate files did not reach this server." "Файловете със сертификата на болницата не стигнаха до сървъра.")"
   fi
   export HOSPITAL_TLS_VERIFY_CA="$tls_dir/hospital-ca.pem"
   rm -f "$runtime_dir"/leaf.pem "$runtime_dir"/authorit*.pem "$runtime_dir"/roots.pem "$runtime_dir"/fullchain.pem
   destroy "$runtime_dir/key.pem"
 elif [ "$certificate_inputs_present" -eq 1 ]; then
-  stop "Certificate files were given, but the certificate type is $HOSPITAL_TLS_MODE."
+  stop "$(say "Certificate files were given, but the certificate type is $HOSPITAL_TLS_MODE." "Дадени са файлове със сертификат, но видът на сертификата е $HOSPITAL_TLS_MODE.")"
 fi
 destroy "$state_dir/tls.pfx" "$state_dir/tls.pfx-password" "$state_dir/tls-fullchain.pem" \
   "$state_dir/tls-private.key" "$state_dir/tls-ca.pem"
@@ -282,7 +306,7 @@ if [ "${LOSPOR_FIRSTBOOT_TEST_ONLY:-0}" = 1 ]; then
 elif [ -e "/dev/disk/by-label/$release_label" ]; then
   install -d -m 0755 "$release_mount"
   mountpoint -q "$release_mount" || mount -o ro "/dev/disk/by-label/$release_label" "$release_mount" \
-    || stop "The release disk the wizard attached could not be read."
+    || stop "$(say "The release disk the wizard attached could not be read." "Дискът с изданието, който съветникът е добавил, не може да се прочете.")"
   set -- --media "$release_mount"
 fi
 if [ "$#" -eq 2 ]; then
@@ -296,8 +320,8 @@ unset LOSPOR_RELEASE_VERSION
 
 # ── Install ─────────────────────────────────────────────────────────────────
 
-report installing "Installing LOSPOR Hospital. This takes about 10 to 40 minutes." "" "0/8"
-[ -f "$bootstrap" ] || stop "The LOSPOR installer is missing from this server."
+report installing "$(say "Installing LOSPOR Hospital. This takes about 10 to 40 minutes." "Инсталира се LOSPOR Hospital. Отнема около 10 до 40 минути.")" "" "0/8"
+[ -f "$bootstrap" ] || stop "$(say "The LOSPOR installer is missing from this server." "Инсталаторът на LOSPOR липсва на сървъра.")"
 # In the background, so each step it reaches can be reported while it runs.
 progress_file="$runtime_dir/progress"
 : > "$progress_file"
@@ -308,7 +332,7 @@ reported=""
 while kill -0 "$installer" 2>/dev/null; do
   reached="$(cat "$progress_file" 2>/dev/null || true)"
   if [ -n "$reached" ] && [ "$reached" != "$reported" ]; then
-    report installing "Installing LOSPOR Hospital: ${reached#* }." "" "${reached%% *}"
+    report installing "$(say "Installing LOSPOR Hospital: ${reached#* }." "Инсталира се LOSPOR Hospital: $(step_text "${reached%% *}" "${reached#* }").")" "" "${reached%% *}"
     reported="$reached"
   fi
   sleep "${LOSPOR_FIRSTBOOT_POLL_SECONDS:-5}"
@@ -319,7 +343,7 @@ destroy "$runtime_dir/admin-password"
 
 if [ "$status" -eq 0 ] && [ -e "$appliance_home/.data/installed-release.tsv" ]; then
   rm -rf "$state_dir"
-  report installed "LOSPOR Hospital is installed. Open Go-live to finish getting ready for clinical use." "https://$clinical/status/go-live"
+  report installed "$(say "LOSPOR Hospital is installed. Open Go-live to finish getting ready for clinical use." "LOSPOR Hospital е инсталиран. Отворете «Пускане в работа», за да довършите подготовката за клинична употреба.")" "https://$clinical/status/go-live"
   finish_attempt
   exit 0
 fi
@@ -333,6 +357,12 @@ reason="$(sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | grep -v '^[[:space:]]*$' | g
 rm -rf "$state_dir"
 # Run again, the installer itself says whether to resume what this attempt left
 # or to start afresh; the password is typed again at the console.
-report failed "The installation stopped: ${reason:-see $log} On the console, run it again: sudo sh $bootstrap"
+# In Bulgarian the reason is the installer's Bulgarian lines, when it gave any.
+if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+  reason_bg="$(sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | grep -v '^[[:space:]]*$' | grep -v '^[0-9T:-]*Z  installing: ' \
+    | LC_ALL=C grep "$cyrillic" | tail -n 4 | tr '\n' ' ' | tr -s ' ' | cut -c 1-1500)"
+  [ -z "$reason_bg" ] || reason="$reason_bg"
+fi
+report failed "$(say "The installation stopped: ${reason:-see $log} On the console, run it again: sudo sh $bootstrap" "Инсталацията спря: ${reason:-вижте $log} В конзолата я пуснете отново: sudo sh $bootstrap")"
 finish_attempt
 exit 1

@@ -71,7 +71,7 @@ describe("status HTTP boundary", () => {
     const response = await app.request("/status/login")
     const body = await response.text()
     expect(body).toContain('<html lang="bg"')
-    expect(body).toContain("Имейл на системния администратор")
+    expect(body).toContain("Вход в Status")
     expect(body).toContain('name="locale" value="en"')
     expect(body).not.toContain("Appliance administrator email")
   })
@@ -139,7 +139,7 @@ describe("status HTTP boundary", () => {
     })
     const bulgarian = await begin.text()
     const challengeToken = bulgarian.match(/name="challengeToken" value="([^"]+)"/)?.[1] ?? ""
-    expect(bulgarian).toContain("Включване на потвърждаването в две стъпки")
+    expect(bulgarian).toContain("Включване на двуфакторното удостоверяване")
     expect(bulgarian).toContain("Ключ за ръчна настройка")
     expect(begin.headers.get("set-cookie")).toBeNull()
 
