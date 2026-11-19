@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Core
 
+## [10.7.0] - 2026-11-19
+
+### Added
+
+- **Inhaled agents are clinical rules.** Two rule kinds, `ADULT_AGENT_PROFILE` and `PEDIATRIC_AGENT_PROFILE`, hold an
+  agent's range, step and quick buttons (sevoflurane 0-8, desflurane 0-18, isoflurane 0-5, step 0.1). They arrive
+  in baseline v5 (`createLosporAdultV5Draft`, 271 rules; `createLosporPediatricV5Draft`, 369 rules); v2 to v4 are
+  unchanged. `pediatricAgentProfilesFromRules` reads them and the runtime bundle carries `pediatricAgentProfiles`.
+- **`@lospor/core/agent-entry`: one agent entry for web and phone.** `agentEntry(agent, rule?)` gives the range, the
+  step (0.1 for - and + and typing, 0.5 on the slider), the quick buttons and a prefill of 0; the active rule wins and
+  the catalogue answers where there is none. `agentRuleFor` picks the rule for an adult or a child.
+- **Gas quick buttons.** `gasQuickValues` (fresh gas flow 0.5 / 1 / 2 / 4 / 6, FiO2 30 / 40 / 50 / 80 / 100),
+  with `FIO2` beside the fresh gas flow range in `gas-ranges`. Suggested for an adult with guidance on only.
+
 ## [10.6.0] - 2026-11-16
 
 ### Added

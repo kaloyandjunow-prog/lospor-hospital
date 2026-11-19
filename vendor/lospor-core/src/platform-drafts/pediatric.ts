@@ -1,4 +1,5 @@
 import {
+  AGENT_CATALOG,
   DRUG_CATALOG,
   drugCatalogAtRelease120,
   FLUID_CATALOG,
@@ -34,6 +35,7 @@ import {
   LOSPOR_PEDIATRIC_V2_RULESET_VERSION,
   LOSPOR_PEDIATRIC_V3_RULESET_VERSION,
   LOSPOR_PEDIATRIC_V4_RULESET_VERSION,
+  LOSPOR_PEDIATRIC_V5_RULESET_VERSION,
   PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE,
   type ClinicalRuleSeed,
   type DrugPolicyOverride,
@@ -633,6 +635,42 @@ export function createLosporPediatricV3Draft(): PlatformClinicalDraft {
  * Pediatric v4 (10.2.0): the v3 model over the current catalogues, with the
  * doses SPS relies on.
  */
+/** One agent's paediatric rule: its range, step and quick buttons at every age, as they were before they were rules. */
+function pediatricAgentSeeds(): ClinicalRuleSeed[] {
+  return AGENT_CATALOG.map(entry => {
+    const parsed = validateClinicalRulePayload({
+      kind: "PEDIATRIC_AGENT_PROFILE",
+      itemKey: entry.label,
+      labelEn: entry.label,
+      labelBg: entry.label,
+      minimumAgeDays: 0,
+      maximumAgeDaysExclusive: PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE,
+      profile: entry.profile,
+    })
+    if (!parsed.valid || parsed.value.kind !== "PEDIATRIC_AGENT_PROFILE") {
+      const detail = parsed.valid ? "Unexpected rule kind" : parsed.issues.map(issue => `${issue.field}: ${issue.message}`).join("; ")
+      throw new Error(`Invalid pediatric agent profile for ${entry.label}: ${detail}`)
+    }
+    return { payload: parsed.value, sourceRefs: [] }
+  })
+}
+
+/**
+ * Pediatric v5 (10.7.0): v4, and each inhaled agent's range, step and quick
+ * buttons as a rule of its own, the same values as the adult rules. v4 is
+ * released and fingerprinted: nothing here reaches it.
+ */
+export function createLosporPediatricV5Draft(): PlatformClinicalDraft {
+  const v4 = createLosporPediatricV4Draft()
+  return {
+    ...v4,
+    id: "lospor-pediatrics-v5",
+    description: `${v4.description} v5 adds the inhaled agents' range, step and quick buttons as rules.`,
+    version: LOSPOR_PEDIATRIC_V5_RULESET_VERSION,
+    rules: [...v4.rules, ...pediatricAgentSeeds()],
+  }
+}
+
 export function createLosporPediatricV4Draft(): PlatformClinicalDraft {
   return {
     id: "lospor-pediatrics-v4",

@@ -21,9 +21,11 @@ export const CLINICAL_RULE_KINDS = [
   "PEDIATRIC_DRUG_POLICY",
   "PEDIATRIC_FLUID_PROFILE",
   "PEDIATRIC_INFUSION_PROFILE",
+  "PEDIATRIC_AGENT_PROFILE",
   "ADULT_DRUG_PROFILE",
   "ADULT_INFUSION_PROFILE",
   "ADULT_FLUID_PROFILE",
+  "ADULT_AGENT_PROFILE",
 ] as const
 
 export type ClinicalRuleKind = typeof CLINICAL_RULE_KINDS[number]
@@ -126,6 +128,23 @@ export type PediatricFluidProfileRulePayload = PediatricRuleAgeBand & {
   routeUnits: Record<string, CanonicalDoseUnit | null>
 }
 
+/**
+ * How an inhaled agent's concentration is entered for a child (baseline v5,
+ * 10.7.0): its range, step and quick buttons, in %. The same shape as a fluid
+ * profile; the range and quick values are all there is to it, an agent has no
+ * route, no weight basis and no dose to calculate.
+ */
+export type PediatricAgentProfileRulePayload = PediatricRuleAgeBand & {
+  kind: "PEDIATRIC_AGENT_PROFILE"
+  itemKey: string
+  labelEn: string
+  labelBg?: string | null
+  category?: string | null
+  profile: DoseProfile
+  unit: CanonicalDoseUnit | null
+  routeUnits: Record<string, CanonicalDoseUnit | null>
+}
+
 export const PEDIATRIC_INFUSION_DISPOSITIONS = DRUG_PROFILE_AVAILABILITIES
 
 export type PediatricInfusionDisposition =
@@ -204,6 +223,8 @@ export type AdultDoseProfileRuleKind =
   | "ADULT_DRUG_PROFILE"
   | "ADULT_INFUSION_PROFILE"
   | "ADULT_FLUID_PROFILE"
+  /** An inhaled agent's concentration, in %: range, step and quick buttons (baseline v5, 10.7.0). */
+  | "ADULT_AGENT_PROFILE"
 
 export type AdultDoseProfileRulePayload = {
   kind: AdultDoseProfileRuleKind
@@ -223,6 +244,7 @@ export type ClinicalRulePayload =
   | PediatricDrugProfileRulePayload
   | PediatricDrugPolicyRulePayload
   | PediatricFluidProfileRulePayload
+  | PediatricAgentProfileRulePayload
   | PediatricInfusionProfileRulePayload
   | AdultDoseProfileRulePayload
 export type PediatricClinicalRulePayload =
@@ -230,6 +252,7 @@ export type PediatricClinicalRulePayload =
   | PediatricDrugProfileRulePayload
   | PediatricDrugPolicyRulePayload
   | PediatricFluidProfileRulePayload
+  | PediatricAgentProfileRulePayload
   | PediatricInfusionProfileRulePayload
 export type ClinicalPresetStatus = "DRAFT" | "PUBLISHED" | "RETIRED"
 export type ClinicalRuleOrigin = "PLATFORM" | "INSTITUTION" | "USER" | "PRESET" | "INSTITUTION_OVERRIDE"

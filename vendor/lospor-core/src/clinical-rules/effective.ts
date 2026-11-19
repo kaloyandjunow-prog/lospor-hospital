@@ -18,6 +18,7 @@ import {
 } from "./internal"
 import {
   type PediatricDrugProfileRule,
+  type PediatricAgentProfileRule,
   type PediatricFluidProfileRule,
   type PediatricInfusionProfileRule,
 } from "./pediatric-profiles"
@@ -165,6 +166,7 @@ export type ClinicalRulesRuntimeBundle = {
   pediatricDrugProfiles?: PediatricDrugProfileRule[]
   pediatricInfusionProfiles?: PediatricInfusionProfileRule[]
   pediatricFluidProfiles?: PediatricFluidProfileRule[]
+  pediatricAgentProfiles?: PediatricAgentProfileRule[]
   adultDoseProfiles?: AdultDoseProfileRule[]
 }
 

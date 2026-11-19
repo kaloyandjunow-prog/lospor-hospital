@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "10.6.0",
+  "version": "10.7.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -21,6 +21,7 @@
     "./medications": "./src/medications.ts",
     "./labs": "./src/labs.ts",
     "./catalog": "./src/catalog/index.ts",
+    "./agent-entry": "./src/agent-entry.ts",
     "./option-library": "./src/option-library.ts",
     "./option-surface": "./src/option-surface.ts",
     "./option-aliases": "./src/option-aliases.ts",
@@ -160,7 +161,7 @@
     "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^10.15.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.2",
+    "typescript-eslint": "^8.73.0",
     "vitest": "^4.1.12"
   },
   "overrides": {

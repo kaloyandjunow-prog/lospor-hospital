@@ -1,4 +1,5 @@
 import {
+  AGENT_CATALOG,
   drugCatalogAtRelease120,
   fluidCatalogAtRelease120,
   infusionCatalogAtRelease120,
@@ -22,6 +23,7 @@ import {
   LOSPOR_ADULT_V2_RULESET_VERSION,
   LOSPOR_ADULT_V3_RULESET_VERSION,
   LOSPOR_ADULT_V4_RULESET_VERSION,
+  LOSPOR_ADULT_V5_RULESET_VERSION,
   type ClinicalRuleSeed,
   type PlatformClinicalDraft,
 } from "./types"
@@ -363,5 +365,28 @@ export function createLosporAdultV4Draft(): PlatformClinicalDraft {
     publishable: true,
     blockers: [],
     rules: adultProfileRules({}),
+  }
+}
+
+/**
+ * Adult v5 (10.7.0): v4, and each inhaled agent's range, step and quick
+ * buttons as a rule of its own (ADULT_AGENT_PROFILE). They were fixed
+ * application values, the same on web and phone through core, and now a
+ * change to them is a new ruleset like any other dose. The values are the ones
+ * in use: 0 to 8 % sevoflurane, 0 to 18 % desflurane, 0 to 5 % isoflurane, in
+ * steps of 0.1, each with its quick buttons. Every other rule is v4's.
+ *
+ * v4 is released and fingerprinted: nothing here reaches it.
+ */
+export function createLosporAdultV5Draft(): PlatformClinicalDraft {
+  const v4 = createLosporAdultV4Draft()
+  const agents = createLosporAdultRulePayloads({ drugs: [], infusions: [], fluids: [], agents: AGENT_CATALOG })
+    .map(payload => ({ payload, sourceRefs: [] as string[] }))
+  return {
+    ...v4,
+    id: "lospor-adults-v5",
+    description: `${v4.description} v5 adds the inhaled agents' range, step and quick buttons as rules.`,
+    version: LOSPOR_ADULT_V5_RULESET_VERSION,
+    rules: [...v4.rules, ...agents],
   }
 }

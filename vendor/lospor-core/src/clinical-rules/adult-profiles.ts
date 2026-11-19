@@ -1,4 +1,5 @@
 import {
+  type AgentCatalogEntry,
   DRUG_CATALOG,
   type DoseProfile,
   type DrugCatalogEntry,
@@ -30,7 +31,7 @@ function adultDosePayload(input: {
   itemKey: string
   label: string
   category?: string | null
-  profileKind: "bolus" | "infusion" | "fluid"
+  profileKind: "bolus" | "infusion" | "fluid" | "agent"
   profile: unknown
 }): AdultDoseProfileRulePayload {
   const parsed = parseDoseProfile(input.label, input.profileKind, input.profile)
@@ -56,6 +57,8 @@ export function createLosporAdultRulePayloads(catalogs: {
   drugs?: readonly DrugCatalogEntry[]
   infusions?: readonly InfusionCatalogEntry[]
   fluids?: readonly FluidCatalogEntry[]
+  /** Inhaled agents (baseline v5). Given only by a baseline that has them: v2 to v4 never pass it. */
+  agents?: readonly AgentCatalogEntry[]
 } = {}): ClinicalRulePayload[] {
   const drugs = (catalogs.drugs ?? DRUG_CATALOG).map(entry => adultDosePayload({
     kind: "ADULT_DRUG_PROFILE",
@@ -80,7 +83,14 @@ export function createLosporAdultRulePayloads(catalogs: {
     profileKind: "fluid",
     profile: entry.profile,
   }))
-  return [...drugs, ...infusions, ...fluids]
+  const agents = (catalogs.agents ?? []).map(entry => adultDosePayload({
+    kind: "ADULT_AGENT_PROFILE",
+    itemKey: entry.label,
+    label: entry.label,
+    profileKind: "agent",
+    profile: entry.profile,
+  }))
+  return [...drugs, ...infusions, ...fluids, ...agents]
 }
 
 export type AdultDoseProfileRule = {
@@ -108,6 +118,7 @@ export function adultDoseProfilesFromRules(
       payload.kind !== "ADULT_DRUG_PROFILE"
       && payload.kind !== "ADULT_INFUSION_PROFILE"
       && payload.kind !== "ADULT_FLUID_PROFILE"
+      && payload.kind !== "ADULT_AGENT_PROFILE"
     ) return []
     return [{
       ruleKey: rule.ruleKey,

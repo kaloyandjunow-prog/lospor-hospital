@@ -2,6 +2,7 @@ import {
   adultDoseProfilesFromRules,
   pediatricDoseProfilesFromRules,
   pediatricDrugProfilesFromRules,
+  pediatricAgentProfilesFromRules,
   pediatricFluidProfilesFromRules,
   pediatricInfusionProfilesFromRules,
   validateClinicalRulePayload,
@@ -107,6 +108,7 @@ function emptyBundle(mode: ClinicalRuleMode): ClinicalRulesRuntimeBundle {
     pediatricDrugProfiles: [],
     pediatricInfusionProfiles: [],
     pediatricFluidProfiles: [],
+    pediatricAgentProfiles: [],
     adultDoseProfiles: [],
   }
 }
@@ -165,6 +167,7 @@ export function evaluateClinicalBaseline(
   const pediatricDrugProfiles = pediatricDrugProfilesFromRules(parsedRules)
   const pediatricInfusionProfiles = pediatricInfusionProfilesFromRules(parsedRules)
   const pediatricFluidProfiles = pediatricFluidProfilesFromRules(parsedRules)
+  const pediatricAgentProfiles = pediatricAgentProfilesFromRules(parsedRules)
   const doseProfiles = pediatricDoseProfilesFromRules(parsedRules)
   const hasModeProfiles = expectedMode === "ADULT"
     ? adultDoseProfiles.length > 0
@@ -202,6 +205,7 @@ export function evaluateClinicalBaseline(
       pediatricDrugProfiles,
       pediatricInfusionProfiles,
       pediatricFluidProfiles,
+      pediatricAgentProfiles,
       adultDoseProfiles,
     },
     prospectiveGuidanceEnabled,

@@ -113,6 +113,34 @@ export function pediatricFluidProfilesFromRules(
   })
 }
 
+export type PediatricAgentProfileRule = PediatricFluidProfileRule
+
+/** The paediatric inhaled-agent rules (baseline v5): an agent's range, step and quick buttons. */
+export function pediatricAgentProfilesFromRules(
+  rules: readonly EffectiveClinicalRule[],
+): PediatricAgentProfileRule[] {
+  return rules.flatMap(rule => {
+    const payload = rule.payload
+    if (payload.kind !== "PEDIATRIC_AGENT_PROFILE") return []
+    return [{
+      ruleKey: rule.ruleKey,
+      ruleVersion: rule.ruleVersion,
+      itemKey: payload.itemKey,
+      labelEn: payload.labelEn,
+      labelBg: payload.labelBg ?? null,
+      category: payload.category ?? null,
+      minimumAgeDays: payload.minimumAgeDays,
+      maximumAgeDaysExclusive: payload.maximumAgeDaysExclusive,
+      profile: canonicalizeDoseProfile(payload.profile),
+      unit: payload.unit,
+      routeUnits: { ...payload.routeUnits },
+      sourceIds: effectiveRuleSourceIds(rule),
+      origin: rule.origin,
+      presetId: rule.presetId,
+    }]
+  })
+}
+
 export type PediatricInfusionProfileRule = {
   ruleKey: string
   ruleVersion: string
