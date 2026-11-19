@@ -31,6 +31,9 @@ Vendors Core, API, Web and PWA 10.7.0; Browser stays 0.11.2. The database has no
 
 ### Security
 
+- **Base images updated for findings with a fix:** the PWA's nginx 1.30.6 to 1.30.7 (three critical and three high nginx
+  findings, fixed in 1.30.7) and the Caddy build's Go toolchain 1.26.10 to 1.26.11 (a high finding in the Go standard
+  library, CVE-2026-97054). Both are pinned by digest as before.
 - The one accepted finding is carried over: go-jose/v3 in Caddy (CVE-2026-116587), accepted for 1.13.0 until
   2027-01-31, with the reasoning of 1.12.0 (no fix exists; the appliance runs no ACME server).
 
