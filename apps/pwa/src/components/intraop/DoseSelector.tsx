@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { View, Text, TextInput, TouchableOpacity } from "react-native"
+import { View, Text, TouchableOpacity } from "react-native"
 import {
   administrationRouteLabel,
   normalizeAdministrationRoute,
@@ -13,6 +13,7 @@ import {
   selectorPageCount,
 } from "@lospor/core/selector-pagination"
 import { VitalStepper } from "@/components/VitalStepper"
+import { FALLBACK_DOSE_CEILING, fallbackDoseStep } from "@/lib/fallback-dose-step"
 import { usePreferences } from "@/lib/preferences-context"
 import type { DrugFormulation } from "@/lib/intraop-log-event"
 import { FeedbackPressable } from "./FeedbackPressable"
@@ -47,6 +48,8 @@ export type DoseSelectorProps = {
   max: number
   manualMax?: number
   step?: number
+  /** Where the slider lands, when coarser than `step`. */
+  sliderStep?: number
   precision?: number
   valuePlaceholder?: string
   manualEntryOnly?: boolean
@@ -90,7 +93,7 @@ export function DoseSelector({
   color = "#8b5cf6", hint, extraHint,
   quickValues, quickValue,
   operationalVolumePresets,
-  value, onValueChange, min, max, manualMax, step = 1, precision: precisionProp, valuePlaceholder = "Value", manualEntryOnly = false,
+  value, onValueChange, min, max, manualMax, step = 1, sliderStep, precision: precisionProp, valuePlaceholder = "Value", manualEntryOnly = false,
   units, unit, onUnitChange, unitSuffix,
   routes, route, onRouteChange,
   concentrationOptions, concentrationLabel, customConcentrationContent, concentration, concentrationUnit, concentrationName, onConcentrationChange,
@@ -334,25 +337,25 @@ export function DoseSelector({
 
       <View style={{ marginBottom: 14 }}>
         {manualEntryOnly ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TextInput
-              testID="dose-manual-input"
-              value={value}
-              onChangeText={onValueChange}
-              keyboardType="decimal-pad"
-              placeholder={valuePlaceholder}
-              placeholderTextColor={shade("#475569")}
-              style={{ flex: 1, backgroundColor: shade("#111820"), color: shade("#e2e8f0"), borderRadius: 9,
-                borderWidth: 1, borderColor: shade("#334155"), paddingHorizontal: 12, paddingVertical: 11,
-                textAlign: "center", fontSize: 16, fontWeight: "700" }}
-            />
-            {unitSuffix ? <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700" }}>{unitSuffix}</Text> : null}
+          // No range to guide the dose (guidance off, a drug found only by search, rules not loaded):
+          // - / number / + with hold-to-repeat and the in-app keypad, no slider, never the OS keyboard.
+          <View testID="dose-fallback-stepper">
+          <VitalStepper
+            value={value ? num : undefined}
+            onChange={v => onValueChange(v != null ? String(v) : "")}
+            min={0}
+            max={Math.max(manualMax ?? max, max) > 0 ? Math.max(manualMax ?? max, max) : FALLBACK_DOSE_CEILING}
+            step={fallbackDoseStep(unitSuffix)}
+            precision={precision}
+            unit={unitSuffix} placeholder={valuePlaceholder}
+            hideTrack
+          />
           </View>
         ) : (
           <VitalStepper
             value={value ? num : undefined}
             onChange={v => onValueChange(v != null ? String(v) : "")}
-            min={min} max={max} manualMax={manualMax} step={step} precision={precision}
+            min={min} max={max} manualMax={manualMax} step={step} sliderStep={sliderStep} precision={precision}
             unit={unitSuffix} placeholder={valuePlaceholder}
           />
         )}

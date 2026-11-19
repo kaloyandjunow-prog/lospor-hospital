@@ -3,9 +3,11 @@ import { View, Text, Pressable, Modal, PanResponder, useWindowDimensions, type V
 import { createGestureHandle } from "@/lib/gesture-lock"
 import { HELD_CONTROL_STYLE } from "@/lib/gesture-style"
 import { hapticKey, hapticTick } from "@/lib/haptic"
+import { sliderLanding } from "@/lib/slider-step"
 import { usePreferences } from "@/lib/preferences-context"
 import { formatMessage } from "@/i18n/locale"
 import { colors, withAlpha } from "@/theme/colors"
+import { pressKeypadKey } from "@/lib/keypad-entry"
 import { HoldRepeatPressable } from "./HoldRepeatPressable"
 
 // Shared clinical vitals stepper — identical UX to the preop exam vitals
@@ -24,7 +26,7 @@ function formatClinicalValue(value: number | undefined, precision: number) {
   return precision > 0 ? value.toFixed(precision).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") : String(Math.round(value))
 }
 
-export function VitalStepper({ value, onChange, min, max, manualMax = max, step = 1, precision = 0, unit, placeholder = "-", disabled = false, snap, stepBy }: {
+export function VitalStepper({ value, onChange, min, max, manualMax = max, step = 1, sliderStep, precision = 0, unit, placeholder = "-", disabled = false, snap, stepBy, hideTrack = false }: {
   value?: number | null
   onChange: (value: number | null) => void
   min: number
@@ -32,6 +34,8 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   /** Slider/stepper ceiling stays at `max`; direct keypad entry may use a wider envelope. */
   manualMax?: number
   step?: number
+  /** Where the slider lands, when coarser than `step` (- and + and typing keep `step`). */
+  sliderStep?: number
   precision?: number
   unit?: string
   placeholder?: string
@@ -40,10 +44,14 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   snap?: (value: number) => number
   /** And where − / + move from a value. */
   stepBy?: (value: number, direction: 1 | -1) => number
+  /** No slider: a dose with no range to guide it keeps only - / number / + and the keypad. */
+  hideTrack?: boolean
 }) {
   const { t } = usePreferences()
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [keypadText, setKeypadText] = useState("")
+  // The numpad opens on the field's value; the first digit typed replaces it.
+  const keypadFreshRef = useRef(false)
   // A typed number outside the limits is brought to the nearest one, and says so.
   const [limitNotice, setLimitNotice] = useState<string | null>(null)
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
@@ -69,8 +77,9 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
 
   const setFromPageX = useCallback((pageX: number) => {
     const ratio = clampNumber((pageX - trackXRef.current) / Math.max(1, trackWidth), 0, 1)
-    commit(min + ratio * (max - min))
-  }, [commit, max, min, trackWidth])
+    const raw = min + ratio * (max - min)
+    commit(sliderLanding(raw, step, sliderStep))
+  }, [commit, max, min, trackWidth, sliderStep, step])
 
   const hold = useMemo(createGestureHandle, [])
   useEffect(() => hold.end, [hold])
@@ -90,6 +99,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   function openKeypad() {
     if (disabled) return
     setKeypadText(value != null ? formatClinicalValue(value, precision) : "")
+    keypadFreshRef.current = value != null
     fieldRef.current?.measureInWindow((x, y, width, height) => {
       setAnchor({ x, y, width, height })
       setKeypadOpen(true)
@@ -111,12 +121,11 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
 
   function pressKey(key: string) {
     hapticKey()
-    if (key === "clear") { setKeypadText(""); return }
-    if (key === "back") { setKeypadText((current) => current.slice(0, -1)); return }
-    setKeypadText((current) => {
-      if (key === "." && (precision === 0 || current.includes("."))) return current
-      return `${current}${key}`.replace(/^0+(?=\d)/, "")
-    })
+    const replace = keypadFreshRef.current
+    // Ended here, not inside the updater: two quick taps must not both replace.
+    // A point where there are no decimals changes nothing and keeps it ready.
+    if (!(key === "." && precision === 0)) keypadFreshRef.current = false
+    setKeypadText((current) => pressKeypadKey(current, key, { precision, replace }))
   }
 
   const ratio = value == null ? 0 : (clampNumber(value, min, max) - min) / (max - min)
@@ -167,7 +176,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
         </HoldRepeatPressable>
       </View>
 
-      <View
+      {hideTrack ? null : <View
         ref={(node) => {
           if (!node) return
           node.measureInWindow((x) => { trackXRef.current = x })
@@ -179,7 +188,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
       >
         <View style={{ height: 5, borderRadius: 999, backgroundColor: colors.borderStrong }} />
         <View style={{ position: "absolute", left: `${ratio * 100}%`, width: 10, height: 22, marginLeft: -5, borderRadius: 5, backgroundColor: colors.textSecondary }} />
-      </View>
+      </View>}
       {limitNotice ? <Text testID="stepper-limit-notice" accessibilityRole="alert" style={{ color: colors.warning, fontSize: 12, fontWeight: "700" }}>{limitNotice}</Text> : null}
 
       <Modal visible={keypadOpen && anchor != null} transparent animationType="fade" onRequestClose={closeKeypad}>

@@ -140,6 +140,42 @@ export function mergeChangelog(base, ours, theirs) {
 }
 
 /**
+ * scripts/component-size-budget.json: line budgets per file, a flat map. The
+ * appliance raises some budgets for its own overlays and upstream tightens
+ * others when it splits a file, so the two sides almost always change
+ * different keys that git sees as one hunk. Merged key by key: a key only one
+ * side changed takes that side; a key both changed differently takes the
+ * appliance value moved by upstream's change (an estimate: each side added or
+ * removed its own lines), and the size check then says what the file really is.
+ */
+export function mergeSizeBudget(base, ours, theirs) {
+  const parse = (name, text) => {
+    const value = JSON.parse(text)
+    if (!isObject(value) || Object.values(value).some(entry => typeof entry !== "number")) {
+      throw new RuleRefusal(`component-size-budget.json: ${name} is not a flat map of line counts`)
+    }
+    return value
+  }
+  const [b, o, t] = [parse("base", base), parse("ours", ours), parse("theirs", theirs)]
+  const merged = {}
+  const notes = []
+  const keys = [...new Set([...Object.keys(o), ...Object.keys(t), ...Object.keys(b)])]
+  for (const key of keys) {
+    const [bv, ov, tv] = [b[key], o[key], t[key]]
+    let value
+    if (tv === bv) value = ov
+    else if (ov === bv || ov === tv) { value = tv; notes.push(`component-size-budget.json: ${key}: upstream ${tv ?? "removal"} taken`) }
+    else if (bv !== undefined && ov !== undefined && tv !== undefined) {
+      value = ov + (tv - bv)
+      notes.push(`component-size-budget.json: ${key}: both sides changed (${ov} and ${tv}); estimated ${value}, the size check states the real count`)
+    } else throw new RuleRefusal(`component-size-budget.json: both sides added or removed ${key} differently`)
+    if (value !== undefined) merged[key] = value
+  }
+  return { text: `${JSON.stringify(merged, null, 2)}
+`, notes }
+}
+
+/**
  * Resolve one conflicted file of a vendored source, or return null for a human.
  * `followUp` names what must run after apply for the result to be true.
  */
@@ -152,6 +188,10 @@ export function resolveConflict(relativePath, { base, ours, theirs }) {
     if (relativePath === "app.json") {
       if (base === null || ours === null || theirs === null) return null
       return { ...mergeAppJson(base, ours, theirs), rule: "app-json" }
+    }
+    if (relativePath === "scripts/component-size-budget.json") {
+      if (base === null || ours === null || theirs === null) return null
+      return { ...mergeSizeBudget(base, ours, theirs), rule: "size-budget" }
     }
     if (relativePath === "CHANGELOG.md") {
       if (base === null || ours === null || theirs === null) return null

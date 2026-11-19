@@ -1,5 +1,33 @@
 # Changelog - LOSPOR Mobile
 
+## [10.7.0] - 2026-11-19
+
+Released with Core and API 10.7.0.
+
+### Added
+
+- **Inhaled agents: one entry for every case.** The agent sheet takes its range, step and quick buttons from the
+  active clinical rule (the catalogue answers where there is none), the same on the phone and the web:
+  sevoflurane 0-8, desflurane 0-18, isoflurane 0-5. Prefill 0, - and + and typing in 0.1, the slider in 0.5, quick
+  buttons in every mode, children included (the yellow "manual" note is gone).
+- **"Доза" on a running agent.** Opening the cell of a running agent offers the dose again ("Change %" in English),
+  so the concentration is changed without stopping the agent first. A repeated start is a new concentration.
+- **Quick buttons for fresh gas flow and FiO2** (0.5 / 1 / 2 / 4 / 6 L/min; 30 / 40 / 50 / 80 / 100 %), for an
+  adult with guidance on.
+- **A dose with no range gets - / number / +, not the keyboard.** Where guidance is off, a drug was found only by
+  search, the rules are not loaded or a premedication has no calculation, the dose keeps the stepper (hold to
+  repeat, the in-app keypad) without a slider. The step follows the unit: mg 1, mcg 10, mL 5, g 0.5.
+
+### Changed
+
+- **The in-app numpad replaces the shown value** with the first digit typed, in the vital steppers, the preop
+  numbers and the clinical number field.
+- **The slider lands on its own step** (0.5 for agents), while - and + and typing keep the finer step.
+
+### Fixed
+
+- Desflurane above 10 % can be stepped with - and + (the ceiling had stopped at 10).
+
 ## [10.6.0] - 2026-11-16
 
 Released with Core and API 10.6.0.

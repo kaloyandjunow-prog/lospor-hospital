@@ -12,12 +12,14 @@ import { patchWebClinicalPreferences, syncWebClinicalPreferences } from "@/lib/c
 import { useLocale, useTranslations } from "next-intl"
 import { createPortal } from "react-dom"
 import { Plus, ChevronDown, ChevronRight } from "lucide-react"
-import { useOptionLibrary } from "@/hooks/useOptionLibrary"
+import { useIntraopDoseOptions } from "@/components/intraop/use-intraop-dose-options"
 import { clinicalEventName, displayClinicalCode } from "@/lib/clinical-display"
 import { useIntraopDisplay } from "@/components/intraop/useIntraopDisplay"
 import { FluidConflictPopover } from "@/components/intraop/FluidConflictPopover"
 import { GasSettingsPopover } from "@/components/intraop/GasSettingsPopover"
 import { AgentPopover } from "@/components/intraop/AgentPopover"
+import { agentEntry } from "@lospor/core/agent-entry"
+import type { PediatricAgentProfileRule } from "@lospor/core/clinical-rules"
 import { EventPickerPopover } from "@/components/intraop/EventPickerPopover"
 import { DefibrillationDialog } from "./intraop/DefibrillationDialog"
 import { defibrillationDialogProps, moreComplicationCategories, quickComplicationOption } from "./intraop/event-picker-extras"
@@ -98,14 +100,9 @@ import { evaluateVitalInput } from "@/lib/intraop-vital-entry"
 import {
   groupClinicalEvents,
   optionStyleMap,
-  quickNumberMap,
 } from "@lospor/core/option-library"
 import {
-  applyAdultDoseProfilesToOptions,
-  applyPediatricDrugProfilesToOptions,
-  applyPediatricInfusionProfilesToOptions,
   isClinicalRuleHidden,
-  synthesizePediatricDrugOptions,
   visibleClinicalOptions,
   type AdultDoseProfileRule,
   type PediatricDrugProfileRule,
@@ -195,6 +192,7 @@ interface Props {
   patientSex?: string | null
   pediatricDrugProfiles?: readonly PediatricDrugProfileRule[]
   pediatricFluidProfiles?: readonly PediatricFluidProfileRule[]
+  pediatricAgentProfiles?: readonly PediatricAgentProfileRule[]
   pediatricInfusionProfiles?: readonly PediatricInfusionProfileRule[]
   adultDoseProfiles?: readonly AdultDoseProfileRule[]
   pediatricRulesSource?: "server" | "cache" | null
@@ -217,6 +215,7 @@ export function IntraopTimetable({
   patientSex = null,
   pediatricDrugProfiles = [],
   pediatricFluidProfiles = [],
+  pediatricAgentProfiles = [],
   pediatricInfusionProfiles = [],
   adultDoseProfiles = [],
   pediatricRulesSource = null,
@@ -293,48 +292,9 @@ export function IntraopTimetable({
   // Derived (not mutated) from the shared library — see the comment above
   // this component for why these are plain local consts instead of the
   // module-level mutated containers this used to be.
-  const { options: baseDrugLibOpts } = useOptionLibrary("INTRAOP_DRUG")
-  const { options: baseFluidLibOpts } = useOptionLibrary("INTRAOP_FLUID")
-  const { options: eventLibOpts } = useOptionLibrary("INTRAOP_EVENT")
-  const { options: baseInfusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
-  const { options: agentLibOpts } = useOptionLibrary("INHALATIONAL_AGENT")
-  const drugOptionsWithPediatricRules = useMemo(() =>
-    synthesizePediatricDrugOptions(baseDrugLibOpts, isPediatric ? pediatricDrugProfiles : []),
-  [baseDrugLibOpts, isPediatric, pediatricDrugProfiles])
-  const drugLibOpts = useMemo(
-    () => applyPediatricDrugProfilesToOptions(
-      applyAdultDoseProfilesToOptions(
-        drugOptionsWithPediatricRules,
-        adultDoseProfiles,
-        "ADULT_DRUG_PROFILE",
-      ),
-      isPediatric ? pediatricDrugProfiles : [],
-      isPediatric ? pediatricAge : null,
-      tbw,
-    ),
-    [adultDoseProfiles, drugOptionsWithPediatricRules, isPediatric, pediatricAge, pediatricDrugProfiles, tbw],
-  )
-  const infusionLibOpts = useMemo(
-    () => applyPediatricInfusionProfilesToOptions(
-      applyAdultDoseProfilesToOptions(
-        baseInfusionLibOpts,
-        adultDoseProfiles,
-        "ADULT_INFUSION_PROFILE",
-      ),
-      isPediatric ? pediatricInfusionProfiles : [],
-      isPediatric ? pediatricAge : null,
-      tbw,
-    ),
-    [adultDoseProfiles, baseInfusionLibOpts, isPediatric, pediatricAge, pediatricInfusionProfiles, tbw],
-  )
-  const fluidLibOpts = useMemo(
-    () => applyAdultDoseProfilesToOptions(
-      baseFluidLibOpts,
-      adultDoseProfiles,
-      "ADULT_FLUID_PROFILE",
-    ),
-    [adultDoseProfiles, baseFluidLibOpts],
-  )
+  const { eventLibOpts, agentLibOpts, drugLibOpts, infusionLibOpts, fluidLibOpts, agentRuleOf } = useIntraopDoseOptions({
+    isPediatric, adultDoseProfiles, pediatricDrugProfiles, pediatricInfusionProfiles, pediatricAgentProfiles, pediatricAge, tbw,
+  })
 
   // Naming lives in useIntraopDisplay so anything split out of this component
   // can be handed the same words rather than rebuilding them.
@@ -389,13 +349,13 @@ export function IntraopTimetable({
   }, [eventLibOpts])
 
 
-  const { INH_AGENTS, AGENT_STYLE, AGENT_QUICK_PERCENTS } = useMemo(() => {
+  const { INH_AGENTS, AGENT_STYLE } = useMemo(() => {
     return {
       INH_AGENTS: agentLibOpts.map(option => option.label),
       AGENT_STYLE: optionStyleMap(agentLibOpts),
-      AGENT_QUICK_PERCENTS: prospectiveGuidanceEnabled ? quickNumberMap(agentLibOpts) : {},
+
     }
-  }, [agentLibOpts, prospectiveGuidanceEnabled])
+  }, [agentLibOpts])
 
   // Every dose the chart suggests is resolved here — paediatric profile, then
   // adult profile, then the option library, then nothing. See dose-surfaces.
@@ -1852,7 +1812,8 @@ export function IntraopTimetable({
           nitrousPercent={pickerN2o}
           prospectiveGuidanceEnabled={prospectiveGuidanceEnabled}
           agentNames={INH_AGENTS}
-          quickPercentsFor={agent => AGENT_QUICK_PERCENTS[agent] ?? []}
+          agentRule={agentRuleOf}
+
           textClassFor={agent => AGENT_STYLE[agent]?.text ?? ""}
           displayAgentName={displayAgentName}
           labels={{
@@ -1862,7 +1823,7 @@ export function IntraopTimetable({
           }}
           onSelectAgent={agent => {
             setPendingAgentName(agent)
-            setPickerPercent(AGENT_QUICK_PERCENTS[agent]?.[0] ?? null)
+            setPickerPercent(agentEntry(agent, agentRuleOf(agent)).prefill)
           }}
           onPercentChange={setPickerPercent}
           onNitrousChange={setPickerN2o}
@@ -1886,6 +1847,8 @@ export function IntraopTimetable({
           onFgfChange={setPickerFgf}
           onCarrierGasChange={setPickerCarrierGas}
           onFio2Change={setPickerFio2}
+          prospectiveGuidanceEnabled={prospectiveGuidanceEnabled}
+          paediatric={isPediatric}
           onDismiss={closeGasPicker}
           onApply={() => editing ? applyGasChange(editing.id) : startGas(gasPicker)}
         />

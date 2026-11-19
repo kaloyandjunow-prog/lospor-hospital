@@ -71,3 +71,24 @@ export function parseJetRate(value: string | number): number | null {
   if (!Number.isInteger(parsed) || parsed < JET_VENTILATION.rate.min || parsed > JET_VENTILATION.rate.typedMax) return null
   return parsed
 }
+
+/** Inspired oxygen: 21 to 100 %, in whole percents. Oxygen alone is 100 by definition. */
+export const FIO2 = Object.freeze({ min: 21, max: 100, step: 1, unit: "%" })
+
+/**
+ * The quick values of the gas controls (10.7.0), the same on web and phone.
+ * Fresh gas flow in low-flow steps; inspired oxygen from near room air to pure
+ * oxygen. Suggestions, so they are offered only to an adult with the hospital's
+ * guidance on: for a child, or with guidance off, the slider, - and + and typing
+ * stay and nothing is suggested.
+ */
+export const GAS_QUICK_VALUES = Object.freeze({
+  freshGasFlow: Object.freeze([0.5, 1, 2, 4, 6]),
+  fio2: Object.freeze([30, 40, 50, 80, 100]),
+})
+
+export function gasQuickValues(options: { guidance: boolean; paediatric: boolean }) {
+  return options.guidance && !options.paediatric
+    ? GAS_QUICK_VALUES
+    : Object.freeze({ freshGasFlow: Object.freeze([] as number[]), fio2: Object.freeze([] as number[]) })
+}

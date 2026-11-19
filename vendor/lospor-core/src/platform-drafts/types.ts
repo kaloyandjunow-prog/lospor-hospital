@@ -21,6 +21,8 @@ export const LOSPOR_PEDIATRIC_V3_RULESET_VERSION = 3 as const
 export const LOSPOR_ADULT_V3_RULESET_VERSION = 3 as const
 export const LOSPOR_PEDIATRIC_V4_RULESET_VERSION = 4 as const
 export const LOSPOR_ADULT_V4_RULESET_VERSION = 4 as const
+export const LOSPOR_PEDIATRIC_V5_RULESET_VERSION = 5 as const
+export const LOSPOR_ADULT_V5_RULESET_VERSION = 5 as const
 
 export const PEDIATRIC_MAX_AGE_DAYS_EXCLUSIVE = 18 * 365.2425
 

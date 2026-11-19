@@ -35,6 +35,7 @@ import {
   type PediatricDrugPolicyReviewStatus,
   type PediatricDrugPolicyRulePayload,
   type PediatricDrugProfileRulePayload,
+  type PediatricAgentProfileRulePayload,
   type PediatricFluidProfileRulePayload,
   type PediatricInfusionDisposition,
   type PediatricInfusionProfileRulePayload,
@@ -207,6 +208,7 @@ export function validateClinicalRulePayload(input: unknown): ClinicalRuleValidat
     kind === "ADULT_DRUG_PROFILE"
     || kind === "ADULT_INFUSION_PROFILE"
     || kind === "ADULT_FLUID_PROFILE"
+    || kind === "ADULT_AGENT_PROFILE"
   ) {
     const itemKey = text(input, "itemKey", issues) ?? ""
     const labelEn = text(input, "labelEn", issues) ?? ""
@@ -216,9 +218,12 @@ export function validateClinicalRulePayload(input: unknown): ClinicalRuleValidat
         ? "bolus"
         : kind === "ADULT_INFUSION_PROFILE"
           ? "infusion"
-          : "fluid"
+          : kind === "ADULT_AGENT_PROFILE"
+            ? "agent"
+            : "fluid"
       const parsed = parseDoseProfile(labelEn || itemKey || "Clinical rule", doseKind, input.profile)
-      if (!parsed.routes.some(route => normalizeAdministrationRoute(route))) {
+      // An inhaled agent has no route: it is a concentration in %.
+      if (kind !== "ADULT_AGENT_PROFILE" && !parsed.routes.some(route => normalizeAdministrationRoute(route))) {
         issues.push({ field: "profile.routes", message: "At least one supported route is required" })
       } else {
         profile = canonicalizeDoseProfile(parsed)
@@ -441,6 +446,36 @@ export function validateClinicalRulePayload(input: unknown): ClinicalRuleValidat
       labelEn,
       labelBg: text(input, "labelBg", issues, { optional: true }),
       category,
+      profile: metadata.profile,
+      unit: metadata.unit,
+      routeUnits: metadata.routeUnits,
+      ...ageBand,
+    }
+    return issues.length ? { valid: false, issues } : { valid: true, value }
+  }
+
+  if (kind === "PEDIATRIC_AGENT_PROFILE") {
+    const itemKey = text(input, "itemKey", issues) ?? ""
+    const labelEn = text(input, "labelEn", issues) ?? ""
+    let profile: DoseProfile | null = null
+    try {
+      profile = canonicalizeDoseProfile(
+        parseDoseProfile(labelEn || itemKey || "Pediatric agent", "agent", input.profile),
+      )
+    } catch (error) {
+      issues.push({
+        field: "profile",
+        message: error instanceof Error ? error.message : "Invalid pediatric agent profile",
+      })
+    }
+    if (!profile) return { valid: false, issues }
+    const metadata = canonicalDoseProfileMetadata(profile)
+    const value: PediatricAgentProfileRulePayload = {
+      kind,
+      itemKey,
+      labelEn,
+      labelBg: text(input, "labelBg", issues, { optional: true }),
+      category: text(input, "category", issues, { optional: true }),
       profile: metadata.profile,
       unit: metadata.unit,
       routeUnits: metadata.routeUnits,
@@ -796,6 +831,7 @@ export function clinicalRuleKey(payload: ClinicalRulePayload): string {
     payload.kind === "ADULT_DRUG_PROFILE"
     || payload.kind === "ADULT_INFUSION_PROFILE"
     || payload.kind === "ADULT_FLUID_PROFILE"
+    || payload.kind === "ADULT_AGENT_PROFILE"
   ) {
     return `${payload.kind}:${keySegment(payload.itemKey)}`
   }
@@ -813,7 +849,7 @@ export function clinicalRuleKey(payload: ClinicalRulePayload): string {
     }
     return base.join(":")
   }
-  if (payload.kind === "PEDIATRIC_FLUID_PROFILE") {
+  if (payload.kind === "PEDIATRIC_FLUID_PROFILE" || payload.kind === "PEDIATRIC_AGENT_PROFILE") {
     return [
       payload.kind,
       keySegment(payload.itemKey),

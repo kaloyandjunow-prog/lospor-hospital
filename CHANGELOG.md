@@ -1,5 +1,39 @@
 # Changelog - LOSPOR Hospital
 
+## [1.13.0] - 2026-11-19
+
+Vendors Core, API, Web and PWA 10.7.0; Browser stays 0.11.2. The database has no new migration.
+
+### Added
+
+- **Inhaled agents are clinical rules, and entered the same way everywhere.** Sevoflurane, desflurane and
+  isoflurane now have a range (0-8, 0-18, 0-5 %), a step (0.1) and quick buttons that come from the clinical rules,
+  for adults and for children, on the web and in the phone app alike. The concentration starts at 0 and a quick
+  button or - and + sets it; the slider is there for children too, and the yellow "manual" note is gone. The values
+  are the ones in use before, so nothing changes for a clinician until a rule is edited on the Clinical rules page,
+  where each agent has a small editor of its own.
+- **The update selects the new baseline by itself.** The update installs clinical baseline v5 (v4 plus the three
+  agent rules for each population) beside v2 to v4 and makes it the platform's rules where the 10.2.0 baseline (v4)
+  was the selection; a baseline chosen by a person is never replaced. The readiness check accepts v5 and still
+  accepts v4, v3 and v2.
+- **Re-dose a running agent from its cell** ("Доза" in the phone app): the cell of a running agent offers the dose
+  again, so the concentration is changed without stopping it first.
+- **Quick buttons for fresh gas flow and FiO2** in the gas settings, for an adult with guidance on.
+- **A dose with no range gets - / number / + and the in-app keypad**, not the keyboard: where guidance is off, a drug
+  was found only by search, the rules are not loaded, or a premedication has no calculation.
+
+### Changed
+
+- The in-app numpad replaces the shown value with the first digit typed. The slider lands on its own step (0.5 for
+  agents), while - and + and typing keep the finer one.
+- Vendoring merges the component size budgets key by key, where the appliance and upstream changed different files
+  (a key both changed is estimated, and the size check states the real count).
+
+### Security
+
+- The one accepted finding is carried over: go-jose/v3 in Caddy (CVE-2026-116587), accepted for 1.13.0 until
+  2027-01-31, with the reasoning of 1.12.0 (no fix exists; the appliance runs no ACME server).
+
 ## [1.12.0] - 2026-11-17
 
 The appliance can be reached by a fixed IP address instead of DNS names, for a network segment where the hospital

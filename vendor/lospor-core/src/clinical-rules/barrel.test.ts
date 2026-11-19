@@ -46,6 +46,7 @@ const PUBLIC_VALUE_EXPORTS = [
   "isRetiredAuthoringRuleKind",
   "pediatricDoseProfilesFromRules",
   "pediatricDrugProfilesFromRules",
+  "pediatricAgentProfilesFromRules",
   "pediatricFluidProfilesFromRules",
   "pediatricInfusionProfilesFromRules",
   "resolveEffectiveClinicalRules",

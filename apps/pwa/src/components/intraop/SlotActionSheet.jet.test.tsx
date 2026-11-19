@@ -23,6 +23,31 @@ const hasJet = (tree: ReturnType<typeof render>) => tree.root.findAll(node => no
 
 afterEach(() => { act(() => jetSheet.setEnabled(false)) })
 
+describe("changing the concentration of a running agent", () => {
+  const running = [{ name: "Sevoflurane", color: "#a855f7", percent: 1.5 }]
+  function withAgent(onChangeAgent?: (name: string) => void, onStopAgent: (name: string) => void = () => {}) {
+    return render(
+      <SlotActionSheet visible title="12:45" eventSearch="" complicationExpanded={false} eventCategories={[]} isGACase
+        activeAgents={running} activeGas={null as never} likelyEvents={[]} onDismissLikely={() => {}} onClose={() => {}}
+        onEventSearchChange={() => {}} onToggleComplications={() => {}} onSelectEvent={() => {}} onBrowseDrugs={() => {}}
+        onStopAgent={onStopAgent} onChangeAgent={onChangeAgent} onOpenAgent={() => {}} onStopGas={() => {}} onOpenGas={() => {}} />,
+    )
+  }
+  it("offers Change % beside Stop for each running agent, and names the agent when pressed", () => {
+    const onChange = vi.fn()
+    const onStop = vi.fn()
+    const tree = withAgent(onChange, onStop)
+    const button = tree.root.findByProps({ testID: "slot-change-agent-Sevoflurane" })
+    act(() => button.props.onPress())
+    expect(onChange).toHaveBeenCalledWith("Sevoflurane")
+    expect(onStop).not.toHaveBeenCalled()
+  })
+  it("shows no Change % where nothing handles it", () => {
+    const tree = withAgent(undefined)
+    expect(tree.root.findAll(node => node.props?.testID === "slot-change-agent-Sevoflurane").length).toBe(0)
+  })
+})
+
 describe("the Jet button in the column sheet", () => {
   it("is absent until Jet is ticked among the ventilation modes, then appears while the sheet is open", () => {
     const tree = sheet(() => {})

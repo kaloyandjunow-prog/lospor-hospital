@@ -63,7 +63,6 @@ describe("medication controls and explicit guidance policy", () => {
         setAgPick={() => {}}
         activeAgent={null}
         onConfirm={() => {}}
-        quickPercents={{ Sevoflurane: [0.5, 1, 1.5, 2] }}
         agPercent={1}
         setAgPercent={() => {}}
       />,
@@ -73,7 +72,7 @@ describe("medication controls and explicit guidance policy", () => {
     expect(rendered).toContain("FiSevoflurane")
     const selector = tree.root.findByType(DoseSelector)
     expect(selector.props.value).toBe("1")
-    expect(selector.props.quickValues).toEqual([0.5, 1, 1.5, 2])
+    expect(selector.props.quickValues).toEqual([1, 2, 2.5, 3, 8])
     expect(tree.root.findAllByProps({ testID: "dose-selector-dose-pills" }).length).toBeGreaterThan(0)
   })
 

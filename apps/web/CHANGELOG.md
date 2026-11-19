@@ -1,5 +1,20 @@
 # Changelog - LOSPOR Web App
 
+## [10.7.0] - 2026-11-19
+
+Released with Core and API 10.7.0.
+
+### Added
+
+- **Inhaled agents are rules, entered the same way as on the phone.** The agent popover takes its range, step and
+  quick buttons from the active clinical rule (the catalogue answers where there is none): sevoflurane 0-8,
+  desflurane 0-18, isoflurane 0-5, step 0.1 for - and + and typing, 0.5 on the slider, prefill 0, in every mode
+  including children, where the yellow "manual" note is gone. A running agent can be re-dosed from its cell.
+- **Quick buttons for fresh gas flow and FiO2** in the gas settings (0.5 / 1 / 2 / 4 / 6 L/min; 30 / 40 / 50 / 80 / 100 %),
+  for an adult with guidance on.
+- **Clinical rules page:** the agent rules are listed with their range, step and quick buttons, and have a small
+  editor for those four numbers.
+
 ## [10.6.0] - 2026-11-16
 
 Released with Core and API 10.6.0.

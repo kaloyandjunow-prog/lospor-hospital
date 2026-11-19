@@ -263,10 +263,7 @@ export function useIntraopOptions(
   )
   const DRUG_CODES = useMemo(() => codesMap(drugLibOpts), [drugLibOpts])
   const INFUSION_CODES = useMemo(() => codesMap(infusionLibOpts), [infusionLibOpts])
-  const AGENT_QUICK_PERCENTS = useMemo(
-    () => prospectiveGuidanceEnabled ? quickNumberMap(agentLibOpts) : {},
-    [agentLibOpts, prospectiveGuidanceEnabled],
-  )
+
 
   const CLINICAL_EVENT_CATS = useMemo(() => groupClinicalEvents(eventLibOpts), [eventLibOpts])
   function clinicalEventColor(label: string): string {
@@ -286,7 +283,7 @@ export function useIntraopOptions(
     DRUG_DOSE_CALCS, drugRange, INFUSION_QUICK_RATES, INFUSION_SUGGESTED_RATES,
     INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES, infusionRange,
     INFUSION_ROUTE_PROFILES, INFUSION_BASE_PROFILES, DRUG_CODES, INFUSION_CODES,
-    AGENT_QUICK_PERCENTS, CLINICAL_EVENT_CATS, clinicalEventColor,
+    CLINICAL_EVENT_CATS, clinicalEventColor,
     PEDIATRIC_DRUG_PROFILES: pediatricDrugProfiles,
     PEDIATRIC_FLUID_PROFILES: pediatricFluidProfiles,
     PEDIATRIC_INFUSION_PROFILES: pediatricInfusionProfiles,

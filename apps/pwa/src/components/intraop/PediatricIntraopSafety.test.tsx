@@ -213,7 +213,7 @@ describe("pediatric intraoperative safety", () => {
     expect(setFlConcentration).toHaveBeenLastCalledWith("Standard")
   })
 
-  it("does not prefill an inhaled-agent concentration in pediatric mode", () => {
+  it("starts an inhaled-agent concentration at 0 in pediatric mode, never at a suggested value", () => {
     const agent = { name: "Sevoflurane", color: "#a855f7" }
     const setAgPercent = vi.fn()
     const tree = renderWithPreferences(
@@ -225,14 +225,12 @@ describe("pediatric intraoperative safety", () => {
         setAgPick={() => {}}
         activeAgent={null}
         onConfirm={() => {}}
-        quickPercents={{ Sevoflurane: [1, 2, 3] }}
         agPercent={null}
         setAgPercent={setAgPercent}
-        pediatricMode
       />,
     )
 
     pressByText(tree, "Sevoflurane")
-    expect(setAgPercent).toHaveBeenLastCalledWith(null)
+    expect(setAgPercent).toHaveBeenLastCalledWith(0)
   })
 })

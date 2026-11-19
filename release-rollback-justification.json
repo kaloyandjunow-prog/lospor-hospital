@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "_comment": "Why this release declares the rollback policy it does. Required when the policy is backup-required, because that declaration costs a site an emergency database restore to recover from any failed activation, and nothing else makes anyone justify it: verify-rollback-compatibility.sh short-circuits on backup-required and asks for no evidence, while service-compatible must ship a digest-matched proof. The heavier claim was the cheaper one to make, so it was inherited by copying the row forward.",
-  "release": "1.12.0",
+  "release": "1.13.0",
   "policy": "backup-required",
-  "justification": "The Caddy configuration and the published ports change (a Research port for IP mode, default_sni); the database and the services' data are those of 1.11.2, so the previous release can be restored from the backup the update takes.",
+  "justification": "The database schema is unchanged (no migration; the new clinical baseline v5 is installed as data by the update step and the previous baselines stay as installed), and the services' data are those of 1.12.0, so the previous release can be restored from the backup the update takes.",
   "assessedBy": "maintainer",
-  "assessedAt": "2026-11-17"
+  "assessedAt": "2026-11-19"
 }

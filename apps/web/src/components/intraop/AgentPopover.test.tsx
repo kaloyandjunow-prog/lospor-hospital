@@ -22,7 +22,6 @@ function renderPopover(extra: Partial<Parameters<typeof AgentPopover>[0]> = {}) 
       nitrousPercent={null}
       prospectiveGuidanceEnabled={false}
       agentNames={["Sevoflurane"]}
-      quickPercentsFor={() => [0.5, 1, 2]}
       textClassFor={() => ""}
       displayAgentName={name => name}
       labels={{ startAgentHere: "Start agent here", optional: "Optional", editLogged: "Edits are logged." }}
@@ -38,13 +37,44 @@ function renderPopover(extra: Partial<Parameters<typeof AgentPopover>[0]> = {}) 
   return { onNitrousChange }
 }
 
+describe("AgentPopover entry (shared with the phone through core)", () => {
+  it("gives each agent its own range: desflurane to 18 %, isoflurane to 5 %", () => {
+    renderPopover({ pendingName: "Desflurane", prospectiveGuidanceEnabled: true })
+    expect(screen.getByRole("slider").getAttribute("max")).toBe("18")
+  })
+
+  it("starts at 0 for an adult too, with the quick values offered and Start locked until a value is set", () => {
+    renderPopover({ prospectiveGuidanceEnabled: true })
+    expect(screen.getAllByRole("spinbutton")[0]).toHaveProperty("value", "0")
+    expect(screen.getByRole("button", { name: "2.5" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Start Sevoflurane" })).toHaveProperty("disabled", true)
+  })
+
+  it("is the same in the paediatric case, whose quick buttons come from the same entry", () => {
+    renderPopover({ prospectiveGuidanceEnabled: true })
+    expect(screen.getAllByRole("spinbutton")[0]).toHaveProperty("value", "0")
+    expect(screen.getByRole("button", { name: "2.5" })).toBeTruthy()
+    expect(screen.getByRole("slider")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Start Sevoflurane" })).toHaveProperty("disabled", true)
+  })
+})
+
 describe("AgentPopover baseline boundary", () => {
   it("does not rebuild agent or N2O percentage defaults when guidance is unavailable", () => {
     const { onNitrousChange } = renderPopover()
 
     const agentInput = screen.getByRole("spinbutton")
-    expect(agentInput).toHaveProperty("value", "")
-    expect(screen.queryByRole("slider")).toBeNull()
+    expect(agentInput).toHaveProperty("value", "0")
+    // The slider stays (nothing is filled in for the clinician); only the
+    // suggestions go. Its range is the agent's own, from core.
+    const slider = screen.getByRole("slider")
+    expect(slider).toHaveProperty("value", "0")
+    expect(screen.getAllByRole("spinbutton")[0]).toHaveProperty("value", "0")
+    expect(slider.getAttribute("max")).toBe("8")
+    // The slider lands on halves; - and + and typing keep tenths.
+    expect(slider.getAttribute("step")).toBe("0.5")
+    // The quick buttons stay too: the same entry in every mode.
+    expect(screen.getByRole("button", { name: "2.5" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Start Sevoflurane" })).toHaveProperty("disabled", true)
 
     fireEvent.click(screen.getByRole("button", { name: "+ N2O" }))
