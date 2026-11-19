@@ -144,8 +144,9 @@ export function mergeChangelog(base, ours, theirs) {
  * appliance raises some budgets for its own overlays and upstream tightens
  * others when it splits a file, so the two sides almost always change
  * different keys that git sees as one hunk. Merged key by key: a key only one
- * side changed takes that side; a key both changed differently is a human
- * decision (the budget check then says what the files really are).
+ * side changed takes that side; a key both changed differently takes the
+ * appliance value moved by upstream's change (an estimate: each side added or
+ * removed its own lines), and the size check then says what the file really is.
  */
 export function mergeSizeBudget(base, ours, theirs) {
   const parse = (name, text) => {
@@ -164,7 +165,10 @@ export function mergeSizeBudget(base, ours, theirs) {
     let value
     if (tv === bv) value = ov
     else if (ov === bv || ov === tv) { value = tv; notes.push(`component-size-budget.json: ${key}: upstream ${tv ?? "removal"} taken`) }
-    else throw new RuleRefusal(`component-size-budget.json: both sides changed ${key} (${ov} and ${tv})`)
+    else if (bv !== undefined && ov !== undefined && tv !== undefined) {
+      value = ov + (tv - bv)
+      notes.push(`component-size-budget.json: ${key}: both sides changed (${ov} and ${tv}); estimated ${value}, the size check states the real count`)
+    } else throw new RuleRefusal(`component-size-budget.json: both sides added or removed ${key} differently`)
     if (value !== undefined) merged[key] = value
   }
   return { text: `${JSON.stringify(merged, null, 2)}

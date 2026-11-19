@@ -90,14 +90,16 @@ test("app.json leaves a field the appliance changed alone, and refuses when both
   assert.equal(resolveConflict("app.json", { base: null, ours: "{}", theirs: "{}" }), null)
 })
 
-test("size budgets merge key by key: a key one side changed takes that side, a key both changed stops", () => {
+test("size budgets merge key by key: a key one side changed takes that side, a key both changed is estimated", () => {
   const b = json({ "a.tsx": 100, "b.tsx": 200, "c.tsx": 300 })
   const o = json({ "a.tsx": 150, "b.tsx": 200, "c.tsx": 300, "own.tsx": 40 })
   const t = json({ "a.tsx": 100, "b.tsx": 180, "c.tsx": 300 })
   const { text } = mergeSizeBudget(b, o, t)
   assert.deepEqual(JSON.parse(text), { "a.tsx": 150, "b.tsx": 180, "c.tsx": 300, "own.tsx": 40 })
   assert.ok(text.endsWith("}\n"))
-  assert.throws(() => mergeSizeBudget(b, json({ "a.tsx": 120, "b.tsx": 200, "c.tsx": 300 }), json({ "a.tsx": 110, "b.tsx": 200, "c.tsx": 300 })))
-  assert.equal(resolveConflict("scripts/component-size-budget.json", { base: b, ours: json({ "a.tsx": 120 }), theirs: json({ "a.tsx": 110 }) }), null)
+  const both = mergeSizeBudget(b, json({ "a.tsx": 120, "b.tsx": 200, "c.tsx": 300 }), json({ "a.tsx": 110, "b.tsx": 200, "c.tsx": 300 }))
+  assert.equal(JSON.parse(both.text)["a.tsx"], 130)
+  assert.ok(both.notes.some(note => note.includes("estimated 130")))
+  assert.equal(resolveConflict("scripts/component-size-budget.json", { base: b, ours: json({ "a.tsx": 120 }), theirs: json({ "b.tsx": 110 }) }), null)
   assert.equal(resolveConflict("scripts/component-size-budget.json", { base: b, ours: o, theirs: t }).rule, "size-budget")
 })
