@@ -135,7 +135,14 @@ function profileCounts(payloads: readonly ClinicalRulePayload[]): ClinicalBaseli
   let infusion = 0
   let fluid = 0
   for (const payload of payloads) {
-    if (payload.kind === "ADULT_DRUG_PROFILE" || payload.kind === "PEDIATRIC_DRUG_PROFILE") {
+    // An inhaled agent's range and quick buttons (v5) is a dose profile of a drug, counted with
+    // the drugs so the Status contract (drug, infusion, fluid, total) keeps its shape.
+    if (
+      payload.kind === "ADULT_DRUG_PROFILE"
+      || payload.kind === "PEDIATRIC_DRUG_PROFILE"
+      || payload.kind === "ADULT_AGENT_PROFILE"
+      || payload.kind === "PEDIATRIC_AGENT_PROFILE"
+    ) {
       drug += 1
     } else if (
       payload.kind === "ADULT_INFUSION_PROFILE"
