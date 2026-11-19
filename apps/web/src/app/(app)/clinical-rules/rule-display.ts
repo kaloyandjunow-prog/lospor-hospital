@@ -85,6 +85,13 @@ export function ruleLabel(payload: ClinicalRulePayload, bg: boolean) {
       detail: `${word("INFUSION")} · ${ruleCodeLabel("availability", payload.disposition, locale)} · ${surface}`,
     }
   }
+  if (payload.kind === "ADULT_AGENT_PROFILE" || payload.kind === "PEDIATRIC_AGENT_PROFILE") {
+    const { min, max, step, quickValues } = payload.profile
+    return {
+      label,
+      detail: `${locale === "bg" ? "Анестетик" : "Agent"} · ${min}–${max} % · ${locale === "bg" ? "стъпка" : "step"} ${step} · ${(quickValues ?? []).join(" / ")}`,
+    }
+  }
   if (payload.kind === "PEDIATRIC_DRUG_POLICY") {
     return {
       label,

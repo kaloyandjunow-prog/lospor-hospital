@@ -56,6 +56,8 @@ async function events(page: Page, id: string, prefix: string) {
 async function startSevo(page: Page, id: string, chart: Locator) {
   await chart.locator("[data-agent-cell]").nth(0).click()
   await page.getByRole("button", { name: "Sevoflurane", exact: true }).click()
+  // An agent starts at 0 and Start needs a concentration: pick the 2.5 quick button.
+  await page.getByRole("button", { name: "2.5", exact: true }).click()
   await page.getByRole("button", { name: /^Start Sevoflurane/ }).click()
   await expect.poll(async () => (await events(page, id, "agent")).length, { timeout: 15_000 }).toBe(1)
 }

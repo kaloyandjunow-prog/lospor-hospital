@@ -618,7 +618,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           patientHeightCm={preop?.heightCm ?? null}
           patientSex={preop?.sex ?? null}
           pediatricDrugProfiles={clinicalRulesSnapshot?.pediatricDrugProfiles ?? []}
-          pediatricFluidProfiles={clinicalRulesSnapshot?.pediatricFluidProfiles ?? []}
+          pediatricFluidProfiles={clinicalRulesSnapshot?.pediatricFluidProfiles ?? []} pediatricAgentProfiles={clinicalRulesSnapshot?.pediatricAgentProfiles ?? []}
           pediatricInfusionProfiles={clinicalRulesSnapshot?.pediatricInfusionProfiles ?? []}
           adultDoseProfiles={clinicalRulesSnapshot?.adultDoseProfiles ?? []}
           pediatricRulesSource={clinicalRulesSnapshot?.source ?? null}

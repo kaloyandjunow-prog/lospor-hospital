@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { createPortal } from "react-dom"
+import { agentEntry, type AgentRuleProfile } from "@lospor/core/agent-entry"
 import { DoseSelector } from "./DoseSelector"
 import { useIntraopUiCopy } from "./ui-copy"
 
@@ -27,8 +28,11 @@ export type AgentPopoverProps = {
   percent: number | null
   nitrousPercent: number | null
   prospectiveGuidanceEnabled: boolean
+
   agentNames: readonly string[]
-  quickPercentsFor: (agent: string) => number[]
+  /** The active clinical rule for an agent (range, step, quick buttons); the catalogue answers when none. */
+  agentRule?: (agent: string) => AgentRuleProfile | null
+
   textClassFor: (agent: string) => string
   displayAgentName: (name: string) => string
   labels: { startAgentHere: string; optional: string; editLogged: string }
@@ -46,7 +50,7 @@ export type AgentPopoverProps = {
 }
 
 const POPOVER_WIDTH = 190
-const DEFAULT_QUICK_PERCENTS = [0.5, 1, 1.5, 2, 3]
+
 const DEFAULT_NITROUS_PERCENT = 40
 const captionClass = "text-[9px] text-slate-400 font-semibold uppercase tracking-wide"
 
@@ -57,8 +61,10 @@ export function AgentPopover({
   percent,
   nitrousPercent,
   prospectiveGuidanceEnabled,
+
   agentNames,
-  quickPercentsFor,
+  agentRule,
+
   textClassFor,
   displayAgentName,
   labels,
@@ -81,9 +87,11 @@ export function AgentPopover({
   const top = showAbove ? anchor.top - 4 : anchor.bottom + 4
 
   const activeAgent = editingName ?? pendingName
-  const quick = prospectiveGuidanceEnabled && activeAgent
-    ? (quickPercentsFor(activeAgent).length ? quickPercentsFor(activeAgent) : DEFAULT_QUICK_PERCENTS)
-    : []
+  // One entry for web and phone (core): the agent's own range and step, and
+  // quick values only where something is suggested.
+  const entry = activeAgent
+    ? agentEntry(activeAgent, agentRule?.(activeAgent))
+    : null
 
   return createPortal(
     <>
@@ -132,15 +140,14 @@ export function AgentPopover({
             </p>
             <DoseSelector
               accent="purple"
-              quickValues={quick}
-              value={percent != null ? String(percent) : quick[0] != null ? String(quick[0]) : ""}
+              quickValues={[...(entry?.quickValues ?? [])]}
+              value={String(percent ?? entry?.prefill ?? 0)}
               onValueChange={value => onPercentChange(parseFloat(value) || 0)}
-              min={0} max={10} step={0.1} unitSuffix="%"
-              manualEntryOnly={!prospectiveGuidanceEnabled}
-              showGuidance={prospectiveGuidanceEnabled}
+              min={entry?.min ?? 0} max={entry?.max ?? 10} step={entry?.step ?? 0.1} sliderStep={entry?.sliderStep} unitSuffix="%"
+              showGuidance
               confirmLabel={!editingName ? copy.startAgent(displayAgentName(activeAgent)) : undefined}
               onConfirm={!editingName ? () => onStart(activeAgent) : undefined}
-              confirmDisabled={!editingName && percent == null && quick[0] == null}
+              confirmDisabled={!editingName && (percent ?? 0) <= 0}
             />
           </div>
         )}

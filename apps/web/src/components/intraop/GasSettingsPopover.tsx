@@ -1,6 +1,6 @@
 "use client"
 
-import { FRESH_GAS_FLOW, parseTypedFreshGasFlow, snapFreshGasFlow, stepFreshGasFlow } from "@lospor/core/gas-ranges"
+import { FIO2, FRESH_GAS_FLOW, gasQuickValues, parseTypedFreshGasFlow, snapFreshGasFlow, stepFreshGasFlow } from "@lospor/core/gas-ranges"
 import { createPortal } from "react-dom"
 import { useIntraopUiCopy } from "./ui-copy"
 
@@ -28,6 +28,42 @@ export type GasSettingsPopoverProps = {
   onFio2Change: (value: number) => void
   onDismiss: () => void
   onApply: () => void
+  /** The hospital's guidance switch: quick values only with it on, and not for a child (default on). */
+  prospectiveGuidanceEnabled?: boolean
+  paediatric?: boolean
+}
+
+/** A row of quick-value buttons; the one equal to the current value is filled. */
+function QuickValues({ values, current, unit, onPick, disabled = false, testId }: {
+  values: readonly number[]
+  current: number | null
+  unit: string
+  onPick: (value: number) => void
+  disabled?: boolean
+  testId: string
+}) {
+  if (values.length === 0) return null
+  return (
+    <div className="flex gap-1" data-testid={testId}>
+      {values.map(value => (
+        <button
+          key={value}
+          type="button"
+          disabled={disabled}
+          aria-label={`${value} ${unit}`}
+          data-testid={`${testId}-${value}`}
+          onClick={() => onPick(value)}
+          className={`flex-1 text-[10px] font-semibold px-1 py-0.5 rounded-lg border transition-colors disabled:opacity-50 ${
+            current === value
+              ? "bg-indigo-500 border-indigo-500 text-white"
+              : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          {value}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 const POPOVER_WIDTH = 250 // room for the fresh gas − slider + and the typed value (10.2.0)
@@ -50,8 +86,12 @@ export function GasSettingsPopover({
   onFio2Change,
   onDismiss,
   onApply,
+  prospectiveGuidanceEnabled = true,
+  paediatric = false,
 }: GasSettingsPopoverProps) {
   const copy = useIntraopUiCopy()
+  // One set for web and phone (core): suggestions only for an adult with guidance on.
+  const quick = gasQuickValues({ guidance: prospectiveGuidanceEnabled, paediatric })
   if (typeof document === "undefined") return null
 
   const showAbove = window.innerHeight - anchor.bottom < 280
@@ -109,6 +149,7 @@ export function GasSettingsPopover({
               className="w-12 shrink-0 text-xs px-1 py-0.5 rounded border border-slate-200 dark:border-[#3a3a3a] bg-transparent text-right"
             />
           </div>
+          <QuickValues testId="fgf-quick" values={quick.freshGasFlow} current={fgf} unit="L/min" onPick={onFgfChange} />
         </div>
 
         <div className="space-y-1">
@@ -140,12 +181,13 @@ export function GasSettingsPopover({
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{effectiveFio2}%</span>
           </div>
           <input
-            type="range" min={21} max={100} step={1}
+            type="range" min={FIO2.min} max={FIO2.max} step={FIO2.step}
             value={effectiveFio2}
             onChange={event => onFio2Change(parseFloat(event.target.value))}
             disabled={oxygenOnly}
             className="w-full h-1.5 accent-indigo-500 disabled:opacity-50"
           />
+          <QuickValues testId="fio2-quick" values={quick.fio2} current={effectiveFio2} unit="%" onPick={onFio2Change} disabled={oxygenOnly} />
         </div>
 
         <button
