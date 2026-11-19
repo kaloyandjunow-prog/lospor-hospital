@@ -1,3 +1,4 @@
+import { logAuditInTransaction } from "@/lib/audit-evidence"
 import type { Prisma } from "@/generated/prisma/client"
 import type { AuditActionCode } from "@/lib/audit-actions"
 import {
@@ -203,16 +204,15 @@ async function installV5(
       })
     }
     selected.push(move)
-    await tx.auditLog.create({
-      data: {
-        id: auditEvidenceId(artifact),
-        userId: principal.id,
-        action: AUDIT_ACTION,
-        entityId: artifact.identity.presetId,
-        detail: bundledBaselineV5AuditDetail(artifact, move) as unknown as Prisma.InputJsonValue,
-        createdAt: installedAt,
-      },
-    })
+    // Through the appliance's privacy-enforcing helper, as the v2 to v4 provisioners are.
+    await logAuditInTransaction(
+      tx,
+      principal.id,
+      AUDIT_ACTION,
+      artifact.identity.presetId,
+      bundledBaselineV5AuditDetail(artifact, move),
+      { id: auditEvidenceId(artifact), createdAt: installedAt },
+    )
   }
   return selected
 }
