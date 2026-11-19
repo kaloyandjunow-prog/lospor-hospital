@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { mergeAppJson, mergeChangelog, mergePackageJson, resolveConflict } from "./vendor-conflict-rules.mjs"
+import { mergeAppJson, mergeChangelog, mergePackageJson, mergeSizeBudget, resolveConflict } from "./vendor-conflict-rules.mjs"
 
 const json = value => `${JSON.stringify(value, null, 2)}\n`
 
@@ -88,4 +88,16 @@ test("app.json leaves a field the appliance changed alone, and refuses when both
   assert.throws(() => mergeAppJson(baseApp, app(ourIdentity, { orientation: "landscape" }), app(upstreamIdentity("10.3.0"), { orientation: "default" })), /both sides changed expo.orientation/)
   assert.equal(resolveConflict("app.json", { base: baseApp, ours: app(ourIdentity, { orientation: "landscape" }), theirs: app(upstreamIdentity("10.3.0"), { orientation: "default" }) }), null)
   assert.equal(resolveConflict("app.json", { base: null, ours: "{}", theirs: "{}" }), null)
+})
+
+test("size budgets merge key by key: a key one side changed takes that side, a key both changed stops", () => {
+  const b = json({ "a.tsx": 100, "b.tsx": 200, "c.tsx": 300 })
+  const o = json({ "a.tsx": 150, "b.tsx": 200, "c.tsx": 300, "own.tsx": 40 })
+  const t = json({ "a.tsx": 100, "b.tsx": 180, "c.tsx": 300 })
+  const { text } = mergeSizeBudget(b, o, t)
+  assert.deepEqual(JSON.parse(text), { "a.tsx": 150, "b.tsx": 180, "c.tsx": 300, "own.tsx": 40 })
+  assert.ok(text.endsWith("}\n"))
+  assert.throws(() => mergeSizeBudget(b, json({ "a.tsx": 120, "b.tsx": 200, "c.tsx": 300 }), json({ "a.tsx": 110, "b.tsx": 200, "c.tsx": 300 })))
+  assert.equal(resolveConflict("scripts/component-size-budget.json", { base: b, ours: json({ "a.tsx": 120 }), theirs: json({ "a.tsx": 110 }) }), null)
+  assert.equal(resolveConflict("scripts/component-size-budget.json", { base: b, ours: o, theirs: t }).rule, "size-budget")
 })
