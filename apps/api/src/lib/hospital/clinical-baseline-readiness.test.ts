@@ -7,9 +7,11 @@ import {
   createLosporAdultV2Draft,
   createLosporAdultV3Draft,
   createLosporAdultV4Draft,
+  createLosporAdultV5Draft,
   createLosporPediatricV2Draft,
   createLosporPediatricV3Draft,
   createLosporPediatricV4Draft,
+  createLosporPediatricV5Draft,
 } from "@lospor/core/platform-clinical-drafts"
 import type { ClinicalBaselineSelection } from "./clinical-baseline-readiness"
 
@@ -17,13 +19,15 @@ vi.mock("server-only", () => ({}))
 
 function canonicalSelection(
   mode: "ADULT" | "PEDIATRIC",
-  version: 2 | 3 | 4 = 2,
+  version: 2 | 3 | 4 | 5 = 2,
 ): ClinicalBaselineSelection {
-  const draft = version === 4
-    ? (mode === "ADULT" ? createLosporAdultV4Draft() : createLosporPediatricV4Draft())
-    : version === 3
-      ? (mode === "ADULT" ? createLosporAdultV3Draft() : createLosporPediatricV3Draft())
-      : (mode === "ADULT" ? createLosporAdultV2Draft() : createLosporPediatricV2Draft())
+  const draft = version === 5
+    ? (mode === "ADULT" ? createLosporAdultV5Draft() : createLosporPediatricV5Draft())
+    : version === 4
+      ? (mode === "ADULT" ? createLosporAdultV4Draft() : createLosporPediatricV4Draft())
+      : version === 3
+        ? (mode === "ADULT" ? createLosporAdultV3Draft() : createLosporPediatricV3Draft())
+        : (mode === "ADULT" ? createLosporAdultV2Draft() : createLosporPediatricV2Draft())
   return {
     preset: {
       id: draft.id,
@@ -49,11 +53,11 @@ function clone(selection: ClinicalBaselineSelection): ClinicalBaselineSelection 
 }
 
 describe("Hospital selected clinical baseline readiness", () => {
-  it("pins exact source-controlled v4 identities, digests, and profile counts", async () => {
+  it("pins exact source-controlled v5 identities, digests, and profile counts", async () => {
     const { expectedHospitalClinicalBaseline } = await import("./clinical-baseline-readiness")
     for (const mode of ["ADULT", "PEDIATRIC"] as const) {
       const expected = expectedHospitalClinicalBaseline(mode)
-      expect(expected.version).toBe(4)
+      expect(expected.version).toBe(5)
       expect(expected.digestSha256).toMatch(/^[a-f0-9]{64}$/)
       expect(expected.ruleCount).toBeGreaterThan(0)
       expect(expected.profileCounts.total).toBe(expected.ruleCount)
@@ -194,18 +198,18 @@ describe("Hospital selected clinical baseline readiness", () => {
 })
 
 describe("the baselines an update installs are the ones readiness accepts (1.6.0)", () => {
-  it("names the v4 presets the bundled v4 provisioner installs and selects", async () => {
+  it("names the v5 presets the bundled v5 provisioner installs and selects", async () => {
     const { expectedHospitalClinicalBaseline } = await import("./clinical-baseline-readiness")
-    const { BUNDLED_BASELINE_V4_PRESET_IDS } = await import("@/lib/clinical-rules/bundled-baseline-v4")
+    const { BUNDLED_BASELINE_V5_PRESET_IDS } = await import("@/lib/clinical-rules/bundled-baseline-v5")
     const accepted = new Set((["ADULT", "PEDIATRIC"] as const).map(mode => expectedHospitalClinicalBaseline(mode).presetId))
-    expect(accepted).toEqual(new Set(BUNDLED_BASELINE_V4_PRESET_IDS))
+    expect(accepted).toEqual(new Set(BUNDLED_BASELINE_V5_PRESET_IDS))
   })
 
-  it("is READY for every release-owned baseline a selection may be: v2, v3 and v4, in both modes", async () => {
+  it("is READY for every release-owned baseline a selection may be: v2, v3, v4 and v5, in both modes", async () => {
     // 1.8.0 selected v4 while readiness knew only v3 and v2: every guidance switch went off (IDENTITY_MISMATCH).
     const { assessHospitalClinicalBaselineSelection } = await import("./clinical-baseline-readiness")
     for (const mode of ["ADULT", "PEDIATRIC"] as const) {
-      for (const version of [2, 3, 4] as const) {
+      for (const version of [2, 3, 4, 5] as const) {
         expect(assessHospitalClinicalBaselineSelection(mode, canonicalSelection(mode, version)), `${mode} v${version}`).toMatchObject({ baselineReady: true, reasonCode: "READY" })
       }
     }
