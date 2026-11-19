@@ -35,7 +35,7 @@ import { useVitalsEntry } from "@/lib/use-vitals-entry"
 import { COMPLICATION_ITEMS } from "@/lib/intraop-static-options"
 import { applyIntraopChartChange } from "@/lib/apply-intraop-chart-change"
 import { pediatricAgeFromPreop, useAllergyCheck, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
-import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
+import { agentRuleLookup, useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
 import { useIntraopCaseLifecycle, useEventStatePatch } from "@/lib/use-intraop-case-lifecycle"
 import { useIntraopPremedication } from "@/lib/use-intraop-premedication"
 import { useIntraopPremedicationPrefill } from "@/lib/use-intraop-premedication-prefill"
@@ -110,7 +110,7 @@ export default function IntraopLiveScreen() {
     DRUG_DOSE_CALCS, INFUSION_QUICK_RATES, INFUSION_SUGGESTED_RATES,
     INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES,
     INFUSION_ROUTE_PROFILES, INFUSION_BASE_PROFILES, DRUG_CODES, INFUSION_CODES,
-    AGENT_QUICK_PERCENTS, CLINICAL_EVENT_CATS, PEDIATRIC_DRUG_PROFILES,
+    CLINICAL_EVENT_CATS, PEDIATRIC_DRUG_PROFILES,
     PEDIATRIC_FLUID_PROFILES, PEDIATRIC_INFUSION_PROFILES,
     POSITIONS_LIST, MONITORING_OPTS, TECHNIQUE_TREE, VASC_TREE, AIRWAY_TOOLS, AIRWAY_DEVICES,
     PREMED_LIBRARY, eventLabel, techniqueLabel, INFUSION_WEIGHT_BASIS,
@@ -590,14 +590,14 @@ export default function IntraopLiveScreen() {
           infActConcentration, setInfActConcentration, flOpen, setFlOpen, setFlFluid, setFlVol,
           flEntryMode, setFlEntryMode, flRate, setFlRate, resetFluidDraft,
           setFlConcentration, flRoute, setFlRoute, setFlRule,
-          pediatricFluidProfiles: PEDIATRIC_FLUID_PROFILES,
+          pediatricFluidProfiles: PEDIATRIC_FLUID_PROFILES, agentRule: agentRuleLookup(clinicalRulesSnapshot, pediatricMode),
           pediatricInfusionProfiles: PEDIATRIC_INFUSION_PROFILES,
           FLUID_LIST, flFluid, flVol, confirmFluid, FLUID_QUICK_VOLUMES,
           FLUID_CONCENTRATIONS, FLUID_DEFAULT_CONCENTRATIONS, FLUID_ROUTES, flConcentration, flEndOpen,
           setFlEndOpen, flEndTarget, flEndCustom, setFlEndCustom, flEndRate, setFlEndRate,
           changeFluidRate, confirmFluidEnd, agOpen,
           setAgOpen, setAgPick, setAgPercent, VOLATILE_AGENTS, agPick, confirmAgent,
-          AGENT_QUICK_PERCENTS, agPercent, editOpen, editEv, editDose, editTime, setEditOpen,
+          agPercent, editOpen, editEv, editDose, editTime, setEditOpen,
           setEditDose, setEditTime, confirmEdit,
           startAtOpen, startAtInput, setStartAtOpen, setStartAtInput,
           startAtDay, startCaseAt, endCaseOpen, setEndCaseOpen, endCaseRunningItems, afterEndItems, resolveAfterEnd, setChosenEndTs, endCaseDecisions,

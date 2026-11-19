@@ -5,6 +5,7 @@ import type { ClinicalNumberChange } from "@/lib/clinical-number-entry"
 import { createGestureHandle } from "@/lib/gesture-lock"
 import { HELD_CONTROL_STYLE } from "@/lib/gesture-style"
 import { hapticKey, hapticTick } from "@/lib/haptic"
+import { pressKeypadKey } from "@/lib/keypad-entry"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 import {
   getIcd10BodySystem,
@@ -192,6 +193,8 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   const { t } = usePreferences()
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [keypadText, setKeypadText] = useState("")
+  // The numpad opens on the field's value; the first digit typed replaces it.
+  const keypadFreshRef = useRef(false)
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [trackWidth, setTrackWidth] = useState(1)
   const fieldRef = useRef<ViewInstance>(null)
@@ -241,6 +244,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
 
   function openKeypad() {
     setKeypadText(value != null ? formatClinicalValue(value, precision) : "")
+    keypadFreshRef.current = value != null
     fieldRef.current?.measureInWindow((x, y, width, height) => {
       setAnchor({ x, y, width, height })
       setKeypadOpen(true)
@@ -255,18 +259,11 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
 
   function pressKey(key: string) {
     hapticKey()
-    if (key === "clear") {
-      setKeypadText("")
-      return
-    }
-    if (key === "back") {
-      setKeypadText((current) => current.slice(0, -1))
-      return
-    }
-    setKeypadText((current) => {
-      if (key === "." && (precision === 0 || current.includes("."))) return current
-      return `${current}${key}`.replace(/^0+(?=\d)/, "")
-    })
+    const replace = keypadFreshRef.current
+    // Ended here, not inside the updater: two quick taps must not both replace.
+    // A point where there are no decimals changes nothing and keeps it ready.
+    if (!(key === "." && precision === 0)) keypadFreshRef.current = false
+    setKeypadText((current) => pressKeypadKey(current, key, { precision, replace }))
   }
 
   const ratio = value == null ? 0 : (clampNumber(value, min, max) - min) / (max - min)

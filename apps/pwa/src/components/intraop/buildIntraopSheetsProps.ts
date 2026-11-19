@@ -35,7 +35,7 @@ export type IntraopSheetsBuilderProps = IntraopMedicationSheetBuilderProps & {
   setSlotCompExpanded: (value: boolean | ((previous: boolean) => boolean)) => void
   openSlotEvent: SlotProps["onSelectEvent"]
   openDrug: (timestamp?: string) => void
-  openAgent: (timestamp?: string) => void
+  openAgent: (timestamp?: string, agentName?: string) => void
   activeAgents: SlotProps["activeAgents"]
   stopAgent: (name?: string, rowTs?: string | null) => void
   stopGasSettings: (rowTs?: string | null) => void
@@ -126,6 +126,7 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       onOpenJet: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); if (ts) jetSheet.open(ts) },
       // Stops are recorded at the row the sheet was opened from.
       onStopAgent: name => { setSlotOpen(false); stopAgent(name, slotIsoTimestamp(slotTs)) },
+      onChangeAgent: name => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openAgent(ts, name) },
       onOpenAgent: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openAgent(ts) },
       onStopGas: () => { setSlotOpen(false); stopGasSettings(slotIsoTimestamp(slotTs)) },
       onOpenGas: () => { const ts = slotIsoTimestamp(slotTs); setSlotOpen(false); openGasSettings(ts) },

@@ -6,6 +6,7 @@ import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
 import { parseClinicalNumber } from "@/lib/clinical-number"
+import { pressKeypadKey } from "@/lib/keypad-entry"
 import { HoldRepeatPressable } from "./HoldRepeatPressable"
 import { clamp, formatValue } from "@/lib/clinical-number-format"
 export { parseClinicalNumber } from "@/lib/clinical-number"
@@ -53,6 +54,8 @@ export function ClinicalNumberInput({
   const [wheelOpen, setWheelOpen] = useState(false)
   const [entryMode, setEntryMode] = useState<"wheel" | "keypad">("wheel")
   const [keypadText, setKeypadText] = useState("")
+  // The keypad shows the field's value; the first digit typed replaces it.
+  const keypadFreshRef = useRef(false)
   const [visualIndex, setVisualIndex] = useState(0)
   const [anchor, setAnchor] = useState<AnchorRect | null>(null)
   const { height: screenHeight } = useWindowDimensions()
@@ -139,6 +142,7 @@ export function ClinicalNumberInput({
     latestOffsetRef.current = index * WHEEL_ROW_HEIGHT
     setVisualIndex(index)
     setKeypadText(value != null ? formatValue(value, precision) : formatValue(wheelValues[index] ?? min, precision))
+    keypadFreshRef.current = true
     setEntryMode("wheel")
     fieldRef.current?.measureInWindow((x, y, width, height) => {
       setAnchor({ x, y, width, height })
@@ -210,23 +214,19 @@ export function ClinicalNumberInput({
   function pressKey(key: string) {
     hapticKey()
     if (key === "clear") {
+      keypadFreshRef.current = false
       setKeypadText("")
       return
     }
-    if (key === "back") {
-      setKeypadText((current) => {
-        const next = current.slice(0, -1)
+    const replace = keypadFreshRef.current
+    // Ended here, not inside the updater: two quick taps must not both replace.
+    if (!(key === "." && precision === 0)) keypadFreshRef.current = false
+    setKeypadText((current) => {
+      const next = pressKeypadKey(current, key, { precision, replace })
+      if (key !== "back" || next !== current) {
         const parsed = parseClinicalNumber(next)
         if (parsed != null) previewValue(parsed)
-        return next
-      })
-      return
-    }
-    setKeypadText((current) => {
-      if (key === "." && (precision === 0 || current.includes("."))) return current
-      const next = `${current}${key}`.replace(/^0+(?=\d)/, "")
-      const parsed = parseClinicalNumber(next)
-      if (parsed != null) previewValue(parsed)
+      }
       return next
     })
   }
@@ -314,7 +314,7 @@ export function ClinicalNumberInput({
                 {(["wheel", "keypad"] as const).map((mode) => (
                   <Pressable
                     key={mode}
-                    onPress={() => setEntryMode(mode)}
+                    onPress={() => { if (mode === "keypad") keypadFreshRef.current = true; setEntryMode(mode) }}
                     style={{
                       flex: 1,
                       minHeight: 34,

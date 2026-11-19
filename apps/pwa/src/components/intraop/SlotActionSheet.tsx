@@ -49,6 +49,8 @@ type Props = {
   /** Jet ventilation at the slot's time (10.2.0); shown once Jet is ticked among the ventilation modes. */
   onOpenJet?: () => void
   onStopAgent: (name: string) => void
+  /** Change the concentration of a running agent (opens the agent sheet on it). */
+  onChangeAgent?: (name: string) => void
   onOpenAgent: () => void
   onStopGas: () => void
   onOpenGas: () => void
@@ -74,6 +76,7 @@ export function SlotActionSheet({
   onOpenDefibrillation,
   onOpenJet,
   onStopAgent,
+  onChangeAgent,
   onOpenAgent,
   onStopGas,
   onOpenGas,
@@ -146,6 +149,13 @@ export function SlotActionSheet({
                   {formatMessage(tc("agentIsRunning"), { name: agentLabel(activeAgent.name) })}
                 </Text>
               </View>
+              {onChangeAgent ? (
+                <TouchableOpacity onPress={() => onChangeAgent(activeAgent.name)} testID={`slot-change-agent-${activeAgent.name}`}
+                  style={{ borderRadius:10, paddingHorizontal:14, paddingVertical:10,
+                    backgroundColor:activeAgent.color+"18", borderWidth:1, borderColor:activeAgent.color+"55" }}>
+                  <Text style={{ color:activeAgent.color, fontWeight:"700", fontSize:12 }}>{tc("slotChangeAgentPercent")}</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity onPress={() => onStopAgent(activeAgent.name)}
                 style={{ borderRadius:10, paddingHorizontal:14, paddingVertical:10,
                   backgroundColor:shade("#1e1010"), borderWidth:1, borderColor:shade("#ef444444") }}>

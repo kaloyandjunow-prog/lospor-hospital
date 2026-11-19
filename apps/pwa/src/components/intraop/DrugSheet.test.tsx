@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { VitalStepper } from "@/components/VitalStepper"
 import { act } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 import type { PediatricDrugProfileRule } from "@lospor/core/clinical-rules"
@@ -383,7 +384,7 @@ describe("DrugSheet conflict is stated and still recordable", () => {
     expect(alerts[0].props.accessibilityRole).toBe("alert")
 
     expect(tree.root.findAllByProps({ testID: "dose-confirm-blocked" }).length, "Add was off with no reason given").toBeGreaterThan(0)
-    act(() => tree.root.findByProps({ testID: "dose-manual-input" }).props.onChangeText("0.4"))
+    act(() => tree.root.findByProps({ testID: "dose-fallback-stepper" }).findByType(VitalStepper).props.onChange(0.4))
     expect(tree.root.findAllByProps({ testID: "dose-confirm-blocked" })).toHaveLength(0)
 
     const confirm = tree.root.findByProps({ testID: "drug-sheet-confirm" })

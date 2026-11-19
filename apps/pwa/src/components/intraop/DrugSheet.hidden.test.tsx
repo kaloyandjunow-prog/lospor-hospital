@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { VitalStepper } from "@/components/VitalStepper"
 import { act } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 
@@ -112,7 +113,7 @@ describe("DrugSheet search-only hidden medication", () => {
     pressByText(tree, "Hideamine")
 
     expect(tree.root.findAllByProps({ testID: "drug-search-only-manual-notice" }).length).toBeGreaterThan(0)
-    expect(tree.root.findAllByProps({ testID: "dose-manual-input" }).length).toBeGreaterThan(0)
+    expect(tree.root.findAllByProps({ testID: "dose-fallback-stepper" }).length).toBeGreaterThan(0)
     expect(tree.root.findAllByProps({ testID: "concentration-pill-0" })).toHaveLength(0)
     expect(tree.root.findAllByProps({ testID: "dose-formulation-ISOBARIC" })).toHaveLength(0)
     expect(queryByText(tree, "dsStartAsInfusion")).toBeNull()
@@ -120,7 +121,7 @@ describe("DrugSheet search-only hidden medication", () => {
     expect(JSON.stringify(tree.toJSON())).not.toContain("forbidden concentration")
 
     act(() => tree.root.findByProps({ testID: "dose-route-IM" }).props.onPress())
-    act(() => tree.root.findByProps({ testID: "dose-manual-input" }).props.onChangeText("12"))
+    act(() => tree.root.findByProps({ testID: "dose-fallback-stepper" }).findByType(VitalStepper).props.onChange(12))
     act(() => tree.root.findByProps({ testID: "drug-sheet-confirm" }).props.onPress())
 
     expect(onSave).toHaveBeenCalledWith({

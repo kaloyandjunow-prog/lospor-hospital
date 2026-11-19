@@ -1,4 +1,6 @@
 import { useCallback, useMemo } from "react"
+import { agentRuleFor } from "@lospor/core/agent-entry"
+import type { PediatricAgentProfileRule } from "@lospor/core/clinical-rules"
 import { buildEventLabel, localizedClinicalEventText } from "@/lib/intraop-event-label"
 import { displayClinicalCode, localizedOptions } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
@@ -104,4 +106,12 @@ export function useIntraopOptionSets(
     eventLabel,
     techniqueLabel,
   }
+}
+
+/** An inhaled agent's range, step and quick buttons from the active ruleset (the catalogue answers when none). */
+export function agentRuleLookup(
+  snapshot: { adultDoseProfiles?: readonly AdultDoseProfileRule[]; pediatricAgentProfiles?: readonly PediatricAgentProfileRule[] } | null | undefined,
+  paediatric: boolean,
+) {
+  return (agent: string) => agentRuleFor(agent, { adult: snapshot?.adultDoseProfiles ?? [], paediatric: snapshot?.pediatricAgentProfiles ?? [] }, paediatric)
 }

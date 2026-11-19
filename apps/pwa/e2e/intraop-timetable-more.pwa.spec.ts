@@ -27,6 +27,8 @@ test.describe("things that keep running on the timetable", () => {
     await openStartRow(page, session.rowTime)
     await page.getByText("Agent", { exact: true }).first().click()
     await page.getByText("Sevoflurane", { exact: true }).click()
+    // The concentration starts at 0 and Start needs a value: pick the 2.5 quick button.
+    await page.getByText("2.5", { exact: true }).click()
     await page.getByText("Start Sevoflurane", { exact: true }).click()
 
     await expect(page.getByText("Start Sevoflurane", { exact: true })).toHaveCount(0)

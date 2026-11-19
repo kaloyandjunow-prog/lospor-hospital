@@ -27,9 +27,18 @@ export function useAgentEntry(
   // stop and start share one time.
   const [agTs, setAgTs] = useState<string | null>(null)
 
-  function openAgent(ts?: string) {
+  // agentName: a running agent to change the concentration of. The sheet then
+  // opens on that agent with its current percent, and confirming records it as
+  // another start of the same agent, which the chart reads as a new
+  // concentration (a change on its bar, never a second bar).
+  function openAgent(ts?: string, agentName?: string) {
     setEntryTs(ts ?? null)
     setAgTs(ts ?? null)
+    const running = agentName ? activeAgents.find(agent => agent.name === agentName) : undefined
+    if (running) {
+      setAgPick({ name: running.name, color: running.color })
+      setAgPercent(running.percent ?? null)
+    }
     setAgOpen(true)
   }
 

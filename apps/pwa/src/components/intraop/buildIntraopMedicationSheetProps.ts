@@ -1,3 +1,4 @@
+import type { AgentRuleProfile } from "@lospor/core/agent-entry"
 import type { IntraopSheetsHostProps } from "@/components/intraop/IntraopSheetsHost"
 import { canStartDrugAsInfusion } from "@/lib/intraop-library"
 import type { ActiveGasSettings } from "@/lib/intraop-log-event"
@@ -28,6 +29,8 @@ export type IntraopMedicationSheetBuilderProps = {
   infusionWeightBasis?: WeightBasisMap
   prospectiveGuidanceEnabled: boolean
   activeAgent: AgentProps["activeAgent"]
+  /** Every running volatile agent: starting one of them again changes its concentration. */
+  activeAgents?: readonly { name: string }[]
   activeGas: ActiveGasSettings
   gasOpen: GasProps["visible"]
   gasFgf: GasProps["fgf"]
@@ -76,6 +79,8 @@ export type IntraopMedicationSheetBuilderProps = {
   techniques?: readonly string[]
   pediatricDrugProfiles: DrugProps["pediatricDrugProfiles"]
   pediatricFluidProfiles: FluidProps["pediatricFluidProfiles"]
+  /** Range, step and quick buttons of an inhaled agent from the active ruleset. */
+  agentRule?: (name: string) => AgentRuleProfile | null
   pediatricInfusionProfiles: InfusionProps["pediatricInfusionProfiles"]
   pediatricDoseProfiles: DrugProps["pediatricDoseProfiles"]
   pediatricRulesSource: DrugProps["pediatricRulesSource"]
@@ -213,7 +218,7 @@ export type IntraopMedicationSheetBuilderProps = {
   VOLATILE_AGENTS: AgentProps["agents"]
   agPick: AgentProps["agPick"]
   confirmAgent: AgentProps["onConfirm"]
-  AGENT_QUICK_PERCENTS: AgentProps["quickPercents"]
+
   agPercent: AgentProps["agPercent"]
 }
 
@@ -253,7 +258,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
     flEndOpen, setFlEndOpen, flEndTarget,
     flEndCustom, setFlEndCustom, flEndRate, setFlEndRate, changeFluidRate,
     confirmFluidEnd, agOpen, setAgOpen, setAgPick,
-    setAgPercent, VOLATILE_AGENTS, agPick, confirmAgent, AGENT_QUICK_PERCENTS, agPercent,
+    setAgPercent, VOLATILE_AGENTS, agPick, confirmAgent, agPercent,
   } = props
   const pediatricMode = preop?.clinicalMode === "PEDIATRIC"
 
@@ -270,6 +275,7 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       onFio2Change: setGasFio2,
       onConfirm: confirmGasSettings,
       pediatricMode,
+      prospectiveGuidanceEnabled,
     },
     drug: {
       prospectiveGuidanceEnabled,
@@ -480,18 +486,18 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       onConfirm: confirmFluidEnd,
     },
     agent: {
-      prospectiveGuidanceEnabled,
       visible: agOpen,
       onClose: () => { setAgOpen(false); setAgPick(null); setAgPercent(null) },
       agents: VOLATILE_AGENTS,
       agPick,
       setAgPick,
       activeAgent,
+      runningNames: Array.isArray(props.activeAgents) ? props.activeAgents.map(agent => agent.name) : [],
+      agentRule: props.agentRule,
       onConfirm: confirmAgent,
-      quickPercents: prospectiveGuidanceEnabled && !pediatricMode ? AGENT_QUICK_PERCENTS : {},
+
       agPercent,
       setAgPercent,
-      pediatricMode,
     },
   }
 }
