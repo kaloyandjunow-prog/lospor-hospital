@@ -33,7 +33,8 @@ describe("PWA appliance guidance policy contract", () => {
       "INFUSION_RANGES",
       "INFUSION_ROUTE_PROFILES",
       "INFUSION_BASE_PROFILES",
-      "AGENT_QUICK_PERCENTS",
+      // 10.7.0: an inhaled agent's range and quick buttons are a clinical rule (core agent-entry), the
+      // same in every mode, so they are no longer a guidance-gated library map.
     ]) {
       const declaration = new RegExp(`const ${name} = useMemo\\(\\s*\\(\\)\\s*=>\\s*prospectiveGuidanceEnabled \\?`)
       expect(options).toMatch(declaration)
