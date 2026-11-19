@@ -16,17 +16,13 @@ import {
 } from "lucide-react"
 import type {
   ClinicalPresetDto,
-  ClinicalPresetRule,
   ClinicalPresetScope,
   ClinicalRuleMode,
   ClinicalRulePayload,
   ClinicalRulesWorkbenchDto,
   PediatricDrugProfileRulePayload,
 } from "@lospor/core/clinical-rules"
-import { AdultClinicalRuleEditor } from "@/components/clinical-rules/AdultClinicalRuleEditor"
-import { AgentRuleEditor, isAgentRulePayload } from "@/components/clinical-rules/AgentRuleEditor"
 import {
-  ClinicalRuleEditor,
   type ClinicalRuleDrugOption,
   type ClinicalRuleFluidOption,
   type ClinicalRuleInfusionOption,
@@ -40,7 +36,6 @@ import {
 } from "@/components/clinical-rules/RulesetConfirmation"
 import {
   isEquipmentRule,
-  pediatricEditorPayload,
   presetBelongsToContext,
   presetVisibleInContext,
 } from "@/lib/clinical-preset-scope"
