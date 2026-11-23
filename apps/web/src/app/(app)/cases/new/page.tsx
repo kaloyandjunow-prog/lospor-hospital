@@ -17,8 +17,7 @@ import { type TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/types/timetable"
 import type { CaseDetail, CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop } from "@/types/case-detail"
 import { PostopForm, type PostopData } from "@/components/forms/PostopForm"
-import { CheckCircle2, UserRound } from "lucide-react"
-import { CaseMeta } from "@/components/CaseMeta"
+import { CheckCircle2 } from "lucide-react"
 import {
   dbPreopToForm,
   dbPostopToForm,
@@ -27,8 +26,8 @@ import {
   preopSummaryForIntraop,
   fetchCaseRecord,
 } from "./case-record-mapping"
-import { readRejectedFields, rejectionsForSection, rejectionMessages } from "@/lib/rejected-fields"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
+import { recordEhrDecisions } from "@/lib/ehr-import"
 import { useLocale, useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { CaseSummary } from "@/components/CaseSummary"
@@ -44,16 +43,22 @@ import { onOutboxChange } from "@/lib/case-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { blockedSaveMessage, failedSaveMessage, withBlockedPreopRejection } from "@/lib/blocked-save-message"
 import { randomId } from "@/lib/random-id"
-import { canProgressAfterSave, type SaveOutcomeKind } from "@lospor/core/save-progression"
+import { izYearForCreate, nationalIdForCreate } from "@/lib/egn-field"
+import { CaseProgress } from "./CaseProgress"
+import { CaseEditorHeader, type CaseSaveStatus } from "./CaseEditorHeader"
+import { useHospitalPatientReference } from "@/hooks/useHospitalPatientReference"
+import { useEhrImportCapability } from "@/lib/deployment-capabilities"
+import { usePreopSubmitGate } from "@/hooks/usePreopSubmitGate"
+import { useUnsavedCaseWarning } from "@/hooks/useUnsavedCaseWarning"
+import { useRejectedFields } from "@/hooks/useRejectedFields"
 import { usePendingCloseCountdown } from "@/hooks/usePendingCloseCountdown"
 import { submitCaseForReview, submitForReviewMessage, refetchAwaitingReviewAt } from "@/lib/submit-case-for-review"
+import { canProgressAfterSave, type SaveOutcomeKind } from "@lospor/core/save-progression"
 import { useCaseEventLog } from "./useCaseEventLog"
-import { useStepUrlSync } from "./useStepUrlSync"
 import { intraopAutosaveValues } from "@/lib/intraop-submit"
-import { StepProgress } from "./StepProgress"
 import { PendingCloseBanner } from "./PendingCloseBanner"
 
-type SaveStatus = "idle" | "saving" | "saved" | "queued" | "blocked" | "error"
+type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }
 
 export default function NewCasePage() {
   const router       = useRouter()
@@ -62,14 +67,13 @@ export default function NewCasePage() {
   const t = useTranslations()
   const locale = useLocale()
   const STEPS = [t("case.steps.preop"), t("case.steps.intraop"), t("case.steps.postop"), t("case.steps.summary")]
-  const STEPS_SHORT = [t("case.stepsShort.preop"), t("case.stepsShort.intraop"), t("case.stepsShort.postop"), t("case.stepsShort.summary")]
 
   const { setCurrentFormStep } = useTour()
 
   const [step, setStep]               = useState(0)
   const [caseId, setCaseId]           = useState<string | null>(null)
   const [preopData, setPreopData]     = useState<PreopData | null>(null)
-  const { preopProfile, setPreopProfile, missingRequiredMessage } = useCasePreopProfile(!!searchParams.get("continue"))
+  const { preopProfile, setPreopProfile } = useCasePreopProfile(!!searchParams.get("continue"))
   const [intraopData, setIntraopData] = useState<IntraopData | null>(null)
   const [timetableDefault, setTimetableDefault] = useState<TimetableData | null>(null)
   const [postopData, setPostopData]   = useState<PostopData | null>(null)
@@ -87,34 +91,22 @@ export default function NewCasePage() {
   const closeSecsLeft = usePendingCloseCountdown(awaitingReviewAt, null, finaliseCase)
 
   const [submitting, setSubmitting]   = useState(false)
-  const [saveStatus, setSaveStatus]   = useState<SaveStatus>("idle")
+  const [saveStatus, setSaveStatus]   = useState<CaseSaveStatus>("idle")
   const [autoSaveErrMsg, setAutoSaveErrMsg] = useState<string | null>(null)
   const [blockedIssue, setBlockedIssue] = useState<BlockedSaveIssue | null>(null)
 
   const blockedMessage = useCallback((issue: BlockedSaveIssue) => blockedSaveMessage(issue, t), [t])
 
-  // Values the server refused, per section, shown on the field that carries
-  // them. Sticky: a message that lives only in the header is missed by anyone
-  // who leaves the screen straight after typing — which is exactly when this
-  // happens. Cleared when the section next saves with nothing refused.
-  const [rejections, setRejections] = useState<Record<string, Map<string, string>>>({})
-  const noteRejections = useCallback((section: "preop" | "intraop" | "postop", body: unknown) => {
-    // Never allowed to throw: this runs on the save path of a clinical form.
-    try {
-      const mine = rejectionsForSection(readRejectedFields(body), section)
-      setRejections(prev => {
-        const next = rejectionMessages(mine, t("case.notSaved"))
-        if (next.size === 0 && !prev[section]) return prev   // nothing to change
-        return { ...prev, [section]: next }
-      })
-    } catch {
-      /* a broken notifier must never break charting */
-    }
-  }, [t])
+  const { rejections, noteRejections } = useRejectedFields()
   const [loading, setLoading]         = useState(false)
-  const [patientName, setPatientName] = useState("")
-  const [patientId,   setPatientId]   = useState("")
   const [caseCode, setCaseCode]       = useState<string | null>(null)
+  const [preopHasInput, setPreopHasInput] = useState(false)
+  const [preopNeedsReview, setPreopNeedsReview] = useState(false)
+  const egnPermitted = useEhrImportCapability().egnPermitted
+  const { reference: patientReference, acceptResponse: acceptPatientReference, relink: relinkPatient, addEgn: addPatientEgn } = useHospitalPatientReference()
+  const { error: preopSubmitError, run: runPreopSubmit } = usePreopSubmitGate(setSubmitting)
+  useUnsavedCaseWarning(preopHasInput && (!caseId || preopNeedsReview))
+  const markPreopInput = useCallback(() => setPreopHasInput(true), [])
   const [theatreName, setTheatreName] = useState<string | null>(null)
   // Undo finalization state
   const [finalizedCaseId,   setFinalizedCaseId]   = useState<string | null>(null)
@@ -148,7 +140,7 @@ export default function NewCasePage() {
 
   // Refs for synchronous access inside async callbacks
   const caseIdRef  = useRef<string | null>(null)
-  const caseLoadingRef = useStepUrlSync(caseId, step, router)
+  const caseLoadingRef = useRef(false)
   const savingRef  = useRef(false)
   const { eventLog, setEventLog, applyEventOps } =
     useCaseEventLog(caseIdRef, t)
@@ -169,7 +161,7 @@ export default function NewCasePage() {
     setLoading(true)
     caseLoadingRef.current = true
     fetchCaseRecord(continueId)
-      .then(async (record: CaseDetail) => {
+      .then(async (record: HospitalCaseDetail) => {
         if (record.status === "COMPLETE") {
           toast(t("case.caseFinalisedRedirect"))
           router.replace(`/cases/${continueId}`)
@@ -183,6 +175,7 @@ export default function NewCasePage() {
         }
         caseIdRef.current = continueId
         setCaseId(continueId)
+        acceptPatientReference(record)
         if (record.caseCode) setCaseCode(record.caseCode)
         setTheatreName(record.theatre?.name ?? null)
         const [queuedPreop, queuedIntraop, queuedPostop, pendingEvents, pendingMutations] = await Promise.all([
@@ -203,7 +196,7 @@ export default function NewCasePage() {
             record.preop.syncRevision ?? record.preop.updatedAt,
           )
           setPreopData(dbPreopToForm(
-            { ...pinnedPreop, ...queuedPreop } as CaseDetailPreop,
+            { ...record.preop, ...queuedPreop } as CaseDetailPreop,
             queuedPreop?.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : record.clinicalMode,
           ) as PreopData)
         }
@@ -272,7 +265,7 @@ export default function NewCasePage() {
         caseIdRef.current = null
         setCaseId(null)
         if (error.status === 404) {
-          toast.error(t("case.draftGone"))
+          toast.error("This draft no longer exists.")
           router.replace("/dashboard")
           return
         }
@@ -282,7 +275,14 @@ export default function NewCasePage() {
     // setEventLog is a useState setter and so has a stable identity, but it now
     // arrives through useCaseEventLog, where the lint rule cannot see that;
     // setPreopProfile likewise arrives through useCasePreopProfile.
-  }, [router, searchParams, t, setEventLog, setPreopProfile, caseLoadingRef])
+  }, [acceptPatientReference, router, searchParams, t, setEventLog, setPreopProfile])
+
+  // Not while the case loads (9.12.1; upstream's useStepUrlSync explains the
+  // flip it caused). Hospital keeps its own sync for the preop review hold.
+  useEffect(() => {
+    if (!caseId || preopNeedsReview || caseLoadingRef.current) return
+    router.replace(`/cases/new?continue=${caseId}&step=${step}`, { scroll: false })
+  }, [step, caseId, preopNeedsReview, router])
 
   // Cleanup countdowns on unmount
   useEffect(() => () => { if (undoTimerRef.current) clearInterval(undoTimerRef.current) }, [])
@@ -295,6 +295,9 @@ export default function NewCasePage() {
     try {
       const payload = sectionPayload(section, data)
       if (!caseIdRef.current) {
+        const patientNumber = section === "preop" ? (data as PreopData).patientId?.trim() : undefined
+        if (!patientNumber) throw new Error("Hospital patient number is required")
+        const egn = nationalIdForCreate(section === "preop" ? (data as PreopData).patientNationalId : undefined)
         const acceptedPayload = { ...payload }
         let firstBlocked: BlockedSaveIssue | null = null
         let createdBody: Record<string, unknown> | null = null
@@ -303,10 +306,9 @@ export default function NewCasePage() {
           const selectedMode = acceptedPayload.clinicalMode === "PEDIATRIC"
             ? "PEDIATRIC"
             : "ADULT"
-          const res = await fetch("/api/cases", {
-            method: "POST",
+          const res = await fetch("/api/cases", { method: "POST",
             headers: { "Content-Type": "application/json", [IDEMPOTENCY_HEADER]: createDraftIdRef.current },
-            body: JSON.stringify({ clinicalMode: selectedMode, preop: acceptedPayload }),
+            body: JSON.stringify({ patientNumber, ...izYearForCreate(section === "preop" ? (data as PreopData).patientIdYear : undefined), ...(egn.send ? { patientNationalId: egn.send } : {}), clinicalMode: selectedMode, preop: acceptedPayload }),
           })
           const body = await res.json().catch(() => ({})) as Record<string, unknown>
           if (res.ok) {
@@ -332,12 +334,21 @@ export default function NewCasePage() {
           preopUpdatedAt?: string
           preopRevision?: number
         }
-        noteRejections("preop", createdBody)
+        const rejectedCount = noteRejections("preop", createdBody)
+        setPreopNeedsReview(true)
         caseIdRef.current = id
         setCaseId(id)
+        const patientReferenceVerified = acceptPatientReference(createdBody)
         if (code) setCaseCode(code)
         autosaveManager.hydrateSection(id, "preop", acceptedPayload, preopRevision ?? preopUpdatedAt ?? null)
-        router.replace(`/cases/new?continue=${id}`, { scroll: false })
+        if (!patientReferenceVerified) {
+          const message = t("patientReference.verifyFailed")
+          setAutoSaveErrMsg(message)
+          if (showToast) toast.error(message)
+          onError?.(message)
+          return false
+        }
+        if (egn.dropped) toast.warning(t("patientReference.egnNotSaved")) // even on autosave: the ЕГН box closes now
         if (firstBlocked) {
           const outcome = await autosaveManager.saveSection(id, "preop", payload, { fullPayload: payload })
           const issue = outcome.blocked ?? firstBlocked
@@ -348,15 +359,31 @@ export default function NewCasePage() {
           onError?.(message)
           return "blocked" as const
         }
+        if (rejectedCount > 0) {
+          const message = t("case.correctRejectedFields")
+          setAutoSaveErrMsg(message)
+          if (showToast) toast.error(message)
+          onError?.(message)
+          return "blocked" as const
+        }
+        setPreopNeedsReview(false)
+        router.replace(`/cases/new?continue=${id}`, { scroll: false })
       } else {
         const existingCaseId = caseIdRef.current
         const outcome = await autosaveManager.saveSection(existingCaseId, section, payload, {
           fullPayload: payload,
         })
-        if (outcome.response) noteRejections(section, outcome.response)
+        const rejectedCount = outcome.response ? noteRejections(section, outcome.response) : 0
         if (outcome.result === "blocked" && outcome.blocked) {
           const message = blockedMessage(outcome.blocked)
           setBlockedIssue(outcome.blocked)
+          setAutoSaveErrMsg(message)
+          if (showToast) toast.error(message)
+          onError?.(message)
+          return "blocked" as const
+        }
+        if (rejectedCount > 0) {
+          const message = t("case.correctRejectedFields")
           setAutoSaveErrMsg(message)
           if (showToast) toast.error(message)
           onError?.(message)
@@ -377,15 +404,16 @@ export default function NewCasePage() {
         section === "intraop" ? t("case.intraopSaved") : t("case.savedSuccess")
       )
       setBlockedIssue(null)
+      if (section === "preop") setPreopNeedsReview(false)
       return true
     } catch (err: unknown) {
-      console.error("saveSection error:", err)
+      console.error("[case-section] SAVE_FAILED")
       const errMsg = err instanceof Error ? err.message : t("case.saveFailed")
       if (showToast) toast.error(errMsg)
       onError?.(errMsg)
       return false
     }
-  }, [t, router, noteRejections, blockedMessage])
+  }, [acceptPatientReference, t, router, noteRejections, blockedMessage])
 
   const saveSection = useCallback((
     section: "preop" | "intraop" | "postop",
@@ -428,6 +456,42 @@ export default function NewCasePage() {
     }
   }, [isWatching, saveSection])
 
+  // Stable references, not inline arrows: PreopForm/IntraopForm/PostopForm each
+  // key their debounced-autosave effect on this prop, so a new function
+  // identity on every render tears the effect down and rebuilds it -- clearing
+  // whatever save was already pending (150ms for a discrete tap, e.g. an ASA
+  // score pill) before it can fire. That drops the save silently: the field
+  // itself is fine in form state, but nothing was ever attempted, so an
+  // offline queue watching for a failed attempt never sees one either.
+  const onPreopAutoSave = useCallback((data: PreopData) =>
+    !caseIdRef.current && !data.patientId?.trim() ? undefined : handleAutoSave("preop", data),
+  [handleAutoSave])
+  /**
+   * Records an EHR acceptance that happened before the case existed.
+   *
+   * Accepting is what brings the case into being: the imported age, height
+   * and weight are usually the values that make it saveable at all. The
+   * form has already flushed them by the time this runs, which creates the
+   * case, and caseIdRef carries the new id immediately rather than on the
+   * next render -- which is why this lives here and not in the form.
+   *
+   * A failure here loses the decision record, not the clinical values --
+   * those are in the case. The import stays pending and offers them again,
+   * where they come back as unchanged.
+   */
+  const onEhrAcceptedBeforeCase = useCallback(async (importId: string, appliedKeys: string[]) => {
+    const id = caseIdRef.current
+    if (!id) return
+    await recordEhrDecisions(id, importId, appliedKeys, [])
+  }, [])
+
+  const onIntraopAutoSave = useCallback((data: IntraopData) =>
+    handleAutoSave("intraop", intraopAutosaveValues(data) as IntraopData),
+  [handleAutoSave])
+  const onPostopAutoSave = useCallback((data: PostopData) =>
+    handleAutoSave("postop", data),
+  [handleAutoSave])
+
   /** `saveSection`'s own ad hoc result shape, read as what the shared decision expects. */
   function saveOutcomeKind(saved: Awaited<ReturnType<typeof saveSection>>): SaveOutcomeKind {
     if (saved === true) return "saved"
@@ -435,21 +499,19 @@ export default function NewCasePage() {
     return "failed"
   }
 
-  // ── Manual submit handlers ────────────────────────────────────────────────
-  // The step advances only once the shared decision says the save was good
-  // enough to build on. It used to advance unconditionally, before the save
-  // had even resolved: a clinician who submitted preop while offline for the
-  // very first time reached the intraop screen with no case underneath it,
-  // and intraop's own guard (`if (!caseIdRef.current) return`) already ran
-  // after that same jump -- so the save silently did nothing and the
-  // clinician kept documenting a case that was never created.
+  // ── Manual submit handlers ───────────────────────────────────────────────────
+  // Intraop and postop advance on the shared decision. Preop does not: it goes
+  // through this appliance's own submit gate, which is deliberately stricter --
+  // a queued preop is refused outright, because opening a case establishes the
+  // patient link against the hospital's record number and that has to reach the
+  // server before anything is documented against it.
   async function handlePreopSubmit(data: PreopData) {
-    setPreopData(data); setSubmitting(true)
-    const caseExistedBeforeSave = !!caseIdRef.current
-    const saved = await saveSection("preop", data, { showToast: true }); setSubmitting(false)
-    if (!canProgressAfterSave(saveOutcomeKind(saved), { caseExistedBeforeSave }).canProgress) return
-    const missing = await missingRequiredMessage(caseIdRef.current)
-    if (missing) { toast.error(missing); return }
+    setPreopHasInput(true); setPreopData(data)
+    const accepted = await runPreopSubmit(
+      onError => saveSection("preop", data, { showToast: true, onError }),
+      () => caseIdRef.current,
+    )
+    if (!accepted) return
     if (preopDocuments.summaryEnabled && caseIdRef.current) { router.push(`/cases/${caseIdRef.current}/preop-summary`); return }
     setStep(1); window.scrollTo(0, 0)
   }
@@ -573,7 +635,7 @@ export default function NewCasePage() {
         setAwaitingReviewAt(await refetchAwaitingReviewAt(id))
       }
     } catch {
-      toast.error(t("case.undoFinalizationFailed"))
+      toast.error("Could not undo finalization. Please try again.")
     }
   }
 
@@ -587,35 +649,29 @@ export default function NewCasePage() {
       <FinalizeUndoBanner undoSecsLeft={undoSecsLeft} undoExpired={undoExpired} finalizedCaseId={finalizedCaseId} onUndo={handleUndo} />
 
       <CaseBanners isWatching={isWatching} holderName={holderName} onTakeover={takeover} caseId={caseId} presence={step < 3} />
-      <div className="no-print flex items-center gap-4">
-        <div className="hidden sm:flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950 border-2 border-blue-100 dark:border-blue-900 shrink-0">
-          <UserRound className="h-9 w-9 text-blue-500 dark:text-blue-400" strokeWidth={1.5} />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-            {patientName
-              ? <>{patientName}{patientId && <span className="text-slate-400 font-normal text-lg"> — {t("case.patientIdShort", { id: patientId })}</span>}</>
-              : t("case.newTitle")
-            }
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">{t("case.newSubtitle")}</p>
-        </div>
-        <div className="shrink-0 flex flex-col items-end gap-1.5">
-          {caseId && caseCode && (
-            <CaseMeta caseId={caseId} caseCode={caseCode} theatreName={theatreName} />
-          )}
-          <div className="text-xs">
-            {saveStatus === "saving" && <span className="text-slate-400 animate-pulse">{t("case.savingDraft")}</span>}
-            {saveStatus === "saved"  && <span className="text-green-500">{t("case.draftSaved")}</span>}
-            {saveStatus === "queued" && <span className="text-amber-500">{t("case.draftQueued")}</span>}
-            {saveStatus === "blocked" && <span className="text-red-500">{autoSaveErrMsg ?? t("case.draftBlocked")}</span>}
-            {saveStatus === "error"  && <span className="text-red-400">{autoSaveErrMsg ?? t("case.autoSaveFailed")}</span>}
-          </div>
-        </div>
-      </div>
+      <>
+      <CaseEditorHeader
+        caseId={caseId}
+        caseCode={caseCode}
+        theatreName={theatreName}
+        saveStatus={saveStatus}
+        saveError={autoSaveErrMsg}
+        maskedIdentifier={patientReference?.maskedIdentifier ?? null}
+        personMaskedIdentifier={patientReference?.personMaskedIdentifier ?? null} patientDisplay={patientReference?.display ?? null}
+        onAddEgn={egnPermitted ? nationalId => addPatientEgn(caseIdRef.current, nationalId) : undefined}
+        onPatientRelink={(n, reason, year) => relinkPatient(caseIdRef.current, n, reason, year)}
+        patientRelinkDisabled={isWatching}
+      />
+      </>
 
-      {/* With the case panel on a wide screen, its own stage strip shows the steps. */}
-      <StepProgress steps={STEPS} stepsShort={STEPS_SHORT} step={step} caseId={caseId} onSelect={setStep} hiddenOnWide={caseLayout.sidebar && step < 3} />
+      <div className={caseLayout.sidebar && step < 3 ? "lg:hidden" : undefined}>
+        <CaseProgress
+        labels={STEPS}
+        currentStep={step}
+        caseExists={Boolean(caseId)}
+        onStepChange={setStep}
+        />
+      </div>
 
       {/* Compact pending-close banner - visible at steps 0/1/2 while countdown is running */}
       {closeSecsLeft !== null && step < 3 && (
@@ -649,12 +705,14 @@ export default function NewCasePage() {
             rejectedFields={visiblePreopRejections}
             defaultValues={preopData ?? undefined}
             onSubmit={handlePreopSubmit}
-            onNameChange={setPatientName}
-            onIdChange={setPatientId}
-            onAutoSave={data => handleAutoSave("preop", data)}
+            onAutoSave={onPreopAutoSave}
             layoutMode={preopLayout}
             stages={caseStages}
             caseId={caseId}
+            onEhrAcceptedBeforeCase={onEhrAcceptedBeforeCase}
+            submitting={submitting}
+            submitError={preopSubmitError}
+            onClinicalInput={markPreopInput}
             preopProfile={preopProfile}
           />
         )}
@@ -666,7 +724,7 @@ export default function NewCasePage() {
             caseStarted={!!(intraopData?.startTime)}
             onSubmit={handleIntraopSubmit}
             onBack={() => setStep(0)}
-            onAutoSave={data => handleAutoSave("intraop", intraopAutosaveValues(data) as IntraopData)}
+            onAutoSave={onIntraopAutoSave}
             onPostopContinued={items => setContinuedPostopItems(items)}
             onDeath={() => {
               const next = { ...(postopData ?? {}), disposition: "DECEASED" } as PostopData
@@ -677,7 +735,7 @@ export default function NewCasePage() {
             stages={caseStages}
             eventLog={eventLog}
             onEventOps={applyEventOps}
-            readOnly={isWatching} autoEnded={autoEnded} caseId={caseId} aiOptIn={!!preopData?.aiOptIn}
+            readOnly={isWatching} autoEnded={autoEnded} caseId={caseId} aiOptIn={!!preopData?.aiOptIn} onSaveNow={data => saveSection("intraop", intraopAutosaveValues(data) as IntraopData)}
           />
         )}
         {!loading && step === 2 && (
@@ -696,7 +754,7 @@ export default function NewCasePage() {
             onSubmit={handlePostopSubmit}
             onBack={() => setStep(1)}
             submitting={submitting}
-            onAutoSave={data => handleAutoSave("postop", data)}
+            onAutoSave={onPostopAutoSave}
             initialComplicationsText={continuedPostopItems.length > 0 ? `Continued postoperatively: ${continuedPostopItems.join(", ")}` : undefined}
           />
         )}

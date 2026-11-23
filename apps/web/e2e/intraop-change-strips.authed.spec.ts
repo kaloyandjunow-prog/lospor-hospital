@@ -40,6 +40,7 @@ async function seed(page: Page) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-STRIPS-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
     },
@@ -52,9 +53,12 @@ async function seed(page: Page) {
   await post(page, id, { type: "fluid_start", ts: at(-20), fluidId: "fl-ringer", name: "Ringer", fluidEntryMode: "RATE", rate: "100", unit: "mL/h", color: "#22c55e", category: "CRYSTALLOID" })
   await post(page, id, { type: "fluid_rate", ts: at(-10), fluidId: "fl-ringer", name: "Ringer", fluidEntryMode: "RATE", rate: "150", unit: "mL/h" })
   await post(page, id, { type: "fluid_rate", ts: at(12), fluidId: "fl-ringer", name: "Ringer", fluidEntryMode: "RATE", rate: "250", unit: "mL/h" })
-  await post(page, id, { type: "agent_start", ts: at(-20), name: "Sevoflurane", value: "2", color: "#a855f7", agentMode: "concurrent" })
-  await post(page, id, { type: "agent_start", ts: at(-10), name: "Sevoflurane", value: "1.5", color: "#a855f7", agentMode: "concurrent" })
-  await post(page, id, { type: "agent_start", ts: at(12), name: "Sevoflurane", value: "1", color: "#a855f7", agentMode: "concurrent" })
+  // `agentPercent` is the clinical field projected into the web change strip;
+  // `value` remains present because it is the serialized event value asserted
+  // by the saved-log checks below.
+  await post(page, id, { type: "agent_start", ts: at(-20), name: "Sevoflurane", value: "2", agentPercent: 2, color: "#a855f7", agentMode: "concurrent" })
+  await post(page, id, { type: "agent_start", ts: at(-10), name: "Sevoflurane", value: "1.5", agentPercent: 1.5, color: "#a855f7", agentMode: "concurrent" })
+  await post(page, id, { type: "agent_start", ts: at(12), name: "Sevoflurane", value: "1", agentPercent: 1, color: "#a855f7", agentMode: "concurrent" })
   return id
 }
 

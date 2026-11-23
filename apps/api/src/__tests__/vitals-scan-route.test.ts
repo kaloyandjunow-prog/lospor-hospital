@@ -4,6 +4,17 @@ const getAuthUserMock = vi.fn()
 const rateLimitMock = vi.fn()
 const findUniqueMock = vi.fn()
 
+// The policy/credential gate has its own tests. This suite exercises the route
+// behavior beneath a successful provider resolution.
+vi.mock("@/lib/hospital/external-ai-policy", () => ({
+  externalAiCapabilityState: async () => ({
+    enabled: true, reason: null, provider: "MISTRAL",
+  }),
+  externalAiProviderAccess: async () => ({
+    enabled: true, provider: "MISTRAL", apiKey: "test-key",
+    advisorModel: "mistral-small-2603", visionModel: "mistral-large-2512",
+  }),
+}))
 vi.mock("@/lib/mobile-auth", () => ({
   getAuthUser: getAuthUserMock,
 }))
@@ -62,8 +73,12 @@ describe("case vitals scan route", () => {
       select: {
         id: true,
         userId: true,
-        // The case's own institution: a head of department is scoped by it.
+        // The case's own institution and creator, which canReadCase needs to
+        // answer for a head of department or a co-creator. Selecting only the
+        // owner left record.institutionId undefined, so a same-institution HOD
+        // was refused a scan on a colleague's case.
         institutionId: true,
+        createdById: true,
         // 10.8.0: an anaesthesia nurse reaches a case by these.
         operatingTheatreId: true,
         finalizedAt: true,

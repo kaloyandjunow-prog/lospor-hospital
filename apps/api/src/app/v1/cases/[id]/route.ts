@@ -4,6 +4,8 @@ import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { mapPreop, mapPreopUpdate, mapIntraop, mapIntraopUpdate, mapPostop, mapPostopUpdate } from "../_mappers"
 import { z } from "zod"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { deletePatientLinkIfOrphaned } from "@/lib/hospital/patient-link"
 import { logAudit, logAuditInTransaction } from "@/lib/audit"
 import { preopSchema, intraopSchema, postopSchema } from "@/lib/schemas/case"
 import { parseLenient } from "@/lib/lenient-parse"
@@ -21,6 +23,8 @@ import {
   caseCapabilitiesForUser,
   caseReadWhereForUser,
 } from "@/lib/access-control"
+import { caseVisibilityCapabilityState } from "@/lib/hospital/case-visibility"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import { corsHeaders } from "@/lib/cors"
 import type { CaseDetail, Serialized } from "@/types/case-detail"
 import { SECTION_REVISION_HEADER } from "@lospor/core/sync"
@@ -52,6 +56,7 @@ import {
 import { serializeMedicationInstruction, serializePremedicationOrders, serializeWardOrder } from "@/lib/preop/sections"
 import { keepTheatreNameAtStart, operatingTheatresEnabled } from "@/lib/operating-theatres"
 import { caseTheatreView } from "@lospor/core/operating-theatres"
+import { admissionNumberVisible, patientDisplayOf, patientDisplaySelect } from "@/lib/hospital/patient-display"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 const REVISION_HEADER = SECTION_REVISION_HEADER
@@ -100,14 +105,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const where = caseReadWhereForUser(user, id)
+  const caseVisibilityEnabled = (await caseVisibilityCapabilityState()).enabled
+  const where = await caseReadWhereForUser(user, id, caseVisibilityEnabled)
 
   // A case started 48 hours ago with no screen open on it ends as it is opened
   // (1.4.9); the sweeps catch the ones nobody opens. Only for a case this user
   // may read, and never allowed to fail the read.
   if (await prisma.case.count({ where }) > 0) {
-    await autoEndCaseIfStale(id).catch(error => {
-      console.error("[GET case] INTRAOP_AUTO_END_FAILED", id, error)
+    await autoEndCaseIfStale(id).catch(() => {
+      console.error("[GET case] INTRAOP_AUTO_END_FAILED")
     })
   }
 
@@ -143,6 +149,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           institution: { select: { name: true } },
         },
       },
+      patientLink: { select: { maskedIdentifier: true, ...patientDisplaySelect, personLink: { select: { maskedIdentifier: true, ...patientDisplaySelect.personLink.select } } } },
     },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -175,6 +182,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // with the bundled defaults -- exactly what its first save will provision.
   const profiles = await readPreopProfiles(prisma)
   const preopProfile = profiles ? serializePreopProfiles(profiles) : defaultPreopProfileShape()
+  const capabilities = await caseCapabilitiesForUser(user, record, caseVisibilityEnabled)
+  if (isHospitalDeployment() && record.userId !== user.id) {
+    after(() => logAudit(user.id, "CASE_VIEWED", record.id, {
+      scope: "hospital-wide",
+      readOnly: capabilities.canWrite !== true,
+    }))
+  }
   // Off, a case shows no theatre, unless it kept one from its start (10.0.0).
   const theatresOn = await operatingTheatresEnabled(prisma)
   // A case's orders go out in the shape the form sends them back in; the
@@ -186,8 +200,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   } : null
   const responseRecord = {
     ...normalizedRecord,
+    capabilities,
+    // The admission's number, and the person's ЕГН (masked) once it is known.
+    // The sealed identifier stays on the server: only the masked reference and `patientDisplay` leave.
+    patientLink: record.patientLink ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier } : null,
+    patientDisplay: (await admissionNumberVisible(prisma)) ? patientDisplayOf(record.patientLink) : null,
+    patientReference: record.patientLink
+      ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier, personMaskedIdentifier: record.patientLink.personLink?.maskedIdentifier ?? null }
+      : null,
     ...(preopOrders && normalizedRecord.preop ? { preop: { ...normalizedRecord.preop, wardOrders: undefined, medicationInstructions: undefined, premedicationOrders: undefined, ...preopOrders } } : {}),
-    capabilities: caseCapabilitiesForUser(user, record),
     // The record keeps what was deleted, struck through. Asked for, not sent to every reader of the case (11.0).
     ...(req.nextUrl.searchParams.get("deleted") === "1" ? { deletedEvents: await deletedCaseLog(prisma, id) } : {}),
     // The operating theatre (10.0.0): the name it kept, and whether it can still change.
@@ -229,7 +250,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // values would otherwise be invisible. Paths only: the values themselves
     // are clinical data and must not reach the logs.
     if (rejectedFields.length) {
-      console.warn(`[PATCH /api/cases/:id] rejected fields on ${id}:`, rejectedFields.map(f => f.path).join(", "))
+      console.warn("[PATCH /api/cases/:id] REJECTED_FIELDS")
     }
     const { preop, intraop, postop, status, clinicalMode, notes, plannedSurgeryDate, overrideConflict: overrideField } = body
     // An anaesthesia nurse writes the intraoperative and postoperative stages only (10.8.0).
@@ -271,7 +292,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes })
     if (piiError) {
-      after(() => logAudit(userId, "PII_BLOCKED", id, { field: piiError.field, reason: piiError.reason }))
+      after(() => logAudit(userId, "PII_BLOCKED", id, { field: piiError.field, reasonCode: piiError.reason }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 
@@ -661,13 +682,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // this records is that an overwrite happened, to which sections, and
       // which version the client believed it was working from.
       if (conflicts.length) {
+        // Not `reason`: assertSafeAuditDetail bans that key (and anything
+        // ending in it) everywhere, to keep out free-text justification
+        // strings. This is a closed conflict-reason code, not free text, so
+        // it needs a name the filter doesn't recognise as the thing it's
+        // guarding against.
         await logAuditInTransaction(tx, userId, "CASE_CONFLICT_OVERRIDE", id, {
           sections: conflicts.map(conflict => ({
             section: conflict.section,
             // Every guard sets its own reason now -- see _patch-conflicts.ts --
             // so a stale-timestamp override is no longer audited as though it
             // were a stale-revision one.
-            reason: conflict.reason,
+            reasonCode: conflict.reason,
             clientRevision: conflict.clientRevision,
             clientBase: conflict.clientBase,
             overriddenRevision: conflict.serverRevision,
@@ -715,7 +741,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
     }
     if (err instanceof z.ZodError) {
-      console.error("[PATCH /api/cases/:id] ZodError:", JSON.stringify(err.issues, null, 2))
+      console.error("[PATCH /api/cases/:id] INVALID_REQUEST")
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
     if (err instanceof PreopContractError) {
@@ -724,9 +750,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const failureKind = err.code
       console.warn("[PATCH /api/cases/:id] PREOP_CONTRACT", failureKind)
       const blockedKeys = preopContractBlockedKeys(err)
-      // Nothing the clinician edits can fix a catalogue or profile fault on
-      // the server, so it is not a 400: the client keeps the save queued.
-      if (!blockedKeys) return NextResponse.json({ error: err.code }, { status: 500 })
+      if (!blockedKeys) {
+        // Nothing the clinician edits can fix a catalogue or profile fault
+        // on the appliance, so it is not a 400: the client keeps the save
+        // queued and retries, and Status hears about it.
+        void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
+        return NextResponse.json({ error: err.code }, { status: 500 })
+      }
       return NextResponse.json({
         error: err.code,
         code: PREOP_ANSWER_REFUSED,
@@ -736,7 +766,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         details: err.details,
       }, { status: 400 })
     }
-    console.error("[PATCH /api/cases/:id]", err)
+    console.error("[PATCH /api/cases/:id] CASE_UPDATE_FAILED")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -753,7 +784,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const result = await withLockedCaseTransaction(id, async tx => {
       const existing = await tx.case.findUnique({
         where: { id },
-        select: { id: true, userId: true, status: true, institutionId: true, clinicalMode: true, operatingTheatreId: true, finalizedAt: true, plannedSurgeryDate: true },
+        select: { id: true, userId: true, status: true, institutionId: true, clinicalMode: true, operatingTheatreId: true, finalizedAt: true, plannedSurgeryDate: true, patientLinkId: true },
       })
       if (!existing) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
       if (!await canWriteCaseWithOwnerFallback(tx, user, existing)) {
@@ -769,6 +800,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ error: "Cannot delete a completed case" }, { status: 400 })
       }
       await tx.case.delete({ where: { id } })
+      await deletePatientLinkIfOrphaned(tx, existing.patientLinkId)
       return null
     })
     if (result instanceof Response) return result
@@ -776,7 +808,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (err instanceof CaseWriteError) {
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
-    console.error("[DELETE /api/cases/:id]", err)
+    console.error("[DELETE /api/cases/:id] CASE_DELETE_FAILED")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-delete" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 

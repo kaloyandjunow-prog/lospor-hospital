@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
-import { generateCaseCode, isPrismaUniqueError, reserveCaseCode } from "@/lib/case-code"
+import { isPrismaUniqueError, renumberCaseCode, reserveCaseCode } from "@/lib/case-code"
 import { logCaseStaff } from "@/lib/case-staff-log"
 
 export type TransferOutcome = {
@@ -70,12 +70,7 @@ export async function transferCaseOwnershipInTransaction(
       // that anyone counting a year's work would then count it under. The
       // existing code carries the case's year, so it is the authority; a case
       // with no code yet has nothing to preserve and falls back to now.
-      const year = Number(caseCode.slice(0, 4))
-      caseCode = await generateCaseCode(
-        toUserId,
-        tx,
-        Number.isFinite(year) && year > 1900 ? year : undefined,
-      )
+      caseCode = await renumberCaseCode(toUserId, tx, caseCode)
     }
   }
 

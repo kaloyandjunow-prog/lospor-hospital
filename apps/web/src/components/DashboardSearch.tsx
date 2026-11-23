@@ -18,10 +18,14 @@ import { displayClinicalCode } from "@/lib/clinical-display"
 import { caseIsWritable } from "@/lib/case-capabilities"
 import { displayPediatricAge } from "@lospor/core/pediatric"
 import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
+import { readPatientDisplay } from "@/lib/hospital-patient-reference"
+import { anaesthesiaRunning, dashboardDayLabel, dashboardSections, departmentClock } from "@/lib/dashboard-order"
 
 type CaseRow = {
   id: string
   caseCode: string | null
+  /** The full ИЗ № and the first six digits of a known ЕГН, while the site shows them (hospital 1.8.0). */
+  patientDisplay?: unknown
   status: string
   createdAt: Date
   userId: string
@@ -35,7 +39,7 @@ type CaseRow = {
     asaScore?: string | null
     procedureUndetermined?: boolean | null
   } | null
-  intraop?: { monthYear?: string | null; endTime?: string | null; startTime?: string | null; startedAt?: string | null } | null
+  intraop?: { monthYear?: string | null; endTime?: string | null; startTime?: string | null; startedAt?: string | null; endedAt?: string | null } | null
   /** A cancelled procedure (10.0.0). */
   cancellationReason?: string | null
   postop?: { disposition?: string | null } | null
@@ -91,6 +95,45 @@ function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
   return { key: "draft", cls: "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400" }
 }
 
+/**
+ * Every case but a cancelled one carries a light: green while anaesthesia runs,
+ * red on an open case that is not under anaesthesia, grey once the case is
+ * closed and locked. Every case that has started shows its anaesthesia time,
+ * in the department's clock.
+ */
+function AnaesthesiaLight({ c, locale }: { c: CaseRow; locale: string }) {
+  const bg = locale === "bg"
+  const locked = c.status === "COMPLETE"
+  const open = !locked && c.status !== "CANCELLED"
+  const running = anaesthesiaRunning(c)
+  const start = departmentClock(c.intraop?.startedAt)
+  const end = departmentClock(c.intraop?.endedAt)
+  const label = locked
+    ? (bg ? "Случаят е заключен" : "Case locked")
+    : running ? (bg ? "Анестезията е в ход" : "Anaesthesia running") : (bg ? "Анестезията не е в ход" : "Anaesthesia not running")
+  if (!open && !locked && !start) return null
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+      {open || locked ? (
+        <span
+          data-testid="anaesthesia-light"
+          data-running={running ? "true" : "false"}
+          data-light={locked ? "locked" : running ? "running" : "idle"}
+          role="img"
+          aria-label={label}
+          title={label}
+          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${running ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.25)]" : locked ? "bg-slate-400 dark:bg-slate-500" : "bg-red-500"}`}
+        />
+      ) : null}
+      {start ? (
+        <span data-testid="anaesthesia-time" className="tabular-nums">
+          {bg ? "Анестезия" : "Anaesthesia"} {running ? (bg ? `от ${start}` : `from ${start}`) : end ? `${start}–${end}` : start}
+        </span>
+      ) : null}
+    </p>
+  )
+}
+
 const STATUS_CODES: Record<StatusKey, string> = {
   cancelled: "CANCELLED", finished: "COMPLETE", awaitingReview: "AWAITING_REVIEW", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
   awaitingAllocation: "AWAITING_ALLOCATION", inConsultation: "IN_CONSULTATION", draft: "DRAFT",
@@ -101,12 +144,15 @@ export function DashboardSearch({
   userId,
   role,
   theatres = null,
+  layout = { byDay: false, theatres: null },
 }: {
   cases: CaseRow[]
   userId: string
   role: string
   /** The site's operating theatres (10.0.0); null while it does not use them. */
   theatres?: OperatingTheatre[] | null
+  /** Day headings, theatre headings (the site's theatres, or null for none), and whose cases come first. */
+  layout?: { byDay: boolean; theatres: OperatingTheatre[] | null; ownerId?: string }
 }) {
   const locale = useLocale()
   const t = useTranslations()
@@ -115,7 +161,7 @@ export function DashboardSearch({
 
   const filtered = query.trim()
     ? cases.filter(c => {
-        const hay = [c.preop?.plannedProcedure, c.preop?.diagnosis, c.caseCode, theatres ? c.theatre?.name : null]
+        const hay = [c.preop?.plannedProcedure, c.preop?.diagnosis, c.caseCode, readPatientDisplay(c.patientDisplay)?.admissionNumber, theatres ? c.theatre?.name : null]
           .filter(Boolean).join(" ").toLowerCase()
         return hay.includes(query.trim().toLowerCase())
       })
@@ -145,8 +191,31 @@ export function DashboardSearch({
           <p className="font-medium">{query ? t("dashboard.noSearchMatches") : t("dashboard.noCasesHere")}</p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
-          {filtered.map(c => {
+        <div className="space-y-4">
+          {dashboardSections(filtered, { theatres: layout.theatres, ownerId: layout.ownerId, byDay: layout.byDay }).map((section, _index, sections) => (
+            <section key={String(section.mine)} data-testid="dashboard-owner-section" data-mine={String(section.mine)} className="space-y-4">
+              {/* Named only when there is someone else's work to tell it apart from. */}
+              {section.mine !== null && sections.some(other => other.mine === false) ? (
+                <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2">
+                  {section.mine ? (locale === "bg" ? "Моите случаи" : "My cases") : (locale === "bg" ? "Случаи на колеги" : "Colleagues' cases")}
+                </h2>
+              ) : null}
+              {section.days.map(day => (
+                <section key={day.dayKey} data-testid="dashboard-day" data-day={day.dayKey}>
+                  {layout.byDay ? (
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-2 pb-1 border-b border-slate-200 dark:border-[#2e2e2e]">
+                      {dashboardDayLabel(day.dayKey, locale === "bg" ? "bg" : "en")}
+                    </h3>
+                  ) : null}
+                  {day.theatres.map(group => (
+                    <div key={group.theatreId ?? "none"} data-testid="dashboard-theatre-group">
+                      {layout.theatres ? (
+                        <h4 className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 px-2 pt-2">
+                          {group.name ?? (locale === "bg" ? "Без зала" : "No theatre")}
+                        </h4>
+                      ) : null}
+                      <div className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
+                        {group.cases.map(c => {
             const { key, cls } = computeStatus(c)
             const isComplete = c.status === "COMPLETE"
             const isCancelled = c.status === "CANCELLED"
@@ -171,6 +240,17 @@ export function DashboardSearch({
                   <p className="text-sm text-slate-500 truncate mt-0.5">
                     {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
                   </p>
+                  <AnaesthesiaLight c={c} locale={locale} />
+                  {(() => {
+                    const who = readPatientDisplay(c.patientDisplay)
+                    return who ? (
+                      <p data-testid="patient-display" className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate mt-0.5">
+                        {who.admissionNumber ? <span>{t("case.admissionNumberShort")} <span className="font-mono">{who.admissionNumber}</span></span> : null}
+                        {who.admissionNumber && who.egnPrefix ? " · " : null}
+                        {who.egnPrefix ? <span>{t("case.egnPrefixShort")} <span className="font-mono">{who.egnPrefix}</span></span> : null}
+                      </p>
+                    ) : null
+                  })()}
                   </div>
                 </Link>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
@@ -235,7 +315,14 @@ export function DashboardSearch({
                 </div>
               </div>
             )
-          })}
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              ))}
+            </section>
+          ))}
         </div>
       )}
     </div>
