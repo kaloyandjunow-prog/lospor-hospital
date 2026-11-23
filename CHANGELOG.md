@@ -25,6 +25,17 @@ receives what this Hospital sends, but the order keeps Central and Hospital on o
   many steps, full screen, drug colours by ISO 26825, totals for each running item) and every screen is usable by a finger.
   Details are in the upstream changelogs.
 
+### Security
+
+- **PostgreSQL 17.12** (was 17.11, released 2026-11-12). It fixes 47 advisories that 17.11 has, 30 of them CVSS 8.8 (code execution
+  by a signed-in database user through server and procedural-language bugs, among others). The database image is built from the
+  checksummed 17.12 source on the `postgres:17.12-trixie` base. It is a patch update: an existing version-17 data directory opens
+  in place.
+- **zlib 1.4** (was 1.3.2) inside the database image: the buffer overruns of `gzwrite`, `inflateGetDictionary`, `inflatePrime`,
+  `deflatePrime` and others fixed upstream (CVE-2026-85091 among them).
+- The new base image carries the `systemd` package, which a container does not use; the hardened image removes it.
+- Trivy 0.76.2 (was 0.76.1) scans the release.
+
 ### Changed
 
 - The research export carries one new kind of row for an infusion, fluid or agent that goes on after the case (an observation
