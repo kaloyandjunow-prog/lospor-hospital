@@ -164,7 +164,7 @@ RUN set -eux; \
     make install; \
     make -C contrib/pg_trgm install; \
     make -C contrib/pgcrypto install; \
-    /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17\.11( |$)'; \
+    /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17.12( |$)'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-ldap'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-libxml'; \
     ! ldd /opt/lospor-postgresql/bin/postgres | grep -Eq 'lib(xml2|ldap)'; \
@@ -300,10 +300,10 @@ RUN set -eux; \
     ln -s /opt/lospor-postgresql/lib/libz.so.1 /lib/x86_64-linux-gnu/libz.so.1; \
     rm -f /usr/bin/dpkg-deb; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*; \
-    postgres --version | grep -Eq ' 17\.11( |$)'; \
-    psql --version | grep -Eq ' 17\.11( |$)'; \
-    pg_dump --version | grep -Eq ' 17\.11( |$)'; \
-    pg_restore --version | grep -Eq ' 17\.11( |$)'; \
+    postgres --version | grep -Eq ' 17.12( |$)'; \
+    psql --version | grep -Eq ' 17.12( |$)'; \
+    pg_dump --version | grep -Eq ' 17.12( |$)'; \
+    pg_restore --version | grep -Eq ' 17.12( |$)'; \
     ! ldd "$(command -v postgres)" | grep -Eq 'lib(xml2|ldap)'; \
     ! ldd "$(command -v psql)" | grep -Eq 'lib(xml2|ldap|readline|tinfo)'; \
     ldd "$(command -v postgres)" | grep -Fq '/opt/lospor-postgresql/lib/libz.so.1'; \
