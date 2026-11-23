@@ -164,7 +164,7 @@ RUN set -eux; \
     make install; \
     make -C contrib/pg_trgm install; \
     make -C contrib/pgcrypto install; \
-    /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17.12( |$)'; \
+    /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17\.12( |$)'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-ldap'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-libxml'; \
     ! ldd /opt/lospor-postgresql/bin/postgres | grep -Eq 'lib(xml2|ldap)'; \
@@ -243,8 +243,11 @@ RUN set -eux; \
       libxml2 libxslt1.1 libldap2 \
       libgnutls30t64 ssl-cert \
       libgssapi-krb5-2 libkrb5-3 libk5crypto3 libkrb5support0 \
-      libsystemd0 libudev1 procps libproc2-0 \
+      systemd libsystemd-shared libsystemd0 libudev1 procps libproc2-0 \
       gzip bsdutils; \
+    # The postgres 17.12 base image carries the systemd package (postgresql-common, removed above, depends on it): the init
+    # system, its tools and its shared library. A container uses none of them, and their tools need the util-linux
+    # libraries removed here, so they go too (1.14.0).
     # Debian 13 coreutils links libsystemd only for these three login-session
     # reporters. Nothing here has login sessions, so they go with libsystemd.
     # PAM's pam_issue/pam_limits/pam_timestamp also link it but are loaded
@@ -276,6 +279,8 @@ RUN set -eux; \
     ! command -v postgres; \
     ! command -v psql; \
     ! command -v perl; \
+    ! command -v busctl; \
+    ! dpkg-query -W systemd >/dev/null 2>&1; \
     ! command -v setpriv; \
     ! command -v gzip; \
     ! command -v infocmp; \
@@ -300,10 +305,10 @@ RUN set -eux; \
     ln -s /opt/lospor-postgresql/lib/libz.so.1 /lib/x86_64-linux-gnu/libz.so.1; \
     rm -f /usr/bin/dpkg-deb; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*; \
-    postgres --version | grep -Eq ' 17.12( |$)'; \
-    psql --version | grep -Eq ' 17.12( |$)'; \
-    pg_dump --version | grep -Eq ' 17.12( |$)'; \
-    pg_restore --version | grep -Eq ' 17.12( |$)'; \
+    postgres --version | grep -Eq ' 17\.12( |$)'; \
+    psql --version | grep -Eq ' 17\.12( |$)'; \
+    pg_dump --version | grep -Eq ' 17\.12( |$)'; \
+    pg_restore --version | grep -Eq ' 17\.12( |$)'; \
     ! ldd "$(command -v postgres)" | grep -Eq 'lib(xml2|ldap)'; \
     ! ldd "$(command -v psql)" | grep -Eq 'lib(xml2|ldap|readline|tinfo)'; \
     ldd "$(command -v postgres)" | grep -Fq '/opt/lospor-postgresql/lib/libz.so.1'; \
