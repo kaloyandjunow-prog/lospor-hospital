@@ -35,6 +35,9 @@ receives what this Hospital sends, but the order keeps Central and Hospital on o
   `deflatePrime` and others fixed upstream (CVE-2026-85091 among them).
 - The new base image carries the `systemd` package, which a container does not use; the hardened image removes it.
 - Trivy 0.76.2 (was 0.76.1) scans the release.
+- **Two unfixed OpenSSL findings are accepted for this release** (the maintainer, 2026-11-23): CVE-2026-107494 and CVE-2026-124709, denial of
+  service in OpenSSL's QUIC stack, in the database image. Debian has no fix for trixie, forky or sid yet. PostgreSQL uses OpenSSL for TLS
+  over TCP only and never starts a QUIC client or server. They are accepted until Debian packages the fix, and no later than 2026-12-31.
 
 ### Changed
 
