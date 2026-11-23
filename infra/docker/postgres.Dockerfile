@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Release CI replaces this default with the approved linux/amd64 digest.
-ARG POSTGRES_BASE_IMAGE=postgres:17.11-trixie
+ARG POSTGRES_BASE_IMAGE=postgres:17.12-trixie
 
 FROM ${POSTGRES_BASE_IMAGE} AS source-builder
 
@@ -56,13 +56,13 @@ RUN set -eux; \
     ld --version >> /opt/lospor-postgresql/share/lospor-build/compiler.txt; \
     rm -rf /var/lib/apt/lists/*
 
-ADD --checksum=sha256:dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979 \
-  https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2 \
-  /tmp/postgresql-17.11.tar.bz2
+ADD --checksum=sha256:9cf136a703d8ee2f83465c43be4e9e8e7930c82b0bfba13be7e2537be769ac55 \
+  https://ftp.postgresql.org/pub/source/v17.12/postgresql-17.12.tar.bz2 \
+  /tmp/postgresql-17.12.tar.bz2
 
-ADD --checksum=sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3 \
-  https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz \
-  /tmp/zlib-1.3.2.tar.xz
+ADD --checksum=sha256:4f11c512053d7bab8d9e9b89bde3575add3e4c50a383b42ef6cb837035fc5a7c \
+  https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.xz \
+  /tmp/zlib-1.4.tar.xz
 
 ADD --checksum=sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3 \
   http://snapshot.debian.org/archive/debian/20261003T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz \
@@ -70,17 +70,17 @@ ADD --checksum=sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f
 
 RUN set -eux; \
     mkdir -p /usr/src/zlib; \
-    tar --extract --xz --file /tmp/zlib-1.3.2.tar.xz \
+    tar --extract --xz --file /tmp/zlib-1.4.tar.xz \
       --directory /usr/src/zlib --strip-components=1; \
-    rm /tmp/zlib-1.3.2.tar.xz; \
+    rm /tmp/zlib-1.4.tar.xz; \
     mkdir -p /usr/src/acl; \
     tar --extract --xz --file /tmp/acl-2.4.0.tar.xz \
       --directory /usr/src/acl --strip-components=1; \
     rm /tmp/acl-2.4.0.tar.xz; \
     mkdir -p /usr/src/postgresql; \
-    tar --extract --bzip2 --file /tmp/postgresql-17.11.tar.bz2 \
+    tar --extract --bzip2 --file /tmp/postgresql-17.12.tar.bz2 \
       --directory /usr/src/postgresql --strip-components=1; \
-    rm /tmp/postgresql-17.11.tar.bz2; \
+    rm /tmp/postgresql-17.12.tar.bz2; \
     chown -R postgres:postgres /usr/src/postgresql
 
 WORKDIR /usr/src/zlib
@@ -92,7 +92,7 @@ RUN set -eux; \
     make -j "$(nproc)"; \
     make test; \
     make install; \
-    test -s /opt/lospor-postgresql/lib/libz.so.1.3.2; \
+    test -s /opt/lospor-postgresql/lib/libz.so.1.4; \
     /opt/lospor-postgresql/lib/libz.so.1 --version >/dev/null 2>&1 || true
 
 WORKDIR /usr/src/acl
@@ -176,8 +176,8 @@ RUN set -eux; \
     printf '%s\n' \
       'debian=http://snapshot.debian.org/archive/debian/20261003T000000Z' \
       'debian-security=http://snapshot.debian.org/archive/debian-security/20261003T000000Z' \
-      'postgresql=https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2 sha256:dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979' \
-      'zlib=https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3' \
+      'postgresql=https://ftp.postgresql.org/pub/source/v17.12/postgresql-17.12.tar.bz2 sha256:9cf136a703d8ee2f83465c43be4e9e8e7930c82b0bfba13be7e2537be769ac55' \
+      'zlib=https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.xz sha256:4f11c512053d7bab8d9e9b89bde3575add3e4c50a383b42ef6cb837035fc5a7c' \
       'acl=http://snapshot.debian.org/archive/debian/20261003T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
       > /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
@@ -287,7 +287,7 @@ COPY --from=source-builder /opt/lospor-postgresql /opt/lospor-postgresql
 ENV PATH=/opt/lospor-postgresql/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LANG=en_US.utf8 \
     PG_MAJOR=17 \
-    PG_VERSION=17.11 \
+    PG_VERSION=17.12 \
     PGDATA=/var/lib/postgresql/data
 
 RUN set -eux; \
@@ -295,7 +295,7 @@ RUN set -eux; \
       dpkg --remove --force-depends libacl1 zlib1g; \
     ln -s /opt/lospor-postgresql/lib/libacl.so.1 /lib/x86_64-linux-gnu/libacl.so.1; \
     # Debian 13's OpenSSL 3.5 links zlib for certificate compression. Resolve
-    # it to the same checksummed zlib 1.3.2 PostgreSQL uses, exactly as libacl
+    # it to the same checksummed zlib 1.4 PostgreSQL uses, exactly as libacl
     # is resolved above, rather than reinstalling Debian's zlib.
     ln -s /opt/lospor-postgresql/lib/libz.so.1 /lib/x86_64-linux-gnu/libz.so.1; \
     rm -f /usr/bin/dpkg-deb; \
@@ -319,7 +319,7 @@ RUN set -eux; \
     ldd /usr/bin/mv | grep -Fq 'libacl.so.1'; \
     ldd /usr/bin/sed | grep -Fq 'libacl.so.1'; \
     ldd /usr/bin/tar | grep -Fq 'libacl.so.1'; \
-    test -s /opt/lospor-postgresql/lib/libz.so.1.3.2; \
+    test -s /opt/lospor-postgresql/lib/libz.so.1.4; \
     test -s /opt/lospor-postgresql/share/lospor-build/builder-packages.txt; \
     test -s /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
@@ -365,16 +365,16 @@ RUN set -eux; \
 FROM scratch
 COPY --from=runtime / /
 
-LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.11-trixie" \
+LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.12-trixie" \
       org.lospor.build.debian-snapshot="20261003T000000Z" \
-      org.lospor.build.postgresql-source-sha256="dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979" \
-      org.lospor.build.zlib-source-sha256="d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3" \
+      org.lospor.build.postgresql-source-sha256="9cf136a703d8ee2f83465c43be4e9e8e7930c82b0bfba13be7e2537be769ac55" \
+      org.lospor.build.zlib-source-sha256="4f11c512053d7bab8d9e9b89bde3575add3e4c50a383b42ef6cb837035fc5a7c" \
       org.lospor.build.acl-source-sha256="e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3"
 
 ENV PATH=/opt/lospor-postgresql/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LANG=en_US.utf8 \
     PG_MAJOR=17 \
-    PG_VERSION=17.11 \
+    PG_VERSION=17.12 \
     PGDATA=/var/lib/postgresql/data
 
 VOLUME /var/lib/postgresql/data

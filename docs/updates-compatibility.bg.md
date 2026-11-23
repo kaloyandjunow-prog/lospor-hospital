@@ -209,8 +209,8 @@ development path. `update.sh` открива resolved Compose model. Release mod
 
 От 1.4.22 Hospital PostgreSQL image е Debian 13 (Trixie, glibc 2.41). Той
 отваря на място volumes, създадени от `postgres:17.6-bookworm` (glibc 2.36), и
-изгражда PostgreSQL 17.11, `pg_trgm`
-и `pgcrypto` от upstream tarball с проверена контролна сума. Runtime libraries zlib 1.3.2 и
+изгражда PostgreSQL 17.12, `pg_trgm`
+и `pgcrypto` от upstream tarball с проверена контролна сума. Runtime libraries zlib 1.4 и
 ACL 2.4.0 също се изграждат от source, а LDAP, libxml, UUID, readline/ncurses и
 неизползваните package tools отсъстват. CI отваря точен 17.6 `en_US.utf8` data
 volume в production image, пуска проверката за collation, доказва, че
@@ -228,7 +228,7 @@ collation version е записана, и отделно доказва custom-f
 възстановява архива отпреди обновяването и никога не отваря преизградените
 индекси със стария image.
 
-Patch update 17.11 отваря съществуваща version-17 data directory in place; не
+Patch update 17.12 отваря съществуваща version-17 data directory in place; не
 изисква dump/restore или `pg_upgrade`. Преди migrations appliance съгласува collation version (по-горе), отказва
 logical-decoding slots и custom output plugins (Hospital не използва нито
 едното), така че migrations не могат да издават WAL в неподдържаното състояние.

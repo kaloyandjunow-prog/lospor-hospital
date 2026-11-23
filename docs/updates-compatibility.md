@@ -208,8 +208,8 @@ Compose cannot silently replace a verified image while starting the appliance.
 
 Since 1.4.22 the Hospital PostgreSQL image is Debian 13 (Trixie, glibc 2.41).
 It opens volumes created by `postgres:17.6-bookworm` (glibc 2.36) in place, and
-builds PostgreSQL 17.11 plus
-`pg_trgm` and `pgcrypto` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
+builds PostgreSQL 17.12 plus
+`pg_trgm` and `pgcrypto` from a checksummed upstream tarball. Its zlib 1.4 and ACL 2.4.0
 runtime libraries are likewise source-built, while LDAP, libxml, UUID,
 readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
 `en_US.utf8` data volume in the production image, runs the collation gate,
@@ -226,7 +226,7 @@ still differ. When they agree, which is every update that keeps the C library,
 it does nothing. Rolling back across this change restores the pre-update
 backup, never opens the rebuilt indexes with the older image.
 
-The 17.11 patch update opens an existing version-17 data directory in place;
+The 17.12 patch update opens an existing version-17 data directory in place;
 it requires neither dump/restore nor `pg_upgrade`. Before migrations, the
 appliance reconciles the collation version (above), rejects logical-decoding slots and custom output plugins (Hospital
 does not use either), so migrations cannot emit WAL in that unsupported state.

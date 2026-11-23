@@ -145,7 +145,7 @@ images, а не непроменени third-party release payloads. `Core` е �
   vulnerability reports, одобрените build inputs, image lock и точния
   risk-exception file, използван от policy.
 
-PostgreSQL 17.11, zlib 1.3.2 и ACL 2.4.0 се компилират от точни release tarballs
+PostgreSQL 17.12, zlib 1.4 и ACL 2.4.0 се компилират от точни release tarballs
 с фиксиран SHA-256 срещу timestamped Debian Trixie snapshots. Evidence
 archive допълва package-manager SBOM на Trivy с обвързан с candidate image
 CycloneDX component list и вградените source URLs/hashes, PostgreSQL configure

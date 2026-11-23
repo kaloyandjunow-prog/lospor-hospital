@@ -4,7 +4,7 @@
   "images": {
     "node": "node:24-alpine3.24@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
     "nginx": "nginx:1.30.7-alpine@sha256:4d1d4ce08432dc7dfe4af762cb224ce6b5273ae878f41e020ea2425d02ea91a4",
-    "postgres": "postgres:17.11-trixie@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f",
+    "postgres": "postgres:17.12-trixie@sha256:223efeb196329b55b3b9a13db144956411dbc18e727e59f681c3e0aede6475cf",
     "caddyBuilder": "golang:1.26.11-alpine3.24@sha256:f496f8c537ed506626ee1a6913afb32c45068a48697163c088f604cc775a0c38",
     "caddyRuntime": "caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f",
     "curl": "curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93",
@@ -14,14 +14,14 @@
     "debianSnapshot": "20261003T000000Z",
     "components": {
       "postgresql": {
-        "version": "17.11",
-        "url": "https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2",
-        "sha256": "dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979"
+        "version": "17.12",
+        "url": "https://ftp.postgresql.org/pub/source/v17.12/postgresql-17.12.tar.bz2",
+        "sha256": "9cf136a703d8ee2f83465c43be4e9e8e7930c82b0bfba13be7e2537be769ac55"
       },
       "zlib": {
-        "version": "1.3.2",
-        "url": "https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz",
-        "sha256": "d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3"
+        "version": "1.4",
+        "url": "https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.xz",
+        "sha256": "4f11c512053d7bab8d9e9b89bde3575add3e4c50a383b42ef6cb837035fc5a7c"
       },
       "acl": {
         "version": "2.4.0",
@@ -48,7 +48,7 @@
       "CPPFLAGS=-I/opt/lospor-postgresql/include"
     ],
     "embeddedRecordSha256": {
-      "sources": "96ad32f72ccc3d407a9eb360f1f5ee006140f77814f6a7530c1d928b2c5a9980",
+      "sources": "41d00a5e6f5393f52ea0741cafe304863ce8133a380a600cc001ba60e51f0461",
       "configure": "0591215264a06703811a276adddab3cf3aa63ece18569ba2c3d418d6b2a003be",
       "compiler": "f6bedf270ea7b2a1362e83492cdfeffef404089b076d01594e2e386ed8db8da9",
       "builderPackages": "18e65b0b76471170f97d44ce3221cfd43262f969bd8079d6003f7c6b09d3ce58"
