@@ -8,8 +8,8 @@ const sha256 = value => createHash("sha256").update(value).digest("hex")
 
 function fixture() {
   const components = {
-    postgresql: { version: "17.11", url: "https://example.invalid/postgresql.tar.bz2", sha256: "1".repeat(64) },
-    zlib: { version: "1.3.2", url: "https://example.invalid/zlib.tar.xz", sha256: "2".repeat(64) },
+    postgresql: { version: "17.12", url: "https://example.invalid/postgresql.tar.bz2", sha256: "1".repeat(64) },
+    zlib: { version: "1.4", url: "https://example.invalid/zlib.tar.xz", sha256: "2".repeat(64) },
     acl: { version: "2.4.0", url: "https://example.invalid/acl.tar.xz", sha256: "3".repeat(64) },
   }
   const flags = ["--prefix=/opt/lospor-postgresql", "--without-ldap", "--without-libxml"]
@@ -34,7 +34,7 @@ function fixture() {
     images: {
       node: `node:24-alpine3.24@sha256:${"1".repeat(64)}`,
       nginx: `nginx:1.30.7-alpine@sha256:${"2".repeat(64)}`,
-      postgres: `postgres:17.11-trixie@sha256:${"3".repeat(64)}`,
+      postgres: `postgres:17.12-trixie@sha256:${"3".repeat(64)}`,
       caddyBuilder: `golang:1.26.11-alpine3.24@sha256:${"4".repeat(64)}`,
       caddyRuntime: `caddy:2.11.7-alpine@sha256:${"5".repeat(64)}`,
       curl: `curlimages/curl:8.23.0@sha256:${"6".repeat(64)}`,
@@ -53,7 +53,7 @@ function fixture() {
 
 test("accepts only the exact embedded source, configure, compiler and package records", () => {
   const { inputs, records } = fixture()
-  assert.equal(verifyPostgresSourceRecords(records, inputs).components.zlib.version, "1.3.2")
+  assert.equal(verifyPostgresSourceRecords(records, inputs).components.zlib.version, "1.4")
   const tampered = { ...records, sources: Buffer.concat([records.sources, Buffer.from("tampered")]) }
   assert.throws(() => verifyPostgresSourceRecords(tampered, inputs), /does not match release inputs/)
 })
