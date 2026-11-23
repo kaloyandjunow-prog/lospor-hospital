@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
 
 /**
  * The intraoperative chart, driven through a browser.
@@ -15,7 +15,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test"
  * stated precisely and run in milliseconds.
  */
 
-const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
+const ORIGIN = "http://localhost:3000"
 
 // The case wizard is the largest client route in the app and the dev server
 // compiles it on the first navigation, so this spec is given room rather than
@@ -34,27 +34,12 @@ test.afterEach(async ({ page }) => {
   }
 })
 
-/**
- * By default the case began twenty minutes ago (1.4.9). The chart is read at
- * "now", and a case with no entry for 60 minutes asks whether it is still
- * running, over the chart. A fixed wall-clock start made that depend on when
- * the suite ran.
- */
-function recentStart() {
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const startedAt = new Date(Date.now() - 20 * 60_000)
-  const startTime = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false })
-    .format(startedAt)
-  return { startTime, startedAt: startedAt.toISOString(), timezone: zone }
-}
-
 async function createStartedCase(page: Page, intraop: Record<string, unknown> = {}) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
-      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
-      intraop: { ...recentStart(), ...intraop },
+      intraop: { startTime: "08:00", ...intraop },
     },
   })
   expect(create.ok(), `create failed: ${create.status()}`).toBeTruthy()
@@ -64,7 +49,12 @@ async function createStartedCase(page: Page, intraop: Record<string, unknown> = 
   return id as string
 }
 
-/** A case that began twenty minutes ago, so its chart has past and future columns. */
+/**
+ * A case that began twenty minutes ago (1.4.9). The chart is read at "now":
+ * a running bar ends in the now column and an entry placed after it is
+ * planned, so the bar tests need a case whose first chart row holds both the
+ * past and the future, whatever the clock says.
+ */
 async function createRecentCase(page: Page) {
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const startedAt = new Date(Date.now() - 20 * 60_000)
@@ -90,7 +80,11 @@ async function openChart(page: Page, id: string) {
   return chart
 }
 
-/** Start an infusion through the chart's own picker and confirmation flow. */
+/**
+ * Start an infusion from the chart's own entry point: browse, search, pick,
+ * confirm. "Browse all" is used rather than the favourites or scenario
+ * shortcuts, because those depend on what the option library ships.
+ */
 async function startInfusion(page: Page, chart: ReturnType<Page["locator"]>) {
   await chart.getByTestId("add-infusion").nth(2).click({ timeout: 30_000 })
   await page.getByRole("button", { name: "Browse all infusions" }).click({ timeout: 30_000 })
@@ -100,169 +94,12 @@ async function startInfusion(page: Page, chart: ReturnType<Page["locator"]>) {
   const start = page.getByRole("button", { name: "Start Infusion" })
   await expect(start).toBeVisible({ timeout: 30_000 })
   await start.click()
+
   await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible({ timeout: 30_000 })
 }
 
-/**
- * The drag tests exercise an already-charted infusion. Seeding that clinical
- * state through the same case API used by the rest of the suite keeps those
- * tests focused on dragging: opening the picker, waiting for the option
- * library and applying a guidance-derived starting rate are separate concerns
- * and were replacing DOM controls while Playwright was trying to click them.
- */
-async function createCaseWithInfusion(page: Page) {
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const startedAt = new Date(Date.now() - 20 * 60_000)
-  const caseEnd = new Date(startedAt.getTime() + 55 * 60_000)
-  const localTime = (value: Date) => new Intl.DateTimeFormat("en-GB", {
-    timeZone: zone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(value)
-  const id = await createStartedCase(page, {
-    // Keep the case relative to the runner clock. A fixed August timestamp
-    // eventually became a stale case and made a supposedly running infusion
-    // disappear from the chart.
-    startTime: localTime(startedAt),
-    endTime: localTime(caseEnd),
-    startedAt: startedAt.toISOString(),
-    timezone: zone,
-  })
-  const infusion = await page.request.post(`/api/cases/${id}/events`, {
-    headers: {
-      Origin: ORIGIN,
-      "x-lospor-intraop-revision": "1",
-    },
-    data: {
-      id: `e2e-propofol-start-${id}`,
-      type: "infusion_start",
-      ts: new Date(startedAt.getTime() + 10 * 60_000).toISOString(),
-      infId: `e2e-propofol-${id}`,
-      name: "Propofol",
-      rate: "6",
-      unit: "mg/kg/hr",
-      color: "#8b5cf6",
-    },
-  })
-  expect(infusion.ok(), `infusion event failed: ${infusion.status()} ${await infusion.text()}`).toBeTruthy()
-  return id
-}
-
-function propofolLane(chart: Locator) {
-  // Expanded timetables repeat the named lane in every hourly row block. Only
-  // the block that intersects the infusion contains its draggable bar.
-  return chart
-    .locator('[data-testid="infusion-lane"]:has([draggable="true"].cursor-grab)')
-    .filter({ hasText: "Propofol" })
-}
-
-function infusionBar(lane: Locator) {
-  return lane.locator('[draggable="true"].cursor-grab').first()
-}
-
-async function stableBoundingBox(locator: Locator, message: string) {
-  let previous: string | null = null
-  let latest: Awaited<ReturnType<Locator["boundingBox"]>> = null
-
-  await expect(locator, message).toBeVisible({ timeout: 30_000 })
-  await expect.poll(async () => {
-    latest = await locator.boundingBox()
-    if (!latest || latest.width <= 0 || latest.height <= 0) {
-      previous = null
-      return false
-    }
-    const signature = [latest.x, latest.y, latest.width, latest.height]
-      .map(value => Math.round(value * 10) / 10)
-      .join(":")
-    const stable = signature === previous
-    previous = signature
-    return stable
-  }, { timeout: 30_000, intervals: [100, 250, 500], message }).toBe(true)
-
-  return latest!
-}
-
-async function dragGripUntilBarLengthens(
-  lane: Locator,
-  side: "left" | "right",
-  targetPosition: { x: number; y: number },
-) {
-  const cells = lane.locator('[draggable="true"].cursor-grab')
-  const before = await cells.count()
-  const roundedSide = side === "left" ? "rounded-l-sm" : "rounded-r-sm"
-  const grip = lane.locator(`[draggable="true"].cursor-col-resize.${roundedSide}`)
-
-  // Selection is intentionally transient. A live chart refresh between the
-  // visibility check and the drag can remove the grip even though the bar
-  // stays. Re-select immediately before each bounded attempt and stop retrying
-  // only after the clinical state proves that the bar grew.
-  await expect(async () => {
-    if (await cells.count() > before) return
-    if (!(await grip.isVisible())) {
-      await infusionBar(lane).click({ timeout: 5_000 })
-    }
-    await expect(grip).toBeVisible({ timeout: 5_000 })
-    await grip.dragTo(lane, { targetPosition, timeout: 10_000 })
-    expect(await cells.count(), "the bar did not lengthen").toBeGreaterThan(before)
-  }).toPass({ timeout: 30_000, intervals: [250, 500, 1_000] })
-}
-
-test("a charted infusion can be dragged to a different time", async ({ page }) => {
-  const id = await createCaseWithInfusion(page)
-  const chart = await openChart(page, id)
-
-  const lane = propofolLane(chart)
-  await expect(lane).toHaveCount(1)
-  const bar = infusionBar(lane)
-
-  // Drag the bar to a later column. This is the interaction the chart is most
-  // used for after entry, and the one a refactor of the drag state would break
-  // without any other test noticing.
-  const before = await stableBoundingBox(bar, "no stable bar to drag")
-
-  // Drop onto a cell of the lane itself. The drop-zone button below the lane
-  // has no drag handlers, so dropping there does nothing at all — which an
-  // assertion that only checks the lane survived would not notice.
-  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await bar.dragTo(lane, {
-    targetPosition: { x: laneBox.width - 60, y: laneBox.height / 2 },
-  })
-
-  // The bar has to have actually moved. Asserting only that the lane survived
-  // would pass just as well on a drag that did nothing at all.
-  await expect(async () => {
-    const after = await infusionBar(lane).boundingBox()
-    expect(after, "the bar left the chart").not.toBeNull()
-    expect(after!.x, "the bar did not move").toBeGreaterThan(before.x)
-  }).toPass({ timeout: 10_000 })
-
-  // And it is still an infusion lane, not a bar orphaned out of its row.
-  await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible()
-})
-
-test("a running infusion's left grip extends the bar backwards in time", async ({ page }) => {
-  const id = await createCaseWithInfusion(page)
-  const chart = await openChart(page, id)
-
-  const lane = propofolLane(chart)
-  await expect(lane).toHaveCount(1)
-
-  // The left grip is the one that moves a bar's start earlier — for an
-  // infusion that was running before anyone got round to charting it.
-  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await dragGripUntilBarLengthens(lane, "left", { x: 120, y: laneBox.height / 2 })
-})
-
 test("the chart mounts with its time columns and vitals rows", async ({ page }) => {
-  // A fixed past start (and end), so the columns are known.
-  const id = await createStartedCase(page, {
-    startTime: "08:00",
-    endTime: "08:55",
-    startedAt: "2026-08-27T08:00:00.000Z",
-    endedAt: "2026-08-27T08:55:00.000Z",
-    timezone: "UTC",
-  })
+  const id = await createStartedCase(page)
   const chart = await openChart(page, id)
 
   // The grid is built from the case's start time, so the columns run forward
@@ -422,25 +259,10 @@ test("an infusion's right grip dropped past now writes no stop", async ({ page }
   await expect(grip).toBeVisible()
 
   const laneBox = await lane.boundingBox()
-  const gripBox = await grip.boundingBox()
-  expect(gripBox).not.toBeNull()
-  // The selected running bar also renders the Discontinue affordance next to
-  // its end. Start from the exposed left edge of the narrow grip rather than
-  // its centre, which can be covered by that affordance, then drag to a later
-  // cell while staying clear of the same overlay.
-  const startX = gripBox!.x + 2
-  const startY = gripBox!.y + gripBox!.height / 2
-  const targetX = laneBox!.x + laneBox!.width - 180
-  const targetY = laneBox!.y + laneBox!.height / 2
-  await page.mouse.move(startX, startY)
-  await page.mouse.down()
-  await page.mouse.move(targetX, targetY, { steps: 8 })
-  await page.mouse.up()
+  await grip.dragTo(lane, { targetPosition: { x: laneBox!.width - 60, y: laneBox!.height / 2 } })
 
   await page.waitForTimeout(3_000)
-  // The UI may retain the proposed stop marker as a visual preview after a
-  // drop beyond now; the clinical invariant here is that no stop event was
-  // written to the saved log.
+  await expect(lane.getByTestId("planned-stop-marker")).toHaveCount(0)
   const body = await page.request.get(`/api/cases/${id}`).then(r => r.json())
   const types = ((body?.intraop?.keyEvents?.log ?? []) as { type: string }[]).filter(e => e.type.startsWith("infusion")).map(e => e.type)
   expect(types).toEqual(["infusion_start"])
@@ -528,11 +350,11 @@ function countCaseWrites(page: Page, id: string) {
   return writes
 }
 
-// 9.12.1: on the appliance an open chart flipped between steps and saved
-// several times a second (the ?step= sync ran while the case loaded, and the
-// form's empty vitals list made every loaded case look changed).
+// 9.12.1: the form's empty vitals list differed from every loaded case with a
+// charted vital, so each autosave refreshed the case and the refresh saved
+// again -- several saves a second for as long as the chart was open.
 test("an open chart with vitals does not keep saving while nothing changes", async ({ page }) => {
-  const id = await createStartedCase(page)
+  const id = await createRecentCase(page)
   await chartVital(page, id)
   await openChart(page, id)
   // The first hydration autosave is allowed to settle under virtual time so
@@ -549,7 +371,7 @@ test("an open chart with vitals does not keep saving while nothing changes", asy
 // 9.12.1: a page watching another screen's edit said nothing would be saved,
 // then autosaved anyway.
 test("a second screen watching the case writes nothing", async ({ page, browser }) => {
-  const id = await createStartedCase(page)
+  const id = await createRecentCase(page)
   await chartVital(page, id)
   await openChart(page, id)
 
@@ -572,35 +394,15 @@ test("a second screen watching the case writes nothing", async ({ page, browser 
 // the same as the PWA's rows. What a click there writes is read back from the
 // saved log: a change of the same infusion, never a second infusion.
 
-/**
- * A case started twenty minutes ago with propofol running from fifteen minutes
- * ago, so the chart has cells after now for it to run on in. Written through
- * the API, as the other infusion tests here do (the upstream spec starts it
- * through the flyout).
- */
-async function createRecentCaseWithInfusion(page: Page) {
-  const id = await createStartedCase(page)
-  const record = await page.request.get(`/api/cases/${id}`)
-  const intraop = (await record.json()).intraop
-  const infusion = await page.request.post(`/api/cases/${id}/events`, {
-    headers: { Origin: ORIGIN, "x-lospor-intraop-revision": String(intraop.syncRevision) },
-    data: {
-      id: `e2e-propofol-start-${id}`, type: "infusion_start", infId: `e2e-propofol-${id}`, name: "Propofol",
-      rate: "6", unit: "mg/kg/hr", color: "#8b5cf6", ts: new Date(Date.parse(intraop.startedAt) + 5 * 60_000).toISOString(),
-    },
-  })
-  expect(infusion.ok(), `infusion event failed: ${infusion.status()} ${await infusion.text()}`).toBeTruthy()
-  return id
-}
-
 async function savedLog(page: Page, id: string) {
   const record = await page.request.get(`/api/cases/${id}`)
   return ((await record.json()).intraop?.keyEvents?.log ?? []) as { type: string; infId?: string; ts: string }[]
 }
 
 test("a change planned from a cell after now is on the same infusion, dated to that cell", async ({ page }) => {
-  const id = await createRecentCaseWithInfusion(page)
+  const id = await createRecentCase(page)
   const chart = await openChart(page, id)
+  await startInfusion(page, chart)
 
   const runsOn = chart.getByTestId("infusion-runs-on")
   await expect(runsOn.first()).toBeVisible({ timeout: 30_000 })
@@ -621,8 +423,9 @@ test("a change planned from a cell after now is on the same infusion, dated to t
 })
 
 test("Discontinue from a cell after now stops the infusion at that cell, not now", async ({ page }) => {
-  const id = await createRecentCaseWithInfusion(page)
+  const id = await createRecentCase(page)
   const chart = await openChart(page, id)
+  await startInfusion(page, chart)
 
   const runsOn = chart.getByTestId("infusion-runs-on")
   await expect(runsOn.first()).toBeVisible({ timeout: 30_000 })
@@ -665,7 +468,6 @@ test("the lab dialog on the chart knows the case and its AI consent", async ({ p
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
-      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT", aiOptIn: true },
       intraop: { startTime: "08:00" },
     },

@@ -10,104 +10,85 @@ datasource db {
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
-  id                              String                               @id @default(cuid())
+  id                            String                               @id @default(cuid())
   /// Public deployments use email as the login identity. Hospital appliances
   /// may keep only an optional contact address; it is never a login fallback.
-  email                           String?                              @unique
+  email                         String?                              @unique
   /// Case-preserving ASCII Hospital login spelling.
-  username                        String?
+  username                      String?
   /// Lowercase appliance-global lookup key for Hospital usernames.
-  usernameCanonical               String?                              @unique
-  name                            String
-  firstName                       String                               @default("")
-  lastName                        String                               @default("")
-  title                           String                               @default("")
-  passwordHash                    String
-  role                            UserRole                             @default(MEMBER)
-  accountKind                     AccountKind                          @default(CLINICAL)
-  institutionId                   String?
-  institution                     Institution?                         @relation("UserPrimaryInstitution", fields: [institutionId], references: [id])
-  cases                           Case[]                               @relation("CaseAssignee")
-  casesCreated                    Case[]                               @relation("CaseCreator")
-  roleRequests                    RoleRequest[]
-  institutionChangeRequests       InstitutionChangeRequest[]
-  transfersSent                   CaseTransfer[]                       @relation("TransfersSent")
-  transfersReceived               CaseTransfer[]                       @relation("TransfersReceived")
-  emailVerificationTokens         EmailVerificationToken[]
-  researchCohorts                 ResearchCohort[]                     @relation("ResearchCohortOwner")
-  researchExports                 ResearchExport[]                     @relation("ResearchExportOwner")
-  researchAccessGrants            ResearchAccessGrant[]                @relation("ResearchAccessSubject")
-  researchGrantsIssued            ResearchAccessGrant[]                @relation("ResearchAccessGrantor")
-  researchSelfAuthorizations      ResearchSelfAuthorization[]
-  clinicalRuleReviews             ClinicalRuleReview[]                 @relation("ClinicalRuleReviewer")
-  clinicalPresetsCreated          ClinicalPreset[]                     @relation("ClinicalPresetCreator")
-  clinicalPresetsPublished        ClinicalPreset[]                     @relation("ClinicalPresetPublisher")
-  clinicalPublicationsConfirmed   ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetPublicationConfirmer")
-  clinicalPresetsOwned            ClinicalPreset[]                     @relation("ClinicalPresetUserOwner")
-  clinicalPresetSelections        UserClinicalPresetSelection[]
-  platformPresetSelections        PlatformClinicalPresetSelection[]
-  institutionPresetSelections     InstitutionClinicalPresetSelection[]
-  clinicalOverridesToReview       InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleDesignatedReviewer")
-  clinicalOverridesApproved       InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleHodApprover")
-  clinicalOverridesProposed       InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleProposer")
-  passwordResetTokens             PasswordResetToken[]
-  authSessions                    AuthSession[]
-  mfaLoginChallenges              MfaLoginChallenge[]
-  mfaRecoveryCodes                MfaRecoveryCode[]
-  legalAcceptances                LegalAcceptance[]
+  usernameCanonical             String?                              @unique
+  name                          String
+  firstName                     String                               @default("")
+  lastName                      String                               @default("")
+  title                         String                               @default("")
+  passwordHash                  String
+  role                          UserRole                             @default(MEMBER)
+  accountKind                   AccountKind                          @default(CLINICAL)
+  institutionId                 String?
+  institution                   Institution?                         @relation("UserPrimaryInstitution", fields: [institutionId], references: [id])
+  cases                         Case[]                               @relation("CaseAssignee")
+  casesCreated                  Case[]                               @relation("CaseCreator")
+  roleRequests                  RoleRequest[]
+  institutionChangeRequests     InstitutionChangeRequest[]
+  transfersSent                 CaseTransfer[]                       @relation("TransfersSent")
+  transfersReceived             CaseTransfer[]                       @relation("TransfersReceived")
+  emailVerificationTokens       EmailVerificationToken[]
+  researchCohorts               ResearchCohort[]                     @relation("ResearchCohortOwner")
+  researchExports               ResearchExport[]                     @relation("ResearchExportOwner")
+  researchAccessGrants          ResearchAccessGrant[]                @relation("ResearchAccessSubject")
+  researchGrantsIssued          ResearchAccessGrant[]                @relation("ResearchAccessGrantor")
+  researchSelfAuthorizations    ResearchSelfAuthorization[]
+  clinicalRuleReviews           ClinicalRuleReview[]                 @relation("ClinicalRuleReviewer")
+  clinicalPresetsCreated        ClinicalPreset[]                     @relation("ClinicalPresetCreator")
+  clinicalPresetsPublished      ClinicalPreset[]                     @relation("ClinicalPresetPublisher")
+  clinicalPublicationsConfirmed ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetPublicationConfirmer")
+  clinicalPresetsOwned          ClinicalPreset[]                     @relation("ClinicalPresetUserOwner")
+  clinicalPresetSelections      UserClinicalPresetSelection[]
+  platformPresetSelections      PlatformClinicalPresetSelection[]
+  institutionPresetSelections   InstitutionClinicalPresetSelection[]
+  clinicalOverridesToReview     InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleDesignatedReviewer")
+  clinicalOverridesApproved     InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleHodApprover")
+  clinicalOverridesProposed     InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleProposer")
+  passwordResetTokens           PasswordResetToken[]
+  authSessions                  AuthSession[]
+  mfaLoginChallenges            MfaLoginChallenge[]
+  mfaRecoveryCodes              MfaRecoveryCode[]
+  legalAcceptances              LegalAcceptance[]
   /// Deployment-neutral account activation. Public email verification sets
   /// this together with emailVerifiedAt; Hospital administration sets only it.
-  activatedAt                     DateTime?
-  emailVerifiedAt                 DateTime?
-  acceptedTermsAt                 DateTime?
-  acceptedPrivacyAt               DateTime?
-  termsVersion                    String?
-  preferences                     Json                                 @default("{\"ui\":{\"locale\":\"bg\"}}")
+  activatedAt                   DateTime?
+  emailVerifiedAt               DateTime?
+  acceptedTermsAt               DateTime?
+  acceptedPrivacyAt             DateTime?
+  termsVersion                  String?
+  preferences                   Json                                 @default("{\"ui\":{\"locale\":\"bg\"}}")
   /// Optimistic concurrency token for account-wide preferences. Every
   /// successful preference write increments it, so Web and Mobile cannot
   /// silently overwrite one another's settings.
-  preferencesRevision             Int                                  @default(0)
-  lastLoginAt                     DateTime?
+  preferencesRevision           Int                                  @default(0)
+  lastLoginAt                   DateTime?
   // Token-revocation epoch: any JWT (web session or mobile bearer) whose iat
   // predates this is rejected — set on password reset so old sessions die.
-  passwordChangedAt               DateTime?
+  passwordChangedAt             DateTime?
   /// AES-256-GCM protected TOTP seed. The data-encryption key is deployment
   /// configuration and is never stored in this database.
-  mfaTotpSecretCiphertext         String?
-  mfaEnabledAt                    DateTime?
+  mfaTotpSecretCiphertext       String?
+  mfaEnabledAt                  DateTime?
   /// Prevents accepting the same RFC 6238 time-step through two concurrent
   /// login challenges.
-  mfaLastTotpStep                 Int?
+  mfaLastTotpStep               Int?
   /// Temporary access stop. Unlike deletion, suspension has no erasure clock
   /// and can be reversed without changing the account's identity.
-  suspendedAt                     DateTime?
+  suspendedAt                   DateTime?
   /// Set after restoration so an old password can never revive the account.
   /// A successful one-time password recovery clears it.
-  recoveryRequiredAt              DateTime?
-  deletedAt                       DateTime?
+  recoveryRequiredAt            DateTime?
+  deletedAt                     DateTime?
   /// Terminal marker set when the retention job strips direct identifiers.
   /// Accounts with this marker cannot be restored.
-  anonymizedAt                    DateTime?
-  createdAt                       DateTime                             @default(now())
-  /// Set when an administrator approves a pending self-registration or role
-  /// request; distinct from activatedAt, which the appliance sets alone.
-  approvedAt                      DateTime?
-  clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]             @relation("ClinicalGuidancePolicyChanger")
-  ehrTransportCredentialsChanged  HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportCredentialChanger")
-  ehrTransportPoliciesChanged     HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportPolicyChanger")
-  ehrLabCodesMapped               HospitalEhrLabCodeMap[]              @relation("HospitalEhrLabCodeMapper")
-  ehrMedicationCodesMapped        HospitalEhrMedicationCodeMap[]        @relation("HospitalEhrMedicationCodeMapper")
-  ehrVitalCodesMapped             HospitalEhrVitalCodeMap[]            @relation("HospitalEhrVitalCodeMapper")
-  externalAiCredentialsChanged    HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
-  externalAiPoliciesChanged       HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
-  hospitalAccountTokens           HospitalAccountAccessToken[]
-  hospitalTransportConfigurations HospitalInstallation[]               @relation("HospitalTransportConfigurator")
-  hospitalUsernameReservations    HospitalUsernameReservation[]
-  operatedHospitalInstallation    HospitalInstallation?                @relation("ApplianceOperator")
-  caseVisibilityPoliciesChanged   HospitalCaseVisibilityPolicy[]        @relation("HospitalCaseVisibilityPolicyChanger")
-  patientIdentifierPoliciesChanged HospitalPatientIdentifierPolicy[]   @relation("HospitalPatientIdentifierPolicyChanger")
-  researchOmopApprovalsIssued     ResearchOmopApproval[]               @relation("ResearchOmopApprover")
-  researchOmopApprovalsRequested  ResearchOmopApproval[]               @relation("ResearchOmopRequester")
+  anonymizedAt                  DateTime?
+  createdAt                     DateTime                             @default(now())
 }
 
 model EmailVerificationToken {
@@ -216,15 +197,15 @@ enum TechnicalPrincipalKind {
 }
 
 model TechnicalPrincipal {
-  id                       String                               @id
-  kind                     TechnicalPrincipalKind
-  displayName              String
-  releaseVersion           String
-  createdAt                DateTime                             @default(now())
-  clinicalPresetsCreated   ClinicalPreset[]                     @relation("ClinicalPresetTechnicalCreator")
-  clinicalPresetsPublished ClinicalPreset[]                     @relation("ClinicalPresetTechnicalPublisher")
-  publicationsConfirmed    ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetTechnicalConfirmer")
-  platformSelections       PlatformClinicalPresetSelection[]    @relation("PlatformClinicalPresetTechnicalSelector")
+  id                    String                 @id
+  kind                  TechnicalPrincipalKind
+  displayName           String
+  releaseVersion        String
+  createdAt             DateTime               @default(now())
+  clinicalPresetsCreated   ClinicalPreset[]                    @relation("ClinicalPresetTechnicalCreator")
+  clinicalPresetsPublished ClinicalPreset[]                    @relation("ClinicalPresetTechnicalPublisher")
+  publicationsConfirmed   ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetTechnicalConfirmer")
+  platformSelections      PlatformClinicalPresetSelection[]    @relation("PlatformClinicalPresetTechnicalSelector")
 
   @@unique([kind, releaseVersion])
 }
@@ -264,8 +245,6 @@ model Institution {
   id                         String                               @id @default(cuid())
   name                       String
   city                       String
-  /// The hospital logo printed at the top of the paper documents (1.8.0): a small PNG or JPEG as a data URL.
-  logoDataUrl                String?
   country                    String                               @default("Bulgaria")
   users                      User[]                               @relation("UserPrimaryInstitution")
   institutionChangeRequests  InstitutionChangeRequest[]           @relation("RequestedInstitution")
@@ -277,10 +256,6 @@ model Institution {
   clinicalRuleOverrides      InstitutionClinicalRuleOverride[]
   clinicalPresets            ClinicalPreset[]                     @relation("ClinicalPresetInstitutionOwner")
   clinicalPresetSelections   InstitutionClinicalPresetSelection[]
-  centralExportPolicy        CentralExportPolicy?
-  patientLinks               PatientLink[]
-  ehrImports                 EhrImport[]
-  ehrDeliveries              EhrDelivery[]
 }
 
 // ─── Case ────────────────────────────────────────────────────────────────────
@@ -298,8 +273,6 @@ model Case {
   createdBy            User         @relation("CaseCreator", fields: [createdById], references: [id])
   institutionId        String?
   institution          Institution? @relation(fields: [institutionId], references: [id])
-  patientLinkId        String?
-  patientLink          PatientLink? @relation(fields: [patientLinkId], references: [id], onDelete: SetNull)
   /// The operating theatre (10.0.0), optional; assigned until intraop starts.
   operatingTheatreId   String?
   operatingTheatre     OperatingTheatre? @relation(fields: [operatingTheatreId], references: [id])
@@ -344,29 +317,23 @@ model Case {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  preop                   PreoperativeAssessment?
-  intraop                 IntraoperativeRecord?
-  postop                  PostoperativeRecord?
-  transfers               CaseTransfer[]
-  ehrDeliveries           EhrDelivery[]
-  lock                    CaseLock?
-  events                  CaseEvent[]
-  selections              CaseSelection[]
-  complications           CaseComplication[]
-  fieldStatuses           ClinicalFieldStatus[]
-  fieldChanges            CaseFieldChange[]
-  finalizations           CaseFinalization[]
-  clinicalCalculations    CaseClinicalCalculation[]
-  centralExportControl    CaseCentralExportControl?
-  centralDeliveryCases    CentralDeliveryCase[]
-  centralExportCheckpoint CentralExportCheckpoint?
-  centralExportRejection  CentralExportRejection?
-  consentPrints           CaseConsentPrint[]
+  preop                PreoperativeAssessment?
+  intraop              IntraoperativeRecord?
+  postop               PostoperativeRecord?
+  transfers            CaseTransfer[]
+  lock                 CaseLock?
+  events               CaseEvent[]
+  selections           CaseSelection[]
+  complications        CaseComplication[]
+  fieldStatuses        ClinicalFieldStatus[]
+  fieldChanges         CaseFieldChange[]
+  finalizations        CaseFinalization[]
+  clinicalCalculations CaseClinicalCalculation[]
+  consentPrints        CaseConsentPrint[]
 
   @@unique([userId, caseCode])
   @@unique([createdById, clientDraftId])
   @@index([status])
-  @@index([patientLinkId])
   @@index([userId, createdAt])
   @@index([createdById, createdAt])
   @@index([operatingTheatreId])
@@ -685,7 +652,6 @@ model Drug {
   form          String?
   strength      String?
   optionLibrary OptionLibrary[]
-  ehrMedicationCodeMaps HospitalEhrMedicationCodeMap[]
 
   @@index([name])
   @@index([inn])
@@ -1155,36 +1121,6 @@ model AuditLog {
   @@index([userId, createdAt])
   // "Everything that happened to this case" was a full table scan.
   @@index([entityId, createdAt])
-}
-
-/// Why somebody took an action, kept beside the audit trail rather than in it.
-///
-/// AuditLog.detail is privacy-guarded: assertSafeAuditDetail rejects any key
-/// ending in "reason", because operator free text is exactly what that guard
-/// exists to keep out of an audit detail. But several acts legitimately require
-/// an explanation — suspending an account, changing an administrator's
-/// authority, correcting a patient link — and asking for one, validating it and
-/// then discarding it is worse than never asking: the operator believes they
-/// have left a record, and there is none.
-///
-/// So the explanation lives here and the audit row records only that one
-/// exists, as `reasonRecorded: true`. A reader joins the two on action and
-/// entityId. Written in the same transaction as the act it explains, so an act
-/// that rolls back cannot leave an orphaned justification behind.
-model AdministrativeReason {
-  id         String   @id @default(cuid())
-  /// Matches AuditLog.action, so the pair can be read together.
-  action     String
-  /// Matches AuditLog.entityId — the account, case or entity acted upon.
-  entityId   String
-  /// Deliberately not a foreign key, for the same reason AuditLog.userId is
-  /// not one: this row must outlive the account that wrote it.
-  actorId    String
-  reason     String   @db.Text
-  recordedAt DateTime @default(now())
-
-  @@index([entityId, recordedAt])
-  @@index([action, recordedAt])
 }
 
 model CustomTerm {
@@ -1676,7 +1612,7 @@ model PreopAssessmentSuggestion {
   proposedValueText   String?
   proposedValueNumber Float?
   linkedDiagnosisId   String?
-  linkedDiagnosis     PreopDiagnosis?            @relation(fields: [linkedDiagnosisId], references: [id], onDelete: SetNull)
+  linkedDiagnosis     PreopDiagnosis?         @relation(fields: [linkedDiagnosisId], references: [id], onDelete: SetNull)
   evidence            Json
   ruleId              String
   ruleVersion         String
@@ -1995,39 +1931,39 @@ model ClinicalRuleReview {
 }
 
 model ClinicalPreset {
-  id                              String                               @id @default(cuid())
-  key                             String
-  name                            String
-  description                     String?
-  clinicalMode                    ClinicalMode                         @default(PEDIATRIC)
-  scope                           ClinicalPresetScope                  @default(PLATFORM)
-  ownerInstitutionId              String?
-  ownerInstitution                Institution?                         @relation("ClinicalPresetInstitutionOwner", fields: [ownerInstitutionId], references: [id], onDelete: Cascade)
-  ownerUserId                     String?
-  ownerUser                       User?                                @relation("ClinicalPresetUserOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  copiedFromPresetId              String?
-  copiedFromPreset                ClinicalPreset?                      @relation("ClinicalPresetCopies", fields: [copiedFromPresetId], references: [id], onDelete: SetNull)
-  copies                          ClinicalPreset[]                     @relation("ClinicalPresetCopies")
-  copiedFromVersion               Int?
-  version                         Int
-  status                          ClinicalPresetStatus                 @default(DRAFT)
-  createdById                     String?
-  createdBy                       User?                                @relation("ClinicalPresetCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  createdByTechnicalPrincipalId   String?
-  createdByTechnicalPrincipal     TechnicalPrincipal?                  @relation("ClinicalPresetTechnicalCreator", fields: [createdByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  publishedById                   String?
-  publishedBy                     User?                                @relation("ClinicalPresetPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  id                    String                               @id @default(cuid())
+  key                   String
+  name                  String
+  description           String?
+  clinicalMode          ClinicalMode                         @default(PEDIATRIC)
+  scope                 ClinicalPresetScope                  @default(PLATFORM)
+  ownerInstitutionId    String?
+  ownerInstitution      Institution?                         @relation("ClinicalPresetInstitutionOwner", fields: [ownerInstitutionId], references: [id], onDelete: Cascade)
+  ownerUserId           String?
+  ownerUser             User?                                @relation("ClinicalPresetUserOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  copiedFromPresetId    String?
+  copiedFromPreset      ClinicalPreset?                      @relation("ClinicalPresetCopies", fields: [copiedFromPresetId], references: [id], onDelete: SetNull)
+  copies                ClinicalPreset[]                     @relation("ClinicalPresetCopies")
+  copiedFromVersion     Int?
+  version               Int
+  status                ClinicalPresetStatus                 @default(DRAFT)
+  createdById           String?
+  createdBy             User?                                @relation("ClinicalPresetCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdByTechnicalPrincipalId String?
+  createdByTechnicalPrincipal TechnicalPrincipal?            @relation("ClinicalPresetTechnicalCreator", fields: [createdByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  publishedById         String?
+  publishedBy           User?                                @relation("ClinicalPresetPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
   publishedByTechnicalPrincipalId String?
-  publishedByTechnicalPrincipal   TechnicalPrincipal?                  @relation("ClinicalPresetTechnicalPublisher", fields: [publishedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  publishedAt                     DateTime?
-  createdAt                       DateTime                             @default(now())
-  updatedAt                       DateTime                             @updatedAt
-  rules                           ClinicalPresetRule[]
-  platformSelections              PlatformClinicalPresetSelection[]
-  institutionSelections           InstitutionClinicalPresetSelection[]
-  userSelections                  UserClinicalPresetSelection[]
-  overrides                       InstitutionClinicalRuleOverride[]
-  publicationEvidence             ClinicalRulesetPublicationEvidence?
+  publishedByTechnicalPrincipal TechnicalPrincipal?          @relation("ClinicalPresetTechnicalPublisher", fields: [publishedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  publishedAt           DateTime?
+  createdAt             DateTime                             @default(now())
+  updatedAt             DateTime                             @updatedAt
+  rules                 ClinicalPresetRule[]
+  platformSelections    PlatformClinicalPresetSelection[]
+  institutionSelections InstitutionClinicalPresetSelection[]
+  userSelections        UserClinicalPresetSelection[]
+  overrides             InstitutionClinicalRuleOverride[]
+  publicationEvidence   ClinicalRulesetPublicationEvidence?
 
   @@index([scope, clinicalMode, status])
   @@index([ownerInstitutionId, clinicalMode, status])
@@ -2042,20 +1978,20 @@ model ClinicalPreset {
 /// personal publication keep the exact resulting content and an empty or
 /// applicable baseline diff through the same contract.
 model ClinicalRulesetPublicationEvidence {
-  id                              String              @id @default(cuid())
-  presetId                        String              @unique
-  preset                          ClinicalPreset      @relation(fields: [presetId], references: [id], onDelete: Restrict)
-  baselinePresetId                String?
-  baselinePresetVersion           Int?
-  reason                          String?
-  contentSha256                   String
-  diffSha256                      String
-  exactDiff                       Json
-  confirmedById                   String?
-  confirmedBy                     User?               @relation("ClinicalRulesetPublicationConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  id                    String         @id @default(cuid())
+  presetId              String         @unique
+  preset                ClinicalPreset @relation(fields: [presetId], references: [id], onDelete: Restrict)
+  baselinePresetId      String?
+  baselinePresetVersion Int?
+  reason                String?
+  contentSha256         String
+  diffSha256            String
+  exactDiff             Json
+  confirmedById         String?
+  confirmedBy           User?          @relation("ClinicalRulesetPublicationConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
   confirmedByTechnicalPrincipalId String?
-  confirmedByTechnicalPrincipal   TechnicalPrincipal? @relation("ClinicalRulesetTechnicalConfirmer", fields: [confirmedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  confirmedAt                     DateTime            @default(now())
+  confirmedByTechnicalPrincipal TechnicalPrincipal? @relation("ClinicalRulesetTechnicalConfirmer", fields: [confirmedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  confirmedAt           DateTime       @default(now())
 
   @@index([baselinePresetId])
   @@index([confirmedById, confirmedAt])
@@ -2063,15 +1999,15 @@ model ClinicalRulesetPublicationEvidence {
 }
 
 model PlatformClinicalPresetSelection {
-  clinicalMode                   ClinicalMode        @id
-  presetId                       String
-  preset                         ClinicalPreset      @relation(fields: [presetId], references: [id], onDelete: Restrict)
-  selectedById                   String?
-  selectedBy                     User?               @relation(fields: [selectedById], references: [id], onDelete: SetNull)
+  clinicalMode ClinicalMode   @id
+  presetId     String
+  preset       ClinicalPreset @relation(fields: [presetId], references: [id], onDelete: Restrict)
+  selectedById String?
+  selectedBy   User?          @relation(fields: [selectedById], references: [id], onDelete: SetNull)
   selectedByTechnicalPrincipalId String?
-  selectedByTechnicalPrincipal   TechnicalPrincipal? @relation("PlatformClinicalPresetTechnicalSelector", fields: [selectedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  selectedAt                     DateTime            @default(now())
-  updatedAt                      DateTime            @updatedAt
+  selectedByTechnicalPrincipal TechnicalPrincipal? @relation("PlatformClinicalPresetTechnicalSelector", fields: [selectedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  selectedAt   DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([presetId])
   @@index([selectedByTechnicalPrincipalId])
@@ -2618,44 +2554,27 @@ enum ResearchExportStatus {
 }
 
 model ResearchAccessGrant {
-  id              String                 @id @default(cuid())
+  id              String       @id @default(cuid())
   userId          String
-  user            User                   @relation("ResearchAccessSubject", fields: [userId], references: [id], onDelete: Cascade)
+  user            User         @relation("ResearchAccessSubject", fields: [userId], references: [id], onDelete: Cascade)
   institutionId   String?
-  institution     Institution?           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  allInstitutions Boolean                @default(false)
-  /// Every data use is separately granted. `canExport` remains as the legacy
-  /// coarse compatibility bit and is always derived from the two format bits
-  /// for Status-issued 1.2.0 grants.
-  canQuery        Boolean                @default(true)
-  canInspectCases Boolean                @default(true)
-  canExport       Boolean                @default(false)
-  canExportCsv    Boolean                @default(false)
-  canExportJson   Boolean                @default(false)
-  canExportOmop   Boolean                @default(false)
-  canShare        Boolean                @default(false)
-  /// Distinct from canShare: the generic (non-Hospital) /v1/research/grants
-  /// route, which the appliance always blocks in favour of Status's own
-  /// control-plane route, validates this legacy upstream field name.
-  canShareCohorts Boolean                @default(false)
-  purpose         String                 @default("Legacy research access")
+  institution     Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  allInstitutions Boolean      @default(false)
+  canQuery        Boolean      @default(true)
+  canInspectCases Boolean      @default(false)
+  canExport       Boolean      @default(false)
+  canExportOmop   Boolean      @default(false)
+  canShareCohorts Boolean      @default(false)
   grantedById     String
-  grantedBy       User                   @relation("ResearchAccessGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
-  expiresAt       DateTime?
+  grantedBy       User         @relation("ResearchAccessGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+  expiresAt       DateTime
   revokedAt       DateTime?
-  supersededAt    DateTime?
-  /// Deliberately not a foreign key. A grant is immutable evidence and its
-  /// lineage must survive retention of the replacement record.
-  supersededById  String?
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  researchExports ResearchExport[]
-  omopApprovals   ResearchOmopApproval[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@index([userId, revokedAt])
   @@index([institutionId])
   @@index([expiresAt])
-  @@index([supersededById])
 }
 
 /// Short aggregate-only access a clinician may issue to themselves. The
@@ -2692,24 +2611,21 @@ model ResearchCohort {
 }
 
 model ResearchExport {
-  id                      String                @id @default(cuid())
+  id                      String               @id @default(cuid())
   ownerId                 String
-  owner                   User                  @relation("ResearchExportOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                   User                 @relation("ResearchExportOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   institutionId           String?
-  institution             Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution             Institution?         @relation(fields: [institutionId], references: [id], onDelete: SetNull)
   name                    String
   format                  String
-  purpose                 String?
-  researchGrantId         String?
-  researchGrant           ResearchAccessGrant?  @relation(fields: [researchGrantId], references: [id], onDelete: Restrict)
-  status                  ResearchExportStatus  @default(PENDING)
+  status                  ResearchExportStatus @default(PENDING)
   definition              Json
   definitionHash          String?
   snapshotRevisions       Json?
   snapshotHash            String?
   snapshotCaseCount       Int?
-  revisionManifestVersion Int                   @default(2)
-  scopeInstitutionIds     String[]              @default([])
+  revisionManifestVersion Int                  @default(2)
+  scopeInstitutionIds     String[]             @default([])
   asOf                    DateTime?
   sourceVersion           String?
   sourceCommit            String?
@@ -2723,892 +2639,17 @@ model ResearchExport {
   artifactDeletedAt       DateTime?
   workingArtifactKeys     Json?
   error                   String?
-  attemptCount            Int                   @default(0)
+  attemptCount            Int                  @default(0)
   leaseOwner              String?
   leaseExpiresAt          DateTime?
   generatedAt             DateTime?
-  legacy                  Boolean               @default(false)
-  createdAt               DateTime              @default(now())
+  legacy                  Boolean              @default(false)
+  createdAt               DateTime             @default(now())
   startedAt               DateTime?
   completedAt             DateTime?
-  omopApproval            ResearchOmopApproval?
 
   @@index([ownerId, createdAt])
   @@index([status, createdAt])
   @@index([status, leaseExpiresAt])
   @@index([artifactExpiresAt, artifactDeletedAt])
-}
-
-// ─── Hospital appliance: patient linking & Central export governance ───────
-
-model HospitalUsernameReservation {
-  id                String    @id @default(cuid())
-  usernameCanonical String
-  userId            String
-  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  releasedAt        DateTime?
-  createdAt         DateTime  @default(now())
-
-  @@index([userId, createdAt])
-  @@index([usernameCanonical, createdAt])
-}
-
-model HospitalAccountAccessToken {
-  id            String                      @id @default(cuid())
-  userId        String
-  user          User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purpose       HospitalAccountTokenPurpose
-  tokenHash     String                      @unique
-  expiresAt     DateTime
-  consumedAt    DateTime?
-  invalidatedAt DateTime?
-  createdAt     DateTime                    @default(now())
-
-  @@index([userId, purpose, consumedAt, invalidatedAt])
-  @@index([expiresAt])
-}
-
-enum EhrAuthMode {
-  /// A long-lived token the hospital issued. Simple, and what a small site or
-  /// a test server usually offers.
-  STATIC_BEARER
-  /// SMART-on-FHIR client credentials: a client id and secret exchanged for a
-  /// short-lived token. What most hospital FHIR servers actually use.
-  OAUTH2_CLIENT_CREDENTIALS
-}
-
-enum EhrImportTransport {
-  /// A file the hospital system writes into a watched directory.
-  FOLDER
-  FHIR
-  HL7V2
-}
-
-/// Which code list a hospital's coding-system address stands for.
-enum HospitalEhrCodeList {
-  /// ICD-10, including the Bulgarian МКБ-10 of NHIS list CL011.
-  ICD10
-  /// ICD-10-PCS: an exact operation, and its research code.
-  ICD10PCS
-  /// Bulgarian procedure codes (КСМП, based on ACHI).
-  KSMP
-  /// NHIS routes of administration from EDQM terms.
-  NHIS_CL013
-  /// NHIS routes of administration from HL7.
-  NHIS_CL046
-  /// NHIS laboratory tests.
-  NHIS_CL024
-  /// Answered, and none of the above: stops the address being asked about.
-  OTHER
-}
-
-enum EhrImportStatus {
-  /// Waiting for a clinician to review it.
-  PENDING
-  /// Every field was decided.
-  REVIEWED
-  /// Nothing was taken from it.
-  DISCARDED
-  /// Nobody claimed it inside the retention window.
-  EXPIRED
-}
-
-enum EhrImportFieldStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
-/// What the hospital system sent, before a clinician has agreed to any of it.
-///
-/// Imported values are never written into a case on arrival. Two reasons, both
-/// found the hard way: the server refuses a write where age and clinical mode
-/// disagree, so an unattended importer walks straight into the pediatric trap;
-/// and only the web app surfaces a save conflict, so an import colliding with a
-/// bedside edit would be resolved by silently discarding one of them. Staging
-/// the values and having a clinician accept them field by field avoids both,
-/// and is also the safer clinical answer.
-model EhrImport {
-  id               String                @id @default(cuid())
-  institutionId    String
-  institution      Institution           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
-  /// Hashed the same way a PatientLink is, so an import can be found by the
-  /// number a clinician types without the number itself being stored here.
-  identifierType   PatientIdentifierType @default(IZ)
-  /// Which year's numbering the record number was staged under.
-  ///
-  /// ИЗ № restarts at 1 every January, so the same digits are a different
-  /// admission each year and the year is part of the identity -- exactly as on
-  /// PatientLink, which has carried this since the v2 hash. It was missing
-  /// here while the code that writes the row already supplied it, so Prisma
-  /// would have refused the write as an unknown argument.
-  ///
-  /// Zero for ЕГН, which is issued once for life and belongs to no year.
-  identifierYear   Int                   @default(0)
-  identifierHash   String
-  hashVersion      Int                   @default(2)
-  maskedIdentifier String
-  transport        EhrImportTransport
-  /// Whatever the transport calls a message: a filename, an HL7 control id.
-  sourceMessageId  String?
-  /// SHA-256 of the delivered payload. Redelivering the same message must not
-  /// produce a second pending import for the clinician to review twice.
-  payloadHash      String
-  receivedAt       DateTime              @default(now())
-  /// Unclaimed imports hold clinical data for a patient who may have no case
-  /// here at all, so they do not live indefinitely.
-  expiresAt        DateTime
-  status           EhrImportStatus       @default(PENDING)
-  /// True when the patient this came from was matched on the record number
-  /// alone, because nobody had yet said which of the hospital's numberings a
-  /// record number belongs to.
-  ///
-  /// A hospital numbers the same person several ways, so one clean match can
-  /// belong to a different numbering entirely -- which is what a wrong-patient
-  /// import looks like from here. Once a site configures the system such a
-  /// match is refused outright; until then the import proceeds and this says
-  /// plainly that the identity was not checked, so a clinician reviewing an
-  /// allergy list knows how much the match is worth.
-  ///
-  /// Stored rather than computed because review happens long after the pull,
-  /// and by then the search that produced it is gone.
-  identityUnverified Boolean             @default(false)
-  /// Which groups the hospital system could not be read for, and why.
-  ///
-  /// The resource fetches are independent by design: a server that serves
-  /// laboratory results but refuses allergies should still yield the labs.
-  /// What that costs is silence -- an allergy list that failed to load and a
-  /// patient with no known allergies arrive on the review screen identically,
-  /// and the second one reads as reassurance.
-  ///
-  /// An array of `{ group, errorCode }`. Stored rather than reported at pull
-  /// time for the same reason the unverified identity is: the clinician reads
-  /// the screen long after the request that failed.
-  unreadSources    Json?
-  reviewedAt       DateTime?
-  /// Not a foreign key, following PatientLink.createdById: removing a user must
-  /// not cascade into clinical provenance.
-  reviewedById     String?
-  fields           EhrImportField[]
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-
-  @@unique([institutionId, payloadHash])
-  @@index([institutionId, identifierType, identifierHash, status])
-  @@index([expiresAt])
-}
-
-/// One proposed value, and what the clinician decided about it.
-model EhrImportField {
-  id            String               @id @default(cuid())
-  importId      String
-  import        EhrImport            @relation(fields: [importId], references: [id], onDelete: Cascade)
-  /// The canonical section and field name the value maps onto, so review and
-  /// application both speak the same language as the rest of the API.
-  section       String
-  fieldKey      String
-  /// One row per *reviewable item*, not per field.
-  ///
-  /// A clinician accepts one diagnosis and refuses another from the same list,
-  /// so the field is the wrong grain to decide at: storing the whole list in a
-  /// single row meant refusing one item recorded a refusal against
-  /// `diagnoses`, silencing every future diagnosis for that patient. This is
-  /// the key Core derives, stable across the hospital recoding or relabelling
-  /// the same item — a scalar field's key is just the field name.
-  itemKey       String
-  /// One scalar, one tag or one lab result — never a collection.
-  proposedValue Json
-  status        EhrImportFieldStatus @default(PENDING)
-  decidedAt     DateTime?
-  decidedById   String?
-
-  @@unique([importId, itemKey])
-  @@index([importId, status])
-  @@index([importId, section, fieldKey])
-}
-
-enum EhrDeliveryKind {
-  /// The protocol PDF and its coded header, sent together.
-  PROTOCOL
-  /// A difficult airway or an allergy — its own message, because it is the
-  /// part that changes what happens at the patient's next admission and is
-  /// wasted inside a document nobody opens until then.
-  SAFETY_FINDINGS
-  /// Emitted as facts. Whether the hospital system ingests them silently or
-  /// raises a prompt is its business; nothing here waits on the answer.
-  CASE_START
-  CASE_END
-}
-
-enum EhrDeliveryStatus {
-  /// Waiting for the undo window to close, or for the worker to pick it up.
-  PENDING
-  SENDING
-  SENT
-  /// A permanent refusal. Retrying would fail identically.
-  FAILED
-  /// A later finalization replaced this message before it was sent.
-  SUPERSEDED
-  /// The case was reopened before this message was sent.
-  CANCELLED
-}
-
-/// One message queued for the hospital system.
-///
-/// There is no scheduler in the appliance, so "wait until later" is a WHERE
-/// predicate rather than a job: a worker polls and asks for whatever is due.
-model EhrDelivery {
-  id             String            @id @default(cuid())
-  institutionId  String
-  institution    Institution       @relation(fields: [institutionId], references: [id], onDelete: Restrict)
-  caseId         String
-  case           Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  /// Which finalization this describes. A correction produces a new row that
-  /// supersedes the previous one rather than editing it, so what was sent
-  /// stays reconstructable.
-  finalizationId String
-  sequence       Int
-  kind           EhrDeliveryKind
-  status         EhrDeliveryStatus @default(PENDING)
-  /// Not before this moment.
-  ///
-  /// A case can be unfinalized and edited for FINALIZE_UNDO_WINDOW_MS. Sending
-  /// at the moment of finalization would make every ordinary tidy-up inside
-  /// that window a second message to the hospital minutes after the first, and
-  /// would leave the hospital holding a version the appliance no longer has.
-  deliverAfter   DateTime
-  transport      EhrImportTransport
-  attemptCount   Int               @default(0)
-  nextAttemptAt  DateTime?
-  leaseOwner     String?
-  leaseExpiresAt DateTime?
-  sentAt         DateTime?
-  errorCode      String?
-  supersedesId   String?           @unique
-  supersedes     EhrDelivery?      @relation("EhrSupersession", fields: [supersedesId], references: [id], onDelete: SetNull)
-  supersededBy   EhrDelivery?      @relation("EhrSupersession")
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  /// One message of each kind per finalization: a redelivery attempt must not
-  /// become a second message the hospital files twice.
-  @@unique([finalizationId, kind])
-  @@index([status, deliverAfter])
-  @@index([status, nextAttemptAt])
-  @@index([caseId, kind])
-}
-
-enum PatientIdentifierType {
-  /// История на заболяването — the hospital record number a clinician types.
-  IZ
-  /// ЕГН, the Bulgarian national identifier. Opt-in per site; a site that never
-  /// enables it never stores one.
-  EGN
-}
-
-model PatientLink {
-  id                   String                @id @default(cuid())
-  institutionId        String
-  institution          Institution           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
-  /// Which numbering space the identifier belongs to. Without it, one digit
-  /// string could be both a record number and a national identifier and the two
-  /// patients would collapse into one row.
-  identifierType       PatientIdentifierType @default(IZ)
-  /// The year the record number belongs to. ИЗ № restarts at 1 every January,
-  /// so the number alone is not unique: ИЗ № 42 from last year and ИЗ № 42 from
-  /// this year are different admissions and must not become one patient.
-  /// 0 means the identifier is not year-scoped — ЕГН is issued once for life.
-  identifierYear       Int                   @default(0)
-  identifierHash       String
-  /// How identifierHash was derived. Version 1 hashed institution and
-  /// identifier only; version 2 mixes in the type and, for a year-scoped
-  /// identifier, the year — so neither a different numbering space nor a
-  /// different year can produce the same digest. Rows written before either
-  /// existed keep version 1 and are still found, because rehashing them would
-  /// mean decrypting every stored identifier on the appliance, a larger
-  /// exposure than the collision it closes.
-  hashVersion          Int                   @default(1)
-  identifierCiphertext String
-  identifierNonce      String
-  identifierAuthTag    String
-  keyVersion           Int                   @default(1)
-  maskedIdentifier     String
-  createdById          String
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  cases                Case[]
-
-  /// The person this admission belongs to, once a national identifier is known.
-  ///
-  /// A record number identifies an admission, not a patient: it restarts every
-  /// January and a new one is issued each time someone is admitted. So the same
-  /// person returning next year is a different link, and without this the two
-  /// admissions are two unrelated people in every export. ЕГН is issued once for
-  /// life and is what joins them.
-  ///
-  /// Null whenever the site has not enabled national identifiers, or has not
-  /// learned one for this admission yet — which is the normal state, and why
-  /// everything downstream falls back to the admission's own identity.
-  personLinkId         String?
-  personLink           PatientLink?          @relation("AdmissionPerson", fields: [personLinkId], references: [id], onDelete: SetNull)
-  admissions           PatientLink[]         @relation("AdmissionPerson")
-
-  @@unique([institutionId, identifierType, identifierYear, identifierHash])
-  @@index([personLinkId])
-  @@index([institutionId, maskedIdentifier])
-}
-
-model CentralExportPolicy {
-  id                  String      @id @default(cuid())
-  institutionId       String      @unique
-  institution         Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  enabled             Boolean     @default(false)
-  approvedById        String?
-  approvedAt          DateTime?
-  // There is deliberately no control over timestamp precision. includeExactTimes
-  // was offered here and implemented nowhere; blurring clock times in an
-  // anaesthesia register destroys the intervals the register exists to record --
-  // two drugs given at 14:05 and 14:50 both become 14:00 and read as
-  // simultaneous. If calendar dates ever need protecting, the technique is date
-  // shifting agreed with Central, which preserves every interval exactly, not a
-  // toggle that coarsens them.
-  includeRedactedText Boolean     @default(true)
-  redactionProfile    String      @default("bg-en-v1")
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-}
-
-model CaseCentralExportControl {
-  caseId      String                @id
-  case        Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  decision    CentralExportDecision @default(DEFAULT)
-  reasonCode  String?
-  reasonNote  String?
-  decidedById String
-  decidedAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-
-  @@index([decision, updatedAt])
-}
-
-model HospitalInstallation {
-  id                            String    @id @default("local")
-  siteId                        String?
-  siteCode                      String?
-  institutionId                 String?
-  centralBaseUrl                String?
-  centralEnabled                Boolean   @default(false)
-  signingKeyId                  String?
-  centralEncryptionKeyId        String?
-  centralEncryptionPublicKeyPem String?   @db.Text
-  receiptSigningKeyId           String?
-  receiptSigningPublicKeyPem    String?   @db.Text
-  supportedManifestVersions     Json?
-  maximumUploadBytes            Int?
-  multipartChunkBytes           Int?
-  nextSequence                  Int       @default(1)
-  lastAcceptedBatchId           String?
-  enrolledAt                    DateTime?
-  lastCapabilitiesAt            DateTime?
-  lastDeliveryAt                DateTime?
-  transportConfigurationHash    String?
-  transportConfiguredAt         DateTime?
-  transportConfiguredById       String?
-  transportConfiguredBy         User?     @relation("HospitalTransportConfigurator", fields: [transportConfiguredById], references: [id], onDelete: Restrict)
-  transportConfigurationReason  String?
-  /// The one administrator whose password is synchronized with the independent
-  /// appliance status service. The relation is restrictive so an operator can
-  /// never be hard-deleted underneath the appliance credential workflow.
-  applianceOperatorUserId       String?   @unique
-  applianceOperator             User?     @relation("ApplianceOperator", fields: [applianceOperatorUserId], references: [id], onDelete: Restrict)
-  /// Monotonic generation shared with Status. It makes interrupted rotations
-  /// detectable and resumable without ever comparing or transporting hashes.
-  operatorCredentialGeneration  Int       @default(0)
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
-}
-
-model ClinicalGuidancePolicy {
-  id               String   @id @default("local")
-  adultEnabled     Boolean  @default(true)
-  pediatricEnabled Boolean  @default(true)
-  changedById      String?
-  changedBy        User?    @relation("ClinicalGuidancePolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
-  changeReason     String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-}
-
-/// Whether clinical accounts may read cases recorded at the same hospital.
-///
-/// The default is on for a new appliance. Turning it off restores the narrow
-/// owner/HOD view without changing any write permission or historical record.
-model HospitalCaseVisibilityPolicy {
-  id           String   @id @default("local")
-  enabled      Boolean  @default(true)
-  changedAt    DateTime?
-  changedById  String?
-  changedBy    User?    @relation("HospitalCaseVisibilityPolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
-  changeReason String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-/// Which keys this database was built under.
-///
-/// The patient keys are generated once at install and never rotate — there is
-/// no rotation path, and generate-secrets.sh refuses to replace an existing
-/// .env. They exist only in that file and in whatever the hospital escrowed;
-/// backups carry their fingerprints, never the keys, so a lost .env means every
-/// stored identifier is undecryptable and every pseudonym already at Central is
-/// unmatchable forever.
-///
-/// Restoring a database without its secrets therefore produces an appliance
-/// that looks completely healthy while writing into a parallel identity space.
-/// Recording the fingerprints here makes that detectable: the restored database
-/// remembers what it was built under, and the mismatch is loud.
-///
-/// Trust on first use. A row absent means nothing has been recorded yet — a
-/// fresh install, or the first start after this shipped — and whatever keys are
-/// loaded are by definition the right ones, so they are simply written down. A
-/// fresh install can never be blocked by this, because there is nothing for it
-/// to disagree with.
-model HospitalKeyIdentity {
-  id                            String    @id @default("local")
-  patientHmacKeyFingerprint     String
-  patientEncryptionKeyFingerprint String
-  exportPseudonymKeyFingerprint String
-  recordedAt                    DateTime  @default(now())
-  /// Set only when an operator has deliberately continued under different keys,
-  /// accepting that identities written under the old ones are unrecoverable.
-  /// A recovery choice, and one that has to carry a name and a reason.
-  overriddenAt                  DateTime?
-  overriddenById                String?
-  overrideReason                String?
-  updatedAt                     DateTime  @updatedAt
-}
-
-model HospitalExternalAiPolicy {
-  id                           String             @id @default("local")
-  externalAiEnabled            Boolean            @default(true)
-  provider                     ExternalAiProvider @default(MISTRAL)
-  credentialCiphertext         String?            @db.Text
-  credentialNonce              String?
-  credentialAuthTag            String?
-  credentialKeyVersion         Int?
-  credentialSealKeyFingerprint String?
-  credentialConfiguredAt       DateTime?
-  credentialChangedAt          DateTime?
-  credentialChangedById        String?
-  credentialChangedBy          User?              @relation("HospitalExternalAiCredentialChanger", fields: [credentialChangedById], references: [id], onDelete: Restrict)
-  policyChangedAt              DateTime?
-  policyChangedById            String?
-  policyChangedBy              User?              @relation("HospitalExternalAiPolicyChanger", fields: [policyChangedById], references: [id], onDelete: Restrict)
-  policyChangeReason           String?
-  /// Pinned Mistral model for the advisor; null means the release default
-  /// (lib/hospital/external-ai-models.ts). Checked against the list in code,
-  /// not by the database, because Mistral retires models between releases.
-  advisorModel                 String?
-  /// Pinned Mistral model that reads lab report and monitor photos.
-  visionModel                  String?
-  modelsChangedAt              DateTime?
-  /// The lab scan's local settings (1.9.1, Status): the names this hospital's
-  /// laboratory prints, each tied to a lab library entry, as
-  /// [{ printed, test }], and a short note. Both are added after the released
-  /// prompt and never replace it (lospor-api lib/lab-scan-prompt.ts).
-  labScanAliases               Json?
-  labScanInstructions          String?            @db.Text
-  labScanChangedAt             DateTime?
-  createdAt                    DateTime           @default(now())
-  updatedAt                    DateTime           @updatedAt
-}
-
-/// Whether this site permits an ЕГН (national identifier) link to be created.
-///
-/// ЕГН is what joins a patient's separate admissions into one person: ИЗ № is
-/// issued per admission and restarts every January, so it cannot do that job
-/// alone. Recording ЕГН is nonetheless a heavier privacy commitment than a
-/// record number, and the hospital -- not this software's vendor -- is the
-/// data controller for it. Enabled by default; a site that will not hold
-/// national identifiers turns this off deliberately.
-model HospitalPatientIdentifierPolicy {
-  id           String    @id @default("local")
-  egnPermitted Boolean   @default(true)
-  /// Whether the full ИЗ № (and the first six digits of a known ЕГН) is shown on the
-  /// dashboard and the case header, beside the masked reference. On by default.
-  admissionNumberVisible Boolean @default(true)
-  changedAt    DateTime?
-  changedById  String?
-  changedBy    User?     @relation("HospitalPatientIdentifierPolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
-  changeReason String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-/// Which transport, if any, this site uses to receive proposed EHR values
-/// into EhrImport staging. Absent transport (null) means the adapter is
-/// disabled -- a site that has not set one up sends nothing anywhere and
-/// stages nothing.
-///
-/// A watched directory needs no secret: FOLDER is a filesystem path the
-/// hospital's own system writes into, read by a process already trusted with
-/// the database itself. FHIR and HL7v2 reach outside that boundary to pull
-/// or receive from a hospital endpoint, so those two carry a sealed
-/// credential the same way the external-AI provider credential does -- an
-/// AES-256-GCM tuple whose key lives in a file outside this database, never
-/// a plaintext column.
-model HospitalEhrTransportPolicy {
-  id                            String              @id @default("local")
-  transport                     EhrImportTransport?
-  /// Where messages go. Deliberately not inside the sealed credential: an
-  /// operator has to be able to see where clinical data is being sent without
-  /// unsealing anything, and a destination is site configuration rather than a
-  /// secret. Null for FOLDER, which has no endpoint.
-  endpoint                      String?
-  endpointChangedAt             DateTime?
-  /// Which of the hospital's identifier systems the record number lives in.
-  ///
-  /// A hospital numbers the same person several ways -- an admission number, a
-  /// permanent record number, a ward number, a visit number -- and they are
-  /// separate namespaces that happen to hold numbers of the same shape. A
-  /// patient search on value alone can therefore return exactly one match that
-  /// belongs to a different numbering, and importing a stranger's allergies is
-  /// the worst outcome this system has.
-  ///
-  /// Null means nobody has said yet, which is not an error: a site must be able
-  /// to start before it has answered, so an unverifiable match is warned about
-  /// rather than refused until this is set.
-  recordNumberSystem            String?
-  recordNumberSystemChangedAt   DateTime?
-  recordNumberSystemChangedById String?
-  /// Which of the hospital's identifier systems its ЕГН values live in.
-  ///
-  /// Separate from the record number's system because they are different
-  /// namespaces: one is this hospital's own admission numbering, the other is
-  /// a national register. A site that holds only ИЗ № never sets this.
-  ///
-  /// Used on the way out. An outgoing record labelled with a system the
-  /// receiving hospital does not know is a number they cannot match, so it
-  /// files unlinked or is refused.
-  nationalIdentifierSystem          String?
-  nationalIdentifierSystemChangedAt DateTime?
-  nationalIdentifierSystemChangedById String?
-  endpointChangedById           String?
-  /// How the credential is presented. The sealed credential holds the static
-  /// token or the client secret depending on this; everything else about the
-  /// exchange is site configuration and stays readable.
-  authMode                      EhrAuthMode         @default(STATIC_BEARER)
-  /// Where the client credentials are exchanged for a token. Null unless
-  /// authMode is OAUTH2_CLIENT_CREDENTIALS.
-  tokenUrl                      String?
-  /// Not a secret — a client id identifies, it does not authenticate. Kept
-  /// readable for the same reason as the endpoint: an operator should be able
-  /// to see how this appliance presents itself without unsealing anything.
-  clientId                      String?
-  scope                         String?
-  credentialCiphertext          String?             @db.Text
-  credentialNonce               String?
-  credentialAuthTag             String?
-  credentialKeyVersion          Int?
-  credentialSealKeyFingerprint  String?
-  credentialConfiguredAt        DateTime?
-  credentialChangedAt           DateTime?
-  credentialChangedById         String?
-  credentialChangedBy           User?               @relation("HospitalEhrTransportCredentialChanger", fields: [credentialChangedById], references: [id], onDelete: Restrict)
-  transportChangedAt            DateTime?
-  transportChangedById          String?
-  transportChangedBy            User?               @relation("HospitalEhrTransportPolicyChanger", fields: [transportChangedById], references: [id], onDelete: Restrict)
-  transportChangeReason         String?
-  /// How many days staged EHR data is kept before it is deleted
-  /// (lib/hospital/ehr-retention.ts). 1 to 14; an import is offered for 14.
-  stagingRetentionDays          Int                 @default(14)
-  stagingRetentionChangedAt     DateTime?
-  /// Whether a clinician's lookup asks the hospital system for the patient
-  /// over the watched folder (1.5.0): a request file in outbox/ when nothing
-  /// has arrived for that patient. Off until the site's vendor answers them;
-  /// unanswered requests would only pile up.
-  folderRequestsEnabled         Boolean             @default(false)
-  folderRequestsChangedAt       DateTime?
-  createdAt                     DateTime            @default(now())
-  updatedAt                     DateTime            @updatedAt
-}
-
-/// What one of this hospital's laboratory codes means.
-///
-/// Which code a hospital sends for a given test is not discoverable from any
-/// specification — it is a property of their laboratory system, and a hospital
-/// with five analysers can have five codes for haemoglobin. So the site says,
-/// once, and every later result is placed automatically.
-///
-/// Several of their codes may point at one of our tests; the reverse is not
-/// allowed, which is why the unique key is theirs and not ours. A blood-gas
-/// haemoglobin and a main-laboratory one are different tests in our library and
-/// stay separately mapped.
-///
-/// Nothing is blocked while a code is unmapped: the result still imports under
-/// whatever the hospital called it. Mapping only improves where it lands, which
-/// is what makes this a screen an operator can work through at their own pace
-/// rather than a prerequisite for going live.
-model HospitalEhrLabCodeMap {
-  id             String    @id @default(cuid())
-  /// The coding system the hospital used, verbatim. Empty for a bare local code
-  /// with no system stated, which is common in a folder drop.
-  system         String    @default("")
-  /// Their code, exactly as it arrives. Never normalised: a code is an opaque
-  /// token in their namespace, and trimming or case-folding it is a guess about
-  /// a system we do not own.
-  code           String
-  /// What they call it, kept only so the mapping screen can show an operator
-  /// something they recognise. Not part of the identity.
-  reportedLabel  String?
-  /// One of the tests in our library, by its canonical name. Checked against
-  /// the library when written rather than by a foreign key, because the library
-  /// is code and not a table.
-  test           String
-  /// The unit their results arrive in, when they arrive without one.
-  ///
-  /// A feed that omits units entirely would otherwise have every result
-  /// unconvertible and so unticked, which switches the feature off in practice.
-  /// Stating it here is the site saying what their machine emits; it is never
-  /// used to override a unit the result actually carries.
-  assumedUnit    String?
-  mappedAt       DateTime  @default(now())
-  mappedById     String?
-  mappedBy       User?     @relation("HospitalEhrLabCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
-  /// How often this code has arrived unmapped, so the screen can rank what is
-  /// worth an operator's attention. A code seen twelve times this week matters
-  /// more than one seen once last month.
-  seenCount      Int       @default(0)
-  lastSeenAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  @@unique([system, code])
-  @@index([test])
-  @@index([lastSeenAt])
-}
-
-/// What a hospital's local vital-sign codes mean.
-///
-/// This is separate from the laboratory map because the destination is a
-/// scalar PREOP field, not a laboratory test. Unknown local vital codes remain
-/// visible in Status until an operator assigns one of the six safe destinations.
-model HospitalEhrVitalCodeMap {
-  id             String    @id @default(cuid())
-  system         String    @default("")
-  code           String
-  reportedLabel  String?
-  field          String
-  mappedAt       DateTime?
-  mappedById     String?
-  mappedBy       User?     @relation("HospitalEhrVitalCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
-  seenCount      Int       @default(0)
-  lastSeenAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  @@unique([system, code])
-  @@index([field])
-  @@index([lastSeenAt])
-}
-
-/// What a hospital's coding-system addresses mean.
-///
-/// NHIS publishes no FHIR address for its lists, so every vendor invents one.
-/// An address that names the list ("…/CL013", "urn:x:ksmp") is recognised on
-/// its own; any other is recorded here when it arrives, and an operator says
-/// once which list it is. The import is never blocked while one is waiting:
-/// its codes arrive as the hospital labelled them.
-model HospitalEhrCodeSystem {
-  id          String               @id @default(cuid())
-  /// The address as the hospital sends it, trimmed.
-  system      String               @unique
-  /// Null while nobody has answered.
-  list        HospitalEhrCodeList?
-  /// Where it arrived: diagnoses, procedures, routes, labs.
-  seenIn      String[]             @default([])
-  /// One code and label that came with it, so the operator recognises it.
-  sampleCode  String?
-  sampleLabel String?
-  seenCount   Int                  @default(0)
-  lastSeenAt  DateTime?
-  answeredAt  DateTime?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-
-  @@index([lastSeenAt])
-}
-
-model CentralDeliveryBatch {
-  id                     String                @id
-  sequence               Int                   @unique
-  previousBatchId        String?
-  status                 CentralDeliveryStatus @default(PENDING)
-  cutoffFrom             DateTime?
-  cutoffTo               DateTime
-  manifest               Json?
-  manifestHash           String?
-  plaintextArtifactPath  String?
-  plaintextSha256        String?
-  ciphertextArtifactPath String?
-  ciphertextSha256       String?
-  ciphertextByteSize     BigInt?
-  envelope               Json?
-  receipt                Json?
-  receiptHash            String?
-  attemptCount           Int                   @default(0)
-  nextAttemptAt          DateTime?
-  leaseOwner             String?
-  leaseExpiresAt         DateTime?
-  errorCode              String?
-  policyExcluded         Int                   @default(0)
-  caseExcluded           Int                   @default(0)
-  qualityRejected        Int                   @default(0)
-  withdrawnCount         Int                   @default(0)
-  errorMessage           String?
-  createdAt              DateTime              @default(now())
-  generatedAt            DateTime?
-  acceptedAt             DateTime?
-  updatedAt              DateTime              @updatedAt
-  cases                  CentralDeliveryCase[]
-
-  @@index([status, nextAttemptAt])
-  @@index([status, leaseExpiresAt])
-}
-
-model CentralDeliveryCase {
-  batchId                   String
-  batch                     CentralDeliveryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  caseId                    String
-  case                      Case                 @relation(fields: [caseId], references: [id], onDelete: Restrict)
-  action                    String
-  casePseudonym             String
-  personPseudonym           String
-  sourcePersonId            String
-  sourceObservationPeriodId String
-  sourceVisitId             String
-  clinicalRevision          Int
-  eventRevision             Int
-  relationalRevision        Int
-  preopRevision             Int?
-  intraopRevision           Int?
-  postopRevision            Int?
-  finalizedAt               DateTime
-  operationStartedAt        DateTime?
-  exclusionReasonCode       String?
-
-  @@id([batchId, caseId])
-  @@index([caseId])
-  @@index([casePseudonym])
-}
-
-model CentralExportCheckpoint {
-  caseId             String   @id
-  case               Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  lastBatchId        String
-  lastAction         String
-  clinicalRevision   Int
-  eventRevision      Int
-  relationalRevision Int
-  preopRevision      Int?
-  intraopRevision    Int?
-  postopRevision     Int?
-  acceptedAt         DateTime
-  updatedAt          DateTime @updatedAt
-
-  @@index([lastBatchId])
-}
-
-model CentralExportRejection {
-  caseId             String   @id
-  case               Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  lastBatchId        String
-  clinicalRevision   Int
-  eventRevision      Int
-  relationalRevision Int
-  preopRevision      Int?
-  intraopRevision    Int?
-  postopRevision     Int?
-  errorCode          String
-  errorMessage       String?
-  rejectedAt         DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@index([lastBatchId])
-}
-
-model ResearchOmopApproval {
-  id                String              @id @default(cuid())
-  exportId          String              @unique
-  export            ResearchExport      @relation(fields: [exportId], references: [id], onDelete: Restrict)
-  grantId           String
-  grant             ResearchAccessGrant @relation(fields: [grantId], references: [id], onDelete: Restrict)
-  requesterId       String
-  requester         User                @relation("ResearchOmopRequester", fields: [requesterId], references: [id], onDelete: Restrict)
-  purpose           String
-  format            String
-  definitionHash    String
-  snapshotHash      String
-  snapshotCaseCount Int
-  approvedById      String
-  approvedBy        User                @relation("ResearchOmopApprover", fields: [approvedById], references: [id], onDelete: Restrict)
-  reason            String
-  approvedAt        DateTime            @default(now())
-
-  @@index([grantId])
-  @@index([requesterId, approvedAt])
-}
-
-enum CentralDeliveryStatus {
-  PENDING
-  GENERATING
-  READY
-  UPLOADING
-  AWAITING_RECEIPT
-  ACCEPTED
-  REJECTED
-  RETRY
-  CANCELLED
-}
-
-enum CentralExportDecision {
-  DEFAULT
-  INCLUDE
-  EXCLUDE
-  WITHDRAW_REQUESTED
-  WITHDRAWN
-}
-
-enum ExternalAiProvider {
-  MISTRAL
-}
-
-enum HospitalAccountTokenPurpose {
-  ACTIVATION
-  RECOVERY
-}
-
-/// What a hospital's local medication codes mean.
-///
-/// The source code and label remain the hospital's. The selected Drug is a
-/// non-destructive interpretation used for the import proposal and future
-/// accepted rows; nothing here rewrites an existing case or frozen export.
-model HospitalEhrMedicationCodeMap {
-  id            String    @id @default(cuid())
-  system        String    @default("")
-  code          String
-  reportedLabel String?
-  drugId        String?
-  drug          Drug?     @relation(fields: [drugId], references: [id], onDelete: Restrict)
-  mappedAt      DateTime?
-  mappedById    String?
-  mappedBy      User?     @relation("HospitalEhrMedicationCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
-  seenCount     Int       @default(0)
-  lastSeenAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@unique([system, code])
-  @@index([drugId])
-  @@index([lastSeenAt])
 }

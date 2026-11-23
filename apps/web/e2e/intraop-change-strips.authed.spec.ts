@@ -40,7 +40,6 @@ async function seed(page: Page) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
-      patientNumber: `INTRAOP-STRIPS-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
     },
@@ -53,12 +52,9 @@ async function seed(page: Page) {
   await post(page, id, { type: "fluid_start", ts: at(-20), fluidId: "fl-ringer", name: "Ringer", fluidEntryMode: "RATE", rate: "100", unit: "mL/h", color: "#22c55e", category: "CRYSTALLOID" })
   await post(page, id, { type: "fluid_rate", ts: at(-10), fluidId: "fl-ringer", name: "Ringer", fluidEntryMode: "RATE", rate: "150", unit: "mL/h" })
   await post(page, id, { type: "fluid_rate", ts: at(12), fluidId: "fl-ringer", name: "Ringer", fluidEntryMode: "RATE", rate: "250", unit: "mL/h" })
-  // `agentPercent` is the clinical field projected into the web change strip;
-  // `value` remains present because it is the serialized event value asserted
-  // by the saved-log checks below.
-  await post(page, id, { type: "agent_start", ts: at(-20), name: "Sevoflurane", value: "2", agentPercent: 2, color: "#a855f7", agentMode: "concurrent" })
-  await post(page, id, { type: "agent_start", ts: at(-10), name: "Sevoflurane", value: "1.5", agentPercent: 1.5, color: "#a855f7", agentMode: "concurrent" })
-  await post(page, id, { type: "agent_start", ts: at(12), name: "Sevoflurane", value: "1", agentPercent: 1, color: "#a855f7", agentMode: "concurrent" })
+  await post(page, id, { type: "agent_start", ts: at(-20), name: "Sevoflurane", value: "2", color: "#a855f7", agentMode: "concurrent" })
+  await post(page, id, { type: "agent_start", ts: at(-10), name: "Sevoflurane", value: "1.5", color: "#a855f7", agentMode: "concurrent" })
+  await post(page, id, { type: "agent_start", ts: at(12), name: "Sevoflurane", value: "1", color: "#a855f7", agentMode: "concurrent" })
   return id
 }
 
@@ -168,12 +164,7 @@ test("a strip travels with its bar while the bar is dragged, and the rate change
   const bar = chart.locator('[data-testid="infusion-lane"] div[draggable="true"].cursor-grab').first()
   // Into the middle of the screen: at the bottom edge the sticky footer covers it.
   await bar.evaluate(el => el.scrollIntoView({ block: "center" }))
-  const barBox = await bar.boundingBox()
-  expect(barBox).not.toBeNull()
-  // The selected infusion also renders a small Discontinue affordance at its
-  // far end. Click the exposed left side of the bar so selection does not
-  // depend on that transient overlay's layout.
-  await page.mouse.click(barBox!.x + 5, barBox!.y + barBox!.height / 2)
+  await bar.click()
   const startIndex = await chart.locator("[data-agent-cell]").evaluateAll((cells, x) => cells.findIndex(c => {
     const r = c.getBoundingClientRect(); return x >= r.left && x <= r.right
   }), ((await bar.boundingBox())!.x + 5))
@@ -189,7 +180,7 @@ test("a strip travels with its bar while the bar is dragged, and the rate change
       const moved = after.find(a => a.id === e.id)
       return moved ? (Date.parse(e.ts) - Date.parse(moved.ts)) > 0 : false
     })
-  }, { timeout: 30_000 }).toEqual([true, true, true])
+  }, { timeout: 15_000 }).toEqual([true, true, true])
   await lanes(page, "5-infusion-after-move")
 
   // A rate fluid's end grip dragged back: the part it would give up fades, strip included.

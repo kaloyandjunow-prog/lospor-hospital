@@ -8,8 +8,7 @@ import { DashboardSearch } from "@/components/DashboardSearch"
 import { DashboardFilters } from "@/components/DashboardFilters"
 import { OPERATING_THEATRES_OFF, parseOperatingTheatreConfig, type CaseTheatreView } from "@lospor/core/operating-theatres"
 import { getTranslations } from "next-intl/server"
-import { isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
-import { isTodaysCase } from "@/lib/dashboard-order"
+import { isSameCalendarDay, isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
 import type React from "react"
 
 type CaseRow = {
@@ -31,8 +30,6 @@ type CaseRow = {
     monthYear: string | null
     durationMinutes: number | null
     endTime: string | null
-    startedAt?: string | null
-    endedAt?: string | null
   } | null
   postop: {
     disposition: string | null
@@ -66,22 +63,19 @@ function filterQuery(filter: DashboardFilter): string {
   return params.toString()
 }
 
-async function fetchDashboard(limit: number, filter: DashboardFilter): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number; hospitalWide: boolean }> {
+async function fetchDashboard(limit: number, filter: DashboardFilter): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number }> {
   const cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }> = []
   let counts: DashboardCounts | null = null
   let total = 0
-  let hospitalWide = false
   for (let skip = 0; skip < Math.max(PAGE_SIZE, limit); skip += PAGE_SIZE) {
     const payload = await apiServerJson<{
       cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }>
       counts: DashboardCounts
       total: number
-      hospitalWide?: boolean
     }>(`/v1/cases?skip=${skip}&take=${PAGE_SIZE}${filterQuery(filter) ? `&${filterQuery(filter)}` : ""}`)
     cases.push(...payload.cases)
     counts = payload.counts
     total = payload.total
-    hospitalWide = payload.hospitalWide === true
     if (payload.cases.length < PAGE_SIZE) break // reached the end
   }
   return {
@@ -91,8 +85,17 @@ async function fetchDashboard(limit: number, filter: DashboardFilter): Promise<{
     // page's response carries the same values.
     counts: counts!,
     total,
-    hospitalWide,
   }
+}
+
+// Kept for the visible case list only -- which cases these 200 rows contain
+// is display order, not a count. The stat tiles and filter-chip counts read
+// the server's `counts` instead, which cover every accessible case, not just
+// this page. Both use the same Europe/Sofia calendar boundary as the API's
+// own `dashboardCaseCounts`, so a case cannot read "today" here and
+// "yesterday" there.
+function isToday(date: Date, now: Date) {
+  return isSameCalendarDay(date, now)
 }
 
 function isThisMonthCase(c: CaseRow, now: Date) {
@@ -191,10 +194,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const handoverCount = counts.handovers
   const filteredCases = cases.filter((c: CaseRow) => {
     if (scope === "all") return true
-    // Created today or anaesthesia started today, by the same Europe/Sofia
-    // calendar as the server's own `dashboardCaseCounts`, so the chip's count
-    // and the rows below it agree.
-    if (scope === "today") return isTodaysCase(c, now)
+    if (scope === "today") return isToday(c.createdAt, now)
     if (scope === "month") return isThisMonthCase(c, now)
     if (scope === "active") return c.status !== "COMPLETE"
     if (scope === "drafts") return c.status === "DRAFT"
@@ -313,13 +313,6 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
           ) : (
             <DashboardSearch
               cases={filteredCases}
-              layout={{
-                byDay: scope !== "today",
-                // Grouped by theatre only while the site uses them and the list is not filtered to one.
-                theatres: theatreConfig.enabled && !filter.theatre ? theatreConfig.theatres : null,
-                // Their own cases first, whoever is looking (1.9.2).
-                ownerId: session.user.id,
-              }}
               userId={session.user.id}
               role={session.user.role}
               theatres={theatreConfig.enabled ? theatreConfig.theatres : null}

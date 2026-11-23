@@ -11,23 +11,15 @@ import { parseLenient, type RejectedField } from "@/lib/lenient-parse"
 import { checkClinicalPayloadPII, piiErrorBody } from "@/lib/clinical-pii"
 import { syncCaseRelationalLockedSafe } from "@/lib/relational-sync"
 import { caseCapabilitiesForUser, caseReadWhereForUser } from "@/lib/access-control"
-import { caseVisibilityCapabilityState, isHospitalWideCaseViewer } from "@/lib/hospital/case-visibility"
 import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
-import { resolvePatientIdentity, resolvePatientLink } from "@/lib/hospital/patient-link"
-import { isValidEgn } from "@/lib/hospital/patient-identity"
-import { izYearFor } from "@/lib/hospital/iz-year"
-import { patientIdentifierCapabilityState } from "@/lib/hospital/patient-identifier-policy"
 import { z } from "zod"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
-import { withDirectTransaction } from "@/lib/clinical-transaction"
 import { dashboardCaseCounts } from "@/lib/dashboard-case-counts"
 import { evaluateCaseFinalization } from "@lospor/core/clinical-validation"
 import { findCasesByPriority } from "@/lib/priority-case-list"
 import { caseTheatreView } from "@lospor/core/operating-theatres"
 import { operatingTheatresEnabled } from "@/lib/operating-theatres"
-import { admissionNumberVisible, patientDisplayOf, patientDisplaySelect } from "@/lib/hospital/patient-display"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -38,12 +30,7 @@ export async function OPTIONS(req: NextRequest) {
 async function findIdempotentCase(userId: string, idempotencyKey: string) {
   return prisma.case.findFirst({
     where: { createdById: userId, clientDraftId: idempotencyKey },
-    select: {
-      id: true,
-      caseCode: true,
-      patientLink: { select: { id: true, maskedIdentifier: true } },
-      preop: { select: { updatedAt: true, syncRevision: true } },
-    },
+    select: { id: true, caseCode: true, preop: { select: { updatedAt: true, syncRevision: true } } },
   })
 }
 
@@ -52,24 +39,6 @@ export async function POST(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const userId = user.id
-
-  // An offline mobile draft is permanently bound to the account and hospital
-  // under which it was recorded. If that clinician is transferred while the
-  // device is offline, silently creating it in their new hospital is a
-  // wrong-institution clinical write. Hospital mobile clients must echo the
-  // immutable draft institution; Web sessions do not create offline drafts.
-  if (
-    process.env.LOSPOR_DEPLOYMENT_MODE === "hospital"
-    && req.headers.get("x-lospor-client") === "mobile"
-  ) {
-    const expectedInstitutionId = req.headers.get("x-lospor-expected-institution")
-    if (!expectedInstitutionId || expectedInstitutionId !== user.institutionId) {
-      return NextResponse.json({
-        error: "Your hospital context changed. Sign in again before syncing this draft.",
-        code: "INSTITUTION_CONTEXT_CHANGED",
-      }, { status: 409 })
-    }
-  }
 
   try {
     const body = await req.json()
@@ -146,17 +115,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (rejectedFields.length) {
-      console.warn("[POST /api/cases] REJECTED_FIELDS")
+      // Paths only — the values are clinical data and must not reach the logs.
+      console.warn(`[POST /api/cases] rejected fields:`, rejectedFields.map(f => f.path).join(", "))
     }
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes: body.notes })
     if (piiError) {
-      // reasonCode, not reason: assertSafeAuditDetail rejects the latter, and
-      // logAudit swallows the throw -- so this security record was being
-      // dropped every time, leaving no trace that a PII block had happened.
-      // The value is the bounded PiiReason enum, never free text or the
-      // offending content, so it is safe to keep once the key permits it.
-      after(() => logAudit(userId, "PII_BLOCKED", "new", { field: piiError.field, reasonCode: piiError.reason }))
+      after(() => logAudit(userId, "PII_BLOCKED", "new", { field: piiError.field, reason: piiError.reason }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 
@@ -184,63 +149,17 @@ export async function POST(req: NextRequest) {
     // into AWAITING_REVIEW -- see the same anchor set in PATCH /cases/:id.
     const awaitingReviewAt = status === "AWAITING_REVIEW" ? new Date() : null
 
-    const patientNumber = body.patientNumber
-    if (patientNumber != null && typeof patientNumber !== "string") {
-      return NextResponse.json({ error: "patientNumber must be a string" }, { status: 400 })
-    }
-    const patientNumberRequired = process.env.HOSPITAL_REQUIRE_PATIENT_NUMBER === "true"
-    if (patientNumberRequired && (!patientNumber || !patientNumber.trim())) {
-      return NextResponse.json({ error: "Patient number is required" }, { status: 400 })
-    }
-    // The ИЗ № year the clinician chose in the first 60 days of the year
-    // (1.9.2). Left out, the case is filed under this year, as before.
-    const recordYear = izYearFor(body.patientNumberYear, new Date())
-    if (!recordYear.ok) {
-      return NextResponse.json({ error: "Invalid request", code: "INVALID_PATIENT_NUMBER_YEAR" }, { status: 400 })
-    }
-    if (patientNumber && !user.institutionId) {
-      return NextResponse.json({
-        error: "An institution is required before a patient number can be linked",
-      }, { status: 400 })
-    }
-    // ЕГН, when the clinician gives one: the person behind this admission. It
-    // is what joins the same patient's admissions across years; the record
-    // number alone restarts every January.
-    const rawNationalId = body.patientNationalId
-    if (rawNationalId != null && typeof rawNationalId !== "string") {
-      return NextResponse.json({ error: "Invalid request", code: "INVALID_EGN" }, { status: 400 })
-    }
-    const nationalId = typeof rawNationalId === "string" && rawNationalId.trim() ? rawNationalId.replace(/\s+/g, "") : null
-    if (nationalId) {
-      if (!patientNumber?.trim()) {
-        return NextResponse.json({ error: "Invalid request", code: "NO_PATIENT_NUMBER" }, { status: 400 })
-      }
-      if (!isValidEgn(nationalId)) {
-        return NextResponse.json({ error: "Invalid request", code: "INVALID_EGN" }, { status: 400 })
-      }
-      if (!(await patientIdentifierCapabilityState(prisma)).egnPermitted) {
-        return NextResponse.json({ error: "Forbidden", code: "EGN_DISABLED_BY_POLICY" }, { status: 403 })
-      }
-    }
-
     // One-off catalogue and profile setup happens here, outside the case
     // transaction, so a first save never spends that transaction on it.
     await preparePreopProfile(prisma, userId)
     let caseRecord
     for (let attempt = 0; ; attempt++) {
       try {
-        // The encrypted identifier, the case and its preop answer rows are one
-        // clinical write. A failed case create must never leave an
-        // identifiable orphan row, and answers given before the case existed
-        // (a draft saved before its patient number) are otherwise never
-        // written: the next save sends only what changed, and would record
-        // them as unanswered.
-        caseRecord = await withDirectTransaction(async tx => {
-          const patientReference = patientNumber && user.institutionId
-            ? nationalId
-              ? (await resolvePatientIdentity(tx, user.institutionId, { recordNumber: patientNumber, nationalId, recordYear: recordYear.year }, userId)).admission
-              : await resolvePatientLink(tx, user.institutionId, patientNumber, userId, "IZ", new Date(), recordYear.year)
-            : null
+        // The case and its preop answer rows are created together: answers
+        // given before the case existed (a draft saved before its patient
+        // number) are otherwise never written, and the next save -- which
+        // sends only what changed -- would record them as unanswered.
+        caseRecord = await prisma.$transaction(async tx => {
           const created = await tx.case.create({
             data: {
               clinicalMode: pediatricDecision.clinicalMode,
@@ -250,15 +169,13 @@ export async function POST(req: NextRequest) {
               status,
               awaitingReviewAt,
               institutionId: user.institutionId ?? null,
-              patientLinkId: patientReference?.id ?? null,
-              caseCode: await generateCaseCode(userId, tx),
+              caseCode: await generateCaseCode(userId, prisma),
               ...(idempotencyKey ? { clientDraftId: idempotencyKey } : {}),
               preop: { create: { ...mapPreop(mappedPreop), syncRevision: 1 } },
               ...(intraop ? { intraop: { create: { ...mapIntraop(intraop), syncRevision: 1 } } } : {}),
               ...(postop  ? { postop:  { create: { ...mapPostop(postop), syncRevision: 1 } } } : {}),
             },
             include: {
-              patientLink: { select: { id: true, maskedIdentifier: true } },
               preop: { select: { id: true, updatedAt: true, syncRevision: true } },
             },
           })
@@ -291,7 +208,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
               id: existing.id,
               caseCode: existing.caseCode,
-              patientReference: existing.patientLink,
               preopUpdatedAt: existing.preop?.updatedAt,
               preopRevision: existing.preop?.syncRevision,
             }, { status: 200 })
@@ -311,7 +227,6 @@ export async function POST(req: NextRequest) {
       clinicalMode: pediatricDecision.clinicalMode,
       clinicalRulesVersion: pediatricDecision.clinicalRulesVersion,
       caseCode: caseRecord.caseCode,
-      patientReference: caseRecord.patientLink,
       preopUpdatedAt: caseRecord.preop?.updatedAt,
       preopRevision: caseRecord.preop?.syncRevision,
       ...(rejectedFields.length ? { rejectedFields } : {}),
@@ -326,8 +241,7 @@ export async function POST(req: NextRequest) {
         field: blockedKeys[0], blockedKeys, details: err.details,
       }, { status: 400 })
     }
-    console.error("[POST /api/cases] CASE_CREATE_FAILED")
-    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-create" })
+    console.error(err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -337,8 +251,6 @@ export async function GET(req: NextRequest) {
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
-  const caseVisibilityEnabled = (await caseVisibilityCapabilityState()).enabled
-  const baseWhere = await caseReadWhereForUser(user, undefined, caseVisibilityEnabled)
   // The dashboard's filters (10.0.0): by operating theatre ("none" for cases
   // without one) and by the anaesthesiologist the case is assigned to. Applied
   // here, so the counts and pages describe the filtered list.
@@ -348,7 +260,7 @@ export async function GET(req: NextRequest) {
     ...(theatreFilter ? [{ operatingTheatreId: theatreFilter === "none" ? null : theatreFilter }] : []),
     ...(assigneeFilter ? [{ userId: assigneeFilter }] : []),
   ]
-  const where: Prisma.CaseWhereInput = filters.length ? { AND: [baseWhere, ...filters] } : baseWhere
+  const where: Prisma.CaseWhereInput = filters.length ? { AND: [caseReadWhereForUser(user), ...filters] } : caseReadWhereForUser(user)
 
   // Item 28: Pagination — accept optional ?skip and ?take; cap take at 200 per request
   const skipRaw = Number(url.searchParams.get("skip") ?? "0")
@@ -364,10 +276,9 @@ export async function GET(req: NextRequest) {
   const include = {
     preop:  { select: { diagnosis: true, plannedProcedure: true, procedureUndetermined: true, ageYears: true, ageValue: true, ageUnit: true, sex: true, asaScore: true } },
     postop: { select: { disposition: true, aldreteTotal: true } },
-    intraop: { select: { monthYear: true, durationMinutes: true, endTime: true, startedAt: true, endedAt: true, startTime: true } },
+    intraop: { select: { monthYear: true, durationMinutes: true, endTime: true, startedAt: true, startTime: true } },
     operatingTheatre: { select: { name: true } },
     user: { select: { name: true } },
-    patientLink: { select: { maskedIdentifier: true, ...patientDisplaySelect } },
     transfers: {
       where: { status: "PENDING" as const },
       // toUserId lets a client tell "a handover addressed to me" apart from
@@ -378,41 +289,26 @@ export async function GET(req: NextRequest) {
     },
   } satisfies Prisma.CaseInclude
 
-  const [cases, total, counts, theatresOn, showAdmissionNumber] = await Promise.all([
+  const [cases, total, counts, theatresOn] = await Promise.all([
     // Ordered by clinical urgency (AWAITING_REVIEW, IN_PROGRESS, DRAFT,
     // COMPLETE), not creation date or the status enum's own declared order --
     // see priority-case-list.ts. A dashboard capped at `take` rows must never
     // let the case closest to auto-closing scroll off the end behind a pile
     // of drafts or older finished cases.
-    findCasesByPriority(
-      where,
-      include,
-      skip,
-      take,
-      // This clinician's own cases first, for everyone (1.9.2): the ones they
-      // hold now, theirs from the start or accepted from a colleague. A case
-      // they created and handed on is the colleague's now and waits its turn.
-      { userId: user.id },
-    ),
+    findCasesByPriority(where, include, skip, take),
     prisma.case.count({ where }),
     dashboardCaseCounts(where, user.id),
     operatingTheatresEnabled(prisma),
-    admissionNumberVisible(prisma),
   ])
 
   return NextResponse.json({
-    cases: await Promise.all(cases.map(async record => ({
+    cases: cases.map(record => ({
       ...record,
-      // Only the masked reference travels with the case; the full ИЗ № is sent as
-      // `patientDisplay`, and only while the site shows it (Status switch, on by default).
-      patientLink: record.patientLink ? { id: record.patientLink.id, maskedIdentifier: record.patientLink.maskedIdentifier } : null,
-      patientDisplay: showAdmissionNumber ? patientDisplayOf(record.patientLink) : null,
-      capabilities: await caseCapabilitiesForUser(user, record, caseVisibilityEnabled),
       operatingTheatre: undefined,
       // Off, a case shows no theatre, unless it kept one from its start.
       theatre: theatresOn || record.operatingTheatreName ? caseTheatreView(record) : null,
-    }))),
-    hospitalWide: isHospitalWideCaseViewer(user, caseVisibilityEnabled),
+      capabilities: caseCapabilitiesForUser(user, record),
+    })),
     total,
     skip,
     take,

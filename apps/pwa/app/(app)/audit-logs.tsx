@@ -17,19 +17,45 @@ import { ScreenState } from "@/components/clinical-ui"
 import { colors, withAlpha } from "@/theme/colors"
 import {
   auditActionLabel,
-  parseAuditPage,
+  parseAuditActionDefinitions,
   type AuditActionDefinition,
-  type SafeAuditRow,
-} from "@/lib/audit-actions"
+} from "@lospor/core/audit-actions"
 
-function userLabel(user: SafeAuditRow["user"] | undefined, fallback: string) {
+type AuditLog = {
+  id: string
+  createdAt: string
+  action: string
+  entityId: string
+  detail?: unknown
+  user?: { name?: string; firstName?: string; lastName?: string; title?: string }
+}
+
+type AuditResponse = {
+  logs: AuditLog[]
+  total: number
+  page: number
+  pageSize: number
+  actions?: unknown
+}
+
+function userLabel(user: AuditLog["user"] | undefined, fallback: string) {
   if (!user) return fallback
   return user.name || [user.title, user.firstName, user.lastName].filter(Boolean).join(" ") || fallback
 }
 
+function detailLabel(detail: unknown) {
+  if (!detail) return null
+  if (typeof detail === "string") return detail
+  try {
+    return JSON.stringify(detail)
+  } catch {
+    return null
+  }
+}
+
 export default function AuditLogsScreen() {
   const { t, language } = usePreferences()
-  const [logs, setLogs] = useState<SafeAuditRow[]>([])
+  const [logs, setLogs] = useState<AuditLog[]>([])
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -38,7 +64,7 @@ export default function AuditLogsScreen() {
   const [error, setError] = useState<string | null>(null)
   const [forbidden, setForbidden] = useState(false)
   const [action, setAction] = useState("")
-  const [actions, setActions] = useState<AuditActionDefinition[]>([])
+  const [actionCatalog, setActionCatalog] = useState<AuditActionDefinition[]>([])
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterQuery, setFilterQuery] = useState("")
 
@@ -52,17 +78,12 @@ export default function AuditLogsScreen() {
         page: String(nextPage),
         ...(action ? { action } : {}),
       })
-      const raw = await apiJson<unknown>(`/api/admin/audit-logs?${params}`)
-      const data = parseAuditPage(raw)
-      if (!data) {
-        setError(t("auditUnavailable"))
-        return
-      }
+      const data = await apiJson<AuditResponse>(`/api/admin/audit-logs?${params}`)
       setForbidden(false)
       setPage(data.page)
       setTotal(data.total)
       setLogs((prev) => nextPage === 0 ? data.logs : [...prev, ...data.logs])
-      setActions(data.actions)
+      setActionCatalog(parseAuditActionDefinitions(data.actions))
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         setForbidden(true)
@@ -86,14 +107,14 @@ export default function AuditLogsScreen() {
     load(page + 1, "more")
   }
 
-  const filteredActions = actions.filter(item => {
+  const filteredActions = actionCatalog.filter(item => {
     const query = filterQuery.trim().toLowerCase()
     if (!query) return true
     return `${item.code} ${item.labels.bg} ${item.labels.en}`.toLowerCase().includes(query)
   })
 
   const selectedActionLabel = action
-    ? auditActionLabel(actions, action, language, t("auditUnknownAction"))
+    ? auditActionLabel(actionCatalog, action, language)
     : t("allAuditActions")
 
   return (
@@ -138,11 +159,14 @@ export default function AuditLogsScreen() {
             renderItem={({ item }) => (
               <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 14, borderCurve: "continuous", borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", flex: 1 }}>{auditActionLabel(actions, item.action, language, t("auditUnknownAction"))}</Text>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", flex: 1 }}>{auditActionLabel(actionCatalog, item.action, language)}</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>{new Date(item.createdAt).toLocaleString(language === "bg" ? "bg-BG" : "en-GB")}</Text>
                 </View>
                 <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "700" }}>{userLabel(item.user, t("unknownUser"))}</Text>
-
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3 }}>{t("entity")} {item.entityId}</Text>
+                {detailLabel(item.detail) ? (
+                  <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }} numberOfLines={3}>{detailLabel(item.detail)}</Text>
+                ) : undefined}
               </View>
             )}
             ListFooterComponent={loadingMore ? (
@@ -215,7 +239,7 @@ export default function AuditLogsScreen() {
                     style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
                   >
                     <Text style={{ color: action === item.code ? colors.primary : colors.textPrimary, fontWeight: "800" }}>
-                      {auditActionLabel(actions, item.code, language, t("auditUnknownAction"))}
+                      {auditActionLabel(actionCatalog, item.code, language)}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{item.code}</Text>
                   </TouchableOpacity>
