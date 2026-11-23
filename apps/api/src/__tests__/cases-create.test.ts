@@ -39,6 +39,7 @@ vi.mock("@/lib/clinical-transaction", () => ({
     case: { findFirst: findFirstMock, findUnique: findUniqueMock, create: createMock },
     patientLink: { createMany: patientCreateManyMock, findUnique: patientFindUniqueMock },
     caseCodeSequence: { upsert: caseCodeSequenceUpsertMock },
+    caseStaffLog: { createMany: vi.fn() },
   })),
 }))
 vi.mock("@/lib/preop/service", async importOriginal => ({

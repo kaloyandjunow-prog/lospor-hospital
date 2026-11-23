@@ -2,55 +2,34 @@
 
 ## [1.14.0] - 2026-11-23
 
-<!-- release:version draft: rewrite for operators, then delete this line -->
+Vendors Core, API, Web and PWA 10.8.0 and the Central exchange contract 2.9.2; Browser stays 0.11.2. **The database changes**
+(four migrations; the last is `20261124100000_case_staff_log`). The update screen asks for the verified backup first, and a
+failed activation is recovered from it. **Update Central to 2.9.2 first**: 2.9.2 changes no column, so a Central 2.9.1 still
+receives what this Hospital sends, but the order keeps Central and Hospital on one contract.
 
-Vendors Core, API, Web and PWA 10.8.0; Browser stays 0.11.2.
+### Added
 
-### Upstream
+- **Anaesthesia nurses.** Status creates two new kinds of account, **anaesthesia nurse** and **senior anaesthesia nurse**.
+  A nurse sees every case of the hospital and changes only the ones she is on (put on by hand, through her operating theatre
+  for the day, or by herself when a case has no nurse); she charts in intraop and postop and may hand her place to another
+  nurse. She does not create, finalise, delete or hand over cases to a doctor, and **exports nothing**: no personal export, no
+  research access and no delivery to Central. A senior nurse changes every case of the hospital and puts nurses on cases; the
+  head of department and the administrator put nurses on any case, a doctor on her own.
+- **A nurse account stays a nurse.** In Status a nurse is changed only between nurse and senior nurse, and a doctor is never
+  made a nurse (`ACCOUNT_PROFILE_FIXED`, in Bulgarian too): create the other account instead.
+- **Anaesthesia team.** Each case row has a menu entry that lists who was on the case and when -- doctors and nurses, joining
+  and leaving -- kept for good: the database refuses to change or remove a record. It stays inside the Hospital and is not
+  sent to Central.
+- **Nurses by operating theatre**, **who has a case open**, and the case row menu with the planned operation date.
+- **The intraoperative chart is rebuilt** (one menu for every lane, one cursor for mouse, finger and keyboard, Undo and Redo over
+  many steps, full screen, drug colours by ISO 26825, totals for each running item) and every screen is usable by a finger.
+  Details are in the upstream changelogs.
 
-- Core 10.8.0: The senior nurse and who may put nurses on a case
-- Core 10.8.0: One stop for the chart's menu
-- Core 10.8.0: "Still running?" is asked only for a start entered at least half an hour late
-- Core 10.8.0: One menu for what is in a chart cell.
-- Core 10.8.0: Undo and redo over many steps
-- Core 10.8.0: One dose-change rule
-- Core 10.8.0: Totals for both charts
-- Core 10.8.0: Time and date entry
-- Core 10.8.0: Who has a case open
-- Core 10.8.0: The anaesthesia nurse role
-- Core 10.8.0: ISO 26825 as the default drug colour.
-- Core 10.8.0: Agent labels FiSev% / FiDes% / FiIso%
-- Core 10.8.0: "Still running?"
-- Core 10.8.0: End case asks about a tourniquet still on
-- API 10.8.0: A senior nurse
-- API 10.8.0: The nurses of a theatre are put on its cases
-- API 10.8.0: Who was on a case, and when
-- API 10.8.0: Anaesthesia nurses
-- API 10.8.0: Who has a case open
-- API 10.8.0: Prompt answers
-- API 10.8.0: Several people can work in one case.
-- API 10.8.0: An airway or vascular event deleted from the chart takes its device or line off the section.
-- API 10.8.0: OMOP:
-- Web 10.8.0: Anaesthesia team
-- Web 10.8.0: Senior nurse
-- Web 10.8.0: One menu for every lane.
-- Web 10.8.0: One cursor for mouse, finger and keyboard.
-- Web 10.8.0: Dragging the end of a bar
-- Web 10.8.0: Stopping asks only what it must:
-- Web 10.8.0: A new look for the bars.
-- Web 10.8.0: Colours by ISO 26825 by default
-- Web 10.8.0: Full screen
-- Web 10.8.0: Anaesthesia nurses.
-- Web 10.8.0: "Case open by: <names>"
-- Web 10.8.0: Touch on every screen:
-- PWA 10.8.0: Anaesthesia team
-- PWA 10.8.0: Senior nurse
-- PWA 10.8.0: The chart's menu on the phone
-- PWA 10.8.0: Totals
-- PWA 10.8.0: Anaesthesia nurses on the phone:
-- PWA 10.8.0: "Case open by: <names>"
-- PWA 10.8.0: Touch:
-- PWA 10.8.0: Colours by ISO 26825 by default
+### Changed
+
+- The research export carries one new kind of row for an infusion, fluid or agent that goes on after the case (an observation
+  `LOSPOR:CONTINUES_AFTER_CASE`); Central takes it as it takes every `LOSPOR:` value.
+- The Hospital end-to-end specs of the retired infusion-move code are replaced by the upstream ones for the new chart.
 
 ## [1.13.0] - 2026-11-19
 

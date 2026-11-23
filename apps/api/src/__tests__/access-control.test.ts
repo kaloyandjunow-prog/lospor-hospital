@@ -5,6 +5,7 @@ import {
   canWriteCase,
   caseCapabilitiesForUser,
   caseExportWhereForUser,
+  caseOwnWhereForUser,
   caseReadWhereForUser,
   caseWriteWhereForUser,
   colleagueWhereForUser,
@@ -137,9 +138,9 @@ describe("anaesthesia nurses and the senior nurse (2026-11-23)", () => {
   const nurse = { id: "n1", role: "ANAESTHESIA_NURSE", institutionId: "inst-1", nurseScope: { caseIds: [] as string[], theatreIds: [] as string[], shiftDate: "2026-11-23" } }
   const senior = { id: "s1", role: "ANAESTHESIA_SENIOR_NURSE", institutionId: "inst-1" }
 
-  it("lets a nurse see every case of her hospital and change only the ones she is on", () => {
-    expect(canReadCase(nurse, record)).toBe(true)
-    expect(canReadCase(nurse, { ...record, institutionId: "inst-2" })).toBe(false)
+  it("lets a nurse see every case of her hospital and change only the ones she is on", async () => {
+    await expect(canReadCase(nurse, record)).resolves.toBe(true)
+    await expect(canReadCase(nurse, { ...record, institutionId: "inst-2" })).resolves.toBe(false)
     expect(canWriteCase(nurse, record)).toBe(false)
     expect(canWriteCase({ ...nurse, nurseScope: { ...nurse.nurseScope, caseIds: ["c1"] } }, record)).toBe(true)
   })
@@ -164,8 +165,8 @@ describe("anaesthesia nurses and the senior nurse (2026-11-23)", () => {
     expect(colleagueWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" })).toMatchObject({ role: { notIn: ["ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"] } })
   })
 
-  it("exports a nurse only the cases she is on or made, never the hospital's", () => {
-    expect(caseExportWhereForUser(nurse)).toEqual({ OR: [{ nurses: { some: { userId: nurse.id } } }, { createdById: nurse.id }] })
-    expect(caseExportWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" })).toEqual(caseReadWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }))
+  it("exports a nurse nothing on the appliance", () => {
+    expect(caseExportWhereForUser(nurse)).toEqual({ id: { in: [] } })
+    expect(caseExportWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" })).toEqual(caseOwnWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }))
   })
 })
