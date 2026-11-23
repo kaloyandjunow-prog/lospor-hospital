@@ -55,9 +55,9 @@
     },
     "vulnerabilityReview": {
       "status": "accepted-provenance-only",
-      "release": "1.14.0",
-      "reviewedAt": "2026-11-23",
-      "rationale": "Carried over for Hospital 1.14.0, recorded on 2026-11-23 under the maintainer's instruction. The PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 sources, their checksums, URLs, the Debian snapshot, configure flags and embedded build records, and every pinned base image, are unchanged since the 1.13.0 review. This release changes the vendored application code (10.8.0), the Central exchange contract (2.9.2) and the scanner (Trivy 0.76.1 to 0.76.2), not the sources or images reviewed here. Source-built PostgreSQL components remain provenance-only because Trivy does not vulnerability-map them; all scanner findings without fixes are handled by the exact release-scoped vulnerability exceptions.",
+      "release": "1.13.0",
+      "reviewedAt": "2026-11-19",
+      "rationale": "Fresh review for Hospital 1.13.0, recorded on 2026-11-19 under the maintainer's instruction to run the release train. The PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 sources, their checksums, URLs, the Debian snapshot, configure flags and embedded build records are unchanged since the 1.7.2 review. The only change is in the pinned base images: nginx 1.30.6 to 1.30.7 and the Caddy build's Go toolchain 1.26.10 to 1.26.11, moved to fixed versions after the 1.13.0 candidate scan reported fixable critical and high findings in them. Source-built PostgreSQL components remain provenance-only because Trivy does not vulnerability-map them; all scanner findings without fixes are handled by the exact release-scoped vulnerability exceptions.",
       "evidenceUrls": [
         "https://security-tracker.debian.org/tracker/CVE-2026-84782",
         "https://security-tracker.debian.org/tracker/CVE-2026-103111",
