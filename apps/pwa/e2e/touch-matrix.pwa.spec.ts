@@ -39,7 +39,7 @@ test.describe.configure({ timeout: 240_000 })
 test("the phone's screens have 44 px targets and 12 px text", async ({ page, request }) => {
   const token = await tokenFor(request, ACCOUNTS.admin)
   const authed = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
-  const created = await request.post(`${API_BASE}/v1/cases`, { headers: authed, data: { preop: { procedureName: "Touch matrix", diagnosis: "Touch matrix", asaClass: 2, age: 54, weight: 78, height: 172, sex: "FEMALE", urgency: "ELECTIVE" } } })
+  const created = await request.post(`${API_BASE}/v1/cases`, { headers: authed, data: { patientNumber: `TOUCH-MATRIX-PWA-E2E-${Date.now()}`, preop: { procedureName: "Touch matrix", diagnosis: "Touch matrix", asaClass: 2, age: 54, weight: 78, height: 172, sex: "FEMALE", urgency: "ELECTIVE" } } })
   expect(created.ok()).toBe(true)
   const caseId: string = (await created.json()).id
   await signInAs(page, request, ACCOUNTS.admin)
