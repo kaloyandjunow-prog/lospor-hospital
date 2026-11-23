@@ -166,7 +166,7 @@ function selectNamed(body: string, name: string): string {
 }
 
 describe("Status account workflows", () => {
-  it("renders a Bulgarian account directory with only the three permitted profiles", async () => {
+  it("renders a Bulgarian account directory with only the permitted profiles", async () => {
     const { app, auth, accountControl } = setup()
     const cookie = await passwordCookie(app, auth)
     const response = await app.request("/status/accounts", { headers: { cookie } })
@@ -183,6 +183,10 @@ describe("Status account workflows", () => {
     const accessProfile = selectNamed(body, "accessProfile")
     expect(accessProfile).toContain('value="CLINICAL_MEMBER"')
     expect(accessProfile).toContain('value="CLINICAL_HOD"')
+    expect(accessProfile).toContain('value="CLINICAL_NURSE"')
+    expect(accessProfile).toContain('value="CLINICAL_SENIOR_NURSE"')
+    expect(accessProfile).toContain("Анестезиологична сестра")
+    expect(accessProfile).toContain("Старша анестезиологична сестра")
     expect(accessProfile).toContain('value="RESEARCH_ONLY"')
     expect(accessProfile).not.toContain('value="ADMIN"')
     expect(body).toContain('pattern="[A-Za-z][A-Za-z0-9._-]{2,63}"')
@@ -286,6 +290,107 @@ describe("Status account workflows", () => {
     }))
     expect(JSON.stringify(db.getDashboard(NOW))).not.toContain("hospitalToken")
     expect(JSON.stringify(db.getDashboard(NOW))).not.toContain("new.doctor@example.test")
+  })
+
+  // The anaesthesia nurse accounts (2026-11-23).
+  it.each(["CLINICAL_NURSE", "CLINICAL_SENIOR_NURSE"] as const)("creates a %s account and shows its activation link once", async accessProfile => {
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/accounts", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        username: "New.Nurse1",
+        email: "",
+        firstName: "Мария",
+        lastName: "Иванова",
+        title: "",
+        institutionId: "inst-1",
+        accessProfile,
+        locale: "bg",
+      }),
+    })
+    expect(response.status).toBe(201)
+    expect(await response.text()).toContain(SECRET.replaceAll("&", "&amp;"))
+    expect(accountControl.create).toHaveBeenCalledWith(expect.objectContaining({ username: "New.Nurse1", accessProfile }))
+  })
+
+  it("refuses a profile that is not on the list", async () => {
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/accounts", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        username: "New.Nurse2", email: "", firstName: "Ана", lastName: "Стоянова", title: "", institutionId: "inst-1",
+        accessProfile: "ANAESTHESIA_NURSE", locale: "bg",
+      }),
+    })
+    expect(response.status).toBe(400)
+    expect(accountControl.create).not.toHaveBeenCalled()
+  })
+
+  it("offers a nurse only the two nurse roles and a doctor never a nurse's", async () => {
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(app, auth)
+    vi.mocked(accountControl.list).mockResolvedValueOnce({
+      ...DIRECTORY,
+      accounts: [...DIRECTORY.accounts, {
+        id: "nurse-1", username: "Nurse.One", email: null, name: "Мария Иванова", role: "ANAESTHESIA_NURSE",
+        accountKind: "CLINICAL" as const, locale: "bg" as const, institutionId: "inst-1", institutionName: "УМБАЛ Тест",
+        state: "ACTIVE" as const, designatedApplianceOperator: false, activeActivationExpiresAt: null, activeRecoveryExpiresAt: null,
+        createdAt: "2026-08-21T12:00:00.000Z",
+      }],
+    })
+    const body = await (await app.request("/status/accounts", { headers: { cookie } })).text()
+    const roleSelect = (id: string) => body.match(new RegExp(`<select id="role-${id}" name="role" required>[\\s\\S]*?</select>`))?.[0] ?? ""
+    const nurse = roleSelect("nurse-1")
+    expect(nurse).toContain('value="ANAESTHESIA_NURSE" selected')
+    expect(nurse).toContain('value="ANAESTHESIA_SENIOR_NURSE"')
+    expect(nurse).not.toContain('value="MEMBER"')
+    expect(nurse).not.toContain('value="HEAD_OF_DEPT"')
+    expect(nurse).not.toContain('value="ADMIN"')
+    const doctor = roleSelect("admin-1")
+    expect(doctor).toContain('value="MEMBER"')
+    expect(doctor).not.toContain("ANAESTHESIA")
+  })
+
+  it("changes a nurse to a senior nurse through the password-confirmed role action", async () => {
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/accounts/nurse-1/role", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ role: "ANAESTHESIA_SENIOR_NURSE", reason: "The nurse now leads the ward", currentPassword: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(303)
+    expect(accountControl.changeRole).toHaveBeenCalledWith("nurse-1", "ANAESTHESIA_SENIOR_NURSE", "The nurse now leads the ward")
+  })
+
+  it("explains in Bulgarian, with a conflict status, that a nurse is never made a doctor", async () => {
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const { AccountControlError } = await import("./account-control.js")
+    vi.mocked(accountControl.changeRole).mockRejectedValueOnce(new AccountControlError("ACCOUNT_PROFILE_FIXED"))
+    const response = await app.request("/status/accounts/nurse-1/role", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ role: "MEMBER", reason: "A mistaken request", currentPassword: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(409)
+    expect(await response.text()).toContain("Профилът на сестра остава сестра или старша сестра")
+  })
+
+  it("refuses a role that is not one of the five", async () => {
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const response = await app.request("/status/accounts/nurse-1/role", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ role: "ANAESTHETIST", reason: "A mistaken request", currentPassword: "Initial password phrase1!" }),
+    })
+    expect(response.status).toBe(400)
+    expect(accountControl.changeRole).not.toHaveBeenCalled()
   })
 
   it("reissues activation and recovery links through separate POST-only actions", async () => {

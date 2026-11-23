@@ -1016,7 +1016,7 @@ export function createStatusApp({
     if (code === "RATE_LIMITED") return 429
     if (code.includes("NOT_FOUND")) return 404
     if (code === "INSTITUTION_CANNOT_HAVE_HOD") return 422
-    if (code.includes("ALREADY") || code.includes("PROTECTED")
+    if (code.includes("ALREADY") || code.includes("PROTECTED") || code === "ACCOUNT_PROFILE_FIXED"
       || code.includes("MANAGED") || code.includes("LAST_")
       || code === "ACCOUNT_NOT_ACTIVE") return 409
     return 400
