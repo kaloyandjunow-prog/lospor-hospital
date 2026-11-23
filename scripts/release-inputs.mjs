@@ -6,11 +6,11 @@ import { resolve } from "node:path"
 const EXPECTED = Object.freeze({
   node: "node:24-alpine3.24",
   nginx: "nginx:1.30.7-alpine",
-  postgres: "postgres:17.11-trixie",
+  postgres: "postgres:17.12-trixie",
   caddyBuilder: "golang:1.26.11-alpine3.24",
   caddyRuntime: "caddy:2.11.7-alpine",
   curl: "curlimages/curl:8.23.0",
-  trivy: "aquasec/trivy:0.76.1",
+  trivy: "aquasec/trivy:0.76.2",
 })
 
 const ENVIRONMENT = Object.freeze({

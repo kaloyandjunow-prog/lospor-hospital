@@ -45,8 +45,11 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/autosave-manager", () => ({ autosaveManager: hoisted.autosave, onEventRefused: () => () => {} }))
 vi.mock("@/lib/case-outbox", () => ({ onOutboxChange: () => () => {} }))
 vi.mock("@/context/TourContext", () => ({ useTour: () => ({ setCurrentFormStep: () => {} }) }))
+// Who has the case open is its own concern; these tests answer every URL with the save reply, which is no presence answer.
+vi.mock("@/components/CasePresenceBanner", () => ({ CasePresenceBanner: () => null }))
 vi.mock("@/hooks/useCaseLock", () => ({
   useCaseLock: () => ({ isWatching: false, holderName: null, takeover: () => {} }),
+  getDeviceId: () => "test-device",
 }))
 vi.mock("@/components/CaseMeta", () => ({ CaseMeta: () => null }))
 vi.mock("@/components/WatchingBanner", () => ({ WatchingBanner: () => null }))

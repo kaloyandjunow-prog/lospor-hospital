@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { portalHost } from "@/lib/portal-host"
 import { createPortal } from "react-dom"
 import { useIntraopUiCopy } from "./ui-copy"
 import { DosingFlyoutHeader } from "./DosingFlyoutHeader"
@@ -204,19 +205,19 @@ export function DosingFlyout({
               return (
                 <>
                   {DISPLAY_CLINICAL_DOSE_GUIDANCE && isPediatric && pediatricRulesLoading ? (
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-xs text-slate-500">
                       {isBg ? "Зареждане на одобрения набор..." : "Loading the approved preset..."}
                     </p>
                   ) : null}
                   {DISPLAY_CLINICAL_DOSE_GUIDANCE && isPediatric && pediatricRulesSource === "cache" ? (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
                       {isBg
                         ? `Използва се последният запазен набор${pediatricRulesCachedAt ? ` от ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`
                         : `Using the last cached preset${pediatricRulesCachedAt ? ` from ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`}
                     </p>
                   ) : null}
                   {isPediatric && !pediatricRulesLoading && pediatricProfiles.length === 0 ? (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
                       {isBg
                         ? "Няма приложим одобрен профил. Въведете ръчно проверена доза."
                         : "No applicable approved profile. Enter a manually verified dose."}
@@ -224,7 +225,7 @@ export function DosingFlyout({
                     </p>
                   ) : null}
                   {isPediatric && pediatricProfiles.length > 1 ? (
-                    <p className="text-[10px] text-red-600 dark:text-red-400">
+                    <p className="text-xs text-red-600 dark:text-red-400">
                       {isBg
                         ? "Има припокриващи се профили. Дозата не може да бъде записана."
                         : "Overlapping profiles were returned. The dose cannot be recorded."}
@@ -232,7 +233,7 @@ export function DosingFlyout({
                   ) : null}
                   {/* Only missing patient data is worth saying; a route with no calculation (intrathecal, say) is not missing anything. */}
                   {fp.calculationUnavailableReason && fp.calculationUnavailableReason !== "NO_AUTOFILL" && (!isPediatric || pediatricProfiles.length === 1) ? (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
                       {isBg
                         ? "Дозата не може да бъде изчислена от наличните данни. Въведете я ръчно."
                         : "The dose cannot be calculated from the available patient data. Enter it manually."}
@@ -342,6 +343,6 @@ export function DosingFlyout({
         )
       })()}
     </>,
-    inlineHost ?? document.body,
+    inlineHost ?? portalHost(),
   )
 }

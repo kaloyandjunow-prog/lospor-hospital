@@ -91,7 +91,7 @@ export default function TimetableViewerScreen() {
     .runOnJS(true)
 
   const scene = useMemo(
-    () => layoutRecordChart(model, { width: labelWidth + span * effColW, labelWidth, fontSize: 10, graphHeight: 170, ink: P.lbl, faint: P.grid }),
+    () => layoutRecordChart(model, { width: labelWidth + span * effColW, labelWidth, fontSize: 12, graphHeight: 170, ink: P.lbl, faint: P.grid }),
     [model, labelWidth, span, effColW, P.lbl, P.grid],
   )
 
@@ -136,11 +136,11 @@ export default function TimetableViewerScreen() {
               {zoomBtn("+", () => applyZoom(effColW * 1.5), effColW >= MAX_COL_W)}
             </View>
           </View>
-          <Text style={{ color: colors.textMuted, fontSize: 10.5, marginBottom: 8 }}>{tc("viewerZoomHint")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>{tc("viewerZoomHint")}</Text>
 
           <GestureDetector gesture={pinch}>
             <View testID="record-viewer-chart" style={{ backgroundColor: P.card, borderRadius: 14, borderWidth: 1, borderColor: P.grid, marginBottom: 12, overflow: "hidden" }}>
-              <Text style={{ color: P.title, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, paddingHorizontal: 10, paddingTop: 8 }}>{R.timetable.toUpperCase()}</Text>
+              <Text style={{ color: P.title, fontSize: 12, fontWeight: "800", letterSpacing: 1.2, paddingHorizontal: 10, paddingTop: 8 }}>{R.timetable.toUpperCase()}</Text>
               <GHScrollView
                 horizontal showsHorizontalScrollIndicator contentContainerStyle={{ padding: 6 }}
                 ref={(r: ScrollViewInstance | null) => { scrollRef.current = r }}

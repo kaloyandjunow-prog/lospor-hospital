@@ -67,7 +67,7 @@ export function TciOrRate({ name, pediatric, patient, color, syringe, setSyringe
       </View>
       {!choice ? children : (
         <View testID="tci-fields" style={{ gap: 10 }}>
-          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>{tc("tciModel")}</Text>
+          <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>{tc("tciModel")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {tciModelsFor(drug, pediatric).map(model => (
               <Chip key={model} testID={`tci-model-${model}`} label={TCI_MODEL_LABELS[model]} on={choice.model === model} color={color}
@@ -148,14 +148,14 @@ export function PumpTotalField({ amountUnit, color, onChange }: {
   const report = (next: number | null, nextUnit: PumpTotalUnit) => onChange(next != null && next >= 0 ? { value: next, unit: nextUnit } : undefined)
   return (
     <View testID="pump-total-field" style={{ gap: 8 }}>
-      <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>{tc("tciPumpTotal")}</Text>
+      <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>{tc("tciPumpTotal")}</Text>
       <View style={{ flexDirection: "row", gap: 8 }}>
         {(["mL", amountUnit] as const).map(option => (
           <Chip key={option} label={option} on={unit === option} color={color} onPress={() => { setUnit(option); report(value, option) }} />
         ))}
       </View>
       <VitalStepper value={value} onChange={next => { setValue(next); report(next, unit) }} min={0} max={unit === "mL" ? 5000 : 100_000} step={unit === "mL" ? 0.1 : 1} precision={unit === "mL" ? 1 : 0} unit={unit} placeholder="-" />
-      <Text style={{ color: shade("#64748b"), fontSize: 11 }}>{tc("tciPumpTotalHint")}</Text>
+      <Text style={{ color: shade("#64748b"), fontSize: 12 }}>{tc("tciPumpTotalHint")}</Text>
     </View>
   )
 }

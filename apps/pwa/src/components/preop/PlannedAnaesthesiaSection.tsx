@@ -64,7 +64,7 @@ export function PlannedAnaesthesiaSection({ value, onChange, language, tc, bare 
 
   const [techPath, setTechPath] = useState<string[]>([])
   const [otherTechText, setOtherTechText] = useState("")
-  const heading = { color: colors.textMuted, fontSize: 11, fontWeight: "800" as const, letterSpacing: 1, textTransform: "uppercase" as const }
+  const heading = { color: colors.textMuted, fontSize: 12, fontWeight: "800" as const, letterSpacing: 1, textTransform: "uppercase" as const }
 
   return (
     <View testID="preop-planned-anaesthesia" style={bare ? { gap: 10 } : { gap: 10, marginBottom: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 }}>

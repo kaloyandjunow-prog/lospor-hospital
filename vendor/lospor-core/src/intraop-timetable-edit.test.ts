@@ -149,6 +149,16 @@ describe("End case stops", () => {
     expect(ops.add).toEqual([expect.objectContaining({ type: "infusion_stop", endCaseStop: true, ts: at(62) })])
     expect(projectIntraopEvents(next, { start, openThrough: now }).infusions[0]).toMatchObject({ endCaseStop: true })
   })
+
+  // 10.8.0: "goes on after the case" is carried on the stop and read back.
+  it("carry going on after the case when asked", () => {
+    const { ops, next } = edit(chart => ({
+      ...chart,
+      infusions: chart.infusions.map(item => ({ ...item, stopped: true, endCol: 12, endCaseStop: true, continuesAfterEnd: true })),
+    }))
+    expect(ops.add).toEqual([expect.objectContaining({ type: "infusion_stop", endCaseStop: true, continuesAfterEnd: true })])
+    expect(projectIntraopEvents(next, { start, openThrough: now }).infusions[0]).toMatchObject({ continuesAfterEnd: true })
+  })
 })
 
 describe("a TCI infusion edited on the chart (2026-10-18)", () => {

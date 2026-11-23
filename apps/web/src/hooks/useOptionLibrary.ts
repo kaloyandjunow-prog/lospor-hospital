@@ -1,6 +1,7 @@
 "use client"
 
 import { isServingFallback } from "@lospor/core/sync"
+import { withIsoDrugColors } from "@lospor/core/drug-colors"
 import { useEffect, useState } from "react"
 import { CLINICAL_RANGES, type ClinicalRangeKey } from "@lospor/core"
 import {
@@ -43,7 +44,8 @@ const repository = new OptionLibraryRepository({
     if (!response.ok) throw new Error(`library fetch failed: ${response.status}`)
     return response.json()
   },
-  bundled: bundledOptions,
+  // The ISO 26825 colours come with the bundled library too: online and offline draw the same colours.
+  bundled: category => withIsoDrugColors(category, bundledOptions(category)),
   scheduler: {
     schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
     cancel: handle => window.clearTimeout(handle as number),

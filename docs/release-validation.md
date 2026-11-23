@@ -6,8 +6,8 @@ A Hospital release is acceptable only after the automated quality workflow and
 this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
-For the 1.13.0 clinical candidate, the coordinated client pins are Core, API,
-Web and PWA 10.7.0; Browser is 0.11.2. Promote and review them in this order:
+For the 1.14.0 clinical candidate, the coordinated client pins are Core, API,
+Web and PWA 10.8.0; Browser is 0.11.2. Promote and review them in this order:
 Core, Web, PWA, Browser, API. API is deliberately last because its finalization
 routes consume the shared Core contract. The Hospital candidate must retain the
 local package overlays while `UPSTREAM_VERSIONS.json` records the exact commits
@@ -148,7 +148,7 @@ Every GitHub Release contains:
   reports, approved build inputs, the image lock, and the exact risk-exception
   file used by policy.
 
-PostgreSQL 17.11, zlib 1.3.2, and ACL 2.4.0 are compiled from exact
+PostgreSQL 17.12, zlib 1.4, and ACL 2.4.0 are compiled from exact
 SHA-256-pinned release tarballs against timestamped Debian Trixie snapshots.
 The evidence archive supplements Trivy's package-manager SBOM with a candidate-
 image-bound CycloneDX component list and the embedded source URLs/hashes,

@@ -77,7 +77,7 @@ export function AirwaySmart({
   return (
     <div className="space-y-4" data-testid="airway-smart">
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("inPlace")}{live.length > 0 ? ` · ${live.length}` : ""}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("inPlace")}{live.length > 0 ? ` · ${live.length}` : ""}</p>
         {entries.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-300 dark:border-[#333] p-3 text-sm text-slate-500" data-testid="airway-smart-empty">{t("none")}</p>
         ) : shown.map(entry => (
@@ -86,7 +86,7 @@ export function AirwaySmart({
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold ${entry.status !== "in_use" ? "line-through" : ""}`}>
                 {describe(entry)}
-                {entry.status !== "in_use" && <span className="ml-2 text-[11px] font-semibold no-underline rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-300 px-2 py-0.5">{te(entry.status)}{entry.endedAt ? ` ${timeOf(entry.endedAt)}` : ""}</span>}
+                {entry.status !== "in_use" && <span className="ml-2 text-xs font-semibold no-underline rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-300 px-2 py-0.5">{te(entry.status)}{entry.endedAt ? ` ${timeOf(entry.endedAt)}` : ""}</span>}
               </p>
               {(entry.instruments?.length ?? 0) > 0 && <p className="text-xs text-slate-500">{t("via", { tools: entry.instruments!.map(toolLabel).join(" · ") })}</p>}
             </div>
@@ -110,7 +110,7 @@ export function AirwaySmart({
       </div>
 
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("addDevice")}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("addDevice")}</p>
         <div className="space-y-2">{mainRows.map((row, rowIndex) => (
           <div key={`airway-smart-main-row-${rowIndex}`} className="space-y-2">
             <div className="grid grid-cols-3 gap-2">{row.map(card)}</div>

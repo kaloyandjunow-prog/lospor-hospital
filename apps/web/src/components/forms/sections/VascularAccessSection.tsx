@@ -15,7 +15,7 @@ export function VascularAccessSection({ control, watch, smart }: {
 }) {
   const t = useTranslations()
   return (
-    <SectionCard title={t("intraop.vascularSection")} collapsible defaultCollapsed={!smart}
+    <SectionCard anchor="intraop-vascular" title={t("intraop.vascularSection")} collapsible defaultCollapsed={!smart}
       badge={(() => { const a = (watch("vascularAccesses") ?? []) as VascularAccess[]; return a.length ? t("intraop.vascular.accessCount", { count: a.length }) : undefined })()}>
 
       {smart ?? <Controller name="vascularAccesses" control={control} render={({ field }) => (

@@ -53,6 +53,8 @@ describe("AdminAccountTable", () => {
     expect(screen.queryByRole("button", { name: /admin.suspend/ })).toBeNull()
     expect(screen.getAllByRole("option").map(option => option.textContent)).toEqual([
       "admin.roleMember",
+      "admin.roleNurse", // 10.8.0: serverless has nurses too
+      "admin.roleSeniorNurse",
       "admin.roleHOD",
     ])
   })

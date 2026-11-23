@@ -227,8 +227,12 @@ describe("DashboardSearch — a cancelled procedure (10.0.0)", () => {
     <DashboardSearch cases={[{ ...baseCase, ...over, capabilities: { canWrite } } as never]} userId="owner-1" role="CLINICIAN" />,
   )
 
+  // 10.8.0: Delete and Cancel live in the row's menu, away from a stray finger.
+  const openMenu = () => fireEvent.click(screen.getByTestId("case-row-menu"))
+
   it("offers the cancellation beside Delete until anaesthesia starts", () => {
     renderRow({ status: "DRAFT" })
+    openMenu()
     const button = screen.getByTestId("cancel-procedure")
     expect(button.getAttribute("aria-disabled")).toBeNull()
     expect(screen.getByTestId("delete-draft")).toBeTruthy()
@@ -236,6 +240,7 @@ describe("DashboardSearch — a cancelled procedure (10.0.0)", () => {
 
   it("keeps it in place, inactive, once anaesthesia has started", () => {
     renderRow({ status: "IN_PROGRESS", intraop: { startedAt: "2026-09-01T10:00:00.000Z" } })
+    openMenu()
     expect(screen.getByTestId("cancel-procedure").getAttribute("aria-disabled")).toBe("true")
   })
 
@@ -252,6 +257,7 @@ describe("DashboardSearch — a cancelled procedure (10.0.0)", () => {
     const badge = screen.getByTestId("cancelled-badge")
     expect(badge.getAttribute("title")).toBe("The patient refused or did not come")
     expect(container.querySelector("a")?.getAttribute("href")).toBe("/cases/case-1")
+    openMenu()
     expect(screen.getByTestId("undo-cancellation")).toBeTruthy()
     expect(screen.queryByTestId("delete-draft")).toBeNull()
     expect(screen.queryByTestId("cancel-procedure")).toBeNull()

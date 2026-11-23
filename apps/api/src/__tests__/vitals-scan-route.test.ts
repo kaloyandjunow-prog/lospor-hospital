@@ -71,6 +71,7 @@ describe("case vitals scan route", () => {
     expect(findUniqueMock).toHaveBeenCalledWith({
       where: { id: "case-1" },
       select: {
+        id: true,
         userId: true,
         // The case's own institution and creator, which canReadCase needs to
         // answer for a head of department or a co-creator. Selecting only the
@@ -78,6 +79,10 @@ describe("case vitals scan route", () => {
         // was refused a scan on a colleague's case.
         institutionId: true,
         createdById: true,
+        // 10.8.0: an anaesthesia nurse reaches a case by these.
+        operatingTheatreId: true,
+        finalizedAt: true,
+        plannedSurgeryDate: true,
         user: { select: { institutionId: true } },
         // Consent is read from the database, never from the client, exactly as
         // the case advise route does it.

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { assignTheatreFromMenu, nurseFacts, takeCase, useViewerIsNurse } from "@/lib/dashboard-menu-actions"
+import { CaseMenuButton } from "@/components/dashboard/CaseMenuButton"
 import { ActivityIndicator, Animated, FlatList, Platform, RefreshControl, Text, TouchableOpacity, View } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
+import { refusalReason } from "@/lib/server-message"
 import { notify } from "@/lib/notify"
 import { useCaseHandover } from "@/lib/use-case-handover"
 import { PendingHandovers, type PendingTransfer } from "@/components/PendingHandovers"
@@ -24,11 +27,12 @@ import { useDashboardPagination } from "@/lib/use-dashboard-pagination"
 import { caseIsWritable } from "@lospor/core/case-capabilities"
 import { isSameCalendarDay, isSameCalendarMonth } from "@lospor/core/dashboard-date-scope"
 import type { CaseTheatreView } from "@lospor/core/operating-theatres"
-import { assignCaseTheatre, dashboardFilterQuery, TheatreChangedError, useOperatingTheatres, type DashboardFilter } from "@/lib/use-operating-theatres"
+import { dashboardFilterQuery, useOperatingTheatres, type DashboardFilter } from "@/lib/use-operating-theatres"
 import { type CancellationReason } from "@lospor/core/case-cancellation"
 import { dashboardMenuActions } from "@/lib/case-actions"
 import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
 import { ageSexLabel } from "@lospor/core/pediatric"
+import { TheatreNurseShiftsButton } from "@/components/dashboard/TheatreNurseShiftsSheet"
 import { DashboardCaseMenu } from "@/components/dashboard/DashboardCaseMenu"
 import { DashboardSheets } from "@/components/dashboard/DashboardSheets"
 import { OverflowCueScrollView } from "@/components/intraop/OverflowCueScrollView"
@@ -134,6 +138,7 @@ export default function DashboardScreen() {
   const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
+  const viewerIsNurse = useViewerIsNurse(cases)
   // The theatre and anaesthesiologist filters (10.0.0), applied by the API.
   const [filter, setFilter] = useState<DashboardFilter>({ theatre: null, assignee: null })
   const [filterSheet, setFilterSheet] = useState<"theatre" | "assignee" | null>(null)
@@ -155,7 +160,7 @@ export default function DashboardScreen() {
   const [queuedIntraopCaseIds, setQueuedIntraopCaseIds] = useState<Set<string>>(new Set())
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuCase, setMenuCase] = useState<CaseItem | null>(null)
-  const [menuMode, setMenuMode] = useState<"menu" | "assign" | "theatre" | "cancel" | "confirmDelete">("menu")
+  const [menuMode, setMenuMode] = useState<"menu" | "assign" | "theatre" | "cancel" | "confirmDelete" | "plannedDate" | "nurseHandover" | "caseNurses" | "team">("menu")
   // A cancelled procedure (10.0.0): the reason chosen, and a note for "Other".
   const [cancelReason, setCancelReason] = useState<CancellationReason | null>(null)
   const [cancelNote, setCancelNote] = useState("")
@@ -316,13 +321,13 @@ export default function DashboardScreen() {
     setActionLoading(true)
     try {
       const res = await apiFetch(`/api/cases/${menuCase.id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error(await refusalReason(res) ?? "")
       // Clear any queued offline patches for this case so the badge disappears immediately
       await clearAllQueuedPatchesForCase(menuCase.id)
       closeMenu()
       await loadCases()
-    } catch {
-      notify(t("error"), t("actionFailed"))
+    } catch (err) {
+      notify(t("error"), err instanceof Error && err.message ? err.message : t("actionFailed"))
     } finally {
       setActionLoading(false)
     }
@@ -333,28 +338,7 @@ export default function DashboardScreen() {
     if (!await loadColleagues()) setMenuMode("menu")
   }
 
-  // The case's theatre (10.0.0): anyone who can open it, until intraop starts.
-  async function handleAssignTheatre(theatreId: string | null) {
-    if (!menuCase) return
-    setActionLoading(true)
-    try {
-      await assignCaseTheatre(menuCase.id, theatreId, menuCase.theatre?.id ?? null)
-      closeMenu()
-      await loadCases()
-    } catch (err) {
-      if (err instanceof TheatreChangedError) {
-        // Someone chose another meanwhile: show it, keep the list open, say who.
-        const theatreName = err.current?.name ?? t("noTheatre")
-        setMenuCase(prev => prev && prev.theatre ? { ...prev, theatre: { ...prev.theatre, id: err.current?.id ?? null, name: err.current?.name ?? null } } : prev)
-        notify(t("theatreLabel"), (err.changedBy ? t("theatreChangedMeanwhileBy").replace("{name}", err.changedBy) : t("theatreChangedMeanwhile")).replace("{theatre}", theatreName))
-        void loadCases()
-        return
-      }
-      notify(t("error"), err instanceof Error && err.message ? err.message : t("theatreChangeFailed"))
-    } finally {
-      setActionLoading(false)
-    }
-  }
+  const handleAssignTheatre = (theatreId: string | null) => assignTheatreFromMenu({ menuCase, theatreId, setActionLoading, closeMenu, loadCases, setMenuCase, t })
 
   async function handleCancelProcedure() {
     if (!menuCase || !cancelReason || (cancelReason === "OTHER" && !cancelNote.trim())) return
@@ -422,7 +406,14 @@ export default function DashboardScreen() {
   const menuActions = dashboardMenuActions({
     status: menuCase?.status, intraop: menuCase?.intraop, writable: menuCaseWritable,
     pendingTransfer: menuCasePending, theatreChangeable: menuCaseTheatreChangeable,
+    ...nurseFacts(menuCase),
   })
+
+  async function handleTakeCase() {
+    if (!menuCase) return
+    if (await takeCase(menuCase.id, t)) closeMenu()
+    void loadCases()
+  }
 
   async function handleWithdrawHandover() {
     if (!menuCase) return
@@ -495,7 +486,10 @@ export default function DashboardScreen() {
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.warning, flexShrink: 0 }} />
             ) : null}
           </View>
-          <StatusBadge status={derivedStatus(item)} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <StatusBadge status={derivedStatus(item)} />
+            <CaseMenuButton caseId={item.id} label={t("caseMenu")} onPress={() => handleLongPress(item)} />
+          </View>
         </View><PatientDisplayText display={item.patientDisplay} language={language} testID={`case-patient-display-${item.id}`} />
         <AnaesthesiaLine item={item} />
         {ageSexLabel(item.preop, language === "bg" ? "bg" : "en") ? (
@@ -511,11 +505,11 @@ export default function DashboardScreen() {
           {isComplete && <DispositionBadge disposition={item.postop?.disposition} />}
           {item.theatre?.name ? (
             <View style={{ backgroundColor: withAlpha(colors.primary, "16"), borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-              <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>{item.theatre.name}</Text>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800" }} numberOfLines={1}>{item.theatre.name}</Text>
             </View>
           ) : null}
-          {item.user?.name ? <Text style={{ color: colors.textMuted, fontSize: 11 }}>{item.user.name}</Text> : null}
-          <Text style={{ color: colors.textMuted, fontSize: 11, fontVariant: ["tabular-nums"] }}>{item.caseCode}</Text>
+          {item.user?.name ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.user.name}</Text> : null}
+          <Text style={{ color: colors.textMuted, fontSize: 12, fontVariant: ["tabular-nums"] }}>{item.caseCode}</Text>
         </View>
       </TouchableOpacity>
       </Animated.View>
@@ -593,7 +587,7 @@ export default function DashboardScreen() {
                   { labelKey: "month" as const, value: tabCounts.Month, tab: "Month" as FilterTab },
                 ].map((stat) => (
                   <TouchableOpacity key={stat.tab} onPress={() => setActiveTab(stat.tab)} style={{ backgroundColor: activeTab === stat.tab ? colors.primarySoft : colors.surface, borderRadius: 12, borderCurve: "continuous", flex: 1, padding: 12, borderWidth: 1, borderColor: activeTab === stat.tab ? withAlpha(colors.primary, "88") : colors.border, boxShadow: activeTab === stat.tab ? `0 8px 22px ${withAlpha(colors.primary, "18")}` : undefined }}>
-                    <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 3 }}>{t(stat.labelKey)}</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 3 }}>{t(stat.labelKey)}</Text>
                     <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{stat.value}</Text>
                   </TouchableOpacity>
                 ))}
@@ -645,6 +639,8 @@ export default function DashboardScreen() {
                   selected={filter.assignee !== null}
                   onPress={() => void openFilterSheet("assignee")}
                 />
+                {/* 10.8.0: nurses by theatre for a day, as on the web dashboard. */}
+                {theatreConfig.enabled ? <TheatreNurseShiftsButton theatres={theatreConfig.theatres} isNurse={viewerIsNurse} tc={tc} /> : null}
                 {filter.theatre || filter.assignee ? (
                   <WorkflowPill label={`× ${t("clearFilters")}`} selected={false} onPress={() => setFilter({ theatre: null, assignee: null })} />
                 ) : null}
@@ -679,7 +675,8 @@ export default function DashboardScreen() {
         />
       )}
 
-      <TouchableOpacity
+      {/* 10.8.0: an anaesthesia nurse does not open cases (the server refuses it too). */}
+      {viewerIsNurse ? null : <TouchableOpacity
         style={{
           position: "absolute",
           bottom: 32,
@@ -699,7 +696,7 @@ export default function DashboardScreen() {
       >
         <Text style={{ color: shade("#fff"), fontSize: 22, fontWeight: "800", lineHeight: 24 }}>＋</Text>
         <Text style={{ color: shade("#fff"), fontSize: 13, fontWeight: "900" }}>{t("newCase")}</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
 
       <DashboardCaseMenu
         menuCase={menuCase}
@@ -720,6 +717,7 @@ export default function DashboardScreen() {
         onShowAssign={() => { void handleShowAssign() }}
         onAssignTo={id => { void handleAssignTo(id) }}
         onWithdraw={() => { void handleWithdrawHandover() }}
+        onTakeCase={() => { void handleTakeCase() }}
         onCancelProcedure={() => { void handleCancelProcedure() }}
         onUndoCancellation={() => { void handleUndoCancellation() }}
         onAssignTheatre={id => { void handleAssignTheatre(id) }}
@@ -729,6 +727,7 @@ export default function DashboardScreen() {
         cancelNote={cancelNote}
         setCancelNote={setCancelNote}
         theatres={theatreConfig.theatres}
+        onPlanned={() => { closeMenu(); void loadCases() }}
       />
       <DashboardSheets
         filterSheet={filterSheet}

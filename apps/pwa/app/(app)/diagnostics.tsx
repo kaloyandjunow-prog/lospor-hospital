@@ -132,7 +132,7 @@ export default function DiagnosticsScreen() {
                   />
                   {localized.note ? (
                     <Text style={{
-                      color: colors.textMuted, fontSize: 10, marginTop: -2, marginBottom: 4,
+                      color: colors.textMuted, fontSize: 12, marginTop: -2, marginBottom: 4,
                       fontVariant: ["tabular-nums"],
                     }}>
                       {localized.note}
@@ -157,7 +157,7 @@ export default function DiagnosticsScreen() {
           </Text>
         </TouchableOpacity>
 
-        <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16 }}>
           {t("diagnosticsFootnote")}
         </Text>
       </ScrollView>
@@ -173,7 +173,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
       borderWidth: 1, borderColor: colors.border, padding: 14, gap: 6,
     }}>
       <Text style={{
-        color: colors.textMuted, fontSize: 10, fontWeight: "800",
+        color: colors.textMuted, fontSize: 12, fontWeight: "800",
         letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 4,
       }}>
         {title}

@@ -180,7 +180,7 @@ export function DoseSelector({
 
       {showConcentration && (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{concentrationLabel ?? tc("doseConcentration")}</Text>
+          <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{concentrationLabel ?? tc("doseConcentration")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {visibleConcentrations.map((c, index) => (
               <TouchableOpacity
@@ -222,7 +222,7 @@ export function DoseSelector({
               >
                 <Text style={{ color: concentrationPage === 0 ? shade("#334155") : shade("#94a3b8"), fontSize: 18 }}>{"<"}</Text>
               </TouchableOpacity>
-              <Text testID="concentration-page-indicator" style={{ color: shade("#64748b"), fontSize: 10 }}>
+              <Text testID="concentration-page-indicator" style={{ color: shade("#64748b"), fontSize: 12 }}>
                 {concentrationPage + 1}/{concentrationPageCount}
               </Text>
               <TouchableOpacity
@@ -245,7 +245,7 @@ export function DoseSelector({
 
       {formulationOptions && formulationOptions.length > 0 ? (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseFormulation")}</Text>
+          <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseFormulation")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {formulationOptions.map(option => (
               <TouchableOpacity
@@ -317,7 +317,7 @@ export function DoseSelector({
               >
                 <Text style={{ color: presetPage === 0 ? shade("#334155") : shade("#94a3b8"), fontSize: 18 }}>{"<"}</Text>
               </TouchableOpacity>
-              <Text testID={medicationPresets ? "dose-page-indicator" : "volume-preset-page-indicator"} style={{ color: shade("#64748b"), fontSize: 10 }}>
+              <Text testID={medicationPresets ? "dose-page-indicator" : "volume-preset-page-indicator"} style={{ color: shade("#64748b"), fontSize: 12 }}>
                 {presetPage + 1}/{presetPageCount}
               </Text>
               <TouchableOpacity
@@ -373,7 +373,7 @@ export function DoseSelector({
         </View>
       )}
 
-      {extraHint && <Text style={{ color: shade("#f59e0b"), fontSize: 11, marginBottom: 14 }}>{extraHint}</Text>}
+      {extraHint && <Text style={{ color: shade("#f59e0b"), fontSize: 12, marginBottom: 14 }}>{extraHint}</Text>}
 
       {confirmLabel && onConfirm && confirmDisabled && confirmBlockedReason ? (
         <Text testID="dose-confirm-blocked" accessibilityRole="alert" style={{ color: shade("#f87171"), fontSize: 12, fontWeight: "600", marginBottom: 8 }}>{confirmBlockedReason}</Text>

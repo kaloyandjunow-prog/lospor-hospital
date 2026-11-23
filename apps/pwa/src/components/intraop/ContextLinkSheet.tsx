@@ -119,30 +119,30 @@ export function ContextLinkSheet({ entry, attention, sheets, onClose }: {
         <TouchableOpacity style={{ ...button, borderColor: shade("#22c55e88") }} onPress={() => commit({ type: "complete" })}><Text style={{ color: shade("#86efac"), fontWeight: "800" }}>{tc("contextRecord")}</Text></TouchableOpacity>
       </>}
       {(link.kind === "induction" || link.kind === "airway") && step === "kind" && <>
-        <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseKind")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseKind")}</Text>
         <View style={{ flexDirection: "row", gap: 7 }}>
           <TouchableOpacity style={{ ...button, borderColor: shade("#a78bfa88") }} onPress={() => chooseTechniqueKind("sedation")}><Text style={{ color: shade("#c4b5fd"), fontWeight: "800" }}>{tc("contextSedation")}</Text></TouchableOpacity>
           <TouchableOpacity style={{ ...button, borderColor: shade("#60a5fa88") }} onPress={() => chooseTechniqueKind("general")}><Text style={{ color: shade("#93c5fd"), fontWeight: "800" }}>{tc("contextGeneral")}</Text></TouchableOpacity>
         </View>
       </>}
       {step === "technique" && link.kind !== "extubation" && <>
-        <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseTechnique")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseTechnique")}</Text>
         <View style={{ gap: 7 }}>{techniqueChoices.map(choice => <TouchableOpacity key={choice.value} style={button} onPress={() => chooseTechnique(choice.value)}><Text style={{ color: shade("#e2e8f0"), fontWeight: "700" }}>{label(choice)}</Text></TouchableOpacity>)}</View>
       </>}
       {step === "side" && <>
-        <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseSide")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseSide")}</Text>
         <View style={{ flexDirection: "row", gap: 7 }}>{(["LEFT", "RIGHT", "BOTH"] as TechniqueSide[]).map(value => <TouchableOpacity key={value} style={{ ...button, borderColor: shade("#a78bfa88") }} onPress={() => chooseSide(value)}><Text style={{ color: shade("#c4b5fd"), fontWeight: "800" }}>{sideLabel[value]}</Text></TouchableOpacity>)}</View>
       </>}
       {step === "airway" && <>
-        <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseAirway")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseAirway")}</Text>
         <View style={{ flexDirection: "row", gap: 7 }}><TouchableOpacity style={{ ...button, borderColor: shade("#22c55e88") }} onPress={() => chooseAirway("")}><Text style={{ color: shade("#86efac"), fontWeight: "800" }}>{tc("contextYes")}</Text></TouchableOpacity><TouchableOpacity style={button} onPress={() => chooseAirway(null)}><Text style={{ color: shade("#e2e8f0"), fontWeight: "800" }}>{tc("contextNo")}</Text></TouchableOpacity></View>
       </>}
       {step === "airway-replacement" && <>
-        <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{link.presentsIntubated ? tc("contextReplaceArrival") : tc("contextReplaceRecorded")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{link.presentsIntubated ? tc("contextReplaceArrival") : tc("contextReplaceRecorded")}</Text>
         <View style={{ flexDirection: "row", gap: 7 }}><TouchableOpacity style={{ ...button, borderColor: shade("#22c55e88") }} onPress={() => chooseAirwayReplacement(true)}><Text style={{ color: shade("#86efac"), fontWeight: "800" }}>{tc("contextYes")}</Text></TouchableOpacity><TouchableOpacity style={button} onPress={() => chooseAirwayReplacement(false)}><Text style={{ color: shade("#e2e8f0"), fontWeight: "800" }}>{tc("contextNo")}</Text></TouchableOpacity></View>
       </>}
-      {step === "airway-device" && <><Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseAirway")}</Text><View style={{ gap: 7 }}>{link.airwayChoices.map(choice => <TouchableOpacity key={choice.value} style={{ ...button, borderColor: shade("#818cf888") }} onPress={() => commit({ type: "induction", code: technique!, airwayDevice: choice.value, at: at ?? undefined, timeConfirmed, ...(replaceArrivalTube === true ? { replaceArrivalTube: true } : {}) })}><Text style={{ color: shade("#c7d2fe"), fontWeight: "700" }}>{label(choice)}</Text></TouchableOpacity>)}</View></>}
-      <View style={{ marginTop: 12 }}><Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>{tc("contextTime")}</Text><TextInput value={time} onChangeText={value => { setTime(value); setTimeConfirmed(true) }} keyboardType="numbers-and-punctuation" placeholder={tc("sgTimePlaceholder")} placeholderTextColor={shade("#64748b")} style={{ marginTop: 5, minHeight: 44, borderWidth: 1, borderColor: shade("#475569"), borderRadius: 10, paddingHorizontal: 12, color: shade("#f8fafc") }} /></View>
+      {step === "airway-device" && <><Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1, marginBottom: 7 }}>{tc("contextChooseAirway")}</Text><View style={{ gap: 7 }}>{link.airwayChoices.map(choice => <TouchableOpacity key={choice.value} style={{ ...button, borderColor: shade("#818cf888") }} onPress={() => commit({ type: "induction", code: technique!, airwayDevice: choice.value, at: at ?? undefined, timeConfirmed, ...(replaceArrivalTube === true ? { replaceArrivalTube: true } : {}) })}><Text style={{ color: shade("#c7d2fe"), fontWeight: "700" }}>{label(choice)}</Text></TouchableOpacity>)}</View></>}
+      <View style={{ marginTop: 12 }}><Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>{tc("contextTime")}</Text><TextInput value={time} onChangeText={value => { setTime(value); setTimeConfirmed(true) }} keyboardType="numbers-and-punctuation" placeholder={tc("sgTimePlaceholder")} placeholderTextColor={shade("#64748b")} style={{ marginTop: 5, minHeight: 44, borderWidth: 1, borderColor: shade("#475569"), borderRadius: 10, paddingHorizontal: 12, color: shade("#f8fafc") }} /></View>
     </Sheet>
   )
 }

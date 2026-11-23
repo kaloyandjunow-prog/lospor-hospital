@@ -1,4 +1,5 @@
 import { PREOP_ANSWER_REFUSED, PreopContractError, populationForMode, preopContractBlockedKeys, preparePreopProfile, savePreopAnswers, savePreopOrders } from "@/lib/preop/service"
+import { refuseIfNotAllowed } from "@/lib/nurse-access"
 import { preopVitalsRequirement } from "@/lib/preop/sections"
 import { NextRequest, NextResponse, after } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
@@ -28,6 +29,7 @@ import { findCasesByPriority } from "@/lib/priority-case-list"
 import { caseTheatreView } from "@lospor/core/operating-theatres"
 import { operatingTheatresEnabled } from "@/lib/operating-theatres"
 import { admissionNumberVisible, patientDisplayOf, patientDisplaySelect } from "@/lib/hospital/patient-display"
+import { logCaseStaff } from "@/lib/case-staff-log"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -50,6 +52,8 @@ async function findIdempotentCase(userId: string, idempotencyKey: string) {
 
 export async function POST(req: NextRequest) {
   const user = await getAuthUser(req)
+  const nurseRefusal = refuseIfNotAllowed(user, "CREATE_CASE")
+  if (nurseRefusal) return nurseRefusal
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const userId = user.id
 
@@ -262,6 +266,7 @@ export async function POST(req: NextRequest) {
               preop: { select: { id: true, updatedAt: true, syncRevision: true } },
             },
           })
+          await logCaseStaff(tx, [{ caseId: created.id, userId, kind: "DOCTOR", action: "JOINED", reason: "CREATED", byUserId: userId }])
           if (created.preop) {
             await savePreopAnswers(tx, {
               caseId: created.id,
@@ -368,6 +373,8 @@ export async function GET(req: NextRequest) {
     operatingTheatre: { select: { name: true } },
     user: { select: { name: true } },
     patientLink: { select: { maskedIdentifier: true, ...patientDisplaySelect } },
+    // 10.8.0: the case's anaesthesia nurses, for the dashboard row.
+    nurses: { select: { userId: true, user: { select: { name: true } } }, orderBy: { assignedAt: "asc" as const } },
     transfers: {
       where: { status: "PENDING" as const },
       // toUserId lets a client tell "a handover addressed to me" apart from

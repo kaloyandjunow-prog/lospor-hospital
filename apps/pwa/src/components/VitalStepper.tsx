@@ -160,7 +160,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
             </Text>
           </Pressable>
           {unit ? (
-            <Text numberOfLines={1} style={{ marginTop: 4, textAlign: "center", color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>
+            <Text numberOfLines={1} style={{ marginTop: 4, textAlign: "center", color: colors.textMuted, fontSize: 12, fontWeight: "700" }}>
               {unit}
             </Text>
           ) : null}
@@ -252,7 +252,7 @@ export function VitalNumber({ label, unit, value, onChange, unobtainable, onTogg
               paddingVertical: 6,
             }}
           >
-            <Text style={{ color: unobtainable ? colors.warning : colors.textMuted, fontSize: 11, fontWeight: "900" }}>{labelUnableToObtain ?? tc("unableToObtain")}</Text>
+            <Text style={{ color: unobtainable ? colors.warning : colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labelUnableToObtain ?? tc("unableToObtain")}</Text>
           </Pressable>
         )}
       </View>

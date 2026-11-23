@@ -95,7 +95,7 @@ export function RiskScoreCards({
             key={card.titleKey}
             className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-slate-50 dark:bg-[#181818] p-4"
           >
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
               {t(card.titleKey)}
             </p>
             {card.unavailable ? (
@@ -108,7 +108,7 @@ export function RiskScoreCards({
             <p className={`text-xs font-semibold mt-1.5 ${card.tone}`}>{card.label}</p>
             </>)}
             {!card.unavailable && card.answered < card.criteria && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1" role="note">
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1" role="note">
                 {t("preop.criteriaAnswered", { answered: card.answered, total: card.criteria })}
               </p>
             )}

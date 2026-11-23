@@ -4,6 +4,8 @@ import {
   canAccessCaseWithOwnerFallback,
   canWriteCase,
   caseCapabilitiesForUser,
+  caseExportWhereForUser,
+  caseOwnWhereForUser,
   caseReadWhereForUser,
   caseWriteWhereForUser,
   colleagueWhereForUser,
@@ -110,6 +112,9 @@ describe("access control helpers", () => {
       canWrite: false,
       isCreator: true,
       isAssignee: false,
+      isNurse: false,
+      isSeniorNurse: false,
+      canAssignNurses: false,
     })
     await expect(caseReadWhereForUser(creator)).resolves.toEqual({
       OR: [
@@ -125,5 +130,43 @@ describe("access control helpers", () => {
       { id: "creator", role: "MEMBER", institutionId: "inst-2" },
       { userId: "assignee", createdById: "creator", institutionId: "inst-1" },
     )).resolves.toBe(false)
+  })
+})
+
+describe("anaesthesia nurses and the senior nurse (2026-11-23)", () => {
+  const record = { id: "c1", userId: "doctor", institutionId: "inst-1", operatingTheatreId: null, finalizedAt: null, plannedSurgeryDate: null }
+  const nurse = { id: "n1", role: "ANAESTHESIA_NURSE", institutionId: "inst-1", nurseScope: { caseIds: [] as string[], theatreIds: [] as string[], shiftDate: "2026-11-23" } }
+  const senior = { id: "s1", role: "ANAESTHESIA_SENIOR_NURSE", institutionId: "inst-1" }
+
+  it("lets a nurse see every case of her hospital and change only the ones she is on", async () => {
+    await expect(canReadCase(nurse, record, true)).resolves.toBe(true)
+    await expect(canReadCase(nurse, { ...record, institutionId: "inst-2" }, true)).resolves.toBe(false)
+    expect(canWriteCase(nurse, record)).toBe(false)
+    expect(canWriteCase({ ...nurse, nurseScope: { ...nurse.nurseScope, caseIds: ["c1"] } }, record)).toBe(true)
+  })
+  it("lets a senior nurse change every case of her hospital and no other", () => {
+    expect(canWriteCase(senior, record)).toBe(true)
+    expect(canWriteCase(senior, { ...record, institutionId: "inst-2" })).toBe(false)
+    expect(caseWriteWhereForUser(senior)).toEqual({ institutionId: "inst-1" })
+    expect(caseWriteWhereForUser({ ...senior, institutionId: null })).toEqual({ id: { in: [] } })
+  })
+  it("reads the hospital's cases and the ones she is on from a nurse's query", async () => {
+    expect(await caseReadWhereForUser(nurse, undefined, true)).toEqual({ OR: [{ institutionId: "inst-1" }, { id: { in: [] } }] })
+  })
+  it("says who may put nurses on a case", async () => {
+    expect((await caseCapabilitiesForUser(senior, record, true)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser(nurse, record, true)).canAssignNurses).toBe(false)
+    expect((await caseCapabilitiesForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }, record, true)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser({ id: "other", role: "MEMBER", institutionId: "inst-1" }, record, true)).canAssignNurses).toBe(false)
+    expect((await caseCapabilitiesForUser({ id: "head", role: "HEAD_OF_DEPT", institutionId: "inst-1" }, record, true)).canAssignNurses).toBe(true)
+  })
+  it("offers a nurse only nurses as colleagues, and a doctor no nurses", () => {
+    expect(colleagueWhereForUser(nurse)).toMatchObject({ role: { in: ["ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"] } })
+    expect(colleagueWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" })).toMatchObject({ role: { notIn: ["ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"] } })
+  })
+
+  it("exports a nurse nothing on the appliance", () => {
+    expect(caseExportWhereForUser(nurse)).toEqual({ id: { in: [] } })
+    expect(caseExportWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" })).toEqual(caseOwnWhereForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }))
   })
 })

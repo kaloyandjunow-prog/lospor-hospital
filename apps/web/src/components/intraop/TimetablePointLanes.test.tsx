@@ -46,7 +46,8 @@ describe("the events lane", () => {
   it("makes the chips a comfortable target", () => {
     lane([event(0, "Induction")])
     const chip = screen.getByText("Induction").parentElement!
-    expect(chip.className).toContain("min-h-[20px]")
+    // 10.8.0: bigger again, toward the touch matrix (the cell itself is the 44 px target).
+    expect(chip.className).toContain("min-h-[28px]")
   })
 
   it("shows what is hidden as a count beyond the limit, with the add place still there", () => {

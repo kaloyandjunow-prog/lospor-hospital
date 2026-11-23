@@ -50,7 +50,11 @@ test("hold and slide an end grip moves the end", async ({ page }) => {
   const id = await seed(page, true)
   try {
     const chart = await open(page, id)
-    await chart.locator('[data-testid="infusion-lane"] div[draggable]').first().tap()
+    // The first tap highlights, the second opens the menu; closing it leaves the bar selected with its grips.
+    const cell = chart.locator('[data-testid="infusion-lane"] [data-tt-cell]').nth(3)
+    await cell.tap()
+    await cell.tap()
+    await page.keyboard.press("Escape")
     await page.waitForTimeout(400)
     const grip = chart.locator('[data-testid="infusion-lane"] div[draggable="true"].cursor-col-resize').last()
     const b = (await grip.boundingBox({ timeout: 10_000 }))!
@@ -61,39 +65,20 @@ test("hold and slide an end grip moves the end", async ({ page }) => {
   } finally { await page.request.delete(`/api/cases/${id}`, { headers: { Origin: ORIGIN } }) }
 })
 
-test("hold and slide a running bar moves it; a quick swipe does not", async ({ page }) => {
+// 10.8.0 (rule 6): a bar is not moved as a whole; a finger holding and sliding on it changes nothing.
+test("hold and slide on a running bar changes nothing; a quick swipe does not either", async ({ page }) => {
   const id = await seed(page, false)
   try {
     const chart = await open(page, id)
-    // Empty lane cells are not draggable, but selecting the generic draggable
-    // descendant can still race the timetable rehydrate. Wait for
-    // the actual running bar (the only draggable with a title) before taking
-    // coordinates; this keeps the test from touching a stale/empty cell.
-    const bar = chart.locator('[data-testid="infusion-lane"] div[draggable="true"][title]').first()
-    await expect(bar).toBeVisible({ timeout: 60_000 })
-    await bar.scrollIntoViewIfNeeded()
-    const b = (await bar.boundingBox())!
+    const lane = chart.getByTestId("infusion-lane").locator("[data-tt-cell]").nth(4)
+    await lane.scrollIntoViewIfNeeded()
+    const b = (await lane.boundingBox())!
     const cdp = await page.context().newCDPSession(page)
     const start = async () => (await log(page, id)).find(e => e.type === "infusion_start")!.ts
     const s0 = await start()
     await finger(cdp, page, b.x + 20, b.y + b.height / 2, -90, 60)
-    const s1 = await start()
-    expect(s1).toBe(s0)
-    // Keep the two gesture assertions isolated. A quick touch is intentionally
-    // allowed to scroll/reflow the chart, and the touch adapter's state belongs
-    // to that gesture; the long-press assertion must start in a fresh page.
-    const secondPage = await page.context().newPage()
-    try {
-      const secondChart = await open(secondPage, id)
-      const afterSwipeBar = secondChart.locator('[data-testid="infusion-lane"] div[draggable="true"][title]').first()
-      await expect(afterSwipeBar).toBeVisible({ timeout: 60_000 })
-      await afterSwipeBar.scrollIntoViewIfNeeded()
-      const afterSwipe = (await afterSwipeBar.boundingBox())!
-      await finger(await secondPage.context().newCDPSession(secondPage), secondPage, afterSwipe.x + 20, afterSwipe.y + afterSwipe.height / 2, -90, 700)
-      await expect.poll(async () => Date.parse(s1) - Date.parse(await start()), {
-        timeout: 15_000,
-        intervals: [250, 500, 1_000],
-      }).toBeGreaterThan(0)
-    } finally { await secondPage.close() }
+    expect(await start()).toBe(s0)
+    await finger(cdp, page, b.x + 20, b.y + b.height / 2, -90, 700)
+    expect(await start()).toBe(s0)
   } finally { await page.request.delete(`/api/cases/${id}`, { headers: { Origin: ORIGIN } }) }
 })

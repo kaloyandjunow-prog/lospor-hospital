@@ -42,11 +42,11 @@ export function LegacyEventList({ groups, search, onSearch, onSelect, label, com
         return (
           <View key={group.key} style={{ marginBottom:14 }}>
             <View style={{ flexDirection:"row", alignItems:"center", marginBottom:6 }}>
-              <Text style={{ color: group.color, fontSize:9, fontWeight:"800", letterSpacing:1.2,
+              <Text style={{ color: group.color, fontSize:12, fontWeight:"800", letterSpacing:1.2,
                 textTransform:"uppercase", flex:1 }}>{group.title}</Text>
               {group.toggle && (
                 <TouchableOpacity onPress={onToggleComplications}>
-                  <Text style={{ color:shade("#64748b"), fontSize:9, fontWeight:"700" }}>
+                  <Text style={{ color:shade("#64748b"), fontSize:12, fontWeight:"700" }}>
                     {complicationExpanded ? tc("hide") : tc("show")}
                   </Text>
                 </TouchableOpacity>
@@ -57,7 +57,7 @@ export function LegacyEventList({ groups, search, onSearch, onSelect, label, com
                 <TouchableOpacity key={ev.label} onPress={() => onSelect(ev, group.isComplication)}
                   style={{ paddingHorizontal:11, paddingVertical:8, borderRadius:10,
                     backgroundColor:ev.color+"18", borderWidth:1, borderColor:ev.color+"55" }}>
-                  <Text style={{ color:ev.color, fontSize:11, fontWeight:"700" }}>{label(ev, group.isComplication)}</Text>
+                  <Text style={{ color:ev.color, fontSize:12, fontWeight:"700" }}>{label(ev, group.isComplication)}</Text>
                 </TouchableOpacity>
               ))}
             </View>

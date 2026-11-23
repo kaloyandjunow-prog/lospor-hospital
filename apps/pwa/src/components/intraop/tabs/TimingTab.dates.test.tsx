@@ -43,8 +43,9 @@ describe("the date beside the start and end of surgery on the PWA", () => {
     act(() => { arrows(tree, "intraop-start-day")[0]!.props.onPress() })
     act(() => { arrows(tree, "intraop-start-day")[0]!.props.onPress() })
     expect(JSON.stringify(tree.toJSON())).toContain("Wed 14.10")
-    const input = tree.root.find(node => node.props.placeholder === "08:00" && typeof node.props.onBlur === "function")
-    act(() => { input.props.onBlur() })
+    // 10.8.0: the start is set on the shared time wheel; confirming it sends the stepped date with the time.
+    act(() => { tree.root.find(node => node.props.testID === "timing-start" && typeof node.props.onPress === "function").props.onPress() })
+    act(() => { tree.root.find(node => node.props.testID === "timing-start-ok" && typeof node.props.onPress === "function").props.onPress() })
     expect(saveTiming).toHaveBeenLastCalledWith({ startTime: "08:30", startDayKey: "2026-10-14" })
   })
 

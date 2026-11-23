@@ -999,12 +999,12 @@ export default function NewCaseScreen() {
           <Animated.View style={preopLayout === "sections" ? { opacity: sectionFade, transform: [{ translateX: slideAnim }, { scale: gestureScale }] } : undefined}>
           <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
             {draftState !== "idle" && (
-              <Text style={{ color: draftState === "blocked" ? colors.danger : draftState === "queued" ? colors.warning : colors.textMuted, fontSize: 11, fontWeight: "700", textAlign: "right", marginBottom: saveError ? 2 : 4 }}>
+              <Text style={{ color: draftState === "blocked" ? colors.danger : draftState === "queued" ? colors.warning : colors.textMuted, fontSize: 12, fontWeight: "700", textAlign: "right", marginBottom: saveError ? 2 : 4 }}>
                 {draftState === "saving" ? tc("draftSaving") : draftState === "saved" ? tc("draftSaved") : draftState === "blocked" ? tc("draftBlocked") : tc("draftLocal")}
               </Text>
             )}
             {saveError && (draftState === "queued" || draftState === "blocked") && (
-              <Text style={{ color: colors.danger, fontSize: 10, textAlign: "right", marginBottom: 4 }} selectable>
+              <Text style={{ color: colors.danger, fontSize: 12, textAlign: "right", marginBottom: 4 }} selectable>
                 {saveError}
               </Text>
             )}

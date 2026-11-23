@@ -38,7 +38,7 @@ export function VascularSmart({
   const working = lines.filter(line => !line.failed)
   const ordered = lines.map((line, index) => ({ line, index })).sort((a, b) => Number(!!a.line.failed) - Number(!!b.line.failed) || b.index - a.index)
   const typeName = (type: VascularType, site?: string) => type === "CENTRAL" ? (site?.startsWith("PICC") ? tc("vsmPicc") : tc("vsmCentral")) : tc(type === "PERIPHERAL" ? "vsmPeripheral" : "vsmArterial")
-  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>{text}</Text>
+  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>{text}</Text>
   const small = { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: shade("#334155"), justifyContent: "center" as const }
   const toggleType = (type: VascularType) => {
     const selected = request?.type === type && request.replacesIndex == null && !request.ward
@@ -91,7 +91,7 @@ export function VascularSmart({
           <TouchableOpacity key={type} testID={`vascular-smart-card-${type}`} accessibilityState={{ selected: on }} onPress={() => toggleType(type)}
             style={{ flex: 1, minHeight: 76, borderRadius: 14, borderWidth: 2, alignItems: "center", justifyContent: "center", padding: 6, borderColor: on ? shade("#a67cff") : shade("#2a3140"), backgroundColor: on ? shade("#a67cff") + "26" : shade("#171c26") }}>
             <Text style={{ color: shade("#f8fafc"), fontWeight: "800", fontSize: 15, textAlign: "center" }}>{typeName(type)}</Text>
-            {hint ? <Text style={{ color: shade("#94a3b8"), fontSize: 11 }}>{hint} {tc("vsmSuggested")}</Text> : null}
+            {hint ? <Text style={{ color: shade("#94a3b8"), fontSize: 12 }}>{hint} {tc("vsmSuggested")}</Text> : null}
           </TouchableOpacity>
         )
       })}</View>
@@ -124,7 +124,7 @@ export function VascularSmart({
             const sites = VASCULAR_CATALOG_LEAVES.filter(site => site.group === group)
             return (
               <View key={group} style={{ gap: 6 }}>
-                <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>{typeName(group)}</Text>
+                <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>{typeName(group)}</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                   {sites.map(site => {
                     const selected = request?.site === site.code

@@ -14,7 +14,7 @@ import { handoverGroups, type AldreteBand } from "@lospor/core/postop"
 export function SectionHeader({ title, onLayout }: { title: string; onLayout?: (event: LayoutChangeEvent) => void }) {
   useThemeRefresh()
   return (
-    <Text onLayout={onLayout} style={{ color: colors.primary, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
+    <Text onLayout={onLayout} style={{ color: colors.primary, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
       {title}
     </Text>
   )
@@ -91,7 +91,7 @@ export function ScoreRow({
               {score}
             </Text>
             <Text
-              style={{ color: selected ? colors.textPrimary : colors.textMuted, fontSize: 10, textAlign: "center", lineHeight: 13 }}
+              style={{ color: selected ? colors.textPrimary : colors.textMuted, fontSize: 12, textAlign: "center", lineHeight: 13 }}
               numberOfLines={2}
             >
               {descriptions[score]}
@@ -329,7 +329,7 @@ export function RecoverySummary({
     <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 16, borderCurve: "continuous", borderWidth: 1, borderColor: withAlpha(statusColor, "66"), padding: 16, marginTop: 10, marginBottom: 6 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
         <View>
-          <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>{t(steward ? "stewardLabel" : "aldreteLabel")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>{t(steward ? "stewardLabel" : "aldreteLabel")}</Text>
           <Text style={{ color: statusColor, fontSize: 40, fontWeight: "900", fontVariant: ["tabular-nums"], marginTop: 2 }}>
             {total ?? "—"}<Text style={{ color: colors.textMuted, fontSize: 18 }}> / {steward ? 6 : 10}</Text>
           </Text>

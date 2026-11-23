@@ -169,7 +169,7 @@ export function CaseReadinessCard({ caseId, caseData, refusal, canEdit }: {
       style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9 }}
     >
       <Text style={{
-        color: blocker ? colors.danger : colors.warning, fontSize: 10, fontWeight: "800",
+        color: blocker ? colors.danger : colors.warning, fontSize: 12, fontWeight: "800",
         textTransform: "uppercase", minWidth: 56,
       }}>
         {text.stage[item.target.stage]}

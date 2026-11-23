@@ -66,7 +66,7 @@ export function PendingCloseBanner({ awaitingReviewAt, onExpire }: Props) {
       <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "700" }}>
         ⏱ {t("pendingCloseIn")} {mm}:{ss}
       </Text>
-      <Text style={{ color: withAlpha(colors.warning, "cc"), fontSize: 11, marginTop: 2 }}>
+      <Text style={{ color: withAlpha(colors.warning, "cc"), fontSize: 12, marginTop: 2 }}>
         {t("pendingCloseHint")}
       </Text>
     </View>

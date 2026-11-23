@@ -40,7 +40,7 @@ export function DiagnosticsCard({
         <SettingsRow label={t("diagQueuedSaves")} subtitle={diag ? String(diag.queuedSaves) : t("diagUnknown")} onPress={retryQueuedSaves} />
         <SettingsRow label={t("diagLastOk")} subtitle={diag?.lastOk ? new Date(diag.lastOk).toLocaleString(language === "bg" ? "bg-BG" : "en-GB") : t("diagNoneYet")} />
         <SettingsRow label={t("diagLastError")} subtitle={diag?.lastError ?? t("diagNone")} onPress={refreshDiagnostics} last />
-        <Text style={{ color: colors.textMuted, fontSize: 11, paddingHorizontal: 16, paddingBottom: 12 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 12, paddingHorizontal: 16, paddingBottom: 12 }}>
           {t("diagRefreshHint")}
         </Text>
       </Card>

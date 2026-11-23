@@ -71,7 +71,7 @@ export function LabScanControls({
   return (
     <div className="flex items-start gap-3">
       <div className="flex-1">
-        <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1.5">
+        <p className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">
           {t("intraop.lab.privacyWarning")}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
@@ -85,7 +85,7 @@ export function LabScanControls({
             <Camera className="h-3.5 w-3.5" /> {t("intraop.lab.takePicture")}
           </button>
         </div>
-        {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
       </div>
       <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFileSelected} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileSelected} />

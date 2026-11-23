@@ -294,7 +294,7 @@ export function FluidSheet({
       )}
       {(["Crystalloids","Colloids","Blood products","Other"] as const).map(cat => (
         <View key={cat} style={{ marginBottom:14 }}>
-          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700", textTransform:"uppercase",
+          <Text style={{ color:shade("#64748b"), fontSize:12, fontWeight:"700", textTransform:"uppercase",
             letterSpacing:1, marginBottom:8 }}>{groupLabel(cat)}</Text>
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
             {fluidList.filter(f => f.cat === cat).map(f => (

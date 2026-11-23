@@ -119,7 +119,7 @@ export function EquipmentTab({
             <View key={cat.cat} style={{ marginBottom: ci < cats.length - 1 ? 16 : 0 }}>
               <View style={{ flexDirection:"row", alignItems:"center", marginBottom:8, gap:8 }}>
                 <View style={{ width:3, height:14, borderRadius:2, backgroundColor: cat.color }} />
-                <Text style={{ color: cat.color, fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }}>
+                <Text style={{ color: cat.color, fontSize:12, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }}>
                   {cat.cat}
                 </Text>
               </View>
@@ -141,7 +141,7 @@ export function EquipmentTab({
                       </Text>
                     </View>
                     {!!item.note && (
-                      <Text style={{ color:shade("#475569"), fontSize:11, lineHeight:15 }}>{item.note}</Text>
+                      <Text style={{ color:shade("#475569"), fontSize:12, lineHeight:15 }}>{item.note}</Text>
                     )}
                   </View>
                 ))}

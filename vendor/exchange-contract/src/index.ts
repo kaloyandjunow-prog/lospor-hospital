@@ -24,7 +24,7 @@ export const COMPATIBILITY_MONTHS = 24
  * Hospital asks before it sends and holds its batches until Central catches
  * up.
  */
-export const EXCHANGE_CONTRACT_VERSION = "2.9.1"
+export const EXCHANGE_CONTRACT_VERSION = "2.9.2"
 
 /**
  * What a Central that announces no contract is taken to speak. Every Central

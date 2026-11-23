@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { colors } from "@/theme/colors"
 import { intraopAttentionText, intraopRefusedEntry, type IntraopAttentionAction, type IntraopAttentionItem } from "@lospor/core/intraop-attention"
@@ -64,6 +65,10 @@ export function IntraopAttentionBanner({ attention }: { attention: IntraopAttent
   const shade = useShade()
   const { tc, language } = usePreferences()
   const refused = attention.saveState?.refused ?? []
+  // 10.8.0 (rule 11): one reminder in view and a "+2" that opens the rest.
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? attention.items : attention.items.slice(0, 1)
+  const hidden = attention.items.length - shown.length
   const context = attention.suggestions
   const latex = context && automationEnabled(context.settings, "reminders", REMINDER_IDS.latex, context.user) ? latexBanner(context.preop, language) : null
   const latexLine = latex ? (
@@ -105,7 +110,7 @@ export function IntraopAttentionBanner({ attention }: { attention: IntraopAttent
           {tc("attentionBannerTitle")}
         </Text>
       )}
-      {attention.items.map(item => (
+      {shown.map(item => (
         <View key={item.key} style={{ marginBottom: 8 }}>
           <Text style={{ color: shade("#e2e8f0"), fontWeight: "700", fontSize: 13, marginBottom: 6 }}>
             {attention.clockOf(item.event.ts)} · {intraopAttentionText(item, language)}
@@ -117,6 +122,12 @@ export function IntraopAttentionBanner({ attention }: { attention: IntraopAttent
             onAnswer={(key, action, choice) => { if (action === "open") attention.open?.(key); else void (choice === undefined ? attention.resolve(key, action) : attention.resolve(key, action, choice)) }} />
         </View>
       ))}
+      {hidden > 0 || expanded && attention.items.length > 1 ? (
+        <Pressable testID="attention-more" accessibilityRole="button" onPress={() => setExpanded(value => !value)}
+          style={{ alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: shade("#fbbf24") + "88" }}>
+          <Text style={{ color: shade("#fbbf24"), fontWeight: "800", fontSize: 14 }}>{hidden > 0 ? `+${hidden}` : tc("attentionCollapse")}</Text>
+        </Pressable>
+      ) : null}
     </View>
     </>
   )

@@ -22,7 +22,7 @@ export function MonitoringGroups({ monitoring, onToggle, monitoringOptions }: {
     <div className="space-y-4" data-testid="monitoring-groups">
       {MONITORING_PURPOSE_GROUPS.map(group => (
         <div key={group.id}>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{t(GROUP_KEY[group.id])}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{t(GROUP_KEY[group.id])}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {group.fields.map(({ field, short }) => {
               const on = monitoring.includes(field)
@@ -33,7 +33,7 @@ export function MonitoringGroups({ monitoring, onToggle, monitoringOptions }: {
                     ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
                     : "border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#444]"}`}>
                   <span className={`block text-sm font-bold ${on ? "text-emerald-700 dark:text-emerald-300" : ""}`}>{short}</span>
-                  <span className="block text-[11px] leading-tight text-slate-500 line-clamp-2">{option ? displayOption("MONITORING", option, locale) : short}</span>
+                  <span className="block text-xs leading-tight text-slate-500 line-clamp-2">{option ? displayOption("MONITORING", option, locale) : short}</span>
                 </button>
               )
             })}

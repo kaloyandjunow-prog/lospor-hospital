@@ -262,7 +262,7 @@ export function VascularAccessTree({
                 ? "bg-amber-500 text-white"
                 : "bg-blue-600 text-white"
             }`}>
-            {a.preexisting && <span className="text-[9px] font-bold opacity-80 uppercase tracking-wide">{t("intraop.vascular.preexistingShort")}</span>}
+            {a.preexisting && <span className="text-xs font-bold opacity-80 uppercase tracking-wide">{t("intraop.vascular.preexistingShort")}</span>}
             <span className="leading-tight">{shortLabel(
               a,
               (() => {

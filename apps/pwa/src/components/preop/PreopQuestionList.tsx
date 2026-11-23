@@ -83,7 +83,7 @@ export function PreopQuestionList({
 
   return (
     <View testID={`preop-questions-${formSection}`} style={{ marginTop: 6 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: "right", marginBottom: 4 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: "right", marginBottom: 4 }}>
         {tc("preopQuestionsAnswered").replace("{answered}", String(progress.answered)).replace("{total}", String(progress.total))}
       </Text>
       {rows.map(({ question, depth }) => {
@@ -113,7 +113,7 @@ export function PreopQuestionList({
               backgroundColor: state === target ? withAlpha(colors.primary, "22") : "transparent",
             }}
           >
-            <Text style={{ color: state === target ? colors.primary : colors.textMuted, fontSize: 11, fontWeight: "700" }}>{text}</Text>
+            <Text style={{ color: state === target ? colors.primary : colors.textMuted, fontSize: 12, fontWeight: "700" }}>{text}</Text>
           </TouchableOpacity>
         )
         return (

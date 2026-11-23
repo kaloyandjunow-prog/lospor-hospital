@@ -52,13 +52,17 @@ test("same-hospital cases are readable but remain read-only and audited", async 
       const detailResponse = await memberA2.get(`/api/cases/${colleagueCase.id}`)
       expect(detailResponse.status(), await detailResponse.text()).toBe(200)
       const detail = await detailResponse.json() as {
-        capabilities: { canRead: boolean; canWrite: boolean; isCreator: boolean; isAssignee: boolean }
+        capabilities: { canRead: boolean; canWrite: boolean; isCreator: boolean; isAssignee: boolean; isNurse: boolean; isSeniorNurse: boolean; canAssignNurses: boolean }
       }
       expect(detail.capabilities).toEqual({
         canRead: true,
         canWrite: false,
         isCreator: false,
         isAssignee: false,
+        // 10.8.0: the capabilities also say whether the reader is a nurse and who may put nurses on the case.
+        isNurse: false,
+        isSeniorNurse: false,
+        canAssignNurses: false,
       })
 
       const writeAttempt = await memberA2.post(`/api/cases/${colleagueCase.id}/submit-for-review`, {

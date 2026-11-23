@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslations } from "next-intl"
@@ -43,7 +45,7 @@ export function JetPopover({ anchor, initial, editing, onApply, onStop, onDismis
   }
 
   const heading = (label: string, value: string) => (
-    <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+    <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
       <span>{label}</span><span className="text-xs font-bold text-teal-600 dark:text-teal-400">{value}</span>
     </div>
   )
@@ -54,6 +56,7 @@ export function JetPopover({ anchor, initial, editing, onApply, onStop, onDismis
         style={{ top: anchor.bottom + 4, left, width: WIDTH, position: "fixed" }}
         className="bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2.5"
         onClick={event => event.stopPropagation()}>
+          <PopoverClose onClose={onDismiss} className="absolute right-1.5 top-1.5 z-10" />
         <div className="space-y-1">
           {heading(t("pressure"), `${settings.pressureBar} bar`)}
           <div className="flex items-center gap-1.5">
@@ -68,7 +71,7 @@ export function JetPopover({ anchor, initial, editing, onApply, onStop, onDismis
           <div className="flex items-center gap-1">
             {JET_VENTILATION.rate.quick.map(rate => (
               <button key={rate} type="button" data-testid={`jet-rate-${rate}`} onClick={() => set({ rate })}
-                className={`flex-1 text-[10px] font-semibold px-1 py-1 rounded-lg border ${settings.rate === rate ? "bg-teal-500 border-teal-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500"}`}>
+                className={`flex-1 text-xs font-semibold px-1 py-1 rounded-lg border ${settings.rate === rate ? "bg-teal-500 border-teal-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500"}`}>
                 {rate}
               </button>
             ))}
@@ -94,5 +97,5 @@ export function JetPopover({ anchor, initial, editing, onApply, onStop, onDismis
       </div>
     </div>
   )
-  return typeof document !== "undefined" ? createPortal(body, document.body) : body
+  return typeof document !== "undefined" ? createPortal(body, portalHost()) : body
 }

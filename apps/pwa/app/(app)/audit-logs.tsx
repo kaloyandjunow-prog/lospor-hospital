@@ -130,7 +130,7 @@ export default function AuditLogsScreen() {
                     backgroundColor: colors.surfaceRaised,
                   }}
                 >
-                  <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>{t("auditActionFilter")}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "700" }}>{t("auditActionFilter")}</Text>
                   <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800", marginTop: 2 }}>{selectedActionLabel}</Text>
                 </TouchableOpacity>
               </View>
@@ -139,10 +139,9 @@ export default function AuditLogsScreen() {
               <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 14, borderCurve: "continuous", borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
                   <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", flex: 1 }}>{auditActionLabel(actions, item.action, language, t("auditUnknownAction"))}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>{new Date(item.createdAt).toLocaleString(language === "bg" ? "bg-BG" : "en-GB")}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>{new Date(item.createdAt).toLocaleString(language === "bg" ? "bg-BG" : "en-GB")}</Text>
                 </View>
                 <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "700" }}>{userLabel(item.user, t("unknownUser"))}</Text>
-
               </View>
             )}
             ListFooterComponent={loadingMore ? (
@@ -217,7 +216,7 @@ export default function AuditLogsScreen() {
                     <Text style={{ color: action === item.code ? colors.primary : colors.textPrimary, fontWeight: "800" }}>
                       {auditActionLabel(actions, item.code, language, t("auditUnknownAction"))}
                     </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{item.code}</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{item.code}</Text>
                   </TouchableOpacity>
                 )}
               />

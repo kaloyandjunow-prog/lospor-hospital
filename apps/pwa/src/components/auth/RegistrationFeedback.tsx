@@ -38,7 +38,7 @@ export function PasswordStrengthBar({ password, t }: { password: string; t: Tran
         ))}
       </View>
       {label ? (
-        <Text style={{ color, fontSize: 11, marginTop: 4 }}>{label}</Text>
+        <Text style={{ color, fontSize: 12, marginTop: 4 }}>{label}</Text>
       ) : null}
     </View>
   )

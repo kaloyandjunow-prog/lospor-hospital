@@ -90,7 +90,7 @@ export function TourButton() {
           type="button"
           onClick={() => setDropOpen(v => !v)}
           title={t("tour.guidesHelp")}
-          className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition-colors"
+          className="p-2 rounded-lg pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:inline-flex pointer-coarse:items-center pointer-coarse:justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition-colors"
         >
           {demoLoading
             ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -103,7 +103,7 @@ export function TourButton() {
             <div className="absolute right-0 top-full mt-1 z-50 w-60 bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-xl py-1.5 overflow-hidden">
 
               {/* Form-specific guides */}
-              <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 {t("tour.formGuides")}
               </p>
               {([
@@ -122,14 +122,14 @@ export function TourButton() {
                     {opt.icon}
                   </span>
                   {opt.label}
-                  {opt.id === activeTourId && <span className="ml-auto text-[10px] text-blue-400">{t("tour.currentLabel")}</span>}
+                  {opt.id === activeTourId && <span className="ml-auto text-xs text-blue-400">{t("tour.currentLabel")}</span>}
                 </button>
               ))}
 
               <div className="border-t border-slate-100 dark:border-[#2a2a2a] my-1" />
 
               {/* Dashboard tour */}
-              <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 {t("tour.general")}
               </p>
               <button onClick={triggerDashboard}

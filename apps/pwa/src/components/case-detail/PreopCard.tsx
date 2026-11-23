@@ -130,7 +130,7 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
                   {preop.asaScore}{preop.emergencySurgery ? "E" : ""}
                 </Text>
               </View>
-              <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 3 }}>ASA</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3 }}>ASA</Text>
             </View>
           ) : null}
 
@@ -147,14 +147,14 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
                     {it.score}/{it.max}
                   </Text>
                 </View>
-                <Text style={{ color: colors.textMuted, fontSize: 10, textAlign: "center", marginTop: 2 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: "center", marginTop: 2 }}>
                   {it.label}
                 </Text>
-                <Text style={{ color: c, fontSize: 9, textAlign: "center" }}>
+                <Text style={{ color: c, fontSize: 12, textAlign: "center" }}>
                   {it.risk}
                 </Text>
                 {it.answered < it.criteria ? (
-                  <Text style={{ color: colors.warning, fontSize: 9, textAlign: "center" }}>
+                  <Text style={{ color: colors.warning, fontSize: 12, textAlign: "center" }}>
                     {`${it.answered}/${it.criteria} ${tc("riskCriteriaAnswered")}`}
                   </Text>
                 ) : null}
@@ -179,7 +179,7 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
       {vitals.length > 0 && (
         <View style={{ marginTop: 4 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, marginBottom: 4,
+            color: colors.textMuted, fontSize: 12, marginBottom: 4,
             textTransform: "uppercase", letterSpacing: 0.5,
           }}>
             {tc("summaryPreopVitals")}
@@ -188,7 +188,7 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
             {vitals.join("  ·  ")}
           </Text>
           {preop.heartArrhythmia && (
-            <Text style={{ color: colors.warning, fontSize: 11, marginTop: 2 }}>{tc("summaryArrhythmia")}</Text>
+            <Text style={{ color: colors.warning, fontSize: 12, marginTop: 2 }}>{tc("summaryArrhythmia")}</Text>
           )}
         </View>
       )}

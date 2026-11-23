@@ -109,7 +109,7 @@ export function PremedicationLibrarySheet({
                             {drugLabel(item.name)}
                           </Text>
                           {pediatricStatus(annotation) || prospectiveGuidanceEnabled ? (
-                            <Text style={{ color: withheld ? shade("#f87171") : shade("#64748b"), fontSize:10, marginTop:2 }}>
+                            <Text style={{ color: withheld ? shade("#f87171") : shade("#64748b"), fontSize:12, marginTop:2 }}>
                               {pediatricStatus(annotation) ?? `${item.dose} ${item.unit}`}
                             </Text>
                           ) : null}
@@ -151,14 +151,14 @@ export function PremedicationLibrarySheet({
               }}
             />
             {prospectiveGuidanceEnabled && pediatricAnnotation?.kind === "calculated" && (
-              <Text style={{ color:shade("#38bdf8"), fontSize:11, marginTop:4 }}>
+              <Text style={{ color:shade("#38bdf8"), fontSize:12, marginTop:4 }}>
                 {pediatricAnnotation.perKg} {pediatricAnnotation.unit}/kg × {pediatricAnnotation.weightUsedKg} kg
                 {pediatricAnnotation.basis === "IBW" ? ` (${tc("premedIdealWeight")})` : ""}
                 {pediatricAnnotation.capped ? ` — ${tc("premedCappedAt")} ${pediatricAnnotation.cap} ${pediatricAnnotation.unit}` : ""}
               </Text>
             )}
             {pediatricAnnotation && pediatricAnnotation.kind !== "calculated" && (
-              <Text style={{ color:shade("#fbbf24"), fontSize:11, marginTop:4 }}>{pediatricStatus(pediatricAnnotation)}</Text>
+              <Text style={{ color:shade("#fbbf24"), fontSize:12, marginTop:4 }}>{pediatricStatus(pediatricAnnotation)}</Text>
             )}
           </View>
 

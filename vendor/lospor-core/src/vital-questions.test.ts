@@ -357,3 +357,31 @@ describe("the hypertension baseline from the first reading", () => {
     expect(findings.find(finding => finding.kind === "hypertension")?.triggers[0]).toMatchObject({ rule: "baseline", value: 155, reference: 125 })
   })
 })
+
+// 10.8.0 (rule 9): the value behind a logged event is corrected -- offer to take the event away.
+describe("an event whose reading was corrected", () => {
+  const low = vital("r1", 10, { systolic: 55, diastolic: 30, heartRate: 70 })
+  const logged = (reading: LogEvent): LogEvent[] => {
+    const question = vitalQuestions([reading], context()).find(item => item.kind === "hypotension")!
+    return applyIntraopEventOps([reading], vitalAnswerOps(question, "log_complication", { keepLogging: false }, reading.ts)) as LogEvent[]
+  }
+
+  it("is offered for removal once the reading no longer shows the finding, and either answer settles it", () => {
+    const log = logged(low)
+    const corrected = log.map(event => event.id === "r1" ? { ...event, systolic: 120, diastolic: 70 } : event)
+    const now = new Date(Date.UTC(2026, 10, 1, 9, 30)).toISOString()
+    const items = intraopAttentionItems(corrected, { now, vitals: context() }).filter(item => item.kind === "auto_event_stale")
+    expect(items.map(item => item.event.id)).toEqual([vitalComplicationId("r1", "hypotension")])
+
+    const removed = applyIntraopEventOps(corrected, intraopResolveAttention(corrected, items[0]!.key, "remove_auto_event", { now, vitals: context() })) as LogEvent[]
+    expect(removed.some(event => event.type === "complication")).toBe(false)
+
+    const kept = applyIntraopEventOps(corrected, intraopResolveAttention(corrected, items[0]!.key, "keep_auto_event", { now, vitals: context() })) as LogEvent[]
+    expect(intraopAttentionItems(kept, { now, vitals: context() }).filter(item => item.kind === "auto_event_stale")).toEqual([])
+  })
+
+  it("is not offered while the reading still shows it", () => {
+    const now = new Date(Date.UTC(2026, 10, 1, 9, 30)).toISOString()
+    expect(intraopAttentionItems(logged(low), { now, vitals: context() }).filter(item => item.kind === "auto_event_stale")).toEqual([])
+  })
+})

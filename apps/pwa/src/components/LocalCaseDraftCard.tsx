@@ -70,7 +70,7 @@ export function LocalCaseDraftCard({
             paddingHorizontal: 6,
             paddingVertical: 2,
           }}>
-            <Text style={{ color: shade("#000"), fontSize: 9, fontWeight: "900" }}>
+            <Text style={{ color: shade("#000"), fontSize: 12, fontWeight: "900" }}>
               {needsReview ? STRINGS[language as "en" | "bg"].reviewBadge : localBadge}
             </Text>
           </View>
@@ -79,11 +79,11 @@ export function LocalCaseDraftCard({
           </Text>
         </View>
         {review ? (
-          <Text style={{ color: colors.danger, fontSize: 11, fontWeight: "700", marginTop: 4 }}>
+          <Text style={{ color: colors.danger, fontSize: 12, fontWeight: "700", marginTop: 4 }}>
             {review}
           </Text>
         ) : subtitle ? (
-          <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 3 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3 }}>
             {subtitle} · {date}
           </Text>
         ) : null}

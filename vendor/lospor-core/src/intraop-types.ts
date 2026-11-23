@@ -125,6 +125,12 @@ export type LogEvent = {
    */
   endCaseStop?: boolean
   /**
+   * On a stop at the case end (10.8.0): the item went on after the
+   * intraoperative stage (an infusion continued on the ward). The chart still
+   * ends it at the end line; this only records that it did not really stop.
+   */
+  continuesAfterEnd?: boolean
+  /**
    * Volatile-agent semantics. "concurrent" (1.4.9 onwards): several agents may
    * run at once, and agent_start / agent_stop name their agent. Absent (every
    * event saved before 1.4.9): the historical rule, where starting a different
@@ -279,6 +285,8 @@ export type SegmentEventRefs = {
    * stops at End case so the stop is written with that marker.
    */
   endCaseStop?: boolean
+  /** 10.8.0: stopped on the record at the end, but it goes on after the case (to recovery or ICU). */
+  continuesAfterEnd?: boolean
 }
 
 export type VitalsEntry = {
@@ -684,6 +692,7 @@ export function parseLogEvent(value: unknown): LogEvent | null {
     event.recordedAt = value.recordedAt
   }
   if (value.stopConfirmed === true) event.stopConfirmed = true
+  if (value.continuesAfterEnd === true) event.continuesAfterEnd = true
   if (typeof value.endTs === "string" && Number.isFinite(Date.parse(value.endTs))) event.endTs = value.endTs
   if (value.complicationSource === "timeline" || value.complicationSource === "vitals"
     || value.complicationSource === "readings" || value.complicationSource === "suggestion") event.complicationSource = value.complicationSource

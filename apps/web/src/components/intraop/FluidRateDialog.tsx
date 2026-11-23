@@ -1,12 +1,13 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { useIntraopUiCopy } from "@/components/intraop/ui-copy"
 import type { TimetableFluid } from "@/types/timetable"
 
-export type FluidRateDialogState = { id: string; rate: string; rect: DOMRect }
+export type FluidRateDialogState = { id: string; rate: string; rect: DOMRect; /** The cell it was opened from (the menu); absent from the strip's own click. */ col?: number }
 
 export function FluidRateDialog({ state, fluid, displayName, onChange, onClose, onConfirm }: {
   state: FluidRateDialogState
@@ -34,6 +35,6 @@ export function FluidRateDialog({ state, fluid, displayName, onChange, onClose, 
         <DoseSelector accent="cyan" value={state.rate} onValueChange={onChange} valuePlaceholder={uiCopy.rate} min={1} max={200} step={1} unitSuffix="mL/h" confirmLabel={uiCopy.infusion.changeRate} confirmDisabled={!state.rate || Number(state.rate) <= 0} onConfirm={() => onConfirm(state.id, Number(state.rate))} />
       </div>
     </>,
-    document.body,
+    portalHost(),
   )
 }

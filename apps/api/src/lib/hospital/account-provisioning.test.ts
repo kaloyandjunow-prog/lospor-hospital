@@ -160,6 +160,61 @@ describe("Hospital account provisioning", () => {
     }))
   })
 
+  // The anaesthesia nurse profiles (2026-11-23): Status creates a nurse or a senior nurse; the role is never a doctor's.
+  it.each([
+    ["CLINICAL_NURSE", "ANAESTHESIA_NURSE"],
+    ["CLINICAL_SENIOR_NURSE", "ANAESTHESIA_SENIOR_NURSE"],
+  ] as const)("creates a %s profile as the %s role, clinical and inactive", async (accessProfile, role) => {
+    const { prisma, tx } = setup()
+    const { createHospitalAccount } = await import("./account-provisioning")
+    await createHospitalAccount(prisma, {
+      username: "Nurse.One",
+      email: null,
+      firstName: "Мария",
+      lastName: "Иванова",
+      title: "",
+      institutionId: "inst-1",
+      accessProfile,
+      locale: "bg",
+    }, { now: NOW, tokenFactory: () => TOKEN })
+    expect(tx.user.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ role, accountKind: "CLINICAL", activatedAt: null }),
+    }))
+  })
+
+  it("creates a nurse in the non-department institution, where a head of department is refused", async () => {
+    const { prisma, tx } = setup()
+    tx.institution.findUnique.mockResolvedValue({ id: "no-institution", name: "Без институция" })
+    const { createHospitalAccount } = await import("./account-provisioning")
+    await expect(createHospitalAccount(prisma, {
+      username: "Nurse.Two",
+      email: null,
+      firstName: "Петя",
+      lastName: "Георгиева",
+      title: "",
+      institutionId: "no-institution",
+      accessProfile: "CLINICAL_SENIOR_NURSE",
+      locale: "bg",
+    }, { now: NOW, tokenFactory: () => TOKEN })).resolves.toBeDefined()
+    expect(tx.user.create).toHaveBeenCalled()
+  })
+
+  it("rejects a profile that is not one of the five", async () => {
+    const { prisma } = setup()
+    const { createHospitalAccount } = await import("./account-provisioning")
+    await expect(createHospitalAccount(prisma, {
+      username: "Nurse.Three",
+      email: null,
+      firstName: "Ана",
+      lastName: "Стоянова",
+      title: "",
+      institutionId: "inst-1",
+      accessProfile: "ANAESTHESIA_NURSE" as never,
+      locale: "bg",
+    })).rejects.toBeDefined()
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
   it("propagates an audit failure through the account-creation transaction", async () => {
     const { prisma, tx } = setup()
     tx.auditLog.create.mockRejectedValueOnce(new Error("audit unavailable"))

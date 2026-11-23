@@ -30,7 +30,7 @@ export function TechniqueSection({ t, control, techniques, techniqueTree, presen
           <button type="button"
             onClick={() => setPresentsIntubated()}
             title={t("intraop.techniquePicker.presentsTitle")}
-            className={`shrink-0 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border-2 leading-tight text-center max-w-[120px] transition-all ${
+            className={`shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border-2 leading-tight text-center max-w-[120px] transition-all ${
               presentsIntubated
                 ? "bg-amber-500 border-amber-500 text-white shadow-sm"
                 : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"

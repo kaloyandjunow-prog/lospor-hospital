@@ -392,7 +392,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
               {HANDOVER_GROUPS.map(({ group, items: groupItems }) => (
                 <div key={group}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">{group}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">{group}</p>
                   <div className="space-y-1.5">
                     {groupItems.map(({ code, label }) => {
                       const checked = handoverItems.includes(code)

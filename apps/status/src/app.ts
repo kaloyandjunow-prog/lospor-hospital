@@ -197,6 +197,10 @@ function accountControlMessage(code: string, locale: StatusLocale): string {
       "The account is not active yet. Issue an activation link instead.",
       "Профилът още не е активен. Вместо това издайте връзка за активиране.",
     ],
+    ACCOUNT_PROFILE_FIXED: [
+      "A nurse account stays a nurse or a senior nurse, and a doctor's is never made a nurse's. Create the other account instead.",
+      "Профилът на сестра остава сестра или старша сестра, а профилът на лекар не става профил на сестра. Създайте другия профил.",
+    ],
     ACCOUNT_AUTHORITY_PROTECTED: [
       "This account's authority cannot be managed from Status.",
       "Правомощията на този профил не могат да се управляват от Status.",
@@ -923,7 +927,7 @@ export function createStatusApp({
     const body = await context.req.parseBody().catch(() => ({}))
     const value = isRecord(body) ? body : {}
     const profile = typeof value.accessProfile === "string"
-      && ["CLINICAL_MEMBER", "CLINICAL_HOD", "RESEARCH_ONLY"].includes(value.accessProfile)
+      && ["CLINICAL_MEMBER", "CLINICAL_HOD", "CLINICAL_NURSE", "CLINICAL_SENIOR_NURSE", "RESEARCH_ONLY"].includes(value.accessProfile)
       ? value.accessProfile as AccountAccessProfile
       : null
     const selectedLocale = value.locale === "en" ? "en" : value.locale === "bg" ? "bg" : null
@@ -1012,7 +1016,7 @@ export function createStatusApp({
     if (code === "RATE_LIMITED") return 429
     if (code.includes("NOT_FOUND")) return 404
     if (code === "INSTITUTION_CANNOT_HAVE_HOD") return 422
-    if (code.includes("ALREADY") || code.includes("PROTECTED")
+    if (code.includes("ALREADY") || code.includes("PROTECTED") || code === "ACCOUNT_PROFILE_FIXED"
       || code.includes("MANAGED") || code.includes("LAST_")
       || code === "ACCOUNT_NOT_ACTIVE") return 409
     return 400
@@ -1058,7 +1062,7 @@ export function createStatusApp({
     try {
       if (action === "ROLE") {
         const role = typeof body.role === "string"
-          && ["MEMBER", "HEAD_OF_DEPT", "ADMIN"].includes(body.role)
+          && ["MEMBER", "HEAD_OF_DEPT", "ADMIN", "ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"].includes(body.role)
           ? body.role as ClinicalAccountRole
           : null
         if (!role) throw new AccountControlError("INVALID_REQUEST")

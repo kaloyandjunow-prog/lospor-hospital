@@ -71,7 +71,7 @@ export function VascularSmart({
   return (
     <div className="space-y-4" data-testid="vascular-smart">
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("inPlace")}{working.length > 0 ? ` · ${working.length}` : ""}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("inPlace")}{working.length > 0 ? ` · ${working.length}` : ""}</p>
         {lines.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-300 dark:border-[#333] p-3 text-sm text-slate-500" data-testid="vascular-smart-empty">{t("none")}</p>
         ) : ordered.map(({ line, index }) => {
@@ -84,7 +84,7 @@ export function VascularSmart({
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${line.failed ? "line-through" : ""}`}>
                   {line.size ? `${line.size}${line.sizeUnit ?? ""} ` : ""}{typeName(type, line.site)}
-                  <span className={`ml-2 text-[11px] font-semibold rounded-full px-2 py-0.5 no-underline ${line.failed ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300" : line.preexisting ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"}`}>
+                  <span className={`ml-2 text-xs font-semibold rounded-full px-2 py-0.5 no-underline ${line.failed ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300" : line.preexisting ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"}`}>
                     {line.failed ? `${t("failed")}${line.failedAt ? ` ${timeOf(line.failedAt)}` : ""}` : line.preexisting ? t("alreadyInPlace") : t("placedHere")}
                   </span>
                 </p>
@@ -101,7 +101,7 @@ export function VascularSmart({
       </div>
 
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("addAccess")}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("addAccess")}</p>
         <div className="grid grid-cols-3 gap-2">{choices.main.map(card)}</div>
         {request && !request.ward && choices.main.includes(request.type) ? panel : null}
         <div className="flex flex-wrap gap-2 items-center">
@@ -124,7 +124,7 @@ export function VascularSmart({
               const sites = VASCULAR_CATALOG_LEAVES.filter(site => site.group === group)
               return (
                 <div key={group} className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{typeName(group)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{typeName(group)}</p>
                   <div className="flex flex-wrap gap-2">
                     {sites.map(site => (
                       <button key={site.code} type="button" data-testid={`vascular-smart-catalog-${site.code}`} aria-pressed={request?.site === site.code}

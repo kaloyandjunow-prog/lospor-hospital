@@ -135,7 +135,7 @@ export function ComorbiditiesBySystem({ items, onRemove }: { items: { label: str
         const tcKey = BODY_SYSTEM_TC[system]
         return (
           <View key={system}>
-            <Text style={{ color: col, fontSize: 9, fontWeight: "800", letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 6 }}>{tcKey ? tc(tcKey) : system}</Text>
+            <Text style={{ color: col, fontSize: 12, fontWeight: "800", letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 6 }}>{tcKey ? tc(tcKey) : system}</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {grouped[system]!.map(item => (
                 <View key={item.label} style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: col + "18", borderWidth: 1, borderColor: col + "55" }}>
@@ -159,7 +159,7 @@ export { GuptaRiskCard } from "./GuptaRiskCard"
 export function MetricBadge({ label, value, unit, tone = colors.primary }: { label: string; value: string; unit: string; tone?: string }) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: withAlpha(tone, "55"), borderRadius: 15, paddingVertical: 12, alignItems: "center" }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900" }}>{label}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{label}</Text>
       <Text style={{ color: tone, fontSize: 22, fontWeight: "900", marginTop: 3, fontVariant: ["tabular-nums"] }}>
         {value}<Text style={{ color: colors.textMuted, fontSize: 12 }}> {unit}</Text>
       </Text>
@@ -303,7 +303,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
             </Text>
           </Pressable>
           {unit ? (
-            <Text numberOfLines={1} style={{ marginTop: 4, textAlign: "center", color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>
+            <Text numberOfLines={1} style={{ marginTop: 4, textAlign: "center", color: colors.textMuted, fontSize: 12, fontWeight: "700" }}>
               {unit}
             </Text>
           ) : null}
@@ -394,7 +394,7 @@ export function VitalNumber({ label, unit, value, onChange, unobtainable, onTogg
             paddingVertical: 6,
           }}
         >
-          <Text style={{ color: unobtainable ? colors.warning : colors.textMuted, fontSize: 11, fontWeight: "900" }}>{labelUnableToObtain ?? tc("unableToObtain")}</Text>
+          <Text style={{ color: unobtainable ? colors.warning : colors.textMuted, fontSize: 12, fontWeight: "900" }}>{labelUnableToObtain ?? tc("unableToObtain")}</Text>
         </Pressable>
       </View>
       {unobtainable ? (

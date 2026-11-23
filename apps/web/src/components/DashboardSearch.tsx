@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { isNurseAccountRole } from "@lospor/core/clinical-roles"
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -8,6 +9,7 @@ import { Search, X, FileText, Printer } from "lucide-react"
 import { DeleteDraftButton } from "@/components/DeleteDraftButton"
 import { HandoverButton } from "@/components/HandoverButton"
 import { TheatreButton } from "@/components/TheatreButton"
+import { CaseRowMenu } from "@/components/CaseRowMenu"
 import { CancelProcedureButton, UndoCancellationButton } from "@/components/CancelProcedureButton"
 import { cancellationAllowed, cancellationReasonLabel } from "@lospor/core/case-cancellation"
 import { plannedProcedureLabel } from "@lospor/core/procedure-codes"
@@ -42,7 +44,9 @@ type CaseRow = {
   cancellationReason?: string | null
   postop?: { disposition?: string | null } | null
   transfers: { id: string }[]
-  capabilities?: { canWrite: boolean } | null
+  capabilities?: { canWrite: boolean; canAssignNurses?: boolean } | null
+  /** The anaesthesia nurses on the case. */
+  nurses?: { userId: string }[]
   theatre?: CaseTheatreView
 }
 
@@ -60,7 +64,7 @@ function ageLabel(preop: CaseRow["preop"], locale: string): string {
 function asaBadge(asa: string | null) {
   if (!asa) return null
   const map: Record<string, string> = { I: "bg-green-100 text-green-800", II: "bg-blue-100 text-blue-800", III: "bg-amber-100 text-amber-800", IV: "bg-red-100 text-red-800", V: "bg-red-200 text-red-900", VI: "bg-slate-200 text-slate-700" }
-  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${map[asa] ?? ""}`}>ASA {asa}</span>
+  return <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${map[asa] ?? ""}`}>ASA {asa}</span>
 }
 
 function dispositionBadge(d: string | null, locale: string) {
@@ -206,92 +210,111 @@ export function DashboardSearch({
                   {day.theatres.map(group => (
                     <div key={group.theatreId ?? "none"} data-testid="dashboard-theatre-group">
                       {layout.theatres ? (
-                        <h4 className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 px-2 pt-2">
+                        <h4 className="text-xs font-semibold text-slate-400 dark:text-slate-500 px-2 pt-2">
                           {group.name ?? (locale === "bg" ? "Без зала" : "No theatre")}
                         </h4>
                       ) : null}
                       <div className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
                         {group.cases.map(c => {
-                          const { key, cls } = computeStatus(c)
-                          const isComplete = c.status === "COMPLETE"
-                          const isCancelled = c.status === "CANCELLED"
-                          const canWrite = caseIsWritable(c)
-                          // A non-complete case the reader cannot write to (handed to a
-                          // colleague, or read-only for their role) opens the read-only
-                          // summary, the same as a complete one -- never the edit wizard,
-                          // which the server would refuse to save from anyway.
-                          const href = isComplete || isCancelled || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
-                          return (
-                            <div key={c.id} data-testid="case-row" data-case-code={c.caseCode ?? undefined} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
-                              <Link href={href} className="min-w-0 flex-1">
-                                <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
-                                    {plannedProcedureLabel(c.preop, locale) || t("dashboard.untitled")}
-                                  </p>
-                                  <span title={isCancelled ? cancellationReasonLabel(c.cancellationReason, locale) ?? undefined : undefined} data-testid={isCancelled ? "cancelled-badge" : undefined} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${cls}`}>
-                                    {displayClinicalCode("caseStatus", STATUS_CODES[key], locale)}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-slate-500 truncate mt-0.5">
-                                  {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
-                                </p>
-                                <AnaesthesiaLight c={c} locale={locale} />
-                                {(() => {
-                                  const who = readPatientDisplay(c.patientDisplay)
-                                  return who ? (
-                                    <p data-testid="patient-display" className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate mt-0.5">
-                                      {who.admissionNumber ? <span>{t("case.admissionNumberShort")} <span className="font-mono">{who.admissionNumber}</span></span> : null}
-                                      {who.admissionNumber && who.egnPrefix ? " · " : null}
-                                      {who.egnPrefix ? <span>{t("case.egnPrefixShort")} <span className="font-mono">{who.egnPrefix}</span></span> : null}
-                                    </p>
-                                  ) : null
-                                })()}
-                                </div>
-                              </Link>
-                              <div className="flex items-center gap-2 ml-4 shrink-0">
-                                {asaBadge(c.preop?.asaScore ?? null)}
-                                {dispositionBadge(c.postop?.disposition ?? null, locale)}
-                                {c.caseCode && (
-                                  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-[#2a2a2a] px-1.5 py-0.5 rounded">
-                                    {c.caseCode}
-                                  </span>
-                                )}
-                                {!isComplete && !isCancelled && canWrite && <DeleteDraftButton caseId={c.id} />}
-                                {/* Once anaesthesia has started, the button stays but is inactive. */}
-                                {canWrite && !isComplete && !isCancelled && <CancelProcedureButton caseId={c.id} inactive={!cancellationAllowed(c)} />}
-                                {isCancelled && canWrite && <UndoCancellationButton caseId={c.id} />}
-                                {isComplete && (
-                                  <span
-                                    role="link"
-                                    tabIndex={0}
-                                    title={t("dashboard.printCase")}
-                                    aria-label={t("dashboard.printCase")}
-                                    onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/cases/${c.id}/print`) }}
-                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); router.push(`/cases/${c.id}/print`) } }}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded border border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                                  >
-                                    <Printer className="h-3 w-3" /> {t("dashboard.printCase")}
-                                  </span>
-                                )}
-                                {theatres && c.theatre && <TheatreButton caseId={c.id} theatre={c.theatre} theatres={theatres} />}
-                                <HandoverButton
-                                  caseId={c.id}
-                                  caseOwnerId={c.userId}
-                                  sessionUserId={userId}
-                                  sessionRole={role}
-                                  caseStatus={c.status}
-                                  hasPendingTransfer={c.transfers.length > 0}
-                                />
-                                <span className="text-xs text-slate-400">
-                                  {c.intraop?.monthYear
-                                    ? (() => { const [y, m] = c.intraop!.monthYear!.split("-"); return new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }).format(new Date(Number(y), Number(m) - 1, 1)) })()
-                                    : new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }).format(c.createdAt)}
-                                </span>
-                                <FileText className="h-4 w-4 text-slate-300" />
-                              </div>
-                            </div>
-                          )
+            const { key, cls } = computeStatus(c)
+            const isComplete = c.status === "COMPLETE"
+            const isCancelled = c.status === "CANCELLED"
+            const canWrite = caseIsWritable(c)
+            // A non-complete case the reader cannot write to (handed to a
+            // colleague, or read-only for their role) opens the read-only
+            // summary, the same as a complete one -- never the edit wizard,
+            // which the server would refuse to save from anyway.
+            const href = isComplete || isCancelled || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
+            return (
+              <div key={c.id} data-testid="case-row" data-case-code={c.caseCode ?? undefined} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
+                <Link href={href} className="min-w-0 flex-1">
+                  <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
+                      {plannedProcedureLabel(c.preop, locale) || t("dashboard.untitled")}
+                    </p>
+                    <span title={isCancelled ? cancellationReasonLabel(c.cancellationReason, locale) ?? undefined : undefined} data-testid={isCancelled ? "cancelled-badge" : undefined} className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${cls}`}>
+                      {displayClinicalCode("caseStatus", STATUS_CODES[key], locale)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 truncate mt-0.5">
+                    {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
+                  </p>
+                  <AnaesthesiaLight c={c} locale={locale} />
+                  {(() => {
+                    const who = readPatientDisplay(c.patientDisplay)
+                    return who ? (
+                      <p data-testid="patient-display" className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate mt-0.5">
+                        {who.admissionNumber ? <span>{t("case.admissionNumberShort")} <span className="font-mono">{who.admissionNumber}</span></span> : null}
+                        {who.admissionNumber && who.egnPrefix ? " · " : null}
+                        {who.egnPrefix ? <span>{t("case.egnPrefixShort")} <span className="font-mono">{who.egnPrefix}</span></span> : null}
+                      </p>
+                    ) : null
+                  })()}
+                  </div>
+                </Link>
+                <div className="flex items-center gap-2 ml-4 shrink-0">
+                  {asaBadge(c.preop?.asaScore ?? null)}
+                  {dispositionBadge(c.postop?.disposition ?? null, locale)}
+                  {c.caseCode && (
+                    <span className="w-[5.5rem] text-center font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-[#2a2a2a] px-1.5 py-0.5 rounded">
+                      {c.caseCode}
+                    </span>
+                  )}
+                  {/* 10.8.0: delete and cancel live in the row's menu, with the planned date and the nurses. */}
+                  {canWrite && !isComplete && !isNurseAccountRole(role) && (
+                    <CaseRowMenu caseId={c.id} locale={locale} plannedSurgeryDate={(c as { plannedSurgeryDate?: string | null }).plannedSurgeryDate?.slice(0, 10) ?? null} canPlan={!isCancelled} canAssignNurses={!isCancelled && (c.capabilities?.canAssignNurses ?? true)}>
+                      {!isCancelled && <DeleteDraftButton caseId={c.id} />}
+                      {!isCancelled && <CancelProcedureButton caseId={c.id} inactive={!cancellationAllowed(c)} />}
+                      {isCancelled && <UndoCancellationButton caseId={c.id} />}
+                    </CaseRowMenu>
+                  )}
+                  {/* A nurse sees every case of her hospital: she hands on a case she works, puts herself on one that has no nurse,
+                      and a senior nurse also places nurses (2026-11-23). */}
+                  {!isComplete && !isCancelled && isNurseAccountRole(role) && (() => {
+                    const canAssign = c.capabilities?.canAssignNurses === true
+                    const canTake = (c.nurses?.length ?? 1) === 0
+                    return canWrite || canAssign || canTake
+                      ? <CaseRowMenu caseId={c.id} locale={locale} plannedSurgeryDate={null} canPlan={false} canAssignNurses={canAssign} canHandOverToNurse={(c.nurses ?? []).some(n => n.userId === userId)} canTakeCase={canTake} />
+                      : null
+                  })()}
+                  {/* Every row has the menu: a row with nothing to change still shows its anaesthesia team (2026-11-23). */}
+                  {(() => {
+                    const doctorMenu = canWrite && !isComplete && !isNurseAccountRole(role)
+                    const nurseMenu = !isComplete && !isCancelled && isNurseAccountRole(role) && (canWrite || c.capabilities?.canAssignNurses === true || (c.nurses?.length ?? 1) === 0)
+                    return doctorMenu || nurseMenu ? null : <CaseRowMenu caseId={c.id} locale={locale} plannedSurgeryDate={null} canPlan={false} canAssignNurses={false} />
+                  })()}
+                  {isComplete && (
+                    <span
+                      role="link"
+                      tabIndex={0}
+                      title={t("dashboard.printCase")}
+                      aria-label={t("dashboard.printCase")}
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/cases/${c.id}/print`) }}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); router.push(`/cases/${c.id}/print`) } }}
+                      className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-2 py-1 rounded border border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                    >
+                      <Printer className="h-3 w-3" /> {t("dashboard.printCase")}
+                    </span>
+                  )}
+                  {theatres && c.theatre && <TheatreButton caseId={c.id} theatre={c.theatre} theatres={theatres} />}
+                  <HandoverButton
+                    caseId={c.id}
+                    caseOwnerId={c.userId}
+                    sessionUserId={userId}
+                    sessionRole={role}
+                    caseStatus={c.status}
+                    hasPendingTransfer={c.transfers.length > 0}
+                  />
+                  <span className="w-24 text-right text-xs text-slate-400">
+                    {c.intraop?.monthYear
+                      ? (() => { const [y, m] = c.intraop!.monthYear!.split("-"); return new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }).format(new Date(Number(y), Number(m) - 1, 1)) })()
+                      : new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }).format(c.createdAt)}
+                  </span>
+                  <FileText className="h-4 w-4 text-slate-300" />
+                </div>
+              </div>
+            )
                         })}
                       </div>
                     </div>

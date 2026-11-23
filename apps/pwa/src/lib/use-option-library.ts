@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { withIsoDrugColors } from "@lospor/core/drug-colors"
 import { isServingFallback } from "@lospor/core/sync"
 import * as SecureStore from "expo-secure-store"
 import {
@@ -33,7 +34,8 @@ const repository = new OptionLibraryRepository({
     delete: key => SecureStore.deleteItemAsync(key),
   },
   fetchCategory: category => apiJson<unknown>(`/api/library/${category}`),
-  bundled: bundledOptions,
+  // The ISO 26825 colours come with the bundled library too: online and offline draw the same colours.
+  bundled: category => withIsoDrugColors(category, bundledOptions(category)),
   scheduler: {
     schedule: (callback, delayMs) => setTimeout(callback, delayMs),
     cancel: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),

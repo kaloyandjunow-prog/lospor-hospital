@@ -1,3 +1,4 @@
+import { refuseIfNotAllowed } from "@/lib/nurse-access"
 import { NextRequest, NextResponse } from "next/server"
 import {
   externalAiCapabilityState,
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Image too large" }, { status: 413 })
   }
 
+  // Reading labs fills the preoperative record: not for an anaesthesia nurse.
+  const nurseRefusal = refuseIfNotAllowed(user, "EDIT_PREOP")
+  if (nurseRefusal) return nurseRefusal
+
   const rl = await rateLimit(`ai-labs:${user.id}`, 10, 60 * 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json({ error: "Too many requests" }, {
@@ -65,6 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const existing = await prisma.case.findUnique({
     where: { id },
     select: {
+      id: true,
       userId: true,
       // The case's own institution, which canReadCase requires for a head of
       // department -- it compares record.institutionId, and the owner-institution
@@ -73,6 +79,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // colleague's case while the list view showed it to them.
       institutionId: true,
       createdById: true,
+      operatingTheatreId: true,
+      finalizedAt: true,
+      plannedSurgeryDate: true,
       user: { select: { institutionId: true } },
       preop: { select: { aiOptIn: true } },
     },

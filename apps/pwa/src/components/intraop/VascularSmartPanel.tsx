@@ -105,7 +105,7 @@ export function VascularSmartPanel({
     borderColor: on ? shade("#a67cff") : shade("#334155"), backgroundColor: on ? shade("#a67cff") + "33" : shade("#1c1c1c"),
   })
   const pillText = (on: boolean) => ({ color: on ? shade("#e9ddff") : shade("#e2e8f0"), fontWeight: "700" as const, fontSize: 14 })
-  const label = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>{text}</Text>
+  const label = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>{text}</Text>
   const row = { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 6, marginBottom: 12 }
   const typeName = request.type === "CENTRAL" ? (centralType === "PICC" ? tc("vsmPicc") : tc("vsmCentral")) : tc(request.type === "PERIPHERAL" ? "vsmPeripheral" : "vsmArterial")
   const times: Array<[VascularTimeChoice, string]> = origin === "ward"

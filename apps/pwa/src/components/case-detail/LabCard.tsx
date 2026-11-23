@@ -32,10 +32,10 @@ export function LabCard({ labResults, tc }: { labResults?: LabResult[]; tc: (key
                 paddingVertical: 5, borderBottomWidth: 1,
                 borderBottomColor: withAlpha(colors.border, "77"),
               }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: "700", flex: 1 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700", flex: 1 }}>
                   {lab.test}
                 </Text>
-                <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: "600" }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "600" }}>
                   {lab.value}{lab.unit ? ` ${lab.unit}` : ""}
                 </Text>
               </View>

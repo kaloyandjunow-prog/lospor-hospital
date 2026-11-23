@@ -71,12 +71,12 @@ export function IntraopEventsTab({
       <View style={{ marginBottom:8 }}>
         <View style={{ flexDirection:"row", alignItems:"center", justifyContent:"space-between",
           marginBottom:10 }}>
-          <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
+          <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1.2,
             textTransform:"uppercase" }}>{tc("complicationsSummaryTitle")}</Text>
           {complications.length > 0 && (
             <View style={{ paddingHorizontal:8, paddingVertical:3, borderRadius:8,
               backgroundColor:shade("#ef444422"), borderWidth:1, borderColor:shade("#ef444455") }}>
-              <Text style={{ color:shade("#f87171"), fontSize:11, fontWeight:"700" }}>
+              <Text style={{ color:shade("#f87171"), fontSize:12, fontWeight:"700" }}>
                 {formatMessage(tc("complicationsRecordedCount"), { count: complications.length })}
               </Text>
             </View>
@@ -90,15 +90,15 @@ export function IntraopEventsTab({
               <Text style={{ color:shade("#fca5a5"), fontSize:13, fontWeight:"700" }}>
                 {displayClinicalCode("complication", item.label, language, { label: item.label })}
               </Text>
-              <Text style={{ color:shade("#94a3b8"), fontSize:11, marginTop:1, fontVariant:["tabular-nums"] }}>{complicationTime(item)}</Text>
+              <Text style={{ color:shade("#94a3b8"), fontSize:12, marginTop:1, fontVariant:["tabular-nums"] }}>{complicationTime(item)}</Text>
             </View>
             <Pressable testID={`complication-delete-${item.key}`} accessibilityRole="button" accessibilityLabel={tc("removeEventLabel")} onPress={() => removeComplication(item)} hitSlop={8}
               style={{ minHeight:36, paddingHorizontal:8, alignItems:"center", justifyContent:"center" }}>
-              <Text style={{ color:shade("#fca5a5"), fontSize:11, fontWeight:"800" }}>{tc("removeEventLabel")}</Text>
+              <Text style={{ color:shade("#fca5a5"), fontSize:12, fontWeight:"800" }}>{tc("removeEventLabel")}</Text>
             </Pressable>
           </View>
         ))}
-        <Text style={{ color:shade("#64748b"), fontSize:11, marginTop:8, marginBottom:10 }}>{tc("complicationsTimedHint")}</Text>
+        <Text style={{ color:shade("#64748b"), fontSize:12, marginTop:8, marginBottom:10 }}>{tc("complicationsTimedHint")}</Text>
         <TextInput
           style={{ backgroundColor:shade("#111111"), color:shade("#e2e8f0"), borderRadius:10, padding:11,
             fontSize:13, borderWidth:1, borderColor:shade("#2a2030"), minHeight:44 }}

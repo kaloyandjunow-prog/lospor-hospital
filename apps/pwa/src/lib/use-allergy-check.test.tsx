@@ -31,7 +31,7 @@ describe("the allergy check when a drug is given", () => {
     expect(dialog.confirmAction).toHaveBeenCalledWith(
       "⚠ allergyAlertTitle: Ampicillin",
       expect.stringContaining("Penicillin (allergyFromEhr) — allergySameClass"),
-      expect.objectContaining({ confirmLabel: "allergyGiveAnyway", cancelLabel: "allergyDontGive" }),
+      expect.objectContaining({ confirmLabel: expect.stringContaining("allergyGiveAnyway"), cancelLabel: "allergyDontGive" }),
     )
     expect(verdict).toEqual({ give: true, allergyAck: [{ allergy: "Penicillin", level: "same_class" }] })
   })

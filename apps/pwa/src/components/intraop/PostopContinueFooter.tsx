@@ -24,7 +24,7 @@ export function PostopContinueFooter({
           {continueLabel}
         </Text>
         {continuedItems.length > 0 && (
-          <Text style={{ color:shade("#38bdf8"), fontSize:11, marginTop:4 }}>
+          <Text style={{ color:shade("#38bdf8"), fontSize:12, marginTop:4 }}>
             {continuedItems.length === 1
               ? tc("postopContinuingOne")
               : formatMessage(tc("postopContinuingMany"), { count: continuedItems.length })}

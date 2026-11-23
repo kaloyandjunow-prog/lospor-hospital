@@ -230,7 +230,7 @@ function clinicalEvents(context: TimetableEditContext, w: Writers) {
 type RateChange = { eventId?: string; col: number }
 
 /** Start/stop/change events of one bar, shared by infusions, fluids, agents and gas. */
-function segmentLifecycle<S extends { startEventId?: string; stopEventId?: string; endCaseStop?: boolean; startCol: number; endCol: number; stopped?: boolean; planned?: boolean; plannedStopCol?: number }>(
+function segmentLifecycle<S extends { startEventId?: string; stopEventId?: string; endCaseStop?: boolean; continuesAfterEnd?: boolean; startCol: number; endCol: number; stopped?: boolean; planned?: boolean; plannedStopCol?: number }>(
   w: Writers,
   before: S,
   after: S,
@@ -257,7 +257,7 @@ function segmentLifecycle<S extends { startEventId?: string; stopEventId?: strin
   if (wasStopped && !nowStopped) {
     w.remove(before.stopEventId)
   } else if (!wasStopped && nowStopped) {
-    w.add({ ...stop(), ...(after.endCaseStop ? { endCaseStop: true } : {}), ts: w.stamp(Math.max(afterEnd, after.startCol), after.stopEventId) })
+    w.add({ ...stop(), ...(after.endCaseStop ? { endCaseStop: true } : {}), ...(after.continuesAfterEnd ? { continuesAfterEnd: true } : {}), ts: w.stamp(Math.max(afterEnd, after.startCol), after.stopEventId) })
   } else if (wasStopped && nowStopped && (beforeEnd !== afterEnd || stopPatch)) {
     w.update(before.stopEventId, { ...stopPatch, ...(beforeEnd !== afterEnd ? { ts: w.stamp(Math.max(afterEnd, after.startCol)) } : {}) })
   }

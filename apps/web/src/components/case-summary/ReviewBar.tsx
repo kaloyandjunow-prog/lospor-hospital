@@ -33,6 +33,7 @@ export function ReviewBar({
   caseId,
   status,
   canWrite,
+  isNurse = false,
   awaitingReviewAt,
   finalizedAtMs,
   now,
@@ -44,6 +45,8 @@ export function ReviewBar({
   caseId: string
   status: CaseStatus | undefined
   canWrite: boolean
+  /** 10.8.0: an anaesthesia nurse edits intraop and postop only, and never closes the case. */
+  isNurse?: boolean
   awaitingReviewAt: string | null
   finalizedAtMs: number | null
   now: number
@@ -189,10 +192,10 @@ export function ReviewBar({
             {canWrite && !closed && (
               <>
                 <span className="text-xs text-slate-400">{L.edit}</span>
-                <a href={`/cases/new?continue=${caseId}&step=0`}
+                {!isNurse && <a href={`/cases/new?continue=${caseId}&step=0`}
                   className="text-xs font-semibold px-2 py-1 rounded border border-current opacity-70 hover:opacity-100 transition-opacity">
                   {L.preopShort}
-                </a>
+                </a>}
                 <a href={`/cases/new?continue=${caseId}&step=1`}
                   className="text-xs font-semibold px-2 py-1 rounded border border-current opacity-70 hover:opacity-100 transition-opacity">
                   {L.intraopShort}
@@ -201,16 +204,16 @@ export function ReviewBar({
                   className="text-xs font-semibold px-2 py-1 rounded border border-current opacity-70 hover:opacity-100 transition-opacity">
                   {L.postopShort}
                 </a>
-                <button
+                {!isNurse && <button
                   disabled={finalizing}
                   onClick={() => finalize()}
                   className="text-xs font-bold px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors">
                   {finalizing ? L.closing : L.closeNow}
                   {!finalizing && shown.blockers.length > 0 ? ` (${shown.blockers.length})` : ""}
-                </button>
+                </button>}
               </>
             )}
-            {canWrite && status === "COMPLETE" && withinUndoWindow && (
+            {canWrite && !isNurse && status === "COMPLETE" && withinUndoWindow && (
               <button
                 onClick={unfinalize}
                 className="text-xs font-semibold px-3 py-1 rounded border border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">

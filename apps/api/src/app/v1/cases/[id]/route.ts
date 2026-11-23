@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server"
+import { pinNursesOfCaseTheatre, recordNurseWork, refuseIfNotAllowed } from "@/lib/nurse-access"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { mapPreop, mapPreopUpdate, mapIntraop, mapIntraopUpdate, mapPostop, mapPostopUpdate } from "../_mappers"
@@ -90,6 +91,8 @@ const patchBodySchema = z.object({
   intraop:     intraopSchema.optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).optional(),
   postop:      postopSchema.optional(),
+  // When the operation is planned (10.8.0): a calendar date, or null to clear it.
+  plannedSurgeryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   // Acknowledges that this save will overwrite a newer version, and asks
   // for it anyway. Formerly `forceUpdate`, which read like a retry hint and
   // silently discarded a colleague's edits. Renamed so a client cannot send
@@ -249,7 +252,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (rejectedFields.length) {
       console.warn("[PATCH /api/cases/:id] REJECTED_FIELDS")
     }
-    const { preop, intraop, postop, status, clinicalMode, notes, overrideConflict: overrideField } = body
+    const { preop, intraop, postop, status, clinicalMode, notes, plannedSurgeryDate, overrideConflict: overrideField } = body
+    // An anaesthesia nurse writes the intraoperative and postoperative stages only (10.8.0).
+    const nurseRefusal = (preop != null || clinicalMode !== undefined ? refuseIfNotAllowed(user, "EDIT_PREOP") : null)
+      ?? (plannedSurgeryDate !== undefined ? refuseIfNotAllowed(user, "SET_PLANNED_SURGERY_DATE") : null)
+    if (nurseRefusal) return nurseRefusal
     const preopBase = req.headers.get("x-lospor-preop-updated-at")
     const postopBase = req.headers.get("x-lospor-postop-updated-at")
     const intraopBase = req.headers.get("x-lospor-intraop-updated-at")
@@ -297,12 +304,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const caseRecord = await tx.case.findUnique({
         where: { id },
         select: {
+          id: true,
           userId: true,
           status: true,
           createdAt: true,
           institutionId: true,
           clinicalMode: true,
           clinicalRulesVersion: true,
+          operatingTheatreId: true,
+          finalizedAt: true,
+          plannedSurgeryDate: true,
         },
       })
       if (!caseRecord) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
@@ -316,7 +327,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (caseRecord.status === "COMPLETE") {
         return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
       }
-
       const existingPreop = await tx.preoperativeAssessment.findUnique({ where: { caseId: id } })
       const existingIntraop = intraop
         ? await tx.intraoperativeRecord.findUnique({
@@ -416,6 +426,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           reason: first.reason,
           serverVersion: first.serverVersion,
         }, { status: 409 })
+      }
+
+      // Last of the refusals above: from here nothing returns early, so a refused request has written nothing -- a returned
+      // response commits the transaction (a 409 that had changed the planned date and logged it).
+      await recordNurseWork(tx, user, id)
+      if (plannedSurgeryDate !== undefined) {
+        await tx.case.update({
+          where: { id },
+          data: { plannedSurgeryDate: plannedSurgeryDate ? new Date(`${plannedSurgeryDate}T00:00:00.000Z`) : null },
+        })
+        await logAuditInTransaction(tx, userId, "CASE_PLANNED_DATE_SET", id, { date: plannedSurgeryDate })
+        // The day's theatre nurses are put on the case once its date puts it on their day.
+        await pinNursesOfCaseTheatre(tx, id)
       }
 
 
@@ -751,6 +774,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthUser(req)
+  const nurseRefusal = refuseIfNotAllowed(user, "DELETE_CASE")
+  if (nurseRefusal) return nurseRefusal
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const userId = user.id
   const { id } = await params
@@ -759,7 +784,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const result = await withLockedCaseTransaction(id, async tx => {
       const existing = await tx.case.findUnique({
         where: { id },
-        select: { userId: true, status: true, institutionId: true, clinicalMode: true, patientLinkId: true },
+        select: { id: true, userId: true, status: true, institutionId: true, clinicalMode: true, operatingTheatreId: true, finalizedAt: true, plannedSurgeryDate: true, patientLinkId: true },
       })
       if (!existing) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
       if (!await canWriteCaseWithOwnerFallback(tx, user, existing)) {

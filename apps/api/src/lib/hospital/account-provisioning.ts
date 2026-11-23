@@ -1,4 +1,5 @@
 import "server-only"
+import { isNurseAccountRole } from "@lospor/core/clinical-roles"
 
 import bcrypt from "bcryptjs"
 import { z } from "zod"
@@ -21,6 +22,9 @@ export const STATUS_OPERATOR_AUDIT_ID = HOSPITAL_STATUS_OPERATOR_AUDIT_ID
 export type HospitalAccessProfile =
   | "CLINICAL_MEMBER"
   | "CLINICAL_HOD"
+  /** An anaesthesia nurse (10.8.0): a separate profile that is never turned into a doctor's. */
+  | "CLINICAL_NURSE"
+  | "CLINICAL_SENIOR_NURSE"
   | "RESEARCH_ONLY"
 
 export const hospitalAccountCreateSchema = z.object({
@@ -36,7 +40,7 @@ export const hospitalAccountCreateSchema = z.object({
   lastName: z.string().trim().min(1).max(80),
   title: z.string().trim().max(40).default(""),
   institutionId: z.string().trim().min(1).max(128),
-  accessProfile: z.enum(["CLINICAL_MEMBER", "CLINICAL_HOD", "RESEARCH_ONLY"]),
+  accessProfile: z.enum(["CLINICAL_MEMBER", "CLINICAL_HOD", "CLINICAL_NURSE", "CLINICAL_SENIOR_NURSE", "RESEARCH_ONLY"]),
   locale: z.enum(["bg", "en"]).default("bg"),
 }).strict()
 
@@ -86,12 +90,14 @@ function expiresAt(now: Date, ttlMs: number): Date {
 }
 
 function accessFields(profile: HospitalAccessProfile): {
-  role: "MEMBER" | "HEAD_OF_DEPT" | "RESEARCHER"
+  role: "MEMBER" | "HEAD_OF_DEPT" | "ANAESTHESIA_NURSE" | "ANAESTHESIA_SENIOR_NURSE" | "RESEARCHER"
   accountKind: "CLINICAL" | "RESEARCH_ONLY"
 } {
   if (profile === "CLINICAL_HOD") {
     return { role: "HEAD_OF_DEPT", accountKind: "CLINICAL" }
   }
+  if (profile === "CLINICAL_NURSE") return { role: "ANAESTHESIA_NURSE", accountKind: "CLINICAL" }
+  if (profile === "CLINICAL_SENIOR_NURSE") return { role: "ANAESTHESIA_SENIOR_NURSE", accountKind: "CLINICAL" }
   if (profile === "RESEARCH_ONLY") {
     // The pinned Hospital API still keys research grants on the legacy role.
     // AccountKind is nevertheless written now and is the durable authority;
@@ -104,7 +110,7 @@ function accessFields(profile: HospitalAccessProfile): {
 
 function hasStatusManagedAuthority(user: { role: string; accountKind: string }): boolean {
   return user.accountKind === "CLINICAL"
-    ? user.role === "MEMBER" || user.role === "HEAD_OF_DEPT"
+    ? user.role === "MEMBER" || user.role === "HEAD_OF_DEPT" || isNurseAccountRole(user.role)
     : user.accountKind === "RESEARCH_ONLY" && user.role === "RESEARCHER"
 }
 

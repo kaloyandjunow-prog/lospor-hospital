@@ -85,17 +85,17 @@ export function OngoingCasesButton() {
         ref={btnRef}
         type="button"
         onClick={() => setOpen(v => !v)}
-        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+        className={`inline-flex items-center gap-2 px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-sm font-medium transition-colors ${
           open
             ? "bg-slate-100 dark:bg-[#2a2a2a] text-slate-700 dark:text-slate-200"
             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a]"
         }`}>
         <Activity className="h-4 w-4" />
-        {t("nav.ongoingCases")}
+        <span className="max-xl:sr-only">{t("nav.ongoingCases")}</span>
         {cases.length > 0 && (
           <span
             data-testid="ongoing-cases-count"
-            className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-600 dark:bg-slate-400 text-white dark:text-slate-900 text-[9px] font-bold">
+            className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-600 dark:bg-slate-400 text-white dark:text-slate-900 text-xs font-bold">
             {cases.length}
           </span>
         )}
@@ -134,7 +134,7 @@ export function OngoingCasesButton() {
                     <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                       {c.preop?.plannedProcedure || t("status.untitled")}
                     </span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${cls}`}>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${cls}`}>
                       {t(`status.${key}`)}
                     </span>
                   </div>

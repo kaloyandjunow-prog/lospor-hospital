@@ -51,7 +51,7 @@ const person = (value: Person) => titledName(value)
 function Block({ title, children, testID }: { title: string; children: ReactNode; testID?: string }) {
   return (
     <View testID={testID} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 4 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase", marginBottom: 2 }}>{title}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase", marginBottom: 2 }}>{title}</Text>
       {children}
     </View>
   )
@@ -70,7 +70,7 @@ function QuestionnaireBlock({ items, language, tc }: { items: readonly PreopQues
       <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4 }}>{tc("preopSummaryQuestionnaireHint")}</Text>
       {groups.map(group => (
         <View key={group.section} style={{ gap: 2, marginBottom: 6 }}>
-          <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>{PREOP_QUESTIONNAIRE_SECTION_LABELS[language][group.section]}</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>{PREOP_QUESTIONNAIRE_SECTION_LABELS[language][group.section]}</Text>
           {group.rows.map(({ item, depth }) => (
             <View key={item.stableKey} testID={`preop-summary-answer-${item.stableKey}`} style={{ flexDirection: "row", gap: 10, paddingLeft: depth ? 14 : 0 }}>
               <Text style={{ flex: 1, color: depth ? colors.textSecondary : colors.textPrimary, fontSize: 14, lineHeight: 20 }}>{depth ? "– " : ""}{item.label[language]}</Text>

@@ -87,7 +87,7 @@ export function PreopQuestionList({
 
   return (
     <div className={cn("space-y-3", className)} data-testid={`preop-questions-${formSection}`}>
-      <p className="text-right text-[11px] text-muted-foreground" aria-live="polite">
+      <p className="text-right text-xs text-muted-foreground" aria-live="polite">
         {t("preop.questionsAnswered", { answered: progress.answered, total: progress.total })}
       </p>
       {groupsOf.map(({ group, rows: groupRows }, index) => (
@@ -123,13 +123,13 @@ export function PreopQuestionList({
                     <div className="flex gap-1">
                       {question.allowUnknown && (
                         <button type="button" aria-pressed={state === "UNKNOWN"} onClick={() => answer(state === "UNKNOWN" ? null : "UNKNOWN")}
-                          className={cn("rounded-md border px-2 text-[11px]", state === "UNKNOWN" ? "border-primary bg-primary text-primary-foreground" : "border-input text-muted-foreground")}>
+                          className={cn("rounded-md border px-2 text-xs", state === "UNKNOWN" ? "border-primary bg-primary text-primary-foreground" : "border-input text-muted-foreground")}>
                           {t("common.unknown")}
                         </button>
                       )}
                       {question.allowNotApplicable && (
                         <button type="button" aria-pressed={state === "NOT_APPLICABLE"} onClick={() => answer(state === "NOT_APPLICABLE" ? null : "NOT_APPLICABLE")}
-                          className={cn("rounded-md border px-2 text-[11px]", state === "NOT_APPLICABLE" ? "border-primary bg-primary text-primary-foreground" : "border-input text-muted-foreground")}>
+                          className={cn("rounded-md border px-2 text-xs", state === "NOT_APPLICABLE" ? "border-primary bg-primary text-primary-foreground" : "border-input text-muted-foreground")}>
                           {t("preop.notApplicable")}
                         </button>
                       )}
@@ -157,7 +157,7 @@ export function PreopQuestionList({
                     </select>
                   )}
                   {pending && onReviewSuggestion && (
-                    <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+                    <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
                       {t("preop.suggestionFromRecord", { answer: pending.proposedState === "NO" ? t("common.no") : t("common.yes") })}
                       <button type="button" className="underline" onClick={() => onReviewSuggestion(pending.id, "ACCEPTED")}>{t("preop.suggestionAccept")}</button>
                       <button type="button" className="underline" onClick={() => onReviewSuggestion(pending.id, "REJECTED")}>{t("preop.suggestionReject")}</button>

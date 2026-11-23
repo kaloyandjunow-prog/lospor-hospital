@@ -39,7 +39,7 @@ describe("Hospital immutable case creator migration", () => {
     expect(migration).toContain('ON DELETE RESTRICT ON UPDATE CASCADE')
     expect(migration).toContain("CASE_CREATOR_IMMUTABLE")
     expect(migration).toContain('CREATE TRIGGER "Case_creator_immutable"')
-    expect(schema).toContain('casesCreated                    Case[]')
+    expect(schema).toMatch(/casesCreated\s+Case\[\]/)
     expect(schema).toContain('@relation("CaseCreator")')
     expect(schema).toContain('@@unique([createdById, clientDraftId])')
   })

@@ -349,7 +349,7 @@ input[type="range"]::-moz-range-thumb {
 .dark .driver-popover.lospor-tour .driver-popover-description { color: #94a3b8; }
 
 .driver-popover.lospor-tour .driver-popover-progress-text {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: #94a3b8;
 }
 
@@ -359,7 +359,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .driver-popover.lospor-tour button {
   border-radius: 0.5rem;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   padding: 6px 14px;
   cursor: pointer;
@@ -434,3 +434,129 @@ html[data-gesture="held"] * {
   -webkit-user-select: none !important;
   user-select: none !important;
 }
+
+/* ── Touch matrix (10.8.0) ─────────────────────────────────────────────────
+   One size for mouse and finger. A control that must look compact keeps its
+   look and gets an invisible 44 px hit area around it (.touch-target); the
+   rest are 44 px (48 for a primary action) outright. Text is never under
+   12 px. See TACH-MATRICA: a guard test keeps these from coming back. */
+@utility touch-target {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+:root {
+  --tap-min: 44px;
+  --tap-primary: 48px;
+  --text-min: 12px;
+}
+
+/* ── Chart cursor (10.8.0) ─────────────────────────────────────────────────
+   Pointing highlights the row and the cell; a highlighted cell (first tap,
+   keyboard, focus) keeps a ring until another one takes it. */
+[data-intraop-chart-root] [data-tt-lane] { transition: background-color 80ms; }
+/* The chart's cursor (10.8.0). Not the browser's blue ring: the cell under the pointer gets a soft warm
+   tint and a line under it, and the bar in it gets lighter. */
+[data-intraop-chart-root] [data-tt-cell] { transition: background-color 0.14s ease, box-shadow 0.14s ease; }
+@media (hover: hover) {
+  [data-intraop-chart-root] [data-tt-lane]:hover { background-color: rgb(148 163 184 / 0.06); }
+  [data-intraop-chart-root] [data-tt-cell]:hover {
+    background-color: rgb(251 191 36 / 0.10);
+    box-shadow: inset 0 -3px 0 rgb(245 158 11 / 0.75);
+  }
+}
+[data-intraop-chart-root] [data-tt-lane]:has([data-tt-armed]) { background-color: rgb(148 163 184 / 0.08); }
+[data-intraop-chart-root] [data-tt-armed],
+[data-intraop-chart-root] [data-tt-cell]:focus-visible,
+[data-intraop-chart-root] [data-tt-point]:focus-visible {
+  outline: none;
+  background-color: rgb(251 191 36 / 0.16);
+  box-shadow: inset 0 -3px 0 rgb(245 158 11), inset 0 0 0 1px rgb(245 158 11 / 0.55);
+}
+[data-intraop-chart-root] [data-tt-cell], [data-intraop-chart-root] [data-tt-point] { -webkit-tap-highlight-color: transparent; }
+
+/* A bar: it settles in when it appears and lightens when its cell is pointed at, armed or pressed. */
+.tt-bar { position: absolute; animation: tt-bar-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; transform-origin: left center; transition: transform 0.16s ease, filter 0.16s ease; }
+.tt-bar::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: rgb(255 255 255); opacity: 0; transition: opacity 0.16s ease;
+}
+[data-intraop-chart-root] [data-tt-cell]:hover .tt-bar::after,
+[data-intraop-chart-root] [data-tt-armed] .tt-bar::after { opacity: 0.38; }
+.dark [data-intraop-chart-root] [data-tt-cell]:hover .tt-bar::after,
+.dark [data-intraop-chart-root] [data-tt-armed] .tt-bar::after { opacity: 0.2; }
+[data-intraop-chart-root] [data-tt-cell]:active .tt-bar::after { opacity: 0.55; }
+/* The text on a solid bar is white; a running bar has a bright live edge, a stopped one a dark notch; the bar under the
+   pointer lifts and the other rows step back. */
+[data-intraop-chart-root] .tt-onbar { color: var(--tt-on, #fff) !important; text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
+[data-intraop-chart-root] .tt-onbar[style*="#111827"] { text-shadow: none; }
+/* The glass of a solid bar: a light edge on top and a little depth below. */
+.tt-glass { background-image: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(0 0 0 / 0.14)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 1px 5px rgb(0 0 0 / 0.3); }
+/* A drag handle on a bar: a slim, translucent pill, not a block in the bar's own colour. */
+.tt-grip { background-color: rgb(255 255 255 / 0.22) !important; width: 8px !important; }
+.tt-grip > span { width: 2px; height: 60%; border-radius: 2px; background: rgb(255 255 255 / 0.9); font-size: 0; }
+/* The "+" to add something is quiet: shown where the pointer is, where a finger last touched, and at "now". */
+[data-intraop-chart-root] .tt-add { opacity: 0; transition: opacity 0.14s ease; }
+[data-intraop-chart-root] :hover > .tt-add, [data-intraop-chart-root] [data-tt-armed] .tt-add,
+[data-intraop-chart-root] .tt-add:focus-visible, [data-intraop-chart-root] .tt-add[data-now] { opacity: 1; }
+/* An empty cell's "choose" / "tap to start" is a hint, not a label: see the lanes. */
+[data-intraop-chart-root] [data-tt-hint] { opacity: 0; transition: opacity 0.14s ease; }
+[data-intraop-chart-root] :hover > [data-tt-hint], [data-intraop-chart-root] [data-tt-armed] [data-tt-hint] { opacity: 1; }
+/* A cell that shows a total does not also show its "tap to start". */
+[data-intraop-chart-root] [data-tt-cell]:has([data-testid$="-total"]) [data-tt-placeholder] { display: none; }
+/* The full text of a cut-off bar label (chart-cursor.tsx). */
+.tt-tip { position: fixed; z-index: 70; max-width: min(340px, calc(100vw - 16px)); padding: 5px 9px; border-radius: 6px; background: #111827; color: #fff; font: 600 12px/1.3 system-ui, sans-serif; box-shadow: 0 6px 18px rgb(0 0 0 / 0.35); pointer-events: none; animation: tt-bar-in 0.12s ease-out; }
+.tt-end::before { content: ""; position: absolute; right: -1px; top: -2px; bottom: -2px; width: 3px; border-radius: 2px; pointer-events: none; z-index: 5; }
+.tt-live::before { background: #fff; opacity: 0.9; box-shadow: 0 0 8px #fff; }
+.tt-stopnotch::before { right: 0; top: 3px; bottom: 3px; width: 2px; background: rgb(0 0 0 / 0.5); }
+@media (hover: hover) {
+  [data-intraop-chart-root] [data-tt-cell]:hover .tt-bar { transform: translateY(-2px); filter: brightness(1.15) drop-shadow(0 4px 5px rgb(0 0 0 / 0.4)); z-index: 12; }
+  [data-intraop-chart-root]:has([data-tt-cell]:hover) [data-tt-lane]:not(:has([data-tt-cell]:hover)) .tt-bar { filter: saturate(0.82) brightness(0.94); }
+}
+@keyframes tt-bar-in {
+  from { opacity: 0; transform: scaleX(0.82) scaleY(0.7); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .tt-bar { animation: none; } .tt-bar::after, [data-intraop-chart-root] [data-tt-cell] { transition: none; } }
+/* The lane name stays in view while the chart scrolls sideways. */
+[data-intraop-chart-root] [data-tt-label] { position: sticky; left: 0; z-index: 25; background-color: #ffffff; }
+.dark [data-intraop-chart-root] [data-tt-label] { background-color: #1c1c1c; }
+
+/* ── Touch safety net (10.8.0, stage 7) ──────────────────────────────────
+   On a finger every control is at least 44 px (TACH-MATRICA). What a screen has
+   not sized itself is sized here: buttons, tabs, menu items and styled links are
+   44 px tall, an icon alone 44 px wide, fields 44 px tall; a plain text link keeps
+   its look and an invisible 44 px hit area (as .touch-target). The chart has its
+   own sizes and is left alone. */
+@media (pointer: coarse) {
+  :where(button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], a[class]):not([data-intraop-chart-root] *):not(.sr-only):not(.touch-target) {
+    min-height: 44px;
+  }
+  :where(button, [role="button"], a):has(> svg:only-child):not([data-intraop-chart-root] *):not(.sr-only):not(.touch-target) {
+    min-width: 44px;
+  }
+  :where(a[href]):not([data-intraop-chart-root] *):not(.sr-only):not(.touch-target) {
+    position: relative;
+  }
+  :where(a[href]):not([data-intraop-chart-root] *):not(.sr-only):not(.touch-target)::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+  :where(select, textarea, input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"])):not([data-intraop-chart-root] *) {
+    min-height: 44px;
+  }
+}
+
+/* The guided tour's step counter ("1 of 7") is the library's 11.5 px: text is never under 12. */

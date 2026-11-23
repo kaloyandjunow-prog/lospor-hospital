@@ -50,6 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const existing = await prisma.case.findUnique({
     where: { id },
     select: {
+      id: true,
       userId: true,
       // The case's own institution, which canReadCase requires for a head of
       // department -- it compares record.institutionId, and the owner-institution
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // colleague's case while the list view showed it to them.
       institutionId: true,
       createdById: true,
+      operatingTheatreId: true,
+      finalizedAt: true,
+      plannedSurgeryDate: true,
       user: { select: { institutionId: true } },
       preop: { select: { aiOptIn: true } },
     },

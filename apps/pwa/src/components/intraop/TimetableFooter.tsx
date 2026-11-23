@@ -26,7 +26,7 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
         <TouchableOpacity
           onPress={onViewChart}
           style={{
-            borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, alignItems: "center",
+            borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, minHeight: 44, justifyContent: "center", alignItems: "center",
             backgroundColor: shade("#0f1828"), borderWidth: 1, borderColor: shade("#38bdf855"),
           }}
         >
@@ -37,7 +37,7 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
         onPress={onJumpToNow}
         disabled={!started}
         style={{
-          flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center",
+          flex: 1, borderRadius: 12, paddingVertical: 11, minHeight: 44, justifyContent: "center", alignItems: "center",
           backgroundColor: shade("#0f1828"),
           borderWidth: 1, borderColor: shade("#f9731655"),
           opacity: started ? 1 : 0.35,
@@ -50,7 +50,7 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, o
         onPress={() => { if (!isWatching) onEndCase() }}
         disabled={isWatching}
         style={{
-          flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center",
+          flex: 1, borderRadius: 12, paddingVertical: 11, minHeight: 44, justifyContent: "center", alignItems: "center",
           backgroundColor: shade("#1a1005"), borderWidth: 1, borderColor: shade("#f9731644"),
           opacity: isWatching ? 0.4 : 1,
         }}

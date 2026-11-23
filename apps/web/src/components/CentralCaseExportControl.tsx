@@ -166,7 +166,7 @@ export function CentralCaseExportControl({
             {t("title")}
           </h2>
           <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{t("description")}</p>
-          <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">{t("privacyBoundary")}</p>
+          <p className="mt-1 text-xs leading-4 text-slate-500 dark:text-slate-400">{t("privacyBoundary")}</p>
         </div>
         {view.phase === "ready" ? (
           <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={saving}>

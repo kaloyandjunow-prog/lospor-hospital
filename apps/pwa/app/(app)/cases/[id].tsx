@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"
 import { useLocalSearchParams, useRouter, Stack } from "expo-router"
-import { apiFetch, apiJson } from "@/lib/api"
+import { apiJson } from "@/lib/api"
 import { notify, confirmAction } from "@/lib/notify"
+import { useCaseDelete } from "@/lib/use-case-delete"
 import { openPrintCase } from "@/lib/print-case"
 import { caseMetaParts } from "@/lib/case-meta"
 import { useCaseFinalize } from "@/lib/use-case-finalize"
@@ -63,21 +64,12 @@ export default function CaseSummaryScreen() {
   // A cancelled procedure is closed like a finished case (10.0.0): read, printed, not edited.
   const screenActions = caseScreenActions({ status: caseData?.status, writable: caseIsWritable(caseData) })
   const canEdit = screenActions.edit
+  // 10.8.0: an anaesthesia nurse edits intraop and postop only, never closes, reopens or deletes (as on the web).
+  const isNurse = (caseData as { capabilities?: { isNurse?: boolean } } | null)?.capabilities?.isNurse === true
 
   const { unfinalizing, handleUnfinalize } = useCaseUnfinalize(id, t, tc, loadCase)
 
-  const handleDelete = useCallback(() => {
-    void confirmAction(t("deleteCaseTitle"), t("deleteCaseMsg"), { destructive: true, confirmLabel: tc("actionDelete"), cancelLabel: tc("cancelLabel") })
-      .then(async ok => {
-        if (!ok) return
-        try {
-          await apiFetch(`/api/cases/${id}`, { method: "DELETE" })
-          router.back()
-        } catch {
-          notify(tc("errorLabel"), t("couldNotDelete"))
-        }
-      })
-  }, [id, router, t, tc])
+  const handleDelete = useCaseDelete(id, router.back, t, tc)
 
   const [printing, setPrinting] = useState(false)
   const handlePrint = useCallback(async () => {
@@ -213,7 +205,7 @@ export default function CaseSummaryScreen() {
                   backgroundColor: withAlpha(colors.primary, "11"),
                   borderWidth: 1, borderColor: withAlpha(colors.primary, "33"),
                 }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: "600" }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>
                     {part}
                   </Text>
                 </View>
@@ -255,10 +247,10 @@ export default function CaseSummaryScreen() {
           {/* Edit row */}
           {canEdit && (
             <View style={{ flexDirection: "row", padding: 12, paddingBottom: 8, gap: 8 }}>
-              <Text style={{ color: colors.textMuted, fontSize: 11, alignSelf: "center", marginRight: 2 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 12, alignSelf: "center", marginRight: 2 }}>
                 {tc("editLabel")}
               </Text>
-              {(["Preop", "Intraop", "Postop"] as const).map((section) => {
+              {(isNurse ? ["Intraop", "Postop"] as const : ["Preop", "Intraop", "Postop"] as const).map((section) => {
                 const onPress = () => {
                   if (section === "Preop")   router.push(`/(app)/cases/new?continue=${id}`)
                   if (section === "Intraop") router.push(`/(app)/cases/intraop/${id}`)
@@ -283,7 +275,7 @@ export default function CaseSummaryScreen() {
 
           {/* Action row */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", padding: 12, paddingTop: canEdit ? 0 : 12, gap: 8 }}>
-            {canEdit && (
+            {canEdit && !isNurse && (
               <TouchableOpacity
                 onPress={handleFinalize}
                 disabled={finalizing}
@@ -315,7 +307,7 @@ export default function CaseSummaryScreen() {
             </TouchableOpacity>
 
             {/* status alone left this visible past the undo window and for a read-only creator. */}
-            {caseData.status === "COMPLETE" && editWindowOpen && caseIsWritable(caseData) && (
+            {caseData.status === "COMPLETE" && editWindowOpen && caseIsWritable(caseData) && !isNurse && (
               <TouchableOpacity
                 onPress={handleUnfinalize}
                 disabled={unfinalizing}
@@ -332,7 +324,7 @@ export default function CaseSummaryScreen() {
               </TouchableOpacity>
             )}
 
-            {canEdit && (
+            {canEdit && !isNurse && (
               <TouchableOpacity
                 onPress={handleDelete}
                 style={{

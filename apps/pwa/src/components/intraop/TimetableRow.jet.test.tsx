@@ -41,7 +41,8 @@ function row(col: number, isExpanded: boolean, onEditJet = vi.fn()) {
 }
 
 const strips = (tree: ReturnType<typeof render>) =>
-  tree.root.findAll(node => typeof node.type === "string" && node.props?.style && !Array.isArray(node.props.style) && node.props.style.width === 5 && typeof node.props.style.backgroundColor === "string")
+  // 10.8.0: 6 px wide, and not a control (the row is opened to work with an item).
+  tree.root.findAll(node => typeof node.type === "string" && String(node.props?.testID ?? "").startsWith("row-strip-") && typeof node.props.style?.backgroundColor === "string")
     .map(node => (node.props.style as { backgroundColor: string }).backgroundColor)
 
 describe("jet ventilation in the phone's rows (10.2.0)", () => {

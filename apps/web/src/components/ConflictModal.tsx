@@ -234,7 +234,7 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
                           : "border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#444]"
                       }`}
                     >
-                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">{t("case.conflict.keepMine")}</span>
+                      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">{t("case.conflict.keepMine")}</span>
                       <span className={`block break-words ${choice === "local" ? "text-blue-700 dark:text-blue-300 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
                         {displayValue(field.localValue, t("common.yes"), t("common.no"))}
                       </span>
@@ -250,7 +250,7 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
                           : "border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#444]"
                       }`}
                     >
-                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">{t("case.conflict.useTheirs")}</span>
+                      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">{t("case.conflict.useTheirs")}</span>
                       <span className={`block break-words ${choice === "server" ? "text-amber-700 dark:text-amber-300 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
                         {displayValue(field.serverValue, t("common.yes"), t("common.no"))}
                       </span>

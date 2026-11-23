@@ -162,12 +162,12 @@ export function useRulesetConfirmation({
                 <p className="break-all"><span className="font-semibold">{copy.contentHash}:</span> {preset.publicationEvidence.contentSha256}</p>
                 <p className="break-all"><span className="font-semibold">{copy.diffHash}:</span> {preset.publicationEvidence.diffSha256}</p>
                 <details><summary className="cursor-pointer font-semibold">{copy.exactDiff}</summary>
-                  <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-slate-100 p-2 text-[11px] dark:bg-black/30">{JSON.stringify(preset.publicationEvidence.exactDiff, null, 2)}</pre>
+                  <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-slate-100 p-2 text-xs dark:bg-black/30">{JSON.stringify(preset.publicationEvidence.exactDiff, null, 2)}</pre>
                 </details>
               </div>
             ) : diff ? (
               <details><summary className="cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-200">{copy.exactDiff}</summary>
-                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-slate-100 p-2 text-[11px] dark:bg-black/30">{JSON.stringify(diff, null, 2)}</pre>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-slate-100 p-2 text-xs dark:bg-black/30">{JSON.stringify(diff, null, 2)}</pre>
               </details>
             ) : null}
           </div>

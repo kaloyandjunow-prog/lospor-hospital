@@ -50,10 +50,10 @@ function IntraopSyncRow({
         // disabled rather than pointerEvents: TouchableOpacity has no
         // pointerEvents prop, and a hidden control must not be pressable.
         disabled={pendingCount === 0}
-        style={{ paddingHorizontal:10, paddingVertical:6, borderRadius:10,
+        style={{ paddingHorizontal:10, paddingVertical:6, minHeight:44, justifyContent:"center", borderRadius:10,
           borderWidth:1, borderColor:colors.warning, backgroundColor:shade("#2a210f"),
           opacity: pendingCount > 0 ? 1 : 0 }}>
-        <Text style={{ color:colors.warning, fontSize:11, fontWeight:"800" }}>{tc("mhRetrySync")}</Text>
+        <Text style={{ color:colors.warning, fontSize:12, fontWeight:"800" }}>{tc("mhRetrySync")}</Text>
       </TouchableOpacity>
     </View>
   )
@@ -87,7 +87,7 @@ export function IntraopMonitorHeader({
       paddingHorizontal:16, borderBottomWidth:1, borderBottomColor: colors.border }}>
       <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"flex-start" }}>
         <View style={{ flex:1, marginRight:12 }}>
-          <Text style={{ color:colors.primary, fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }} numberOfLines={1}>
+          <Text style={{ color:colors.primary, fontSize:12, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase" }} numberOfLines={1}>
             {techniquesLabel}
             {theatre ? <Text testID="intraop-theatre" style={{ color:colors.textSecondary, letterSpacing:0.4, textTransform:"none" }}>{"  ·  "}{theatre}</Text> : null}
           </Text>
@@ -110,18 +110,18 @@ export function IntraopMonitorHeader({
                 style={{ borderRadius:10, paddingHorizontal:12, paddingVertical:5,
                   backgroundColor:shade("#1a1005"), borderWidth:1, borderColor:shade("#f97316aa") }}
               >
-                <Text style={{ color:shade("#fb923c"), fontSize:11, fontWeight:"900" }}>{tc("mhStartNow")}</Text>
+                <Text style={{ color:shade("#fb923c"), fontSize:12, fontWeight:"900" }}>{tc("mhStartNow")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onStartAt}
                 style={{ borderRadius:10, paddingHorizontal:12, paddingVertical:5,
                   backgroundColor:shade("#0f172a"), borderWidth:1, borderColor:shade("#6366f1aa") }}
               >
-                <Text style={{ color:shade("#a5b4fc"), fontSize:11, fontWeight:"900" }}>{tc("mhStartAt")}</Text>
+                <Text style={{ color:shade("#a5b4fc"), fontSize:12, fontWeight:"900" }}>{tc("mhStartAt")}</Text>
               </TouchableOpacity>
             </View>
           ) : elapsedMs > 60_000 ? (
-            <Text style={{ color:colors.textMuted, fontSize:11 }}>+ {fmtElapsed(elapsedMs)}</Text>
+            <Text style={{ color:colors.textMuted, fontSize:12 }}>+ {fmtElapsed(elapsedMs)}</Text>
           ) : null}
         </View>
       </View>

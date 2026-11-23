@@ -52,12 +52,12 @@ export function RecordTimetableCard({ keyEvents, clock, onPress, actionLabel }: 
   const R = recordLabels(language)
   const labelWidth = language === "bg" ? 112 : 92
   const width = Math.max(screenWidth - 48, labelWidth + (model.lastCol + 1) * 7)
-  const scene = useMemo(() => layoutRecordChart(model, { width, labelWidth, fontSize: 10, graphHeight: 150, ink: P.lbl, faint: P.grid }), [model, width, labelWidth, P.lbl, P.grid])
+  const scene = useMemo(() => layoutRecordChart(model, { width, labelWidth, fontSize: 12, graphHeight: 150, ink: P.lbl, faint: P.grid }), [model, width, labelWidth, P.lbl, P.grid])
   if (model.vitals.length === 0 && model.lanes.length === 0) return null
   return (
     <TouchableOpacity testID="record-timetable-card" activeOpacity={onPress ? 0.8 : 1} onPress={onPress}
       style={{ backgroundColor: P.card, borderRadius: 14, borderWidth: 1, borderColor: P.grid, padding: 10, marginBottom: 12 }}>
-      <Text style={{ color: P.title, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.timetable.toUpperCase()}</Text>
+      <Text style={{ color: P.title, fontSize: 12, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.timetable.toUpperCase()}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={SIDE_SCROLL_STYLE}>
         <RecordChartSvg scene={scene} />
       </ScrollView>
@@ -77,7 +77,7 @@ export function RecordEventLog({ keyEvents, deletedEvents, timeZone }: { keyEven
   if (rows.length === 0) return null
   return (
     <View testID="record-event-log" style={{ backgroundColor: P.card, borderRadius: 14, borderWidth: 1, borderColor: P.grid, padding: 10, marginBottom: 12 }}>
-      <Text style={{ color: P.title, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.eventLog.toUpperCase()}</Text>
+      <Text style={{ color: P.title, fontSize: 12, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.eventLog.toUpperCase()}</Text>
       {rows.map(row => {
         const gone = row.deletedTime != null || row.id.startsWith("deleted:")
         const colour = gone ? P.faint : row.complication ? P.sbp : P.ink
@@ -85,10 +85,10 @@ export function RecordEventLog({ keyEvents, deletedEvents, timeZone }: { keyEven
         return (
           <View key={row.id} testID={gone ? "record-log-deleted" : "record-log-row"} style={{ flexDirection: "row", gap: 8, paddingVertical: 3, alignItems: "flex-start" }}>
             <Text style={[{ color: colour, fontSize: 12, minWidth: 44, fontVariant: ["tabular-nums"] }, strike]}>{row.time}</Text>
-            <Text style={[{ color: gone ? P.faint : P.muted, fontSize: 11, minWidth: 64 }, strike]}>{R.kinds[row.kind]}</Text>
+            <Text style={[{ color: gone ? P.faint : P.muted, fontSize: 12, minWidth: 64 }, strike]}>{R.kinds[row.kind]}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[{ color: colour, fontSize: 12, fontWeight: row.complication ? "700" : "500" }, strike]}>{row.text}</Text>
-              {gone ? <Text style={{ color: P.muted, fontSize: 10, fontWeight: "700" }}>{R.deletedAt}{row.deletedTime ? ` ${row.deletedTime}` : ""}</Text> : row.card ? <Text style={{ color: P.muted, fontSize: 10 }}>★ {row.card}</Text> : null}
+              {gone ? <Text style={{ color: P.muted, fontSize: 12, fontWeight: "700" }}>{R.deletedAt}{row.deletedTime ? ` ${row.deletedTime}` : ""}</Text> : row.card ? <Text style={{ color: P.muted, fontSize: 12 }}>★ {row.card}</Text> : null}
             </View>
           </View>
         )
@@ -106,7 +106,7 @@ export function RecordVitalsTable({ keyEvents, clock, defaultOpen = false }: { k
   const [open, setOpen] = useState(defaultOpen)
   if (model.vitals.length === 0) return null
   const cell = (text: string | number | undefined, width: number, bad = false) => (
-    <Text style={{ color: bad ? P.sbp : P.ink, fontSize: 11, width, fontVariant: ["tabular-nums"], fontWeight: bad ? "700" : "400" }}>{text ?? "—"}</Text>
+    <Text style={{ color: bad ? P.sbp : P.ink, fontSize: 12, width, fontVariant: ["tabular-nums"], fontWeight: bad ? "700" : "400" }}>{text ?? "—"}</Text>
   )
   return (
     <View testID="record-vitals" style={{ backgroundColor: P.card, borderRadius: 14, borderWidth: 1, borderColor: P.grid, padding: 10, marginBottom: 12 }}>
@@ -116,7 +116,7 @@ export function RecordVitalsTable({ keyEvents, clock, defaultOpen = false }: { k
       {open ? (
         <View style={{ marginTop: 8 }}>
           <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: P.grid, paddingBottom: 3 }}>
-            {[R.time, language === "bg" ? "АН" : "BP", language === "bg" ? "Пулс" : "HR", "SpO₂", "EtCO₂", "T °C"].map((h, i) => <Text key={i} style={{ color: P.muted, fontSize: 10, width: i === 1 ? 62 : 46, fontWeight: "700" }}>{h}</Text>)}
+            {[R.time, language === "bg" ? "АН" : "BP", language === "bg" ? "Пулс" : "HR", "SpO₂", "EtCO₂", "T °C"].map((h, i) => <Text key={i} style={{ color: P.muted, fontSize: 12, width: i === 1 ? 62 : 46, fontWeight: "700" }}>{h}</Text>)}
           </View>
           {model.vitals.map(v => {
             const low = typeof v.systolic === "number" && v.systolic < 90
@@ -144,13 +144,13 @@ export function RecordEpisodes({ keyEvents, timeZone }: { keyEvents: unknown; ti
   if (episodes.length === 0) return null
   return (
     <View testID="record-episodes" style={{ backgroundColor: P.card, borderRadius: 14, borderWidth: 1, borderColor: P.grid, padding: 10, marginBottom: 12 }}>
-      <Text style={{ color: P.title, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.episodes.toUpperCase()}</Text>
+      <Text style={{ color: P.title, fontSize: 12, fontWeight: "800", letterSpacing: 1.2, marginBottom: 6 }}>{R.episodes.toUpperCase()}</Text>
       {episodes.map(episode => (
         <View key={episode.id} style={{ borderLeftWidth: 3, borderLeftColor: P.sbp, paddingLeft: 8, marginBottom: 6 }}>
           <Text style={{ color: P.sbp, fontSize: 12, fontWeight: "700" }}>{episode.from}{episode.to ? `–${episode.to}` : ""} · {episode.label}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
             {episode.treated.map((t, i) => (
-              <Text key={i} style={{ color: P.ink, fontSize: 11, borderWidth: 1, borderColor: P.grid, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>{t.text} {t.time}</Text>
+              <Text key={i} style={{ color: P.ink, fontSize: 12, borderWidth: 1, borderColor: P.grid, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>{t.text} {t.time}</Text>
             ))}
           </View>
         </View>

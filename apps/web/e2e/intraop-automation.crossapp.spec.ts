@@ -68,8 +68,13 @@ async function nowSlot(page: Page) {
   // The PWA draws the live now-line inside this row and updates its position
   // continuously. A normal Playwright click waits for a stable bounding box
   // forever even though the TouchableOpacity itself is the intended target.
-  if (await page.getByTestId("timetable-quick-add-event").count() === 0) await page.getByTestId("timetable-row-now").click({ force: true })
-  await page.getByTestId("timetable-quick-add-event").click()
+  // The row can open by itself a moment after a save, so look twice before toggling it (10.8.0: a second click would shut it).
+  const quick = page.getByTestId("timetable-quick-add-event")
+  const row = page.getByTestId("timetable-row-now")
+  await page.waitForTimeout(800)
+  if (await quick.count() === 0) await row.click({ force: true })
+  if (!(await quick.waitFor({ state: "visible", timeout: 4_000 }).then(() => true, () => false))) await row.click({ force: true })
+  await quick.click()
 }
 
 /** Signing the phone in sets the account to English: say the language again afterwards. */
@@ -101,6 +106,9 @@ for (const locale of LOCALES) {
       await phone.page.getByTestId(`attention-vital-log-${key}`).click()
       await expect.poll(async () => (await events(web.request, caseA)).find(event => event.type === "complication")?.complicationSource, { timeout: 20_000 }).toBe("vitals")
 
+      // Logging the question also opens its treatment sheet (Bradycardia: treat now?): put it away, as a clinician would.
+      await phone.page.getByText(locale === "bg" ? "Не сега" : "Not now", { exact: true }).last().click()
+      await phone.page.waitForTimeout(500)
       // A timed complication from the slot sheet.
       await timetable(phone.page, locale)
       await nowSlot(phone.page)
@@ -108,6 +116,9 @@ for (const locale of LOCALES) {
       await phone.page.getByTestId("event-category-Complications").click()
       await phone.page.getByText(locale === "bg" ? "Ларингоспазъм" : "Laryngospasm", { exact: true }).click()
       await expect.poll(async () => (await events(web.request, caseA)).filter(event => event.type === "complication").length, { timeout: 20_000 }).toBe(2)
+      // The complication opens its "treat now?" sheet: put it away.
+      await phone.page.getByText(locale === "bg" ? "Не сега" : "Not now", { exact: true }).last().click()
+      await phone.page.waitForTimeout(500)
 
       // A shock.
       await nowSlot(phone.page)

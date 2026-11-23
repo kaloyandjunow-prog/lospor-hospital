@@ -66,4 +66,12 @@ describe("VitalsPopover validation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Done" }))
     expect(props.onCommit).toHaveBeenCalledOnce()
   })
+
+  // 10.8.0: Clear, as the PWA's × beside each field -- the value goes and nothing is carried forward.
+  it("clears the value and commits it as cleared", () => {
+    const props = renderPopover({ value: 60 })
+    fireEvent.click(screen.getByTestId("vitals-clear"))
+    expect(props.onChange).toHaveBeenLastCalledWith(null)
+    expect(props.onCommit).toHaveBeenCalledWith(true)
+  })
 })

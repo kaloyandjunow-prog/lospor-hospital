@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
@@ -42,8 +44,8 @@ export type VitalsPopoverProps = {
   max: number
   step: number
   onChange: (value: number | null) => void
-  /** Called on Done and on dismissal; both commit. */
-  onCommit: () => void
+  /** Called on Done and on dismissal; both commit. cleared: the value was cleared, so nothing is carried forward. */
+  onCommit: (cleared?: boolean) => void
 }
 
 export function VitalsPopover({
@@ -92,6 +94,7 @@ export function VitalsPopover({
         }}
         onClick={event => event.stopPropagation()}
       >
+        <PopoverClose onClose={commit} className="absolute right-1.5 top-1.5 z-10" />
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>
@@ -129,17 +132,28 @@ export function VitalsPopover({
           </p>
         ) : null}
 
-        <button
-          type="button"
-          onClick={commit}
-          disabled={feedback.error != null}
-          aria-disabled={feedback.error != null}
-          className="w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-lg py-1.5 transition-colors"
-        >
-          {copy.done}
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          {/* 10.8.0: the value goes, as the PWA's × beside each field does. */}
+          <button
+            type="button"
+            data-testid="vitals-clear"
+            onClick={() => { change(null); onCommit(true) }}
+            className="min-h-11 w-full text-sm font-semibold rounded-lg border border-slate-300 dark:border-[#4a4a4a] text-slate-700 dark:text-slate-200"
+          >
+            {copy.clearValue}
+          </button>
+          <button
+            type="button"
+            onClick={commit}
+            disabled={feedback.error != null}
+            aria-disabled={feedback.error != null}
+            className="min-h-11 w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+          >
+            {copy.done}
+          </button>
+        </div>
       </div>
     </div>,
-    document.body,
+    portalHost(),
   )
 }

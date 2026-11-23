@@ -23,9 +23,6 @@ type Props = Omit<ScrollViewProps, "children" | "horizontal" | "onScroll" | "onC
 
 let cueId = 0
 
-/** How long the cues stay up after the last scroll movement before they fade away. */
-const CUE_IDLE_MS = 1400
-
 function CueChevron({ direction, color }: { direction: "back" | "forward" | "up" | "down"; color: string }) {
   const path = direction === "back" ? "M12.5 4.5 7 10l5.5 5.5"
     : direction === "forward" ? "M7.5 4.5 13 10l-5.5 5.5"
@@ -72,19 +69,14 @@ export function OverflowCueScrollView({
   const [content, setContent] = useState(0)
   const offsetRef = useRef(0)
   const [cueVisibility, setCueVisibility] = useState({ start: false, end: false })
-  // The cues are a hint that content is hidden, not furniture: they show while
-  // something is moving and fade out once the rail has been still for a moment.
-  const [awake, setAwake] = useState(false)
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const wake = useCallback(() => {
-    setAwake(true)
-    if (idleTimer.current) clearTimeout(idleTimer.current)
-    idleTimer.current = setTimeout(() => setAwake(false), CUE_IDLE_MS)
-  }, [])
-  useEffect(() => () => { if (idleTimer.current) clearTimeout(idleTimer.current) }, [])
+  // 10.8.0: the cues show as soon as the sheet or rail appears with something
+  // hidden -- nobody knew there was more until they happened to scroll -- and
+  // each one goes for good once the user has scrolled the way it points.
+  const [learned, setLearned] = useState({ start: false, end: false })
+  const lastOffset = useRef(0)
   const maxOffset = Math.max(0, content - viewport)
-  const canStart = cueVisibility.start
-  const canEnd = cueVisibility.end
+  const canStart = cueVisibility.start && !learned.start
+  const canEnd = cueVisibility.end && !learned.end
   const step = Math.max(160, viewport * 0.72)
 
   const syncCueVisibility = useCallback((nextOffset: number, nextMaxOffset = maxOffset) => {
@@ -99,10 +91,13 @@ export function OverflowCueScrollView({
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = horizontal ? event.nativeEvent.contentOffset.x : event.nativeEvent.contentOffset.y
     offsetRef.current = Math.max(0, next)
+    // Scrolled towards the end: that cue has done its job, and the same for the start.
+    if (offsetRef.current > lastOffset.current + 4) setLearned(current => current.end ? current : { ...current, end: true })
+    else if (offsetRef.current < lastOffset.current - 4) setLearned(current => current.start ? current : { ...current, start: true })
+    lastOffset.current = offsetRef.current
     syncCueVisibility(offsetRef.current)
-    wake()
     onScroll?.(event)
-  }, [horizontal, onScroll, syncCueVisibility, wake])
+  }, [horizontal, onScroll, syncCueVisibility])
 
   const handleContentSizeChange = useCallback((width: number, height: number) => {
     setContent(horizontal ? width : height)
@@ -150,12 +145,11 @@ export function OverflowCueScrollView({
     if (horizontal) targetRef.current?.scrollTo({ x: next, animated: true })
     else targetRef.current?.scrollTo({ y: next, animated: true })
     syncCueVisibility(next)
-    wake()
   }
 
   const fadeStyle = Platform.OS === "web" ? ({ transition: "opacity 220ms ease" } as object) : null
   const gradientId = `overflow-cue-${id}`
-  const edgeSize = horizontal ? 34 : 36
+  const edgeSize = horizontal ? 44 : 44
   const fade = horizontal
     ? { width: edgeSize, top: 0, bottom: 0 }
     : { height: edgeSize, left: 0, right: 0 }
@@ -182,7 +176,7 @@ export function OverflowCueScrollView({
       </ScrollView>
 
       {canStart ? (
-        <View pointerEvents={awake ? "box-none" : "none"} style={[StyleSheet.absoluteFill, { opacity: awake ? 1 : 0 }, fadeStyle]}>
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, fadeStyle]}>
           <Svg
             pointerEvents="none"
             width={horizontal ? edgeSize : "100%"}
@@ -213,7 +207,7 @@ export function OverflowCueScrollView({
       ) : null}
 
       {canEnd ? (
-        <View pointerEvents={awake ? "box-none" : "none"} style={[StyleSheet.absoluteFill, { opacity: awake ? 1 : 0 }, fadeStyle]}>
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, fadeStyle]}>
           <Svg
             pointerEvents="none"
             width={horizontal ? edgeSize : "100%"}

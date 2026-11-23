@@ -63,7 +63,7 @@ export function PlannedAnaesthesiaField({ value, onChange, bare = false }: {
       <div className="space-y-1.5">
         <div className={heading}>{t("intraop.airway.sectionTitle")}</div>
         <Chips options={chips("Device")} chosen={plan.airwayDevices} onChange={airwayDevices => set({ airwayDevices })} testId="preop-planned-device" />
-        <div className="text-[11px] text-slate-500">{t("intraop.airway.instrumentsLabel")}</div>
+        <div className="text-xs text-slate-500">{t("intraop.airway.instrumentsLabel")}</div>
         <Chips options={chips("Instrument")} chosen={plan.airwayTools} onChange={airwayTools => set({ airwayTools })} testId="preop-planned-tool" />
       </div>
       <div className="space-y-1.5">

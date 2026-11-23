@@ -128,4 +128,37 @@ describe("private Status clinical-role policy", () => {
     }, NOW)).rejects.toMatchObject({ code: "ACCOUNT_AUTHORITY_PROTECTED" })
     expect(tx.user.update).not.toHaveBeenCalled()
   })
+
+  // The nurse profiles are separate (2026-11-23): a nurse is a nurse or a senior nurse, never a doctor, and no doctor is made one.
+  it("moves a nurse to senior nurse and back", async () => {
+    const { changeHospitalClinicalRole } = await import("./account-authority")
+    const { prisma, tx } = harness({ role: "ANAESTHESIA_NURSE" })
+    const result = await changeHospitalClinicalRole(prisma as never, "user-1", { role: "ANAESTHESIA_SENIOR_NURSE", reason: REASON }, NOW)
+    expect(result).toMatchObject({ account: { id: "user-1", role: "ANAESTHESIA_SENIOR_NURSE" }, previousRole: "ANAESTHESIA_NURSE", changed: true })
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { role: "ANAESTHESIA_SENIOR_NURSE", passwordChangedAt: NOW } }))
+  })
+
+  it.each(["MEMBER", "HEAD_OF_DEPT", "ADMIN"] as const)("never makes a nurse a %s", async role => {
+    const { changeHospitalClinicalRole } = await import("./account-authority")
+    const { prisma, tx } = harness({ role: "ANAESTHESIA_NURSE" })
+    await expect(changeHospitalClinicalRole(prisma as never, "user-1", { role, reason: REASON }, NOW))
+      .rejects.toMatchObject({ code: "ACCOUNT_PROFILE_FIXED" })
+    expect(tx.user.update).not.toHaveBeenCalled()
+  })
+
+  it.each(["ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"] as const)("never makes a doctor a %s", async role => {
+    const { changeHospitalClinicalRole } = await import("./account-authority")
+    const { prisma, tx } = harness({ role: "MEMBER" })
+    await expect(changeHospitalClinicalRole(prisma as never, "user-1", { role, reason: REASON }, NOW))
+      .rejects.toMatchObject({ code: "ACCOUNT_PROFILE_FIXED" })
+    expect(tx.user.update).not.toHaveBeenCalled()
+  })
+
+  it("changes nothing when a nurse is given the role she has", async () => {
+    const { changeHospitalClinicalRole } = await import("./account-authority")
+    const { prisma, tx } = harness({ role: "ANAESTHESIA_SENIOR_NURSE" })
+    const result = await changeHospitalClinicalRole(prisma as never, "user-1", { role: "ANAESTHESIA_SENIOR_NURSE", reason: REASON }, NOW)
+    expect(result).toMatchObject({ changed: false })
+    expect(tx.user.update).not.toHaveBeenCalled()
+  })
 })

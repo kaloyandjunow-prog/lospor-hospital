@@ -34,7 +34,7 @@ export function MonitoringTab({
   }
   return (
     <OverflowCueScrollView style={{ flex: 1 }} scrollViewStyle={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
-      {fieldSaving === "monitoring" ? <Text style={{ color: shade("#94a3b8"), fontSize: 11, marginBottom: 8 }}>{tc("draftSaving")}</Text> : null}
+      {fieldSaving === "monitoring" ? <Text style={{ color: shade("#94a3b8"), fontSize: 12, marginBottom: 8 }}>{tc("draftSaving")}</Text> : null}
       {smart ?? <MonitoringGroups monitoring={monitoring} onToggle={toggle} monitoringOpts={monitoringOpts} />}
     </OverflowCueScrollView>
   )

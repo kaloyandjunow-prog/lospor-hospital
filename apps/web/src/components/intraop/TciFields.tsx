@@ -43,11 +43,11 @@ export function TciFields({ drug, pediatric, patient, choice, onChoice, target, 
   const unusable = problems.some(problem => problem.kind === "unavailable")
   const preview = tciPreview({ ...choice, target, concentration: syringe, patient })
   const blocked = !patient ? null : unusable ? copy.tci.unusable : !(target > 0) ? copy.tci.needsTarget : null
-  const pill = (on: boolean) => `min-h-7 whitespace-nowrap text-[10px] font-semibold px-2 py-1 rounded-full border transition-all ${on ? "bg-blue-500 border-blue-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`
+  const pill = (on: boolean) => `min-h-7 whitespace-nowrap text-xs font-semibold px-2 py-1 rounded-full border transition-all ${on ? "bg-blue-500 border-blue-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`
   return (
     <div data-testid="tci-fields" className="space-y-2">
       <div>
-        <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{copy.tci.model}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{copy.tci.model}</p>
         <div className="flex flex-wrap gap-1">
           {models.map(model => {
             const off = !!patient && tciModelProblems(model, patient).some(problem => problem.kind === "unavailable")
@@ -67,15 +67,15 @@ export function TciFields({ drug, pediatric, patient, choice, onChoice, target, 
           </button>
         ))}
         {choice.model === "ELEVELD_PROPOFOL" && (
-          <label className="ml-1 flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+          <label className="ml-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
             <input type="checkbox" checked={choice.opioids} onChange={event => onChoice({ ...choice, opioids: event.target.checked })} />
             {copy.tci.opioids}
           </label>
         )}
       </div>
-      {!patient && <p role="alert" className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{copy.tci.needsPatient}</p>}
+      {!patient && <p role="alert" className="text-xs font-semibold text-amber-600 dark:text-amber-400">{copy.tci.needsPatient}</p>}
       {problems.filter(problem => problem.kind === "outside").map((problem, index) => problem.kind === "outside" && (
-        <p key={index} className="text-[10px] text-amber-600 dark:text-amber-400">
+        <p key={index} className="text-xs text-amber-600 dark:text-amber-400">
           ⚠ {copy.tci.outside(TCI_MODEL_LABELS[choice.model], problem.covariate === "age" ? copy.tci.age : copy.tci.weight, problem.min, problem.max)}
         </p>
       ))}
@@ -105,7 +105,7 @@ export function TciFields({ drug, pediatric, patient, choice, onChoice, target, 
 /** Rate or TCI, for a drug that has TCI models. */
 export function TciModeSwitch({ tci, onRate, onTci }: { tci: boolean; onRate: () => void; onTci: () => void }) {
   const copy = useIntraopUiCopy()
-  const pill = (on: boolean) => `flex-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${on ? "bg-blue-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`
+  const pill = (on: boolean) => `flex-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${on ? "bg-blue-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`
   return (
     <div role="group" aria-label={copy.tci.mode} className="flex gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-[#2a2a2a]">
       <button type="button" aria-pressed={!tci} onClick={onRate} className={pill(!tci)}>{copy.tci.rateMode}</button>

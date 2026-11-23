@@ -19,7 +19,7 @@ const TEXT = {
     level: { same_substance: "Same drug", same_class: "Same drug class", cross_reaction: "Possible cross-reaction" },
     fromEhr: "from the hospital system",
     note: "Giving it records on the dose that you saw this allergy.",
-    give: "Give anyway",
+    give: "Give despite allergy to",
     cancel: "Don't give",
   },
   bg: {
@@ -27,7 +27,7 @@ const TEXT = {
     level: { same_substance: "Същият медикамент", same_class: "Същата група медикаменти", cross_reaction: "Възможна кръстосана реакция" },
     fromEhr: "от болничната система",
     note: "Прилагането записва върху дозата, че сте видели алергията.",
-    give: "Приложи въпреки това",
+    give: "Приложи въпреки алергия към",
     cancel: "Не прилагай",
   },
 } as const
@@ -124,7 +124,7 @@ export function useAllergyGate({ preop, locale, ready = true }: {
             onClick={() => { pending.confirm(); setPending(null) }}
             className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700"
           >
-            {text.give}
+            {text.give} {[...new Set(pending.hits.flatMap(hit => hit.conflicts.map(conflict => conflict.allergy)))].join(", ")}
           </button>
         </div>
       </div>

@@ -69,7 +69,7 @@ describe("medication controls and explicit guidance policy", () => {
     )
     const rendered = JSON.stringify(tree.toJSON())
 
-    expect(rendered).toContain("FiSevoflurane")
+    expect(rendered).toContain("FiSev%")
     const selector = tree.root.findByType(DoseSelector)
     expect(selector.props.value).toBe("1")
     expect(selector.props.quickValues).toEqual([1, 2, 2.5, 3, 8])

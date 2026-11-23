@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useReducer } from "react"
-import type { InfusionBarMove, RatePillMove } from "./TimetableInfusionLane"
+import type { RatePillMove } from "./TimetableInfusionLane"
 
 /**
  * Everything the chart is in the middle of being dragged.
@@ -26,8 +26,6 @@ export type DragSide = "left" | "right"
 
 export type TimetableDragState = {
   /** An infusion bar picked up to move whole, and the column under the cursor. */
-  movingInf: InfusionBarMove | null
-  movingInfCol: number | null
   /** A rate change picked up to slide to another column. */
   movingRatePill: RatePillMove | null
   /** An infusion grip being pulled, per side, and the column under the cursor. */
@@ -47,8 +45,6 @@ export type TimetableDragState = {
 }
 
 const EMPTY: TimetableDragState = {
-  movingInf: null,
-  movingInfCol: null,
   movingRatePill: null,
   extendingInf: null,
   extInfHover: null,
@@ -63,9 +59,6 @@ const EMPTY: TimetableDragState = {
 }
 
 type Action =
-  | { type: "infusionMoveStart"; move: InfusionBarMove }
-  | { type: "infusionMoveHover"; col: number }
-  | { type: "infusionMoveEnd" }
   | { type: "ratePillStart"; move: RatePillMove }
   | { type: "ratePillEnd" }
   | { type: "infusionExtendStart"; id: string; side: DragSide }
@@ -82,16 +75,6 @@ type Action =
 
 function reduce(state: TimetableDragState, action: Action): TimetableDragState {
   switch (action.type) {
-    case "infusionMoveStart":
-      // The first dragover is not guaranteed to arrive before the first
-      // render after native dragstart. Keep the bar's original column as the
-      // initial hover so its move ghost (including the rate strip) is visible
-      // immediately, then let dragover replace it with the real target.
-      return { ...state, movingInf: action.move, movingInfCol: action.move.fromCol }
-    case "infusionMoveHover":
-      return { ...state, movingInfCol: action.col }
-    case "infusionMoveEnd":
-      return { ...state, movingInf: null, movingInfCol: null }
 
     case "ratePillStart":
       return { ...state, movingRatePill: action.move }
@@ -133,9 +116,6 @@ function reduce(state: TimetableDragState, action: Action): TimetableDragState {
 }
 
 export type TimetableDragActions = {
-  infusionMoveStart: (move: InfusionBarMove) => void
-  infusionMoveHover: (col: number) => void
-  infusionMoveEnd: () => void
   ratePillStart: (move: RatePillMove) => void
   ratePillEnd: () => void
   infusionExtendStart: (id: string, side: DragSide) => void
@@ -155,9 +135,6 @@ export function useTimetableDrag(): [TimetableDragState, TimetableDragActions] {
   const [state, dispatch] = useReducer(reduce, EMPTY)
 
   const actions = useMemo<TimetableDragActions>(() => ({
-    infusionMoveStart: move => dispatch({ type: "infusionMoveStart", move }),
-    infusionMoveHover: col => dispatch({ type: "infusionMoveHover", col }),
-    infusionMoveEnd: () => dispatch({ type: "infusionMoveEnd" }),
     ratePillStart: move => dispatch({ type: "ratePillStart", move }),
     ratePillEnd: () => dispatch({ type: "ratePillEnd" }),
     infusionExtendStart: (id, side) => dispatch({ type: "infusionExtendStart", id, side }),

@@ -1,5 +1,58 @@
 # Changelog - LOSPOR Web App
 
+## [10.8.0] - 2026-11-23
+
+Released with Core and API 10.8.0. The intraop chart is rebuilt around one menu and one cursor, and the whole app is
+usable by a finger.
+
+### Added
+
+- **Anaesthesia team** in each row's menu on the dashboard: who was on the case and when, doctors and nurses, kept for good. Every
+  row has the menu now, so a finished case or one you cannot change still shows its team.
+- **Senior nurse** account role in the administration; nurses see every case of their hospital, edit the ones they are on, and
+  "Put me on this case" puts a nurse on a case that has no nurse.
+- Refusals say why: the case menu's dialogs, the nurses by theatre and the account changes show the reason, in Bulgarian too.
+- The allergy button says "Give despite allergy to ...". "Still running?" is asked only for a start entered at least half an hour late.
+
+- **One menu for every lane.** A click, or a tap on a cell that is already highlighted, opens the menu of what is in it:
+  Stop, Change dose, Change syringe, Resume, Fix start or end, Delete, and for the part after now Plan a stop, Plan a
+  change, Remove planned. Nothing asks "are you sure": the action is done and an Undo bar takes it back, many steps
+  back, with Ctrl+Z and Ctrl+Y. A ✕ closes every menu and popover.
+- **One cursor for mouse, finger and keyboard.** Pointing at a cell lights the cell and the bar in it; a finger's first
+  tap highlights, the second opens the menu; the arrows, Enter, Delete and Esc walk the chart. The right click is the
+  chart's own, and the full text of a cut-off bar label shows above its row.
+- **Dragging the end of a bar** stops it (before now), plans the stop (after now) or fixes the end, with no question.
+  Starting an agent beside a running one asks whether to switch or run both.
+- **Stopping asks only what it must:** an ordinary infusion and a fluid by rate stop at once; a TCI infusion offers the
+  pump's total; a fluid entered as a bag asks how much of it ran (and keeps the time of the cell).
+- **A new look for the bars.** Solid bars with a bright live edge, a dark notch where something stopped, slanted stripes
+  after now, a flag for a planned stop, a bar that lifts under the pointer, and quiet empty cells (the hint only at now,
+  the "+" only where the pointer is). One row for each infusion and fluid line, two syringes of one drug never share
+  a row; Resume keeps the row.
+- **Colours by ISO 26825 by default**, with a lighter shade for a second infusion of the same group and dark text on a
+  light bar; a hospital's own colour wins.
+- **Full screen** for the chart, with its menus and dialogs drawn inside it; a reminder bar under the header; the
+  names of the rows stay in view; totals after each run (an infusion's amount, a fluid's volume with time and rate).
+- **Anaesthesia nurses.** A nurse sees only her cases and does only intraop and postop. Nurses are assigned to a case or a
+  theatre for a day, hand a case to another nurse from the row menu, and the dashboard row menu holds the planned
+  operation date (on the shared wheels), the nurses, Delete and Cancel.
+- **"Case open by: <names>"** while another screen is in the case; several people can work in one case, the last edit wins.
+- **Touch on every screen:** every control is 44 px and no text is under 12 px (a coarse-pointer layer, with a guard on a
+  tablet and a phone), no browser menu on a right click or a long press (except at sign-in), a focused field is brought to
+  the middle, the date and time wheels turn with a mouse wheel as well.
+
+### Changed
+
+- The header navigation is centred and fits a tablet; the dashboard row's columns line up.
+- The old keyboard of the chart (Tab, Delete on a whole item, arrows to stretch) and the dose strip are gone; Shortcuts
+  and gestures says what the chart does now. "Edit" on an airway or vascular event opens its own tab.
+- A device of the airway record is removed with the ✕ beside it, no longer with a right click.
+- Dependencies: `next-intl`, `tailwind-merge`, `@sentry/nextjs`, `lucide-react` to their latest minor.
+
+### Fixed
+
+- "FISEVOFLURANE" in the agent window, Ringer on an "UNKNOWN" fluid lane, a gas label and a drug's dose cut off in their cells.
+
 ## [10.7.0] - 2026-11-19
 
 Released with Core and API 10.7.0.

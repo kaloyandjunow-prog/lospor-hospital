@@ -103,11 +103,13 @@ describe("the closed row of a planned change", () => {
   ] as LogEvent[]
   const chart = projectIntraopEvents(log as never, { start: start.toISOString(), openThrough: at(47) }) as unknown as TimetableData
 
-  it("says what is planned there without being opened", () => {
+  // 10.8.0: the closed row shows a planned change as a dot on the item's side strip, not as text.
+  it("marks what is planned there without being opened", () => {
     const running = runningItemsByCol(chart, [13], { projectRunning: true }).get(13)!
-    const shown = texts(closedRow(running, 13)).join(" | ")
-    expect(shown).toContain("Change planned · ")
-    expect(shown).toContain("Propofol")
+    const tree = closedRow(running, 13)
+    const strip = tree.root.findAll(node => typeof node.type === "string" && String(node.props?.testID ?? "").startsWith("row-strip-"))
+    expect(strip.length).toBeGreaterThan(0)
+    expect(texts(tree).join(" | ")).not.toContain("planned")
   })
 
   it("says nothing of the kind in a row where nothing is planned", () => {

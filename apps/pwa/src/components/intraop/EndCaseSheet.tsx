@@ -16,6 +16,8 @@ export type EndCaseStopContext = {
   administeredVolumeMl?: number
   /** A TCI infusion: the pump's own total, when entered (2026-10-19). */
   pump?: { value: number; unit: PumpTotalUnit }
+  /** 10.8.0: stopped on the record at the end, going on after the case (recovery, ICU). */
+  continuesAfterEnd?: boolean
 }
 
 export type EndCaseCleanupItem = {
@@ -114,7 +116,7 @@ export function EndCaseSheet({
       </View>
       {end.mode === "at" && (
         <View testID="end-case-at" style={{ marginBottom:12 }}>
-          <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase", marginBottom:6 }}>
+          <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1.2, textTransform:"uppercase", marginBottom:6 }}>
             {tc("endCaseAtLabel")}
           </Text>
           <DayStepper value={end.dayKey} onChange={end.setDayKey} todayKey={end.todayKey} min={end.startKey} max={end.todayKey}
@@ -143,11 +145,11 @@ export function EndCaseSheet({
             borderWidth:1, borderColor:item.color+"44" }}>
             <View style={{ marginBottom:8 }}>
               <Text style={{ color:item.color, fontWeight:"700" }}>{item.label}</Text>
-              <Text style={{ color:shade("#94a3b8"), fontSize:11 }}>{item.sublabel}</Text>
+              <Text style={{ color:shade("#94a3b8"), fontSize:12 }}>{item.sublabel}</Text>
             </View>
             {dec === "stop" && item.fluidVolume ? (
               <View style={{ marginBottom:10 }}>
-                <Text style={{ color:shade("#94a3b8"), fontSize:11, marginBottom:5 }}>
+                <Text style={{ color:shade("#94a3b8"), fontSize:12, marginBottom:5 }}>
                   {item.fluidVolume.mode === "RATE" ? tc("calculatedPumpActual") : tc("actualAdministeredVolume")}
                 </Text>
                 <TextInput
@@ -159,7 +161,7 @@ export function EndCaseSheet({
                   style={{ backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:9, paddingHorizontal:11,
                     paddingVertical:9, borderWidth:1, borderColor:item.color+"55", fontSize:16 }}
                 />
-                <Text style={{ color:shade("#64748b"), fontSize:10, marginTop:4 }}>mL</Text>
+                <Text style={{ color:shade("#64748b"), fontSize:12, marginTop:4 }}>mL</Text>
               </View>
             ) : null}
             {dec === "stop" && item.pumpTotal ? (
@@ -192,7 +194,7 @@ export function EndCaseSheet({
       {afterEnd.length > 0 && (
         <View testID="end-case-after-end" style={{ marginTop:6, marginBottom:10 }}>
           <Text style={{ color:shade("#fbbf24"), fontWeight:"700", fontSize:13 }}>{tc("endCaseAfterEndTitle")}</Text>
-          <Text style={{ color:shade("#94a3b8"), fontSize:11, marginBottom:8 }}>{tc("endCaseAfterEndHint")}</Text>
+          <Text style={{ color:shade("#94a3b8"), fontSize:12, marginBottom:8 }}>{tc("endCaseAfterEndHint")}</Text>
           {afterEnd.map(entry => (
             <View key={entry.id} style={{ marginBottom:8, backgroundColor:entry.color+"14", borderRadius:10, padding:10,
               borderWidth:1, borderStyle:"dashed", borderColor:entry.color+"66" }}>
@@ -200,7 +202,7 @@ export function EndCaseSheet({
               <AttentionAnswers id={entry.id} kind={entry.kind} onAnswer={(id, action) => onResolveAfterEnd?.(id, action)} />
             </View>
           ))}
-          <Text style={{ color:shade("#fbbf24"), fontSize:11 }}>{tc("endCaseFinaliseBlocked")}</Text>
+          <Text style={{ color:shade("#fbbf24"), fontSize:12 }}>{tc("endCaseFinaliseBlocked")}</Text>
         </View>
       )}
       {allDecided && (
@@ -213,15 +215,16 @@ export function EndCaseSheet({
             // Run all stops concurrently instead of one full round-trip at a
             // time — each item's local optimistic update no longer needs to
             // wait for the previous item's network save to finish.
-            // Only items marked "stop" get a stop, at the end time. Items continued
-            // postoperatively keep running; the chart and every total stop at the end.
-            await Promise.all(items.filter(item => decisions[item.key] === "stop").map(item => {
-              if (!item.fluidVolume) return item.onStop({ endTs, ...(pumpTotals[item.key] ? { pump: pumpTotals[item.key] } : {}) })
+            // 10.8.0: everything stops on the record at the end time; what goes on after
+            // the case (recovery, ICU) is marked so, the same as on the web.
+            await Promise.all(items.filter(item => decisions[item.key] === "stop" || decisions[item.key] === "continue").map(item => {
+              const goesOn = decisions[item.key] === "continue" ? { continuesAfterEnd: true } : {}
+              if (!item.fluidVolume) return item.onStop({ endTs, ...goesOn, ...(pumpTotals[item.key] ? { pump: pumpTotals[item.key] } : {}) })
               const edited = fluidActualVolumes[item.key]
               const administeredVolumeMl = edited === undefined
                 ? item.fluidVolume.atEnd(endTs)
                 : Number(edited)
-              return item.onStop({ endTs, administeredVolumeMl })
+              return item.onStop({ endTs, administeredVolumeMl, ...goesOn })
             }))
             const continued = items
               .filter(item => decisions[item.key] === "continue")

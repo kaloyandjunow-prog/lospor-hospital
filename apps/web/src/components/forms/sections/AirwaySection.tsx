@@ -79,7 +79,7 @@ export function AirwaySection({
   }
 
   return (
-    <SectionCard title={t("intraop.airway.sectionTitle")} collapsible>
+    <SectionCard anchor="intraop-airway" title={t("intraop.airway.sectionTitle")} collapsible>
       {/* N/A toggle */}
       <div className="flex items-center gap-2">
         <button type="button"
@@ -99,7 +99,7 @@ export function AirwaySection({
       {!smart && <>
       {/* Airway management instruments — multi-select */}
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.instrumentsLabel")}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.instrumentsLabel")}</p>
         <div className="flex flex-wrap gap-2">
           {airwayToolOptions.map(option => {
             const v = option.value
@@ -128,7 +128,7 @@ export function AirwaySection({
       {/* Cormack-Lehane grade — shown when direct or video laryngoscopy performed */}
       {(watch("airwayTools") ?? []).some((t: string) => ["DIRECT_LARY","VIDEO_LARY"].includes(t)) && (
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.cormackLehaneLabel")}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.cormackLehaneLabel")}</p>
           <CormackLehaneField control={control} />
         </div>
       )}
@@ -175,7 +175,7 @@ export function AirwaySection({
           setValue("airwayDevices", isOn ? devs.filter(d => d !== v) : [...devs, v])
         }
 
-        // Right-click / long-press removal for devices with sub-options — clears the
+        // Removal (the × beside a filled-in device) for devices with sub-options — clears the
         // device's own fields too, so re-adding it later starts blank, not pre-filled
         // from whatever was entered last time.
         function removeComplexDevice(v: string) {
@@ -189,7 +189,7 @@ export function AirwaySection({
 
         return (
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.deviceLabel")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.deviceLabel")}</p>
             <div className="flex flex-wrap gap-2">
               {DEVICES.map(({ v, label }) => {
                 if (!HAS_SUBOPTIONS.includes(v)) {
@@ -217,7 +217,6 @@ export function AirwaySection({
                       if (isExpanded) setAirwayExpandedDevice(null)
                       else expandAirwayDevice(v)
                     }}
-                    onContextMenu={e => { e.preventDefault(); removeComplexDevice(v) }}
                     title={confirmed ? t(isExpanded ? "intraop.airway.deviceHintOpen" : "intraop.airway.deviceHintClosed") : t("intraop.airway.deviceHintNew")}
                     className={`px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                       confirmed
@@ -386,7 +385,7 @@ export function AirwaySection({
 
       {/* Ventilation — hierarchical multi-select */}
       <div className="space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.ventilationMode")}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("intraop.airway.ventilationMode")}</p>
         <div className="flex flex-wrap gap-2">
           {/* Spontaneous */}
           {(() => {
@@ -413,7 +412,7 @@ export function AirwaySection({
                   hasAny ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white"
                          : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
                 }`}>
-                {t("intraop.airway.ventAssisted")} <span className="text-[10px]">{open ? "▲" : "▼"}</span>
+                {t("intraop.airway.ventAssisted")} <span className="text-xs">{open ? "▲" : "▼"}</span>
               </button>
             )
           })()}
@@ -429,7 +428,7 @@ export function AirwaySection({
                   hasAny ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white"
                          : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
                 }`}>
-                {t("intraop.airway.ventControlled")} <span className="text-[10px]">{open ? "▲" : "▼"}</span>
+                {t("intraop.airway.ventControlled")} <span className="text-xs">{open ? "▲" : "▼"}</span>
               </button>
             )
           })()}

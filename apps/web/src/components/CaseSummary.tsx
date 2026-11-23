@@ -83,7 +83,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
         <ReviewBar
           caseId={caseId}
           status={data.status}
-          canWrite={canWrite}
+          canWrite={canWrite} isNurse={(data as { capabilities?: { isNurse?: boolean } }).capabilities?.isNurse === true}
           awaitingReviewAt={data.awaitingReviewAt ?? null}
           finalizedAtMs={finalizedAtMs}
           now={now}

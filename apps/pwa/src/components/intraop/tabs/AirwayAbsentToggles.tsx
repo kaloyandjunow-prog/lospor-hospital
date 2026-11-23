@@ -48,7 +48,7 @@ export function AirwayAbsentToggles({ presentsIntubated, setPresentsIntubated, n
             }
             apply()
           }}
-          style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
+          style={{ paddingHorizontal:14, paddingVertical:10, minHeight:44, justifyContent:"center", borderRadius:12,
             backgroundColor: option.on ? shade("#3f2d1a") : shade("#111111"),
             borderWidth:1, borderColor: option.on ? shade("#f59e0b") : shade("#1e2d40") }}
         >

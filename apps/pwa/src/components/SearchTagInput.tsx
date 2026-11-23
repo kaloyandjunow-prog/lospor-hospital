@@ -231,7 +231,7 @@ export function SearchTagInput({
                   backgroundColor: withAlpha(colors.warning, "1A"),
                   borderBottomWidth: 1, borderBottomColor: withAlpha(colors.warning, "40"),
                 }}>
-                  <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "800" }}>
+                  <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "800" }}>
                     {source === "offline" ? t("offlineVocabulary") : t("searchUnavailableOffline")}
                   </Text>
                 </View>

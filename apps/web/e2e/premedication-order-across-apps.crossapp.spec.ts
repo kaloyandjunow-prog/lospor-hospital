@@ -98,15 +98,9 @@ test.describe("premedication ordered at the preop visit", () => {
         await phone.getByText("Premedication", { exact: true }).first().click()
         await expect(phone.getByText("The night before surgery", { exact: true })).toBeVisible()
 
-        // The web page still holds the case, so the phone is only watching and
-        // can save nothing: the order must wait rather than look applied.
-        await expect(phone.getByText(/Being edited on another device/)).toBeVisible()
-        await expect(phone.getByTestId("premed-as-ordered-evening")).toHaveCount(0)
-        await shot(phone, "2a-phone-intraop-watching-waits")
-        expect((await server(web, id)).intraop?.premedicationEvening ?? null).toBeNull()
-        await phone.getByText("Take over", { exact: true }).click()
-        await phone.getByText("Confirm", { exact: true }).click()
-
+        // 10.8.0: the web page holding the case no longer turns the phone into a watcher (several people
+        // chart one case, the last edit wins), so the order is applied at once, with no take-over step.
+        await expect(phone.getByText(/Being edited on another device/)).toHaveCount(0)
         await expect(phone.getByTestId("premed-as-ordered-evening")).toBeVisible()
         await expect(phone.getByTestId("premed-as-ordered-morning")).toBeVisible()
         await expect(phone.getByText(/^Midazolam /).first()).toBeVisible()

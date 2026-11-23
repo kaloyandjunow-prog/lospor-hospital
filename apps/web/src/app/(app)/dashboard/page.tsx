@@ -6,8 +6,9 @@ import { FilePlus, FileText, Activity, Users, BarChart3 } from "lucide-react"
 import { PendingHandovers } from "@/components/PendingHandovers"
 import { DashboardSearch } from "@/components/DashboardSearch"
 import { DashboardFilters } from "@/components/DashboardFilters"
+import { TheatreNurseShifts } from "@/components/TheatreNurseShifts"
 import { OPERATING_THEATRES_OFF, parseOperatingTheatreConfig, type CaseTheatreView } from "@lospor/core/operating-theatres"
-import { getTranslations } from "next-intl/server"
+import { getLocale, getTranslations } from "next-intl/server"
 import { isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
 import { isTodaysCase } from "@/lib/dashboard-order"
 import type React from "react"
@@ -41,7 +42,9 @@ type CaseRow = {
   user: { name: string }
   theatre?: CaseTheatreView
   transfers: Array<{ id: string; toUserId: string }>
-  capabilities?: { canWrite: boolean } | null
+  capabilities?: { canWrite: boolean; canAssignNurses?: boolean } | null
+  /** The anaesthesia nurses on the case. */
+  nurses?: { userId: string }[]
 }
 type DashboardScope = "all" | "today" | "month" | "active" | "drafts" | "awaiting-postop" | "complete" | "handovers" | "icu"
 type DashboardCounts = {
@@ -153,6 +156,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const session = await getLiveSession()
   if (!session?.user?.id) return null
   const t = await getTranslations()
+  const locale = await getLocale()
   const params = await searchParams
   const requestedScope = params?.scope
   const scope: DashboardScope = requestedScope === "today" || requestedScope === "month" || requestedScope === "active" || requestedScope === "drafts" || requestedScope === "awaiting-postop" || requestedScope === "complete" || requestedScope === "handovers" || requestedScope === "icu"
@@ -289,6 +293,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
       </div>
 
       <DashboardFilters theatres={theatreConfig.theatres} theatresEnabled={theatreConfig.enabled} anaesthesiologists={anaesthesiologists} />
+      {theatreConfig.enabled ? <TheatreNurseShifts theatres={theatreConfig.theatres} role={session.user.role} userId={session.user.id} locale={locale} /> : null}
 
       {/* Pending incoming handovers */}
       <PendingHandovers />

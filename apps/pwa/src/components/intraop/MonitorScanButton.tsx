@@ -11,7 +11,7 @@ export function MonitorScanButton({ onScan, busy }: { onScan: () => void; busy: 
   const clinicalAi = useClinicalAiCapabilities()
   if (!clinicalAi.monitorOcr.enabled) {
     return (
-      <Text style={{ color:shade("#64748b"), fontSize:11, marginBottom:14, lineHeight:16 }}>
+      <Text style={{ color:shade("#64748b"), fontSize:12, marginBottom:14, lineHeight:16 }}>
         {tc(capabilityMessageKey(clinicalAi.monitorOcr.reason))}
       </Text>
     )
@@ -30,7 +30,7 @@ export function MonitorScanButton({ onScan, busy }: { onScan: () => void; busy: 
         </Text>
       </FeedbackPressable>
       {!busy ? (
-        <Text style={{ color:shade("#475569"), fontSize:10, marginBottom:14, lineHeight:14 }}>
+        <Text style={{ color:shade("#475569"), fontSize:12, marginBottom:14, lineHeight:14 }}>
           {tc("vsScanPrivacyNote")}
         </Text>
       ) : null}

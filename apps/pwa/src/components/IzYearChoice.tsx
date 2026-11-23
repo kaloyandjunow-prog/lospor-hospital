@@ -91,7 +91,7 @@ export function IzYearChoice({
           )
         })}
       </View>
-      <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>{izYearHint(choice, locale)}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16, marginTop: 6 }}>{izYearHint(choice, locale)}</Text>
     </View>
   )
 }

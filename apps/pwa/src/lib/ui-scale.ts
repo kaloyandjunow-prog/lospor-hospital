@@ -49,6 +49,18 @@ function reportScaleRelativeToDisplaySize(): void {
   scaleReported = true
 }
 
+/**
+ * The viewport tag for a display size. `baseWidth` is the window's width at 100%: the app is laid out for
+ * that width divided by the factor and drawn larger. It is the window's own width, never `screen.width`:
+ * the screen's size is not the window's wherever the window is not the whole screen (a desktop or a
+ * browser's phone emulation reports the monitor's width, and the page was laid out 4.6 times too wide).
+ */
+export function viewportContent(baseWidth: number, scale: number): string {
+  if (scale === UI_SCALE_DEFAULT) return DEFAULT_VIEWPORT
+  const factor = scale / 100
+  return `width=${Math.round(baseWidth / factor)}, initial-scale=${factor}, minimum-scale=${factor}, maximum-scale=${factor}, shrink-to-fit=no`
+}
+
 export function applyUiScale(percent: number): void {
   if (!uiScaleSupported || typeof document === "undefined") return
   const scale = parseUiScale(percent)
@@ -56,10 +68,10 @@ export function applyUiScale(percent: number): void {
   if (!meta) return
   const factor = scale / 100
   reportScaleRelativeToDisplaySize()
+  // The window at 100%: its width now times the factor it was laid out with until now.
+  const baseWidth = window.innerWidth * appliedFactor
   appliedFactor = factor
-  meta.setAttribute("content", scale === UI_SCALE_DEFAULT
-    ? DEFAULT_VIEWPORT
-    : `width=${Math.round(screen.width / factor)}, initial-scale=${factor}, minimum-scale=${factor}, maximum-scale=${factor}, shrink-to-fit=no`)
+  meta.setAttribute("content", viewportContent(baseWidth, scale))
   // The window's size changes, but no resize event says so: screens sized from
   // it (intraop) kept the old width until something else resized the window.
   window.dispatchEvent(new Event("resize"))

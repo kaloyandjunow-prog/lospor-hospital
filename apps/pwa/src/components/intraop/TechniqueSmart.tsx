@@ -82,7 +82,7 @@ export function TechniqueSmart({ techniques, sides, onChange, tree, label, color
 
   const hits = searchTechniques(query, 6, code => [label(code)])
   const planLeft = plannedTechniquesLeft(planned, techniques)
-  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>{text}</Text>
+  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>{text}</Text>
   const currentNodes = browsePath.length === 0
     ? tree
     : findNodePath(browsePath[browsePath.length - 1]!, tree)?.at(-1)?.children ?? []
@@ -143,7 +143,7 @@ export function TechniqueSmart({ techniques, sides, onChange, tree, label, color
               </TouchableOpacity>
               {sided ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
-                  <Text style={{ color: sides[code] ? shade("#94a3b8") : shade("#fbbf24"), fontSize: 11, fontWeight: "700", width: 54 }}>{sides[code] ? tc("tchSide") : tc("tchSideNeeded")}</Text>
+                  <Text style={{ color: sides[code] ? shade("#94a3b8") : shade("#fbbf24"), fontSize: 12, fontWeight: "700", width: 54 }}>{sides[code] ? tc("tchSide") : tc("tchSideNeeded")}</Text>
                   {TECHNIQUE_SIDES.map(side => (
                     <TouchableOpacity key={side} testID={`technique-side-${code}-${side}`} accessibilityState={{ selected: sides[code] === side }} onPress={() => pickSide(code, side)}
                       style={{ minHeight: 44, flex: 1, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center",
@@ -163,7 +163,7 @@ export function TechniqueSmart({ techniques, sides, onChange, tree, label, color
           {eyebrow(tc("tchPlan"))}
           <View testID="technique-plan" style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 14, borderWidth: 1, borderStyle: "dashed", borderColor: shade("#fbbf24"), backgroundColor: shade("#2a2210") }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: shade("#fbbf24"), fontSize: 11, fontWeight: "800" }}>{tc("tchPlanned")}</Text>
+              <Text style={{ color: shade("#fbbf24"), fontSize: 12, fontWeight: "800" }}>{tc("tchPlanned")}</Text>
               <Text style={{ color: shade("#f8fafc"), fontWeight: "700", fontSize: 14 }}>{planLeft.map(nameOf).join(" + ")}</Text>
             </View>
             <TouchableOpacity testID="technique-use-plan" onPress={usePlan} style={{ minHeight: 44, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: shade("#a67cff"), backgroundColor: shade("#a67cff") + "26", justifyContent: "center" }}>

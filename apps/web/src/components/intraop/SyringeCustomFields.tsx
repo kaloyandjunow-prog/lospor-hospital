@@ -67,11 +67,11 @@ export function SyringeCustomFields({ name, route, doseUnit, onChange }: {
         showGuidance={DISPLAY_CLINICAL_DOSE_GUIDANCE}
       />
       {"error" in result ? (
-        <p role="alert" className="text-[10px] text-red-500 dark:text-red-400">
+        <p role="alert" className="text-xs text-red-500 dark:text-red-400">
           {result.error === "amount" ? copy.syringeErrorAmount : result.error === "volume" ? copy.syringeErrorVolume : copy.syringeErrorUnit}
         </p>
       ) : (
-        <p className="text-[10px] text-slate-500 dark:text-slate-400">{label} = {perMl} {amountUnit}/mL</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label} = {perMl} {amountUnit}/mL</p>
       )}
     </div>
   )

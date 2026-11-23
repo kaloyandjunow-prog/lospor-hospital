@@ -1,3 +1,4 @@
+import { editDoseInCell } from "@/lib/dose-change-in-cell"
 import * as Haptics from "expo-haptics"
 import { serverNow } from "@/lib/server-clock"
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react"
@@ -163,6 +164,15 @@ export function useIntraopEventPersistence({
     const ts = typeof tsOverride === "string"
       ? tsOverride
       : resolveRowStamp(tsOverride ? tsOverride.rowTs : entryTs, chartStart)
+    // 10.8.0: a dose change in the cell the item started in edits the start; in a cell with a change, that
+    // change (Core's rule, the same as the web chart). Nothing is written twice and nothing is dated before its start.
+    const inPlace = chartStart ? editDoseInCell(logRef.current, partial, ts, chartStart) : null
+    if (inPlace) {
+      const before = logRef.current
+      await syncLog(inPlace)
+      setEntryTs(null)
+      return inPlace.find((item, index) => item !== before[index]) ?? null
+    }
     const event: LogEvent = {
       id: partial.id ?? uid(),
       ts,

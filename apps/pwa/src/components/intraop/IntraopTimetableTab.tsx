@@ -1,3 +1,5 @@
+import { useShade } from "@/theme/shade"
+import type { WeightBasisMap } from "@lospor/core/intraop-totals"
 import type { TciPatient } from "@lospor/core/tci"
 import { useCallback, useMemo, type RefObject } from "react"
 import type { IntraopLabDraw } from "@lospor/core/labs"
@@ -11,7 +13,8 @@ import { displayedCatalogName } from "@lospor/core/display"
 import { TimetableFooter } from "./TimetableFooter"
 import { TimetableRow, type QuickAddAction } from "./TimetableRow"
 import { IntraopUndoBar } from "./IntraopUndoBar"
-import { plannedRowTime } from "@/lib/intraop-projection"
+import { formatDateHHMM, plannedRowTime, timeAtCol } from "@/lib/intraop-projection"
+import { intraopStoppedItemsAt } from "@lospor/core/intraop-edits"
 import { IntraopAttentionBanner, type IntraopAttentionView } from "./IntraopAttentionBanner"
 import type { IntraopAttentionAction } from "@lospor/core/intraop-attention"
 import { CaseSaveStateContext } from "@/lib/use-case-save-state"
@@ -21,6 +24,8 @@ type Props = {
   screenWidth: number
   /** For a running TCI infusion's predicted value in each row (2026-10-18). */
   tciPatient?: TciPatient | null
+  /** 10.8.0: the patient's weights, for each running item's total in the open row. */
+  runTotals?: { ibw: number | null; tbw: number | null; bodySurfaceAreaM2?: number | null; weightBasis?: WeightBasisMap }
   /** Questions the timeline is waiting on (Core intraop-attention). */
   attention?: IntraopAttentionView
   undoEvent: LogEvent | null
@@ -61,6 +66,12 @@ type Props = {
   onEndCase: () => void
   /** Opens the read-only chart view. Optional so the tab still renders without it. */
   onViewChart?: () => void
+  /** 10.8.0: the saved log, for the `"Stopped: ...`" line of an opened row. */
+  log?: LogEvent[]
+  /** 10.8.0: the menu of a running item at a row, of an entry, and of an item stopped earlier. */
+  onOpenRunning?: (item: RunningItem, col: number) => void
+  onOpenEvent?: (event: LogEvent) => void
+  onOpenStopped?: (id: string, col: number, title?: string) => void
 }
 
 const NO_SAVE_STATE = { queuedEventIds: [], sendingEventId: null, refused: [], queuedSections: [], dismissRefused: () => {} }
@@ -70,6 +81,7 @@ const RUNNING_CATEGORY = { agent: "INHALATIONAL_AGENT", infusion: "INTRAOP_INFUS
 export function IntraopTimetableTab({
   screenWidth,
   tciPatient = null,
+  runTotals,
   attention,
   undoEvent,
   chartRows,
@@ -105,6 +117,10 @@ export function IntraopTimetableTab({
   onJumpToNow,
   onEndCase,
   onViewChart,
+  log,
+  onOpenRunning,
+  onOpenEvent,
+  onOpenStopped,
 }: Props) {
   // Running agents, infusions and fluids by the names the reader chose (Settings → UI).
   const { language, bulgarianNames } = usePreferences()
@@ -112,6 +128,11 @@ export function IntraopTimetableTab({
   const nameOf = useCallback<RunningNameOf>((kind, name) => displayedCatalogName(RUNNING_CATEGORY[kind], name, language, bulgarianNames), [bulgarianNames, language])
   // Infusions in the colours in use, the hospital's own included (10.0.0).
   const drugColors = useCurrentDrugColors()
+  // The totals' inputs by value: the object arrives new on every render of the screen, and the rows (every running item of every
+  // column) were worked out again each time.
+  const hasTotals = runTotals != null
+  const { ibw: totalsIbw, tbw: totalsTbw, bodySurfaceAreaM2: totalsBsa, weightBasis: totalsBasis } = runTotals ?? {}
+  const stableTotals = useMemo(() => hasTotals ? { ibw: totalsIbw ?? null, tbw: totalsTbw ?? null, bodySurfaceAreaM2: totalsBsa, weightBasis: totalsBasis } : undefined, [hasTotals, totalsIbw, totalsTbw, totalsBsa, totalsBasis])
   const colorOf = useCallback<RunningColorOf>((kind, name) => kind === "infusion" ? drugColors.infusion(name) : undefined, [drugColors])
   const shownInfusions = useMemo(
     () => activeInfusions.map(infusion => {
@@ -121,7 +142,7 @@ export function IntraopTimetableTab({
     [activeInfusions, drugColors],
   )
   const rowDataByCol = useMemo(() => {
-    const runningByCol = runningItemsByCol(timetable, chartRows, { projectRunning, nameOf, colorOf, tciPatient })
+    const runningByCol = runningItemsByCol(timetable, chartRows, { projectRunning, nameOf, colorOf, sameGroup: { groupOf: drugColors.infusionGroup, shade: drugColors.later }, tciPatient, totals: stableTotals ? { ...stableTotals, now: new Date(), language: language === "bg" ? "bg" : "en" } : undefined })
     const data = new Map<number, {
       vital: VitalsEntry | undefined
       rowEvents: LogEvent[]
@@ -141,13 +162,30 @@ export function IntraopTimetableTab({
       })
     }
     return data
-  }, [buildSummary, chartRows, colorOf, eventRows, nameOf, projectRunning, tciPatient, timetable])
+  }, [buildSummary, chartRows, colorOf, drugColors, eventRows, language, nameOf, projectRunning, stableTotals, tciPatient, timetable])
 
   const labDrawsByCol = useMemo(() => {
     const byCol = new Map<number, IntraopLabDraw[]>()
     for (const draw of labDraws ?? []) byCol.set(draw.col, [...(byCol.get(draw.col) ?? []), draw])
     return byCol
   }, [labDraws])
+
+  // The items stopped before the opened row and not started again (10.8.0): only that row asks.
+  const shade = useShade()
+  const stoppedForExpanded = useMemo(() => {
+    if (expandedRow === null || !log) return undefined
+    const rowStart = timeAtCol(chartStart, expandedRow)
+    return intraopStoppedItemsAt(log, rowStart.getTime() - 1).map(item => {
+      const start = [...log].reverse().find(event => event.ts <= item.stopEvent.ts && (event.infId === item.key || event.fluidId === item.key || event.name === item.key) && event.type.endsWith("_start"))
+      const kind = item.kind === "gas" || item.kind === "jet" ? null : item.kind
+      return {
+        id: `${item.kind}:${item.key}`,
+        label: kind ? nameOf(kind, start?.name ?? item.key) : item.kind === "gas" ? "FGF" : "Jet",
+        color: start?.color ?? shade("#94a3b8"),
+        at: formatDateHHMM(new Date(item.stopEvent.ts)),
+      }
+    })
+  }, [chartStart, expandedRow, log, nameOf, shade])
 
   const collapseExpandedRow = useCallback(() => onSetExpandedRow(null), [onSetExpandedRow])
   const resolveAttention = attention?.resolve
@@ -191,6 +229,10 @@ export function IntraopTimetableTab({
         onStopAgent={onStopAgent}
         onQuickAdd={onQuickAdd}
         onAnswerAttention={answerAttention}
+        onOpenRunning={isWatching ? undefined : onOpenRunning}
+        onOpenEvent={isWatching ? undefined : onOpenEvent}
+        stopped={col === expandedRow ? stoppedForExpanded : undefined}
+        onOpenStopped={isWatching ? undefined : onOpenStopped}
       />
     )
   }, [
@@ -217,6 +259,11 @@ export function IntraopTimetableTab({
     onStopAgent,
     rowDataByCol,
     rowHeight,
+    isWatching,
+    onOpenRunning,
+    onOpenEvent,
+    onOpenStopped,
+    stoppedForExpanded,
   ])
 
   return (

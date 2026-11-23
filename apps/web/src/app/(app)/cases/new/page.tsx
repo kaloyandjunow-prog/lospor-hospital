@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button"
 import { CaseSummary } from "@/components/CaseSummary"
 import { useTour } from "@/context/TourContext"
 import { useCaseLock } from "@/hooks/useCaseLock"
-import { WatchingBanner } from "@/components/WatchingBanner"
+import { CaseBanners } from "./CaseBanners"
 import {
   IDEMPOTENCY_HEADER,
   readBlockedSaveIssue,
@@ -648,7 +648,7 @@ export default function NewCasePage() {
     <div className={`${step === 1 && caseLayout.sidebar ? "max-w-[1400px]" : step === 1 || (step < 3 && caseLayout.sidebar) ? "max-w-6xl" : step === 3 ? "max-w-[1200px]" : "max-w-4xl"} mx-auto space-y-8 transition-all`}>
       <FinalizeUndoBanner undoSecsLeft={undoSecsLeft} undoExpired={undoExpired} finalizedCaseId={finalizedCaseId} onUndo={handleUndo} />
 
-      {isWatching && <WatchingBanner onTakeover={takeover} holderName={holderName} />}
+      <CaseBanners isWatching={isWatching} holderName={holderName} onTakeover={takeover} caseId={caseId} presence={step < 3} />
       <>
       <CaseEditorHeader
         caseId={caseId}

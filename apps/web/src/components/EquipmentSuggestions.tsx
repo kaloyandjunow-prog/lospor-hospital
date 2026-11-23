@@ -149,7 +149,7 @@ export function EquipmentSuggestions(props: Props) {
           {t("intraop.equipment.title")}
         </p>
         {props.weightKg ? (
-          <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
             {t("intraop.equipment.basedOn", { details })}
           </p>
         ) : null}
@@ -172,7 +172,7 @@ export function EquipmentSuggestions(props: Props) {
       <div className="grid grid-cols-1 divide-y divide-slate-100 dark:divide-[#2a2a2a] sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">
         {categories.map(category => (
           <div key={category.cat} className="space-y-1.5 p-3">
-            <p className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase ${CATEGORY_STYLE[category.cat] ?? "border-slate-300 text-slate-600"}`}>
+            <p className={`inline-block rounded-md border px-2 py-0.5 text-xs font-bold uppercase ${CATEGORY_STYLE[category.cat] ?? "border-slate-300 text-slate-600"}`}>
               {t(`intraop.equipment.categories.${category.cat}`)}
             </p>
             <div className="space-y-1">
@@ -186,7 +186,7 @@ export function EquipmentSuggestions(props: Props) {
                       {localizeText(item.value)}
                     </span>
                     {item.note ? (
-                      <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                      <span className="block text-xs text-slate-400 dark:text-slate-500">
                         {localizeText(item.note)}
                       </span>
                     ) : null}

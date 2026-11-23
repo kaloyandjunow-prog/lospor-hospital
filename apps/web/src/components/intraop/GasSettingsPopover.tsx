@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { FIO2, FRESH_GAS_FLOW, gasQuickValues, parseTypedFreshGasFlow, snapFreshGasFlow, stepFreshGasFlow } from "@lospor/core/gas-ranges"
 import { createPortal } from "react-dom"
 import { useIntraopUiCopy } from "./ui-copy"
@@ -53,7 +55,7 @@ function QuickValues({ values, current, unit, onPick, disabled = false, testId }
           aria-label={`${value} ${unit}`}
           data-testid={`${testId}-${value}`}
           onClick={() => onPick(value)}
-          className={`flex-1 text-[10px] font-semibold px-1 py-0.5 rounded-lg border transition-colors disabled:opacity-50 ${
+          className={`flex-1 text-xs font-semibold px-1 py-0.5 rounded-lg border transition-colors disabled:opacity-50 ${
             current === value
               ? "bg-indigo-500 border-indigo-500 text-white"
               : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"
@@ -117,13 +119,14 @@ export function GasSettingsPopover({
         className="bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2.5"
         onClick={event => event.stopPropagation()}
       >
-        <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">
+        <PopoverClose onClose={onDismiss} className="absolute right-1.5 top-1.5 z-10" />
+        <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
           {isEditing ? copy.gas.editSettings : copy.gas.startSettings}
         </p>
 
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-slate-500 font-semibold">FGF</span>
+            <span className="text-xs text-slate-500 font-semibold">FGF</span>
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
               {fgf != null ? `${fgf} L/min` : "—"}
             </span>
@@ -153,7 +156,7 @@ export function GasSettingsPopover({
         </div>
 
         <div className="space-y-1">
-          <span className="text-[10px] text-slate-500 font-semibold">{copy.gas.carrier}</span>
+          <span className="text-xs text-slate-500 font-semibold">{copy.gas.carrier}</span>
           <div className="flex gap-1">
             {CARRIER_GASES.map(option => (
               <button
@@ -163,7 +166,7 @@ export function GasSettingsPopover({
                   onCarrierGasChange(option.value)
                   if (option.value == null) onFio2Change(100)
                 }}
-                className={`flex-1 text-[10px] font-semibold px-1.5 py-1 rounded-lg border transition-colors ${
+                className={`flex-1 text-xs font-semibold px-1.5 py-1 rounded-lg border transition-colors ${
                   carrierGas === option.value
                     ? "bg-indigo-500 border-indigo-500 text-white"
                     : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"
@@ -177,7 +180,7 @@ export function GasSettingsPopover({
 
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-slate-500 font-semibold">FiO2</span>
+            <span className="text-xs text-slate-500 font-semibold">FiO2</span>
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{effectiveFio2}%</span>
           </div>
           <input
@@ -199,6 +202,6 @@ export function GasSettingsPopover({
         </button>
       </div>
     </>,
-    document.body,
+    portalHost(),
   )
 }

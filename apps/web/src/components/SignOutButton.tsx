@@ -70,7 +70,7 @@ export function SignOutButton() {
   return (
     <form onSubmit={onSubmit}>
       <button type="submit" title={t("nav.signOut")} aria-label={t("nav.signOut")}
-        className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
+        className="p-2 rounded-lg pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:inline-flex pointer-coarse:items-center pointer-coarse:justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
         <LogOut className="h-4 w-4" />
       </button>
     </form>

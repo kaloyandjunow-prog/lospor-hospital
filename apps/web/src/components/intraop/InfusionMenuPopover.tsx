@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import type { PumpTotalUnit } from "@lospor/core/intraop-types"
@@ -66,7 +68,7 @@ export function InfusionMenuPopover({
   const pumpEntry = pumpText.trim() && !pumpInvalid ? { value: pumpValue, unit: pumpUnit } : undefined
   const pumpField = pumpTotal && (
     <div data-testid="pump-total-field" className="px-3 py-2 border-t border-slate-100 dark:border-[#3a3a3a] space-y-1">
-      <label className="block text-[9px] font-semibold uppercase tracking-wider text-slate-400">{copy.tci.pumpTotal}</label>
+      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">{copy.tci.pumpTotal}</label>
       <div className="flex items-center gap-1">
         <input type="number" inputMode="decimal" min={0} value={pumpText} onChange={event => setPumpText(event.target.value)} aria-label={copy.tci.pumpTotal}
           className="min-w-0 flex-1 text-xs border border-slate-200 dark:border-[#3a3a3a] rounded-md px-2 py-1 bg-white dark:bg-[#1e1e1e] [appearance:textfield]" />
@@ -80,8 +82,8 @@ export function InfusionMenuPopover({
         )}
       </div>
       {pumpInvalid
-        ? <p role="alert" className="text-[10px] text-red-500 dark:text-red-400">{copy.infusionNeeds.dose}</p>
-        : <p className="text-[10px] text-slate-400">{copy.tci.pumpTotalHint}</p>}
+        ? <p role="alert" className="text-xs text-red-500 dark:text-red-400">{copy.infusionNeeds.dose}</p>
+        : <p className="text-xs text-slate-400">{copy.tci.pumpTotalHint}</p>}
     </div>
   )
   if (typeof document === "undefined") return null
@@ -96,13 +98,14 @@ export function InfusionMenuPopover({
         }}
         onClick={event => event.stopPropagation()}
       >
+        <PopoverClose onClose={onDismiss} className="absolute right-1.5 top-1.5 z-10" />
         <p
-          className="text-[9px] font-bold uppercase tracking-wider px-3 pt-2.5 pb-1 flex items-center gap-1.5"
+          className="text-xs font-bold uppercase tracking-wider px-3 pt-2.5 pb-1 flex items-center gap-1.5"
           style={{ color }}
         >
           {name}
           {stopped && (
-            <span className="text-[8px] font-normal text-slate-400 normal-case tracking-normal">
+            <span className="text-xs font-normal text-slate-400 normal-case tracking-normal">
               {copy.infusion.discontinued}
             </span>
           )}
@@ -152,6 +155,6 @@ export function InfusionMenuPopover({
         )}
       </div>
     </div>,
-    document.body,
+    portalHost(),
   )
 }

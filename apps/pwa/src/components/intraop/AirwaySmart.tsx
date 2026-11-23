@@ -45,7 +45,7 @@ export function AirwaySmart({
   const live = airwayDevicesInUse(entries)
   const shown = [...entries].sort((a, b) => Number(a.status !== "in_use") - Number(b.status !== "in_use"))
   const mainRows = Array.from({ length: Math.ceil(choices.main.length / 3) }, (_, index) => choices.main.slice(index * 3, index * 3 + 3))
-  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>{text}</Text>
+  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>{text}</Text>
   const small = { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: shade("#334155"), justifyContent: "center" as const }
   const panel = request ? (
     <AirwaySmartPanel key={`${request.device}-${request.replaces?.id ?? ""}`} request={request} entries={entries} patient={patient}
@@ -105,7 +105,7 @@ export function AirwaySmart({
                 style={{ flex: 1, minHeight: 76, borderRadius: 14, borderWidth: 2, alignItems: "center", justifyContent: "center", padding: 6,
                   borderColor: on ? shade("#a67cff") : shade("#2a3140"), backgroundColor: on ? shade("#a67cff") + "26" : shade("#171c26") }}>
                 <Text style={{ color: shade("#f8fafc"), fontWeight: "800", fontSize: 15, textAlign: "center" }}>{deviceLabel(device)}</Text>
-                {hint ? <Text style={{ color: shade("#94a3b8"), fontSize: 11 }}>{hint}</Text> : null}
+                {hint ? <Text style={{ color: shade("#94a3b8"), fontSize: 12 }}>{hint}</Text> : null}
               </TouchableOpacity>
             )
           })}</View>

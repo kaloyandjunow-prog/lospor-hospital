@@ -58,7 +58,7 @@ export function EditWindowBanner({ finalizedAt, caseId, showBackButton }: Props)
             borderWidth: 1, borderColor: withAlpha(colors.warning, "55"),
           }}
         >
-          <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "700" }}>{t("summaryBack")}</Text>
+          <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "700" }}>{t("summaryBack")}</Text>
         </TouchableOpacity>
       )}
     </View>

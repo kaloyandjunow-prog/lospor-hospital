@@ -174,7 +174,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {(intraop.techniques?.length ?? 0) > 0 && (
         <View style={{ marginBottom: 10 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 6,
           }}>
             {tc("summaryTechnique")}
@@ -191,7 +191,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
 
       {airwayTools.length > 0 && (
         <View style={{ marginBottom: 8 }}>
-          <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>{tc("summaryAirwayTools")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4 }}>{tc("summaryAirwayTools")}</Text>
           <ChipRow>
             {airwayTools.map((t, i) => <Chip key={`at-${i}`} label={t} color={colors.textSecondary} />)}
           </ChipRow>
@@ -218,7 +218,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {monitors.length > 0 && (
         <View style={{ marginBottom: 10 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 6,
           }}>
             {tc("summaryMonitoring")}
@@ -239,7 +239,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {(intraop.vascularAccesses?.length ?? 0) > 0 && (
         <View style={{ marginBottom: 10 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 6,
           }}>
             {tc("summaryVascular")}
@@ -272,7 +272,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {/* Drug totals — bolus */}
       {drugTotals.length > 0 && (
         <View style={{ marginBottom: 10 }}>
-          <Text style={{ color: colors.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
             {tc("summaryBolusDrugs")}
           </Text>
           {drugTotals.map((d, i) => (
@@ -287,7 +287,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {/* Infusion totals — weight-adjusted where applicable */}
       {infusionTotals.length > 0 && (
         <View style={{ marginBottom: 10 }}>
-          <Text style={{ color: colors.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
             {tc("summaryInfTotals")}
           </Text>
           {infusionTotals.map((d, i) => (
@@ -295,12 +295,12 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{displayClinicalCode("option:INTRAOP_INFUSION", d.name, language, { label: d.name })}</Text>
               <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "700" }}>
                 {formatInfusionTotal(d)}{d.tci ? ` ${tciTotalNote(d.tci, d.unit, tc)}` : ""}
-                {d.weightUsed != null ? <Text style={{ color: colors.warning, fontSize: 10 }}> ≈</Text> : null}
+                {d.weightUsed != null ? <Text style={{ color: colors.warning, fontSize: 12 }}> ≈</Text> : null}
               </Text>
             </View>
           ))}
           {infWeightNote && (
-            <Text style={{ color: colors.textMuted, fontSize: 10, fontStyle: "italic", marginTop: 6 }}>{infWeightNote}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: "italic", marginTop: 6 }}>{infWeightNote}</Text>
           )}
         </View>
       )}
@@ -309,7 +309,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {activeInfusions.length > 0 && (
         <View style={{ marginBottom: 10 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 6,
           }}>
             {t("infusions")}
@@ -333,7 +333,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
 
       {/* Fluid balance */}
       <Text style={{
-        color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+        color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
         letterSpacing: 0.5, marginBottom: 8,
       }}>
         {tc("summaryFluidBalance")}
@@ -353,7 +353,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
             borderRadius: 10, padding: 8, alignItems: "center",
           }}>
             <Text style={{ color: item.color, fontSize: 16, fontWeight: "800" }}>{item.value}</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
               {tc(item.labelKey)} mL
             </Text>
           </View>
@@ -363,7 +363,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       {intraop.complications ? (
         <View style={{ marginTop: 10 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 4,
           }}>
             {tc("summaryComplications")}

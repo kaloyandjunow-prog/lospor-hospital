@@ -98,7 +98,7 @@ export function CaseSidebar({ stages, sections, anchorPrefix, patient, broselow,
                       disabled={!open}
                       onClick={() => stages.onSelect?.(index)}
                       aria-current={current ? "step" : undefined}
-                      className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[10px] font-semibold ${
+                      className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1 text-xs font-semibold ${
                         current ? "bg-blue-600 text-white" : done ? "text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30" : "text-slate-400"
                       } ${open ? "cursor-pointer" : "cursor-default"}`}
                     >
@@ -113,7 +113,7 @@ export function CaseSidebar({ stages, sections, anchorPrefix, patient, broselow,
 
           {patient ? (
             <section aria-label={t("preop.sidebar.patient")} className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t("preop.sidebar.patient")}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("preop.sidebar.patient")}</p>
               {allergyBanner}
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                 {patient.ageText ? <><dt className="text-slate-400">{t("preop.sidebar.age")}</dt><dd className="text-right font-semibold">{patient.ageText}</dd></> : null}
@@ -135,7 +135,7 @@ export function CaseSidebar({ stages, sections, anchorPrefix, patient, broselow,
           ) : null}
 
           <section aria-label={t("preop.sidebar.sections")} className="space-y-1.5">
-            <p className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
               <span>{t("preop.sidebar.sections")}</span>
               {missingCount > 0 ? <span className="text-red-500">{t("preop.sidebar.missing", { count: missingCount })}</span> : null}
             </p>
@@ -162,7 +162,7 @@ export function CaseSidebar({ stages, sections, anchorPrefix, patient, broselow,
 
           {facts.length > 0 ? (
             <section aria-label={factsTitle} className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{factsTitle}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{factsTitle}</p>
               <dl className="space-y-1 text-xs" data-testid="sidebar-scores">
                 {facts.map(fact => (
                   <div key={fact.label} className="flex items-baseline justify-between gap-2">

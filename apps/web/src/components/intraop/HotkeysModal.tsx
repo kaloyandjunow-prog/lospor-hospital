@@ -1,4 +1,5 @@
 "use client"
+import { portalHost } from "@/lib/portal-host"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { useIntraopUiCopy } from "./ui-copy"
@@ -18,7 +19,7 @@ export function HotkeysModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-1.5">
           {copy.hotkeys.rows.map(([key, desc]) => (
             <div key={key} className="flex items-center gap-3">
-              <kbd className="shrink-0 w-52 px-2 py-1 font-mono text-[10px] bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded text-slate-600 dark:text-slate-300 whitespace-nowrap">
+              <kbd className="shrink-0 w-52 px-2 py-1 font-mono text-xs bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded text-slate-600 dark:text-slate-300 whitespace-nowrap">
                 {key}
               </kbd>
               <span className="text-xs text-slate-600 dark:text-slate-300">{desc}</span>
@@ -27,6 +28,6 @@ export function HotkeysModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>,
-    document.body
+    portalHost()
   )
 }

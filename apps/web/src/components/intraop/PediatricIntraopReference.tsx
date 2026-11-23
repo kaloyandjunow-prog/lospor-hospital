@@ -60,7 +60,7 @@ export function PediatricIntraopReference({ preop, surgeryStart, timezone }: {
           </dd>
         </>}
       </dl>
-      <p className="mt-1 text-[11px] text-slate-400">{t("referenceSources")} · {reference.ruleVersion}</p>
+      <p className="mt-1 text-xs text-slate-400">{t("referenceSources")} · {reference.ruleVersion}</p>
     </div>
   )
 }

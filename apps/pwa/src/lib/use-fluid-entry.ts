@@ -174,6 +174,8 @@ export function useFluidEntry(
       volume: String(administeredVolumeMl),
       // A stop End case made: Resume offers to remove exactly these.
       ...(context ? { endCaseStop: true } : {}),
+      // Stopped on the record at the end but going on after the case (recovery, ICU), as for an infusion, an agent and the gas.
+      ...(context?.continuesAfterEnd ? { continuesAfterEnd: true } : {}),
     }, endedAt)
   }
 

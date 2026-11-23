@@ -1,6 +1,7 @@
 import { ZipArchive } from "archiver"
 import { PassThrough, Readable } from "node:stream"
 import { NextRequest, NextResponse } from "next/server"
+import { isNurseAccountRole } from "@lospor/core/clinical-roles"
 import type { Prisma } from "@/generated/prisma/client"
 import { API_RELEASE_VERSION } from "@/lib/api-version"
 import { getAuthUser } from "@/lib/mobile-auth"
@@ -121,6 +122,8 @@ async function* transferLines(userId: string): AsyncGenerator<string> {
 export async function GET(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // An anaesthesia nurse exports nothing on the appliance (2026-11-23).
+  if (isNurseAccountRole(user.role)) return NextResponse.json({ error: "Not allowed for an anaesthesia nurse", code: "NURSE_NOT_ALLOWED" }, { status: 403 })
 
   const [account, caseCount, auditCount, roleRequestCount, transferCount] = await Promise.all([
     prisma.user.findUnique({

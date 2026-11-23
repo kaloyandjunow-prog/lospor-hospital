@@ -125,7 +125,7 @@ function InstitutionPicker({
             )}
           </div>
 
-          <div className="px-3 py-1.5 border-t border-slate-100 dark:border-[#2a2a2a] text-[10px] text-slate-400 dark:text-slate-500">
+          <div className="px-3 py-1.5 border-t border-slate-100 dark:border-[#2a2a2a] text-xs text-slate-400 dark:text-slate-500">
             {t("auth.institutionCount", { shown: filtered.length, total: institutions.length })}
           </div>
         </div>

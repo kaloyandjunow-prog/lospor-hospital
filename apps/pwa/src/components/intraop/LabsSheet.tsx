@@ -79,7 +79,7 @@ export function LabsSheet({
       <View style={{ gap: 14 }}>
         {summary.shown.length > 0 ? (
           <View style={{ gap: 6 }}>
-            <Text style={{ color: shade("#64748b"), fontSize: 11, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
               {tc("labsLatestDraw")}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -97,14 +97,14 @@ export function LabsSheet({
                       borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
                     }}
                   >
-                    <Text style={{ color: tone.fg, fontSize: 11, fontWeight: item.severity === "critical" ? "900" : "700" }}>
+                    <Text style={{ color: tone.fg, fontSize: 12, fontWeight: item.severity === "critical" ? "900" : "700" }}>
                       {item.result.test} {item.result.value}{item.result.unit ? ` ${item.result.unit}` : ""}
                     </Text>
                   </View>
                 )
               })}
               {summary.hiddenCount > 0 ? (
-                <Text style={{ color: shade("#64748b"), fontSize: 11, fontWeight: "700", alignSelf: "center" }}>
+                <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "700", alignSelf: "center" }}>
                   +{summary.hiddenCount}
                 </Text>
               ) : null}
@@ -148,7 +148,7 @@ export function LabsSheet({
 
         {priorDraws.length > 0 ? (
           <View style={{ gap: 8 }}>
-            <Text style={{ color: shade("#64748b"), fontSize: 11, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" }}>
               {tc("ehrEarlierResults")}
             </Text>
             {priorDraws.map(draw => (
@@ -156,7 +156,7 @@ export function LabsSheet({
                 key={draw.takenAt ?? "undated"}
                 style={{ backgroundColor: shade("#111827"), borderRadius: 12, borderWidth: 1, borderColor: shade("#1f2937"), padding: 10, gap: 4 }}
               >
-                <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "800" }}>
+                <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "800" }}>
                   {draw.takenAt ? formatHHMM(new Date(draw.takenAt)) : tc("ehrUndated")}
                 </Text>
                 <Text style={{ color: shade("#cbd5e1"), fontSize: 12 }} numberOfLines={2}>

@@ -5,7 +5,7 @@
 Hospital release е приемлив само след успешни automated quality workflow и
 Linux appliance drill. Serverless демонстрацията не е част от упражнението.
 
-За клиничния кандидат 1.13.0 координираният набор е Core, API, Web и PWA 10.7.0;
+За клиничния кандидат 1.14.0 координираният набор е Core, API, Web и PWA 10.8.0;
 Browser е 0.11.2. Прегледайте и внесете промените в този ред: Core, Web, PWA,
 Browser, API. API е нарочно последен, защото маршрутите за финализиране
 използват общия Core договор. Локалните Hospital package overlay-и се запазват,
@@ -145,7 +145,7 @@ images, а не непроменени third-party release payloads. `Core` е �
   vulnerability reports, одобрените build inputs, image lock и точния
   risk-exception file, използван от policy.
 
-PostgreSQL 17.11, zlib 1.3.2 и ACL 2.4.0 се компилират от точни release tarballs
+PostgreSQL 17.12, zlib 1.4 и ACL 2.4.0 се компилират от точни release tarballs
 с фиксиран SHA-256 срещу timestamped Debian Trixie snapshots. Evidence
 archive допълва package-manager SBOM на Trivy с обвързан с candidate image
 CycloneDX component list и вградените source URLs/hashes, PostgreSQL configure

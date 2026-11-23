@@ -281,12 +281,15 @@ export function pickVitalsForColumn(
   log: LogEvent[],
   start: Date | null,
   ts?: string | null,
+  now: Date = new Date(),
 ): { existing?: LogEvent; carryForward?: LogEvent } {
   const startMs = start?.getTime()
   if (startMs == null) return {}
   const colOf = (value: string) =>
     Math.floor((new Date(value).getTime() - startMs) / INTRAOP_COLUMN_MS)
-  const targetCol = ts ? colOf(ts) : Number.POSITIVE_INFINITY
+  // Opened without a cell (from "now" or Monitoring) it is now's cell: a reading already there
+  // is edited, not doubled (bug found 2026-11-21: two readings in one cell).
+  const targetCol = colOf(ts ?? now.toISOString())
 
   let existing: LogEvent | undefined
   let carryForward: LogEvent | undefined

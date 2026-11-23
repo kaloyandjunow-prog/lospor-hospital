@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react"
 import { apiFetch, apiJson } from "@/lib/api"
+import { refusalReason } from "@/lib/server-message"
 import { notify } from "@/lib/notify"
 
 // Handing a case to a colleague, and answering one that has been handed to you.
@@ -24,8 +25,8 @@ export function useCaseHandover(translate: Translate) {
   const [loadingColleagues, setLoadingColleagues] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const failed = useCallback(() => {
-    notify(translate("error"), translate("actionFailed"))
+  const failed = useCallback((reason?: string | null) => {
+    notify(translate("error"), reason || translate("actionFailed"))
   }, [translate])
 
   /** Everyone this clinician may hand a case to, fetched when the sheet opens. */
@@ -59,11 +60,11 @@ export function useCaseHandover(translate: Translate) {
         method: "POST",
         body: JSON.stringify({ toUserId: userId }),
       })
-      if (!response.ok) throw new Error()
+      if (!response.ok) throw new Error(await refusalReason(response) ?? "")
       const body = await response.json().catch(() => ({ instant: true }))
       return body?.instant === false ? "requested" : "assigned"
-    } catch {
-      failed()
+    } catch (err) {
+      failed(err instanceof Error ? err.message : null)
       return "failed"
     } finally {
       setBusy(false)

@@ -46,7 +46,7 @@ export function FluidEndSheet({
         <View style={{ gap:10 }}>
           {rateMode ? (
             <View style={{ gap:10, marginBottom:6 }}>
-              <Text style={{ color:shade("#94a3b8"), fontSize:11, fontWeight:"700", textTransform:"uppercase" }}>
+              <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", textTransform:"uppercase" }}>
                 {tc("rateLabel")}
               </Text>
               <VitalStepper

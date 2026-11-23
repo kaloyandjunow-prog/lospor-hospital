@@ -243,8 +243,8 @@ export function TagInput<T>({
               className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full max-w-[320px]"
             >
               <span className="truncate">{tag.label}</span>
-              {tag.sub && <span className="text-blue-400 text-[10px]"> ({tag.sub})</span>}
-              {freeTextRow?.isTyped(tag) && <span className="text-blue-500 text-[10px] italic" data-testid="tag-input-typed-mark">· {freeTextRow.typedMark}</span>}
+              {tag.sub && <span className="text-blue-400 text-xs"> ({tag.sub})</span>}
+              {freeTextRow?.isTyped(tag) && <span className="text-blue-500 text-xs italic" data-testid="tag-input-typed-mark">· {freeTextRow.typedMark}</span>}
               {!disabled && (
                 <button
                   type="button"

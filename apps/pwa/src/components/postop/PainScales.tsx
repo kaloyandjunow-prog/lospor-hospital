@@ -83,7 +83,7 @@ export function ItemScale<K extends string>({ items, values, onChange, language,
                   }}
                 >
                   <Text style={{ color: selected ? colors.primary : colors.textMuted, fontSize: 16, fontWeight: "900" }}>{choice.points}</Text>
-                  <Text numberOfLines={3} style={{ color: selected ? colors.textPrimary : colors.textMuted, fontSize: 10, lineHeight: 12, textAlign: "center", marginTop: 2 }}>
+                  <Text numberOfLines={3} style={{ color: selected ? colors.textPrimary : colors.textMuted, fontSize: 12, lineHeight: 12, textAlign: "center", marginTop: 2 }}>
                     {scaleText(choice, language)}
                   </Text>
                 </TouchableOpacity>
@@ -137,8 +137,8 @@ export function SelfReportScale({ kind, value, onChange, lowLabel, highLabel }: 
         })}
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-        <Text style={{ color: colors.textMuted, fontSize: 10 }}>{lowLabel}</Text>
-        <Text style={{ color: colors.textMuted, fontSize: 10 }}>{highLabel}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>{lowLabel}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>{highLabel}</Text>
       </View>
     </View>
   )

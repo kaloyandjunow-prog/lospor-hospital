@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native"
+import { inhalationalFiLabel } from "@lospor/core/agent-labels"
 import { Sheet } from "@/components/intraop/Sheet"
 import { agentEntry, type AgentRuleProfile } from "@lospor/core/agent-entry"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
@@ -56,7 +57,7 @@ export function AgentSheet({
         <>
 
           <Text style={{ color: agPick.color, fontSize:12, fontWeight:"600", marginBottom:10 }}>
-            {`Fi${agentLabel(agPick.name)}`}
+            {inhalationalFiLabel(agPick.name)}
           </Text>
           <DoseSelector
             color={agPick.color}

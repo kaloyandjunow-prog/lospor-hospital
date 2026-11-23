@@ -45,7 +45,7 @@ export function TechniqueTab({
       {techniques.length > 0 && (
         <View style={{ paddingHorizontal:14, paddingTop:12, paddingBottom:10,
           borderBottomWidth:1, borderBottomColor:shade("#1e2d40") }}>
-          <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"700",
+          <Text style={{ color:shade("#64748b"), fontSize:12, fontWeight:"700",
             letterSpacing:1.1, textTransform:"uppercase", marginBottom:8 }}>{tc("techniqueInUse")}</Text>
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:7 }}>
             {techniques.map(t => {
@@ -102,7 +102,7 @@ export function TechniqueTab({
         {/* Other free-text input */}
         {showOtherInput ? (
           <View>
-            <Text style={{ color:shade("#94a3b8"), fontSize:11, marginBottom:10 }}>
+            <Text style={{ color:shade("#94a3b8"), fontSize:12, marginBottom:10 }}>
               {tc("describeTechnique")}
             </Text>
             <TextInput

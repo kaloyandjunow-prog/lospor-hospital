@@ -1,4 +1,5 @@
 import { getLiveSessionResult } from "@/lib/live-session"
+import { isNurseAccountRole } from "@lospor/core/clinical-roles"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { LayoutDashboard, FilePlus, Shield, SlidersHorizontal, BarChart3 } from "lucide-react"
@@ -38,38 +39,46 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     />
     <div className="min-h-screen flex flex-col bg-[#f0f0ef] dark:bg-[#111111]">
       <header className="no-print bg-white dark:bg-[#1c1c1c] border-b border-slate-200 dark:border-[#2e2e2e] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center gap-2">
-          <Link href="/dashboard" className="flex shrink-0 items-center" aria-label={t("nav.dashboardAria")}>
+        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr]">
+          <Link href="/dashboard" className="flex shrink-0 items-center md:justify-self-start" aria-label={t("nav.dashboardAria")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/lospor-horizontal-light.svg" alt="LOSPOR" className="h-16 w-auto dark:hidden" />
+            <img src="/brand/lospor-horizontal-light.svg" alt="LOSPOR" className="h-12 sm:h-16 w-auto dark:hidden" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/lospor-horizontal-dark.svg" alt="LOSPOR" className="hidden h-16 w-auto dark:block" />
+            <img src="/brand/lospor-horizontal-dark.svg" alt="LOSPOR" className="hidden h-12 sm:h-16 w-auto dark:block" />
           </Link>
 
-          <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
+          <nav className="hidden md:flex items-center justify-center gap-1">
             <Link href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
+              className="inline-flex items-center gap-2 px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
               <LayoutDashboard className="h-4 w-4" />
-              {t("nav.dashboard")}
+              <span className="max-xl:sr-only">{t("nav.dashboard")}</span>
             </Link>
             <span data-tour="nav-ongoing"><OngoingCasesButton /></span>
             <Link href="/indicators" data-testid="nav-indicators"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
+              className="inline-flex items-center gap-2 px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
               <BarChart3 className="h-4 w-4" />
-              {t("nav.indicators")}
+              <span className="max-xl:sr-only">{t("nav.indicators")}</span>
             </Link>
             {session.user.role === "ADMIN" && (
               <Link href="/admin"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-50 dark:active:bg-blue-900/20 transition-colors">
+                className="inline-flex items-center gap-2 px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-50 dark:active:bg-blue-900/20 transition-colors">
                 <Shield className="h-4 w-4" />
-                {t("nav.admin")}
+                <span className="max-xl:sr-only">{t("nav.admin")}</span>
               </Link>
             )}
             {(session.user.role === "ADMIN" || session.user.role === "HEAD_OF_DEPT") && (
               <Link href="/clinical-rules"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
+                className="inline-flex items-center gap-2 px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
                 <SlidersHorizontal className="h-4 w-4" />
-                {t("nav.clinicalRules")}
+                <span className="max-xl:sr-only">{t("nav.clinicalRules")}</span>
+              </Link>
+            )}
+            {/* 10.8.0: an anaesthesia nurse does not open cases. */}
+            {!isNurseAccountRole(session.user.role) && (
+              <Link href="/cases/new" data-tour="nav-new-case"
+                className="inline-flex items-center gap-2 px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
+                <FilePlus className="h-4 w-4" />
+                <span className="max-xl:sr-only">{t("nav.newCase")}</span>
               </Link>
             )}
             {session.user.accountKind === "CLINICAL" && (
@@ -79,14 +88,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 {t("nav.centralDelivery")}
               </Link>
             )}
-            <Link href="/cases/new" data-tour="nav-new-case"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
-              <FilePlus className="h-4 w-4" />
-              {t("nav.newCase")}
-            </Link>
           </nav>
 
-          <div className="flex items-center gap-3 md:ml-0 ml-auto">
+          <div className="flex items-center gap-1 sm:gap-3 md:ml-0 ml-auto md:justify-self-end">
             <OutboxBadge />
             <TourButton />
             <span data-tour="settings-menu">
@@ -108,25 +112,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <footer className="no-print border-t border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] py-4 text-center text-xs text-slate-400 dark:text-slate-500">
         {t("common.gdprFooter")}
         {" · "}
-        <Link href="/terms" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">{t("nav.footerTerms")}</Link>
+        <Link href="/terms" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors pointer-coarse:inline-block pointer-coarse:min-w-11 pointer-coarse:text-center pointer-coarse:py-3">{t("nav.footerTerms")}</Link>
         {" · "}
-        <Link href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">{t("nav.footerPrivacy")}</Link>
+        <Link href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors pointer-coarse:inline-block pointer-coarse:min-w-11 pointer-coarse:text-center pointer-coarse:py-3">{t("nav.footerPrivacy")}</Link>
         {" · "}
         <a href="https://docs.lospor.org" target="_blank" rel="noopener noreferrer"
-          className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">
+          className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors pointer-coarse:inline-block pointer-coarse:min-w-11 pointer-coarse:text-center pointer-coarse:py-3">
           {t("nav.footerDocs")}
         </a>
         {" · "}
         <a href="https://github.com/kaloyandjunow-prog/lospor-app" target="_blank" rel="noopener noreferrer"
-          className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">
+          className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors pointer-coarse:inline-block pointer-coarse:min-w-11 pointer-coarse:text-center pointer-coarse:py-3">
           {t("nav.footerOpenSource")}
         </a>
         {" · "}
         <a href="https://github.com/kaloyandjunow-prog/lospor-app/blob/main/LICENSE" target="_blank" rel="noopener noreferrer"
-          className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">
+          className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors pointer-coarse:inline-block pointer-coarse:min-w-11 pointer-coarse:text-center pointer-coarse:py-3">
           AGPL-3.0
         </a>
-        <span className="block mt-1 text-[10px] text-slate-300 dark:text-slate-600">
+        <span className="block mt-1 text-xs text-slate-300 dark:text-slate-600">
           {t("nav.footerDisclaimer")}
           {" "}
           {t("nav.footerCopyright")}

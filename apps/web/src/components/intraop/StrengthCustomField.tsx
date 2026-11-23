@@ -35,7 +35,7 @@ export function StrengthCustomField({ name, unit, options, onChange }: {
       <div className="flex flex-wrap gap-1">
         {field.quickValues.map(quick => (
           <button key={quick} type="button" aria-pressed={current === quick} onClick={() => enter(String(quick))}
-            className={`min-h-7 whitespace-nowrap text-[10px] font-semibold px-2 py-1 rounded-full border transition-all ${current === quick ? "bg-sky-500 border-sky-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`}>
+            className={`min-h-7 whitespace-nowrap text-xs font-semibold px-2 py-1 rounded-full border transition-all ${current === quick ? "bg-sky-500 border-sky-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`}>
             {quick}
           </button>
         ))}
@@ -53,12 +53,12 @@ export function StrengthCustomField({ name, unit, options, onChange }: {
             setText(String(kept))
             setLimitNotice(current > field.max ? copy.loweredToMax(`${kept} ${field.unit}`) : copy.raisedToMin(`${kept} ${field.unit}`))
           }}
-          className="min-w-0 flex-1 text-[10px] bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-md px-2 py-1 outline-none focus:border-sky-400 [appearance:textfield]" />
-        <span className="text-[9px] text-slate-400">{field.unit}</span>
+          className="min-w-0 flex-1 text-xs bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-md px-2 py-1 outline-none focus:border-sky-400 [appearance:textfield]" />
+        <span className="text-xs text-slate-400">{field.unit}</span>
       </div>
-      {limitNotice && <p role="status" className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{limitNotice}</p>}
+      {limitNotice && <p role="status" className="text-xs font-semibold text-amber-600 dark:text-amber-400">{limitNotice}</p>}
       {result && "error" in result && (
-        <p role="alert" className="text-[10px] text-red-500 dark:text-red-400">{copy.strengthOutOfRange(field.min, field.max, field.unit)}</p>
+        <p role="alert" className="text-xs text-red-500 dark:text-red-400">{copy.strengthOutOfRange(field.min, field.max, field.unit)}</p>
       )}
     </div>
   )

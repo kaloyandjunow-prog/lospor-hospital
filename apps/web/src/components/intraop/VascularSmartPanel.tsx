@@ -108,7 +108,7 @@ export function VascularSmartPanel({
   const pill = (active: boolean) => `px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${active
     ? "bg-violet-600 border-violet-600 text-white"
     : "border-slate-200 dark:border-[#333] text-slate-600 dark:text-slate-300 hover:border-violet-400"}`
-  const label = (text: string) => <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{text}</p>
+  const label = (text: string) => <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{text}</p>
   const typeName = request.type === "CENTRAL" ? (centralType === "PICC" ? t("picc") : t("central")) : t(request.type === "PERIPHERAL" ? "peripheral" : "arterial")
   const times: Array<[VascularTimeChoice, string]> = origin === "ward"
     ? [["arrived", t("arrived")], ["pick", t("pickWhenPlaced")]]
@@ -166,7 +166,7 @@ export function VascularSmartPanel({
                 <button key={value} type="button" data-testid={`vascular-smart-size-${value}`} className={`${pill(size === value)} inline-flex items-center gap-1.5`} onClick={() => setSize(value)}>
                   {ask.colors?.[value] && <span className="inline-block w-2.5 h-2.5 rounded-full border border-black/20" style={{ background: ask.colors[value] }} />}
                   {value}{ask.unit}
-                  {suggested === value && <span className="text-[10px] font-normal opacity-80">{t("suggested")}</span>}
+                  {suggested === value && <span className="text-xs font-normal opacity-80">{t("suggested")}</span>}
                 </button>
               ))}
             </div>

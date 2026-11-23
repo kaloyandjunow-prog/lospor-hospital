@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from "react-native"
 import { Stack } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
+import { serverMessage } from "@/lib/server-message"
 import { notify, confirmAction } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
@@ -49,7 +50,7 @@ function instLabel(inst?: Institution) {
 }
 
 export default function AdminScreen() {
-  const { t, language } = usePreferences()
+  const { t, tc, language } = usePreferences()
   const [tab, setTab] = useState<Tab>("Registrations")
   const [users, setUsers] = useState<UserRow[]>([])
   const [pendingUsers, setPendingUsers] = useState<UserRow[]>([])
@@ -122,11 +123,11 @@ export default function AdminScreen() {
       const res = await apiFetch(path, init)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? "Action failed")
+        throw new Error(typeof body.error === "string" && body.error ? serverMessage(body.error) : "")
       }
       success()
-    } catch {
-      notify(t("error"), t("actionFailed"))
+    } catch (err) {
+      notify(t("error"), err instanceof Error && err.message ? err.message : t("actionFailed"))
     } finally {
       setActing(null)
     }
@@ -167,7 +168,7 @@ export default function AdminScreen() {
     }, () => setMoveRequests((prev) => prev.filter((r) => r.id !== req.id)))
   }
 
-  function changeRole(user: UserRow, role: "MEMBER" | "HEAD_OF_DEPT") {
+  function changeRole(user: UserRow, role: "MEMBER" | "ANAESTHESIA_NURSE" | "ANAESTHESIA_SENIOR_NURSE" | "HEAD_OF_DEPT") {
     request(`/api/admin/users/${user.id}`, {
       method: "PATCH",
       body: JSON.stringify({ role }),
@@ -268,8 +269,14 @@ export default function AdminScreen() {
                   </>
                 ) : (
                   <>
-                    <AdminButton label={t("member")} color={colors.primary} onPress={() => changeRole(user, "MEMBER")} disabled={user.role === "MEMBER" || !!rowActing} outline={user.role !== "MEMBER"} />
-                    <AdminButton label={t("hod")} color={colors.warning} onPress={() => changeRole(user, "HEAD_OF_DEPT")} disabled={user.role === "HEAD_OF_DEPT" || !!rowActing} outline={user.role !== "HEAD_OF_DEPT"} />
+                    {!(user.role === "ANAESTHESIA_NURSE" || user.role === "ANAESTHESIA_SENIOR_NURSE") ? (
+                      <AdminButton label={t("member")} color={colors.primary} onPress={() => changeRole(user, "MEMBER")} disabled={user.role === "MEMBER" || !!rowActing} outline={user.role !== "MEMBER"} />
+                    ) : null}
+                    <AdminButton label={tc("dmNurseRole")} color={colors.primary} onPress={() => changeRole(user, "ANAESTHESIA_NURSE")} disabled={user.role === "ANAESTHESIA_NURSE" || !!rowActing} outline={user.role !== "ANAESTHESIA_NURSE"} />
+                    <AdminButton label={tc("dmSeniorNurseRole")} color={colors.primary} onPress={() => changeRole(user, "ANAESTHESIA_SENIOR_NURSE")} disabled={user.role === "ANAESTHESIA_SENIOR_NURSE" || !!rowActing} outline={user.role !== "ANAESTHESIA_SENIOR_NURSE"} />
+                    {!(user.role === "ANAESTHESIA_NURSE" || user.role === "ANAESTHESIA_SENIOR_NURSE") ? (
+                      <AdminButton label={t("hod")} color={colors.warning} onPress={() => changeRole(user, "HEAD_OF_DEPT")} disabled={user.role === "HEAD_OF_DEPT" || !!rowActing} outline={user.role !== "HEAD_OF_DEPT"} />
+                    ) : null}
                   </>
                 )}
               </View>

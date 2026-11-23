@@ -71,7 +71,7 @@ export function ScenarioPicker({
   const back = (
     <button type="button"
       onClick={() => { setMode("home"); setGroup(null); setQuery("") }}
-      className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+      className="flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
       <ChevronLeft className="h-3.5 w-3.5" /> {labels.back}
     </button>
   )
@@ -117,7 +117,7 @@ export function ScenarioPicker({
                   className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${chip.className}`} style={chip.style}>
                   {displayItem(i.name)}
                   {i.manualEntryOnly && (
-                    <span className="block text-[9px] font-normal opacity-75">{labels.manualEntry}</span>
+                    <span className="block text-xs font-normal opacity-75">{labels.manualEntry}</span>
                   )}
                 </button>
                 )
@@ -131,7 +131,7 @@ export function ScenarioPicker({
         <button type="button" onClick={() => setMode("favourites")}
           className="w-full text-left px-2.5 py-2 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors">
           <span className="block text-xs font-bold text-sky-700 dark:text-sky-300">{labels.favourites}</span>
-          <span className="block text-[10px] text-sky-600/70 dark:text-sky-400/70">
+          <span className="block text-xs text-sky-600/70 dark:text-sky-400/70">
             {routineFavourites.length > 0 ? `${routineFavourites.length} ${labels.selected}` : labels.favouritesHint}
           </span>
         </button>
@@ -142,8 +142,8 @@ export function ScenarioPicker({
               onClick={() => { setGroup(g); setMode("scenario") }}
               className="text-left px-2 py-1.5 rounded-lg border hover:opacity-80 transition-opacity"
               style={{ borderColor: `${g.color}55`, backgroundColor: `${g.color}14` }}>
-              <span className="block text-[11px] font-bold" style={{ color: g.color }}>{displayScenario(g)}</span>
-              <span className="block text-[9px] text-slate-500 dark:text-slate-400 truncate">
+              <span className="block text-xs font-bold" style={{ color: g.color }}>{displayScenario(g)}</span>
+              <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
                 {g.items.slice(0, 2).map(i => displayItem(i.canonical)).join(", ")}
               </span>
             </button>
@@ -165,7 +165,7 @@ export function ScenarioPicker({
       <div className="p-2 space-y-2 max-h-72 overflow-y-auto">
         {back}
         {routineFavourites.length === 0 ? (
-          <p className="text-[11px] text-slate-400 leading-relaxed py-2">{labels.favouritesHint}</p>
+          <p className="text-xs text-slate-400 leading-relaxed py-2">{labels.favouritesHint}</p>
         ) : (
           <div className="flex flex-wrap gap-1">
             {routineFavourites.map(name => itemButton(name, unitFor(name), "#38bdf8", name))}
@@ -179,7 +179,7 @@ export function ScenarioPicker({
     return (
       <div className="p-2 space-y-2 max-h-72 overflow-y-auto">
         {back}
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: group.color }}>{displayScenario(group)}</p>
+        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: group.color }}>{displayScenario(group)}</p>
         <div className="flex flex-wrap gap-1">
           {group.items.map(i => itemButton(i.canonical, unitFor(i.canonical), group.color, i.canonical))}
         </div>
@@ -205,7 +205,7 @@ export function ScenarioPicker({
       <div className="p-2 space-y-2">
         {filtered.map(c => (
           <div key={c.cat}>
-            <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#666] mb-1">{displayCategory(c.cat)}</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-[#666] mb-1">{displayCategory(c.cat)}</p>
             <div className="flex flex-wrap gap-1">
               {c.items.map(i => {
                 const chip = drugChip(c.color, i.customColor)
@@ -214,7 +214,7 @@ export function ScenarioPicker({
                   className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${chip.className}`} style={chip.style}>
                   {displayItem(i.name)}
                   {i.manualEntryOnly && (
-                    <span className="block text-[9px] font-normal opacity-75">{labels.manualEntry}</span>
+                    <span className="block text-xs font-normal opacity-75">{labels.manualEntry}</span>
                   )}
                 </button>
                 )

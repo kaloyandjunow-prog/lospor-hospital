@@ -16,6 +16,12 @@ export type CaseActionInput = {
   pendingTransfer?: boolean
   /** The site uses theatres and the case's can still change. */
   theatreChangeable?: boolean
+  /** 10.8.0: the viewer is an anaesthesia nurse (capabilities.isNurse). */
+  nurse?: boolean
+  /** 2026-11-23: the viewer may put nurses on this case (capabilities.canAssignNurses: the head, the administrator, the case's doctor, a senior nurse). */
+  canAssignNurses?: boolean
+  /** How many nurses the case has: a nurse may put herself on one that has none. */
+  nursesOnCase?: number
 }
 
 export type CancelOffer = "available" | "inactive" | null
@@ -28,6 +34,14 @@ export type DashboardMenuActions = {
   theatre: boolean
   handOver: boolean
   withdrawHandover: boolean
+  /** 10.8.0: the planned date of the operation (a doctor's decision). */
+  plannedDate: boolean
+  /** 10.8.0: a nurse passes her place in the case to another nurse. */
+  handOverToNurse: boolean
+  /** 10.8.0: the case's anaesthesia nurses (a doctor's decision). */
+  assignNurses: boolean
+  /** 2026-11-23: a nurse puts herself on a case that has no nurse. */
+  takeCase: boolean
 }
 
 export function dashboardMenuActions(input: CaseActionInput): DashboardMenuActions {
@@ -35,6 +49,14 @@ export function dashboardMenuActions(input: CaseActionInput): DashboardMenuActio
   const cancel: CancelOffer = !input.writable ? null
     : cancellationAllowed({ status: input.status, intraop: input.intraop }) ? "available"
       : closed ? null : "inactive"
+  if (input.nurse) {
+    // A nurse never cancels, deletes, moves theatres or hands to a doctor (rules N1-N6).
+    // A senior nurse also places nurses; a nurse hands her own place on, or takes a case that has none.
+    const assigns = !closed && input.canAssignNurses === true
+    return { print: input.status === "COMPLETE", cancel: null, undoCancel: false, remove: false, theatre: false, handOver: false,
+      withdrawHandover: false, plannedDate: false, handOverToNurse: !closed && input.writable && !assigns, assignNurses: assigns,
+      takeCase: !closed && input.nursesOnCase === 0 }
+  }
   return {
     print: input.status === "COMPLETE",
     cancel,
@@ -43,6 +65,10 @@ export function dashboardMenuActions(input: CaseActionInput): DashboardMenuActio
     theatre: input.theatreChangeable === true,
     handOver: !closed && !input.pendingTransfer && input.writable,
     withdrawHandover: input.pendingTransfer === true,
+    plannedDate: !closed && input.writable,
+    handOverToNurse: false,
+    assignNurses: !closed && input.writable && input.status !== "CANCELLED" && input.canAssignNurses !== false,
+    takeCase: false,
   }
 }
 

@@ -60,7 +60,7 @@ vi.mock("@/hooks/useCaseLock", () => ({
   useCaseLock: () => ({ isWatching: false, holderName: null, takeover: () => {} }),
 }))
 vi.mock("@/components/CaseMeta", () => ({ CaseMeta: () => null }))
-vi.mock("@/components/WatchingBanner", () => ({ WatchingBanner: () => null }))
+vi.mock("./CaseBanners", () => ({ CaseBanners: () => null }))
 vi.mock("@/components/CaseSummary", () => ({ CaseSummary: () => <div data-testid="case-summary" /> }))
 vi.mock("@/components/forms/PreopForm", () => ({
   PreopForm: (props: { defaultValues?: PreopData; onAutoSave?: (d: PreopData) => void }) => {

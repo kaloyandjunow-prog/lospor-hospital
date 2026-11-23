@@ -28,7 +28,7 @@ export function SupportDiagnosticPreview({
       <Text style={{ color: colors.success, fontSize: 12, lineHeight: 17, marginBottom: 12 }}>
         {notice}
       </Text>
-      <Text selectable style={{ color: colors.textSecondary, fontFamily: "monospace", fontSize: 11, lineHeight: 17 }}>
+      <Text selectable style={{ color: colors.textSecondary, fontFamily: "monospace", fontSize: 12, lineHeight: 17 }}>
         {report}
       </Text>
     </View>

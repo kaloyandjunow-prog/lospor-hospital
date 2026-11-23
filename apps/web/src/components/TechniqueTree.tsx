@@ -159,7 +159,7 @@ export function TechniqueTree({ value = [], onChange }: {
         {value.map(v => (
           <div key={v}
             className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border ${techniqueColor(v)}`}>
-            <span className="text-[11px] leading-tight">{techniqueDisplayLabel(v, tree)}</span>
+            <span className="text-xs leading-tight">{techniqueDisplayLabel(v, tree)}</span>
             <button type="button" aria-label={t("intraop.techniquePicker.remove", { name: techniqueDisplayLabel(v, tree) })} onClick={() => remove(v)}
               className="opacity-70 hover:opacity-100 transition-opacity">
               <X className="h-3 w-3" />

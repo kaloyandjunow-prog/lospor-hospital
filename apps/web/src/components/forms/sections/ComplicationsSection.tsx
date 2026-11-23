@@ -18,8 +18,10 @@ import { describeIntraopEvent } from "@lospor/core/intraop-summary"
 import { resolveIntraopEventLabel } from "@lospor/core/clinical-display"
 import { groupLabsByDraw, labDrawSummary, type LabResult } from "@lospor/core/labs"
 import { EventLogTimelineStream } from "@/components/forms/sections/EventLogTimelineStream"
+import { EventLogMenuHost, useLogEntryMenu } from "@/components/intraop/EventLogMenuHost"
+import type { WebIntraopAttention } from "@/lib/use-intraop-attention"
 
-export function ComplicationsSection({ t, control, watch, eventLog, labResults = [], onDeleteEvent, eventLogScreen = "smart" }: {
+type ComplicationsSectionProps = {
   t: (key: string) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
@@ -28,8 +30,18 @@ export function ComplicationsSection({ t, control, watch, eventLog, labResults =
   labResults?: LabResult[]
   onDeleteEvent?: (id: string) => void
   eventLogScreen?: "smart" | "legacy"
-}) {
+  /** 10.8.0: a tap on an entry opens the chart's menu (with Undo) instead of a Delete button. */
+  attention?: WebIntraopAttention | null
+}
+
+export function ComplicationsSection(props: ComplicationsSectionProps) {
   const locale = useLocale()
+  return <EventLogMenuHost attention={props.attention} locale={locale}><ComplicationsSectionBody {...props} /></EventLogMenuHost>
+}
+
+function ComplicationsSectionBody({ t, control, watch, eventLog, labResults = [], onDeleteEvent, eventLogScreen = "smart" }: ComplicationsSectionProps) {
+  const locale = useLocale()
+  const openMenu = useLogEntryMenu()
   const draws = groupLabsByDraw(labResults).filter(draw => draw.takenAt)
   const entries = [
     // A "Not now" to a question from the vitals is not something that happened (10.1.0).
@@ -57,11 +69,11 @@ export function ComplicationsSection({ t, control, watch, eventLog, labResults =
                 <span className="text-xs tabular-nums text-slate-500">{complicationWhen(item)}</span>
                 {(item.eventId ? !!onDeleteEvent : true) && (
                   <button type="button" data-testid={`complication-delete-${item.key}`} aria-label={t("intraop.deleteEvent")} title={t("intraop.deleteEvent")}
-                    onClick={() => item.eventId
-                      ? onDeleteEvent?.(item.eventId)
+                    onClick={event => item.eventId
+                      ? (openMenu?.(item.eventId, clinicalDisplayLabel("complication", item.label, language, { label: item.label }), event.currentTarget) || onDeleteEvent?.(item.eventId))
                       // Core reads both the web's "A; B; notes" and the PWA's "A; B — notes".
                       : field.onChange(withoutLegacyComplication(field.value, item.label) ?? "")}
-                    className="text-slate-400 hover:text-red-500 text-sm px-1">x</button>
+                    className="min-h-11 min-w-11 text-slate-400 hover:text-red-500 text-sm px-1">x</button>
                 )}
               </li>
             ))}
@@ -81,17 +93,17 @@ export function ComplicationsSection({ t, control, watch, eventLog, labResults =
       {/* Legacy event log (read-only timeline) */}
       {eventLogScreen !== "smart" && entries.length > 0 && (
         <div className="mt-5 border-t border-slate-100 dark:border-[#2a2a2a] pt-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-[#666] mb-3">{t("intraop.eventLog")}</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-[#666] mb-3">{t("intraop.eventLog")}</p>
           <div className="space-y-0">
             {entries.map((entry) => {
               if (entry.kind === "lab") {
                 return (
                   <div key={`lab-${entry.ts}`} data-testid="event-log-lab-draw" className="flex items-center gap-2.5 py-1.5 border-b border-slate-50 dark:border-[#1e1e1e] last:border-0">
-                    <span className="text-[11px] text-slate-400 dark:text-[#666] tabular-nums pt-0.5 w-10 shrink-0">{hhmmOf(entry.ts)}</span>
+                    <span className="text-xs text-slate-400 dark:text-[#666] tabular-nums pt-0.5 w-10 shrink-0">{hhmmOf(entry.ts)}</span>
                     <div className="w-0.5 h-5 rounded-full shrink-0 bg-teal-500" />
                     <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium leading-snug flex-1">
                       {t("intraop.timetable.labs")} · {entry.draw.results.length}
-                      <span className="block text-[11px] font-normal text-slate-400">{labDrawSummary(entry.draw)}</span>
+                      <span className="block text-xs font-normal text-slate-400">{labDrawSummary(entry.draw)}</span>
                     </span>
                   </div>
                 )
@@ -106,11 +118,12 @@ export function ComplicationsSection({ t, control, watch, eventLog, labResults =
               const text = ev.autoFilled ? `${descriptor.text} · ${t("intraop.timelineRules.autoFilledTag")}` : descriptor.text
               const { color } = descriptor
               return (
-                <div key={ev.id} className="flex items-center gap-2.5 py-1.5 border-b border-slate-50 dark:border-[#1e1e1e] last:border-0 group">
-                  <span className="text-[11px] text-slate-400 dark:text-[#666] tabular-nums pt-0.5 w-10 shrink-0">{hhmm}</span>
+                <div key={ev.id} className={`flex items-center gap-2.5 py-1.5 border-b border-slate-50 dark:border-[#1e1e1e] last:border-0 group ${openMenu ? "cursor-pointer min-h-11 hover:bg-slate-50 dark:hover:bg-[#1e1e1e]" : ""}`}
+                  onClick={openMenu && ev.id ? event => { openMenu(ev.id!, text, event.currentTarget) } : undefined}>
+                  <span className="text-xs text-slate-400 dark:text-[#666] tabular-nums pt-0.5 w-10 shrink-0">{hhmm}</span>
                   <div className="w-0.5 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                   <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium leading-snug flex-1">{text}</span>
-                  {onDeleteEvent && (
+                  {onDeleteEvent && !openMenu && (
                     <button
                       type="button"
                       onClick={() => ev.id && onDeleteEvent(ev.id)}

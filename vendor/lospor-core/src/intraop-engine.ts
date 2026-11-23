@@ -668,6 +668,7 @@ function appliedStopRefs(event: LogEvent) {
   return {
     stopEventId: event.id,
     ...(event.endCaseStop ? { endCaseStop: true } : {}),
+    ...(event.continuesAfterEnd ? { continuesAfterEnd: true } : {}),
     ...(stopEnteredAhead(event) && !event.stopConfirmed ? { stopUnconfirmed: true } : {}),
   }
 }

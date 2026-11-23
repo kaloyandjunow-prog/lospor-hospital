@@ -43,7 +43,7 @@ export function PositionSection({ t, control, watch, positionOptions }: {
                        : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-[#888] hover:border-slate-300 dark:hover:border-[#555]"
                   }`}>
                   <div className="text-xs font-bold leading-tight">{display(opt).label}</div>
-                  <div className="text-[9px] mt-1 leading-tight opacity-75">{display(opt).description}</div>
+                  <div className="text-xs mt-1 leading-tight opacity-75">{display(opt).description}</div>
                 </button>
               )
             })}
