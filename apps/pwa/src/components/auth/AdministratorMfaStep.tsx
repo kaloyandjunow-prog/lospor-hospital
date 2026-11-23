@@ -57,6 +57,17 @@ export function AdministratorMfaStep({
   // something this component was already handed.
   const completionRef = useRef<AdministratorMfaCompletion | null>(null)
 
+  // Web (the PWA): no browser menu on the code field, though the sign-in screens keep theirs.
+  const codeRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (Platform.OS !== "web") return
+    const node = codeRef.current as unknown as HTMLElement | null
+    if (!node?.addEventListener) return
+    const block = (event: Event) => event.preventDefault()
+    node.addEventListener("contextmenu", block)
+    return () => node.removeEventListener("contextmenu", block)
+  }, [])
+
   useEffect(() => {
     const timer = setInterval(() => setRemaining(secondsRemaining(challenge.expiresAt)), 1_000)
     return () => clearInterval(timer)
@@ -227,6 +238,7 @@ export function AdministratorMfaStep({
       )}
 
       <TextInput
+        ref={node => { codeRef.current = node as unknown as HTMLElement | null }}
         accessibilityLabel={entryKind === "authenticator" ? t("mfaAuthenticatorCode") : t("mfaRecoveryCode")}
         value={code}
         onChangeText={setCode}

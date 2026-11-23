@@ -36,7 +36,7 @@ export function FluidStatusHybrid({
   return (
     <OverflowCueScrollView style={{ flex: 1 }} scrollViewStyle={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
       <View testID="fluid-summary" style={{ marginBottom: 14, padding: 14, borderRadius: 14, backgroundColor: shade("#132033"), borderWidth: 1, borderColor: shade("#25405a") }}>
-        <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>{tc("fluidRecordedHint")}</Text>
+        <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>{tc("fluidRecordedHint")}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           <SummaryMetric testID="fluid-total-in" label={tc("fluidInputLabel")} value={rowValue(totalIn)} tint={shade("#22d3ee")} />
           <SummaryMetric label={tc("fluidOutputLabel")} value={rowValue(totalOut)} tint={shade("#a78bfa")} />
@@ -114,7 +114,7 @@ export function FluidStatusHybrid({
         ) : (
           <EditableRow testID="fluid-edit-blood-loss" label={tc("bloodLossLabel")} value={rowValue(bloodLossMl)} editLabel={tc("fluidEditLabel")} onPress={() => setEditing("blood")} shade={shade} />
         )}
-        <Text style={{ color: shade("#64748b"), fontSize: 10, fontStyle: "italic", marginTop: 8 }}>{tc("bloodLossOptionalHint")}</Text>
+        <Text style={{ color: shade("#64748b"), fontSize: 12, fontStyle: "italic", marginTop: 8 }}>{tc("bloodLossOptionalHint")}</Text>
       </SummaryGroup>
     </OverflowCueScrollView>
   )
@@ -124,7 +124,7 @@ function SummaryMetric({ testID, label, value, tint }: { testID?: string; label:
   const shade = useShade()
   return (
     <View testID={testID} style={{ flexGrow: 1, minWidth: "45%", padding: 9, borderRadius: 10, backgroundColor: shade("#0b111b"), borderWidth: 1, borderColor: shade("#1e2d40") }}>
-      <Text style={{ color: tint, fontSize: 10, fontWeight: "800", textTransform: "uppercase" }}>{label}</Text>
+      <Text style={{ color: tint, fontSize: 12, fontWeight: "800", textTransform: "uppercase" }}>{label}</Text>
       <Text style={{ color: shade("#f8fafc"), fontSize: 17, fontWeight: "800", marginTop: 3, fontVariant: ["tabular-nums"] }}>{value}</Text>
     </View>
   )
@@ -145,7 +145,7 @@ function SummaryGroup({ testID, label, open, onPress, tint, expandLabel, collaps
     <View style={{ marginBottom: 10, borderRadius: 12, borderWidth: 1, borderColor: shade("#1e2d40"), overflow: "hidden" }}>
       <TouchableOpacity testID={testID} accessibilityRole="button" accessibilityLabel={`${label}. ${open ? collapseLabel : expandLabel}`} accessibilityState={{ expanded: open }} onPress={onPress} style={{ minHeight: 58, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: shade("#0f1621"), flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flex: 1, justifyContent: "center" }}>
-          <Text style={{ color: tint, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</Text>
+          <Text style={{ color: tint, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</Text>
         </View>
         <Ionicons name={open ? "chevron-up" : "chevron-down"} size={20} color={shade("#94a3b8")} accessibilityElementsHidden />
       </TouchableOpacity>
@@ -163,9 +163,9 @@ function ReadOnlyRow({ label, value, shade }: { label: string; value: string; sh
 
 function ReadOnlyList({ title, rows, weightNote, shade }: { title: string; rows: FluidStatusTotalRow[]; weightNote?: string | null; shade: (hex: string) => string }) {
   return <View style={{ marginTop: 12 }}>
-    <Text style={{ color: shade("#64748b"), fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 }}>{title}</Text>
+    <Text style={{ color: shade("#64748b"), fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 }}>{title}</Text>
     {rows.map(row => <ReadOnlyRow key={`${row.name}-${row.unit}`} label={`${row.name}${row.count != null && row.count > 1 ? `  ×${row.count}` : ""}`} value={`${row.display ?? `${row.total} ${row.unit}`}${row.weightUsed != null ? " †" : ""}${row.mgTotal != null ? `  (${row.mgTotal} mg)` : ""}`} shade={shade} />)}
-    {weightNote && <Text style={{ color: shade("#475569"), fontSize: 10, fontStyle: "italic", marginTop: 6 }}>{weightNote}</Text>}
+    {weightNote && <Text style={{ color: shade("#475569"), fontSize: 12, fontStyle: "italic", marginTop: 6 }}>{weightNote}</Text>}
   </View>
 }
 

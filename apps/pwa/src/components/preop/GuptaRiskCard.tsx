@@ -43,8 +43,8 @@ export function GuptaRiskCard({
 
   return (
     <View testID="gupta-risk-card" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 12, marginBottom: 14 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900" }}>{tc("guptaTitle")}</Text>
-      <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{tc("guptaNote")}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900" }}>{tc("guptaTitle")}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{tc("guptaNote")}</Text>
       {shown ? (
         <Text style={{ color: riskColor(shown.severity), fontSize: 18, fontWeight: "900", marginTop: 6 }}>{shown.label}</Text>
       ) : (
@@ -53,7 +53,7 @@ export function GuptaRiskCard({
         </Text>
       )}
       {result.available && result.input.creatinine === "UNKNOWN" ? (
-        <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{tc("guptaCreatinineUnknown")}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{tc("guptaCreatinineUnknown")}</Text>
       ) : null}
       {suggestedProcedureType && !answeredType ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 6 }}>

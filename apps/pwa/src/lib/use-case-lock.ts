@@ -15,13 +15,19 @@ export type LockState = "idle" | "acquiring" | "held" | "watching"
 
 const DEVICE_ID_KEY = "lospor_device_id"
 
-async function getDeviceId(): Promise<string> {
-  let id = await SecureStore.getItemAsync(DEVICE_ID_KEY)
-  if (!id) {
-    id = `mob-${randomHex(16)}`
-    await SecureStore.setItemAsync(DEVICE_ID_KEY, id)
-  }
-  return id
+let deviceIdOnce: Promise<string> | null = null
+
+/** One id per device, read once: two callers at the first start (the lock and the presence notice) used to make two. */
+export function getDeviceId(): Promise<string> {
+  deviceIdOnce ??= (async () => {
+    let id = await SecureStore.getItemAsync(DEVICE_ID_KEY)
+    if (!id) {
+      id = `mob-${randomHex(16)}`
+      await SecureStore.setItemAsync(DEVICE_ID_KEY, id)
+    }
+    return id
+  })().catch(error => { deviceIdOnce = null; throw error })
+  return deviceIdOnce
 }
 
 function legacyState(state: CaseLockState): LockState {

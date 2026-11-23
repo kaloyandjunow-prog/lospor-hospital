@@ -43,7 +43,7 @@ export function ActionTile({
             {label}
           </Text>
           {!!sub && (
-            <Text style={{ color:color, fontSize:compact ? 10 : 11, fontWeight:"700", marginTop:2 }} numberOfLines={1}>
+            <Text style={{ color:color, fontSize:12, fontWeight:"700", marginTop:2 }} numberOfLines={1}>
               {sub}
             </Text>
           )}

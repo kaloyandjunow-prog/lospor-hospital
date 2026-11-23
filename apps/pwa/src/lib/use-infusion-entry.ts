@@ -103,12 +103,13 @@ export function useInfusionEntry(
   async function stopInfusion(
     inf: ActiveInfusion,
     rowTs?: string | null,
-    options: { exactTs?: string; endCaseStop?: boolean; pump?: { value: number; unit: PumpTotalUnit } } = {},
+    options: { exactTs?: string; endCaseStop?: boolean; continuesAfterEnd?: boolean; pump?: { value: number; unit: PumpTotalUnit } } = {},
   ) {
     setActiveInfusions(prev => prev.filter(x => x.infId !== inf.infId))
     await save({
       type: "infusion_stop", infId: inf.infId, name: inf.name, color: inf.color,
       ...(options.endCaseStop ? { endCaseStop: true } : {}),
+      ...(options.continuesAfterEnd ? { continuesAfterEnd: true } : {}),
       // A TCI stop may carry the pump's own total, which then counts (2026-10-18).
       ...(options.pump ? { pumpTotal: options.pump.value, pumpTotalUnit: options.pump.unit } : {}),
     }, options.exactTs ?? atRow(rowTs))

@@ -120,7 +120,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
             <Text style={{ color: colors.danger, fontSize: 16, fontWeight: "800" }}>
               {postop.recoveryBpSystolic}/{postop.recoveryBpDiastolic}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).bp} mmHg</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{vitalAbbreviations(language).bp} mmHg</Text>
           </View>
         )}
         {postop.recoveryHeartRate != null && (
@@ -131,7 +131,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
             borderRadius: 10, padding: 8, alignItems: "center",
           }}>
             <Text style={{ color: colors.success, fontSize: 16, fontWeight: "800" }}>{postop.recoveryHeartRate}</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).hr} {vitalAbbreviations(language).bpm}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{vitalAbbreviations(language).hr} {vitalAbbreviations(language).bpm}</Text>
           </View>
         )}
         {postop.recoverySpO2 != null && (
@@ -142,7 +142,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
             borderRadius: 10, padding: 8, alignItems: "center",
           }}>
             <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800" }}>{postop.recoverySpO2}%</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>SpO₂</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>SpO₂</Text>
           </View>
         )}
         {postop.temperatureCelsius != null && (
@@ -155,7 +155,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
             <Text style={{ color: colors.temp, fontSize: 16, fontWeight: "800" }}>
               {postop.temperatureCelsius}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{vitalAbbreviations(language).temp} °C</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{vitalAbbreviations(language).temp} °C</Text>
           </View>
         )}
         {/* Every pain and delirium scale scored (10.0.0). */}
@@ -169,7 +169,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
             <Text style={{ color: colors.warning, fontSize: 16, fontWeight: "800" }}>
               {entry.value.split(" · ")[0].replace(" / ", "/")}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{entry.key === "PAED" ? entry.label : `${tc("summaryPain")} ${entry.label}`}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{entry.key === "PAED" ? entry.label : `${tc("summaryPain")} ${entry.label}`}</Text>
           </View>
         ))}
         {postop.ponv != null && (
@@ -185,7 +185,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
             }}>
               {postop.ponv ? t("yesLabel") : t("noLabel")}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>{tc("summaryPONV")}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{tc("summaryPONV")}</Text>
           </View>
         )}
       </View>
@@ -193,7 +193,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
       {/* The procedure done (10.0.0), as the web summary shows it. */}
       {performed ? (
         <View testID="postop-performed" style={{ marginBottom: 10 }}>
-          <Text style={{ color: colors.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{tc("performedProcedureLabel")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{tc("performedProcedureLabel")}</Text>
           <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }}>{performed}</Text>
         </View>
       ) : null}
@@ -216,7 +216,7 @@ export function PostopCard({ postop, tc, t, pediatric = false }: {
       {(postop.handoverItems?.length ?? 0) > 0 && (
         <View>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 6,
           }}>
             {tc("summaryHandover")}

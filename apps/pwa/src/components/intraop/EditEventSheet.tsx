@@ -36,7 +36,7 @@ export function EditEventSheet({
           <View>
             {event.type === "drug" && (
               <>
-                <Text style={{ color:shade("#94a3b8"), fontSize:11, fontWeight:"700", letterSpacing:1,
+                <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1,
                   textTransform:"uppercase", marginBottom:8 }}>{formatMessage(tc("doseLabel"), { unit: event.unit ?? "" })}</Text>
                 <TextInput
                   style={{ backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10, padding:12,
@@ -49,7 +49,7 @@ export function EditEventSheet({
             )}
           </View>
           <View>
-            <Text style={{ color:shade("#94a3b8"), fontSize:11, fontWeight:"700", letterSpacing:1,
+            <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1,
               textTransform:"uppercase", marginBottom:8 }}>{tc("timeLabel")}</Text>
             <TextInput
               style={{ backgroundColor:shade("#111111"), color:shade("#fff"), borderRadius:10, padding:12,

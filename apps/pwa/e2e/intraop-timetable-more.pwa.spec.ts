@@ -85,7 +85,7 @@ test.describe("taking an entry back", () => {
       .toBe(false)
   })
 
-  test("an entry removed from the event log is gone from the chart and the server", async ({ page, request }) => {
+  test("an entry deleted from the event log's menu is gone from the chart and the server", async ({ page, request }) => {
     const session = await newStartedCase(page, request)
     await openStartRow(page, session.rowTime)
     await page.getByText("Drug", { exact: true }).first().click()
@@ -94,10 +94,11 @@ test.describe("taking an entry back", () => {
     await page.getByText("Add Fentanyl 10 mcg", { exact: true }).click()
     await expectSaved(request, session, /Fentanyl/, "the drug never reached the server")
 
-    page.on("dialog", dialog => { void dialog.accept() })
     await page.getByText("Event log", { exact: true }).click()
     await expect(page.getByText("Fentanyl 10 mcg")).toBeVisible()
-    await page.getByText("Remove", { exact: true }).first().click()
+    // 10.8.0 (rule 10): a tap on an entry opens the chart's one menu; Delete asks nothing and leaves the Undo bar.
+    await page.getByText("Fentanyl 10 mcg").first().click()
+    await page.getByText("Delete", { exact: true }).first().click()
     await expect(page.getByText("Fentanyl 10 mcg")).toHaveCount(0, { timeout: 15_000 })
     await expect
       .poll(async () => (await savedChart(request, session)).includes("Fentanyl"), { timeout: 20_000, message: "the removed drug is still on the server" })

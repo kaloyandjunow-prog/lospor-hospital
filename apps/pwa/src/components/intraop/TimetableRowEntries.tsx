@@ -23,13 +23,16 @@ export function rowEntryColor(event: LogEvent): string {
 /**
  * Everything charted in this five minutes, in the order it happened, with no heading. The header of the opened row
  * names four drugs and events at most, so a complication, a shock, an infusion's start, a fluid, jet ventilation, a
- * position or a set of vitals was nowhere in it (found 2026-11-11). A jet line opens the jet sheet at this row to
- * change or stop it, as the running card does.
+ * position or a set of vitals was nowhere in it (found 2026-11-11).
+ *
+ * 10.8.0: a tap on any line opens its menu -- the same one it has on the web chart and in the event log.
  */
-export function TimetableRowEntries({ entries, labelOf, col, onEditJet }: {
+export function TimetableRowEntries({ entries, labelOf, col: _col, onOpenEvent, onEditJet }: {
   entries: LogEvent[]
   labelOf: (event: LogEvent) => string
   col: number
+  onOpenEvent?: (event: LogEvent) => void
+  /** Before the menu (kept for a caller that has not moved to it): the jet sheet at this row. */
   onEditJet?: (col: number) => void
 }) {
   const shade = useShade()
@@ -39,24 +42,24 @@ export function TimetableRowEntries({ entries, labelOf, col, onEditJet }: {
       <View style={{ gap: 6 }}>
         {entries.map(ev => {
           const color = shade(rowEntryColor(ev))
-          const editsJet = ev.type.startsWith("jet") && !!onEditJet
+          const opens = !!onOpenEvent || (ev.type.startsWith("jet") && !!onEditJet)
           return (
             <TouchableOpacity
               key={ev.id}
               testID={`timetable-row-entry-${ev.type}`}
-              activeOpacity={editsJet ? 0.7 : 1}
-              onPress={editsJet ? () => onEditJet?.(col) : undefined}
+              activeOpacity={opens ? 0.7 : 1}
+              onPress={onOpenEvent ? () => onOpenEvent(ev) : ev.type.startsWith("jet") && onEditJet ? () => onEditJet(_col) : undefined}
               style={{
-                flexDirection: "row", alignItems: "center", gap: 10,
-                backgroundColor: color + "12", borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10,
+                flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44,
+                backgroundColor: color + "12", borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10,
                 borderLeftWidth: 3, borderLeftColor: color,
               }}
             >
-              <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "700", fontVariant: ["tabular-nums"], width: 38 }}>
+              <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"], width: 40 }}>
                 {formatDateHHMM(new Date(ev.ts))}
               </Text>
-              <Text style={{ color: shade("#e2e8f0"), fontSize: 13, fontWeight: "600", flex: 1 }}>{labelOf(ev)}</Text>
-              {editsJet ? <Text style={{ color: shade("#64748b"), fontSize: 11 }}>→</Text> : null}
+              <Text style={{ color: shade("#e2e8f0"), fontSize: 14, fontWeight: "600", flex: 1 }}>{labelOf(ev)}</Text>
+              {opens ? <Text style={{ color: shade("#64748b"), fontSize: 18 }}>⋯</Text> : null}
             </TouchableOpacity>
           )
         })}

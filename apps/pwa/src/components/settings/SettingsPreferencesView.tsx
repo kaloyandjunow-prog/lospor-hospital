@@ -163,7 +163,7 @@ export function SettingsPreferencesView({
         <View style={{ height: 12 }} />
         <EnergyKnobSkinCard />
         <SectionHeader title={t("smartFunctionsSection")} />
-        <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: -4, marginBottom: 10 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16, marginTop: -4, marginBottom: 10 }}>
           {t("smartFunctionsDesc")}
         </Text>
         <Card>
@@ -183,7 +183,7 @@ export function SettingsPreferencesView({
           <SettingsRow
             label={t("caseSidebarLayout")}
             subtitle={caseSidebar ? t("caseSidebarEnabled") : t("caseSidebarDisabled")}
-            rightElement={<Text style={{ color: colors.textMuted, fontSize: 11 }}>{t("webOnly")}</Text>}
+            rightElement={<Text style={{ color: colors.textMuted, fontSize: 12 }}>{t("webOnly")}</Text>}
           />
           <AirwayScreenCard compact />
           <VascularScreenCard compact />

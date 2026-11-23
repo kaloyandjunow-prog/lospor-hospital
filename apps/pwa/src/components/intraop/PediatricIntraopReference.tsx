@@ -38,7 +38,7 @@ export function PediatricIntraopReference({ preop, language, surgeryStart, timez
           : labels.solids
   const row = (title: string, lines: string[]) => (
     <View key={title} style={{ gap: 2 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>{title}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800" }}>{title}</Text>
       {lines.map(line => <Text key={line} style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "600" }}>{line}</Text>)}
     </View>
   )
@@ -57,7 +57,7 @@ export function PediatricIntraopReference({ preop, language, surgeryStart, timez
       {fasting.length > 0 ? row(labels.npoTitle, fasting.map(entry =>
         fill(labels.npoStopBy, { category: categoryLabel(entry.category), time: entry.clock, hours: entry.hoursBefore })
           + (entry.previousDay ? ` · ${labels.npoPreviousDay}` : ""))) : null}
-      <Text style={{ color: colors.textMuted, fontSize: 10 }}>{labels.referenceSources} · {reference.ruleVersion}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12 }}>{labels.referenceSources} · {reference.ruleVersion}</Text>
     </View>
   )
 }

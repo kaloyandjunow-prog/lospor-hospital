@@ -181,7 +181,7 @@ function OperationList({ group, bg, selected, suggested, onPick }: {
         </Text>
       ) : null}
       {list?.offline ? (
-        <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "800" }}>{tc("procedureExactOffline")}</Text>
+        <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "800" }}>{tc("procedureExactOffline")}</Text>
       ) : null}
       {!loading && list && list.total === 0 ? (
         <Text style={{ color: colors.textMuted, fontSize: 13 }}>{tc("procedureExactNone")}</Text>

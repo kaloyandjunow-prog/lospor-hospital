@@ -5,6 +5,7 @@ import { LabDrawDetail, LabDrawPill, mergeRowLabDraws } from "@/components/intra
 import type { IntraopLabDraw } from "@lospor/core/labs"
 import { View, Text, TouchableOpacity } from "react-native"
 import { useShade } from "@/theme/colors"
+import { RowStopped, RunningStrips } from "./TimetableRowParts"
 import { timeAtCol, formatDateHHMM } from "@/lib/intraop-projection"
 import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@/lib/intraop-log-event"
 import type { ActiveAgent } from "@/lib/intraop-active-state"
@@ -72,6 +73,13 @@ type TimetableRowProps = {
   onQuickAdd: (col: number, action: QuickAddAction) => void
   /** Answers an unconfirmed stop in its row; absent on a watching screen. */
   onAnswerAttention?: (key: string, action: IntraopAttentionAction) => void
+  /** 10.8.0: a tap on a running item opens its menu here (Stop, Change dose, ...). */
+  onOpenRunning?: (item: RunningItem, col: number) => void
+  /** 10.8.0: a tap on a line of the row opens its menu. */
+  onOpenEvent?: (event: LogEvent) => void
+  /** 10.8.0: items stopped before this row and not started again ("Stopped: ..."). */
+  stopped?: Array<{ id: string; label: string; color: string; at: string }>
+  onOpenStopped?: (id: string, col: number, title?: string) => void
 }
 
 function TimetableRowComponent({
@@ -79,13 +87,11 @@ function TimetableRowComponent({
   vital, rowEvents, running, summary, labelOf,
   activeInfusions, activeFluids, activeAgents, activeGas,
   onExpand, onCollapse, onManageInfusion, onEndFluid, onEditGas, onEditJet, onStopAgent, onQuickAdd, onAnswerAttention,
+  onOpenRunning, onOpenEvent, stopped, onOpenStopped,
 }: TimetableRowProps) {
   const shade = useShade()
   const { tc } = usePreferences()
   const jetOn = useSyncExternalStore(jetSheet.subscribe, jetSheet.enabled, jetSheet.enabled)
-  const plannedItems = running.filter(item => item.planned || item.plannedStop || item.plannedChange)
-  const plannedPrefix = (item: RunningItem) =>
-    `${tc(item.planned ? "plannedLabel" : item.plannedStop ? "plannedStopLabel" : "plannedChangeLabel")} · `
   const t = timeAtCol(chartStart, col)
   const { criticalParts, normalParts, drugParts, hasCritical } = summary
   const rowEntries = rowEvents.filter(isRowEntry)
@@ -125,7 +131,7 @@ function TimetableRowComponent({
           <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4, paddingHorizontal: 8 }}>
             {vital && (
               <View style={{ backgroundColor: shade("#1a3028"), borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
-                <Text style={{ color: hasCritical ? shade("#ef4444") : shade("#22c55e"), fontSize: 11, fontWeight: "700", fontVariant: ["tabular-nums"] }}>
+                <Text style={{ color: hasCritical ? shade("#ef4444") : shade("#22c55e"), fontSize: 12, fontWeight: "700", fontVariant: ["tabular-nums"] }}>
                   {criticalParts.length > 0 ? criticalParts.join("  ") : normalParts.slice(0, 2).join("  ")}
                 </Text>
               </View>
@@ -136,7 +142,7 @@ function TimetableRowComponent({
                 borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
                 borderWidth: 1, borderColor: (ev.color ?? shade("#3b82f6")) + "55",
               }}>
-                <Text style={{ color: ev.color ?? shade("#3b82f6"), fontSize: 11, fontWeight: "600" }}>
+                <Text style={{ color: ev.color ?? shade("#3b82f6"), fontSize: 12, fontWeight: "600" }}>
                   {labelOf(ev)}
                 </Text>
               </View>
@@ -145,15 +151,11 @@ function TimetableRowComponent({
           <Text style={{ color: shade("#475569"), fontSize: 18, fontWeight: "300" }}>×</Text>
         </TouchableOpacity>
 
-        <LabDrawDetail draws={labDraws ?? []} onOpen={onOpenLabs} />
-
-        <TimetableRowEntries entries={rowEntries} labelOf={labelOf} col={col} onEditJet={onEditJet} />
-
-        {/* Running items */}
+        {/* Running items first, then what was charted here, then what stopped earlier (10.8.0). */}
         {running.length > 0 && (
           <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
             <Text style={{
-              color: shade("#475569"), fontSize: 10, fontWeight: "700",
+              color: shade("#475569"), fontSize: 12, fontWeight: "700",
               letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 8,
             }}>{tc("trRunning")}</Text>
             <View style={{ gap: 7 }}>
@@ -168,14 +170,17 @@ function TimetableRowComponent({
                 // control: a change made here is dated to this row (9.13.1).
                 const marker = !!(item.planned || item.plannedStop || item.plannedChange)
                 const dashed = marker || !!item.projected
-                const canManage = !marker && !!(activeInf || activeFl || runningAgent || (isGasItem && activeGas) || (isJetItem && onEditJet))
+                const legacyManage = !marker && !!(activeInf || activeFl || runningAgent || (isGasItem && activeGas) || (isJetItem && onEditJet))
+                const canOpen = !!onOpenRunning || legacyManage
                 return (
                   <View key={item.id}>
                   <TouchableOpacity
-                    activeOpacity={canManage ? 0.7 : 1}
+                    testID={`timetable-running-${item.id}`}
+                    activeOpacity={canOpen ? 0.7 : 1}
                     onPress={() => {
-                      if (!canManage) return
-                      // Every stop and change is recorded at this row, not the tap time.
+                      // 10.8.0: the item's menu, at this row. Every stop and change is dated to the row.
+                      if (onOpenRunning) { onOpenRunning(item, col); return }
+                      if (!legacyManage) return
                       if (activeInf) onManageInfusion(activeInf, col)
                       else if (activeFl) onEndFluid(activeFl, col)
                       else if (isGasItem && activeGas) onEditGas(col)
@@ -183,25 +188,27 @@ function TimetableRowComponent({
                       else if (runningAgent) onStopAgent(runningAgent.name, col)
                     }}
                     style={{
-                      flexDirection: "row", alignItems: "center",
+                      flexDirection: "row", alignItems: "center", minHeight: 48,
                       backgroundColor: item.color + (dashed ? "08" : "14"),
-                      borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+                      borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
                       borderWidth: 1, borderColor: item.color + "44", borderStyle: dashed ? "dashed" : "solid",
                       borderLeftWidth: 4, borderLeftColor: item.color,
                     }}
                   >
                     {(() => { const state = eventsSaveState(item.eventIds ?? [], saveInput); return state ? <SaveStateDot state={state} /> : null })()}
-                    <Text style={{ color: item.color, fontSize: 13, fontWeight: "700", flex: 1 }}>
-                      {item.planned ? `${tc("plannedLabel")} · ` : item.plannedStop ? `${tc("plannedStopLabel")} · ` : item.plannedChange ? `${tc("plannedChangeLabel")} · ` : ""}{item.label}
-                    </Text>
-                    {canManage && (
-                      <Text style={{ color: shade("#64748b"), fontSize: 11 }}>
-                        {activeInf ? tc("trManage") : activeFl ? tc("trEndFluid") : isGasItem || isJetItem ? tc("trEdit") : tc("trStop")} →
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: item.color, fontSize: 14, fontWeight: "700" }}>
+                        {item.planned ? `${tc("plannedLabel")} · ` : item.plannedStop ? `${tc("plannedStopLabel")} · ` : item.plannedChange ? `${tc("plannedChangeLabel")} · ` : ""}{item.label}
                       </Text>
-                    )}
+                      {/* 10.8.0: what it has come to -- amount, volume with time and rate, or how long (Core, as the web lane's total). */}
+                      {item.total ? <Text testID={`running-total-${item.id}`} style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", marginTop: 2, fontVariant: ["tabular-nums"] }}>Σ {item.total}</Text> : null}
+                    </View>
+                    {/* A stop entered ahead reached this row unconfirmed: answered in the bar under the tabs (10.8.0). */}
+                    {item.stopUnconfirmed ? <Text style={{ color: shade("#fbbf24"), fontSize: 16, fontWeight: "900", marginRight: 8 }}>?</Text> : null}
+                    {canOpen ? <Text style={{ color: shade("#64748b"), fontSize: 18 }}>⋯</Text> : null}
                   </TouchableOpacity>
-                  {/* A stop entered ahead reached this row unconfirmed (9.13.0). */}
-                  {item.stopUnconfirmed && item.stopEventId && onAnswerAttention ? (
+                  {/* Without the menu (older caller): the answers stay in the row. */}
+                  {!onOpenRunning && item.stopUnconfirmed && item.stopEventId && onAnswerAttention ? (
                     <View style={{ marginTop: 6 }}>
                       <Text style={{ color: shade("#fbbf24"), fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{tc("stopUnconfirmedLabel")}</Text>
                       <AttentionAnswers id={item.stopEventId} kind="unconfirmed_stop" onAnswer={onAnswerAttention} />
@@ -214,10 +221,17 @@ function TimetableRowComponent({
           </View>
         )}
 
+        <LabDrawDetail draws={labDraws ?? []} onOpen={onOpenLabs} />
+
+        <TimetableRowEntries entries={rowEntries} labelOf={labelOf} col={col} onEditJet={onEditJet} onOpenEvent={onOpenEvent} />
+
+        {/* What stopped before this row and was not started again: one line, each name opens its menu (Resume, ...). */}
+        {stopped && stopped.length > 0 ? <RowStopped stopped={stopped} col={col} label={tc("trStoppedLine")} onOpen={onOpenStopped} /> : null}
+
         {/* Quick-add grid */}
         <View style={{ paddingHorizontal: 14, paddingTop: running.length > 0 ? 4 : 12, paddingBottom: 16 }}>
           <Text style={{
-            color: shade("#475569"), fontSize: 10, fontWeight: "700",
+            color: shade("#475569"), fontSize: 12, fontWeight: "700",
             letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 10,
           }}>{tc("trAddNow")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -227,7 +241,7 @@ function TimetableRowComponent({
                 testID={`timetable-quick-add-${btn.action}`}
                 onPress={() => onQuickAdd(col, btn.action)}
                 style={{
-                  paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+                  paddingHorizontal: 14, paddingVertical: 8, minHeight: 44, justifyContent: "center", borderRadius: 10,
                   backgroundColor: shade(btn.color) + "18",
                   borderWidth: 1, borderColor: shade(btn.color) + "44",
                 }}
@@ -278,7 +292,7 @@ function TimetableRowComponent({
       <View style={{ width: 54, alignItems: "flex-end", paddingRight: 8, justifyContent: "center" }}>
         <Text style={{
           color: isNow ? shade("#fb923c") : isQuarter ? shade("#cbd5e1") : shade("#475569"),
-          fontSize: isNow || isQuarter ? 12 : 11,
+          fontSize: 12,
           fontWeight: isNow || isQuarter ? "700" : "500",
           fontVariant: ["tabular-nums"],
         }}>
@@ -313,7 +327,7 @@ function TimetableRowComponent({
         {normalParts.length > 0 && (
           <Text style={{
             color: hasCritical ? shade("#64748b") : shade("#94a3b8"),
-            fontSize: hasCritical ? 10 : 12,
+            fontSize: 12,
             fontVariant: ["tabular-nums"],
             lineHeight: hasCritical ? 14 : 16,
           }} numberOfLines={1}>
@@ -321,29 +335,19 @@ function TimetableRowComponent({
           </Text>
         )}
         {drugParts.length > 0 && (
-          <Text style={{ color: shade("#4a5c6e"), fontSize: 10, lineHeight: 13 }} numberOfLines={1}>
+          <Text style={{ color: shade("#4a5c6e"), fontSize: 12, lineHeight: 13 }} numberOfLines={1}>
             {drugParts.join("  ·  ")}
           </Text>
         )}
-        {/* What is planned for this row, readable without opening it: a stripe
-            in the lane was the only sign (1.4.14 appliance test). */}
-        {plannedItems.length > 0 && (
-          <Text testID="row-planned" style={{ fontSize: 10, lineHeight: 13 }} numberOfLines={1}>
-            {plannedItems.map((item, index) => (
-              <Text key={item.id} style={{ color: item.color }}>{index > 0 ? "  ·  " : ""}{plannedPrefix(item)}{item.label}</Text>
-            ))}
-          </Text>
-        )}
+        {/* 10.8.0: what is planned shows as a dashed strip at the side, not as text here. */}
         <LabDrawPill count={mergeRowLabDraws(labDraws).count} />
         {rowState && <SaveStateBadge state={rowState} />}
       </View>
 
-      {/* Running strips — full height, stacked from right edge inward (5px each) */}
-      <View style={{ flexDirection: "row", alignSelf: "stretch" }}>
-        {running.slice().reverse().map(item => (
-          <View key={item.id} style={{ width: 5, backgroundColor: item.color + (item.planned || item.plannedStop || item.projected ? "33" : "88") }} />
-        ))}
-      </View>
+      {/* Running strips — full height, stacked from right edge inward. Not a control (10.8.0):
+          they say something runs; the row is opened to work with it. Planned start and the
+          way to a planned stop are dashed; a planned dose change is a dot on the strip. */}
+      <RunningStrips running={running} />
     </TouchableOpacity>
   )
 }
@@ -370,7 +374,11 @@ export const TimetableRow = memo(TimetableRowComponent, (prev, next) => {
     prev.onEditJet !== next.onEditJet ||
     prev.onStopAgent !== next.onStopAgent ||
     prev.onQuickAdd !== next.onQuickAdd ||
-    prev.onAnswerAttention !== next.onAnswerAttention
+    prev.onAnswerAttention !== next.onAnswerAttention ||
+    prev.onOpenRunning !== next.onOpenRunning ||
+    prev.onOpenEvent !== next.onOpenEvent ||
+    prev.stopped !== next.stopped ||
+    prev.onOpenStopped !== next.onOpenStopped
   ) {
     return false
   }

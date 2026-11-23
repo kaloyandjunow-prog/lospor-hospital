@@ -12,7 +12,7 @@ export function SaveStateBadge({ state }: { state: ItemSaveState }) {
   const color = state === "refused" ? colors.danger : colors.warning
   const label = state === "refused" ? tc("refusedShort") : state === "sending" ? tc("sendingShort") : tc("queuedShort")
   return (
-    <Text testID={`row-save-${state}`} style={{ color, fontSize: 9, fontWeight: "800", lineHeight: 12 }}>
+    <Text testID={`row-save-${state}`} style={{ color, fontSize: 12, fontWeight: "800", lineHeight: 12 }}>
       {state === "refused" ? "✕" : "◷"} {label}
     </Text>
   )

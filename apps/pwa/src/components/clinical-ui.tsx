@@ -72,6 +72,8 @@ export function WorkflowPill({
         borderColor: selected ? colors.primary : colors.border,
         paddingHorizontal: 14,
         paddingVertical: 8,
+        minHeight: 44,
+        justifyContent: "center",
       }}
     >
       <Text style={{ color: selected ? colors.textPrimary : colors.textSecondary, fontSize: 12, fontWeight: "700" }}>
@@ -117,7 +119,7 @@ export function ActionTile({
     >
       <View style={{ position: "absolute", left: 0, top: 10, bottom: 10, width: 4, borderRadius: 999, backgroundColor: color }} />
       <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", paddingLeft: 4 }}>{label}</Text>
-      {sub ? <Text style={{ color: colors.textMuted, fontSize: 11, paddingLeft: 4, marginTop: 2 }}>{sub}</Text> : null}
+      {sub ? <Text style={{ color: colors.textMuted, fontSize: 12, paddingLeft: 4, marginTop: 2 }}>{sub}</Text> : null}
     </Pressable>
   )
 }

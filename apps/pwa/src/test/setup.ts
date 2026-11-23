@@ -113,3 +113,13 @@ vi.mock("expo-file-system/legacy", () => {
     downloadAsync: vi.fn(async () => ({ status: 200, uri: "file:///documents/x.pdf" })),
   }
 })
+
+// React 19 prints "react-test-renderer is deprecated" on every render (about 500 lines per run, which buried real
+// messages in the CI log). Every component test renders through react-test-renderer and the shim above; moving the
+// 83 test files to another renderer is its own task. Until then only this one known message is dropped; any other
+// console.error still shows.
+const consoleError = console.error.bind(console)
+console.error = (...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].includes("react-test-renderer is deprecated")) return
+  consoleError(...args)
+}

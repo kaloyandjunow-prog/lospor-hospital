@@ -104,7 +104,7 @@ export default function AccountScreen() {
                   accessibilityLabel={t("profileEmail")}
                   autoComplete="email"
                 />
-                <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16, marginTop: 6 }}>
                   {t("profileEmailGoverned")}
                 </Text>
               </Field>
@@ -137,7 +137,7 @@ export default function AccountScreen() {
                   accessibilityLabel={t("lastName")}
                 />
               </Field>
-              <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginBottom: 16 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16, marginBottom: 16 }}>
                 {profile?.institution?.name ?? t("noInstitution")}
                 {profile?.institution?.city ? ` · ${profile.institution.city}` : ""}
                 {"\n"}{t("profileInstitutionGoverned")}

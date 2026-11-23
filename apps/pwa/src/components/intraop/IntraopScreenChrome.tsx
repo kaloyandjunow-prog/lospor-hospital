@@ -9,6 +9,7 @@ import { WatchingOverlay } from "@/components/WatchingOverlay"
 import { CaseEndedBanner } from "@/components/intraop/CaseEndedBanner"
 import { IntraopMonitorHeader } from "@/components/intraop/IntraopMonitorHeader"
 import { IntraopTabBar } from "@/components/intraop/IntraopTabBar"
+import { CasePresenceBanner } from "@/components/CasePresenceBanner"
 import { usePreferences } from "@/lib/preferences-context"
 import { colors, withAlpha } from "@/theme/colors"
 import { IntraopHeaderCollapseProvider, useIntraopHeaderCollapse } from "./IntraopHeaderCollapse"
@@ -115,7 +116,7 @@ function IntraopScreenChromeBody({
         >
           <AppHeader eyebrow="LOSPOR" title={monitor.procedure} showNewCase={false} compact />
           <View style={{ minHeight: 24, paddingHorizontal: 16, paddingBottom: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, backgroundColor: colors.background }}>
-            <Text style={{ flex: 1, color: colors.primary, fontSize: 10, fontWeight: "800" }} numberOfLines={1}>
+            <Text style={{ flex: 1, color: colors.primary, fontSize: 12, fontWeight: "800" }} numberOfLines={1}>
               {monitor.techniquesLabel}
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "300", fontVariant: ["tabular-nums"] }}>
@@ -128,6 +129,7 @@ function IntraopScreenChromeBody({
         <EditWindowBanner finalizedAt={finalizedAt} caseId={caseId} showBackButton />
       ) : null}
       {isWatching ? <WatchingOverlay onTakeover={onTakeover} /> : null}
+      <CasePresenceBanner caseId={caseId} />
       {ended ? <CaseEndedBanner {...ended} /> : null}
       <IntraopTabBar {...tabBar} />
       {children}

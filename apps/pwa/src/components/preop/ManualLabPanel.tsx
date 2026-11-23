@@ -47,7 +47,7 @@ export function ManualLabPanel({ value, onChange, labelManualLabEntry, labelHide
                   placeholderTextColor={colors.textMuted}
                   style={{ width: 72, color: flag ? colors.warning : colors.textPrimary, backgroundColor: colors.background, borderWidth: 1, borderColor: flag ? colors.warning : colors.border, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, textAlign: "right", fontWeight: "900" }}
                 />
-                <Text style={{ width: 48, color: colors.textMuted, fontSize: 11 }}>{row.unit}</Text>
+                <Text style={{ width: 48, color: colors.textMuted, fontSize: 12 }}>{row.unit}</Text>
                 <Pressable onPress={() => onChange(value.filter((item) => item.test !== row.test))}>
                   <Text style={{ color: colors.danger, fontSize: 16, fontWeight: "900" }}>✕</Text>
                 </Pressable>

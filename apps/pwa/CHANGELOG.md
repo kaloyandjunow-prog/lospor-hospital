@@ -1,5 +1,36 @@
 # Changelog - LOSPOR Mobile
 
+## [10.8.0] - 2026-11-23
+
+Released with Core and API 10.8.0.
+
+### Added
+
+- **Anaesthesia team** in the case's long-press menu: who was on the case and when, doctors and nurses, kept for good.
+- **Senior nurse**: the administration offers the role; a nurse sees every case of her hospital, edits the ones she is on, and
+  "Put me on this case" puts her on a case with no nurse. The menus and sheets say why something was refused.
+- The allergy button says "Give despite allergy to ...". The stop sheet of an infusion or a fluid gets the same clamped time as the web.
+
+- **The chart's menu on the phone**, the same actions as the web's: opening a running item's cell or an entry offers
+  Stop, Change dose, Resume, Fix start or end, Delete and the planned ones, with an Undo bar and many steps of Undo and Redo.
+  Stopping asks only what it must (a TCI infusion, a fluid entered as a bag).
+- **Totals** for each running item: an infusion's amount, a fluid's volume with time and rate, a duration for an agent,
+  gas and jet, in Core's words.
+- **Anaesthesia nurses on the phone:** the nurse's view of a case, nurses of a case, nurses by theatre on the dashboard, the
+  planned date (on the wheels) and the hand-over in the case's menu.
+- **"Case open by: <names>"** when another screen is in the case.
+- **Touch:** every control 44 px, no text under 12 px (guarded by a test), no browser menu on a right click or a long
+  press (except at sign-in, and not on the two-factor code), an ✕ beside each airway device and a ⋯ on the dashboard
+  card, so nothing depends on a long press.
+- **Colours by ISO 26825 by default** through the API; a second infusion of one group in a row gets a shade of its colour.
+- Start and end of anaesthesia on the shared wheels, with typing ("1024"); reminders: one in view and a +N for the rest.
+
+### Changed
+
+- A dose change goes through Core's rule for infusions, fluids, agents, gas and jet; "Edit" on an airway or vascular entry
+  opens its section; the display-size setting lays the page out for the window's width, not `screen.width`.
+- End case asks about a tourniquet still on, and items still running stop at the end marked as going on after the case.
+
 ## [10.7.0] - 2026-11-19
 
 Released with Core and API 10.7.0.

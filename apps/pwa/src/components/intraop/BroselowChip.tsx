@@ -28,7 +28,7 @@ export function BroselowChip({ result }: { result: BroselowResult }) {
           {tc("broselow")} {broselowLabel(zone, language)}
         </Text>
       </View>
-      <Text style={{ fontSize: 11, color: shade("#94a3b8") }}>
+      <Text style={{ fontSize: 12, color: shade("#94a3b8") }}>
         {result.basis === "HEIGHT" ? tc("broselowByHeight") : tc("broselowByWeight")}
       </Text>
     </View>

@@ -38,7 +38,7 @@ export function SummaryCard({
               backgroundColor: withAlpha(colors.primary, "22"),
               borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2,
             }}>
-              <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>{badge}</Text>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>{badge}</Text>
             </View>
           )}
         </View>
@@ -79,7 +79,7 @@ export function Chip({ label, color }: { label: string; color: string }) {
       backgroundColor: color + "22", borderWidth: 1, borderColor: color + "55",
       marginRight: 6, marginBottom: 6,
     }}>
-      <Text style={{ color, fontSize: 11, fontWeight: "700" }}>{label}</Text>
+      <Text style={{ color, fontSize: 12, fontWeight: "700" }}>{label}</Text>
     </View>
   )
 }
@@ -112,7 +112,7 @@ export function AldreteRow({
     }}>
       <View style={{ flex: 1 }}>
         <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>{label}</Text>
-        <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 1 }}>{desc}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 1 }}>{desc}</Text>
       </View>
       <View style={{
         width: 32, height: 32, borderRadius: 999, alignItems: "center", justifyContent: "center",

@@ -77,7 +77,7 @@ export function DefibrillationSheet({ visible, timeLabel, shockNumber, prefillJo
           {stepButton(1, "+1")}
           {stepButton(10, "+10")}
         </View>
-        <Text style={{ color: shade("#64748b"), fontSize: 11, marginTop: 6 }}>{DEFIBRILLATION_MIN_J}–{DEFIBRILLATION_MAX_J} J</Text>
+        <Text style={{ color: shade("#64748b"), fontSize: 12, marginTop: 6 }}>{DEFIBRILLATION_MIN_J}–{DEFIBRILLATION_MAX_J} J</Text>
       </View>
       {prefillJoules != null ? (
         <Text testID="defib-prefill-hint" style={{ color: shade("#fbbf24"), fontSize: 12, marginBottom: 12 }}>

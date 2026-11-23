@@ -18,7 +18,7 @@ export type EndCaseRunningItem = {
 }
 
 /** A stop made at End case: at the end time, marked so Resume can offer to remove it. */
-export type EndCaseStopOptions = { exactTs?: string; endCaseStop?: boolean; pump?: EndCaseStopContext["pump"] }
+export type EndCaseStopOptions = { exactTs?: string; endCaseStop?: boolean; continuesAfterEnd?: boolean; pump?: EndCaseStopContext["pump"] }
 
 type BuildEndCaseRunningItemsInput = {
   activeAgents: RunningAgent[]
@@ -47,7 +47,7 @@ export function hasEndCaseRunningItems({
 }
 
 function atEnd(context?: EndCaseStopContext): EndCaseStopOptions {
-  return context ? { exactTs: context.endTs, endCaseStop: true } : {}
+  return context ? { exactTs: context.endTs, endCaseStop: true, ...(context.continuesAfterEnd ? { continuesAfterEnd: true } : {}) } : {}
 }
 
 export function buildEndCaseRunningItems({

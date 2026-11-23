@@ -221,7 +221,7 @@ export function EhrImportPanel({
                   gap: 8,
                 }}
               >
-                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" }}>
+                <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" }}>
                   {labelFor(item.field)}
                 </Text>
 
@@ -249,7 +249,7 @@ export function EhrImportPanel({
                     <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
                       {tc("ehrCurrentValue")}: <Text style={{ fontWeight: "900" }}>{String(item.current ?? "—")}</Text>
                     </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 11 }}>{tc("ehrConflictNote")}</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>{tc("ehrConflictNote")}</Text>
                   </View>
                 ) : null}
 
@@ -274,7 +274,7 @@ export function EhrImportPanel({
                 ) : null}
 
                 <Pressable onPress={() => decline(item)} hitSlop={8}>
-                  <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>{tc("ehrDecline")}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800" }}>{tc("ehrDecline")}</Text>
                 </Pressable>
               </View>
             )

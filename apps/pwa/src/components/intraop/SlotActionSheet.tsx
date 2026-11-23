@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity, View } from "react-native"
+import { Text } from "react-native"
 import type { ClinicalEventDef } from "@/lib/intraop-types"
 import type { ActiveGasSettings } from "@/lib/intraop-log-event"
 import { FeedbackPressable } from "./FeedbackPressable"
@@ -7,7 +7,6 @@ import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { complicationDisplayLabel } from "@lospor/core/clinical-display"
 import { canonicalComplicationLabel, complicationGroupsBeyond } from "@lospor/core/complications"
-import { formatMessage } from "@/i18n/locale"
 import { useShade } from "@/theme/shade"
 import { jetSheet } from "@/lib/jet-sheet"
 import { useSyncExternalStore } from "react"
@@ -62,9 +61,6 @@ export function SlotActionSheet({
   eventSearch,
   complicationExpanded,
   eventCategories,
-  isGACase,
-  activeAgents,
-  activeGas,
   onClose,
   onEventSearchChange,
   likelyEvents = [],
@@ -75,11 +71,6 @@ export function SlotActionSheet({
   onBrowseDrugs,
   onOpenDefibrillation,
   onOpenJet,
-  onStopAgent,
-  onChangeAgent,
-  onOpenAgent,
-  onStopGas,
-  onOpenGas,
 }: Props) {
   const shade = useShade()
   const jetOn = useSyncExternalStore(jetSheet.subscribe, jetSheet.enabled, jetSheet.enabled)
@@ -104,7 +95,6 @@ export function SlotActionSheet({
       isComplication: true, toggle: false, events: group.items.map(label => ({ label, color: shade("#ef4444") }) as ClinicalEventDef),
     }))]
   })
-  const agentLabel = (name: string) => displayClinicalCode("option:INHALATIONAL_AGENT", name, language, { label: name })
   return (
     <Sheet visible={visible} onClose={onClose} title={title} full>
       {eventsScreen === "legacy" ? (
@@ -137,66 +127,7 @@ export function SlotActionSheet({
         </FeedbackPressable>
       ) : null}
 
-      {isGACase && (
-        <>
-          <Text style={{ color:shade("#a855f7"), fontSize:10, fontWeight:"800", letterSpacing:1.2,
-            textTransform:"uppercase", marginBottom:8 }}>{tc("sasInhaledAgent")}</Text>
-          {activeAgents.map(activeAgent => (
-            <View key={activeAgent.name} style={{ flexDirection:"row", gap:8, marginBottom:8 }}>
-              <View style={{ flex:1, borderRadius:10, paddingVertical:10, paddingHorizontal:12,
-                backgroundColor:activeAgent.color+"18", borderWidth:1, borderColor:activeAgent.color+"55" }}>
-                <Text style={{ color:activeAgent.color, fontWeight:"700" }}>
-                  {formatMessage(tc("agentIsRunning"), { name: agentLabel(activeAgent.name) })}
-                </Text>
-              </View>
-              {onChangeAgent ? (
-                <TouchableOpacity onPress={() => onChangeAgent(activeAgent.name)} testID={`slot-change-agent-${activeAgent.name}`}
-                  style={{ borderRadius:10, paddingHorizontal:14, paddingVertical:10,
-                    backgroundColor:activeAgent.color+"18", borderWidth:1, borderColor:activeAgent.color+"55" }}>
-                  <Text style={{ color:activeAgent.color, fontWeight:"700", fontSize:12 }}>{tc("slotChangeAgentPercent")}</Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity onPress={() => onStopAgent(activeAgent.name)}
-                style={{ borderRadius:10, paddingHorizontal:14, paddingVertical:10,
-                  backgroundColor:shade("#1e1010"), borderWidth:1, borderColor:shade("#ef444444") }}>
-                <Text style={{ color:shade("#ef4444"), fontWeight:"700", fontSize:12 }}>{tc("sasStop")}</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity onPress={onOpenAgent}
-            style={{ borderRadius:10, paddingVertical:10, alignItems:"center",
-              backgroundColor:shade("#1a1030"), borderWidth:1, borderColor:shade("#a855f744") }}>
-            <Text style={{ color:shade("#d8b4fe"), fontWeight:"700", fontSize:12 }}>
-              {activeAgents.length > 0 ? tc("slotSwitchAgent") : tc("slotStartAgent")}
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={{ color:shade("#6366f1"), fontSize:10, fontWeight:"800", letterSpacing:1.2,
-            textTransform:"uppercase", marginTop:16, marginBottom:8 }}>{tc("gasSettings")}</Text>
-          {activeGas ? (
-            <View style={{ flexDirection:"row", gap:8, marginBottom:8 }}>
-              <View style={{ flex:1, borderRadius:10, paddingVertical:10, paddingHorizontal:12,
-                backgroundColor:shade("#6366f118"), borderWidth:1, borderColor:shade("#6366f155") }}>
-                <Text style={{ color:shade("#a5b4fc"), fontWeight:"700", fontSize:12 }}>
-                  FGF {activeGas.fgf}L/min{activeGas.carrierGas ? ` - ${displayClinicalCode("carrierGas", activeGas.carrierGas, language, { label: activeGas.carrierGas })}` : ""} - FiO2 {activeGas.fio2}%
-                </Text>
-              </View>
-              <TouchableOpacity onPress={onStopGas}
-                style={{ borderRadius:10, paddingHorizontal:14, paddingVertical:10,
-                  backgroundColor:shade("#1e1010"), borderWidth:1, borderColor:shade("#ef444444") }}>
-                <Text style={{ color:shade("#ef4444"), fontWeight:"700", fontSize:12 }}>{tc("sasStop")}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-          <TouchableOpacity onPress={onOpenGas}
-            style={{ borderRadius:10, paddingVertical:10, alignItems:"center",
-              backgroundColor:shade("#1a1a30"), borderWidth:1, borderColor:shade("#6366f144") }}>
-            <Text style={{ color:shade("#a5b4fc"), fontWeight:"700", fontSize:12 }}>
-              {activeGas ? tc("gasEditTitle") : tc("gasStartTitle")}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
+      {/* 10.8.0: the running agent and gas are worked with from their own menu in the row, not from here. */}
     </Sheet>
   )
 }

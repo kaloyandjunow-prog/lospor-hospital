@@ -23,7 +23,16 @@ const answerTestIds = {
   log_complication: "attention-vital-log",
   open: "attention-suggestion-open",
   dismiss: "attention-suggestion-dismiss",
+  tourniquet_off: "attention-tourniquet-off",
+  keep_auto_event: "attention-auto-keep",
+  remove_auto_event: "attention-auto-remove",
 } as const satisfies Record<import("@lospor/core/intraop-attention").IntraopAttentionAction, string>
+
+// 10.8.0: one reminder shows, the rest behind "+N"; these tests read them all.
+function expandAll(tree: ReturnType<typeof render>) {
+  const more = tree.root.findAll(node => node.props?.testID === "attention-more")[0]
+  if (more) act(() => { more.props.onPress() })
+}
 
 describe.each(INTRAOP_ATTENTION_SCENARIOS)("$name", scenario => {
   it("shows exactly the items Core lists, and each answer reaches Core unchanged", () => {
@@ -32,6 +41,7 @@ describe.each(INTRAOP_ATTENTION_SCENARIOS)("$name", scenario => {
     const tree = render(
       <IntraopAttentionBanner attention={{ items, resolve, clockOf: () => "00:00", labelOf: event => event.id }} />,
     )
+    expandAll(tree)
     const shown = tree.root.findAll(node => typeof node.props?.testID === "string" && node.props.testID.startsWith("attention-stopped-")
       || typeof node.props?.testID === "string" && node.props.testID.startsWith("end-case-after-end-move-"))
       .map(node => String(node.props.testID).replace(/^(attention-stopped|end-case-after-end-move)-/, ""))
@@ -91,6 +101,7 @@ describe("in Bulgarian", () => {
       const tree = render(
         <IntraopAttentionBanner attention={{ items, resolve: vi.fn(async () => {}), clockOf: () => "00:00", labelOf: () => "" }} />,
       )
+      expandAll(tree)
       const text = tree.root.findAll(node => String(node.type) === "Text")
         .map(node => node.children.filter(child => typeof child === "string").join(""))
         .join("\n")

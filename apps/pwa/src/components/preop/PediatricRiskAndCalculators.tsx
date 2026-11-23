@@ -71,7 +71,7 @@ export function PediatricRiskAndCalculators({ control, setValue, tc, language, i
     <PovocSection control={control} labels={labels} povoc={povoc} answered={povocAnsweredCount} answeredLabel={tc("preopQuestionsAnswered")} isShown={isShown} unavailableLabel={tc("preopScoreUnavailable")} />
     {isShown("coldsApplicable") ? <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 10 }}>
       <Controller control={control} name="coldsApplicable" render={({ field }) => <ClinicalSwitchRow label={labels.coldsApplicable} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
-      {coldsApplicable ? (Object.keys(COLDS_OPTIONS) as ColdsField[]).map(field => <View key={field} style={{ gap: 6 }}><Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>{coldsFieldLabel(field, labels)}</Text><ChoicePills value={coldsValues[field]} options={COLDS_OPTIONS[field].map(value => ({ value, label: coldsOptionLabel(value, labels) }))} onChange={value => setValue(field, value as never, { shouldDirty: true })} /></View>) : null}
+      {coldsApplicable ? (Object.keys(COLDS_OPTIONS) as ColdsField[]).map(field => <View key={field} style={{ gap: 6 }}><Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800" }}>{coldsFieldLabel(field, labels)}</Text><ChoicePills value={coldsValues[field]} options={COLDS_OPTIONS[field].map(value => ({ value, label: coldsOptionLabel(value, labels) }))} onChange={value => setValue(field, value as never, { shouldDirty: true })} /></View>) : null}
       {coldsApplicable ? <Text style={{ color: colors.warning, fontSize: 13, fontWeight: "900" }}>{labels.coldsScore}: {colds?.score ?? "-"}/25</Text> : null}
     </View> : null}
   </View>

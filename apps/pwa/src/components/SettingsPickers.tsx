@@ -210,7 +210,7 @@ export function FavouritePicker({
                     <Text style={{ color: checked ? colors.primary : colors.textPrimary, fontSize: 14, fontWeight: checked ? "800" : "500" }}>
                       {displayOption(category, item, language)}
                     </Text>
-                    {item.group ? <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 1 }}>{displayClinicalCode("optionGroup", item.group, language, { label: item.group })}</Text> : null}
+                    {item.group ? <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 1 }}>{displayClinicalCode("optionGroup", item.group, language, { label: item.group })}</Text> : null}
                   </View>
                   <Text style={{ color: checked ? colors.primary : colors.textMuted, fontSize: 16, fontWeight: "900" }}>
                     {checked ? t("selected") : "+"}

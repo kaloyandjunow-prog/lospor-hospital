@@ -48,7 +48,7 @@ export function MonitoringSmart({
   const visibleSuggestions = suggestions.filter(item => !monitoring.includes(item.field))
   const standard = standardMonitoringOn(monitoring)
   const toggle = (field: string) => onChange(monitoring.includes(field) ? monitoring.filter(item => item !== field) : [...monitoring, field])
-  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>{text}</Text>
+  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>{text}</Text>
   const card = { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, padding: 10, borderRadius: 12, marginBottom: 8, backgroundColor: shade("#171c26") }
   const side = { minWidth: 44, minHeight: 44, borderRadius: 12, borderWidth: 1, alignItems: "center" as const, justifyContent: "center" as const, paddingHorizontal: 10 }
 
@@ -89,7 +89,7 @@ export function MonitoringSmart({
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity testID={`monitoring-off-${field}`} accessibilityLabel={tc("msmTurnOff")} onPress={() => toggle(field)} style={[side, { borderColor: shade("#334155") }]}>
-              <Text style={{ color: shade("#94a3b8"), fontWeight: "800", fontSize: 11 }}>{tc("msmTurnOff")}</Text>
+              <Text style={{ color: shade("#94a3b8"), fontWeight: "800", fontSize: 12 }}>{tc("msmTurnOff")}</Text>
             </TouchableOpacity>
           </View>
         )
@@ -108,7 +108,7 @@ export function MonitoringSmart({
             <Text style={{ color: shade("#c4b0ff"), fontWeight: "800" }}>{tc("msmAdd")}</Text>
           </TouchableOpacity>
           <TouchableOpacity testID={`monitoring-hide-${item.field}`} accessibilityLabel={tc("msmHide")} onPress={() => onHide(item)} style={[side, { borderColor: shade("#334155") }]}>
-            <Text style={{ color: shade("#94a3b8"), fontWeight: "800", fontSize: 11 }}>{tc("msmHide")}</Text>
+            <Text style={{ color: shade("#94a3b8"), fontWeight: "800", fontSize: 12 }}>{tc("msmHide")}</Text>
           </TouchableOpacity>
         </View>
       ))}

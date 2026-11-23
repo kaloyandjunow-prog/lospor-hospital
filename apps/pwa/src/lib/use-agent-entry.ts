@@ -6,7 +6,7 @@ import { actionSheet } from "@/lib/notify"
 import { usePreferences } from "@/lib/preferences-context"
 import type { RunningAgent } from "@/lib/use-intraop-running-state"
 
-type StopOptions = { exactTs?: string; endCaseStop?: boolean }
+type StopOptions = { exactTs?: string; endCaseStop?: boolean; continuesAfterEnd?: boolean }
 
 // Volatile agents on/off, plus Fi(agent)% — agents always dose in %, no
 // unit/route rows. Several may run at once (1.4.9): every event is marked
@@ -101,6 +101,7 @@ export function useAgentEntry(
       color: target.color,
       agentMode: "concurrent",
       ...(options.endCaseStop ? { endCaseStop: true } : {}),
+      ...(options.continuesAfterEnd ? { continuesAfterEnd: true } : {}),
     }, options.exactTs ?? atRow(rowTs))
   }
 

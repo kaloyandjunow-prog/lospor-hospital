@@ -8,6 +8,15 @@ describe("the dashboard's long-press menu", () => {
   it("offers an open case everything an editor needs", () => {
     expect(menu({ status: "DRAFT" })).toEqual({
       print: false, cancel: "available", undoCancel: false, remove: true, theatre: false, handOver: true, withdrawHandover: false,
+      plannedDate: true, handOverToNurse: false, assignNurses: true, takeCase: false,
+    })
+  })
+
+  // 10.8.0: an anaesthesia nurse only passes her place on to another nurse.
+  it("offers a nurse nothing but the hand-over to another nurse", () => {
+    expect(menu({ status: "IN_PROGRESS", nurse: true })).toEqual({
+      print: false, cancel: null, undoCancel: false, remove: false, theatre: false, handOver: false, withdrawHandover: false,
+      plannedDate: false, handOverToNurse: true, assignNurses: false, takeCase: false,
     })
   })
 
@@ -49,5 +58,24 @@ describe("the case screen", () => {
 
   it("edits nothing for someone who cannot edit the case", () => {
     expect(caseScreenActions({ status: "DRAFT", writable: false }).edit).toBe(false)
+  })
+})
+
+describe("nurses, a senior nurse and who takes a case (2026-11-23)", () => {
+  const open = { status: "IN_PROGRESS", writable: false, nurse: true }
+  it("lets a nurse put herself on a case that has no nurse, and not on one that has", () => {
+    expect(dashboardMenuActions({ ...open, nursesOnCase: 0 }).takeCase).toBe(true)
+    expect(dashboardMenuActions({ ...open, nursesOnCase: 2 }).takeCase).toBe(false)
+    expect(dashboardMenuActions({ ...open, status: "COMPLETE", nursesOnCase: 0 }).takeCase).toBe(false)
+  })
+  it("offers a senior nurse the nurses of the case, a plain nurse her own hand-over", () => {
+    expect(dashboardMenuActions({ ...open, writable: true, canAssignNurses: true }).assignNurses).toBe(true)
+    expect(dashboardMenuActions({ ...open, writable: true, canAssignNurses: true }).handOverToNurse).toBe(false)
+    expect(dashboardMenuActions({ ...open, writable: true }).handOverToNurse).toBe(true)
+    expect(dashboardMenuActions({ ...open, writable: true }).assignNurses).toBe(false)
+  })
+  it("offers a doctor the nurses only on the cases she may place them on", () => {
+    expect(dashboardMenuActions({ status: "IN_PROGRESS", writable: true, canAssignNurses: false }).assignNurses).toBe(false)
+    expect(dashboardMenuActions({ status: "IN_PROGRESS", writable: true, canAssignNurses: true }).assignNurses).toBe(true)
   })
 })

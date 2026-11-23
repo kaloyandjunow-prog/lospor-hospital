@@ -282,7 +282,7 @@ export function ClinicalNumberInput({
               <Text style={{ color: value == null ? colors.textMuted : colors.textPrimary, fontSize: 21, fontWeight: "900", fontVariant: ["tabular-nums"] }}>
                 {value == null ? placeholder : formatValue(value, precision)}{unit ? <Text style={{ color: colors.textMuted, fontSize: 13 }}> {unit}</Text> : null}
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: "700", marginTop: 2 }}>{tc("tapForWheel")}</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "700", marginTop: 2 }}>{tc("tapForWheel")}</Text>
             </Pressable>
           </View>
 

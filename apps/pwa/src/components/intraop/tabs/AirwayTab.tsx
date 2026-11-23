@@ -80,7 +80,7 @@ export function AirwayTab({
       {smart ? null : (
         <>
       {/* Tools used */}
-      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:10 }}>{tc("awToolsUsed")}</Text>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
         {airwayTools.map(tool => {
@@ -89,7 +89,7 @@ export function AirwayTab({
             <TouchableOpacity key={tool.code} onPress={() => {
               if (!sel) onAirwayInterventionSelected()
               setAwTools(prev => sel ? prev.filter(x => x !== tool.code) : [...prev, tool.code])
-            }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
+            }} style={{ paddingHorizontal:14, paddingVertical:10, minHeight:44, justifyContent:"center", borderRadius:12,
               backgroundColor: sel ? shade("#1e3a5f") : shade("#111111"),
               borderWidth:1, borderColor: sel ? shade("#3b82f6") : shade("#1e2d40") }}>
               <Text style={{ color: sel ? shade("#93c5fd") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>{tool.label}</Text>
@@ -104,7 +104,7 @@ export function AirwayTab({
       {/* Cormack-Lehane grade */}
       {(awTools.includes("DIRECT_LARY") || awTools.includes("VIDEO_LARY")) && (
         <>
-          <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
+          <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1.2,
             textTransform:"uppercase", marginBottom:10 }}>{tc("awClGrade")}</Text>
           <View style={{ flexDirection:"row", gap:8, marginBottom:20 }}>
             {CL_GRADES.map(g => (
@@ -149,7 +149,7 @@ export function AirwayTab({
       />
 
       {/* Notes */}
-      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:8 }}>{tc("notesLabel")}</Text>
       <TextInput
         style={{ backgroundColor:shade("#111111"), color:shade("#e2e8f0"), borderRadius:10, padding:12,

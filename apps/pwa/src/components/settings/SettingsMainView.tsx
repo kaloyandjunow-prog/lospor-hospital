@@ -58,7 +58,7 @@ export function SettingsMainView({
             paddingHorizontal: 16, paddingVertical: 16,
             borderBottomWidth: 1, borderBottomColor: colors.border,
           }}>
-            <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
               {t("name")}
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>
@@ -73,7 +73,7 @@ export function SettingsMainView({
             flexDirection: "row", alignItems: "center", justifyContent: "space-between",
           }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>
                 {t("institution")}
               </Text>
               {institutionSaving ? (
@@ -85,7 +85,7 @@ export function SettingsMainView({
                     {profile?.institution?.city ? ` · ${profile.institution.city}` : ""}
                   </Text>
                   {institutionRequest ? (
-                    <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "700", marginTop: 3 }}>
+                    <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "700", marginTop: 3 }}>
                       {t("institutionRequestPendingShort")} {institutionRequest.name}
                     </Text>
                   ) : null}

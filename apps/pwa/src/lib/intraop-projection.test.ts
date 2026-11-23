@@ -215,8 +215,15 @@ describe("pickVitalsForColumn — carry-forward and change-not-add", () => {
 
   it("without a timestamp, carries the most recent vital", () => {
     // A generic "add vitals" with no column picks the latest reading.
-    const { carryForward } = pickVitalsForColumn([v0, v2], START, undefined)
+    const { carryForward } = pickVitalsForColumn([v0, v2], START, undefined, new Date(at(30)))
     expect(carryForward?.id).toBe("v2")
+  })
+
+  // Found 2026-11-21: opened from "now" or Monitoring in a cell that already had a reading,
+  // a second reading was written into the same cell.
+  it("without a timestamp, edits the reading already in now's cell", () => {
+    const { existing } = pickVitalsForColumn([v0, v2], START, undefined, new Date(at(12)))
+    expect(existing?.id).toBe("v2")
   })
 
   it("returns nothing when the case has no start anchor", () => {

@@ -25,9 +25,9 @@ export function PreopOverview({ tc, shade, items, finalizedAt, caseStatus, conti
       <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: "900", marginBottom: 4 }}>{tc("preopTitle")}</Text>
       <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 20 }}>{tc("tapSectionHint")}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>{items.map(({ key, label, done, required, summary }) => <TouchableOpacity key={key} onPress={() => onJump(key)} style={{ width: "47%", minHeight: 80, justifyContent: "center", gap: 4, borderRadius: 16, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 12, backgroundColor: done ? withAlpha(colors.success, "12") : required ? withAlpha(colors.warning, "10") : colors.surfaceRaised, borderWidth: 1.5, borderColor: done ? withAlpha(colors.success, "77") : required ? withAlpha(colors.warning, "66") : colors.border }}>
-        <Text style={{ color: done ? colors.success : required ? colors.warning : colors.textMuted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 }}>{done ? tc("overviewReady") : required ? tc("overviewRequired") : tc("overviewOptional")}</Text>
+        <Text style={{ color: done ? colors.success : required ? colors.warning : colors.textMuted, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 }}>{done ? tc("overviewReady") : required ? tc("overviewRequired") : tc("overviewOptional")}</Text>
         <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "900" }}>{label}</Text>
-        <Text style={{ color: colors.textMuted, fontSize: 11 }} numberOfLines={1}>{summary}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>{summary}</Text>
       </TouchableOpacity>)}</View>
       <TouchableOpacity onPress={onContinue} disabled={saving} style={{ backgroundColor: colors.primary, borderRadius: 16, borderCurve: "continuous", paddingVertical: 15, alignItems: "center", borderWidth: 1, borderColor: withAlpha(colors.primary, "99"), opacity: saving ? 0.6 : 1 }}>
         {saving ? <ActivityIndicator color={shade("#fff")} /> : <Text style={{ color: shade("#fff"), fontWeight: "900", fontSize: 16 }}>{tc("continueIntraop")}</Text>}

@@ -28,7 +28,7 @@ export function OfflineLibraryBanner() {
       paddingHorizontal: 12, paddingVertical: 6,
     }}>
       <Text style={{ fontSize: 12, fontWeight: "700", color: colors.warning }}>⚠</Text>
-      <Text style={{ fontSize: 11, color: colors.textPrimary, flex: 1 }} numberOfLines={2}>
+      <Text style={{ fontSize: 12, color: colors.textPrimary, flex: 1 }} numberOfLines={2}>
         {t("libraryOfflineBanner")}
         {dateStr ? ` (${formatMessage(t("libraryOfflineAsOf"), { date: dateStr })})` : ""}
       </Text>

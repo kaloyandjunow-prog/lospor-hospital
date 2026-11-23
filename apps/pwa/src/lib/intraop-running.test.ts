@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { runningItemsAt, runningItemsByCol, vitalSummary, buildRowSummary } from "./intraop-running"
+import { runningItemsAt as runningItemsWithStart, runningItemsByCol, vitalSummary, buildRowSummary } from "./intraop-running"
+
+// 10.8.0: items carry their start column (for their running total); these checks are about the rest.
+const runningItemsAt = (...args: Parameters<typeof runningItemsWithStart>) =>
+  runningItemsWithStart(...args).map(({ startCol: _startCol, ...rest }) => rest)
 import type { TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/lib/intraop-log-event"
 
@@ -14,6 +18,7 @@ describe("runningItemsAt", () => {
     const withUnit = tt({ infusions: [{ id: "i2", name: "Ropivacaine 0.2%", rate: "0.208", unit: "mL/kg/hr", color: "#a5f", startCol: 0, endCol: 5 }] })
     expect(runningItemsAt(withUnit, 1)[0]?.label).toBe("Ropivacaine 0.2% 0.208 mL/kg/hr")
     expect(runningItemsAt(t, 6)).toEqual([]) // past endCol
+    expect(runningItemsWithStart(t, 3)[0]?.startCol).toBe(0) // 10.8.0: for its running total
   })
 
   it("includes fluids and agents within their spans", () => {
@@ -55,10 +60,10 @@ describe("runningItemsAt", () => {
       agents: [{ name: "Sevo", color: "#a5f", startCol: 2, endCol: 4 }],
     })
     const byCol = runningItemsByCol(t, [1, 2, 4, 6])
-    expect(byCol.get(1)).toEqual(runningItemsAt(t, 1))
-    expect(byCol.get(2)).toEqual(runningItemsAt(t, 2))
-    expect(byCol.get(4)).toEqual(runningItemsAt(t, 4))
-    expect(byCol.get(6)).toEqual(runningItemsAt(t, 6))
+    expect(byCol.get(1)).toEqual(runningItemsWithStart(t, 1))
+    expect(byCol.get(2)).toEqual(runningItemsWithStart(t, 2))
+    expect(byCol.get(4)).toEqual(runningItemsWithStart(t, 4))
+    expect(byCol.get(6)).toEqual(runningItemsWithStart(t, 6))
   })
 })
 
@@ -131,5 +136,33 @@ describe("jet ventilation as a running bar (10.2.0)", () => {
     expect(runningItemsAt(t, 3)).toEqual([{ id: "jet-1", label: "Jet 2 bar · 150/min · FiO2 100%", color: "#14b8a6" }])
     expect(runningItemsAt(t, 5)).toEqual([{ id: "jet-1", label: "Jet 2.5 bar · 300/min · FiO2 60%", color: "#14b8a6" }])
     expect(runningItemsAt(t, 6)).toEqual([])
+  })
+})
+
+// 10.8.0: each running item says what it has come to, in Core's words (the web lane's total).
+describe("running totals in the open row", () => {
+  const at = (m: number) => new Date(Date.UTC(2026, 10, 22, 10, m)).toISOString()
+  const t = { agents: [], vitals: {}, drugs: [], infusions: [],
+    fluids: [{ id: "f1", name: "Ringer", category: "Crystalloids", volume: "", color: "#0bf", startCol: 0, endCol: 17, fluidEntryMode: "RATE", rate: 500, unit: "mL/h", startTs: at(0) }] } as unknown as TimetableData
+
+  it("a rate fluid: volume, how long and the rate; nothing without the weights context", () => {
+    const withTotals = runningItemsByCol(t, [6], { totals: { ibw: 70, tbw: 80, now: at(90), language: "en" } }).get(6)!
+    expect(withTotals[0]!.total).toBe("750 mL · 1 h 30 min · 500 mL/h")
+    expect(runningItemsByCol(t, [6]).get(6)![0]!.total).toBeUndefined()
+  })
+})
+describe("two infusions of one group in a row", () => {
+  const t = tt({ infusions: [
+    { id: "a", name: "Propofol", rate: "6", unit: "mg/kg/hr", color: "#808080", startCol: 0, endCol: 8 },
+    { id: "b", name: "Propofol", rate: "3", unit: "mg/kg/hr", color: "#808080", startCol: 2, endCol: 8 },
+    { id: "c", name: "Fentanyl", rate: "1", unit: "mcg/kg/hr", color: "#808080", startCol: 2, endCol: 8 },
+  ] })
+  const sameGroup = { groupOf: (name: string) => (name === "Fentanyl" ? "Opioids" : "Hypnotics"), shade: (hex: string, index: number) => `${hex}-${index}` }
+  it("tells the second by a shade of the colour and leaves the others as they are", () => {
+    const items = runningItemsByCol(t, [4], { sameGroup }).get(4)!
+    expect(items.map(item => item.color)).toEqual(["#808080", "#808080-1", "#808080"])
+  })
+  it("changes nothing without the rule", () => {
+    expect(runningItemsByCol(t, [4]).get(4)!.map(item => item.color)).toEqual(["#808080", "#808080", "#808080"])
   })
 })

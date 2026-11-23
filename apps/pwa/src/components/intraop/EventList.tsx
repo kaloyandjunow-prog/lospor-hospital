@@ -42,14 +42,14 @@ export function EventList({ groups, search, onSearch, onSelect, label, likely, o
     return hit ? [{ item, hit }] : []
   })
   const row = { flexDirection: "row" as const, alignItems: "center" as const, gap: 12, minHeight: 54, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: shade("#262d3a") }
-  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginTop: 16, marginBottom: 6, marginLeft: 2 }}>{text}</Text>
+  const eyebrow = (text: string) => <Text style={{ color: shade("#94a3b8"), fontSize: 12, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginTop: 16, marginBottom: 6, marginLeft: 2 }}>{text}</Text>
   const box = { borderWidth: 1, borderColor: shade("#262d3a"), borderRadius: 14, overflow: "hidden" as const, backgroundColor: shade("#171c26") }
   const eventRow = (event: ClinicalEventDef, group: EventGroup, indent: number, sub?: string) => (
     <TouchableOpacity key={`${group.key}:${event.label}`} testID={`event-${event.label}`} onPress={() => onSelect(event, group.isComplication)} style={[row, { paddingLeft: 14 + indent }]}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: group.color }} />
       <View style={{ flex: 1 }}>
         <Text style={{ color: shade("#f8fafc"), fontSize: 15, fontWeight: indent > 0 ? "500" : "600" }}>{label(event, group.isComplication)}</Text>
-        {sub ? <Text style={{ color: shade("#94a3b8"), fontSize: 11.5 }}>{sub}</Text> : null}
+        {sub ? <Text style={{ color: shade("#94a3b8"), fontSize: 12 }}>{sub}</Text> : null}
       </View>
     </TouchableOpacity>
   )

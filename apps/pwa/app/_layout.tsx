@@ -1,7 +1,7 @@
 import "../global.css"
 import { Slot, useRouter, useSegments } from "expo-router"
 import { useEffect, useState } from "react"
-import { Text, TextInput } from "react-native"
+import { Platform, Text, TextInput } from "react-native"
 import { useFonts } from "expo-font"
 import {
   Roboto_400Regular,
@@ -47,6 +47,16 @@ function Guard() {
   useEffect(() => {
     if (localeReady) configureForeground(t("caseReminders"))
   }, [localeReady, t])
+
+  // 10.8.0: no browser menu on a right click or a long press, except on the
+  // sign-in screens, where a password manager or paste may be needed.
+  const inAuthScreens = segments[0] === "(auth)"
+  useEffect(() => {
+    if (Platform.OS !== "web" || inAuthScreens || typeof document === "undefined") return
+    const block = (event: Event) => event.preventDefault()
+    document.addEventListener("contextmenu", block)
+    return () => document.removeEventListener("contextmenu", block)
+  }, [inAuthScreens])
 
   useEffect(() => {
     if (state === "loading") return

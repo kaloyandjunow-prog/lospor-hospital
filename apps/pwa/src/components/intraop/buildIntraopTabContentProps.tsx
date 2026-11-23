@@ -17,6 +17,7 @@ import type { LogEvent } from "@/lib/intraop-log-event"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { formatMessage } from "@/i18n/locale"
 import { projectLabDraws, type LabResult } from "@lospor/core/labs"
+import { rowMenuHandlers, type IntraopCellMenuApi } from "@/lib/intraop-cell-menu-ref"
 
 type Host = IntraopTabContentHostProps
 
@@ -35,6 +36,7 @@ type FluidsProps = ContentFor<"fluids">
 type VascularProps = ComponentProps<typeof VascularTab>
 
 export type IntraopTabContentBuilderProps = {
+  cellMenu?: IntraopCellMenuApi
   screenWidth: LogProps["screenWidth"]
   caseEnded: boolean // ended: nothing runs on in the chart after the end
   attention?: LogProps["attention"] // Core intraop-attention, shown above the chart
@@ -247,6 +249,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       activeAgents,
       activeGas,
       started: !!startRef.current, projectRunning: !caseEnded, tciPatient: tciPatientFromPreop(preop),
+      runTotals: { ibw: caseIbw, tbw: caseTbw, bodySurfaceAreaM2: caseBsa, weightBasis: infusionWeightBasis },
       isWatching,
       listRef: verticalTimetableRef,
       onUndo: undoLastEvent,
@@ -271,6 +274,9 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onJumpToNow: jumpVerticalTimetableToNow,
       onEndCase: openEndCase,
       onViewChart: openChartView,
+      // 10.8.0: a tap on anything in an opened row opens its menu.
+      log,
+      ...rowMenuHandlers(props.cellMenu, activeAgents, event => eventLabel(event).text),
     } }
 
     case "equipment": return { tab, content: {
@@ -373,8 +379,10 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onComplicationsNotesChange: setComplicationsNotes,
       onComplicationsNotesBlur: () => { if (formatComplications(selectedComplications, complicationsNotes) !== null) saveComplications() },
       onRemoveLegacyComplication: removeLegacyComplication,
-      onEventActions: eventActions,
-      onPromptDelete: promptDelete,
+      // 10.8.0: a tap on a line opens the same menu it has on the chart.
+      onEventActions: props.cellMenu ? (event: LogEvent) => props.cellMenu?.openEvent(event, eventLabel(event).text) : eventActions,
+      // 10.8.0: no "Sure?" -- removing goes through the same menu, with Undo.
+      onPromptDelete: props.cellMenu ? (event: LogEvent) => props.cellMenu?.openEvent(event, eventLabel(event).text) : promptDelete,
       eventLabel,
       previousVitalFor: prevVitalFor,
       eventLogScreen: eventLogScreen ?? "smart",

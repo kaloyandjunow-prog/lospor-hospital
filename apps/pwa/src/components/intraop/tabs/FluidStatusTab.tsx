@@ -89,7 +89,7 @@ function LegacyFluidStatusTab({
             <TotalRow key={`${row.name}-${row.unit}`} row={row} />
           ))}
           {weightNote && (
-            <Text style={{ color:shade("#475569"), fontSize:10, fontStyle:"italic", marginTop:6 }}>{weightNote}</Text>
+            <Text style={{ color:shade("#475569"), fontSize:12, fontStyle:"italic", marginTop:6 }}>{weightNote}</Text>
           )}
         </View>
       )}
@@ -114,7 +114,7 @@ function LegacyFluidStatusTab({
               {/* A projected total that is genuinely zero reads as 0; one that
                   was never recorded reads as a dash. */}
               <Text style={{ color, fontSize:20, fontWeight:"800" }}>{value ?? "—"}</Text>
-              <Text style={{ color:shade("#64748b"), fontSize:10, fontWeight:"600", marginTop:2 }}>{label}</Text>
+              <Text style={{ color:shade("#64748b"), fontSize:12, fontWeight:"600", marginTop:2 }}>{label}</Text>
             </View>
           ))}
         </View>
@@ -145,7 +145,7 @@ function LegacyFluidStatusTab({
           unit="mL" min={0} max={20000} step={50}
           quickValues={[100, 250, 500, 1000]}
         />
-        <Text style={{ color:shade("#475569"), fontSize:10, fontStyle:"italic", marginTop:8 }}>
+        <Text style={{ color:shade("#475569"), fontSize:12, fontStyle:"italic", marginTop:8 }}>
           {tc("bloodLossOptionalHint")}
         </Text>
       </View>
@@ -158,7 +158,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   const shade = useShade()
   return (
     <Text style={{
-      color:shade("#64748b"), fontSize:11, fontWeight:"700", textTransform:"uppercase",
+      color:shade("#64748b"), fontSize:12, fontWeight:"700", textTransform:"uppercase",
       letterSpacing:0.8, marginBottom:10,
     }}>{children}</Text>
   )
@@ -174,13 +174,13 @@ function TotalRow({ row }: { row: FluidStatusTotalRow }) {
       <Text style={{ color:shade("#cbd5e1"), fontSize:13, fontWeight:"600", flex:1 }} numberOfLines={1}>
         {row.name}
         {row.count != null && row.count > 1 && (
-          <Text style={{ color:shade("#475569"), fontSize:11, fontWeight:"500" }}>{`  ×${row.count}`}</Text>
+          <Text style={{ color:shade("#475569"), fontSize:12, fontWeight:"500" }}>{`  ×${row.count}`}</Text>
         )}
       </Text>
       <Text style={{ color:shade("#93c5fd"), fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
         {row.display ?? `${row.total} ${row.unit}`}{row.weightUsed != null ? " †" : ""}
         {row.mgTotal != null && (
-          <Text style={{ color:shade("#64748b"), fontSize:11, fontWeight:"500" }}>{`  (${row.mgTotal} mg)`}</Text>
+          <Text style={{ color:shade("#64748b"), fontSize:12, fontWeight:"500" }}>{`  (${row.mgTotal} mg)`}</Text>
         )}
       </Text>
     </View>

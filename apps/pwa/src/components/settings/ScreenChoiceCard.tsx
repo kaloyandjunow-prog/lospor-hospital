@@ -22,9 +22,9 @@ export function ScreenChoiceCard({
       <View style={{ paddingHorizontal: compact ? 0 : 16, paddingTop: compact ? 12 : 14, paddingBottom: compact ? 8 : 8, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "800", flex: 1 }}>{title}</Text>
-          {compact && selectedLabel ? <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "800" }}>{selectedLabel}</Text> : null}
+          {compact && selectedLabel ? <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800" }}>{selectedLabel}</Text> : null}
         </View>
-        {compact && scopeLabel ? <Text style={{ color: colors.textMuted, fontSize: 11 }}>{scopeLabel}</Text> : null}
+        {compact && scopeLabel ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{scopeLabel}</Text> : null}
       </View>
       <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: 8, paddingHorizontal: compact ? 0 : 12, paddingBottom: compact ? 12 : 12 }}>
         {options.map(option => {

@@ -72,7 +72,7 @@ export function MedicalHistoryCard({ preop, tc }: { preop: CaseData["preop"]; tc
         return (
           <View key={sys} style={{ marginBottom: 10 }}>
             <Text style={{
-              color: col, fontSize: 10, fontWeight: "800",
+              color: col, fontSize: 12, fontWeight: "800",
               textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4,
             }}>
               {sysTcKey ? tc(sysTcKey) : sys}
@@ -130,7 +130,7 @@ export function MedicalHistoryCard({ preop, tc }: { preop: CaseData["preop"]; tc
       {currentMedicationsText ? (
         <View style={{ marginTop: 8 }}>
           <Text style={{
-            color: colors.textMuted, fontSize: 11, textTransform: "uppercase",
+            color: colors.textMuted, fontSize: 12, textTransform: "uppercase",
             letterSpacing: 0.5, marginBottom: 4,
           }}>
             {tc("summaryCurrentMeds")}

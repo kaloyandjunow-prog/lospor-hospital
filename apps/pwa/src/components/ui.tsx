@@ -74,7 +74,7 @@ export function StyledInput({ value, onChangeText, placeholder, keyboardType, mu
 export function SectionHeader({ title }: { title: string }) {
   useThemeRefresh()
   return (
-    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
+    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10, marginTop: 20 }}>
       {title}
     </Text>
   )
@@ -282,7 +282,7 @@ export function Chip({ label, onRemove }: { label: string; onRemove?: () => void
 export function ChecklistTitle({ children }: { children: React.ReactNode }) {
   useThemeRefresh()
   return (
-    <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+    <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
       {children}
     </Text>
   )
@@ -323,7 +323,7 @@ export function ChecklistRow({
           {label}
         </Text>
         {hint && !checked && (
-          <Text style={{ color: colors.warning, fontSize: 11, lineHeight: 14, marginTop: 2 }}>{hint}</Text>
+          <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 14, marginTop: 2 }}>{hint}</Text>
         )}
       </View>
     </View>

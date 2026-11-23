@@ -14,7 +14,7 @@ export function MedicalDisclaimer({ compact = false }: { compact?: boolean }) {
       borderWidth: 1, borderColor: colors.border, borderRadius: 12,
       backgroundColor: colors.surfaceRaised, padding: compact ? 10 : 14,
     }}>
-      <Text style={{ color: colors.textMuted, fontSize: compact ? 11 : 12, lineHeight: compact ? 16 : 18 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: compact ? 16 : 18 }}>
         {t("medicalDisclaimer")}
       </Text>
     </View>

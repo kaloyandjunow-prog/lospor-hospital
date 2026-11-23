@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { drugGroupColorHex } from "@lospor/core/catalog"
 import { drugColorTones } from "@lospor/core/drug-colors"
+import { shadeForSameGroupIn } from "@lospor/core/drug-colors-iso"
 import { MOBILE_DRUG_CAT_COLOR } from "@/lib/intraop-constants"
 import { useOptionLibrary, type LibraryOption } from "@/lib/use-option-library"
 import type { ColorScheme } from "@/theme/colors"
@@ -20,6 +21,10 @@ export type CurrentDrugColors = {
   infusion: (name: string) => string | undefined
   /** A drug group's colour, for the menus' group pills. */
   group: (category: string) => string
+  /** An infusion's library group; undefined for one the library does not have. */
+  infusionGroup: (name: string) => string | undefined
+  /** The shade of the nth running infusion of one group (0 = its own colour): Core's, by theme. */
+  later: (hex: string, index: number) => string
 }
 
 /**
@@ -53,7 +58,15 @@ export function currentDrugColors(
   for (const option of infusions) {
     if (!infusionMap.has(option.label)) infusionMap.set(option.label, option.customColor ? tone(option.customColor) : option.color ?? shade("#64748b"))
   }
-  return { drug: name => drugMap.get(name), infusion: name => infusionMap.get(name), group }
+  const infusionGroups = new Map<string, string>()
+  for (const option of infusions) if (option.group && !infusionGroups.has(option.label)) infusionGroups.set(option.label, option.group)
+  return {
+    drug: name => drugMap.get(name),
+    infusion: name => infusionMap.get(name),
+    group,
+    infusionGroup: name => infusionGroups.get(name),
+    later: (hex, index) => shadeForSameGroupIn(hex, index, scheme),
+  }
 }
 
 export function useCurrentDrugColors(): CurrentDrugColors {

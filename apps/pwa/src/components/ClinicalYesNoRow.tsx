@@ -59,7 +59,7 @@ export function ClinicalYesNoRow({
         {/* Says out loud that nothing has been recorded, so a blank row cannot
             be mistaken for a completed one on a form of forty questions. */}
         {!answered && (
-          <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{tc("notAsked")}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{tc("notAsked")}</Text>
         )}
       </View>
       <View style={{ flexDirection: "row", gap: 6 }}>

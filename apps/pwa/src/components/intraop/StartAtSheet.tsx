@@ -35,7 +35,7 @@ export function StartAtSheet({ visible, value, onClose, onChange, dayKey, todayK
       </Text>
       <DayStepper value={dayKey} onChange={onDayChange} todayKey={todayKey} min={shiftDateKey(todayKey, -14)} max={todayKey}
         language={language} label={tc("timingStartDate")} testID="intraop-start-at-day" />
-      <Text style={{ color:colors.textMuted, fontSize:10, fontWeight:"700", letterSpacing:1.1,
+      <Text style={{ color:colors.textMuted, fontSize:12, fontWeight:"700", letterSpacing:1.1,
         textTransform:"uppercase", marginBottom:8 }}>{tc("startTimeLabel")}</Text>
       <TextInput
         style={{ backgroundColor:shade("#111111"), color:shade("#a5b4fc"), borderRadius:12, padding:16,

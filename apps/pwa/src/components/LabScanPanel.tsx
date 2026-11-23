@@ -227,7 +227,7 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt, aiOpt
                     not either step was right -- so the original has to be beside it
                     for the review to be a review. */}
                 {labSourceDiffers(row) ? (
-                  <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "700" }}>
                     {tc("lspReportPrinted")} {row.sourceValue} {row.sourceUnit}
                   </Text>
                 ) : null}

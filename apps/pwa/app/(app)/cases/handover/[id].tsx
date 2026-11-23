@@ -77,7 +77,7 @@ export default function HandoverScreen() {
         {/* Search */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 16, borderCurve: "continuous", borderWidth: 1, borderColor: withAlpha(colors.warning, "66"), padding: 14, marginBottom: 12 }}>
-            <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
+            <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
               {tc("handoverSubtitle")}
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "800" }}>

@@ -60,14 +60,17 @@ export function useIntraopEventActions({
   const [editTime, setEditTime] = useState("")
 
 
+  /** 10.8.0: the menu's Edit opens the editor at once -- dose and time for a drug, the time otherwise (as on the web). */
+  function editEvent(ev: LogEvent) {
+    const draft = intraopEventEditDraft(ev)
+    setEditEv(ev)
+    setEditDose(draft.dose)
+    setEditTime(draft.time)
+    setEditOpen(true)
+  }
+
   function eventActions(ev: LogEvent) {
-    const openEdit = () => {
-      const draft = intraopEventEditDraft(ev)
-      setEditEv(ev)
-      setEditDose(draft.dose)
-      setEditTime(draft.time)
-      setEditOpen(true)
-    }
+    const openEdit = () => editEvent(ev)
     const actions = buildIntraopEventActions({
       event: ev,
       cancelLabel,
@@ -150,6 +153,7 @@ export function useIntraopEventActions({
     editTime,
     setEditTime,
     eventActions,
+    editEvent,
     confirmEdit,
     promptDelete,
     openRowQuickAdd,

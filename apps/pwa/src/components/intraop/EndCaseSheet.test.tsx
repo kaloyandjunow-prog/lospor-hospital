@@ -66,7 +66,8 @@ describe("EndCaseSheet fluid cleanup", () => {
 
   // 1.4.9: only items marked "stop" get a stop, all at one end time. Items
   // continued postoperatively get none: the chart and every total stop at the end.
-  it("stops only the items marked stop, at one end time", async () => {
+  // 10.8.0: a continued item stops on the record too, at the same end, marked as going on after the case.
+  it("stops everything at one end time, marking what goes on after the case", async () => {
     const rateOneAtEnd = vi.fn(() => 25)
     const stopRateOne = vi.fn(async (_context?: EndCaseStopContext) => {})
     const stopRateTwo = vi.fn(async (_context?: EndCaseStopContext) => {})
@@ -110,8 +111,9 @@ describe("EndCaseSheet fluid cleanup", () => {
     expect(fluidContext.endTs).toBe(infusionContext.endTs)
     expect(fluidContext.administeredVolumeMl).toBe(25)
     expect(rateOneAtEnd).toHaveBeenCalledWith(fluidContext.endTs)
-    expect(stopRateTwo).not.toHaveBeenCalled()
-    expect(stopAgent).not.toHaveBeenCalled()
+    expect(stopRateTwo).toHaveBeenCalledWith(expect.objectContaining({ endTs: fluidContext.endTs, continuesAfterEnd: true }))
+    expect(stopAgent).toHaveBeenCalledWith(expect.objectContaining({ endTs: fluidContext.endTs, continuesAfterEnd: true }))
+    expect(fluidContext.continuesAfterEnd).toBeUndefined()
     expect(onFinalize).toHaveBeenCalledWith([
       "Glucose (70 mL/h - fluid)",
       "Sevoflurane (Volatile - inhalational)",

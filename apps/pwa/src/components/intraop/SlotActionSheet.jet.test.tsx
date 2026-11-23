@@ -33,14 +33,13 @@ describe("changing the concentration of a running agent", () => {
         onStopAgent={onStopAgent} onChangeAgent={onChangeAgent} onOpenAgent={() => {}} onStopGas={() => {}} onOpenGas={() => {}} />,
     )
   }
-  it("offers Change % beside Stop for each running agent, and names the agent when pressed", () => {
+  // 10.8.0: a running agent is worked with from its own menu in the row (Change dose, Stop),
+  // not from the event sheet, so the sheet offers neither.
+  it("no longer offers Change % or Stop for a running agent", () => {
     const onChange = vi.fn()
-    const onStop = vi.fn()
-    const tree = withAgent(onChange, onStop)
-    const button = tree.root.findByProps({ testID: "slot-change-agent-Sevoflurane" })
-    act(() => button.props.onPress())
-    expect(onChange).toHaveBeenCalledWith("Sevoflurane")
-    expect(onStop).not.toHaveBeenCalled()
+    const tree = withAgent(onChange)
+    expect(tree.root.findAll(node => node.props?.testID === "slot-change-agent-Sevoflurane").length).toBe(0)
+    expect(onChange).not.toHaveBeenCalled()
   })
   it("shows no Change % where nothing handles it", () => {
     const tree = withAgent(undefined)

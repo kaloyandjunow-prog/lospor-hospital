@@ -23,7 +23,7 @@ export function LabDrawPill({ count }: { count: number }) {
       alignSelf: "flex-start", marginTop: 2, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1,
       backgroundColor: LAB_DRAW_COLOR + "22", borderWidth: 1, borderColor: LAB_DRAW_COLOR + "55",
     }}>
-      <Text style={{ color: LAB_DRAW_COLOR, fontSize: 10, fontWeight: "700" }}>
+      <Text style={{ color: LAB_DRAW_COLOR, fontSize: 12, fontWeight: "700" }}>
         {formatMessage(tc("labsPill"), { count })}
       </Text>
     </View>

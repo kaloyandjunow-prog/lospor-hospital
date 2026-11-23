@@ -42,10 +42,10 @@ export function useGasSettingsEntry(
     setGasOpen(false)
   }
 
-  async function stopGasSettings(rowTs?: string | null, options: { exactTs?: string; endCaseStop?: boolean } = {}) {
+  async function stopGasSettings(rowTs?: string | null, options: { exactTs?: string; endCaseStop?: boolean; continuesAfterEnd?: boolean } = {}) {
     if (!activeGas) return
     setActiveGas(null)
-    await save({ type: "gas_stop", ...(options.endCaseStop ? { endCaseStop: true } : {}) }, options.exactTs ?? atRow(rowTs))
+    await save({ type: "gas_stop", ...(options.endCaseStop ? { endCaseStop: true } : {}), ...(options.continuesAfterEnd ? { continuesAfterEnd: true } : {}) }, options.exactTs ?? atRow(rowTs))
   }
 
   return { gasOpen, setGasOpen, gasFgf, setGasFgf, gasCarrierGas, setGasCarrierGas, gasFio2, setGasFio2, openGasSettings, confirmGasSettings, stopGasSettings }

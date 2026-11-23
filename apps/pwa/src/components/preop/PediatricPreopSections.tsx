@@ -259,12 +259,12 @@ export function PediatricFastingFields({ control, setValue, language }: Pick<Pro
                 />
               </Field>
               {row && isFastingAssignmentBelowMinimum(row)
-                ? <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "800" }}>{labels.npoBelowMinimum.replace("{hours}", String(minimum))}</Text>
+                ? <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "800" }}>{labels.npoBelowMinimum.replace("{hours}", String(minimum))}</Text>
                 : null}
             </View>
           )
         })}
-        <Text style={{ color: colors.textMuted, fontSize: 10 }}>{APAGBI_FASTING_POLICY_2023.id} {APAGBI_FASTING_POLICY_2023.version}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>{APAGBI_FASTING_POLICY_2023.id} {APAGBI_FASTING_POLICY_2023.version}</Text>
       </View>
   )
 }

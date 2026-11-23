@@ -67,8 +67,8 @@ export function AutomationGroupsCard() {
           const contextHeader = line.id.startsWith("context:") && !offeredLines[index - 1]?.id.startsWith("context:")
           const vitalHeader = line.group === "vitalQuestions" && offeredLines[index - 1]?.group !== "vitalQuestions"
           return <Fragment key={line.id}>
-            {contextHeader && <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: 12, marginBottom: 4 }}>{tc("agContextLinksTitle")}</Text>}
-            {vitalHeader && <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: 12, marginBottom: 4 }}>{tc("agVitalLinesTitle")}</Text>}
+            {contextHeader && <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800", letterSpacing: 1, marginTop: 12, marginBottom: 4 }}>{tc("agContextLinksTitle")}</Text>}
+            {vitalHeader && <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800", letterSpacing: 1, marginTop: 12, marginBottom: 4 }}>{tc("agVitalLinesTitle")}</Text>}
             <SettingsRow label={labelOf(line)} subtitle={detailOf(line)} last={index === offeredLines.length - 1}
               rightElement={
                 <BooleanSwitch testID={`setting-automation-line-${line.id}`} value={on}

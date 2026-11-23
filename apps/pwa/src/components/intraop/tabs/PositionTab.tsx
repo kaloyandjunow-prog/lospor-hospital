@@ -18,7 +18,7 @@ export function PositionTab({ positions, setPositions, savePositions, fieldSavin
   const { onScroll, scrollEventThrottle } = useIntraopHeaderScroll()
   return (
     <OverflowCueScrollView style={{ flex:1 }} scrollViewStyle={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
-      <Text style={{ color:shade("#94a3b8"), fontSize:10, fontWeight:"700", letterSpacing:1.2,
+      <Text style={{ color:shade("#94a3b8"), fontSize:12, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:12 }}>
         {tc("patientPosition")} {fieldSaving === "positions" ? tc("savingParenthetical") : ""}
       </Text>
@@ -41,7 +41,7 @@ export function PositionTab({ positions, setPositions, savePositions, fieldSavin
             }}>
               <Text style={{ color: sel ? pos.color : shade("#64748b"), fontSize:12, fontWeight:"700",
                 textAlign:"center" }}>{pos.label}</Text>
-              <Text style={{ color: sel ? pos.color + "aa" : shade("#334155"), fontSize:9, marginTop:3,
+              <Text style={{ color: sel ? pos.color + "aa" : shade("#334155"), fontSize:12, marginTop:3,
                 textAlign:"center" }}>{pos.desc}</Text>
             </TouchableOpacity>
           )

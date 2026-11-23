@@ -43,7 +43,7 @@ function IntraopTabBarComponent({ tab, onSelect, tc, screenWidth, railRef, layou
           return (
           <TouchableOpacity key={t} onPress={() => onSelect(t)}
             onLayout={(e) => { layouts.current[t] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width } }}
-            style={{ paddingHorizontal:16, paddingVertical:8, alignItems:"center",
+            style={{ paddingHorizontal:16, paddingVertical:8, minHeight:44, alignItems:"center", justifyContent:"center",
               borderBottomWidth:2, borderBottomColor: tab===t ? shade("#3b82f6") : "transparent" }}>
             <Text style={{ color: tab===t ? shade("#3b82f6") : shade("#64748b"), fontSize:12, fontWeight:"700" }}>
               {label}

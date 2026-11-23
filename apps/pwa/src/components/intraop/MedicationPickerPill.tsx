@@ -38,7 +38,7 @@ export function MedicationPickerPill({
         {label}
       </Text>
       {sublabel ? (
-        <Text style={{ color: selected ? shade("#e2e8f0") : shade("#94a3b8"), fontSize: 10, marginTop: 2 }} numberOfLines={1}>
+        <Text style={{ color: selected ? shade("#e2e8f0") : shade("#94a3b8"), fontSize: 12, marginTop: 2 }} numberOfLines={1}>
           {sublabel}
         </Text>
       ) : null}

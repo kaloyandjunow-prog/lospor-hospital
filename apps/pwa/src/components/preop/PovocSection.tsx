@@ -43,13 +43,13 @@ export function PovocSection({ control, labels, povoc, isShown = () => true, una
               : "-"}
         </Text>
       </View>
-      {!available && unavailableLabel ? <Text style={{ color: colors.textMuted, fontSize: 11 }}>{unavailableLabel}</Text> : null}
+      {!available && unavailableLabel ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{unavailableLabel}</Text> : null}
       {POVOC_QUESTIONS.filter(([name]) => isShown(name)).map(([name, labelKey]) => (
         <Controller key={name} control={control} name={name} render={({ field }) => (
           <ClinicalYesNoRow label={labels[labelKey]} value={field.value ?? null} onValueChange={field.onChange} />
         )} />
       ))}
-      <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 12 }}>
         {labels.povocAgeFactor}: {povoc?.factors.ageAtLeast3Years ? labels.yes : labels.no}
       </Text>
     </View>
