@@ -49,10 +49,10 @@ export function GuptaRiskCard({
         </p>
       )}
       {result.available && result.input.creatinine === "UNKNOWN" && (
-        <p className="text-[11px] text-muted-foreground">{t("preop.gupta.creatinineUnknown")}</p>
+        <p className="text-xs text-muted-foreground">{t("preop.gupta.creatinineUnknown")}</p>
       )}
       {suggestedProcedureType && !answeredType && chosenType == null && (
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
           {t("preop.gupta.suggested", { type: typeLabel(suggestedProcedureType) })}
           <button
             type="button"

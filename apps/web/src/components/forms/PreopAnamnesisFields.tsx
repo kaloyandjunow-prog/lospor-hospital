@@ -191,7 +191,7 @@ export function PreopAnamnesisFields({
               <div>
                 <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{t(item.labelKey)}</Label>
                 {suggested && !checked && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">{t("preop.suggestedReviewConfirm")}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{t("preop.suggestedReviewConfirm")}</p>
                 )}
               </div>
             </div>
@@ -241,7 +241,7 @@ export function PreopAnamnesisFields({
               <div>
                 <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{t(item.labelKey)}</Label>
                 {suggested && !checked && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">{t("preop.suggestedReviewConfirm")}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{t("preop.suggestedReviewConfirm")}</p>
                 )}
               </div>
             </div>

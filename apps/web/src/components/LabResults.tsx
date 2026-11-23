@@ -171,7 +171,7 @@ export function LabResults({
                         />
                       </td>
                       <td className="py-1.5 font-medium text-slate-700 dark:text-slate-300">
-                        {displayClinicalCode("labTest", row.test, locale, { label: row.test })} {alreadyAdded && <span className="text-[10px] text-slate-400">{t("intraop.lab.alreadyAdded")}</span>}
+                        {displayClinicalCode("labTest", row.test, locale, { label: row.test })} {alreadyAdded && <span className="text-xs text-slate-400">{t("intraop.lab.alreadyAdded")}</span>}
                       </td>
                       <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">
                         {row.value}
@@ -179,7 +179,7 @@ export function LabResults({
                             conversion can be checked against the paper rather than
                             trusted. */}
                         {labSourceDiffers(row) && (
-                          <span className="ml-1.5 text-[10px] text-slate-400">
+                          <span className="ml-1.5 text-xs text-slate-400">
                             {t("intraop.lab.reportValue", { value: row.sourceValue ?? "", unit: row.sourceUnit ?? "" })}
                           </span>
                         )}
@@ -187,7 +187,7 @@ export function LabResults({
                       <td className="py-1.5 pr-3 text-slate-400">
                         {row.unit}
                         {row.confident === false && (
-                          <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-500">
+                          <span className="ml-1 text-xs text-amber-600 dark:text-amber-500">
                             {t("intraop.lab.unitUnrecognised")}
                           </span>
                         )}
@@ -319,7 +319,7 @@ export function LabResults({
                         }`}
                       >
                         <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">{displayClinicalCode("labTest", test.name, locale, { label: test.name })}</span>
-                        <span className="block text-[11px] text-slate-400">{displayClinicalCode("labCategory", category.id, locale, { label: category.label })} — {test.unit || t("intraop.lab.unitless")}</span>
+                        <span className="block text-xs text-slate-400">{displayClinicalCode("labCategory", category.id, locale, { label: category.label })} — {test.unit || t("intraop.lab.unitless")}</span>
                       </button>
                     )
                   })}
@@ -329,7 +329,7 @@ export function LabResults({
               )
             ) : LAB_CATEGORIES.map(category => (
               <div key={category.id} className="flex items-start gap-2 flex-wrap">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 w-24 shrink-0 pt-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 w-24 shrink-0 pt-1">
                   {displayClinicalCode("labCategory", category.id, locale, { label: category.label })}
                 </span>
                 <div className="flex flex-wrap gap-1">

@@ -30,6 +30,9 @@ export type NowMarkerGeometry = {
   requiredColCount: number | null
 }
 
+/** Cells drawn after the one now falls in (10.8.0): one hour. */
+export const HOUR_AHEAD_COLUMNS = 12
+
 export function nowMarkerGeometry(input: {
   gridStartMs: number | null
   now: Date
@@ -49,10 +52,13 @@ export function nowMarkerGeometry(input: {
   const secondsPerColumn = input.intervalMinutes * 60
   const trueCol = Math.floor(diffSecs / secondsPerColumn)
 
-  const requiredColCount = trueCol + 1 >= input.colCount
+  // 10.8.0: always an hour ahead of now (twelve five-minute cells), in both
+  // layouts, so planning a stop or a change never needs a "+1 h" button.
+  const wanted = trueCol + 1 + HOUR_AHEAD_COLUMNS
+  const requiredColCount = wanted > input.colCount
     ? (input.layout === "scroll"
-        ? trueCol + 2
-        : Math.ceil((trueCol + 2) / input.rowCols) * input.rowCols)
+        ? wanted
+        : Math.ceil(wanted / input.rowCols) * input.rowCols)
     : null
 
   const grownCount = requiredColCount ?? input.colCount

@@ -10,11 +10,11 @@ import type { AdminAccount } from "./AdminAccountTable"
 
 export type PendingAccountAction =
   | { kind: "suspend" | "reactivate" | "restore" | "delete"; account: AdminAccount }
-  | { kind: "role"; account: AdminAccount; role: "MEMBER" | "HEAD_OF_DEPT" | "ADMIN" }
+  | { kind: "role"; account: AdminAccount; role: "MEMBER" | "ANAESTHESIA_NURSE" | "ANAESTHESIA_SENIOR_NURSE" | "HEAD_OF_DEPT" | "ADMIN" }
   | { kind: "accountKind"; account: AdminAccount; accountKind: "CLINICAL" | "RESEARCH_ONLY" }
 
 function normalizedRole(role: string) {
-  if (role === "ADMIN" || role === "HEAD_OF_DEPT") return role
+  if (role === "ADMIN" || role === "HEAD_OF_DEPT" || role === "ANAESTHESIA_NURSE" || role === "ANAESTHESIA_SENIOR_NURSE") return role
   return "MEMBER"
 }
 

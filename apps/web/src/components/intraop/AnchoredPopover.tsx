@@ -1,8 +1,10 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
 import type { ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { positionPopover, type AnchorRect } from "./anchored-position"
+import { PopoverClose } from "./PopoverClose"
 
 /**
  * The shell every popover on the intraop chart shares: a portal, a backdrop
@@ -62,12 +64,13 @@ export function AnchoredPopover({
           zIndex: layer + 1,
           transform: showAbove ? "translateY(-100%)" : undefined,
         }}
-        className={className}
         onClick={event => event.stopPropagation()}
       >
-        {children}
+        <div className={className}>{children}</div>
+        {/* On the panel's corner, outside it: no popover's own header has to make room for it. */}
+        <PopoverClose onClose={onDismiss} className="absolute -right-2.5 -top-2.5 z-10 shadow-md" />
       </div>
     </>,
-    document.body,
+    portalHost(),
   )
 }

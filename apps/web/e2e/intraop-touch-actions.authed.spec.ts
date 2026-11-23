@@ -1,15 +1,12 @@
 import { test, expect, type Page } from "@playwright/test"
 
 /**
- * What a finger can do on the web chart that a mouse and keyboard already could
- * (10.0.0). Each check is made against the saved log, not only the screen.
+ * What a finger does on the web chart (10.0.0, reworked 10.8.0). Each check is made against the saved log.
  *
- * - "Continue?" after a stopped agent: one tap only shows it, a second records.
- *   Before, a single invisible tap recorded a new administration.
- * - Undo and redo as buttons (a finger has no Ctrl+Z).
- * - A running infusion entered in error is removed from its menu.
- * - A stopped agent is resumed from its editor (was a double-click only).
- * - A tap on a drug opens its dose; a tap on a vitals cell opens the stepper.
+ * - The first tap on a cell only highlights it; the second opens the chart's one menu.
+ * - Continue (a stopped agent), Delete whole (an infusion entered in error): from that menu, no question.
+ * - Undo and redo as buttons (a finger has no Ctrl+Z), and the Undo bar.
+ * - A tap on a drug opens its menu (Edit opens the dose); a tap on a vitals cell opens the stepper.
  */
 
 const ORIGIN = "http://localhost:3000"
@@ -50,57 +47,71 @@ const stoppedSevo = (at: (min: number) => string) => [
   { type: "agent_stop", ts: at(-25), name: "Sevoflurane" },
 ]
 
-test("continuing a stopped agent takes two taps, and Undo takes it back", async ({ page }) => {
+/** Two taps on a cell: the first highlights, the second opens the menu. */
+async function tapTwice(target: ReturnType<Page["locator"]>) {
+  await target.tap()
+  await expect(target).toHaveAttribute("data-tt-armed", "")
+  await target.tap()
+}
+
+test("continuing a stopped agent: two taps open the menu, Continue writes a new start, Undo takes it back", async ({ page }) => {
   const id = await seed(page, stoppedSevo)
   try {
     const chart = await openChart(page, id)
     const starts = async () => (await log(page, id)).filter(e => e.type === "agent_start").length
-    const offer = chart.getByTestId("agent-continue").nth(2)
-    await offer.tap()
-    await page.waitForTimeout(1500)
-    expect(await starts(), "one tap only shows the offer").toBe(1)
-    await expect(offer).toHaveAttribute("data-armed", "true")
-    await offer.tap()
-    await expect.poll(starts, { timeout: 15_000 }).toBe(2)
+    const cell = chart.locator("[data-agent-cell]").nth(5)
+    await cell.tap()
+    await page.waitForTimeout(800)
+    await expect(page.getByTestId("timetable-cell-menu"), "one tap only highlights").toHaveCount(0)
+    expect(await starts()).toBe(1)
+    await cell.tap()
+    await page.getByTestId("cell-menu-resume").tap()
+    // Continue puts the agent back to running: a new start, or the stop taken away.
+    const stops = async () => (await log(page, id)).filter(e => e.type === "agent_stop").length
+    const running = async () => (await starts()) === 2 || (await stops()) === 0
+    await expect.poll(running, { timeout: 15_000 }).toBe(true)
 
     await page.getByTestId("timetable-undo").tap()
-    await expect.poll(starts, { timeout: 15_000 }).toBe(1)
+    await expect.poll(async () => !(await running()), { timeout: 15_000 }).toBe(true)
     await page.getByTestId("timetable-redo").tap()
-    await expect.poll(starts, { timeout: 15_000 }).toBe(2)
+    await expect.poll(running, { timeout: 15_000 }).toBe(true)
   } finally { await page.request.delete(`/api/cases/${id}`, { headers: { Origin: ORIGIN } }) }
 })
 
-test("a stopped agent is resumed from its editor", async ({ page }) => {
-  const id = await seed(page, stoppedSevo)
+test("the Undo bar takes back a stop", async ({ page }) => {
+  const id = await seed(page, at => [{ type: "agent_start", ts: at(-35), name: "Sevoflurane", value: "2", agentMode: "concurrent" }])
   try {
     const chart = await openChart(page, id)
-    // The bar's own name does not take taps; its strip opens the same editor.
-    await chart.getByTestId("agent-percent-strip").first().tap()
-    await page.getByTestId("agent-resume").tap({ timeout: 10_000 })
-    await expect.poll(async () => (await log(page, id)).filter(e => e.type === "agent_stop").length, { timeout: 15_000 }).toBe(0)
+    const stops = async () => (await log(page, id)).filter(e => e.type === "agent_stop").length
+    await tapTwice(chart.locator("[data-agent-cell]").nth(3))
+    await page.getByTestId("cell-menu-stop").tap()
+    await expect.poll(stops, { timeout: 15_000 }).toBe(1)
+    await page.getByTestId("timetable-undo-bar-undo").tap()
+    await expect.poll(stops, { timeout: 15_000 }).toBe(0)
   } finally { await page.request.delete(`/api/cases/${id}`, { headers: { Origin: ORIGIN } }) }
 })
 
-test("a running infusion entered in error is removed from its menu, after the question", async ({ page }) => {
+test("a running infusion entered in error is deleted from its menu, with no question", async ({ page }) => {
   const id = await seed(page, at => [
     { type: "infusion_start", ts: at(-30), infId: "inf-p", name: "Propofol", rate: "5", unit: "mg/kg/h", color: "#3b82f6" },
   ])
   try {
     const chart = await openChart(page, id)
-    await chart.locator('[data-testid="infusion-lane"] [aria-label="Propofol"]').first().tap()
-    await page.getByTestId("infusion-remove").tap()
-    await page.getByRole("button", { name: /^(Delete|Remove|Confirm|Yes)/ }).last().tap()
+    await tapTwice(chart.getByTestId("infusion-lane").locator("[data-tt-cell]").nth(3))
+    await page.getByTestId("cell-menu-delete_whole").tap()
+    await expect(page.getByRole("alertdialog")).toHaveCount(0)
     await expect.poll(async () => (await log(page, id)).filter(e => e.type.startsWith("infusion_")).length, { timeout: 15_000 }).toBe(0)
   } finally { await page.request.delete(`/api/cases/${id}`, { headers: { Origin: ORIGIN } }) }
 })
 
-test("a tap on a drug opens its dose, and a tap on a vitals cell opens the stepper", async ({ page }) => {
+test("a tap on a drug opens its menu, Edit opens the dose, and a tap on a vitals cell opens the stepper", async ({ page }) => {
   const id = await seed(page, at => [
     { type: "drug", ts: at(-20), name: "Fentanyl", dose: "100", unit: "mcg" },
   ])
   try {
     const chart = await openChart(page, id)
-    await chart.getByText("Fentanyl").first().tap()
+    await tapTwice(chart.locator("[data-tt-point]").first())
+    await page.getByTestId("cell-menu-edit").tap()
     await expect(page.locator('input[value="100"]').first()).toBeVisible()
     await page.keyboard.press("Escape")
     await page.mouse.click(5, 5)

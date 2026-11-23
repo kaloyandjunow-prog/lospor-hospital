@@ -136,8 +136,8 @@ export function TimetableVitalsRows({
   if (rows.length === 0) {
     return isFirstRow ? (
       <div className="flex items-center border-b border-slate-50 dark:border-[#222] py-2">
-        <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " py-2"} />
-        <span className="text-[10px] text-slate-300 dark:text-[#555] italic px-3">{emptyLabel}</span>
+        <div data-tt-label style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " py-2"} />
+        <span className="text-xs text-slate-300 dark:text-[#555] italic px-3">{emptyLabel}</span>
       </div>
     ) : null
   }
@@ -167,21 +167,14 @@ export function TimetableVitalsRows({
             className={`flex items-center border-b border-slate-50 dark:border-[#222] ${ri % 2 === 1 ? "bg-slate-50/40 dark:bg-[#1a1a1a]/60" : ""}`}
           >
             <div
-              style={{
-                width: labelWidth,
-                minWidth: labelWidth,
-                position: "sticky",
-                left: 0,
-                zIndex: 2,
-                backgroundColor: "inherit",
-                borderLeft: `3px solid ${row.color}`,
-              }}
+              data-tt-label
+              style={{ width: labelWidth, minWidth: labelWidth, borderLeft: `3px solid ${row.color}` }}
               className="flex flex-col items-end justify-center pr-2 py-1.5 gap-0 select-none bg-white dark:bg-[#1c1c1c]"
             >
               <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color: row.color }}>
                 {TRANSLATED_ROW_LABELS[row.key] ? t(TRANSLATED_ROW_LABELS[row.key]!) : row.label}
               </span>
-              <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">({row.unit})</span>
+              <span className="text-xs text-slate-300 dark:text-[#555] leading-tight">({row.unit})</span>
             </div>
             {rowCols.map(ci => {
               const cellKey = `${ci}-${row.key}`
@@ -252,7 +245,7 @@ export function TimetableVitalsRows({
                 />
                 {messageKey ? (
                   <p id={feedbackId} role={feedback.error ? "alert" : undefined}
-                    className={`mt-1 text-[9px] leading-tight ${feedback.error ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    className={`mt-1 text-xs leading-tight ${feedback.error ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
                     {t(messageKey)}
                   </p>
                 ) : null}

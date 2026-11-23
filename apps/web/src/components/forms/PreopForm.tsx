@@ -839,7 +839,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                     onClick={() => field.onChange(field.value === opt.value ? undefined : opt.value)}
                     className={`rounded-xl border-2 p-3 text-center transition-all ${field.value === opt.value ? opt.color+" scale-105 shadow-sm" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"}`}>
                     <div className="text-xl font-bold">{opt.value}</div>
-                    <div className="text-[10px] mt-1 leading-tight">{resolveDisplayOption("MALLAMPATI", opt, locale).description}</div>
+                    <div className="text-xs mt-1 leading-tight">{resolveDisplayOption("MALLAMPATI", opt, locale).description}</div>
                   </button>
                 ))}
               </div>
@@ -880,7 +880,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                     onClick={() => field.onChange(field.value === opt.value ? undefined : opt.value)}
                     className={`flex-1 rounded-xl border-2 p-3 text-center transition-all ${field.value === opt.value ? opt.color+" scale-105 shadow-sm" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"}`}>
                     <div className="font-bold">{displayOption("UPPER_LIP_BITE", opt, locale)}</div>
-                    <div className="text-[10px] mt-0.5 leading-tight">{resolveDisplayOption("UPPER_LIP_BITE", opt, locale).description}</div>
+                    <div className="text-xs mt-0.5 leading-tight">{resolveDisplayOption("UPPER_LIP_BITE", opt, locale).description}</div>
                   </button>
                 ))}
               </div>
@@ -895,7 +895,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                     onClick={() => field.onChange(field.value === opt.value ? undefined : opt.value)}
                     className={`flex-1 rounded-xl border-2 p-2 text-center transition-all ${field.value === opt.value ? opt.color+" scale-105 shadow-sm" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"}`}>
                     <div className="text-lg font-bold">{opt.value}</div>
-                    <div className="text-[9px] mt-0.5 leading-tight">{resolveDisplayOption("CORMACK_LEHANE", opt, locale).description}</div>
+                    <div className="text-xs mt-0.5 leading-tight">{resolveDisplayOption("CORMACK_LEHANE", opt, locale).description}</div>
                   </button>
                 ))}
               </div>

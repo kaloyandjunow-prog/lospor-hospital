@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { clinicalDisplayLabel } from "@lospor/core/display"
 import type { IntraopAttentionAction, IntraopAttentionKind } from "@lospor/core/intraop-attention"
@@ -25,6 +26,15 @@ const ANSWERS: Record<IntraopAttentionKind, { action: IntraopAttentionAction; la
     { action: "not_now", label: "vitalNotNow", yes: false },
     { action: "log_complication", label: "vitalLogIt", yes: true },
   ],
+  // 10.8.0: a tourniquet still on at the end comes off on the record; no other answer.
+  tourniquet_open: [
+    { action: "tourniquet_off", label: "tourniquetOffAtEnd", yes: true },
+  ],
+  // 10.8.0: an event logged from a reading that was then corrected.
+  auto_event_stale: [
+    { action: "keep_auto_event", label: "autoEventKeep", yes: false },
+    { action: "remove_auto_event", label: "autoEventRemove", yes: true },
+  ],
   // 10.2.0: a suggestion -- a card, follow-up or reminder opens; a question logs.
   suggestion: [
     { action: "not_now", label: "vitalNotNow", yes: false },
@@ -42,7 +52,7 @@ function choicesOf(entry: IntraopAttentionEntry): readonly string[] {
   return []
 }
 
-export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = false, refused = [], onDismissRefused }: {
+export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = false, refused = [], onDismissRefused, collapsible = false }: {
   entries: IntraopAttentionEntry[]
   /** Changes the server refused for good, listed until seen (9.13.0). */
   refused?: RefusedLine[]
@@ -52,18 +62,22 @@ export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = fal
   onOpen?: (key: string) => void
   /** In End case: says the case cannot end until each is answered. */
   endCase?: boolean
+  /** 10.8.0 (rule 11): one reminder in view and a "+2" that opens the rest, as on the PWA. */
+  collapsible?: boolean
 }) {
   const tr = useTranslations("intraop.timelineRules")
   const locale = useLocale()
+  const [expanded, setExpanded] = useState(false)
   if (entries.length === 0 && refused.length === 0) return null
+  const shown = collapsible && !expanded ? entries.slice(0, 1) : entries
+  const hidden = entries.length - shown.length
   return (
     <div
-      // On the chart it floats above the page's bottom bar, in view however far
-      // the chart is scrolled: a question scrolled out of sight is one nobody
-      // answers. It goes when everything is answered.
+      // 10.8.0 (rule 11): on the chart it is a bar under the page header and the tabs, one reminder in view and a "+N",
+      // in view however far the page is scrolled -- not a box floating over the chart. It goes when all is answered.
       className={`rounded-lg border border-dashed border-amber-400 p-3 space-y-2 ${endCase
         ? "mt-3 bg-amber-50/60 dark:bg-amber-900/10"
-        : "fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-2xl bg-amber-50 dark:bg-[#2a2110] shadow-lg"}`}
+        : "sticky top-[84px] z-40 w-full bg-amber-50 dark:bg-[#2a2110] shadow-md"}`}
       data-testid={endCase ? "end-case-after-end" : "intraop-attention"}
     >
       {refused.length > 0 && (
@@ -75,12 +89,12 @@ export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = fal
             </p>
           ))}
           <button type="button" data-testid="intraop-refused-dismiss" onClick={onDismissRefused}
-            className="text-xs px-2.5 py-1 rounded-full border border-red-300 text-red-600">{tr("refusedDismiss")}</button>
+            className="min-h-11 text-sm px-4 rounded-full border border-red-300 text-red-600">{tr("refusedDismiss")}</button>
         </div>
       )}
       {entries.length > 0 && <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{tr(endCase ? "endCaseAfterEndTitle" : "attentionTitle")}</p>}
-      {endCase && <p className="text-[11px] text-slate-500">{tr("endCaseAfterEndHint")}</p>}
-      {entries.map(entry => (
+      {endCase && <p className="text-xs text-slate-500">{tr("endCaseAfterEndHint")}</p>}
+      {shown.map(entry => (
         <div key={entry.key} className="flex flex-wrap items-center gap-2 text-sm">
           <span className="flex-1 min-w-[12rem] break-words">
             {entry.time ? `${entry.time} · ` : ""}{entry.label}
@@ -91,7 +105,7 @@ export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = fal
           {choicesOf(entry).map(choice => (
             <button key={choice} type="button" data-testid={`attention-choice-${choice}-${entry.key}`} disabled={!onAnswer}
               onClick={() => onAnswer?.(entry.key, "log_complication", false, choice)}
-              className="text-xs px-2.5 py-1 rounded-full border border-emerald-400 text-emerald-600 disabled:opacity-50">
+              className="min-h-11 text-sm px-4 rounded-full border border-emerald-400 text-emerald-600 disabled:opacity-50">
               {clinicalDisplayLabel("complication", choice, locale === "bg" ? "bg" : "en", { label: choice })}
             </button>
           ))}
@@ -102,14 +116,20 @@ export function IntraopAttentionPanel({ entries, onAnswer, onOpen, endCase = fal
               data-testid={`attention-${answer.action}-${entry.key}`}
               disabled={answer.action === "open" ? !onOpen : !onAnswer}
               onClick={() => answer.action === "open" ? onOpen?.(entry.key) : onAnswer?.(entry.key, answer.action)}
-              className={`text-xs px-2.5 py-1 rounded-full border disabled:opacity-50 ${answer.yes ? "border-emerald-400 text-emerald-600" : "border-red-300 text-red-500"}`}
+              className={`min-h-11 text-sm px-4 rounded-full border disabled:opacity-50 ${answer.yes ? "border-emerald-400 text-emerald-600" : "border-red-300 text-red-500"}`}
             >
               {tr(answer.label)}
             </button>
           ))}
         </div>
       ))}
-      {endCase && <p className="text-[11px] text-amber-600">{tr("endCaseFinaliseBlocked")}</p>}
+      {collapsible && entries.length > 1 ? (
+        <button type="button" data-testid="attention-more" onClick={() => setExpanded(value => !value)}
+          className="min-h-11 rounded-full border border-amber-400 px-4 text-sm font-bold text-amber-700 dark:text-amber-300">
+          {hidden > 0 ? `+${hidden}` : tr("attentionCollapse")}
+        </button>
+      ) : null}
+      {endCase && <p className="text-xs text-amber-600">{tr("endCaseFinaliseBlocked")}</p>}
     </div>
   )
 }

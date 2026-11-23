@@ -77,21 +77,24 @@ export function useFluidChartActions({ dataRef, onChangeRef, nowCol, tsForCol, u
     return true
   }
 
-  function applyFluidRateChange(id: string, rate: number) {
+  /**
+   * A fluid's rate, changed in a cell (10.8.0, the rule every kind follows): in the cell it started in it
+   * replaces the start's own rate, in a cell with a change it replaces that change, elsewhere it is a new
+   * change. Without a cell (the strip's own click) it is a change now, as before.
+   */
+  function applyFluidRateChange(id: string, rate: number, atCol?: number) {
     if (!Number.isFinite(rate) || rate <= 0) return
     const d = dataRef.current
     const fluid = (d.fluids ?? []).find(item => item.id === id)
     if (!fluid || fluid.fluidEntryMode !== "RATE") return
-    const ts = serverNow().toISOString()
-    const col = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
-    onChangeRef.current({
-      ...d,
-      fluids: (d.fluids ?? []).map(item => item.id === id ? {
-        ...item,
-        endCol: Math.max(item.endCol, col),
-        rateChanges: [...(item.rateChanges ?? []), { col, ts, rate, unit: "mL/h" }],
-      } : item),
-    })
+    const col = atCol ?? Math.max(fluid.startCol, nowCol ?? fluid.endCol)
+    const ts = atCol != null && atCol !== nowCol ? tsForCol(atCol) ?? serverNow().toISOString() : serverNow().toISOString()
+    const withRate = (item: typeof fluid) => {
+      if (col <= item.startCol) return { ...item, rate }
+      const changes = (item.rateChanges ?? []).filter(change => change.col !== col)
+      return { ...item, endCol: Math.max(item.endCol, col), rateChanges: [...changes, { col, ts, rate, unit: "mL/h" }].sort((a, b) => a.col - b.col) }
+    }
+    onChangeRef.current({ ...d, fluids: (d.fluids ?? []).map(item => item.id === id ? withRate(item) : item) })
   }
 
   function finalizedFluid(

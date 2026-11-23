@@ -73,7 +73,7 @@ export function ItemScale<K extends string>({ items, values, onChange, language,
                   className={`min-h-11 rounded-lg border-2 px-1.5 py-1.5 text-center transition-colors ${selected ? PICKED : IDLE}`}
                 >
                   <div className="text-base font-bold leading-none">{choice.points}</div>
-                  <div className="mt-1 text-[10px] leading-tight opacity-90">{scaleText(choice, language)}</div>
+                  <div className="mt-1 text-xs leading-tight opacity-90">{scaleText(choice, language)}</div>
                 </button>
               )
             })}
@@ -112,7 +112,7 @@ export function SelfReportScale({ kind, value, onChange }: {
           )
         })}
       </div>
-      <div className="flex justify-between text-[10px] text-slate-400">
+      <div className="flex justify-between text-xs text-slate-400">
         <span>{t("postop.pain.noPain")}</span>
         <span>{t(kind === "FPS_R" ? "postop.pain.veryMuchPain" : "postop.pain.worstPain")}</span>
       </div>

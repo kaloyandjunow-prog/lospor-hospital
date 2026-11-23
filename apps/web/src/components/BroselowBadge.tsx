@@ -32,7 +32,7 @@ export function BroselowBadge({
       data-zone={zone.key}
     >
       <span
-        className={`rounded px-1.5 font-bold ${small ? "text-[10.5px] leading-[16px]" : "text-xs leading-5"}`}
+        className={`rounded px-1.5 font-bold ${small ? "text-xs leading-[16px]" : "text-xs leading-5"}`}
         style={{
           backgroundColor: zone.hex,
           color: zone.textHex,
@@ -43,7 +43,7 @@ export function BroselowBadge({
       >
         {label} {broselowLabel(zone, language)}
       </span>
-      {basis ? <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">{basis}</span> : null}
+      {basis ? <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{basis}</span> : null}
     </span>
   )
 }

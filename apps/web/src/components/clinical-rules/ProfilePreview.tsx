@@ -97,7 +97,7 @@ function Section({
         aria-label={editLabel(title)}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {title}
         </span>
         <span className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
@@ -241,7 +241,7 @@ export function ProfilePreview({
         editLabel={copy.edit}
       >
         <div className="flex items-center gap-2">
-          <span className="w-10 shrink-0 text-right text-[11px] text-slate-400">{surface.min}</span>
+          <span className="w-10 shrink-0 text-right text-xs text-slate-400">{surface.min}</span>
           <input
             type="range"
             min={surface.min}
@@ -252,7 +252,7 @@ export function ProfilePreview({
             aria-label={copy.sliderAria}
             className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-blue-600 dark:bg-[#3a3a3a]"
           />
-          <span className="w-10 shrink-0 text-[11px] text-slate-400">{surface.max}</span>
+          <span className="w-10 shrink-0 text-xs text-slate-400">{surface.max}</span>
         </div>
         <p className="mt-1 text-center text-sm font-bold text-slate-800 dark:text-slate-100">
           {Math.min(Math.max(sliderValue, surface.min), surface.max)} {surface.unit}

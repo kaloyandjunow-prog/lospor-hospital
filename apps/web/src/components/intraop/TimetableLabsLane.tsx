@@ -114,7 +114,7 @@ export function TimetableLabsLane({
                 <span
                   key={`${item.result.test}-${item.result.takenAt ?? ""}`}
                   title={`${item.result.test} ${item.result.value} ${item.result.unit}`}
-                  className={`text-[9px] ${style.weight} rounded px-1 py-px whitespace-nowrap`}
+                  className={`text-xs ${style.weight} rounded px-1 py-px whitespace-nowrap`}
                   style={{ backgroundColor: style.bg, color: style.fg, border: `1px solid ${style.border}` }}
                 >
                   {item.result.test} {item.result.value}
@@ -122,7 +122,7 @@ export function TimetableLabsLane({
               )
             })}
             {hiddenCount > 0 && (
-              <span className="text-[9px] text-slate-500 dark:text-[#888] font-semibold whitespace-nowrap">
+              <span className="text-xs text-slate-500 dark:text-[#888] font-semibold whitespace-nowrap">
                 +{hiddenCount} {labels.more}
               </span>
             )}
@@ -132,7 +132,7 @@ export function TimetableLabsLane({
 
       {expanded && (
         <div className="flex items-stretch" style={{ minHeight: 30 }}>
-          <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-1"} />
+          <div data-tt-label style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-1"} />
           {rowCols.map(ci => {
             const colDraws = draws.filter(draw => draw.colIdx === ci)
             return (
@@ -148,7 +148,7 @@ export function TimetableLabsLane({
                   <>
                   <SaveMark section="intraop" className="absolute top-0 right-0" />
                   <span
-                    className="text-[8px] font-bold rounded-full px-1 py-px w-full text-center truncate"
+                    className="text-xs font-bold rounded-full px-1 py-px w-full text-center truncate"
                     style={{ backgroundColor: "#14b8a622", color: "#0d9488", border: "1px solid #14b8a655" }}
                   >
                     {colDraws.reduce((total, draw) => total + draw.results.length, 0)}
@@ -180,7 +180,7 @@ export function TimetableLabsLane({
                   if (takenAt && onOpenDrawAt) onOpenDrawAt(takenAt)
                   else onOpenAll()
                 }}
-                className={`text-[9px] ${style.weight} rounded px-1.5 py-0.5 cursor-pointer hover:opacity-75 transition-opacity`}
+                className={`text-xs ${style.weight} rounded px-1.5 py-0.5 cursor-pointer hover:opacity-75 transition-opacity`}
                 style={{ backgroundColor: style.bg, color: style.fg, border: `1px solid ${style.border}` }}
               >
                 {item.result.test} {item.result.value} {item.result.unit}
@@ -191,7 +191,7 @@ export function TimetableLabsLane({
             <button
               type="button"
               onClick={onOpenAll}
-              className="text-[9px] font-semibold text-slate-500 dark:text-[#888] hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+              className="text-xs font-semibold text-slate-500 dark:text-[#888] hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
             >
               +{hiddenCount} {labels.more}
             </button>
@@ -199,7 +199,7 @@ export function TimetableLabsLane({
           <button
             type="button"
             onClick={onOpenAll}
-            className="text-[9px] font-semibold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer ml-auto"
+            className="text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer ml-auto"
           >
             {labels.viewAll}
           </button>

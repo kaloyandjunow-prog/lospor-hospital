@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { createPortal } from "react-dom"
 import type { FluidEntryMode } from "@lospor/core/intraop-fluids"
 import type { FluidConflict } from "./timetable-types"
@@ -40,7 +42,7 @@ const primaryButton =
   "w-full text-xs font-semibold bg-slate-700 hover:bg-slate-600 dark:bg-[#2a2a2a] dark:hover:bg-[#383838] dark:border dark:border-[#4a4a4a] text-white rounded-lg py-1.5"
 const secondaryButton =
   "w-full text-xs font-semibold border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-lg py-1.5"
-const captionClass = "text-[9px] font-bold text-slate-400 uppercase tracking-wide"
+const captionClass = "text-xs font-bold text-slate-400 uppercase tracking-wide"
 
 export function FluidConflictPopover({
   conflict,
@@ -78,6 +80,7 @@ export function FluidConflictPopover({
         className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2.5"
         onClick={event => event.stopPropagation()}
       >
+        <PopoverClose onClose={onDismiss} className="absolute right-1.5 top-1.5 z-10" />
         {conflict.phase === "choose" && (
           <>
             <p className={captionClass}>{conflict.pending.category} {copy.fluidConflict.conflict}</p>
@@ -144,6 +147,6 @@ export function FluidConflictPopover({
         )}
       </div>
     </>,
-    document.body,
+    portalHost(),
   )
 }

@@ -38,7 +38,7 @@ export function LosporBrand({
           LOSPOR
         </div>
         {!compact && (
-          <div className="mt-1 text-[10px] font-medium text-[#9c6200] dark:text-[#f6ad2f] sm:text-xs">
+          <div className="mt-1 text-xs font-medium text-[#9c6200] dark:text-[#f6ad2f] sm:text-xs">
             {t("common.appFullName").toUpperCase()}
           </div>
         )}

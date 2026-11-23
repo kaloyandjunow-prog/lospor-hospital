@@ -197,7 +197,7 @@ export function EhrImportReview({
                       : "border-slate-200 dark:border-slate-700"
                 }`}
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {labelFor(item.field)}
                 </p>
 
@@ -252,7 +252,7 @@ export function EhrImportReview({
                 <button
                   type="button"
                   onClick={() => decline(item)}
-                  className="mt-2 text-[11px] font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  className="mt-2 text-xs font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                 >
                   {t("decline")}
                 </button>

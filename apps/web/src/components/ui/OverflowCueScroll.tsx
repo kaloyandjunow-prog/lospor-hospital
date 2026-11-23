@@ -90,7 +90,7 @@ export function OverflowCueScroll({
             data-testid={testId ? `${testId}-scroll-start` : undefined}
             aria-label={startLabel}
             onClick={() => move(-1)}
-            className={`${buttonBase} ${horizontal ? "inset-y-0 left-0 w-7" : "inset-x-0 top-0 h-7"}`}
+            className={`${buttonBase} ${horizontal ? "inset-y-0 left-0 w-11" : "inset-x-0 top-0 h-11"}`}
           >{horizontal ? "‹" : "⌃"}</button>
         </>
       ) : null}
@@ -102,7 +102,7 @@ export function OverflowCueScroll({
             data-testid={testId ? `${testId}-scroll-end` : undefined}
             aria-label={endLabel}
             onClick={() => move(1)}
-            className={`${buttonBase} ${horizontal ? "inset-y-0 right-0 w-7" : "inset-x-0 bottom-0 h-7"}`}
+            className={`${buttonBase} ${horizontal ? "inset-y-0 right-0 w-11" : "inset-x-0 bottom-0 h-11"}`}
           >{horizontal ? "›" : "⌄"}</button>
         </>
       ) : null}

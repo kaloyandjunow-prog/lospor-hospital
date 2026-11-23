@@ -122,7 +122,7 @@ export function AirwaySmartPanel({
   const pill = (active: boolean) => `px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${active
     ? "bg-violet-600 border-violet-600 text-white"
     : "border-slate-200 dark:border-[#333] text-slate-600 dark:text-slate-300 hover:border-violet-400"}`
-  const label = (text: string) => <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{text}</p>
+  const label = (text: string) => <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{text}</p>
   const inUse = airwayDevicesInUse(entries)
   const replaced = replacementId ? inUse.find(entry => entry.id === replacementId) : null
 
@@ -165,7 +165,7 @@ export function AirwaySmartPanel({
               <button key={String(value)} type="button" data-testid={`airway-smart-${ask.field}-${value}`} className={pill(details[ask.field] === value)}
                 onClick={() => setDetails(prev => ({ ...prev, [ask.field]: value }))}>
                 {String(value)}
-                {suggested[ask.field] === value && <span className="ml-1 text-[10px] font-normal opacity-80">{t("suggested")}</span>}
+                {suggested[ask.field] === value && <span className="ml-1 text-xs font-normal opacity-80">{t("suggested")}</span>}
               </button>
             ))}
           </div>

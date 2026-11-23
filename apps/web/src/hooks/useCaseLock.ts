@@ -11,7 +11,7 @@ import {
 
 export type LockState = "idle" | "acquiring" | "held" | "watching"
 
-function getDeviceId(): string {
+export function getDeviceId(): string {
   if (typeof window === "undefined") return ""
   let id = localStorage.getItem("lospor_device_id")
   if (!id) {

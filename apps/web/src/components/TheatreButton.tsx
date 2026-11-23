@@ -134,7 +134,7 @@ export function TheatreButton({ caseId, theatre, theatres }: {
               {current.id !== null && row(null, t("theatre.none"))}
             </div>
             {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">{t("theatre.changeableNote")}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">{t("theatre.changeableNote")}</p>
           </div>
         </>,
         document.body,

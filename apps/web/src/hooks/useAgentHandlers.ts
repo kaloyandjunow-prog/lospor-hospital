@@ -32,8 +32,8 @@ export function useAgentHandlers(
   dataRef: RefObject<TimetableData>,
   onChangeRef: RefObject<(d: TimetableData) => void>,
   nowCol: number | null,
-  /** Another agent was running where this one started: offer the switch. */
-  onStartedAlongside?: (started: string, running: AgentSegment[], col: number) => void,
+  /** Another agent is running where this one starts: ask first (switch, run both or cancel); `proceed(true)` stops the others there. */
+  askSwitch?: (running: AgentSegment[], proceed: (stopOthers: boolean) => void) => void,
 ) {
   const agents = data.agents ?? []
 
@@ -52,13 +52,16 @@ export function useAgentHandlers(
     const percent = percentParam !== undefined
       ? (percentParam !== null ? percentParam : undefined)
       : (pickerPercent !== null ? pickerPercent : undefined)
-    // Several agents may run at once (1.4.9): starting one never stops another
-    // by itself. Switching is an explicit stop, offered right after.
+    // Several agents may run at once (1.4.9): starting one never stops another by itself. Switching is an
+    // explicit choice, asked before (10.8.0), as on the phone.
     const running = agents.filter(a => a.name !== name && !a.stopped && !a.planned && a.startCol <= col && col <= a.endCol)
-    const updated = agents.filter(a => !(a.startCol === col && a.name === name))
-    onChange({ ...data, agents: [...updated, { name, startCol: col, endCol: col, n2o, percent }] })
+    const write = (stopOthers: boolean) => {
+      const current = dataRef.current
+      const base = (current.agents ?? []).map(a => stopOthers && running.some(r => r.startCol === a.startCol && r.name === a.name) ? { ...a, stopped: true, endCol: Math.max(a.startCol, col) } : a)
+      onChangeRef.current({ ...current, agents: [...base.filter(a => !(a.startCol === col && a.name === name)), { name, startCol: col, endCol: col, n2o, percent }] })
+    }
     closeAgentPicker(); setPickerN2o(null); setPickerPercent(null)
-    if (running.length > 0) onStartedAlongside?.(name, running, col)
+    if (running.length > 0 && askSwitch) askSwitch(running, write); else write(false)
   }
 
   function updateAgentExtras(startCol: number) {

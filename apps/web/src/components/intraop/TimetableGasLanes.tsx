@@ -3,18 +3,19 @@
 import { PlannedChangeMarker, PlannedStopMarker } from "./PlannedStopMarker"
 import { SaveMark } from "./SaveMark"
 import { TOUCH_GRIP } from "./touch-drag"
-import { ContinueOverlay } from "./ContinueOverlay"
 import { segmentEventIds } from "@lospor/core/intraop-save-state"
-import { X } from "lucide-react"
 import { displayGasMix, displayGasSettings } from "@/lib/clinical-display"
-import { DiscontinuePrompt } from "./DiscontinuePrompt"
+import { useTimetableMenu } from "./TimetableMenuHost"
 import { barContinues, barEntersRow, barLeftClass, barRightClass, showBarGrip } from "./timetable-row-geometry"
 import type { TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
 import type { AgentSegment, GasSettingsSegment } from "@/types/timetable"
 import { gasSettingsAtColumn } from "@lospor/core/intraop-summary"
 import { useIntraopUiCopy } from "./ui-copy"
-import { ChangeStripCell, stripStretches } from "./TimetableChangeStrip"
+import { ChangeStripCell, stretchAt, stripStretches } from "./TimetableChangeStrip"
+import { ttCell, ttLane } from "./chart-cursor"
+import { CellHint } from "./CellHint"
+import { LaneTotal, laneDuration, totalColumn } from "./lane-extras"
 
 /**
  * The two lanes that record what the patient is breathing: the volatile agent,
@@ -81,11 +82,8 @@ export function AgentLane({
   colStart,
   colEnd,
   colW,
-  nowCol,
   sel,
   setSel,
-  discConfirmId,
-  setDiscConfirmId,
   agents,
   segmentAt,
   agentStyle,
@@ -97,23 +95,30 @@ export function AgentLane({
   onDragEnd,
   openPickerForSeg,
   openPickerEmpty,
-  resumeSegment,
-  extendSegment,
-  removeSegment,
-  continueAgent,
 }: AgentLaneProps) {
   const copy = useIntraopUiCopy()
+  const menu = useTimetableMenu()
   const { extendingAgent, extendHoverCol } = drag
-  // Each concentration it ran at is shown in a strip above the bar (10.0.0).
-  const hasStrip = agents.some(agent => agent.percent != null || (agent.percentChanges?.length ?? 0) > 0)
+  // 10.8.0: a cell of a running or stopped agent opens its menu (Stop, Change dose, Resume, ...).
+  const openAgentMenu = (name: string, ci: number, rect: DOMRect) =>
+    !!menu?.openContinuous({ kind: "agent", key: name, col: ci, rect, title: displayAgentName(name) })
+  // 10.8.0: the concentration is written inside the bar (start and each change), not in a strip above it.
+  const stretchesOf = (seg: AgentLaneProps["agents"][number]) => stripStretches(seg.startCol,
+    seg.percent != null ? [`${seg.percent}%`, seg.n2o != null ? `N2O ${seg.n2o}%` : null].filter(Boolean).join(" + ") : null,
+    (seg.percentChanges ?? []).map(change => ({ col: change.col, label: `${change.percent}%`, planned: change.planned })))
+  const nowCol = menu?.facts.nowCol ?? null
+  const running = nowCol == null ? null : agents.find(agent => !agent.stopped && !agent.planned && agent.startCol <= nowCol) ?? null
+  const currentDose = running && nowCol != null ? stretchAt(stretchesOf(running), nowCol)?.label ?? null : null
 
   return (
     <div
+      {...ttLane(`agent:${label}`)}
       className="flex items-stretch border-b border-slate-200 dark:border-[#2e2e2e] bg-slate-50/60 dark:bg-[#1a1a1a]/60 relative"
-      style={{ minHeight: hasStrip ? 46 : 32 }}
+      style={{ minHeight: 40 }}
     >
-      <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-2"}>
-        {label}
+      <div data-tt-label style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex flex-col items-end justify-center py-1"}>
+        <span>{label}</span>
+        {currentDose ? <span data-testid="agent-current-dose" className="text-xs font-bold normal-case tracking-normal">{currentDose}</span> : null}
       </div>
       {rowCols.map(ci => {
         const dragged = extendingAgent !== null && extendHoverCol !== null
@@ -140,35 +145,32 @@ export function AgentLane({
         const isEnd = seg !== null && ci === effectiveEnd
         const isRowCont = !isStart && seg != null && ci === colStart && barEntersRow(seg.startCol, colStart)
         const isRowExit = seg != null && barContinues(seg.endCol, colEnd) && ci === colEnd - 1
-        const visStart = Math.max(seg?.startCol ?? 0, colStart)
-        const visEnd = Math.min(effectiveEnd, colEnd - 1)
 
         return (
           <div
             key={ci}
             style={{ width: colW, minWidth: colW }}
             data-agent-cell
+            {...ttCell(ci, seg ? { kind: "agent", key: seg.name, col: ci } : null)}
             className="group relative border-l border-slate-100 dark:border-[#2a2a2a] flex items-center"
             onDragOver={e => onCellDragOver(e, ci)}
             onDrop={e => onCellDrop(e, ci)}
             onClick={e => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              const stopped = agents.find(a => a.stopped && a.endCol < ci)
+              if (seg && openAgentMenu(seg.name, ci, rect)) return
+              if (!seg && stopped && openAgentMenu(stopped.name, ci, rect)) return
               if (seg) openPickerForSeg(seg.startCol, seg, rect, ci)
               else if (!vacated) openPickerEmpty(ci, rect)
             }}
           >
             {!seg && !vacated && (
-              <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none">
-                {copy.gas.choose}
-              </span>
+              <CellHint text={copy.gas.choose} show={!agents.some(a => !a.stopped && !a.planned) && ci === nowCol}
+                className="w-full text-center text-xs text-slate-300 dark:text-[#444] select-none pointer-events-none" />
             )}
             {seg && style2 && (() => {
               const isAgentSel = sel?.type === "agent" && sel.startCol === seg.startCol
-              const agentLabel = (isStart || isRowCont)
-                ? [displayAgentName(seg.name), seg.n2o != null ? `+ N2O ${seg.n2o}%` : null].filter(Boolean).join(" ")
-                : null
-              const stretches = stripStretches(seg.startCol, seg.percent != null ? `${seg.percent}%` : null,
-                (seg.percentChanges ?? []).map(change => ({ col: change.col, label: `${change.percent}%`, planned: change.planned })))
+              const stretches = stretchesOf(seg)
               return (
                 <>
                   <div
@@ -177,12 +179,9 @@ export function AgentLane({
                       const rect = (e.currentTarget as HTMLElement).closest("[data-agent-cell]")?.getBoundingClientRect()
                         ?? (e.currentTarget as HTMLElement).getBoundingClientRect()
                       setSel({ type: "agent", startCol: seg.startCol })
-                      openPickerForSeg(seg.startCol, seg, rect, ci)
+                      if (!openAgentMenu(seg.name, ci, rect)) openPickerForSeg(seg.startCol, seg, rect, ci)
                     }}
-                    onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeSegment(seg.startCol) }}
-                    title={seg.stopped ? copy.doubleClickResume : undefined}
-                    style={hasStrip ? { top: 18, bottom: 3 } : undefined}
-                    className={`absolute ${hasStrip ? "" : "inset-y-1"} border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
+                    className={`tt-bar tt-glass ${isEnd && !isRowExit && !seg.planned ? (seg.stopped ? "tt-end tt-stopnotch" : "tt-end tt-live") : ""} absolute inset-y-1 border-y border-transparent cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.planned ? "opacity-40 border-dashed" : seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   />
                   {isEnd && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
                   {stretches.length > 0 && (
@@ -190,8 +189,9 @@ export function AgentLane({
                       col={ci}
                       stretches={stretches}
                       tone={{ bg: style2.bar, text: style2.text }}
-                      height={15}
-                      top={1}
+                      height={30}
+                      top={5}
+                      inline
                       roundStart={isStart || isRowCont}
                       roundEnd={isEnd && !isRowExit}
                       faded={!!seg.stopped || !!seg.planned || isDragPreview}
@@ -200,18 +200,10 @@ export function AgentLane({
                         const rect = (event.currentTarget as HTMLElement).closest("[data-agent-cell]")?.getBoundingClientRect()
                           ?? event.currentTarget.getBoundingClientRect()
                         setSel({ type: "agent", startCol: seg.startCol })
-                        openPickerForSeg(seg.startCol, seg, rect, ci)
+                        if (!openAgentMenu(seg.name, ci, rect)) openPickerForSeg(seg.startCol, seg, rect, ci)
                       }}
-                      testId="agent-percent-strip"
+                      testId="agent-percent-strip" owner={`agent:${seg.name}`} fullPrefix={displayAgentName(seg.name)}
                     />
-                  )}
-                  {agentLabel && (
-                    <span
-                      className={`absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none text-xs font-bold whitespace-nowrap flex items-center justify-center ${style2.text}`}
-                      style={{ left: 0, width: (visEnd - visStart + 1) * colW, ...(hasStrip ? { top: 30 } : {}) }}
-                    >
-                      {agentLabel}
-                    </span>
                   )}
                 </>
               )
@@ -221,41 +213,15 @@ export function AgentLane({
                 draggable
                 onDragStart={e => { e.stopPropagation(); onGripDragStart(e, seg.startCol) }}
                 onDragEnd={onDragEnd}
-                className={`absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 ${style2.grip} opacity-70 hover:opacity-100 rounded-r-sm ${TOUCH_GRIP}`}
+                className={`tt-grip absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 ${style2.grip} opacity-70 hover:opacity-100 rounded-r-sm ${TOUCH_GRIP}`}
               >
-                <span className="text-white text-[8px] font-bold select-none">|</span>
+                <span className="text-white text-xs font-bold select-none">|</span>
               </div>
             )}
-            {isEnd && !isRowExit && sel?.type === "agent" && sel.startCol === seg?.startCol && seg && !seg.stopped && !isDragPreview && extendingAgent === null && (
-              <DiscontinuePrompt
-                open={discConfirmId === `agent-${seg.startCol}`}
-                onOpen={() => setDiscConfirmId(`agent-${seg.startCol}`)}
-                onConfirm={() => { extendSegment(seg.startCol, nowCol ?? seg.endCol); setSel(null); setDiscConfirmId(null) }}
-                onCancel={() => setDiscConfirmId(null)}
-                style={{ top: 2, right: 14 }}
-              />
-            )}
-            {isStart && seg && (
-              <button
-                type="button"
-                aria-label={copy.removeAria(displayAgentName(seg.name))}
-                onClick={e => { e.stopPropagation(); removeSegment(seg.startCol) }}
-                className="absolute top-0.5 right-3 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(any-pointer:coarse)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            )}
+            {agents.filter(a => !a.planned && totalColumn(a, nowCol) === ci).map(a => <LaneTotal key={a.startCol} text={laneDuration(a.startCol, a.stopped ? a.endCol : Math.min(a.endCol, nowCol ?? a.endCol))} testId="agent-total" />)}
             {agents.some(a => a.plannedStopCol === ci) && <PlannedStopMarker />}
             {agents.flatMap(a => (a.percentChanges ?? []).filter(change => change.planned && change.col === ci))
               .map(change => <PlannedChangeMarker key={change.eventId ?? change.col} value={`${change.percent}%`} />)}
-            {!seg && !isDragPreview && (() => {
-              // An agent turned off earlier can be picked up again here rather
-              // than started afresh, which would read as a second agent.
-              const stoppedAgent = agents.find(a => a.stopped && a.endCol < ci)
-              return stoppedAgent ? (
-                <ContinueOverlay label={copy.fluid.continueQuestion} onContinue={() => continueAgent(stoppedAgent, ci)} testId="agent-continue" />
-              ) : null
-            })()}
           </div>
         )
       })}
@@ -280,24 +246,26 @@ export function GasSettingsLane({
   colStart,
   colEnd,
   colW,
-  nowCol,
-  discConfirmId,
-  setDiscConfirmId,
   locale,
   gasSegmentAt,
   openPickerForSeg,
   openPickerEmpty,
-  stopGas,
   plannedGasChangeAt,
 }: GasSettingsLaneProps) {
   const copy = useIntraopUiCopy()
+  const menu = useTimetableMenu()
+  const nowCol = menu?.facts.nowCol ?? null
+  const nowSeg = nowCol != null ? gasSegmentAt(nowCol) : null
+  const nowSettings = nowSeg && nowCol != null && !nowSeg.stopped ? gasSettingsAtColumn(nowSeg, nowCol) : null
   return (
     <div
+      {...ttLane("gas")}
       className="flex items-stretch border-b border-slate-200 dark:border-[#2e2e2e] bg-slate-50/40 dark:bg-[#1a1a1a]/40 relative"
-      style={{ minHeight: 32 }}
+      style={{ minHeight: 40 }}
     >
-      <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-2"}>
-        {copy.gas.settings}
+      <div data-tt-label style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex flex-col items-end justify-center py-1"}>
+        <span>{copy.gas.settings}</span>
+        {nowSettings ? <span data-testid="gas-current" className="text-xs font-bold normal-case tracking-normal">FGF {nowSettings.fgf} · FiO₂ {nowSettings.fio2}%</span> : null}
       </div>
       {rowCols.map(ci => {
         const seg = gasSegmentAt(ci)
@@ -315,42 +283,42 @@ export function GasSettingsLane({
           <div
             key={ci}
             style={{ width: colW, minWidth: colW }}
+            {...ttCell(ci, seg ? { kind: "gas", key: "gas", col: ci } : null)}
             className="group relative border-l border-slate-100 dark:border-[#2a2a2a] flex items-center cursor-pointer"
             onClick={e => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              // 10.8.0: the gas settings' menu in this cell (Stop, Change, Resume, ...).
+              if (menu?.openContinuous({ kind: "gas", key: "gas", col: ci, rect, title: copy.gas.settings })) return
               if (seg) openPickerForSeg(ci, seg, rect)
               else openPickerEmpty(ci, rect)
             }}
           >
+            {(() => {
+              // The total: in the column after the end, or after now while it runs.
+              const before = ci > 0 ? gasSegmentAt(ci - 1) : null
+              return before && !seg && totalColumn(before, nowCol) === ci
+                ? <LaneTotal text={laneDuration(before.startCol, before.stopped ? before.endCol : Math.min(before.endCol, nowCol ?? before.endCol))} testId="gas-total" />
+                : null
+            })()}
             {(() => { const planned = plannedGasChangeAt?.(ci); return planned ? <PlannedChangeMarker value={`FGF ${planned.fgf} · FiO₂ ${planned.fio2}%`} /> : null })()}
             {!seg && (
-              <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                {copy.gas.tapToStart}
-              </span>
+              <CellHint text={copy.gas.tapToStart} show={!(nowSeg && !nowSeg.stopped) && ci === nowCol}
+                className="w-full text-center text-xs text-slate-400 dark:text-[#666] select-none pointer-events-none" />
             )}
             {seg && isEnd && <SaveMark eventIds={segmentEventIds(seg)} className="absolute top-0 right-0" />}
             {seg && (
               <div
-                className={`absolute inset-y-1 border-y bg-indigo-200/50 dark:bg-indigo-500/20 border-indigo-400 dark:border-indigo-500 ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd && !isRowExit, colEnd)} ${seg.stopped ? "opacity-50 border-dashed" : ""}`}
+                className={`tt-bar tt-glass ${isEnd && !isRowExit && !false ? (seg.stopped ? "tt-end tt-stopnotch" : "tt-end tt-live") : ""} absolute inset-y-1 border-y border-transparent bg-indigo-500 ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd && !isRowExit, colEnd)} ${seg.stopped ? "opacity-50 border-dashed" : ""}`}
               />
             )}
             {showSettingsLabel && settings && (
               <span
                 title={displayGasSettings(settings, locale)}
-                className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none flex flex-col items-center justify-center text-[9px] font-bold leading-tight whitespace-nowrap text-indigo-700 dark:text-indigo-300 overflow-hidden px-0.5"
+                className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none flex flex-col items-start justify-center text-xs font-bold leading-tight whitespace-nowrap ${seg?.stopped ? "text-indigo-800 dark:text-indigo-200" : "tt-onbar"}`}
               >
                 <span>FGF {settings.fgf} L/min</span>
-                <span className="text-[8px]">{displayGasMix(settings, locale)}</span>
+                <span className="text-xs">{displayGasMix(settings, locale)}</span>
               </span>
-            )}
-            {isEnd && seg && !seg.stopped && (
-              <DiscontinuePrompt
-                open={discConfirmId === `gas-${seg.startCol}`}
-                onOpen={() => setDiscConfirmId(`gas-${seg.startCol}`)}
-                onConfirm={() => { stopGas(seg.id, nowCol); setDiscConfirmId(null) }}
-                onCancel={() => setDiscConfirmId(null)}
-                style={{ top: 2, right: 2 }}
-              />
             )}
           </div>
         )

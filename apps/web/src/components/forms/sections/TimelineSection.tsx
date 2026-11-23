@@ -57,8 +57,8 @@ export function TimelineSection({
   const [showEndPrompt, setShowEndPrompt]     = useState(false)
   const [showStartAt, setShowStartAt]         = useState(false)
   const [startAtInput, setStartAtInput]       = useState("")
-  const startHourRef = useRef<HTMLSelectElement>(null)
-  const endHourRef   = useRef<HTMLSelectElement>(null)
+  const startHourRef = useRef<HTMLButtonElement>(null)
+  const endHourRef   = useRef<HTMLButtonElement>(null)
   // The start and end dates. Left at "Today", a typed start time keeps the
   // long-standing rule (a time ahead of now means yesterday); a stepped date
   // places the time on that date. The end date follows the start, the next
@@ -188,7 +188,7 @@ export function TimelineSection({
         <button type="button"
           onClick={() => setShowTemplates(v => !v)}
           className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors border border-slate-200 dark:border-[#333] rounded-lg px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-[#1e1e1e]">
-          <span className={`transition-transform text-[10px] ${showTemplates ? "rotate-90" : ""}`}>▶</span>
+          <span className={`transition-transform text-xs ${showTemplates ? "rotate-90" : ""}`}>▶</span>
           {t("intraop.timeline.quickSetup")}
         </button>
         {showTemplates && (
@@ -213,7 +213,7 @@ export function TimelineSection({
             <Controller name="startTime" control={control} render={({ field }) => (
               field.value
                 // Once start time is set the field is locked — show as read-only badge
-                ? <span data-testid="intraop-start-locked" className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] font-mono">{savedStartKey ? `${formatDay(savedStartKey)} · ` : ""}{field.value} <span className="text-[10px] font-normal text-slate-400 ml-1">{t("intraop.timeline.locked")}</span></span>
+                ? <span data-testid="intraop-start-locked" className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] font-mono">{savedStartKey ? `${formatDay(savedStartKey)} · ` : ""}{field.value} <span className="text-xs font-normal text-slate-400 ml-1">{t("intraop.timeline.locked")}</span></span>
                 : <>
                     <DayStepper value={chosenStartKey} onChange={setStartDayKey} todayKey={todayKey} min={shiftDateKey(todayKey, -14)} max={todayKey} locale={dateLocale} label={t("intraop.timeline.startDate")} testId="intraop-start-day" />
                     <TimePicker ref={startHourRef} value={field.value} onChange={applyStartWallClock} />

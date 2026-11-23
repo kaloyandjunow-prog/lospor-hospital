@@ -35,7 +35,7 @@ export function StepTabBar<V extends string>({ tabs, active, onSelect, label, te
       role="tablist"
       aria-label={label}
       data-testid={testId}
-      className="sticky top-0 z-20 flex h-11 items-stretch border-b border-slate-200 bg-white dark:border-[#2a2a2a] dark:bg-[#111]"
+      className="sticky top-0 z-[35] flex h-11 items-stretch border-b border-slate-200 bg-white dark:border-[#2a2a2a] dark:bg-[#111]"
     >
       <OverflowCueScroll horizontal className="min-w-0 flex-1" contentClassName="flex h-11 items-stretch" testId={testId ? `${testId}-rail` : undefined} startLabel="Scroll tabs left" endLabel="Scroll tabs right">
         {tabs.map(tab => (

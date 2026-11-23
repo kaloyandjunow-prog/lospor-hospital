@@ -7,6 +7,16 @@ import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 import { TimelineSection } from "./TimelineSection"
 
 const SOFIA = "Europe/Sofia"
+
+// 10.8.0: the end time is the shared time wheel; this sets its minute, keeping its hour.
+function setEndMinute(minute: string) {
+  const pickers = screen.getAllByTestId("time-picker")
+  const end = pickers[pickers.length - 1]!
+  const hour = (end.textContent ?? "").slice(0, 2)
+  act(() => { fireEvent.click(end) })
+  act(() => { fireEvent.change(screen.getByTestId("time-wheel-typed"), { target: { value: `${hour}${minute}` } }) })
+  act(() => { fireEvent.click(screen.getByTestId("time-picker-ok")) })
+}
 // 16 Oct 2026, 10:00 in Sofia.
 const NOW = new Date("2026-10-16T07:00:00Z")
 
@@ -105,15 +115,12 @@ describe("the date beside the start and end of surgery", () => {
       defaults={{ startTime: "09:00", startedAt: "2026-10-16T06:00:00.000Z", endTime: "09:50", endedAt: "2026-10-16T06:50:00.000Z" } as never}
       onSave={data => saves.push(data)}
     />)
-    // The end picker is an hour and a minute select; the started case shows its start locked.
-    const selects = document.querySelectorAll("select")
-    const endTime = selects[selects.length - 1] as HTMLSelectElement
-    act(() => { fireEvent.change(endTime, { target: { value: "40" } }) })
+    setEndMinute("40")
     expect(screen.getByTestId("end-correction-reasons")).toBeTruthy()
     act(() => { fireEvent.click(screen.getByTestId("end-correction-cancel")) })
     expect(screen.queryByTestId("end-correction-reasons")).toBeNull()
     expect(saves).toEqual([])
-    act(() => { fireEvent.change(endTime, { target: { value: "50" } }) })
+    setEndMinute("50")
     expect(screen.queryByTestId("end-correction-reasons")).toBeNull()
   })
 
@@ -126,12 +133,11 @@ describe("the date beside the start and end of surgery", () => {
       onEndCorrectionOpen={open}
     />)
     expect(open).toHaveBeenLastCalledWith(false)
-    const selects = document.querySelectorAll("select")
-    act(() => { fireEvent.change(selects[selects.length - 1]!, { target: { value: "40" } }) })
+    setEndMinute("40")
     expect(open).toHaveBeenLastCalledWith(true)
     act(() => { fireEvent.click(screen.getByTestId("end-correction-DEVICE_CLOCK")) })
     expect(open).toHaveBeenLastCalledWith(false)
-    act(() => { fireEvent.change(selects[selects.length - 1]!, { target: { value: "30" } }) })
+    setEndMinute("30")
     expect(open).toHaveBeenLastCalledWith(true)
     // Leaving the section while they are open brings the questions back.
     view.unmount()

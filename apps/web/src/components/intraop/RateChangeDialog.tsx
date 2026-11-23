@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { createPortal } from "react-dom"
 import type { DoseLimit } from "@lospor/core/catalog"
 import { DISPLAY_CLINICAL_DOSE_GUIDANCE } from "@/lib/clinical-guidance-policy"
@@ -132,17 +134,18 @@ export function RateChangeDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onDismiss}>
       <div
-        className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl p-5 w-72 space-y-4 border border-slate-200 dark:border-[#3a3a3a]"
+        className="relative bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl p-5 w-72 space-y-4 border border-slate-200 dark:border-[#3a3a3a]"
         onClick={event => event.stopPropagation()}
       >
+        <PopoverClose onClose={onDismiss} className="absolute right-1.5 top-1.5 z-10" />
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: state.color }}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: state.color }}>
             {displayName}{state.concentration ? ` ${state.concentration}` : ""} — {state.tci ? copy.tci.newTarget : copy.rateChange.title}
           </p>
-          {state.step === "rate" && <p className="text-[10px] text-slate-400">{labels.setNewRatePrompt}</p>}
-          {state.step === "time" && <p className="text-[10px] text-slate-400">{labels.pickRateChangeTime}</p>}
+          {state.step === "rate" && <p className="text-xs text-slate-400">{labels.setNewRatePrompt}</p>}
+          {state.step === "time" && <p className="text-xs text-slate-400">{labels.pickRateChangeTime}</p>}
           {showDoseGuidance && weightBasis && (
-            <p className="text-[9px] text-amber-500 dark:text-amber-400 mt-1">
+            <p className="text-xs text-amber-500 dark:text-amber-400 mt-1">
               ⚖ {copy.rateChange.totalsBasis} {weightBasis.basis}
               {weightBasis.weightKg
                 ? ` ${Math.round(weightBasis.weightKg * 10) / 10} kg`
@@ -155,7 +158,7 @@ export function RateChangeDialog({
           <>
             {strengths.options.length > 0 && (
               <div className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   {strengths.syringe ? copy.syringe : labels.concentration}
                 </p>
                 <div className="flex flex-wrap gap-1">
@@ -170,7 +173,7 @@ export function RateChangeDialog({
                         const suggested = suggestedRateAt(rateInput, next)
                         onPatch({ concentration: next, customOpen: false, ...(suggested == null ? {} : { rate: suggested }) })
                       }}
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border transition-all ${
                         !state.customOpen && state.concentration === value
                           ? "bg-sky-500 border-sky-500 text-white"
                           : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-sky-400 dark:hover:border-sky-600"
@@ -182,7 +185,7 @@ export function RateChangeDialog({
                   {strengths.syringe && (
                     <button type="button" aria-pressed={!!state.customOpen}
                       onClick={() => onPatch({ customOpen: true, concentration: undefined })}
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${state.customOpen ? "bg-sky-500 border-sky-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`}>
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border transition-all ${state.customOpen ? "bg-sky-500 border-sky-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`}>
                       {copy.other}
                     </button>
                   )}
@@ -227,12 +230,12 @@ export function RateChangeDialog({
                   {view.units.map(unit => <option key={unit} value={unit}>{unit}</option>)}
                 </select>
               </div>
-              {view.readout && <p className="text-[10px] text-sky-600 dark:text-sky-400">{view.readout}</p>}
+              {view.readout && <p className="text-xs text-sky-600 dark:text-sky-400">{view.readout}</p>}
               {showDoseGuidance && view.quickValues && view.quickValues.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {view.quickValues.map(value => (
                     <button key={value} type="button" onClick={() => onPatch({ rate: value })}
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${state.rate === value ? "bg-blue-500 border-blue-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`}>
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${state.rate === value ? "bg-blue-500 border-blue-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"}`}>
                       {value}
                     </button>
                   ))}
@@ -249,7 +252,7 @@ export function RateChangeDialog({
                     onChange={event => setValue(event.target.value)}
                     className="w-full accent-blue-500"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-400">
+                  <div className="flex justify-between text-xs text-slate-400">
                     <span>{state.rateMin}</span>
                     <span>{view.max} {state.unit}</span>
                   </div>
@@ -257,7 +260,7 @@ export function RateChangeDialog({
               )}
             </div>
 
-            {rateMissing && <p role="alert" className="text-[10px] font-semibold text-red-500 dark:text-red-400">{copy.infusionNeeds.rate}</p>}
+            {rateMissing && <p role="alert" className="text-xs font-semibold text-red-500 dark:text-red-400">{copy.infusionNeeds.rate}</p>}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -323,6 +326,6 @@ export function RateChangeDialog({
         )}
       </div>
     </div>,
-    document.body,
+    portalHost(),
   )
 }

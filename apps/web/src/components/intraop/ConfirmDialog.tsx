@@ -1,5 +1,6 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
 import { createPortal } from "react-dom"
 
 /**
@@ -54,6 +55,6 @@ export function ConfirmDialog({
         </div>
       </div>
     </div>,
-    document.body,
+    portalHost(),
   )
 }

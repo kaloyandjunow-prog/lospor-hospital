@@ -132,7 +132,7 @@ export const DivChart = memo(function DivChart({ vitals, colStart, rowColCount, 
           <div key={v}>
             <div className="absolute border-t border-slate-100 dark:border-[#282828] pointer-events-none"
                  style={{ left: LABEL_W, right: 0, top: y }} />
-            <span className="absolute text-[9px] text-slate-300 dark:text-[#444] select-none"
+            <span className="absolute text-xs text-slate-300 dark:text-[#444] select-none"
                   style={{ right: w - LABEL_W + 4, top: y - 5 }}>{v}</span>
           </div>
         )

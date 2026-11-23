@@ -121,7 +121,7 @@ export function DoseSelector({
   function stepBy(delta: number) {
     onValueChange(String(parseFloat(Math.min(max, Math.max(min, num + delta)).toFixed(10))))
   }
-  const pillBase = "min-h-7 whitespace-nowrap text-[10px] font-semibold px-2 py-1 rounded-full border transition-all"
+  const pillBase = "min-h-7 whitespace-nowrap text-xs font-semibold px-2 py-1 rounded-full border transition-all"
   const pillOff  = "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"
   const doseValues = useMemo(() => quickValues ?? [], [quickValues])
   const safeDosePage = clampSelectorPage(doseValues.length, DOSE_PILL_PAGE_SIZE, dosePage)
@@ -176,7 +176,7 @@ export function DoseSelector({
 
   return (
     <div className="space-y-2">
-      {showGuidance && hint && <p className={`text-[9px] font-medium ${a.text}`}>{hint}</p>}
+      {showGuidance && hint && <p className={`text-xs font-medium ${a.text}`}>{hint}</p>}
 
       {routes && routes.length > 1 && (
         <div className="flex flex-wrap gap-1" aria-label={copy.doseSelectorAria}>
@@ -198,7 +198,7 @@ export function DoseSelector({
 
       {formulationOptions && formulationOptions.length > 0 && (
         <div className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{copy.formulation}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{copy.formulation}</p>
           <div
             className="grid gap-1"
             style={{ gridTemplateColumns: `repeat(${formulationOptions.length}, minmax(0, 1fr))` }}
@@ -220,7 +220,7 @@ export function DoseSelector({
 
       {showConcentration && (
         <div className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{concentrationLabel ?? copy.concentration}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{concentrationLabel ?? copy.concentration}</p>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1">
             <div
               className="grid gap-1"
@@ -321,27 +321,27 @@ export function DoseSelector({
         )}
         {units && units.length > 0 && !unitSuffix && (
           units.length === 1
-            ? <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">{units[0]}</span>
+            ? <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">{units[0]}</span>
             : null
         )}
-        {unitSuffix && <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">{unitSuffix}</span>}
+        {unitSuffix && <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">{unitSuffix}</span>}
       </div>
 
       {units && units.length > 1 && (
         <div className="flex flex-wrap gap-1">
           {units.map(u => (
             <button key={u} type="button" onClick={() => onUnitChange?.(u)}
-              className={`text-[9px] px-1.5 py-0.5 rounded-md border transition-colors ${unit === u ? a.solid + " text-white" : pillOff}`}>
+              className={`text-xs px-1.5 py-0.5 rounded-md border transition-colors ${unit === u ? a.solid + " text-white" : pillOff}`}>
               {u}
             </button>
           ))}
         </div>
       )}
 
-      {showGuidance && extraHint && <p className="text-[9px] text-amber-500 dark:text-amber-400">{extraHint}</p>}
+      {showGuidance && extraHint && <p className="text-xs text-amber-500 dark:text-amber-400">{extraHint}</p>}
 
       {confirmLabel && onConfirm && confirmDisabled && confirmBlockedReason && (
-        <p role="alert" data-testid="dose-confirm-blocked" className="text-[10px] font-semibold text-red-500 dark:text-red-400">{confirmBlockedReason}</p>
+        <p role="alert" data-testid="dose-confirm-blocked" className="text-xs font-semibold text-red-500 dark:text-red-400">{confirmBlockedReason}</p>
       )}
       {confirmLabel && onConfirm && (
         <div className={stickyConfirm ? "sticky -bottom-3 -mx-3 bg-white px-3 pb-3 pt-1 dark:bg-[#1e1e1e]" : undefined}>

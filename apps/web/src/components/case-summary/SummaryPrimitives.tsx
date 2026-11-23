@@ -13,7 +13,7 @@ export const MON: { f: keyof CaseDetailIntraop; l: string }[] = [
 
 export function SummaryField({ label, value }: { label: string; value?: string | number | null }) {
   if (value == null || value === "") return null
-  return <div className="flex justify-between gap-2 py-[2px] border-b border-slate-100 dark:border-[#252525] last:border-0 text-[10.5px]"><span className="text-slate-500 dark:text-slate-400 shrink-0">{label}</span><span className="font-semibold text-slate-800 dark:text-slate-100 text-right min-w-0 break-words">{String(value)}</span></div>
+  return <div className="flex justify-between gap-2 py-[2px] border-b border-slate-100 dark:border-[#252525] last:border-0 text-xs"><span className="text-slate-500 dark:text-slate-400 shrink-0">{label}</span><span className="font-semibold text-slate-800 dark:text-slate-100 text-right min-w-0 break-words">{String(value)}</span></div>
 }
 
 export function SummaryChip({ children, color = "slate" }: { children: string; color?: string }) {
@@ -22,5 +22,5 @@ export function SummaryChip({ children, color = "slate" }: { children: string; c
     amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", red: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
     green: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   }
-  return <span className={`inline-block text-[8.5px] px-1.5 py-0.5 rounded font-medium mr-1 mb-1 ${colors[color] ?? colors.slate}`}>{children}</span>
+  return <span className={`inline-block text-xs px-1.5 py-0.5 rounded font-medium mr-1 mb-1 ${colors[color] ?? colors.slate}`}>{children}</span>
 }

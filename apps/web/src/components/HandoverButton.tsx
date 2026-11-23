@@ -223,7 +223,7 @@ export function HandoverButton({
                   <span className="font-medium">{c.name}</span>
                   {c.title && <span className="text-slate-400 dark:text-slate-500 ml-1 text-xs">{c.title}</span>}
                   {c.role !== "MEMBER" && (
-                    <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                    <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
                       {displayClinicalCode("userRole", c.role, locale)}
                     </span>
                   )}

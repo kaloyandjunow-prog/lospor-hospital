@@ -1,5 +1,6 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { useLocale, useTranslations } from "next-intl"
@@ -170,18 +171,18 @@ export function SuggestionHost({ attention, sheets }: { attention: WebIntraopAtt
     // grid. Portalling the rail to body prevents a desktop sidebar or a
     // scroll/overflow ancestor from sitting above its controls and stealing
     // clicks from the clinician.
-    return typeof document === "undefined" ? null : createPortal(panel, document.body)
+    return typeof document === "undefined" ? null : createPortal(panel, portalHost())
   }
 
   if (!entry?.suggestion) return null
   if (entry.suggestion.item.type === "context") {
     return typeof document === "undefined"
       ? null
-      : createPortal(<ContextLinkPanel key={entry.key} entry={entry} attention={attention} sheets={sheets} onClose={close} />, document.body)
+      : createPortal(<ContextLinkPanel key={entry.key} entry={entry} attention={attention} sheets={sheets} onClose={close} />, portalHost())
   }
   return typeof document === "undefined"
     ? null
-    : createPortal(<FollowUpPanel entry={entry} attention={attention} sheets={sheets} context={suggestions} onClose={close} />, document.body)
+    : createPortal(<FollowUpPanel entry={entry} attention={attention} sheets={sheets} context={suggestions} onClose={close} />, portalHost())
 }
 
 /** A follow-up, reminder or lab suggestion opened from its line: what it says and what it offers. */

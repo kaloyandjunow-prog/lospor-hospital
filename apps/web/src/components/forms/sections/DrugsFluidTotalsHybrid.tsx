@@ -36,7 +36,7 @@ export function DrugsFluidTotalsHybrid({ t, control, watch, liveDrugTotals, live
       badge={(() => { const n = liveDrugTotals.bolusList.length + liveDrugTotals.infusionList.length; return n ? t("intraop.totals.drugCount", { count: n }) : undefined })()}>
       <section className="rounded-xl border border-slate-200 dark:border-[#333] overflow-hidden">
       <div data-testid="fluid-summary" className="p-4 bg-slate-50 dark:bg-[#171717]">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("intraop.totals.recordedHint")}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("intraop.totals.recordedHint")}</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <SummaryMetric testId="fluid-total-in" label={t("intraop.totals.recordedIn")} value={value(totalIn)} tone="text-cyan-500" />
           <SummaryMetric label={t("intraop.totals.output")} value={value(totalOut)} tone="text-violet-500" />
@@ -70,7 +70,7 @@ export function DrugsFluidTotalsHybrid({ t, control, watch, liveDrugTotals, live
         ) : (
           <EditableRow testId="fluid-edit-blood-loss" label={t("intraop.bloodLoss")} value={value(bloodLoss)} editLabel={t("intraop.totals.edit")} onClick={() => setEditing("blood")} />
         )}
-        <p className="text-[10px] italic text-slate-500 mt-2">{t("intraop.bloodLossOptionalHint", {})}</p>
+        <p className="text-xs italic text-slate-500 mt-2">{t("intraop.bloodLossOptionalHint", {})}</p>
       </SummaryGroup>
       </section>
     </SectionCard>
@@ -80,7 +80,7 @@ export function DrugsFluidTotalsHybrid({ t, control, watch, liveDrugTotals, live
 function SummaryMetric({ testId, label, value, tone }: { testId?: string; label: string; value: string; tone: string }) {
   return (
     <div data-testid={testId} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2 dark:border-[#333] dark:bg-[#0c0c0c]">
-      <p className={`text-[10px] font-extrabold uppercase tracking-wide ${tone}`}>{label}</p>
+      <p className={`text-xs font-extrabold uppercase tracking-wide ${tone}`}>{label}</p>
       <p className="mt-1 text-base font-extrabold tabular-nums text-slate-800 dark:text-slate-100">{value}</p>
     </div>
   )
@@ -89,7 +89,7 @@ function SummaryMetric({ testId, label, value, tone }: { testId?: string; label:
 function SummaryGroup({ testId, label, open, onClick, tone, expandLabel, collapseLabel, children }: { testId: string; label: string; open: boolean; onClick: () => void; tone: string; expandLabel: string; collapseLabel: string; children: React.ReactNode }) {
   return <div className="border-t border-slate-200 dark:border-[#333] first:border-t-0">
     <button type="button" data-testid={testId} aria-expanded={open} aria-label={`${label}. ${open ? collapseLabel : expandLabel}`} onClick={onClick} className="w-full min-h-[58px] px-4 py-3 flex items-center justify-between text-left bg-white dark:bg-[#101010] hover:bg-slate-50 dark:hover:bg-[#171717]">
-      <span className="flex-1"><span className={`block text-[10px] font-semibold uppercase tracking-wide ${tone}`}>{label}</span></span>
+      <span className="flex-1"><span className={`block text-xs font-semibold uppercase tracking-wide ${tone}`}>{label}</span></span>
       {open ? <ChevronUp aria-hidden="true" className="h-5 w-5 text-slate-400" /> : <ChevronDown aria-hidden="true" className="h-5 w-5 text-slate-400" />}
     </button>
     {open && <div className="px-4 py-3 bg-slate-50/60 dark:bg-[#0c0c0c]">{children}</div>}
@@ -101,7 +101,7 @@ function ReadOnlyRow({ label, value }: { label: string; value: string }) {
 }
 
 function ReadOnlyDrugList({ title, rows, weightNote }: { title: string; rows: DrugTotals["infusionList"] | DrugTotals["bolusList"]; weightNote?: string | null }) {
-  return <div className="mt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>{rows.map(row => <ReadOnlyRow key={`${row.name}-${row.unit}`} label={`${row.name}${"count" in row && row.count > 1 ? ` ×${row.count}` : ""}`} value={"display" in row && row.display ? row.display : `${row.total} ${row.unit}`} />)}{weightNote && <p className="text-[10px] italic text-slate-500 mt-1">{weightNote}</p>}</div>
+  return <div className="mt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>{rows.map(row => <ReadOnlyRow key={`${row.name}-${row.unit}`} label={`${row.name}${"count" in row && row.count > 1 ? ` ×${row.count}` : ""}`} value={"display" in row && row.display ? row.display : `${row.total} ${row.unit}`} />)}{weightNote && <p className="text-xs italic text-slate-500 mt-1">{weightNote}</p>}</div>
 }
 
 function EditableRow({ testId, label, value, editLabel, onClick }: { testId: string; label: string; value: string; editLabel: string; onClick: () => void }) {

@@ -40,7 +40,7 @@ export function ReadinessPanel({
   const row = (item: ReadinessItem, tone: "blocker" | "warning") => (
     <li key={`${item.kind}-${item.target.stage}`} className="flex items-center justify-between gap-3 py-1.5">
       <span className="flex min-w-0 items-center gap-2">
-        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+        <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
           tone === "blocker"
             ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
             : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"

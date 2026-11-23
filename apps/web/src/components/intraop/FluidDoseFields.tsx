@@ -57,7 +57,7 @@ export function FluidDoseFields({
               type="button"
               aria-pressed={fluidEntryMode === mode}
               onClick={() => setFp(current => current ? { ...current, fluidEntryMode: mode } : current)}
-              className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${
+              className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
                 fluidEntryMode === mode
                   ? "bg-cyan-500 text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
@@ -69,7 +69,7 @@ export function FluidDoseFields({
         </div>
       )}
       {fp.fluidProfileConflict && (
-        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
           {copy.fluid.overlappingProfiles}
         </p>
       )}

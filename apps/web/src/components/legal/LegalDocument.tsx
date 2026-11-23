@@ -47,7 +47,7 @@ export async function LegalDocument({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/periop-laboratories-logo.png" alt="PeriOp Laboratories" className="h-6 w-auto" />
           </div>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+          <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
             {meta("publisher")}
           </p>
         </div>

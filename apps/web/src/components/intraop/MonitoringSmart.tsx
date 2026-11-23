@@ -43,7 +43,7 @@ export function MonitoringSmart({ monitoring, onChange, monitoringOptions, sugge
   const visibleSuggestions = suggestions.filter(item => !monitoring.includes(item.field))
   const standard = standardMonitoringOn(monitoring)
   const toggle = (field: string) => onChange(monitoring.includes(field) ? monitoring.filter(item => item !== field) : [...monitoring, field])
-  const eyebrow = "text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-4 mb-2"
+  const eyebrow = "text-xs font-semibold uppercase tracking-wider text-slate-400 mt-4 mb-2"
   const row = "flex items-center gap-3 rounded-xl border border-slate-200 dark:border-[#333] px-3 py-2 mb-2"
   const side = "min-h-11 min-w-11 rounded-xl border px-3 text-sm font-bold"
 

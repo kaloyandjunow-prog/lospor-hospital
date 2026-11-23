@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Locator } from "@playwright/test"
+import { dragGrip } from "./drag-grip"
 
 /**
  * Dragging the end of a bar, and what that writes to the saved event log.
@@ -61,107 +62,65 @@ async function startSevo(page: Page, id: string, chart: Locator) {
   await expect.poll(async () => (await events(page, id, "agent")).length, { timeout: 15_000 }).toBe(1)
 }
 
-async function dragGrip(page: Page, chart: Locator, gripSel: string, toIndex: number) {
-  // Playwright occasionally presses a pixel the browser does not treat as the
-  // start of an HTML5 drag; confirm it started and grab again if it did not.
-  await page.evaluate(() => {
-    const w = window as unknown as { __dragStarted?: boolean; __dragListener?: boolean }
-    w.__dragStarted = false
-    if (!w.__dragListener) { w.__dragListener = true; document.addEventListener("dragstart", () => { w.__dragStarted = true }, true) }
-  })
-  const started = () => page.evaluate(() => (window as unknown as { __dragStarted?: boolean }).__dragStarted === true)
-  let g!: { x: number; y: number; width: number; height: number }
-  for (let attempt = 0; attempt < 4; attempt++) {
-    g = (await chart.locator(gripSel).first().boundingBox())!
-    const target = (await chart.locator("[data-agent-cell]").nth(toIndex).boundingBox())!
-    await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(g.x + g.width / 2 + (target.x < g.x ? -8 : 8), g.y + g.height / 2, { steps: 4 })
-    await page.waitForTimeout(150)
-    if (await started()) break
-    await page.mouse.up()
-    await page.waitForTimeout(400)
-  }
-  expect(await started(), "the grip never started a drag").toBe(true)
-  const target = (await chart.locator("[data-agent-cell]").nth(toIndex).boundingBox())!
-  for (let i = 1; i <= 6; i++) {
-    const x = g.x + g.width / 2 + ((target.x + target.width / 2) - (g.x + g.width / 2)) * i / 6
-    await page.mouse.move(x, g.y + g.height / 2, { steps: 4 })
-    await page.waitForTimeout(120)
-  }
-  // A hand keeps moving a little before it lets go; releasing in the same
-  // instant as the last hover can land on an element React has just replaced.
-  await page.mouse.move(target.x + target.width / 2 + 2, g.y + g.height / 2, { steps: 2 })
-  await page.waitForTimeout(600)
-  await page.mouse.up()
-}
-
 const AGENT_GRIP = "[data-agent-cell] div[draggable]"
 
 test.beforeEach(async ({ page }) => { await page.setViewportSize({ width: 1600, height: 1000 }) })
 
-test("dragging a running agent back asks first, and writes one stop only when confirmed", async ({ page }) => {
+// 10.8.0 (rule 6): a grip dropped before "now" stops there at once, with no question; the Undo bar takes it back.
+test("dragging a running agent back stops it without a question, and Undo takes it back", async ({ page }) => {
   const id = await createRecentCase(page)
   const chart = await openChart(page, id)
   await startSevo(page, id, chart)
 
   await dragGrip(page, chart, AGENT_GRIP, 1)
-  await expect(page.getByText(/^Stop Sevoflurane at/)).toBeVisible()
-  expect((await events(page, id, "agent")).map(e => e.type)).toEqual(["agent_start"])
-
-  await page.getByRole("button", { name: "Cancel" }).click()
-  await page.waitForTimeout(1500)
-  expect((await events(page, id, "agent")).map(e => e.type)).toEqual(["agent_start"])
-
-  await dragGrip(page, chart, AGENT_GRIP, 1)
-  await page.getByRole("button", { name: "Stop", exact: true }).click()
+  await expect(page.getByRole("alertdialog")).toHaveCount(0)
   await expect.poll(async () => (await events(page, id, "agent")).map(e => e.type), { timeout: 15_000 }).toEqual(["agent_start", "agent_stop"])
-})
 
-test("dragging a running agent forward past now writes nothing", async ({ page }) => {
+  await page.getByTestId("timetable-undo-bar-undo").click()
+  await expect.poll(async () => (await events(page, id, "agent")).map(e => e.type), { timeout: 15_000 }).toEqual(["agent_start"])
+})
+// 10.8.0 (rule 6): a grip dropped after "now" plans the stop there (it does not run until its time comes).
+test("dragging a running agent forward past now plans the stop", async ({ page }) => {
   const id = await createRecentCase(page)
   const chart = await openChart(page, id)
   await startSevo(page, id, chart)
 
+  const droppedAt = Date.now()
   await dragGrip(page, chart, AGENT_GRIP, 8)
-  await page.waitForTimeout(3000)
-  expect((await events(page, id, "agent")).map(e => e.type)).toEqual(["agent_start"])
-  await expect(page.getByText(/^Stop Sevoflurane at/)).toHaveCount(0)
+  await expect.poll(async () => {
+    const log = await events(page, id, "agent")
+    const stop = log.find(e => e.type === "agent_stop")
+    return log.length === 2 && !!stop && Date.parse(stop.ts) > droppedAt
+  }, { timeout: 15_000 }).toBe(true)
 })
-
-test("a stopped agent keeps its grip: dragging it moves the one stop, and past now takes it away", async ({ page }) => {
+test("a stopped agent keeps its grip: dragging it moves the one stop", async ({ page }) => {
   const id = await createRecentCase(page)
   const chart = await openChart(page, id)
   await startSevo(page, id, chart)
+
   await dragGrip(page, chart, AGENT_GRIP, 2)
-  await page.getByRole("button", { name: "Stop", exact: true }).click()
   await expect.poll(async () => (await events(page, id, "agent")).length, { timeout: 15_000 }).toBe(2)
   const firstStop = (await events(page, id, "agent")).find(e => e.type === "agent_stop")!.ts
 
   await dragGrip(page, chart, AGENT_GRIP, 1)
   await expect.poll(async () => (await events(page, id, "agent")).find(e => e.type === "agent_stop")?.ts, { timeout: 15_000 }).not.toBe(firstStop)
   expect((await events(page, id, "agent")).map(e => e.type)).toEqual(["agent_start", "agent_stop"])
-
-  await dragGrip(page, chart, AGENT_GRIP, 8)
-  await expect.poll(async () => (await events(page, id, "agent")).map(e => e.type), { timeout: 15_000 }).toEqual(["agent_start"])
 })
-
-test("clicking an agent bar opens its editor: a change from that time in the middle, a logged correction on its start", async ({ page }) => {
+// A bar is not an editor any more (10.8.0): a click opens the chart's one menu for that cell.
+test("clicking an agent bar opens the menu: a change of dose in the middle, a fixed start on its first cell", async ({ page }) => {
   const id = await createRecentCase(page)
   const chart = await openChart(page, id)
   await startSevo(page, id, chart)
-  const mid = (await chart.locator("[data-agent-cell]").nth(2).boundingBox())!
-  await page.mouse.click(mid.x + mid.width / 2, mid.y + mid.height / 2)
-  await expect(page.getByText(/^Change Sevoflurane from /)).toBeVisible()
-  await expect(page.getByText("Recorded as a new concentration from that time", { exact: false })).toBeVisible()
+  await page.waitForTimeout(1_500)
+  await chart.locator("[data-agent-cell]").nth(2).click()
+  await expect(page.getByTestId("cell-menu-change_dose")).toBeVisible()
+  await expect(page.getByTestId("cell-menu-stop")).toBeVisible()
   await page.keyboard.press("Escape")
-  await page.mouse.click(5, 5)
-  const first = (await chart.locator("[data-agent-cell]").nth(0).boundingBox())!
-  await page.mouse.click(first.x + first.width / 2, first.y + first.height / 2)
-  await expect(page.getByText("kept in the audit log", { exact: false })).toBeVisible()
+  await chart.locator("[data-agent-cell]").nth(0).click()
+  await expect(page.getByTestId("cell-menu-fix_start")).toBeVisible()
 })
-
-test("dragging a running infusion back asks first and writes no stop until confirmed", async ({ page }) => {
+// 10.8.0: an ordinary infusion stops where the grip is dropped, with no question (only a TCI infusion asks for the pump's total).
+test("dragging a running infusion back stops it without a question", async ({ page }) => {
   const id = await createRecentCase(page)
   const chart = await openChart(page, id)
   await chart.getByTestId("add-infusion").nth(0).click({ timeout: 30_000 })
@@ -170,13 +129,16 @@ test("dragging a running infusion back asks first and writes no stop until confi
   await page.getByRole("button", { name: /^Propofol/ }).first().click()
   await page.getByRole("button", { name: "Start Infusion" }).click()
   await expect.poll(async () => (await events(page, id, "infusion")).length, { timeout: 15_000 }).toBe(1)
+  const running = page.getByTestId("still-running-yes")
+  if (await running.waitFor({ state: "visible", timeout: 4_000 }).then(() => true, () => false)) await running.click()
 
-  // Clicking a bar toggles its selection, so select it only if it is not already.
   const endGrip = chart.locator("div[draggable].cursor-col-resize.rounded-r-sm").first()
   await page.waitForTimeout(500)
-  if (!(await endGrip.isVisible())) await chart.locator("div[draggable].cursor-grab").first().click()
+  if (!(await endGrip.isVisible())) await chart.getByTestId("infusion-lane").locator("[data-tt-cell]").nth(1).click()
+  await page.keyboard.press("Escape")
   await expect(endGrip).toBeVisible()
   await dragGrip(page, chart, "div[draggable].cursor-col-resize.rounded-r-sm", 1)
-  await expect(page.getByText(/^Stop Propofol/)).toBeVisible()
-  expect((await events(page, id, "infusion")).map(e => e.type)).toEqual(["infusion_start"])
+  await expect(page.getByRole("button", { name: "Discontinue" })).toHaveCount(0)
+  await expect.poll(async () => (await events(page, id, "infusion")).map(e => e.type), { timeout: 15_000 }).toEqual(["infusion_start", "infusion_stop"])
 })
+

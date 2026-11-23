@@ -312,7 +312,8 @@ test("the user guide's screens", async ({ browser }) => {
       })
       await step("cancel dialog", async () => {
         await gotoDashboard(page)
-        await row(page, c.allocation.code).getByTestId("cancel-procedure").click()
+        await row(page, c.allocation.code).getByTestId("case-row-menu").click()
+        await page.getByTestId("cancel-procedure").click()
         await expect(page.getByTestId("cancel-dialog")).toBeVisible()
         await shot(page, locale, "web-cancel-dialog")
         await page.keyboard.press("Escape")

@@ -76,7 +76,7 @@ export function ClinicalYesNo({
         {option(false, t("common.no"))}
       </div>
       {!answered && (
-        <span className="text-[11px] leading-none text-muted-foreground">{t("common.notAsked")}</span>
+        <span className="text-xs leading-none text-muted-foreground">{t("common.notAsked")}</span>
       )}
     </div>
   )

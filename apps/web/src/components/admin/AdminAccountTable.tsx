@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { isNurseAccountRole } from "@lospor/core/clinical-roles"
 import { RotateCcw, Trash2, UserCheck, UserX } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useAccountAdministrationCapability } from "@/lib/account-administration-capability"
@@ -41,8 +42,8 @@ export type AdminAccount = {
   institution: { id?: string; name: string; city: string } | null
 }
 
-function normalizedRole(role: string): "MEMBER" | "HEAD_OF_DEPT" | "ADMIN" {
-  if (role === "ADMIN" || role === "HEAD_OF_DEPT") return role
+function normalizedRole(role: string): "MEMBER" | "ANAESTHESIA_NURSE" | "ANAESTHESIA_SENIOR_NURSE" | "HEAD_OF_DEPT" | "ADMIN" {
+  if (role === "ADMIN" || role === "HEAD_OF_DEPT" || role === "ANAESTHESIA_NURSE" || role === "ANAESTHESIA_SENIOR_NURSE") return role
   return "MEMBER"
 }
 
@@ -61,7 +62,10 @@ function formatDate(value: string | null | undefined, locale: string) {
     .format(new Date(value))
 }
 
-function actionErrorKey(status: number) {
+function actionErrorKey(status: number, code?: string | null) {
+  // The two refusals of a role change that have a reason of their own, instead of the general "conflict".
+  if (code === "DOCTOR_HAS_OPEN_CASES") return "admin.accountHasOpenCases"
+  if (code === "NURSE_CANNOT_BECOME_DOCTOR") return "admin.accountNurseNotDoctor"
   if (status === 401) return "admin.accountPasswordIncorrect"
   if (status === 403) return "admin.accountAdministrationDisabled"
   if (status === 409 || status === 422) return "admin.accountConflict"
@@ -92,6 +96,8 @@ export function AdminAccountTable({
   const locale = typeof document === "undefined" ? "bg" : document.documentElement.lang || "bg"
   const roleLabels = {
     MEMBER: t("admin.roleMember"),
+    ANAESTHESIA_NURSE: t("admin.roleNurse"),
+    ANAESTHESIA_SENIOR_NURSE: t("admin.roleSeniorNurse"),
     HEAD_OF_DEPT: t("admin.roleHOD"),
     ADMIN: t("admin.roleAdmin"),
   }
@@ -153,7 +159,8 @@ export function AdminAccountTable({
       }
 
       if (!response.ok) {
-        setErrorKey(actionErrorKey(response.status))
+        const code = await response.clone().json().then((body: { code?: unknown; error?: unknown }) => typeof body.code === "string" ? body.code : typeof body.error === "string" ? body.error : null).catch(() => null)
+        setErrorKey(actionErrorKey(response.status, code))
         return
       }
       await onRefresh()
@@ -266,13 +273,16 @@ export function AdminAccountTable({
                             onChange={event => begin({
                               kind: "role",
                               account,
-                              role: event.target.value as "MEMBER" | "HEAD_OF_DEPT" | "ADMIN",
+                              role: event.target.value as "MEMBER" | "ANAESTHESIA_NURSE" | "ANAESTHESIA_SENIOR_NURSE" | "HEAD_OF_DEPT" | "ADMIN",
                             })}
                             className="text-xs rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-700 dark:text-slate-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                           >
-                            <option value="MEMBER">{roleLabels.MEMBER}</option>
-                            <option value="HEAD_OF_DEPT">{roleLabels.HEAD_OF_DEPT}</option>
-                            {capability.enabled && <option value="ADMIN">{roleLabels.ADMIN}</option>}
+                            {/* A nurse is never made a doctor: her account offers the two nurse roles only. */}
+                            {!isNurseAccountRole(role) && <option value="MEMBER">{roleLabels.MEMBER}</option>}
+                            <option value="ANAESTHESIA_NURSE">{roleLabels.ANAESTHESIA_NURSE}</option>
+                            <option value="ANAESTHESIA_SENIOR_NURSE">{roleLabels.ANAESTHESIA_SENIOR_NURSE}</option>
+                            {!isNurseAccountRole(role) && <option value="HEAD_OF_DEPT">{roleLabels.HEAD_OF_DEPT}</option>}
+                            {!isNurseAccountRole(role) && capability.enabled && <option value="ADMIN">{roleLabels.ADMIN}</option>}
                           </select>
                         </label>
                       )}

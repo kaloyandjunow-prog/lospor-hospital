@@ -114,7 +114,7 @@ export function IntraopLabsDialog({
             <div className="space-y-4">
               {allDraws.map(draw => (
                 <div key={draw.takenAt ?? "undated"}>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-[#666] mb-1">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-[#666] mb-1">
                     {draw.takenAt
                       ? new Date(draw.takenAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
                       : t("ehr.undated")}

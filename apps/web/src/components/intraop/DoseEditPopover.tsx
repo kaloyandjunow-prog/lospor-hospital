@@ -1,5 +1,7 @@
 "use client"
 
+import { portalHost } from "@/lib/portal-host"
+import { PopoverClose } from "./PopoverClose"
 import { createPortal } from "react-dom"
 import type { AnchorRect } from "./anchored-position"
 import { useIntraopUiCopy } from "./ui-copy"
@@ -51,7 +53,8 @@ export function DoseEditPopover({
         }}
         onClick={event => event.stopPropagation()}
       >
-        <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wide">{title}</p>
+        <PopoverClose onClose={onDismiss} className="absolute right-1.5 top-1.5 z-10" />
+        <p className="text-xs font-semibold text-violet-500 uppercase tracking-wide">{title}</p>
         <div className="flex items-center gap-1.5">
           <input
             type="number"
@@ -78,6 +81,6 @@ export function DoseEditPopover({
         </button>
       </div>
     </div>,
-    document.body,
+    portalHost(),
   )
 }

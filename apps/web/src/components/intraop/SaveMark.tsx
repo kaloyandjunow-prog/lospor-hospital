@@ -35,7 +35,7 @@ function SaveMarkBadge({ state, className }: { state: ItemSaveState; className: 
       title={label}
       aria-label={label}
       data-testid={`save-mark-${state}`}
-      className={`${className} z-40 pointer-events-none select-none text-[10px] leading-none font-bold rounded-full px-0.5 ${
+      className={`${className} z-40 pointer-events-none select-none text-xs leading-none font-bold rounded-full px-0.5 ${
         state === "refused" ? "text-red-600 bg-red-50 dark:bg-red-900/40" : "text-amber-600 bg-amber-50 dark:bg-amber-900/40"
       } ${state === "sending" ? "animate-pulse" : ""}`}
     >

@@ -22,7 +22,7 @@ export function StepProgress({ steps, stepsShort, step, caseId, onSelect, hidden
           return (
             <button key={label} type="button"
               onClick={() => { if (isClickable) onSelect(i) }}
-              className={`flex items-center gap-1.5 ${isClickable ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}>
+              className={`flex items-center gap-1.5 ${isClickable ? "cursor-pointer hover:opacity-80 transition-opacity pointer-coarse:min-h-11" : "cursor-default"}`}>
               {i < step
                 ? <CheckCircle2 className="h-4 w-4 text-green-500" />
                 : <div className={`h-4 w-4 rounded-full border-2 ${i === step ? "border-blue-600 bg-blue-600" : "border-slate-300"}`} />

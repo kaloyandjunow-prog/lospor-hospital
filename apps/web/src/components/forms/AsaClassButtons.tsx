@@ -30,7 +30,7 @@ export function AsaClassButtons({ value, onChange, emergencySurgery, className =
             onClick={() => onChange(value === opt.v ? undefined : opt.v)}
             className={`rounded-xl border-2 p-3 text-center transition-all ${value === opt.v ? opt.color + " scale-105 shadow-sm" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"}`}>
             <div className="text-xl font-bold">{label}</div>
-            <div className="text-[9px] mt-1 leading-tight">{description}</div>
+            <div className="text-xs mt-1 leading-tight">{description}</div>
           </button>
         )
       })}

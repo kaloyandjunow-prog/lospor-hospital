@@ -78,7 +78,7 @@ export function TechniqueSmart({ techniques, sides, onChange, tree, planned, rec
 
   const hits = searchTechniques(query, 6, code => [label(code)])
   const planLeft = plannedTechniquesLeft(planned, techniques)
-  const eyebrow = "mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
+  const eyebrow = "mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400"
   const currentNodes = browsePath.length === 0
     ? tree
     : findNodePath(browsePath[browsePath.length - 1]!, tree)?.at(-1)?.children ?? []
@@ -130,7 +130,7 @@ export function TechniqueSmart({ techniques, sides, onChange, tree, planned, rec
               </button>
               {techniqueHasSide(code) ? (
                 <div className="mt-1.5 flex items-center gap-1.5">
-                  <span className={`w-14 text-[11px] font-bold ${sides[code] ? "text-slate-500" : "text-amber-600 dark:text-amber-400"}`}>{sides[code] ? t("side") : t("sideNeeded")}</span>
+                  <span className={`w-14 text-xs font-bold ${sides[code] ? "text-slate-500" : "text-amber-600 dark:text-amber-400"}`}>{sides[code] ? t("side") : t("sideNeeded")}</span>
                   {TECHNIQUE_SIDES.map(side => (
                     <button key={side} type="button" aria-pressed={sides[code] === side} data-testid={`technique-side-${code}-${side}`} onClick={() => pickSide(code, side)}
                       className={`min-h-11 flex-1 rounded-lg border text-sm font-semibold ${sides[code] === side ? "border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300" : "border-slate-300 dark:border-[#444]"}`}>{t(SIDE_KEY[side])}</button>
@@ -147,7 +147,7 @@ export function TechniqueSmart({ techniques, sides, onChange, tree, planned, rec
           <p className={eyebrow}>{t("plan")}</p>
           <div data-testid="technique-plan" className="flex items-center gap-3 rounded-xl border border-dashed border-amber-500 bg-amber-50 p-2.5 dark:bg-amber-950/20">
             <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-bold text-amber-700 dark:text-amber-400">{t("planned")}</span>
+              <span className="block text-xs font-bold text-amber-700 dark:text-amber-400">{t("planned")}</span>
               <span className="block text-sm font-bold">{planLeft.map(nameOf).join(" + ")}</span>
             </span>
             <button type="button" data-testid="technique-use-plan" onClick={usePlan} className="min-h-11 rounded-xl border border-violet-500 bg-violet-50 px-4 text-sm font-bold text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">{t("usePlan")}</button>

@@ -1,4 +1,5 @@
 "use client"
+import { portalHost } from "@/lib/portal-host"
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Label } from "@/components/ui/label"
@@ -185,7 +186,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
                   {/* A withheld drug says why in place of a dose, rather than
                       disappearing from the list without explanation. */}
                   {note && note.kind !== "calculated" && (
-                    <span className={`block text-[11px] ${withheld ? "text-red-500 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    <span className={`block text-xs ${withheld ? "text-red-500 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
                       {note.reason}
                     </span>
                   )}
@@ -208,20 +209,20 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
 
           {/* Hint */}
           {prospectiveGuidanceEnabled && showDoseGuidance && doseCfg?.hint && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 -mt-1">{doseCfg.hint}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 -mt-1">{doseCfg.hint}</p>
           )}
 
           {/* Calculation metadata remains available for a later explicit
               guidance policy, but is not presented as a recommendation. */}
           {prospectiveGuidanceEnabled && showDoseGuidance && annotation?.kind === "calculated" && (
-            <p className="text-[11px] text-sky-600 dark:text-sky-400 -mt-1">
+            <p className="text-xs text-sky-600 dark:text-sky-400 -mt-1">
               {annotation.perKg} {annotation.unit}/kg × {annotation.weightUsedKg} kg
               {annotation.basis === "IBW" ? " (ideal body weight)" : ""}
               {annotation.capped ? ` — capped at ${annotation.cap} ${annotation.unit}` : ""}
             </p>
           )}
           {annotation && annotation.kind !== "calculated" && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 -mt-1">{annotation.reason}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 -mt-1">{annotation.reason}</p>
           )}
 
           {/* Dose input + unit */}
@@ -247,7 +248,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
               />
             )}
             {prospectiveGuidanceEnabled && showDoseGuidance && doseCfg && doseCfg.min !== doseCfg.max && (
-              <div className="flex justify-between text-[10px] text-slate-400">
+              <div className="flex justify-between text-xs text-slate-400">
                 <span>{doseCfg.min} {doseUnit}</span>
                 <span>{doseCfg.max} {doseUnit}</span>
               </div>
@@ -257,7 +258,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
           {/* Route pills */}
           {doseCfg && doseCfg.routes.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{copy.route}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{copy.route}</p>
               <div className="flex flex-wrap gap-1.5">
                 {doseCfg.routes.map(r => (
                   <button key={r} type="button" onClick={() => selectRoute(r)}
@@ -277,7 +278,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
         </div>
       )}
     </div>,
-    document.body
+    portalHost()
   )
 
   return (
@@ -299,7 +300,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
       )}
       </div>
       {asOrdered && (
-        <p className="flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400" data-testid="premedication-as-ordered">
+        <p className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400" data-testid="premedication-as-ordered">
           <ClipboardCheck className="h-3 w-3" /> {copy.premedication.asOrdered}
         </p>
       )}

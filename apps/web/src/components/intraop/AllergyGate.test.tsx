@@ -21,11 +21,11 @@ describe("a dose that clashes with a recorded allergy", () => {
     expect(apply).not.toHaveBeenCalled()
 
     render(<>{result.current.modal}</>)
-    expect(screen.getByText(/Penicillin/)).toBeTruthy()
+    expect(screen.getAllByText(/Penicillin/).length).toBeGreaterThan(0) // the list and the button that names it
     expect(screen.getByText("Same drug class")).toBeTruthy()
     expect(screen.getByText(/from the hospital system/)).toBeTruthy()
 
-    act(() => { fireEvent.click(screen.getByRole("button", { name: "Give anyway" })) })
+    act(() => { fireEvent.click(screen.getByRole("button", { name: /^Give despite allergy to / })) })
     expect(apply).toHaveBeenCalledWith({
       drugs: [propofol, { ...ampicillin, allergyAck: [{ allergy: "Penicillin", level: "same_class" }] }],
       infusions: [],

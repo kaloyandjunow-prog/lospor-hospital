@@ -18,7 +18,7 @@ export function ScreenSettingChoice({
   return (
     <div className="border-b border-slate-100 py-4 last:border-b-0 dark:border-[#2a2a2a]" data-testid={`${testPrefix}-setting`}>
       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</p>
-      <p className="mb-2 mt-1 text-[11px] text-slate-400 dark:text-slate-500">{t("accountWideInterface")}</p>
+      <p className="mb-2 mt-1 text-xs text-slate-400 dark:text-slate-500">{t("accountWideInterface")}</p>
       <div role="radiogroup" aria-label={title} className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-[#333] dark:bg-[#161616]">
         {options.map(option => {
           const picked = value === option.value
@@ -35,7 +35,7 @@ export function ScreenSettingChoice({
                 : "text-slate-500 hover:bg-white/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#222] dark:hover:text-slate-200"}`}
             >
               <span className="inline-flex items-center gap-2">
-                <span aria-hidden="true" className={`grid h-4 w-4 place-items-center rounded-full border-2 text-[9px] ${picked ? "border-violet-500 bg-violet-500 text-white" : "border-slate-300 dark:border-[#555]"}`}>
+                <span aria-hidden="true" className={`grid h-4 w-4 place-items-center rounded-full border-2 text-xs ${picked ? "border-violet-500 bg-violet-500 text-white" : "border-slate-300 dark:border-[#555]"}`}>
                   {picked ? "✓" : ""}
                 </span>
                 {option.label}

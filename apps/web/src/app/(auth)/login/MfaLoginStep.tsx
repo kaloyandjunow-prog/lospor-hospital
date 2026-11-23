@@ -298,6 +298,7 @@ export function MfaLoginStep({
           </Label>
           <Input
             id="mfa-code"
+            data-no-context-menu
             autoFocus
             autoComplete="one-time-code"
             inputMode={entryKind === "authenticator" ? "numeric" : "text"}

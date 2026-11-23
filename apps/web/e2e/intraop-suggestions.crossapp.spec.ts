@@ -152,9 +152,9 @@ test("jet ventilation: the web row and the phone's strip", async ({ browser }) =
 
     const page = await web.newPage()
     await page.goto(`/cases/new?continue=${caseId}&step=1`, { waitUntil: "domcontentloaded" })
-    await expect(page.getByTestId("jet-lane")).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByTestId("jet-lane")).toContainText("2 bar · 150/min")
-    await expect(page.getByTestId("jet-lane")).toContainText("2 bar · 300/min")
+    await expect(page.getByTestId("jet-lane").first()).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId("jet-lane").first()).toContainText("2 bar · 150/min")
+    await expect(page.getByTestId("jet-lane").first()).toContainText("2 bar · 300/min")
 
     const phone = await phoneIn(browser, web.request)
     await openPhoneIntraop(phone.page, caseId, "en")

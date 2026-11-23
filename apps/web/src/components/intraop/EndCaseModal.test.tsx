@@ -24,7 +24,8 @@ function rateFluid(id: string, rate: number): EndCaseModalProps["fluids"][number
 describe("EndCaseModal fluid completion", () => {
   // 1.4.9: only a fluid being stopped is finalised; a continued one keeps
   // running and its total stops at the case end, so it needs no volume here.
-  it("allows pump-volume overrides and finalises only the fluids being stopped", () => {
+  // 10.8.0: a fluid continued postop stops on the record at the end too, marked as going on.
+  it("allows pump-volume overrides and stops every fluid at the end, marking what goes on", () => {
     const onConfirm = vi.fn<EndCaseModalProps["onConfirm"]>()
     render(
       <EndCaseModal
@@ -45,8 +46,9 @@ describe("EndCaseModal fluid completion", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm End Case" }))
 
     const result = onConfirm.mock.calls[0]?.[0]
-    expect(result?.finalizedFluidWithAmounts).toHaveLength(1)
+    expect(result?.finalizedFluidWithAmounts).toHaveLength(2)
     expect(result?.finalizedFluidWithAmounts[0]).toMatchObject({ id: "fluid-1", amount: 123 })
+    expect(result?.continuesAfterEnd).toEqual(["fluid-fluid-2"])
     expect(result?.continuedItems).toEqual(["Plasma-Lyte (fluid at 120 mL/h)"])
   })
 

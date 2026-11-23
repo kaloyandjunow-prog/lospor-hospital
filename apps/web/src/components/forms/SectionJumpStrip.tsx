@@ -44,7 +44,7 @@ export function SectionJumpStrip({ sections, anchorPrefix, testId, className = "
   const active = useActiveJumpSection(sections.map(section => section.id), anchorPrefix)
   const jump = (id: string) => document.getElementById(`${anchorPrefix}${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })
   return (
-    <div className={`sticky top-20 z-20 -mx-1 space-y-1.5 border-b border-slate-200 bg-white/95 px-1 py-1.5 backdrop-blur dark:border-[#2a2a2a] dark:bg-[#111]/95 ${className}`} data-testid={testId}>
+    <div className={`sticky top-20 z-[35] -mx-1 space-y-1.5 border-b border-slate-200 bg-white/95 px-1 py-1.5 backdrop-blur dark:border-[#2a2a2a] dark:bg-[#111]/95 ${className}`} data-testid={testId}>
       <OverflowCueScroll horizontal className="min-w-0" contentClassName="flex gap-1" testId={testId ? `${testId}-rail` : undefined} startLabel="Scroll sections left" endLabel="Scroll sections right">
         {sections.map(section => (
           <button
@@ -52,7 +52,7 @@ export function SectionJumpStrip({ sections, anchorPrefix, testId, className = "
             type="button"
             onClick={() => jump(section.id)}
             aria-current={active === section.id ? "true" : undefined}
-            className={`relative shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${
+            className={`relative shrink-0 rounded-full border px-3 py-1 text-xs font-medium pointer-coarse:min-h-11 pointer-coarse:px-4 ${
               active === section.id
                 ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
                 : "border-slate-200 text-slate-600 dark:border-[#333] dark:text-slate-300"

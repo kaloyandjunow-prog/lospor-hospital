@@ -79,7 +79,7 @@ export function FluidPickerPopover({
       <div className="max-h-56 overflow-y-auto p-2 space-y-2">
         {visible.map(category => (
           <div key={category.cat}>
-            <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#666] mb-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-[#666] mb-1">
               {category.displayCat}
             </p>
             <div className="flex flex-wrap gap-1">

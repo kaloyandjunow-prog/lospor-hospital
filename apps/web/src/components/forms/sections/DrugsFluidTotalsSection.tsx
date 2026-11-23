@@ -35,25 +35,25 @@ function LegacyDrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, live
     <SectionCard title={t("intraop.fluidsSection")} collapsible defaultCollapsed
       badge={(() => { const n = liveDrugTotals.bolusList.length + liveDrugTotals.infusionList.length; return n ? t("intraop.totals.drugCount", { count: n }) : undefined })()}>
 
-      <p className="text-[10px] text-slate-400 -mt-1">{t("intraop.totals.description")}</p>
+      <p className="text-xs text-slate-400 -mt-1">{t("intraop.totals.description")}</p>
 
       {/* Infusion totals */}
       {liveDrugTotals.infusionList.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{provisional ? "≈ " : ""}{t("intraop.totals.infusions")}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{provisional ? "≈ " : ""}{t("intraop.totals.infusions")}</p>
           {liveDrugTotals.infusionList.map(row => (
             <div key={row.name} className="flex items-center gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200 w-44 truncate">{row.name}</span>
               <span className="font-mono text-slate-600 dark:text-slate-300">
                 {row.total} {row.unit}
-                {row.weightUsed != null && <span className="text-[10px] text-slate-400 ml-1">†</span>}
+                {row.weightUsed != null && <span className="text-xs text-slate-400 ml-1">†</span>}
               </span>
               {row.mgTotal !== null && (
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">({row.mgTotal} mg)</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">({row.mgTotal} mg)</span>
               )}
-              {row.volumeMl != null && <span className="text-[11px] text-slate-400 dark:text-slate-500">· {row.volumeMl} mL</span>}
+              {row.volumeMl != null && <span className="text-xs text-slate-400 dark:text-slate-500">· {row.volumeMl} mL</span>}
               {row.tci && (
-                <span data-testid="tci-total-note" className="text-[11px] text-slate-400 dark:text-slate-500">
+                <span data-testid="tci-total-note" className="text-xs text-slate-400 dark:text-slate-500">
                   {row.tci.pump != null
                     ? t("intraop.totals.tciPump", { calculated: row.tci.calculated ?? "—", unit: row.unit })
                     : row.tci.pumpNeedsStrength ? t("intraop.totals.tciPumpNeedsStrength")
@@ -63,7 +63,7 @@ function LegacyDrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, live
             </div>
           ))}
           {liveDrugTotals.weightNote && (
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-1">{liveDrugTotals.weightNote}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 italic mt-1">{liveDrugTotals.weightNote}</p>
           )}
         </div>
       )}
@@ -71,12 +71,12 @@ function LegacyDrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, live
       {/* Bolus drug totals */}
       {liveDrugTotals.bolusList.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{provisional ? "≈ " : ""}{t("intraop.totals.bolusDrugs")}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{provisional ? "≈ " : ""}{t("intraop.totals.bolusDrugs")}</p>
           {liveDrugTotals.bolusList.map(row => (
             <div key={row.name} className="flex items-center gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200 w-44 truncate">{row.name}</span>
               <span className="font-mono text-slate-600 dark:text-slate-300">{row.total} {row.unit}</span>
-              {row.count > 1 && <span className="text-[10px] text-slate-400">({t("intraop.totals.doseCount", { count: row.count })})</span>}
+              {row.count > 1 && <span className="text-xs text-slate-400">({t("intraop.totals.doseCount", { count: row.count })})</span>}
             </div>
           ))}
         </div>
@@ -84,7 +84,7 @@ function LegacyDrugsFluidTotalsSection({ t, control, watch, liveDrugTotals, live
 
       {/* Fluid balance */}
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500 dark:text-teal-400 mb-2">{t("intraop.totals.fluidBalance")}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-teal-500 dark:text-teal-400 mb-2">{t("intraop.totals.fluidBalance")}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {([
             { label: t("intraop.crystalloids"), field: "crystalloidsMl" as const },
