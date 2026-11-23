@@ -139,8 +139,8 @@ describe("anaesthesia nurses and the senior nurse (2026-11-23)", () => {
   const senior = { id: "s1", role: "ANAESTHESIA_SENIOR_NURSE", institutionId: "inst-1" }
 
   it("lets a nurse see every case of her hospital and change only the ones she is on", async () => {
-    await expect(canReadCase(nurse, record)).resolves.toBe(true)
-    await expect(canReadCase(nurse, { ...record, institutionId: "inst-2" })).resolves.toBe(false)
+    await expect(canReadCase(nurse, record, true)).resolves.toBe(true)
+    await expect(canReadCase(nurse, { ...record, institutionId: "inst-2" }, true)).resolves.toBe(false)
     expect(canWriteCase(nurse, record)).toBe(false)
     expect(canWriteCase({ ...nurse, nurseScope: { ...nurse.nurseScope, caseIds: ["c1"] } }, record)).toBe(true)
   })
@@ -151,14 +151,14 @@ describe("anaesthesia nurses and the senior nurse (2026-11-23)", () => {
     expect(caseWriteWhereForUser({ ...senior, institutionId: null })).toEqual({ id: { in: [] } })
   })
   it("reads the hospital's cases and the ones she is on from a nurse's query", async () => {
-    expect(await caseReadWhereForUser(nurse)).toEqual({ OR: [{ institutionId: "inst-1" }, { id: { in: [] } }] })
+    expect(await caseReadWhereForUser(nurse, undefined, true)).toEqual({ OR: [{ institutionId: "inst-1" }, { id: { in: [] } }] })
   })
   it("says who may put nurses on a case", async () => {
-    expect((await caseCapabilitiesForUser(senior, record)).canAssignNurses).toBe(true)
-    expect((await caseCapabilitiesForUser(nurse, record)).canAssignNurses).toBe(false)
-    expect((await caseCapabilitiesForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }, record)).canAssignNurses).toBe(true)
-    expect((await caseCapabilitiesForUser({ id: "other", role: "MEMBER", institutionId: "inst-1" }, record)).canAssignNurses).toBe(false)
-    expect((await caseCapabilitiesForUser({ id: "head", role: "HEAD_OF_DEPT", institutionId: "inst-1" }, record)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser(senior, record, true)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser(nurse, record, true)).canAssignNurses).toBe(false)
+    expect((await caseCapabilitiesForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }, record, true)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser({ id: "other", role: "MEMBER", institutionId: "inst-1" }, record, true)).canAssignNurses).toBe(false)
+    expect((await caseCapabilitiesForUser({ id: "head", role: "HEAD_OF_DEPT", institutionId: "inst-1" }, record, true)).canAssignNurses).toBe(true)
   })
   it("offers a nurse only nurses as colleagues, and a doctor no nurses", () => {
     expect(colleagueWhereForUser(nurse)).toMatchObject({ role: { in: ["ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"] } })

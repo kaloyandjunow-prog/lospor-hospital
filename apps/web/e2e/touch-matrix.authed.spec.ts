@@ -5,7 +5,7 @@ import { test, expect, devices, type Page } from "@playwright/test"
  * finger can press has a 44 px target (its own size, or the invisible hit area around it), and text is never
  * under 12 px. The chart's own cells and the printed sheets are measured elsewhere. A failure names the element.
  */
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 test.describe.configure({ timeout: 240_000 })
 
 type Failure = { kind: "target" | "text"; where: string; detail: string }
@@ -92,7 +92,7 @@ for (const { device, label } of SCREENS) {
     })
 
     test("the case's steps have 44 px targets and 12 px text", async ({ page }) => {
-      const created = await page.request.post("/api/cases", { headers: { Origin: ORIGIN }, data: { preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" }, intraop: { startTime: "08:00", techniques: ["GENERAL_INHALATION"] } } })
+      const created = await page.request.post("/api/cases", { headers: { Origin: ORIGIN }, data: { patientNumber: `TOUCH-MATRIX-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`, preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" }, intraop: { startTime: "08:00", techniques: ["GENERAL_INHALATION"] } } })
       expect(created.ok()).toBeTruthy()
       const { id } = await created.json() as { id: string }
       try {

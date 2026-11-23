@@ -16,7 +16,7 @@ import { dragGrip } from "./drag-grip"
  * stated precisely and run in milliseconds.
  */
 
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 
 // The case wizard is the largest client route in the app and the dev server
 // compiles it on the first navigation, so this spec is given room rather than
@@ -39,6 +39,7 @@ async function createStartedCase(page: Page, intraop: Record<string, unknown> = 
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: "08:00", ...intraop },
     },
@@ -415,6 +416,7 @@ test("the lab dialog on the chart knows the case and its AI consent", async ({ p
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT", aiOptIn: true },
       intraop: { startTime: "08:00" },
     },

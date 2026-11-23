@@ -11,7 +11,7 @@ import path from "path"
  * is dragged. Each step is checked in the saved log, not only on screen.
  */
 
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 const SHOTS = process.env.SHOTS_DIR ?? path.join(__dirname, "..", "test-results", "change-strip-shots")
 test.describe.configure({ timeout: 180_000 })
 test.use({ deviceScaleFactor: 2 })
@@ -40,6 +40,7 @@ async function seed(page: Page) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-STRIPS-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
     },

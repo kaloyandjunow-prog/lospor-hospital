@@ -11,7 +11,7 @@ import { dragGrip } from "./drag-grip"
  * editor. Read from the API, not the screen, because the bug was in the log.
  */
 
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 test.describe.configure({ timeout: 180_000 })
 
 type LogEntry = { type: string; name?: string; ts: string }
@@ -29,6 +29,7 @@ async function createRecentCase(page: Page) {
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-BAR-END-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
     },

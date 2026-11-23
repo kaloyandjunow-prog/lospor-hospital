@@ -7,7 +7,7 @@ import { test, expect, type Page } from "@playwright/test"
  * The arithmetic is tested in Core; this fails when the screen goes dead.
  */
 
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 test.describe.configure({ timeout: 120_000 })
 
 const created: string[] = []
@@ -25,6 +25,7 @@ async function seedCase(page: Page, extra?: (post: (data: Record<string, unknown
   const local = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false }).format(startedAt)
   const headers = { Origin: ORIGIN, "Content-Type": "application/json" }
   const create = await page.request.post("/api/cases", { headers, data: {
+    patientNumber: `INTRAOP-MENU-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
     intraop: { startTime: local, startedAt: startedAt.toISOString(), timezone: zone, techniques: ["GENERAL_INHALATION"] },
   } })

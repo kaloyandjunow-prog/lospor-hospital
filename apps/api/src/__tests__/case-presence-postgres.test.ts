@@ -20,7 +20,7 @@ describe.skipIf(!runPostgres)("case presence", () => {
     ;({ prisma } = await import("@/lib/prisma"))
     presence = await import("@/lib/case-presence")
     for (const [id, name] of [[maria, "Мария Иванова"], [ivan, "Иван Петров"]] as const) {
-      await prisma.user.create({ data: { id, email: `${id}@example.test`, name, passwordHash: "not-a-real-password" } })
+      await prisma.user.create({ data: { id, email: `${id}@example.test`, username: id, usernameCanonical: id.toLowerCase(), name, passwordHash: "not-a-real-password" } })
     }
     await prisma.case.create({ data: { id: caseId, userId: maria, createdById: maria, status: "IN_PROGRESS" } })
   })

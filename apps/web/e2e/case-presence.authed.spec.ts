@@ -4,11 +4,11 @@ import { test, expect } from "@playwright/test"
  * Who has a case open (10.8.0): with a second screen on the same case, each says "Case open by: ..." with the
  * people's names; alone, nothing is said. It is a notice only: both screens can chart.
  */
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 test.describe.configure({ timeout: 120_000 })
 
 test("a second screen on a case makes both say who has it open", async ({ page, browser }) => {
-  const created = await page.request.post("/api/cases", { headers: { Origin: ORIGIN }, data: { preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" } } })
+  const created = await page.request.post("/api/cases", { headers: { Origin: ORIGIN }, data: { patientNumber: `CASE-PRESENCE-E2E-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`, preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" } } })
   expect(created.ok()).toBeTruthy()
   const { id } = await created.json() as { id: string }
   const second = await browser.newContext({ storageState: "e2e/.auth/user.json" })
