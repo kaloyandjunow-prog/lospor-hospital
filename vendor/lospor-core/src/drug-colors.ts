@@ -7,6 +7,8 @@
  * finished ones included, is drawn in the colours in use when it is shown.
  */
 
+import { isoDrugColor } from "./drug-colors-iso"
+
 export type DrugColorScope = "GROUP" | "DRUG"
 
 /** The colours in use: group name or drug name (the English label) to #rrggbb. */
@@ -71,10 +73,13 @@ export function normalizeDrugColor(value: unknown): string | null {
   return HEX.test(text) ? text : null
 }
 
-/** The drug's own colour, else its group's, else null (the bundled colours apply). */
+/**
+ * The drug's own colour, else its group's, else the ISO 26825 colour of its
+ * group (10.8.0), else null (the bundled colours apply).
+ */
 export function resolveDrugColor(colors: DrugColorMap | null | undefined, group: string | null | undefined, name: string | null | undefined): string | null {
-  if (!colors) return null
-  return (name ? colors.drugs[name] : undefined) ?? (group ? colors.groups[group] : undefined) ?? null
+  const own = colors ? (name ? colors.drugs[name] : undefined) ?? (group ? colors.groups[group] : undefined) : undefined
+  return own ?? isoDrugColor(group, name)
 }
 
 /** The 500 shade of each colour the bundled style classes use. */
@@ -186,4 +191,28 @@ export function parseDrugColorMap(value: unknown): DrugColorMap {
   }
   const object = value && typeof value === "object" ? value as Record<string, unknown> : {}
   return { groups: record(object.groups), drugs: record(object.drugs) }
+}
+
+/**
+ * The text colour that reads on a bar of this colour: dark on a light bar (yellow, grey, salmon), white on a dark one,
+ * white wherever it keeps a WCAG contrast of 3.5 (bold labels on a bar). A colour that is not #rrggbb gets white.
+ */
+export function readableTextColor(hex: string | null | undefined): "#ffffff" | "#111827" {
+  const value = hex ? normalizeDrugColor(hex) : null
+  if (!value) return "#ffffff"
+  return contrastRatio(value, "#ffffff") >= 3.5 ? "#ffffff" : "#111827"
+}
+
+/**
+ * The bundled library as the fallback (no connection yet, or a library not loaded): the drugs and infusions carry the ISO
+ * 26825 colour of their group as their own colour, exactly as the API's library gives them, so a chart does not change
+ * colours with the connection. A colour an option already has is kept.
+ */
+export function withIsoDrugColors<T extends { group?: string | null; label: string; customColor?: string | null }>(category: string, options: T[]): T[] {
+  if (category !== "INTRAOP_DRUG" && category !== "INTRAOP_INFUSION") return options
+  return options.map(option => {
+    if (option.customColor) return option
+    const iso = isoDrugColor(option.group, option.label)
+    return iso ? { ...option, customColor: iso } : option
+  })
 }

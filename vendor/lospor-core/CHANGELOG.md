@@ -1,5 +1,51 @@
 # Changelog - LOSPOR Core
 
+## [10.8.0] - 2026-11-23
+
+The intraop chart's rules move into Core, so the web, the phone and the API edit a case's timeline the same way. Core
+is still the only place a rule lives; the screens only draw it.
+
+### Added
+
+- **The senior nurse and who may put nurses on a case**, in `clinical-roles`: a nurse account is a nurse or a senior nurse and
+  is never made a doctor; `mayAssignNurses` (the administrator and the head of department on every case, a senior nurse on
+  every case of her hospital, a doctor on her own, a nurse never) and `mayTakeCase` (a nurse may put herself on a case that has no nurse).
+- **One stop for the chart's menu**, `intraopMenuStopEvent`: the web and the phone stop an item the same way, at the cell's time
+  and never before the start of the run the cell belongs to. The drug colours follow ISO 26825 with a shade for a second lane of the same group.
+- **"Still running?" is asked only for a start entered at least half an hour late**, measured from when it was written.
+
+- **One menu for what is in a chart cell.** `intraop-menu` answers, for any running item or one-off entry, which
+  actions the cell offers (Stop, Change dose, Change syringe, Resume, Fix start, Fix end, Delete here, Delete whole,
+  Plan a stop, Plan a change, Remove planned). `intraop-edits` makes each of them as a change to the event log, with the
+  same refusals everywhere (a stop before the start, a start inside a run, ...).
+- **Undo and redo over many steps**, in `intraop-undo`: a history of entries that put events back as they were, stamped
+  as made now so the server's timeline rule accepts them. `intraopOpsBetween` gives the save operations between two logs.
+- **One dose-change rule** (`intraopApplyDoseChange`) for infusions, fluids, agents, gas and jet: the start cell edits the
+  start dose, a cell that carries a change edits that change.
+- **Totals for both charts** (`intraop-run-totals`): an infusion's amount, a fluid's volume with how long and at what
+  rate, and a duration for an agent, gas or jet; running items carry their start column.
+- **Time and date entry** (`time-entry`): "1024" is 10:24, an hour after midnight is read inside the case, days follow
+  the month, and one set of wheels (day 1-31, month, year 2000-2100) for every date and time field.
+- **Who has a case open** (`case-presence`): the heartbeat (20 s) and expiry (60 s), and the label "Case open by:
+  <names>" with the reader marked.
+- **The anaesthesia nurse role** in `clinical-roles`: what she can and cannot do, shared by the API, the web and the phone.
+- **ISO 26825 as the default drug colour.** `drug-colors-iso` gives each drug group the colour of its syringe label
+  (induction agents yellow, opioids blue, relaxants red, sedatives orange, vasopressors violet, local anaesthetics grey,
+  antiemetics salmon) and the anticholinergics (atropine, glycopyrrolate, scopolamine) green, apart from the reversal
+  agents. A hospital's own colour, for a drug or a group, always wins. `readableTextColor` says whether a bar of a colour
+  takes white or dark text, `shadeForSameGroupIn` and `infusionLaneColor` give a second infusion of one group its own
+  shade (lighter on the dark theme, darker on the light one).
+- **Agent labels FiSev% / FiDes% / FiIso%**, shared by both charts.
+
+### Changed
+
+- **"Still running?"** is not asked about a start that a later entry of the same item follows, only about entries made
+  since the screen opened, and the answer "stopped at" is shared.
+- **End case asks about a tourniquet still on**; the answer writes Tourniquet off at the end. Items that were still running
+  stop at the end marked as going on after the case (`continuesAfterEnd`, now carried through the chart edit path).
+- A reading in the vitals that was corrected offers to remove the event it logged; deleting or moving an airway or vascular
+  event keeps its section in step.
+
 ## [10.7.0] - 2026-11-19
 
 ### Added

@@ -652,3 +652,23 @@ export function vitalQuestionText(
     : null
   return { title, detail, stop }
 }
+
+/**
+ * Events logged from a reading that, as corrected, no longer shows the finding
+ * (10.8.0, rule 9): the screen offers to remove them. One the clinician chose
+ * to keep is not offered again.
+ */
+export function staleVitalComplications(log: LogEvent[], context: VitalQuestionContext | null | undefined): LogEvent[] {
+  if (!context || !vitalQuestionsEnabled(context.settings, context.user)) return []
+  const evaluation = evaluationContext(context, log)
+  if (!evaluation.band) return []
+  const kept = new Set(log.filter(event => event.type === "prompt_answer" && event.answerKind === "keep_auto_event").map(event => event.answerFor))
+  const byId = new Map(log.map(event => [event.id, event]))
+  return intraopComplicationEvents(log).filter(event => {
+    if (event.complicationSource !== "vitals" || !event.triggerReadingId || kept.has(event.id)) return false
+    const reading = byId.get(event.triggerReadingId)
+    const kind = vitalComplicationKindOf(event.label)
+    if (!reading || !kind) return false
+    return !evaluateVitalReading(reading, evaluation).some(item => item.kind === kind)
+  })
+}
