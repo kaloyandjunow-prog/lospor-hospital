@@ -72,7 +72,7 @@ export function PatientIdentityField({
             autoCorrect={false}
             accessibilityLabel={label}
           />
-          <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16, marginTop: 6 }}>
             {STRINGS[language as "en" | "bg"].patientNumberPseudonymNote}
           </Text>
           {/* ИЗ № restarts every January: for 60 days, which year it is from. */}
@@ -104,11 +104,11 @@ export function PatientIdentityField({
                 testID="patient-egn"
               />
               {issue ? (
-                <Text role="alert" testID="patient-egn-error" style={{ color: colors.danger, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
+                <Text role="alert" testID="patient-egn-error" style={{ color: colors.danger, fontSize: 12, lineHeight: 16, marginTop: 6 }}>
                   {issue === "invalid" ? s.patientEgnInvalid : s.patientEgnIncomplete}
                 </Text>
               ) : (
-                <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 16, marginTop: 6 }}>
                   {s.patientEgnHint}
                 </Text>
               )}

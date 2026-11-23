@@ -53,7 +53,7 @@ export function DashboardHeading({ kind, label }: { kind: "owner" | "day" | "the
         ? { color: colors.textPrimary, fontSize: 15, fontWeight: "900", marginTop: 10, marginBottom: 6 }
         : kind === "day"
         ? { color: colors.textSecondary, fontSize: 12, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 6, marginBottom: 8 }
-        : { color: colors.textMuted, fontSize: 11, fontWeight: "800", marginBottom: 6 }}
+        : { color: colors.textMuted, fontSize: 12, fontWeight: "800", marginBottom: 6 }}
     >
       {label}
     </Text>

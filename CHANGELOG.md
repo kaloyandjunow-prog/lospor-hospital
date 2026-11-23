@@ -1,5 +1,57 @@
 # Changelog - LOSPOR Hospital
 
+## [1.14.0] - 2026-11-23
+
+<!-- release:version draft: rewrite for operators, then delete this line -->
+
+Vendors Core, API, Web and PWA 10.8.0; Browser stays 0.11.2.
+
+### Upstream
+
+- Core 10.8.0: The senior nurse and who may put nurses on a case
+- Core 10.8.0: One stop for the chart's menu
+- Core 10.8.0: "Still running?" is asked only for a start entered at least half an hour late
+- Core 10.8.0: One menu for what is in a chart cell.
+- Core 10.8.0: Undo and redo over many steps
+- Core 10.8.0: One dose-change rule
+- Core 10.8.0: Totals for both charts
+- Core 10.8.0: Time and date entry
+- Core 10.8.0: Who has a case open
+- Core 10.8.0: The anaesthesia nurse role
+- Core 10.8.0: ISO 26825 as the default drug colour.
+- Core 10.8.0: Agent labels FiSev% / FiDes% / FiIso%
+- Core 10.8.0: "Still running?"
+- Core 10.8.0: End case asks about a tourniquet still on
+- API 10.8.0: A senior nurse
+- API 10.8.0: The nurses of a theatre are put on its cases
+- API 10.8.0: Who was on a case, and when
+- API 10.8.0: Anaesthesia nurses
+- API 10.8.0: Who has a case open
+- API 10.8.0: Prompt answers
+- API 10.8.0: Several people can work in one case.
+- API 10.8.0: An airway or vascular event deleted from the chart takes its device or line off the section.
+- API 10.8.0: OMOP:
+- Web 10.8.0: Anaesthesia team
+- Web 10.8.0: Senior nurse
+- Web 10.8.0: One menu for every lane.
+- Web 10.8.0: One cursor for mouse, finger and keyboard.
+- Web 10.8.0: Dragging the end of a bar
+- Web 10.8.0: Stopping asks only what it must:
+- Web 10.8.0: A new look for the bars.
+- Web 10.8.0: Colours by ISO 26825 by default
+- Web 10.8.0: Full screen
+- Web 10.8.0: Anaesthesia nurses.
+- Web 10.8.0: "Case open by: <names>"
+- Web 10.8.0: Touch on every screen:
+- PWA 10.8.0: Anaesthesia team
+- PWA 10.8.0: Senior nurse
+- PWA 10.8.0: The chart's menu on the phone
+- PWA 10.8.0: Totals
+- PWA 10.8.0: Anaesthesia nurses on the phone:
+- PWA 10.8.0: "Case open by: <names>"
+- PWA 10.8.0: Touch:
+- PWA 10.8.0: Colours by ISO 26825 by default
+
 ## [1.13.0] - 2026-11-19
 
 Vendors Core, API, Web and PWA 10.7.0; Browser stays 0.11.2. The database has no new migration.

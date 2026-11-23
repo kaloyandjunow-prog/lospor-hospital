@@ -59,11 +59,12 @@ describe("the dashboard operating-theatre menu", () => {
       setCancelReason: vi.fn(),
       cancelNote: "",
       setCancelNote: vi.fn(),
+      onPlanned: vi.fn(),
       theatres: [{ id: "t1", name: "Theatre 1" }, { id: "t2", name: "Theatre 2" }],
     }
     function Harness() {
       const [menuMode, setMenuMode] = React.useState<"menu" | "theatre">("menu")
-      const setMode = (mode: "menu" | "assign" | "theatre" | "cancel" | "confirmDelete") => {
+      const setMode = (mode: Parameters<React.ComponentProps<typeof DashboardCaseMenu>["setMenuMode"]>[0]) => {
         if (mode === "menu" || mode === "theatre") setMenuMode(mode)
       }
       return <DashboardCaseMenu {...props} menuMode={menuMode} setMenuMode={setMode} />

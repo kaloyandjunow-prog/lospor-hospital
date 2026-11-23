@@ -100,7 +100,7 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
       padding: 12,
       marginBottom: 12,
     }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>
+      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800" }}>
         {s.linkedPatient}
       </Text>
       {patientDisplayLine(reference?.display, language) ? (
@@ -138,8 +138,8 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
         </View>
       ) : null}
       {onAddEgn && !reference?.personMaskedIdentifier && egnIssue
-        ? <Text role="alert" testID="add-patient-egn-error" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{egnIssue === "invalid" ? s.patientEgnInvalid : s.patientEgnIncomplete}</Text>
-        : egnError ? <Text role="alert" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{egnError}</Text> : null}
+        ? <Text role="alert" testID="add-patient-egn-error" style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}>{egnIssue === "invalid" ? s.patientEgnInvalid : s.patientEgnIncomplete}</Text>
+        : egnError ? <Text role="alert" style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}>{egnError}</Text> : null}
 
       {!allowCorrection ? null : !editing ? (
         <TouchableOpacity onPress={() => setEditing(true)} style={{ marginTop: 10 }}>
@@ -214,7 +214,7 @@ export function PatientReferencePanel({ reference, language, onRelink, onAddEgn,
               marginTop: 8,
             }}
           />
-          {error ? <Text role="alert" style={{ color: colors.danger, fontSize: 11, marginTop: 6 }}>{error}</Text> : null}
+          {error ? <Text role="alert" style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}>{error}</Text> : null}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
             <TouchableOpacity
               accessibilityRole="button"
