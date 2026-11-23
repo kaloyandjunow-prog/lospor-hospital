@@ -16,7 +16,7 @@ const id = index => `sha256:${index.toString(16).padStart(2, "0").repeat(32)}`
 function vulnerabilityReport(image) {
   return {
     SchemaVersion: 2,
-    Trivy: { Version: "0.76.1" },
+    Trivy: { Version: "0.76.2" },
     ArtifactID: trivyArtifactId(image.localDockerId, image.scanReference),
     ArtifactName: image.scanReference,
     ArtifactType: "container_image",
@@ -43,7 +43,7 @@ function cycloneDxReport(image) {
     specVersion: "1.7",
     version: 1,
     metadata: {
-      tools: { components: [{ type: "application", group: "aquasecurity", name: "trivy", version: "0.76.1" }] },
+      tools: { components: [{ type: "application", group: "aquasecurity", name: "trivy", version: "0.76.2" }] },
       component: {
         "bom-ref": purl,
         type: "container",
@@ -144,7 +144,7 @@ async function fixture() {
   return { directory, images, ledgerPath, provenancePath, reports, sboms, lockPath, run }
 }
 
-test("binds all ten Trivy 0.76.1 vulnerability reports and CycloneDX 1.7 SBOMs", async () => {
+test("binds all ten Trivy 0.76.2 vulnerability reports and CycloneDX 1.7 SBOMs", async () => {
   const f = await fixture()
   assert.doesNotThrow(() => f.run("verify-scans", version, f.ledgerPath, ...f.reports, ...f.sboms))
   const proof = join(f.directory, "candidate-evidence.tsv")
@@ -154,7 +154,7 @@ test("binds all ten Trivy 0.76.1 vulnerability reports and CycloneDX 1.7 SBOMs",
   assert.doesNotThrow(() => f.run("verify-lock", version, f.ledgerPath, f.lockPath))
 })
 
-test("uses Trivy 0.76.1 Metadata.ImageID/Reference ArtifactID formula, not config digest", async () => {
+test("uses Trivy 0.76.2 Metadata.ImageID/Reference ArtifactID formula, not config digest", async () => {
   const f = await fixture()
   const report = JSON.parse(await readFile(f.reports[0], "utf8"))
   report.ArtifactID = f.images[0].configDigest

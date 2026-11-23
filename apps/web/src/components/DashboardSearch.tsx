@@ -210,7 +210,7 @@ export function DashboardSearch({
                   {day.theatres.map(group => (
                     <div key={group.theatreId ?? "none"} data-testid="dashboard-theatre-group">
                       {layout.theatres ? (
-                        <h4 className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 px-2 pt-2">
+                        <h4 className="text-xs font-semibold text-slate-400 dark:text-slate-500 px-2 pt-2">
                           {group.name ?? (locale === "bg" ? "Без зала" : "No theatre")}
                         </h4>
                       ) : null}
