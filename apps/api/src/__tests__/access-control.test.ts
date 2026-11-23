@@ -149,15 +149,15 @@ describe("anaesthesia nurses and the senior nurse (2026-11-23)", () => {
     expect(caseWriteWhereForUser(senior)).toEqual({ institutionId: "inst-1" })
     expect(caseWriteWhereForUser({ ...senior, institutionId: null })).toEqual({ id: { in: [] } })
   })
-  it("reads the hospital's cases and the ones she is on from a nurse's query", () => {
-    expect(caseReadWhereForUser(nurse)).toEqual({ OR: [{ institutionId: "inst-1" }, { id: { in: [] } }] })
+  it("reads the hospital's cases and the ones she is on from a nurse's query", async () => {
+    expect(await caseReadWhereForUser(nurse)).toEqual({ OR: [{ institutionId: "inst-1" }, { id: { in: [] } }] })
   })
-  it("says who may put nurses on a case", () => {
-    expect(caseCapabilitiesForUser(senior, record).canAssignNurses).toBe(true)
-    expect(caseCapabilitiesForUser(nurse, record).canAssignNurses).toBe(false)
-    expect(caseCapabilitiesForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }, record).canAssignNurses).toBe(true)
-    expect(caseCapabilitiesForUser({ id: "other", role: "MEMBER", institutionId: "inst-1" }, record).canAssignNurses).toBe(false)
-    expect(caseCapabilitiesForUser({ id: "head", role: "HEAD_OF_DEPT", institutionId: "inst-1" }, record).canAssignNurses).toBe(true)
+  it("says who may put nurses on a case", async () => {
+    expect((await caseCapabilitiesForUser(senior, record)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser(nurse, record)).canAssignNurses).toBe(false)
+    expect((await caseCapabilitiesForUser({ id: "doctor", role: "MEMBER", institutionId: "inst-1" }, record)).canAssignNurses).toBe(true)
+    expect((await caseCapabilitiesForUser({ id: "other", role: "MEMBER", institutionId: "inst-1" }, record)).canAssignNurses).toBe(false)
+    expect((await caseCapabilitiesForUser({ id: "head", role: "HEAD_OF_DEPT", institutionId: "inst-1" }, record)).canAssignNurses).toBe(true)
   })
   it("offers a nurse only nurses as colleagues, and a doctor no nurses", () => {
     expect(colleagueWhereForUser(nurse)).toMatchObject({ role: { in: ["ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"] } })

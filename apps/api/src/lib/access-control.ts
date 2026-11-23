@@ -271,12 +271,11 @@ export function caseWriteWhereForUser(user: AuthUser, id?: string): Prisma.CaseW
 }
 
 /**
- * The cases a person's own data export holds (2026-11-23): her own. A nurse reads every case of her hospital, but her export
- * is only the ones she is on or created, never the hospital's patients.
+ * The cases a person's own data export holds: her own, never the hospital-wide read. An anaesthesia nurse exports nothing
+ * on the appliance (2026-11-23): the export route refuses her, and this matches no case.
  */
 export function caseExportWhereForUser(user: AuthUser): Prisma.CaseWhereInput {
-  if (isNurse(user)) return { OR: [{ nurses: { some: { userId: user.id } } }, { createdById: user.id }] }
-  return caseReadWhereForUser(user)
+  return isNurse(user) ? { id: { in: [] } } : caseOwnWhereForUser(user)
 }
 
 /** @deprecated Read alias retained for compatibility; writes must never use it. */

@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { id } = await params
-  if (!await prisma.case.count({ where: caseReadWhereForUser(user, id) })) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!await prisma.case.count({ where: await caseReadWhereForUser(user, id) })) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const nurses = await prisma.caseNurse.findMany({ where: { caseId: id }, orderBy: { assignedAt: "asc" }, include: { user: NURSE_USER } })
   return NextResponse.json({ nurses: nurses.map(row => ({ userId: row.userId, source: row.source, assignedAt: row.assignedAt, user: row.user })) }, { headers: corsHeaders(req) })
 }
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // A nurse hands her place on; the nurses of a case are put on and taken off by whoever Core says (below); a nurse may put herself on a case without one.
   if ("handoverTo" in body) { const refusal = refuseIfNotAllowed(user, "HAND_OVER_TO_NURSE"); if (refusal) return refusal }
 
-  const caseRecord = await prisma.case.findFirst({ where: caseReadWhereForUser(user, id), select: { id: true, status: true, institutionId: true, userId: true } })
+  const caseRecord = await prisma.case.findFirst({ where: await caseReadWhereForUser(user, id), select: { id: true, status: true, institutionId: true, userId: true } })
   if (!caseRecord) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (caseRecord.status === "COMPLETE" || caseRecord.status === "CANCELLED") return NextResponse.json({ error: "Case is closed" }, { status: 409 })
   const sameInstitution = !!user.institutionId && caseRecord.institutionId === user.institutionId

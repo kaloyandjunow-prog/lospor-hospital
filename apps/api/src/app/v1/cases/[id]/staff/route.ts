@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders(req) })
   const { id } = await params
-  if (!await prisma.case.count({ where: caseReadWhereForUser(user, id) })) {
+  if (!await prisma.case.count({ where: await caseReadWhereForUser(user, id) })) {
     return NextResponse.json({ error: "Not found" }, { status: 404, headers: corsHeaders(req) })
   }
   const rows = await prisma.caseStaffLog.findMany({

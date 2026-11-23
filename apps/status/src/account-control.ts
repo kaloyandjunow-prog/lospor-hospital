@@ -3,9 +3,11 @@ import { isRecord, safeJsonParse } from "./util.js"
 export type AccountAccessProfile =
   | "CLINICAL_MEMBER"
   | "CLINICAL_HOD"
+  | "CLINICAL_NURSE"
+  | "CLINICAL_SENIOR_NURSE"
   | "RESEARCH_ONLY"
 
-export type ClinicalAccountRole = "MEMBER" | "HEAD_OF_DEPT" | "ADMIN"
+export type ClinicalAccountRole = "MEMBER" | "HEAD_OF_DEPT" | "ADMIN" | "ANAESTHESIA_NURSE" | "ANAESTHESIA_SENIOR_NURSE"
 
 export type AccountCreateRequest = {
   username: string
@@ -138,7 +140,7 @@ function parseDirectory(value: unknown): AccountDirectory | null {
       || !/^[A-Za-z][A-Za-z0-9._-]{2,63}$/.test(item.username)
       || (item.email !== null && !string(item.email, 254))
       || !string(item.name)
-      || !["MEMBER", "HEAD_OF_DEPT", "ADMIN", "RESEARCHER"].includes(String(item.role))
+      || !["MEMBER", "HEAD_OF_DEPT", "ADMIN", "ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE", "RESEARCHER"].includes(String(item.role))
       || (item.accountKind !== "CLINICAL" && item.accountKind !== "RESEARCH_ONLY")
       || (item.locale !== "bg" && item.locale !== "en")
       || (item.institutionId !== null && !string(item.institutionId))
@@ -182,8 +184,8 @@ function parseCreated(value: unknown): CreatedAccount | null {
 function parseRoleChange(value: unknown): AccountRoleChange | null {
   if (!isRecord(value) || !isRecord(value.account)
     || !string(value.account.id)
-    || !["MEMBER", "HEAD_OF_DEPT", "ADMIN"].includes(String(value.account.role))
-    || !["MEMBER", "HEAD_OF_DEPT", "ADMIN"].includes(String(value.previousRole))
+    || !["MEMBER", "HEAD_OF_DEPT", "ADMIN", "ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"].includes(String(value.account.role))
+    || !["MEMBER", "HEAD_OF_DEPT", "ADMIN", "ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"].includes(String(value.previousRole))
     || typeof value.changed !== "boolean"
     || !Number.isInteger(value.invalidatedLinks)
     || Number(value.invalidatedLinks) < 0) return null

@@ -1,4 +1,5 @@
 import "server-only"
+import { isNurseAccountRole } from "@lospor/core/clinical-roles"
 
 import { z } from "zod"
 import type { PrismaClient } from "@/generated/prisma/client"
@@ -18,7 +19,7 @@ import {
 } from "@/lib/hospital/username-reservation"
 
 export const hospitalClinicalRoleChangeSchema = z.object({
-  role: z.enum(["MEMBER", "HEAD_OF_DEPT", "ADMIN"]),
+  role: z.enum(["MEMBER", "HEAD_OF_DEPT", "ADMIN", "ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"]),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -29,7 +30,7 @@ export const hospitalUsernameRenameSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
-const CLINICAL_ROLES = new Set(["MEMBER", "HEAD_OF_DEPT", "ADMIN"])
+const CLINICAL_ROLES = new Set(["MEMBER", "HEAD_OF_DEPT", "ADMIN", "ANAESTHESIA_NURSE", "ANAESTHESIA_SENIOR_NURSE"])
 
 /** Status-only clinical authority mutation, serialized across all Admin changes. */
 export async function changeHospitalClinicalRole(
@@ -57,6 +58,11 @@ export async function changeHospitalClinicalRole(
     }
     if (user.role === input.role) {
       return { account: { id: user.id, role: user.role }, previousRole: user.role, changed: false, invalidatedLinks: 0 }
+    }
+    // The nurse profiles are separate (2026-11-23): a nurse is a nurse or a senior nurse, never a doctor, and a doctor is
+    // never made a nurse -- the other account is created instead.
+    if (isNurseAccountRole(user.role) !== isNurseAccountRole(input.role)) {
+      throw new HospitalAccountError("ACCOUNT_PROFILE_FIXED")
     }
     // Create as Member/HOD, activate, then promote. No route provisions a
     // chosen-password or direct ADMIN account.
