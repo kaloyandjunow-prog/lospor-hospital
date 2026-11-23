@@ -8,6 +8,54 @@
       "package": "github.com/go-jose/go-jose/v3",
       "expiresAt": "2027-01-31",
       "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23 (as for 1.8.0 to 1.13.0): an unfixed finding. go-jose/v3 3.0.5 is the latest v3 release and has no fix; it is required by smallstep/certificates 0.30.2 (latest), which Caddy 2.11.7 to 2.11.9 use for its internal PKI (tls internal). The vulnerable path parses attacker-supplied JWKs, which only an ACME server does, and the appliance runs none. go-jose/v4 is already at 4.1.6. Accepted until upstream removes or patches v3."
+    },
+    {
+      "release": "1.14.0",
+      "image": "postgres",
+      "vulnerabilityId": "CVE-2026-107494",
+      "package": "libssl3t64",
+      "expiresAt": "2026-12-31",
+      "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23: an unfixed finding. A remote QUIC peer can queue unlimited RETIRE_CONNECTION_ID frames in OpenSSL's QUIC stack and exhaust memory (CWE-770, an incomplete fix of CVE-2026-84784). The Debian security tracker (checked 2026-11-23) lists the source package openssl as vulnerable in trixie (3.5.9-1~deb13u1 and security 3.5.7-1~deb13u3), forky and sid, with no fixed version, so no package update removes it; the fix exists upstream in the OpenSSL 3.5 branch (commit 734c6cd) but is not yet packaged. PostgreSQL 17 and the image's tools use OpenSSL only for TLS over TCP and never start a QUIC client or server, and the database is reachable only on the internal networks. Accepted until Debian packages the fix, and no later than the expiry."
+    },
+    {
+      "release": "1.14.0",
+      "image": "postgres",
+      "vulnerabilityId": "CVE-2026-107494",
+      "package": "openssl",
+      "expiresAt": "2026-12-31",
+      "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23: an unfixed finding. A remote QUIC peer can queue unlimited RETIRE_CONNECTION_ID frames in OpenSSL's QUIC stack and exhaust memory (CWE-770, an incomplete fix of CVE-2026-84784). The Debian security tracker (checked 2026-11-23) lists the source package openssl as vulnerable in trixie (3.5.9-1~deb13u1 and security 3.5.7-1~deb13u3), forky and sid, with no fixed version, so no package update removes it; the fix exists upstream in the OpenSSL 3.5 branch (commit 734c6cd) but is not yet packaged. PostgreSQL 17 and the image's tools use OpenSSL only for TLS over TCP and never start a QUIC client or server, and the database is reachable only on the internal networks. Accepted until Debian packages the fix, and no later than the expiry."
+    },
+    {
+      "release": "1.14.0",
+      "image": "postgres",
+      "vulnerabilityId": "CVE-2026-107494",
+      "package": "openssl-provider-legacy",
+      "expiresAt": "2026-12-31",
+      "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23: an unfixed finding. A remote QUIC peer can queue unlimited RETIRE_CONNECTION_ID frames in OpenSSL's QUIC stack and exhaust memory (CWE-770, an incomplete fix of CVE-2026-84784). The Debian security tracker (checked 2026-11-23) lists the source package openssl as vulnerable in trixie (3.5.9-1~deb13u1 and security 3.5.7-1~deb13u3), forky and sid, with no fixed version, so no package update removes it; the fix exists upstream in the OpenSSL 3.5 branch (commit 734c6cd) but is not yet packaged. PostgreSQL 17 and the image's tools use OpenSSL only for TLS over TCP and never start a QUIC client or server, and the database is reachable only on the internal networks. Accepted until Debian packages the fix, and no later than the expiry."
+    },
+    {
+      "release": "1.14.0",
+      "image": "postgres",
+      "vulnerabilityId": "CVE-2026-124709",
+      "package": "libssl3t64",
+      "expiresAt": "2026-12-31",
+      "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23: an unfixed finding. A QUIC server in OpenSSL 3.5 can retain the state of a rejected, reset stream for the life of the connection and exhaust memory (CWE-401). Debian lists openssl in trixie (3.5.9-1~deb13u1 and security 3.5.7-1~deb13u3), forky and sid as vulnerable with no fixed version (bookworm is not affected: it only affects 3.5 and later), so no package update removes it. PostgreSQL 17 and the image's tools use OpenSSL only for TLS over TCP and never run a QUIC server, and the database is reachable only on the internal networks. Accepted until Debian packages the fix, and no later than the expiry."
+    },
+    {
+      "release": "1.14.0",
+      "image": "postgres",
+      "vulnerabilityId": "CVE-2026-124709",
+      "package": "openssl",
+      "expiresAt": "2026-12-31",
+      "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23: an unfixed finding. A QUIC server in OpenSSL 3.5 can retain the state of a rejected, reset stream for the life of the connection and exhaust memory (CWE-401). Debian lists openssl in trixie (3.5.9-1~deb13u1 and security 3.5.7-1~deb13u3), forky and sid as vulnerable with no fixed version (bookworm is not affected: it only affects 3.5 and later), so no package update removes it. PostgreSQL 17 and the image's tools use OpenSSL only for TLS over TCP and never run a QUIC server, and the database is reachable only on the internal networks. Accepted until Debian packages the fix, and no later than the expiry."
+    },
+    {
+      "release": "1.14.0",
+      "image": "postgres",
+      "vulnerabilityId": "CVE-2026-124709",
+      "package": "openssl-provider-legacy",
+      "expiresAt": "2026-12-31",
+      "justification": "Accepted by the maintainer for Hospital 1.14.0 on 2026-11-23: an unfixed finding. A QUIC server in OpenSSL 3.5 can retain the state of a rejected, reset stream for the life of the connection and exhaust memory (CWE-401). Debian lists openssl in trixie (3.5.9-1~deb13u1 and security 3.5.7-1~deb13u3), forky and sid as vulnerable with no fixed version (bookworm is not affected: it only affects 3.5 and later), so no package update removes it. PostgreSQL 17 and the image's tools use OpenSSL only for TLS over TCP and never run a QUIC server, and the database is reachable only on the internal networks. Accepted until Debian packages the fix, and no later than the expiry."
     }
   ]
 }
